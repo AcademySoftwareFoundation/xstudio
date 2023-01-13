@@ -1,0 +1,70 @@
+{
+	"plugin": {
+		"basic_masking": {
+			"mask_aspect_ratio": {
+				"path": "/plugin/basic_masking/mask_aspect_ratio",
+				"default_value": 1.78,
+				"description": "Mask aspect ratio",
+				"value": 1.78,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"mask_line_thickness": {
+				"path": "/plugin/basic_masking/mask_line_thickness",
+				"default_value": 1.0,
+				"description": "Thickness of mask overlay lines",
+				"value": 1.0,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"mask_line_opacity": {
+				"path": "/plugin/basic_masking/mask_line_opacity",
+				"default_value": 0.5,
+				"description": "Opacity of mask overlay lines",
+				"value": 0.5,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"mask_opacity": {
+				"path": "/plugin/basic_masking/mask_opacity",
+				"default_value": 0.5,
+				"description": "Opacity of mask blackout area",
+				"value": 0.5,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"safety_percent" :{
+				"path": "/plugin/basic_masking/safety_percent",
+				"default_value": 0.0,
+				"description": "Sets the percentage of the image that is outside the mask area.",
+				"value": 0.0,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"mask_label_size" :{
+				"path": "/plugin/basic_masking/mask_label_size",
+				"default_value": 16.0,
+				"description": "Sets the size of the font for the mask label.",
+				"value": 16.0,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"show_mask_label": {
+				"path": "/plugin/basic_masking/show_mask_label",
+				"default_value": true,
+				"description": "Opacity of mask blackout area",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"mask_selection": {
+				"path": "/plugin/basic_masking/mask_selection",
+				"default_value": "Off",
+				"description": "Sets the mask on / off",
+				"value": "Off",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

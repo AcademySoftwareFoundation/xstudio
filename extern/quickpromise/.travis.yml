@@ -1,0 +1,25 @@
+language : cpp
+dist: trusty
+env:
+  - DISPLAY=:99.0
+compiler:
+  - gcc
+before_install:
+    - sudo add-apt-repository --yes ppa:chris-lea/node.js
+    - sudo apt-get update -qq
+    - sudo apt-get install nodejs
+    - sudo pip install conan
+    - sh -e /etc/init.d/xvfb start
+script:
+    - ROOTDIR=`pwd`
+    - git clone https://github.com/benlau/qtci.git
+    - source qtci/path.env
+    - qt-5.5.1
+    - source qt-5.5.1.env
+    - (rm -rf build;mkdir build; cd build; qmake ../quickpromise.pro; make; find; ./tests/unittests/unittests)
+    - cd ${ROOTDIR}/tests/promises-aplus-tests/
+    - npm install .
+    - node ./run.js
+    - cd ${ROOTDIR}
+    - conan create . internal/testing
+

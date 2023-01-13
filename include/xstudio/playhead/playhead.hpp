@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: Apache-2.0
+#pragma once
+
+#include <chrono>
+#include <list>
+#include <memory>
+#include <string>
+
+#include "xstudio/module/module.hpp"
+#include "xstudio/enums.hpp"
+#include "xstudio/media/media.hpp"
+#include "xstudio/utility/chrono.hpp"
+#include "xstudio/utility/container.hpp"
+#include "xstudio/utility/edit_list.hpp"
+#include "xstudio/utility/json_store.hpp"
+#include "xstudio/utility/logging.hpp"
+#include "xstudio/utility/timecode.hpp"
+#include "xstudio/utility/uuid.hpp"
+
+namespace xstudio {
+namespace playhead {
+
+    class PlayheadBase : public utility::Container, public module::Module {
+      public:
+        typedef std::optional<utility::time_point> OptionalTimePoint;
+
+        PlayheadBase(
+            const std::string &name  = "PlayheadBase",
+            const utility::Uuid uuid = utility::Uuid::generate());
+        PlayheadBase(const utility::JsonStore &jsn);
+
+        ~PlayheadBase() override = default;
+
+        [[nodiscard]] utility::JsonStore serialise() const override;
+
+        OptionalTimePoint play_step();
+
+        [[nodiscard]] timebase::flicks position() const { return position_; }
+        void set_position(const timebase::flicks p);
+
+        [[nodiscard]] bool playing() const { return playing_->value(); }
+        [[nodiscard]] bool forward() const { return forward_->value(); }
+        [[nodiscard]] bool auto_align() const { return auto_align_->value(); }
+        [[nodiscard]] LoopMode loop() const { return loop_; }
+        [[nodiscard]] CompareMode compare_mode() const;
+        [[nodiscard]] float velocity() const { return velocity_->value(); }
+        [[nodiscard]] float velocity_multiplier() const {
+            return velocity_multiplier_->value();
+        }
+        [[nodiscard]] utility::TimeSourceMode play_rate_mode() const { return play_rate_mode_; }
+        [[nodiscard]] utility::FrameRate playhead_rate() const { return playhead_rate_; }
+        [[nodiscard]] utility::Uuid source() const { return source_uuid_; }
+        [[nodiscard]] timebase::flicks loop_start() const {
+            return use_loop_range_
+                       ? loop_start_
+                       : timebase::flicks(std::numeric_limits<timebase::flicks::rep>::lowest());
+        }
+        [[nodiscard]] timebase::flicks loop_end() const {
+            return use_loop_range_
+                       ? loop_end_
+                       : timebase::flicks(std::numeric_limits<timebase::flicks::rep>::max());
+        }
+        [[nodiscard]] bool use_loop_range() const { return use_loop_range_; }
+        [[nodiscard]] timebase::flicks duration() const { return duration_; }
+        [[nodiscard]] timebase::flicks effective_frame_period() const;
+
+        void set_forward(const bool forward = true) { forward_->set_value(forward); }
+        void set_loop(const LoopMode loop = LM_LOOP) { loop_ = loop; }
+        void set_playing(const bool play = true);
+        void set_play_rate_mode(const utility::TimeSourceMode play_rate_mode) {
+            play_rate_mode_ = play_rate_mode;
+        }
+
+        void set_velocity_multiplier(const float velocity_multiplier = 1.0f) {
+            velocity_multiplier_->set_value(velocity_multiplier);
+        }
+        void set_playhead_rate(const utility::FrameRate &rate) { playhead_rate_ = rate; }
+        void set_source(const utility::Uuid &uuid) { source_uuid_ = uuid; }
+        void set_duration(const timebase::flicks duration) { duration_ = duration; }
+        void set_compare_mode(const CompareMode mode);
+
+        bool set_use_loop_range(const bool use_loop_range);
+        bool set_loop_start(const timebase::flicks loop_start);
+        bool set_loop_end(const timebase::flicks loop_end);
+
+        void throttle();
+        void revert_throttle();
+
+        bool pointer_event(const ui::PointerEvent &) override;
+        void
+        hotkey_pressed(const utility::Uuid &hotkey_uuid, const std::string &context) override;
+
+        inline static const std::chrono::milliseconds playback_step_increment =
+            std::chrono::milliseconds(5);
+
+      private:
+        void play_faster(const bool forwards);
+
+        inline static const std::vector<std::tuple<CompareMode, std::string, std::string, bool>>
+            compare_mode_names = {
+                {CM_STRING, "String", "Str", true},
+                {CM_AB, "A/B", "A/B", true},
+                {CM_VERTICAL, "Vertical", "Vert", false},
+                {CM_HORIZONTAL, "Horizontal", "Horiz", false},
+                {CM_GRID, "Grid", "Grid", false},
+                {CM_OFF, "Off", "Off", true}};
+
+        LoopMode loop_{LM_LOOP};
+        utility::TimeSourceMode play_rate_mode_{utility::TimeSourceMode::DYNAMIC};
+        utility::FrameRate playhead_rate_;
+        utility::Uuid source_uuid_;
+
+        timebase::flicks position_;
+        timebase::flicks duration_;
+        timebase::flicks loop_start_;
+        timebase::flicks loop_end_;
+        bool use_loop_range_{false};
+
+        utility::Uuid play_hotkey_;
+        utility::Uuid play_forwards_hotkey_;
+        utility::Uuid play_backwards_hotkey_;
+        utility::Uuid stop_play_hotkey_;
+        utility::Uuid reset_hotkey_;
+
+        float drag_start_x_;
+        timebase::flicks drag_start_playhead_position_;
+
+      protected:
+        void add_attributes();
+
+        utility::time_point last_step_;
+        float throttle_{1.0f};
+
+        module::FloatAttribute *velocity_;
+        module::StringChoiceAttribute *compare_mode_;
+        module::StringChoiceAttribute *source_;
+        module::FloatAttribute *velocity_multiplier_;
+        module::BooleanAttribute *playing_;
+        module::BooleanAttribute *forward_;
+        module::BooleanAttribute *auto_align_;
+
+        module::IntegerAttribute *max_compare_sources_;
+        module::BooleanAttribute *restore_play_state_after_scrub_;
+        module::IntegerAttribute *viewport_scrub_sensitivity_;
+
+        bool was_playing_when_scrub_started_ = {false};
+    };
+} // namespace playhead
+} // namespace xstudio

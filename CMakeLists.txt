@@ -1,0 +1,138 @@
+cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
+
+set(XSTUDIO_GLOBAL_VERSION 1.2.0)
+set(XSTUDIO_GLOBAL_NAME xStudio)
+
+project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
+
+option(BUILD_TESTING "Build tests" OFF)
+option(INSTALL_PYTHON_MODULE "Install python module" ON)
+option(INSTALL_XSTUDIO "Install xstudio" ON)
+option(BUILD_DOCS "Build xStudio documentation" ON)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
+option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
+option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
+
+set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
+
+
+if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND NOT WIN32)) AND NOT __CHECKED_CXX_FLAGS)
+    set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_GCC}" CACHE STRING "" FORCE)
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${COMMON_GCC}" CACHE STRING "" FORCE)
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${COMMON_GCC}" CACHE STRING "" FORCE)
+	unset(COMMON_GCC)
+endif()
+
+set(CXXOPTS_BUILD_TESTS OFF CACHE BOOL "Enable or disable cxxopts' tests")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always -march=nehalem")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
+
+set(TEST_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/test_resource")
+set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_LINK_DEPENDS_NO_SHARED true)
+
+set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+set(CMAKE_HAVE_THREADS_LIBRARY 1)
+set(CMAKE_USE_WIN32_THREADS_INIT 0)
+set(CMAKE_USE_PTHREADS_INIT 1)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+set(REPROC_INSTALL OFF)
+set(REPROC++ ON)
+
+set(OpenGL_GL_PREFERENCE GLVND)
+
+if (USE_SANITIZER STREQUAL "Address")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
+elseif (USE_SANITIZER STREQUAL "Thread")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+elseif (USE_SANITIZER STREQUAL "Undefined")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+elseif (USE_SANITIZER STREQUAL "Leak")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=leak")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=leak")
+elseif (USE_SANITIZER STREQUAL "Memory")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=memory")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=memory")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=memory")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=memory")
+endif()
+
+# This should turn on coloured shell output for ninja
+if (${FORCE_COLORED_OUTPUT})
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+       add_compile_options (-fdiagnostics-color=always)
+    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       add_compile_options (-fcolor-diagnostics)
+    endif ()
+endif ()
+
+if(ENABLE_CLANG_TIDY)
+  if(CMake_SOURCE_DIR STREQUAL CMake_BINARY_DIR)
+    message(FATAL_ERROR "CMake_RUN_CLANG_TIDY requires an out-of-source build!")
+  endif()
+
+  find_program(CLANG_TIDY_COMMAND NAMES run-clang-tidy.py)
+  if(NOT CLANG_TIDY_COMMAND)
+    message(WARNING "ENABLE_CLANG_TIDY is ON but run-clang-tidy.py is not found!")
+  else()
+    configure_file(.clang-tidy .clang-tidy)
+    set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+    set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
+    add_custom_target(
+        clang-tidy
+        COMMAND ${CLANG_TIDY_COMMAND} -quiet -extra-arg=-I${CLANG_PATH}/lib/clang/11.1.0/include
+        USES_TERMINAL
+    )
+  endif()
+
+endif()
+
+find_package(nlohmann_json REQUIRED)
+include(CTest)
+
+if(ENABLE_CLANG_FORMAT)
+  include (ClangFormat)
+  file(GLOB_RECURSE FORMAT_ITEMS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/xstudio/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+  )
+  clangformat_setup(${FORMAT_ITEMS})
+endif()
+
+
+if(INSTALL_PYTHON_MODULE)
+  add_subdirectory(python)
+endif()
+
+add_subdirectory(src)
+
+if(INSTALL_XSTUDIO)
+  add_subdirectory(share/preference)
+  add_subdirectory(share/snippets)
+  add_subdirectory(share/fonts)
+
+  if(BUILD_DOCS)
+    if(NOT INSTALL_PYTHON_MODULE)
+      add_subdirectory(python)
+    endif ()
+    add_subdirectory(docs)
+  endif ()
+
+endif ()
+
+add_subdirectory("extern/reproc")

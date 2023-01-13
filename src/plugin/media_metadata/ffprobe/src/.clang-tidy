@@ -1,0 +1,10 @@
+---
+Checks:          '-*,modernize-avoid-bind'
+WarningsAsErrors: ''
+HeaderFilterRegex: '/xstudio/include/.*'
+AnalyzeTemporaryDtors: false
+FormatStyle:     none
+User:            al
+...
+
+

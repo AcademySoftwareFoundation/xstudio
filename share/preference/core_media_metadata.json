@@ -1,0 +1,16 @@
+{
+	"core": {
+		"media_metadata":{
+			"max_worker_count": {
+				"path": "/core/media_metadata/max_worker_count",
+				"default_value": 10,
+				"description": "Maximum number metadata workers.",
+				"value": 6,
+				"minimum": 1,
+				"maximum": 100,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

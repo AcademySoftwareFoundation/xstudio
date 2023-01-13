@@ -1,0 +1,27 @@
+language : cpp
+env:
+  - DISPLAY=:99.0
+compiler:
+  - gcc
+before_install:
+    - export GOPATH=`pwd`/gosrc
+    - export PATH=`pwd`/gosrc/bin:$PATH
+    - go get qpm.io/qpm
+    - sudo pip install conan
+    - sh -e /etc/init.d/xvfb start
+script:
+    - git clone https://github.com/benlau/qtci.git
+    - source qtci/path.env
+    - qt-5.7
+    - source qt-5.7.env
+    - (cd tests/quickfutureunittests; qpm install)
+    - mkdir build
+    - cd build
+    - qmake ../quickfuture.pro
+    - make
+    - ./tests/quickfutureunittests/quickfutureunittests
+    - cd ..
+    - conan create . conan/testing
+    - conan install quickfuture/1.0.6@conan/testing --build quickfuture -o quickfuture:shared=True
+    - conan install quickfuture/1.0.6@conan/testing --build quickfuture -o quickfuture:plugin=True
+

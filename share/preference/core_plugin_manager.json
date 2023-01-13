@@ -1,0 +1,20 @@
+{
+	"core": {
+		"plugin_manager": {
+			"enable_plugin": {
+				"path": "/core/plugin_manager/enable_plugin",
+				"default_value": "{}",
+				"description": "Enabled plugins.",
+				"value": {
+					"e4e1d569-2338-4e6e-b127-5a9688df161a": false,
+					"33201f8d-db32-4278-9c40-8c068372a304": false
+                },
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
+
+
+

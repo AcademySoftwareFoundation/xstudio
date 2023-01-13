@@ -1,0 +1,39 @@
+version: build{build}
+
+branches:
+  except:
+    - project/travis
+
+environment:
+  matrix:
+  - name: win32
+    platform: amd64_x86
+    qt: msvc2017
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+
+install:
+  - pip.exe --quiet install conan
+  - conan --version
+  - python --version
+
+build_script:
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+  - set GOPATH=c:\gopath
+  - set QTDIR=C:\Qt\5.9.7\msvc2017_64
+  - set PATH=%PATH%;%QTDIR%\bin;C:\MinGW\bin;%GOPATH%\bin;
+  - go get qpm.io/qpm
+  - go install qpm.io/qpm
+  - dir %GOPATH%\bin
+  - cd tests\quickfutureunittests
+  - qpm install
+  - cd ..\..
+  - mkdir build
+  - cd build
+  - qmake -d ..\quickfuture.pro
+  - nmake
+  - tests\quickfutureunittests\release\quickfutureunittests
+  - cd ..
+  - conan create . conan/testing
+  - conan install quickfuture/1.0.6@conan/testing --build quickfuture -o quickfuture:shared=True
+  - conan install quickfuture/1.0.6@conan/testing --build quickfuture -o quickfuture:plugin=True
+

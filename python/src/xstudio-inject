@@ -1,0 +1,8 @@
+#!/bin/env python
+"""Test API."""
+
+from xstudio.cli.inject import inject_main
+
+if __name__ == "__main__":
+    inject_main()
+

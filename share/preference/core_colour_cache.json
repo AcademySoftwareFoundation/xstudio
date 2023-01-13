@@ -1,0 +1,24 @@
+{
+	"core": {
+		"colour_cache":{
+			"max_count": {
+				"path": "/core/colour_cache/max_count",
+				"default_value": 1000000,
+				"description": "Maximum number of entries to store in cache.",
+				"value": 20,
+				"minimum": 1,
+				"maximum": 1000000,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"max_size": {
+				"path": "/core/colour_cache/max_size",
+				"default_value": 8192,
+				"description": "Maximum total size of cache in megabytes.",
+				"value": 8192,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

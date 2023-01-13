@@ -1,0 +1,108 @@
+#! /usr/bin/env python
+
+import re
+import sys
+import os
+from pathlib import Path
+import argparse
+
+class ColorPrint:
+
+    @staticmethod
+    def print_fail(message, end='\n'):
+        sys.stderr.write('\x1b[1;31m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_pass(message, end='\n'):
+        sys.stdout.write('\x1b[1;32m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_warn(message, end='\n'):
+        sys.stderr.write('\x1b[1;33m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_info(message, end='\n'):
+        sys.stdout.write('\x1b[1;34m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_bold(message, end='\n'):
+        sys.stdout.write('\x1b[1;37m' + message + '\x1b[0m' + end)
+
+def find_atom_instances_in_source_file(cpp_file, atom_names, suffix):
+
+    with open(cpp_file) as f:
+
+        data = f.read()
+        cpp_code = "".join(data)
+
+        for atom_name in atom_names.keys():
+            if cpp_code.find(atom_name+suffix) != -1:
+                atom_names[atom_name] = atom_names[atom_name]+1
+
+def find_atom_reference_in_source_file(cpp_file, atom_names):
+
+    with open(cpp_file) as f:
+
+        data = f.read()
+        cpp_code = "".join(data)
+
+        m = re.findall(
+                    "([_a-zA-Z0-9]+_atom)[\s\,]",
+                    cpp_code
+                    )
+        for a in m:
+            if not a in atom_names:
+                print ("Not found {0}".format(a))
+
+def parse_atoms_hpp():
+
+    r = []
+    with open("include/xstudio/atoms.hpp") as f:
+
+        line = f.readline()
+        while line:
+
+            m = re.search(
+                    "CAF_ADD_ATOM\\(([^\\,]+)\\,([^\\,]+)\\,\\s*([^\\)]+)\\s*\\)",
+                    line
+                    )
+            if m:
+                r.append(m.group(3))
+
+            line = f.readline()
+    return r            
+            
+
+if __name__=="__main__":
+
+    all_atoms = parse_atoms_hpp()
+    result = {}
+    for atom_name in all_atoms:
+        if not atom_name.endswith("_atom"):
+            print ("Badly named atom: {0}".format(atom_name))
+        result[atom_name] = 0
+
+    for cpp_file in Path('./').rglob('*.cpp'):
+        find_atom_instances_in_source_file(cpp_file, result, '_v')
+
+    for hpp_file in Path('./').rglob('*.hpp'):
+        find_atom_instances_in_source_file(hpp_file, result, '_v')
+
+    for py_file in Path('./').rglob('*.py'):
+        find_atom_instances_in_source_file(py_file, result, '()')
+
+    for py_file in Path('./').rglob('*.py'):
+        find_atom_reference_in_source_file(py_file, result)
+
+    for py_file in Path('./').rglob('*.cpp'):
+        find_atom_reference_in_source_file(py_file, result)
+
+    for py_file in Path('./').rglob('*.hpp'):
+        find_atom_reference_in_source_file(py_file, result)
+
+    count = 0
+    for r in result.keys():
+        if not result[r]:
+            print ("{0} : {1}".format(r, result[r]))
+            count+=1
+    print ("{0} unused atoms found".format(count))

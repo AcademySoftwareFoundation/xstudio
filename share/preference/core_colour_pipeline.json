@@ -1,0 +1,24 @@
+{
+	"core": {
+		"colour_pipeline":{
+			"max_worker_count": {
+				"path": "/core/colour_pipeline/max_worker_count",
+				"default_value": 10,
+				"description": "Maximum number colour workers.",
+				"value": 6,
+				"minimum": 1,
+				"maximum": 100,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"default_pipeline": {
+				"path": "/core/colour_pipeline/default_pipeline",
+				"default_value": "OCIOColourPipeline",
+				"description": "Default colour pipeline.",
+				"value": "OCIOColourPipeline",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
