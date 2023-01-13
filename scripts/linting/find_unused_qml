@@ -1,0 +1,176 @@
+#! /usr/bin/env python
+
+import re
+import sys
+import os
+from pathlib import Path
+import argparse
+
+class ColorPrint:
+
+    @staticmethod
+    def print_fail(message, end='\n'):
+        sys.stderr.write('\x1b[1;31m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_pass(message, end='\n'):
+        sys.stdout.write('\x1b[1;32m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_warn(message, end='\n'):
+        sys.stderr.write('\x1b[1;33m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_info(message, end='\n'):
+        sys.stdout.write('\x1b[1;34m' + message + '\x1b[0m' + end)
+
+    @staticmethod
+    def print_bold(message, end='\n'):
+        sys.stdout.write('\x1b[1;37m' + message + '\x1b[0m' + end)
+
+def crossref_qml_file_and_classes(qml_classes, qml_file, reference_dict):
+
+    print (qml_file)
+    m = re.search(
+            "\\/([^\\/]+)\\.qml",
+            str(qml_file)
+            )
+    if m:
+        qml_foo = m.group(1)
+    else:
+        return 
+
+    with open(qml_file) as f:
+
+        data = f.read()
+        qml_code = "".join(data)
+
+        for qml_class in qml_classes:
+            m = re.search(
+                    "{0}\\s*\\{{".format(qml_class),
+                    qml_code
+                    )
+            n = re.search(
+                    "{0}\\.".format(qml_class),
+                    qml_code
+                    )
+
+            if m or n:
+                if qml_class in reference_dict:
+                    if not qml_foo in reference_dict[qml_class]:
+                        reference_dict[qml_class].append(qml_foo)
+                else:
+                    reference_dict[qml_class] = [qml_foo]
+
+                #ColorPrint.print_info("{0} references {1}".format(qml_foo, qml_class))
+
+
+def modify_qml_qrc(unwanted):
+
+    with open("ui/qml/xstudio/qml.qrc") as f:
+        with open("ui/qml/xstudio/qml.qrc.new", "w") as fout:
+
+            line = f.readline()
+            while line:
+
+                m = re.search(
+                        "(\\/|\\>)([^\\/]+)\\.qml",
+                        line
+                        )
+
+                if m and m.group(2) in unwanted:
+                    pass
+                else:
+                    fout.write(line)
+                line = f.readline()
+
+    os.rename("ui/qml/xstudio/qml.qrc", "ui/qml/xstudio/qml.qrc.old")                
+    os.rename("ui/qml/xstudio/qml.qrc.new", "ui/qml/xstudio/qml.qrc")                
+
+def parse_qml_qrc():
+
+    r = []
+    with open("ui/qml/xstudio/qml.qrc") as f:
+
+        line = f.readline()
+        while line:
+
+            m = re.search(
+                    "(\\/|\\>)([^\\/]+)\\.qml",
+                    line
+                    )
+            if m:
+                r.append(m.group(2))
+
+            line = f.readline()
+    return r            
+            
+
+def get_root_reference(reference_dict, classname, chain=None):
+
+    if classname not in reference_dict:
+        return "not_main"
+
+    if "main" in reference_dict[classname]:
+        return "main"
+
+    if chain == None:
+        chain = [classname]
+
+    for vr in reference_dict[classname]:
+
+        if get_root_reference(reference_dict, vr, chain + [vr]) == "main":
+            return "main"
+
+    return "not_main"
+
+if __name__=="__main__":
+
+    qml_classes = parse_qml_qrc()
+
+    print (qml_classes)
+
+    reference_dict = {}
+    classes_by_file = {}
+
+    for qml_file in Path('ui/qml/').rglob('*.qml'):
+        crossref_qml_file_and_classes(qml_classes, qml_file, reference_dict)
+        m = re.search(
+            "\\/([^\\/]+)\\.qml",
+            str(qml_file)
+            )
+        if m:
+            classes_by_file[m.group(1)] = qml_file
+
+    for classname in reference_dict:
+
+        ColorPrint.print_info("{0} is referenced by {1}".format(classname, reference_dict[classname]))
+
+    get_ridof = []
+    exceptions = ['main', 'XsToolbarFloatScrubber', 'XsToolbarOnOffToggle', 'XsToolbarComboBox', 'XsToolbarItem']
+
+    for classname in classes_by_file:
+
+        if classname in exceptions:
+            continue
+
+        if classname not in qml_classes:
+
+            get_ridof.append(classname)
+
+        if get_root_reference(reference_dict, classname) == "main":
+            
+            continue
+            ColorPrint.print_info("The root of {0} is main".format(classname))
+
+        else:                
+
+            get_ridof.append(classname)
+
+    modify_qml_qrc(get_ridof)
+    for unwanted in list(set(get_ridof)):
+
+        unwanted_file = classes_by_file[unwanted]
+        os.rename(unwanted_file, str(unwanted_file) + '.todelete')
+
+

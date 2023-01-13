@@ -1,0 +1,92 @@
+{
+	"core": {
+		"audio":{
+            "audio_latency_millisecs": {
+                "path": "/core/audio/audio_latency_millisecs",
+                "default_value": 0,
+                "description": "Adjustable latency to overcome fixed latency in the audio playback pipeline",
+                "value": 0,
+                "minimum": -1000,
+                "maximum": 1000,
+                "datatype": "int",
+                "context": ["APPLICATION"]
+            },
+            "audio_repitch": {
+                "path": "/core/audio/audio_repitch",
+                "default_value": false,
+                "description": "Adjustable latency to overcome fixed latency in the audio playback pipeline",
+                "value": false,
+                "datatype": "bool",
+                "context": ["APPLICATION"]
+            },
+            "audio_scrubbing": {
+                "path": "/core/audio/audio_scrubbing",
+                "default_value": false,
+                "description": "Sound audio when not playing but the user is scrubbing frames",
+                "value": false,
+                "datatype": "bool",
+                "context": ["APPLICATION"]
+            },
+			"pulse_audio_prefs": {
+                "sample_rate": {
+                    "path": "/core/audio/pulse_audio_prefs/sample_rate",
+                    "default_value": 44100,
+                    "description": "Souncard sample rate",
+                    "value": 44100,
+                    "minimum": 8000,
+                    "maximum": 96000,
+                    "datatype": "int",
+                    "context": ["APPLICATION"]
+                },
+                "buffer_size": {
+                    "path": "/core/audio/pulse_audio_prefs/buffer_size",
+                    "default_value": 4096,
+                    "description": "Souncard audio samples buffer size",
+                    "value": 4096,
+                    "minimum": 512,
+                    "maximum": 16384,
+                    "datatype": "int",
+                    "context": ["APPLICATION"]
+                },
+                "channels": {
+                    "path": "/core/audio/pulse_audio_prefs/channels",
+                    "default_value": 2,
+                    "description": "Souncard channels - currently limited to 2, but can be expanded to 5 for surround",
+                    "value": 2,
+                    "minimum": 2,
+                    "maximum": 2,
+                    "datatype": "int",
+                    "context": ["APPLICATION"]
+                },
+                "min_frames_for_available": {
+                    "path": "/core/audio/pulse_audio_prefs/min_frames_for_available",
+                    "default_value": 128,
+                    "description": "Souncard min number of samples before more samples must be written (underrun)",
+                    "value": 128,
+                    "minimum": 128,
+                    "maximum": 1024,
+                    "datatype": "int",
+                    "context": ["APPLICATION"]
+                },
+                "start_frames_threshold": {
+                    "path": "/core/audio/pulse_audio_prefs/start_frames_threshold",
+                    "default_value": 0,
+                    "description": "Souncard number of samples written before soundcard starts output",
+                    "value": 0,
+                    "minimum": 0,
+                    "maximum": 512,
+                    "datatype": "int",
+                    "context": ["APPLICATION"]
+                },
+                "sound_card": {
+                    "path": "/core/audio/pulse_audio_prefs/sound_card",
+                    "default_value": "default",
+                    "description": "Souncard name",
+                    "value": "default",
+                    "datatype": "string",
+                    "context": ["APPLICATION"]
+                }
+			}
+		}
+	}
+}

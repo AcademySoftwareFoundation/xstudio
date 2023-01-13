@@ -1,0 +1,42 @@
+{
+	"core": {
+		"api":{
+			"enabled": {
+				"path": "/core/api/enabled",
+				"default_value": false,
+				"description": "Enable external API port.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"port_minimum": {
+				"path": "/core/api/port_minimum",
+				"default_value": 12345,
+				"description": "Minimum port number.",
+				"value": 45500,
+				"minimum": 0,
+				"maximum": 65535,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"port_maximum": {
+				"path": "/core/api/port_maximum",
+				"default_value": 12350,
+				"description": "Maximum port number.",
+				"value": 45750,
+				"minimum": 0,
+				"maximum": 65535,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"bind_address": {
+				"path": "/core/api/bind_address",
+				"default_value": "127.0.0.1",
+				"description": "IP to bind against.",
+				"value": "127.0.0.1",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

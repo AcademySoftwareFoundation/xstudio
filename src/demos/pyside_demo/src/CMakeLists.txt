@@ -1,0 +1,6 @@
+project(xStudioPySideDemo VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
+
+install(PROGRAMS
+  ${CMAKE_CURRENT_SOURCE_DIR}/xStudioPySideDemo.py
+  DESTINATION bin
+  RENAME xStudioPySideDemo)

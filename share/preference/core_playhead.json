@@ -1,0 +1,36 @@
+{
+	"core": {
+		"playhead":{
+			"read_ahead": {
+				"path": "/core/playhead/read_ahead",
+				"default_value": 128,
+				"description": "Number of frames ahead to precache during playback.",
+				"value": 128,
+				"minimum": 1,
+				"maximum": 1024,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"static_cache_delay_milliseconds": {
+				"path": "/core/playhead/static_cache_delay_milliseconds",
+				"default_value": 500,
+				"description": "Number of milliseconds to wait after playhead has stopped moving to re-start full timeline cacheing.",
+				"value": 500,
+				"minimum": 50,
+				"maximum": 120000,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"max_compare_sources": {
+				"path": "/core/playhead/max_compare_sources",
+				"default_value": 9,
+				"description": "Maximum number of media sources that can be compared via xstudio compare modes. Playback performance will suffer if you try and compare many sources.",
+				"value": 9,
+				"minimum": 2,
+				"maximum": 64,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

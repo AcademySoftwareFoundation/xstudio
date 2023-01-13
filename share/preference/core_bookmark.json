@@ -1,0 +1,47 @@
+{
+	"core": {
+		"bookmark":{
+			"category": {
+				"path": "/core/bookmark/category",
+				"default_value": [
+					{
+						"value": "default",
+						"colour": "",
+						"text": "Default"
+					}
+				],
+				"description": "Category defaults.",
+				"value": [
+					{
+						"value": "default",
+						"colour": "",
+						"text": "Miscellaneous"
+					},
+					{
+						"value": "director",
+						"colour": "#FFFF0000",
+						"text": "Director Note"
+					},
+					{
+						"value": "studio",
+						"colour": "#FF00FF00",
+						"text": "Studio Note"
+					},
+					{
+						"value": "vfx",
+						"colour": "#FF0000FF",
+						"text": "VFX Supervisor Note"
+					},
+					{
+						"value": "editor",
+						"colour": "#FF00FFFF",
+						"text": "Editor Note"
+					}
+				],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
+

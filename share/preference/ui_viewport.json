@@ -1,0 +1,38 @@
+{
+	"ui": {
+		"viewport":{
+			"filter_mode": {
+				"path": "/ui/viewport/filter_mode",
+				"default_value": "Auto Nearest/Bilinear",
+				"description": "Viewport Pixel Filter Mode",
+				"value": "Auto Nearest/Bilinear",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"texture_mode": {
+				"path": "/ui/viewport/texture_mode",
+				"default_value": "Image Texture",
+				"description": "Viewport Low Level Texture mode - SSBO can give better performance on some systems but not all",
+				"value": "Image Texture",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"viewport_mouse_wheel_behaviour": {
+				"path": "/ui/viewport/viewport_mouse_wheel_behaviour",
+				"default_value": "Scrub Timeline",
+				"description": "Use mouse scroll wheel to scrub timeline (default) or zoom",
+				"value": "Scrub Timeline",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"viewport_scrub_sensitivity": {
+				"path": "/ui/viewport/viewport_scrub_sensitivity",
+				"default_value": 2,
+				"description": "Set value to change the scrub pixel step for each frame",
+				"value": 2,
+				"datatype": "int",
+				"context": ["QML_UI"]
+			}
+		}
+	}
+}

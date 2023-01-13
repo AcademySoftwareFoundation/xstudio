@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "com.github.benlau.testable@1.0.2.15",
+    "com.github.benlau.qtshell@0.3.2",
+    "com.github.benlau.quickpromise@1.0.8",
+    "async.future.pri@0.1.2",
+    "net.efever.xbacktrace@0.0.1"
+  ]
+}

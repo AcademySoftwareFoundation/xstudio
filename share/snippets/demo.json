@@ -1,0 +1,51 @@
+[
+	{
+		"name": "Hello World",
+		"description": "Example.",
+		"menu": "Demo",
+		"script": "print(\"Hello Word\")"
+	},
+	{
+		"name": "Status",
+		"description": "Example.",
+		"menu": "Demo",
+		"script": "XSTUDIO.api.print_status()"
+	},
+	{
+		"name": "Clear Thumbnails",
+		"description": "Clear thumbnail caches.",
+		"menu": "Demo",
+		"script": "from xstudio import demo; demo.clear_thumbnail_cache(XSTUDIO.api)"
+	},
+	{
+		"name": "Sort Playlists",
+		"description": "Example.",
+		"menu": "Demo",
+		"script": "from xstudio import demo; demo.sort_session(XSTUDIO.api.session)"
+    },
+	{
+		"name": "Capitalise Playlists",
+		"description": "Example.",
+		"menu": "Demo",
+		"script": "from xstudio import demo; demo.capitalise(XSTUDIO.api.session)"
+    },
+	{
+		"name": "Dump shots",
+		"description": "Dump shot maetadata with flag.",
+		"menu": "Demo",
+		"script": "from xstudio import demo; demo.dump_shots(XSTUDIO.api.session)"
+    },
+	{
+		"name": "Remder all annotations",
+		"description": "Dump exr renders of all annotations in the session to tmp dir.",
+		"menu": "Demo",
+		"script": "from xstudio import demo; demo.render_all_annotations(XSTUDIO.api.session)"
+    }
+	,
+	{
+		"name": "Foo Noo",
+		"description": "Foo Noo Poo Noo",
+		"menu": "Demo",
+		"script": "from xstudio import demo; demo.mask_plugin(XSTUDIO)"
+    }
+]

@@ -1,0 +1,64 @@
+{
+	"core": {
+		"thumbnail": {
+			"size": {
+				"path": "/core/thumbnail/size",
+				"default_value": 256,
+				"description": "Size of thumbnail image.",
+				"value": 256,
+				"minimum": 64,
+				"maximum": 512,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"disk_cache": {
+				"path": {
+					"path": "/core/thumbnail/disk_cache/path",
+					"default_value": "${HOME}/xStudio/thumbnails",
+					"description": "Path to thumbnail cache.",
+					"value": "${HOME}/xStudio/thumbnails",
+					"datatype": "string",
+					"context": ["APPLICATION"]
+				},
+				"max_count": {
+					"path": "/core/thumbnail/disk_cache/max_count",
+					"default_value": 10000,
+					"description": "Maximum number of entries to store in cache.",
+					"value": 10000,
+					"minimum": 1,
+					"maximum": 1000000,
+					"datatype": "int",
+					"context": ["APPLICATION"]
+				},
+				"max_size": {
+					"path": "/core/thumbnail/disk_cache/max_size",
+					"default_value": 1024,
+					"description": "Maximum total size of cache in megabytes.",
+					"value": 1024,
+					"datatype": "int",
+					"context": ["APPLICATION"]
+				}
+			},
+			"memory_cache": {
+				"max_count": {
+					"path": "/core/thumbnail/memory_cache/max_count",
+					"default_value": 10000,
+					"description": "Maximum number of entries to store in cache.",
+					"value": 10000,
+					"minimum": 1,
+					"maximum": 1000000,
+					"datatype": "int",
+					"context": ["APPLICATION"]
+				},
+				"max_size": {
+					"path": "/core/thumbnail/memory_cache/max_size",
+					"default_value": 128,
+					"description": "Maximum total size of cache in megabytes.",
+					"value": 128,
+					"datatype": "int",
+					"context": ["APPLICATION"]
+				}
+			}
+		}
+	}
+}

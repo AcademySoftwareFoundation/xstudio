@@ -1,0 +1,21 @@
+#!/bin/bash
+
+export QML_IMPORT_TRACE=0
+
+# if root isn't set
+if [ -z "$XSTUDIO_ROOT" ]
+then
+	# use bob world path
+	if [ ! -z "$BOB_WORLD_SLOT_dneg_xstudio" ]
+	then
+		export XSTUDIO_ROOT=$BOB_WORLD_SLOT_dneg_xstudio/share/xstudio
+		export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$XSTUDIO_ROOT/lib
+	else
+		export XSTUDIO_ROOT=${CMAKE_INSTALL_PREFIX}/share/xstudio
+		export LD_LIBRARY_PATH=$XSTUDIO_ROOT/lib:$LD_LIBRARY_PATH
+	fi
+fi
+
+xstudio_desktop_integration
+
+exec xstudio.bin "$@"

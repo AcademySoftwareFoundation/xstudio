@@ -1,0 +1,1 @@
+../quickfuture/src/qfvariantwrapper.h

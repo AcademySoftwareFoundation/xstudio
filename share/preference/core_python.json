@@ -1,0 +1,25 @@
+{
+	"core": {
+		"python":{
+			"enabled": {
+				"path": "/core/python/enabled",
+				"default_value": true,
+				"description": "Enable embedded python.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+
+			"snippets":{
+				"path": {
+					"path": "/core/python/snippets/path",
+					"default_value": [],
+					"description": "Paths to snippet dirs",
+					"value": [],
+					"datatype": "json",
+					"context": ["APPLICATION"]
+				}
+			}
+		}
+	}
+}

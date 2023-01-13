@@ -1,0 +1,445 @@
+{
+	"ui": {
+		"qml":{
+			"enable_presentation_mode": {
+				"path": "/ui/qml/enable_presentation_mode",
+				"default_value": false,
+				"description": "Enable presentation mode.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"autosave": {
+				"path": "/ui/qml/autosave",
+				"default_value": true,
+				"description": "Enable autosave.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"start_play_on_load": {
+				"path": "/ui/qml/start_play_on_load",
+				"default_value": true,
+				"description": "Start playing on load.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"do_overlay_messages": {
+				"path": "/ui/qml/do_overlay_messages",
+				"default_value": false,
+				"description": "Show overlay messages.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"do_shutdown_anim": {
+				"path": "/ui/qml/do_shutdown_anim",
+				"default_value": true,
+				"description": "Show shutdown animation.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"check_unsaved_session": {
+				"path": "/ui/qml/check_unsaved_session",
+				"default_value": true,
+				"description": "Warn user on quiting with unsaved session.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"cycle_through_playlist": {
+				"path": "/ui/qml/cycle_through_playlist",
+				"default_value": false,
+				"description": "Cycle through playlist when reaching limits with keyboard arrows",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"restore_play_state_after_scrub": {
+				"path": "/ui/qml/restore_play_state_after_scrub",
+				"default_value": true,
+				"description": "Restore play state after scrub.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"view_top_toolbar": {
+				"path": "/ui/qml/view_top_toolbar",
+				"default_value": true,
+				"description": "Show top toolbar.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"main_window_viewer": {
+				"path": "/ui/qml/main_window_viewer",
+				"default_value": "{}",
+				"description": "Prefs relating to viewer.",
+				"value": {
+                    "__ignore__": true,
+                    "transportControlsVisible": true,
+                    "mediaInfoBarVisible": true,
+                    "statusBarVisible": true,
+                    "tabBarVisible": true,
+                    "toolBarVisible": true,
+					"layoutBarVisible": true,
+					"viewportTitleBarVisible": true,
+					"compactMode": false,
+					"menuBarVisible": true
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"second_window_viewer": {
+				"path": "/ui/qml/second_window_viewer",
+				"default_value": "{}",
+				"description": "Prefs relating to pop-out viewer.",
+				"value": {
+                    "__ignore__": true,
+                    "transportControlsVisible": true,
+                    "mediaInfoBarVisible": true,
+                    "statusBarVisible": true,
+                    "tabBarVisible": true,
+                    "toolBarVisible": true,
+					"layoutBarVisible": true,
+					"viewportTitleBarVisible": true,
+					"compactMode": true,
+					"menuBarVisible": false
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"note_window_settings": {
+				"path": "/ui/qml/note_window_settings",
+				"default_value": "{}",
+				"description": "Prefs relating to window position.",
+				"value": {
+                    "__ignore__": true,
+                    "x": 100,
+                    "y": 100,
+                    "width": 700,
+					"height": 400,
+					"visibility": 0
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"main_window_settings": {
+				"path": "/ui/qml/main_window_settings",
+				"default_value": "{}",
+				"description": "Prefs relating to window position.",
+				"value": {
+                    "__ignore__": true,
+                    "x": 100,
+                    "y": 100,
+                    "width": 1200,
+					"height": 800,
+					"visibility": 1,
+					"layout_name": "review_layout",
+					"menu_bar_visible": 1
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"second_window_settings": {
+				"path": "/ui/qml/second_window_settings",
+				"default_value": "{}",
+				"description": "Prefs relating to window position.",
+				"value": {
+                    "__ignore__": true,
+                    "x": 100,
+                    "y": 100,
+                    "width": 950,
+					"height": 540,
+					"visibility": 0,
+					"layout_name": "presentation_layout",
+					"menu_bar_visible": 0
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"media_list_thumnail_size": {
+				"path": "/ui/qml/media_list_thumnail_size",
+				"default_value": 1.0,
+				"description": "Thumbnail size in media list.",
+				"value": 100.0,
+				"datatype": "double",
+				"context": ["QML_UI"]
+			},
+			"main_window_edit_layout": {
+				"path": "/ui/qml/main_window_edit_layout",
+				"default_value": "{}",
+				"description": "A list of window splitter ratios to remember positions of split handles",
+				"value": {
+                    "__ignore__": true,
+                    "divider_positions": [0.75, 0.16, 0.24]
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"main_window_review_layout": {
+				"path": "/ui/qml/main_window_review_layout",
+				"default_value": "{}",
+				"description": "A list of window splitter ratios to remember positions of split handles",
+				"value": {
+                    "__ignore__": true,
+                    "divider_positions": [0.18, 0.4]
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"main_window_shotgun_layout": {
+				"path": "/ui/qml/main_window_shotgun_layout",
+				"default_value": "{}",
+				"description": "A list of window splitter ratios to remember positions of split handles",
+				"value": {
+                    "__ignore__": true,
+                    "divider_positions": [0.15, 0.7, 0.3]
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"main_window_browse_layout": {
+				"path": "/ui/qml/main_window_browse_layout",
+				"default_value": "{}",
+				"description": "A list of window splitter ratios to remember positions of split handles",
+				"value": {
+                    "__ignore__": true,
+                    "divider_positions": [0.18]
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"second_window_edit_layout": {
+				"path": "/ui/qml/second_window_edit_layout",
+				"default_value": "{}",
+				"description": "A list of window splitter ratios to remember positions of split handles",
+				"value": {
+                    "__ignore__": true,
+                    "divider_positions": [0.18, 0.7, 0.5]
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"second_window_review_layout": {
+				"path": "/ui/qml/second_window_review_layout",
+				"default_value": "{}",
+				"description": "A list of window splitter ratios to remember positions of split handles",
+				"value": {
+                    "__ignore__": true,
+                    "divider_positions": [0.18, 0.7]
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"second_window_browse_layout": {
+				"path": "/ui/qml/second_window_browse_layout",
+				"default_value": "{}",
+				"description": "A list of window splitter ratios to remember positions of split handles",
+				"value": {
+                    "__ignore__": true,
+                    "divider_positions": [0.18]
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"colour_pipe": {
+				"path": "/ui/qml/colour_pipe",
+				"default_value": "{}",
+				"description": "Prefs relating to colour pipeline.",
+				"value": {
+                    "__ignore__": true,
+                    "view": 0,
+                    "display": 0
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"click_to_toggle_play": {
+				"path": "/ui/qml/click_to_toggle_play",
+				"default_value": false,
+				"description": "Click to toggle playback.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"timeline_units": {
+				"path": "/ui/qml/timeline_units",
+				"default_value": "Frames From Timecode",
+				"description": "Timeline units.",
+				"value": "Frames From Timecode",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"timeline_indicator": {
+				"path": "/ui/qml/timeline_indicator",
+				"default_value": "FPS",
+				"description": "Timeline indicator units.",
+				"value": "FPS",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"accent_color": {
+				"path": "/ui/qml/accent_color",
+				"default_value": "#bb7700",
+				"description": "Colour of accents.",
+				"value": "#bb7700",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"latest_version": {
+				"path": "/ui/qml/latest_version",
+				"default_value": "0.0.0",
+				"description": "Latest version launched.",
+				"value": "0.0.0",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"loop_mode": {
+				"path": "/ui/qml/loop_mode",
+				"default_value": 0,
+				"description": "Loop mode.",
+				"value": 0,
+				"datatype": "int",
+				"context": ["QML_UI"]
+			},
+			"fit_mode": {
+				"path": "/ui/qml/fit_mode",
+				"default_value": "best",
+				"description": "Fit mode.",
+				"value": "best",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"second_window_fit_mode": {
+				"path": "/ui/qml/second_window_fit_mode",
+				"default_value": "best",
+				"description": "Fit mode.",
+				"value": "best",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"control_values": {
+				"path": "/ui/qml/control_values",
+				"default_value": "{}",
+				"description": "Dump these.",
+				"value": "{}",
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"channel": {
+				"path": "/ui/qml/channel",
+				"default_value": 0,
+				"description": "XPlayer channel modes.",
+				"value": 0,
+				"datatype": "int"
+			},
+			"xplayer_window": {
+				"path": "/ui/qml/xplayer_window",
+				"default_value": "{}",
+				"description": "XPlayer window geometries.",
+				"value": "{}",
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"compare": {
+				"path": "/ui/qml/compare",
+				"default_value": 0,
+				"description": "XPlayer compare modes.",
+				"value": 0,
+				"datatype": "int",
+				"context": ["QML_UI"]
+			},
+			"exposure": {
+				"path": "/ui/qml/exposure",
+				"default_value": 0.0,
+				"description": "XPlayer exposure.",
+				"value": 0.0,
+				"datatype": "double",
+				"context": ["QML_UI"]
+			},
+			"velocity": {
+				"path": "/ui/qml/velocity",
+				"default_value": 1.0,
+				"description": "XPlayer velocity.",
+				"value": 1.0,
+				"datatype": "double",
+				"context": ["QML_UI"]
+			},
+			"source": {
+				"path": "/ui/qml/source",
+				"default_value": "none",
+				"description": "Media source.",
+				"value": "none",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"view": {
+				"path": "/ui/qml/view",
+				"default_value": "",
+				"description": "OCIO view.",
+				"value": "",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"display": {
+				"path": "/ui/qml/display",
+				"default_value": "",
+				"description": "OCIO display.",
+				"value": "",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"volume": {
+				"path": "/ui/qml/volume",
+				"default_value": 50,
+				"description": "XPlayer audio volume.",
+				"value": 50,
+				"datatype": "int",
+				"context": ["QML_UI"]
+			},
+			"audio_mute": {
+				"path": "/ui/qml/audio_mute",
+				"default_value": false,
+				"description": "XPlayer audio mute status.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"popout_viewer_visible": {
+				"path": "/ui/qml/popout_viewer_visible",
+				"default_value": false,
+				"description": "The 2nd pop-out window is visible.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"recent_history": {
+				"path": "/ui/qml/recent_history",
+				"default_value": [],
+				"description": "Recent Sessions.",
+				"value": [],
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"python_history": {
+				"path": "/ui/qml/python_history",
+				"default_value": ["help"],
+				"description": "Command history for python console.",
+				"value": ["help"],
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"default_playhead_compare_mode": {
+				"path": "/ui/qml/default_playhead_compare_mode",
+				"default_value": "Off",
+				"description": "Default Compare Mode.",
+				"value": "Off",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			}
+		}
+	}
+}

@@ -1,0 +1,22 @@
+---
+BasedOnStyle: LLVM
+---
+Language: Cpp
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: Yes
+BinPackParameters: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  SplitEmptyRecord: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+Cpp11BracedListStyle: false
+FixNamespaceComments: false
+ForEachMacros: ['STRV_FOREACH', 'NULSTR_FOREACH']
+IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
+PenaltyBreakAssignment: 100
+PenaltyBreakBeforeFirstCallParameter: 100
+SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatementsExceptForEachMacros

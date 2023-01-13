@@ -1,0 +1,44 @@
+{
+	"core": {
+		"image_cache":{
+			"max_count": {
+				"path": "/core/image_cache/max_count",
+				"default_value": 1000000,
+				"description": "Maximum number of entries to store in cache.",
+				"value": 1000000,
+				"minimum": 1,
+				"maximum": 1000000,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"max_size": {
+				"path": "/core/image_cache/max_size",
+				"default_value": 8192,
+				"description": "Maximum total size of cache in megabytes.",
+				"value": 8192,
+				"datatype": "int",
+				"context": ["APPLICATION","SESSION"]
+			}
+		},
+		"audio_cache":{
+			"max_count": {
+				"path": "/core/audio_cache/max_count",
+				"default_value": 1000000,
+				"description": "Maximum number of entries to store in cache.",
+				"value": 1000000,
+				"minimum": 1,
+				"maximum": 1000000,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"max_size": {
+				"path": "/core/audio_cache/max_size",
+				"default_value": 1024,
+				"description": "Maximum total size of cache in megabytes.",
+				"value": 1024,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

@@ -1,0 +1,100 @@
+#!/bin/bash
+
+function help
+{
+	echo "Usage: "$(basename $0)" [-dpshe]"
+	echo "Description: Launch python and import xstudio."
+	echo "Options:"
+    echo "  -s SESSION, --session SESSION Session name (DEFAULT: '')"
+    echo "  -h HOST, --host HOST          Host xstudio is running on (DEFAULT: '')"
+    echo "  -p, --port                    Port to connect to (DEFAULT: 45500)"
+    echo "  --sync                        Force SYNC mode (DEFAULT: False)"
+    echo "  -e, --execute                 Execute command and exit"
+	echo "  --help                        show this help message and exit"
+    echo "  -d, --debug                   Print debug output"
+
+	exit
+}
+
+DEBUG=False
+SESSION=
+HOST=
+PORT=45500
+SYNC=False
+EXECUTE=
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
+ARGVV="$@"
+
+while [[ $# > 0 ]]
+do
+key="$1"
+
+
+case $key in
+    -s|--session)
+    SESSION="$2"
+    shift
+    ;;
+    -h|--host)
+    HOST="$2"
+    shift
+    ;;
+    -e|--execute)
+    EXECUTE="$2"
+    shift
+    ;;
+    -d|--debug)
+    DEBUG=True
+    ;;
+    --test)
+    DIR=./
+    ;;
+    -p|--port)
+    PORT="$2"
+    shift
+    ;;
+    --sync)
+    SYNC=True
+    ;;
+    --help)
+    help
+    ;;
+    *)
+    ;;
+esac
+shift
+done
+
+if test -f "$DIR/../lib/python/xstudio/cli/xstudiopy_startup.py"; then
+    export PYTHONSTARTUP=$DIR/../lib/python/xstudio/cli/xstudiopy_startup.py
+else
+    if test -f "$DIR/xstudio/cli/xstudiopy_startup.py"; then
+        export PYTHONSTARTUP=$DIR/xstudio/cli/xstudiopy_startup.py
+    else
+        echo "failed to find" "$DIR/xstudio/cli/xstudiopy_startup.py"
+    fi
+fi
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"$DIR/../share/xstudio/lib"
+
+export XSTUDIOPY_DEBUG=$DEBUG
+export XSTUDIOPY_SESSION=$SESSION
+export XSTUDIOPY_HOST=$HOST
+export XSTUDIOPY_PORT=$PORT
+export XSTUDIOPY_SYNC=$SYNC
+export XSTUDIOPY_EXECUTE=$EXECUTE
+
+if [[ -z "$EXECUTE" ]]; then
+    python $ARGVV
+else
+    py=$(cat $PYTHONSTARTUP)
+    echo -e "$py""\n""$EXECUTE" | python -
+fi

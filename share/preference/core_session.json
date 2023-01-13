@@ -1,0 +1,98 @@
+{
+	"core": {
+		"session":{
+			"play_rate": {
+				"path": "/core/session/play_rate",
+				"default_value": 24.0,
+				"description": "Default playback rate.",
+				"value": 24.0,
+				"minimum": 1.0,
+				"maximum": 120.0,
+				"datatype": "double",
+				"context": ["NEW_SESSION"]
+			},
+			"session_link_prefix": {
+				"path": "/core/session/session_link_prefix",
+				"default_value": "",
+				"description": "Prefix the session link.",
+				"value": "",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"media_rate": {
+				"path": "/core/session/media_rate",
+				"default_value": 24.0,
+				"description": "Default media rate.",
+				"value": 24.0,
+				"minimum": 1.0,
+				"maximum": 120.0,
+				"datatype": "double",
+				"context": ["NEW_SESSION"]
+			},
+			"media_flags": {
+				"path": "/core/session/media_flags",
+				"description": "Media flag names.",
+				"default_value": [
+					{ "name": "Remove Flag", "colour": "#00000000" },
+					{ "name": "Red", "colour": "#FFFF0000" },
+					{ "name": "Green", "colour": "#FF00FF00" },
+					{ "name": "Blue", "colour": "#FF0000FF" },
+					{ "name": "Yellow", "colour": "#FFFFFF00" },
+					{ "name": "Orange", "colour": "#FFFFA500" },
+					{ "name": "Purple", "colour": "#FF800080" },
+					{ "name": "Black", "colour": "#FF000000" },
+					{ "name": "White", "colour": "#FFFFFFFF" }
+				],
+				"value": [
+					{ "name": "Remove Flag", "colour": "#00000000" },
+					{ "name": "Red", "colour": "#FFFF0000" },
+					{ "name": "Green", "colour": "#FF00FF00" },
+					{ "name": "Blue", "colour": "#FF0000FF" },
+					{ "name": "Yellow", "colour": "#FFFFFF00" },
+					{ "name": "Orange", "colour": "#FFFFA500" },
+					{ "name": "Purple", "colour": "#FF800080" },
+					{ "name": "Black", "colour": "#FF000000" },
+					{ "name": "White", "colour": "#FFFFFFFF" }
+				],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},
+			"autosave": {
+				"enabled": {
+					"path": "/core/session/autosave/enabled",
+					"default_value": true,
+					"description": "Enable autosave of session.",
+					"value": true,
+					"datatype": "bool",
+					"context": ["APPLICATION"]
+				},
+				"interval": {
+					"path": "/core/session/autosave/interval",
+					"default_value": 300,
+					"description": "Interval in seconds between autosaves.",
+					"value": 300,
+					"minimum": 1,
+					"maximum": 6000,
+					"datatype": "int",
+					"context": ["APPLICATION"]
+				},
+				"last_auto_save": {
+					"path": "/core/session/autosave/last_auto_save",
+					"default_value": "",
+					"description": "Path to last autosave.",
+					"value": "",
+					"datatype": "string",
+					"context": ["APPLICATION"]
+				},
+				"path": {
+					"path": "/core/session/autosave/path",
+					"default_value": "${HOME}/xStudio/autosave",
+					"description": "Path to autosaves.",
+					"value": "${HOME}/xStudio/autosave",
+					"datatype": "string",
+					"context": ["APPLICATION"]
+				}
+			}
+		}
+	}
+}

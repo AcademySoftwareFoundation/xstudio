@@ -1,0 +1,24 @@
+{
+	"plugin": {
+		"colour_pipeline": {
+			"ocio": {
+				"linear_name": {
+					"path": "/plugin/colour_pipeline/ocio/linear_name",
+					"default_value": "linear",
+					"description": "Default config name for linear.",
+					"value": "linear",
+					"datatype": "string",
+					"context": ["APPLICATION"]
+				},
+				"log_name": {
+					"path": "/plugin/colour_pipeline/ocio/log_name",
+					"default_value": "log",
+					"description": "Default config name for log.",
+					"value": "log",
+					"datatype": "string",
+					"context": ["APPLICATION"]
+				}
+			}
+		}
+	}
+}

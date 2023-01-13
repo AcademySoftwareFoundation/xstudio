@@ -1,0 +1,4 @@
+module BasicViewportMask
+
+BasicViewportMaskButton 1.0 BasicViewportMaskButton.qml
+BasicViewportMaskOverlay 1.0 BasicViewportMaskOverlay.qml

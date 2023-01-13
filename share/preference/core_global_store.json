@@ -1,0 +1,16 @@
+{
+	"core": {
+		"global_store":{
+			"autosave_interval": {
+				"path": "/core/global_store/autosave_interval",
+				"default_value": 60,
+				"description": "Interval at which we autosave in seconds.",
+				"value": 60,
+				"minimum": 10,
+				"maximum": 600,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

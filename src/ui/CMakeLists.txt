@@ -1,0 +1,5 @@
+add_src_and_test(base)
+add_src_and_test(viewport)
+add_src_and_test(qt)
+add_src_and_test(qml)
+add_src_and_test(opengl)

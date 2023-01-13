@@ -1,0 +1,26 @@
+version: build{build}
+
+branches:
+  except:
+    - project/travis
+
+environment:
+  matrix:
+  - name: win32
+    platform: amd64_x86
+    qt: msvc2017
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+
+build_script:
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+  - set GOPATH=c:\gopath
+  - set QTDIR=C:\Qt\5.9.9\msvc2017_64
+  - set PATH=%PATH%;%QTDIR%\bin;C:\MinGW\bin;%GOPATH%\bin;
+  - tree /F /A C:\Users\appveyor\.conan\data\quickpromise
+  - mkdir build
+  - cd build
+  - qmake ../quickpromise.pro
+  - tree /F /A
+  - nmake
+  - tree /F /A
+  - tests\unittests\release\unittests.exe

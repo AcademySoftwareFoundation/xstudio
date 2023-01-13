@@ -1,0 +1,93 @@
+{
+	"plugin": {
+		"annotations": {
+			"draw_pen_size": {
+				"path": "/plugin/annotations/draw_pen_size",
+				"default_value": 10,
+				"description": "Thickness of scribble pen size",
+				"value": 10,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"erase_pen_size": {
+				"path": "/plugin/annotations/erase_pen_size",
+				"default_value": 80,
+				"description": "Thickness of scribble pen size",
+				"value": 80,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"shapes_pen_size": {
+				"path": "/plugin/annotations/shapes_pen_size",
+				"default_value": 20,
+				"description": "Thickness of scribble pen size",
+				"value": 20,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"text_size": {
+				"path": "/plugin/annotations/text_size",
+				"default_value": 50,
+				"description": "Thickness of caption text size",
+				"value": 50,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"pen_opacity": {
+				"path": "/plugin/annotations/pen_opacity",
+				"default_value": 100,
+				"description": "Opacity of scribble pen",
+				"value": 100,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"pen_colour": {
+				"path": "/plugin/annotations/pen_colour",
+				"default_value": ["colour", 1, 1.0, 1.0, 0.0],
+				"description": "colour of shape pen",
+				"value": ["colour", 1, 1.0, 1.0, 0.0],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},
+			"display_mode": {
+				"path": "/plugin/annotations/display_mode",
+				"default_value": "Only When Paused",
+				"description": "Sets global condition for annotations to be visible in the viewport",
+				"value": "Only When Paused",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"shape_tool": {
+				"path": "/plugin/annotations/shape_tool",
+				"default_value": 0,
+				"description": "The default shape type (square, circle, arrow) in the shapes section of the annotations tool",
+				"value": 0,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"draw_mode": {
+				"path": "/plugin/annotations/draw_mode",
+				"default_value": "Sketch",
+				"description": "The default scribble type (Draw, Laser, Onion) in the Draw section of the annotations tool",
+				"value": "Sketch",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"toolbox_window_settings": {
+				"path": "/plugin/annotations/toolbox_window_settings",
+				"default_value": "{}",
+				"description": "Prefs relating to window position.",
+				"value": {
+                    "__ignore__": true,
+                    "x": 100,
+                    "y": 100,
+                    "width": 700,
+					"height": 400,					
+					"visibility": 0
+                },
+				"datatype": "json",
+				"context": ["QML_UI"]
+			}
+		}
+	}
+}

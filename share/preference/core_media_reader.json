@@ -1,0 +1,42 @@
+{
+	"core": {
+		"media_reader":{
+			"max_source_count": {
+				"path": "/core/media_reader/max_source_count",
+				"default_value": 16,
+				"description": "Maximum number of sources open.",
+				"value": 16,
+				"minimum": 1,
+				"maximum": 1000,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"timecode_from_frame": {
+				"path": "/core/media_reader/timecode_from_frame",
+				"default_value": true,
+				"description": "Ignore timecode from sequences.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"max_source_age": {
+				"path": "/core/media_reader/max_source_age",
+				"default_value": 600,
+				"description": "Maximum unused source age (seconds).",
+				"value": 600,
+				"minimum": 60,
+				"maximum": 6000,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"auto_gather_sources": {
+				"path": "/core/media_reader/auto_gather_sources",
+				"default_value": false,
+				"description": "Automatically search for extra media sources for freshly added media items",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
