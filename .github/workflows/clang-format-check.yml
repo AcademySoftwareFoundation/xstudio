@@ -11,3 +11,4 @@ jobs:
       with:
         clang-format-version: '13'
         check-path: '.'
+        exclude-regex: '^./(extern|src/ui/qml/quickfuture)'
