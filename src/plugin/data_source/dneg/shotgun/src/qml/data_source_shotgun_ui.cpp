@@ -614,18 +614,31 @@ utility::JsonStore ShotgunDataSourceUI::getQueryValue(
 
 QVariant ShotgunDataSourceUI::mergeQueries(
     const QVariant &dst, const QVariant &src, const bool ignore_duplicates) const {
+
+
     JsonStore dst_qry;
+    JsonStore src_qry;
 
     try {
-        dst_qry = JsonStore(
-            nlohmann::json::parse(QJsonDocument::fromVariant(dst.value<QJSValue>().toVariant())
-                                      .toJson(QJsonDocument::Compact)
-                                      .constData()));
+        if (std::string(dst.typeName()) == "QJSValue") {
+            dst_qry = nlohmann::json::parse(
+                QJsonDocument::fromVariant(dst.value<QJSValue>().toVariant())
+                    .toJson(QJsonDocument::Compact)
+                    .constData());
+        } else {
+            dst_qry = nlohmann::json::parse(
+                QJsonDocument::fromVariant(dst).toJson(QJsonDocument::Compact).constData());
+        }
 
-        auto src_qry = JsonStore(
-            nlohmann::json::parse(QJsonDocument::fromVariant(src.value<QJSValue>().toVariant())
-                                      .toJson(QJsonDocument::Compact)
-                                      .constData()));
+        if (std::string(src.typeName()) == "QJSValue") {
+            src_qry = nlohmann::json::parse(
+                QJsonDocument::fromVariant(src.value<QJSValue>().toVariant())
+                    .toJson(QJsonDocument::Compact)
+                    .constData());
+        } else {
+            src_qry = nlohmann::json::parse(
+                QJsonDocument::fromVariant(src).toJson(QJsonDocument::Compact).constData());
+        }
 
         // we need to preprocess for Disable Global flags..
         auto disable_globals = std::set<std::string>();
@@ -634,6 +647,7 @@ QVariant ShotgunDataSourceUI::mergeQueries(
                 disable_globals.insert(i.at("value").get<std::string>());
         }
 
+        // if term already exists in dst, then don't append.
         if (ignore_duplicates) {
             auto dup = std::set<std::string>();
             for (const auto &i : dst_qry["queries"])
@@ -1662,7 +1676,7 @@ void ShotgunDataSourceUI::init(caf::actor_system &system) {
                         groups_map_[request.at("id")]->populate(data.at("data"));
                     else if (request.at("type") == "sequence") {
                         sequences_map_[request.at("id")]->populate(data.at("data"));
-                        sequences_tree_map_[request.at("id")]->setModelData(data.at("data"));
+                        sequences_tree_map_[request.at("id")]->setModelData(ShotgunSequenceModel::flatToTree(data.at("data")));
                     } else if (request.at("type") == "shot") {
                         shots_map_[request.at("id")]->populate(data.at("data"));
                         updateQueryValueCache(

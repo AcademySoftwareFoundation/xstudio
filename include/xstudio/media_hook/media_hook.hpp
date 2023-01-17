@@ -32,7 +32,7 @@ namespace media_hook {
         }
 
         virtual std::optional<utility::MediaReference>
-        modify_media_reference(const utility::MediaReference &) {
+        modify_media_reference(const utility::MediaReference &, const utility::JsonStore &) {
             return {};
         }
 
@@ -142,7 +142,7 @@ namespace media_hook {
                     const utility::UuidActor &ua,
                     utility::MediaReference mr,
                     const utility::JsonStore &jsn) -> utility::JsonStore {
-                    auto ref = media_hook_.modify_media_reference(mr);
+                    auto ref = media_hook_.modify_media_reference(mr, jsn);
                     if (ref) {
                         mr = *ref;
                         anon_send(ua.actor(), media::media_reference_atom_v, mr);

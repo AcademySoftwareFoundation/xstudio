@@ -352,7 +352,8 @@ bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
 
 void AnnotationsTool::interact_start() {
 
-    if (interacting_with_renderers_) return;
+    if (interacting_with_renderers_)
+        return;
     for (auto &r : renderers_) {
         r->lock();
     }
@@ -361,12 +362,12 @@ void AnnotationsTool::interact_start() {
 
 void AnnotationsTool::interact_end() {
 
-    if (!interacting_with_renderers_) return;
+    if (!interacting_with_renderers_)
+        return;
     if (current_edited_annotation_) {
         for (auto &r : renderers_) {
             r->set_edited_annotation_render_data(
-                current_edited_annotation_->render_data(),
-                active_tool_->value() == "Text");
+                current_edited_annotation_->render_data(), active_tool_->value() == "Text");
         }
     } else {
         for (auto &r : renderers_) {
@@ -379,17 +380,16 @@ void AnnotationsTool::interact_end() {
     interacting_with_renderers_ = false;
 }
 
-void AnnotationsTool::start_or_edit_caption(const Imath::V2f &p, const float viewport_pixel_scale) {
+void AnnotationsTool::start_or_edit_caption(
+    const Imath::V2f &p, const float viewport_pixel_scale) {
 
-    if (current_edited_annotation_  &&
-        hover_state_ != Caption::NotHovered) {        
+    if (current_edited_annotation_ && hover_state_ != Caption::NotHovered) {
 
         if (hover_state_ == Caption::HoveredOnMoveHandle) {
             caption_drag_pointer_start_pos_ = p;
             caption_drag_caption_start_pos_ =
                 current_edited_annotation_->edited_caption_position();
-        } else if (
-            hover_state_ == Caption::HoveredOnResizeHandle) {
+        } else if (hover_state_ == Caption::HoveredOnResizeHandle) {
             caption_drag_pointer_start_pos_ = p;
             caption_drag_width_height_      = Imath::V2f(
                 current_edited_annotation_->edited_caption_width(),
@@ -402,10 +402,9 @@ void AnnotationsTool::start_or_edit_caption(const Imath::V2f &p, const float vie
         }
 
         for (auto &r : renderers_) {
-            r->set_under_mouse_caption_bdb(
-                Imath::Box2f());
-        }        
-    
+            r->set_under_mouse_caption_bdb(Imath::Box2f());
+        }
+
     } else {
 
         if (!current_edited_annotation_)
@@ -426,8 +425,6 @@ void AnnotationsTool::start_or_edit_caption(const Imath::V2f &p, const float vie
     text_cursor_blink_attr_->set_value(!text_cursor_blink_attr_->value());
 
     current_edited_annotation_->update_render_data();
-    
-
 }
 
 void AnnotationsTool::caption_drag(const Imath::V2f &p) {
@@ -438,15 +435,13 @@ void AnnotationsTool::caption_drag(const Imath::V2f &p) {
         if (hover_state_ == Caption::HoveredOnMoveHandle) {
             current_edited_annotation_->set_edited_caption_position(
                 caption_drag_caption_start_pos_ + delta);
-        } else if (
-            hover_state_ == Caption::HoveredOnResizeHandle) {
+        } else if (hover_state_ == Caption::HoveredOnResizeHandle) {
             current_edited_annotation_->set_edited_caption_width(
                 caption_drag_width_height_.x + delta.x);
         }
 
         update_caption_overlay();
     }
-
 }
 
 void AnnotationsTool::update_caption_overlay() {
@@ -458,10 +453,8 @@ void AnnotationsTool::update_caption_overlay() {
 
         interact_start();
         for (auto &r : renderers_) {
-            r->set_current_edited_caption_bdb(
-                edited_capt_bdb);
-            r->set_cursor_position(
-                t, b);
+            r->set_current_edited_caption_bdb(edited_capt_bdb);
+            r->set_cursor_position(t, b);
         }
         interact_end();
         // toggling this value starts a loop toggleing it on/off. See 'attribute_changed'
@@ -508,23 +501,21 @@ bool AnnotationsTool::check_pointer_hover_on_text(
 
     if (current_edited_annotation_) {
 
-        auto old = hover_state_;
+        auto old     = hover_state_;
         hover_state_ = current_edited_annotation_->mouse_hover_on_selected_caption(
             pointer_pos, viewport_pixel_scale);
         if (hover_state_ == Caption::NotHovered) {
             Imath::Box2f hover_box = current_edited_annotation_->mouse_hover_on_captions(
                 pointer_pos, viewport_pixel_scale);
             for (auto &r : renderers_) {
-               r->set_under_mouse_caption_bdb(hover_box);
+                r->set_under_mouse_caption_bdb(hover_box);
             }
             if (!hover_box.isEmpty()) {
                 hover_state_ = Caption::HoveredInCaptionArea;
             }
-            
         }
         if (hover_state_ != old) {
-            moving_scaling_text_attr_->set_value(
-                int(hover_state_));
+            moving_scaling_text_attr_->set_value(int(hover_state_));
         }
 
         for (auto &r : renderers_) {
@@ -534,7 +525,6 @@ bool AnnotationsTool::check_pointer_hover_on_text(
     } else {
 
         // hover over non edited captions?
-
     }
     return false;
 }
@@ -643,10 +633,8 @@ void AnnotationsTool::attribute_changed(
                 release_keyboard_focus();
                 moving_scaling_text_attr_->set_value(0);
                 for (auto &r : renderers_) {
-                    r->set_current_edited_caption_bdb(
-                        Imath::Box2f());
-                    r->set_cursor_position(
-                        Imath::V2f(), Imath::V2f());
+                    r->set_current_edited_caption_bdb(Imath::Box2f());
+                    r->set_cursor_position(Imath::V2f(), Imath::V2f());
                 }
             }
         }
@@ -736,9 +724,9 @@ void AnnotationsTool::attribute_changed(
 
         if (current_edited_annotation_ && current_edited_annotation_->have_edited_caption()) {
 
-            current_edited_annotation_->set_edited_caption_opacity(pen_opacity_->value()/100.0f);
-        }        
-        
+            current_edited_annotation_->set_edited_caption_opacity(
+                pen_opacity_->value() / 100.0f);
+        }
     }
 
 
@@ -803,12 +791,9 @@ void AnnotationsTool::clear_caption_overlays() {
 
     interact_start();
     for (auto &r : renderers_) {
-        r->set_current_edited_caption_bdb(
-            Imath::Box2f());
-        r->set_under_mouse_caption_bdb(
-            Imath::Box2f());
-        r->set_cursor_position(
-            Imath::V2f(), Imath::V2f());               
+        r->set_current_edited_caption_bdb(Imath::Box2f());
+        r->set_under_mouse_caption_bdb(Imath::Box2f());
+        r->set_cursor_position(Imath::V2f(), Imath::V2f());
     }
     interact_end();
 }

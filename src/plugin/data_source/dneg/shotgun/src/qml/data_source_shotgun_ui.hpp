@@ -295,6 +295,7 @@ namespace ui {
                 const int project_id,
                 const QVariant &query,
                 const bool update_result_model = false);
+
             QVariant mergeQueries(
                 const QVariant &dst,
                 const QVariant &src,

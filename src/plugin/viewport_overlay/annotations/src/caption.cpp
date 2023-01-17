@@ -18,8 +18,7 @@ Caption::Caption(
       colour_(colour),
       opacity_(opacity),
       justification_(justification),
-      font_name_(font_name)
-      {}
+      font_name_(font_name) {}
 
 void Caption::modify_text(const std::string &t, std::string::const_iterator &cursor) {
     if (t.size() != 1) {
@@ -33,11 +32,10 @@ void Caption::modify_text(const std::string &t, std::string::const_iterator &cur
 
     const char ascii_code = t.c_str()[0];
 
-    const int cpos = std::distance<std::string::const_iterator>(
-        text_.cbegin(), cursor);
+    const int cpos = std::distance<std::string::const_iterator>(text_.cbegin(), cursor);
 
     // N.B. - calling text_.begin() invalidates 'cursor' as the string data gets copied
-    // to writeable buffer (or something). Maybe the way I use a string iterator for 
+    // to writeable buffer (or something). Maybe the way I use a string iterator for
     // the caption cursor is bad.
     auto cr = text_.begin();
 

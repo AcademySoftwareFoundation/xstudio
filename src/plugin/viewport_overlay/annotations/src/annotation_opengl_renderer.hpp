@@ -30,11 +30,11 @@ namespace ui {
                 caption_hover_state_ = state;
             }
 
-            void set_under_mouse_caption_bdb(const Imath::Box2f & bdb) {
+            void set_under_mouse_caption_bdb(const Imath::Box2f &bdb) {
                 under_mouse_caption_bdb_ = bdb;
             }
 
-            void set_current_edited_caption_bdb(const Imath::Box2f & bdb) {
+            void set_current_edited_caption_bdb(const Imath::Box2f &bdb) {
                 current_caption_bdb_ = bdb;
             }
 
@@ -78,7 +78,7 @@ namespace ui {
             Imath::Box2f under_mouse_caption_bdb_, current_caption_bdb_;
             Imath::V2f cursor_position_[2];
             Caption::HoverState caption_hover_state_ = {Caption::NotHovered};
-            bool show_text_handles_ = {false};
+            bool show_text_handles_                  = {false};
             GLuint vertex_buffer_object_;
             GLuint vertex_array_object_;
             GLuint vertex_buffer_object2_;

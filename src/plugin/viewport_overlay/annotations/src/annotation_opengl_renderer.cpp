@@ -469,9 +469,9 @@ void AnnotationsRenderer::render_text_handles_to_screen(
 
         // now we draw the 'move' handle (a small box) to the top left
         // of the caption boundart
-        shader_params2["top_left"]     = current_caption_bdb_.min;
-        shader_params2["bottom_right"] = current_caption_bdb_.min -
-                                         Annotation::captionHandleSize * viewport_du_dx;
+        shader_params2["top_left"] = current_caption_bdb_.min;
+        shader_params2["bottom_right"] =
+            current_caption_bdb_.min - Annotation::captionHandleSize * viewport_du_dx;
         shader_params2["opacity"] =
             caption_hover_state_ == Caption::HoveredOnMoveHandle ? 0.6f : 0.3f;
         shader_params2["box_type"] = 2;
@@ -483,9 +483,9 @@ void AnnotationsRenderer::render_text_handles_to_screen(
 
         // now we draw the 'scale' handle (a small box) to the bottom right
         // of the caption boundary
-        shader_params2["top_left"]     = current_caption_bdb_.max;
-        shader_params2["bottom_right"] = current_caption_bdb_.max +
-                                         Annotation::captionHandleSize * viewport_du_dx;
+        shader_params2["top_left"] = current_caption_bdb_.max;
+        shader_params2["bottom_right"] =
+            current_caption_bdb_.max + Annotation::captionHandleSize * viewport_du_dx;
         shader_params2["opacity"] =
             caption_hover_state_ == Caption::HoveredOnResizeHandle ? 0.6f : 0.3f;
         shader_params2["box_type"] = 2;

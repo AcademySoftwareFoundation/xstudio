@@ -33,11 +33,12 @@ namespace ui {
             enum Roles { idRole = JSONTreeModel::Roles::LASTROLE, nameRole, typeRole };
 
             ShotgunSequenceModel(QObject *parent = nullptr) : JSONTreeModel(parent) {
-                setChildrenJsonPointer("/relationships/shots/data");
                 setRoleNames({"idRole", "nameRole", "typeRole"});
             }
             [[nodiscard]] QVariant
             data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+            static nlohmann::json flatToTree(const nlohmann::json &src);
         };
 
         class ShotgunTreeModel : public JSONTreeModel {

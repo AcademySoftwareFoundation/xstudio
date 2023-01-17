@@ -620,6 +620,9 @@ XsWindow { id: shotgunBrowser
             executeQueryFunc: shotgunBrowser.executeQueryFunc
             mergeQueriesFunc: shotgunBrowser.mergeQueriesFunc
 
+            pipelineStepFilterIndex: rightDiv.pipelineStepFilterIndex
+            onDiskFilterIndex: rightDiv.onDiskFilterIndex
+
             onUndo: data_source.undo()
             onRedo: data_source.redo()
             onSnapshotGlobals: {
