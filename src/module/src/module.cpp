@@ -292,9 +292,7 @@ caf::message_handler Module::message_handler() {
             }
         },
 
-        [=](utility::get_event_group_atom) -> caf::actor {
-            return attribute_events_group_;
-        },
+        [=](utility::get_event_group_atom) -> caf::actor { return attribute_events_group_; },
 
         [=](broadcast::join_broadcast_atom, caf::actor subscriber) -> result<bool> {
             try {

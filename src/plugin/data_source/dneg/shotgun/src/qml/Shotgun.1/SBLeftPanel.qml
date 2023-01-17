@@ -81,6 +81,12 @@ Rectangle{ id: leftDiv
     property var executeQueryFunc: null
     property var mergeQueriesFunc: null
 
+    // dynamic filters from right panel
+    property var pipelineStepFilterIndex: null
+    property var onDiskFilterIndex: null
+
+    property var lastQuery: null
+
     property alias presetsModel: presetsDiv.presetsModel
     property alias searchPresetsView: presetsDiv.searchPresetsView
     property alias presetsDiv: presetsDiv
@@ -273,9 +279,46 @@ Rectangle{ id: leftDiv
         height: 100
     }
 
+    onPipelineStepFilterIndexChanged: {
+        if(lastQuery) {
+            if(JSON.stringify(lastQuery) !== JSON.stringify(buildQuery())) {
+                executeQuery()
+            }
+        }
+    }
+
+    onOnDiskFilterIndexChanged: {
+        if(lastQuery) {
+            if(JSON.stringify(lastQuery) !== JSON.stringify(buildQuery())) {
+                executeQuery()
+            }
+        }
+    }
+
+    function buildQuery() {
+        let override  = []
+
+        if(pipelineStepFilterIndex != undefined && pipelineStepFilterIndex != -1) {
+            override.push({"term": "Pipeline Step",  "value": stepModel.get(pipelineStepFilterIndex, "nameRole"), "enabled": true})
+        }
+
+        if(onDiskFilterIndex != undefined && onDiskFilterIndex != -1) {
+             override.push({"term": "On Disk",  "value": onDiskModel.get(onDiskFilterIndex, "nameRole"), "enabled": true})
+        }
+
+        let query = mergeQueriesFunc(presetsModel.get(searchPresetsView.currentIndex, "jsonRole"), filterViewModel.get(0, "jsonRole"))
+
+        if(override.length) {
+            query = mergeQueriesFunc(query, {"queries":override})
+        }
+
+        return query
+    }
+
     function executeQueryReal() {
         if(currentCategory) {
-            let query = mergeQueriesFunc(presetsModel.get(searchPresetsView.currentIndex, "jsonRole"), filterViewModel.get(0, "jsonRole"))
+            let query = buildQuery()
+            lastQuery = query
 
             let preset_index = searchPresetsView.currentIndex
             busyQuery(preset_index, true)

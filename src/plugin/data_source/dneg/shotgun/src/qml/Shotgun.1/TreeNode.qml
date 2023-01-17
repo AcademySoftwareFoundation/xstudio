@@ -3,15 +3,18 @@ import QtQuick 2.12
 import QtQuick.Controls 2.14
 import QtGraphicalEffects 1.12
 import QtQuick.Layouts 1.3
+import QtQml.Models 2.14
 import xStudio 1.1
 
 
 Item {
     property alias model: treeModel.model
     property alias rootIndex: treeModel.rootIndex
+    property var selection: null
 
-    function createTreeNode(parent, myModel, myRootIndex) {
-        if (Qt.createComponent("TreeNode.qml").createObject(parent, {model: myModel, rootIndex: myRootIndex}) == null) {
+    function createTreeNode(parent, myModel, myRootIndex, myselection) {
+        console.log(myselection)
+        if (Qt.createComponent("TreeNode.qml").createObject(parent, {model: myModel, rootIndex: myRootIndex, selection:myselection}) == null) {
             console.log("Error creating object");
         }
     }
@@ -32,6 +35,9 @@ Item {
                 height: 20 * (hasModelChildren ? 5 : 1)
                 property bool expanded: false
                 property bool populated: false
+                property bool isSelected: selection.selectedIndexes.includes(treeModel.modelIndex(index, treeModel.rootIndex))
+
+
                 ColumnLayout {
                     anchors.fill: parent
                     RowLayout {
@@ -61,7 +67,7 @@ Item {
                                 if(!expanded) {
                                     expanded = true
                                     if(!populated) {
-                                        createTreeNode(children, treeModel.model, treeModel.modelIndex(index, treeModel.rootIndex))
+                                        createTreeNode(children, treeModel.model, treeModel.modelIndex(index, treeModel.rootIndex), selection)
                                         populated = true
                                     }
                                 } else {
@@ -74,6 +80,19 @@ Item {
                             text: display
                             Layout.fillHeight: false
                             Layout.fillWidth: false
+                        }
+                        XsButton {
+                            Layout.fillHeight: false
+                            Layout.fillWidth: false
+                            Layout.preferredWidth: parent.height
+                            Layout.preferredHeight: parent.height
+
+                            text: isSelected ? "S" : "s"
+                            borderColorNormal: Qt.lighter(palette.base, 0.3)
+
+                            onClicked: {
+                                selection.select(treeModel.modelIndex(index, treeModel.rootIndex), ItemSelectionModel.Toggle)
+                            }
                         }
                         XsButton {
                             Layout.fillHeight: false

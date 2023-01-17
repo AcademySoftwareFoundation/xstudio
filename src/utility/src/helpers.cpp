@@ -250,7 +250,7 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 
     if (abspath) {
         auto pwd = get_env("PWD");
-        if(pwd and not pwd->empty())
+        if (pwd and not pwd->empty())
             p = fs::path(fs::path(*pwd) / path).lexically_normal();
         else
             p = fs::path(std::filesystem::current_path() / path).lexically_normal();

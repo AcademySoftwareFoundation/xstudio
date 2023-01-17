@@ -182,7 +182,7 @@ namespace ui {
             void set_edited_caption_opacity(const float opac);
             void set_edit_caption_font_size(const float sz);
 
-            bool caption_cursor_position(Imath::V2f & top, Imath::V2f & bottom) const;
+            bool caption_cursor_position(Imath::V2f &top, Imath::V2f &bottom) const;
 
           private:
             bool no_fonts() const { return fonts_.empty(); }
@@ -208,7 +208,6 @@ namespace ui {
             std::vector<UndoRedoPtr> redo_stack_;
 
             std::string::const_iterator cursor_position_;
-
         };
 
         typedef std::shared_ptr<Annotation> AnnotationPtr;

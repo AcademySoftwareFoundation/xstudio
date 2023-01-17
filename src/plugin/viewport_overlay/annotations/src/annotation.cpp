@@ -51,14 +51,15 @@ bool Annotation::test_click_in_caption(const Imath::V2f pointer_position) {
             caption->bounding_box_.max.y < pointer_position.y)
             continue;
 
-        const std::string::const_iterator cursor_pos = font(caption)->viewport_position_to_cursor(
-            pointer_position,
-            caption->text_,
-            caption->position_,
-            caption->wrap_width_,
-            caption->font_size_,
-            caption->justification_,
-            1.0f);
+        const std::string::const_iterator cursor_pos =
+            font(caption)->viewport_position_to_cursor(
+                pointer_position,
+                caption->text_,
+                caption->position_,
+                caption->wrap_width_,
+                caption->font_size_,
+                caption->justification_,
+                1.0f);
 
         current_caption_ = caption;
         cursor_position_ = cursor_pos;
@@ -77,8 +78,8 @@ void Annotation::start_new_caption(
     const Justification justification,
     const std::string &font_name) {
     finished_current_stroke();
-    current_caption_.reset(
-        new Caption(position, wrap_width, font_size, colour, opacity, justification, font_name));
+    current_caption_.reset(new Caption(
+        position, wrap_width, font_size, colour, opacity, justification, font_name));
     captions_.push_back(current_caption_);
 }
 
@@ -97,26 +98,26 @@ void Annotation::key_down(const int key) {
         if (key == 16777235) {
             // up arrow
             cursor_position_ = font(current_caption_)
-                              ->cursor_up_or_down(
-                                  cursor_position_,
-                                  true,
-                                  current_caption_->text_,
-                                  current_caption_->wrap_width_,
-                                  current_caption_->font_size_,
-                                  current_caption_->justification_,
-                                  1.0f);
+                                   ->cursor_up_or_down(
+                                       cursor_position_,
+                                       true,
+                                       current_caption_->text_,
+                                       current_caption_->wrap_width_,
+                                       current_caption_->font_size_,
+                                       current_caption_->justification_,
+                                       1.0f);
 
         } else if (key == 16777237) {
             // down arrow
             cursor_position_ = font(current_caption_)
-                              ->cursor_up_or_down(
-                                  cursor_position_,
-                                  false,
-                                  current_caption_->text_,
-                                  current_caption_->wrap_width_,
-                                  current_caption_->font_size_,
-                                  current_caption_->justification_,
-                                  1.0f);
+                                   ->cursor_up_or_down(
+                                       cursor_position_,
+                                       false,
+                                       current_caption_->text_,
+                                       current_caption_->wrap_width_,
+                                       current_caption_->font_size_,
+                                       current_caption_->justification_,
+                                       1.0f);
 
         } else if (key == 16777236) {
             // right arrow
@@ -171,7 +172,7 @@ Caption::HoverState Annotation::mouse_hover_on_selected_caption(
 
         if (handle_extent.intersects(
                 cp)) { //}.x > 0.0f && cp.x < captionHandleSize.x*viewport_pixel_scale && cp.y >
-                       //0.0f && cp.y < captionHandleSize.y/viewport_pixel_scale) {
+                       // 0.0f && cp.y < captionHandleSize.y/viewport_pixel_scale) {
             result = Caption::HoveredOnMoveHandle;
         } else {
             cp = cursor_position - current_caption_->bounding_box_.max;
@@ -180,7 +181,7 @@ Caption::HoverState Annotation::mouse_hover_on_selected_caption(
             }
         }
     }
-        
+
     return result;
 }
 
@@ -261,7 +262,6 @@ void Annotation::update_render_data() {
             render_data_.caption_info_.back().text_size = caption->font_size_;
             render_data_.caption_info_.back().font_name = caption->font_name_;
         }
-
     }
 
     if (current_stroke_) {
@@ -396,23 +396,22 @@ void Annotation::set_edit_caption_font_size(const float sz) {
     update_render_data();
 }
 
-bool Annotation::caption_cursor_position(Imath::V2f & top, Imath::V2f & bottom) const {
+bool Annotation::caption_cursor_position(Imath::V2f &top, Imath::V2f &bottom) const {
 
     if (current_caption_) {
 
         Imath::V2f v = font(current_caption_)
-                            ->get_cursor_screen_position(
-                                current_caption_->text_,
-                                current_caption_->position_,
-                                current_caption_->wrap_width_,
-                                current_caption_->font_size_,
-                                current_caption_->justification_,
-                                1.0f,
-                                cursor_position_);
+                           ->get_cursor_screen_position(
+                               current_caption_->text_,
+                               current_caption_->position_,
+                               current_caption_->wrap_width_,
+                               current_caption_->font_size_,
+                               current_caption_->justification_,
+                               1.0f,
+                               cursor_position_);
 
-        top = v;
-        bottom =
-            v - Imath::V2f(0.0f, current_caption_->font_size_ * 2.0f / 1920.0f);
+        top    = v;
+        bottom = v - Imath::V2f(0.0f, current_caption_->font_size_ * 2.0f / 1920.0f);
         return true;
     }
     return false;

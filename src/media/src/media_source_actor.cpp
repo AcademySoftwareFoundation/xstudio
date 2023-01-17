@@ -249,26 +249,6 @@ void MediaSourceActor::acquire_detail(
                             base_.media_reference().set_timecode_from_frames();
                         }
 
-                        // we chomp the first frame if internal movie..
-                        // why do we come here multiple times ??
-                        if (not base_.media_reference().frame_list().start() and
-                            base_.media_reference().container()) {
-                            auto path = to_string(base_.media_reference().uri().path());
-
-                            if (ends_with(path, ".dneg.mov") ||
-                                starts_with(base_.name(), "movie")) {
-                                // get frame list.
-                                auto fr = base_.media_reference().frame_list();
-                                if (fr.pop_front()) {
-                                    base_.media_reference().set_frame_list(fr);
-                                    base_.media_reference().set_timecode(
-                                        base_.media_reference().timecode() + 1);
-                                }
-                            } else {
-                                // spdlog::warn("not match {} {}", path, base_.name());
-                            }
-                        }
-
                         base_.send_changed(event_group_, this);
                         send(event_group_, utility::event_atom_v, change_atom_v);
 

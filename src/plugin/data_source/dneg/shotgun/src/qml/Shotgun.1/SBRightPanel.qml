@@ -29,6 +29,9 @@ Rectangle{ id: rightDiv
 
     property alias selectionModel: selectionModel
 
+    // dynamic filters
+    property alias pipelineStepFilterIndex: filterStepBox.currentIndex
+    property alias onDiskFilterIndex: filterOnDiskBox.currentIndex
 
     color: "transparent"
     signal createPreset(query: string, value: string)

@@ -17,6 +17,111 @@ using namespace xstudio::ui::qml;
 using namespace std::chrono_literals;
 using namespace xstudio::global_store;
 
+nlohmann::json ShotgunSequenceModel::flatToTree(const nlohmann::json &src) {
+    // manipulate data into tree structure.
+    auto result = R"([])"_json;
+    std::map<size_t, nlohmann::json::json_pointer> seqs;
+
+    try {
+
+        if(src.is_array()) {
+            auto done = false;
+            auto changed = false;
+
+            while(not done) {
+                changed = false;
+                done = true;
+
+                for(auto seq : src) {
+                    auto id = seq.at("id").get<int>();
+                    // already logged ?
+                    if(not seqs.count(id)) {
+                        auto parent_id = seq["relationships"]["sg_parent"]["data"]["id"].get<int>();
+                        // no parent
+                        if(parent_id == id) {
+                            auto &shots = seq["relationships"]["shots"]["data"];
+                            if(shots.is_array())
+                                seq["children"] = seq["relationships"]["shots"]["data"];
+                            else
+                                seq["children"] = R"([])"_json;
+
+                            seq["parent_id"] = seq["relationships"]["sg_parent"]["data"]["id"];
+                            seq["relationships"].erase("shots");
+                            seq["relationships"].erase("sg_parent");
+                            result.emplace_back(seq);
+                            seqs.emplace(std::make_pair(id, nlohmann::json::json_pointer(std::string("/")+std::to_string(result.size()-1))));
+                            changed = true;
+                        } else if(seqs.count(parent_id)) {
+                            // parent exists
+                            auto parent_pointer = seqs[parent_id];
+
+                            auto &shots = seq["relationships"]["shots"]["data"];
+                            if(shots.is_array())
+                                seq["children"] = seq["relationships"]["shots"]["data"];
+                            else
+                                seq["children"] = R"([])"_json;
+
+                            seq["parent_id"] = seq["relationships"]["sg_parent"]["data"]["id"];
+                            seq["relationships"].erase("shots");
+                            seq["relationships"].erase("sg_parent");
+
+                            result[parent_pointer]["children"].emplace_back(seq);
+                            // spdlog::warn("{}", result[parent_pointer].dump(2));
+
+                            seqs.emplace(
+                                std::make_pair(
+                                    id,
+                                    parent_pointer / nlohmann::json::json_pointer(
+                                        std::string("/") + std::to_string(result[parent_pointer]["children"].size()-1)
+                                    )
+                                )
+                            );
+                            changed = true;
+                        } else {
+                            done = false;
+                        }
+                    }
+                }
+
+                if(not changed)
+                    done = true;
+
+                if(done) {
+                    auto count = 0;
+                    // unresolved..
+                    for(auto unseq : src) {
+                        auto id = unseq.at("id").get<int>();
+                        // already logged ?
+                        if(not seqs.count(id)) {
+                            auto parent_id = unseq["relationships"]["sg_parent"]["data"]["id"].get<int>();
+                            // no parent
+                            auto &shots = unseq["relationships"]["shots"]["data"];
+                            if(shots.is_array())
+                                unseq["children"] = unseq["relationships"]["shots"]["data"];
+                            else
+                                unseq["children"] = R"([])"_json;
+
+                            unseq["parent_id"] = unseq["relationships"]["sg_parent"]["data"]["id"];
+                            unseq["relationships"].erase("shots");
+                            unseq["relationships"].erase("sg_parent");
+                            result.emplace_back(unseq);
+                            seqs.emplace(std::make_pair(id, nlohmann::json::json_pointer(std::string("/")+std::to_string(result.size()-1))));
+                            count ++;
+                        }
+                    }
+                    if(count)
+                        spdlog::warn("{} unresolved sequences.", count);
+                }
+            }
+        }
+    } catch(...) {
+    }
+
+    // spdlog::warn("{}", result.dump(2));
+
+    return result;
+}
+
 
 QVariant ShotgunSequenceModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
