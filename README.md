@@ -501,3 +501,6 @@ Install 5.15 dev tools, using Qt5 online installer, requires login account (free
     export PYTHONPATH=./bin/python/lib/python3.10/site-packages:/home/xstudio/.local/lib/python3.10/site-packages:
 
     ./bin/xstudio.bin
+
+
+fff
