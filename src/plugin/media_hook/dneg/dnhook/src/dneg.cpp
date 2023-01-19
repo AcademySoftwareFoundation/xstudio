@@ -138,6 +138,35 @@ class DNegMediaHook : public MediaHook {
                 }
             }
         }
+        // we chomp the first frame if internal movie..
+        // why do we come here multiple times ??
+        if (not result.frame_list().start() and result.container()) {
+            auto path = to_string(result.uri().path());
+
+            if (ends_with(path, ".dneg.mov")) {
+                // check metadata..
+                int slate_frames = 1;
+
+                //"comment": "\nsource frame range: 1001-1101\nsource image:
+                // aspect 1.85004516712 crop: l 0.0 r 0.0 b 0.0 t 0.0 slateFrames: 0",
+                try {
+                    auto comment = jsn.at("metadata")
+                                       .at("media")
+                                       .at("@")
+                                       .at("format")
+                                       .at("tags")
+                                       .at("comment")
+                                       .get<std::string>();
+                    // regex..
+                    static const std::regex slate_match(R"(.*slateFrames: (\d+).*)");
+
+                    std::smatch m;
+                    if (std::regex_search(comment, m, slate_match)) {
+                        slate_frames = std::atoi(m[1].str().c_str());
+                    }
+
+                } catch (...) {
+                }
 
         if(not changed)
             return {};
