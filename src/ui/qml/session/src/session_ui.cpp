@@ -1625,7 +1625,11 @@ void SessionUI::switchOnScreenSource(const QUuid &uuid, const bool broadcast) {
             for (auto i : items_) {
                 if (auto item = dynamic_cast<PlaylistUI *>(i)) {
                     playlist_ = item;
-                    anon_send(backend_, session::current_playlist_atom_v, playlist_->backend(), broadcast);
+                    anon_send(
+                        backend_,
+                        session::current_playlist_atom_v,
+                        playlist_->backend(),
+                        broadcast);
                     on_screen_source_ = playlist_;
                     emit playlistChanged();
                     setSelection(QVariantList({QVariant(item->qcuuid())}), true);
@@ -1643,7 +1647,11 @@ void SessionUI::switchOnScreenSource(const QUuid &uuid, const bool broadcast) {
             if (auto item = dynamic_cast<PlaylistUI *>(i)) {
                 if (item->quuid() == uuid || item->qcuuid() == uuid) {
                     playlist_ = item;
-                    anon_send(backend_, session::current_playlist_atom_v, playlist_->backend(), broadcast);
+                    anon_send(
+                        backend_,
+                        session::current_playlist_atom_v,
+                        playlist_->backend(),
+                        broadcast);
                     on_screen_source_ = playlist_;
                     emit playlistChanged();
                     break;

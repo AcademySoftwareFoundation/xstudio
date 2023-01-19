@@ -809,7 +809,10 @@ void PlayheadActor::init() {
         [=](ui::viewport::viewport_playhead_atom) {
             auto main_vp = system().registry().template get<caf::actor>(main_viewport_registry);
             if (main_vp) {
-                anon_send(main_vp, ui::viewport::viewport_playhead_atom_v, caf::actor_cast<caf::actor>(this));
+                anon_send(
+                    main_vp,
+                    ui::viewport::viewport_playhead_atom_v,
+                    caf::actor_cast<caf::actor>(this));
             }
         },
 

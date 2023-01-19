@@ -1246,7 +1246,11 @@ caf::message_handler SessionActor::message_handler() {
             current_playlist_ = actor_cast<caf::actor_addr>(actor);
 
             if (broadcast) {
-                send(event_group_, utility::event_atom_v, session::current_playlist_atom_v, actor);
+                send(
+                    event_group_,
+                    utility::event_atom_v,
+                    session::current_playlist_atom_v,
+                    actor);
             }
         },
 

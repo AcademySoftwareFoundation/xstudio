@@ -21,7 +21,7 @@ Item { id: widget
 
     x: frameWidth + framePadding
     // y: frameWidth //+ framePadding
-    width: parent.width - x*2
+    width: parent.width - x
     height: parent.height - y*2
 
     function createTreeNode(parent, myModel, myRootIndex, mySelectionModel, myExpandedModel) {
@@ -58,7 +58,7 @@ Item { id: widget
         interactive: true
         currentIndex: -1
     
-        ScrollBar.vertical: XsScrollBar {id: scrollBar; visible: scrollBarVisibility && treeView.height < treeView.contentHeight}
+        ScrollBar.vertical: XsScrollBar {id: scrollBar; x:width; visible: scrollBarVisibility && treeView.height < treeView.contentHeight}
         
         DelegateModel { id: treeModel
 
@@ -112,10 +112,8 @@ Item { id: widget
                 property bool isSelected: selectionModel.selectedIndexes.includes(treeModel.modelIndex(index, treeModel.rootIndex, selectionModel))
                 property int childCount: treeModel.rowCount(treeModel.modelIndex(index)) //treeModel.rowCount(treeModel.modelIndex(index, treeModel.rootIndex))
                 
-
                 property bool isParent: typeRole=="Sequence" && childCount>0 && model.hasModelChildren
                 property bool isMouseHovered: containsMouse
-                
                 property real treeItemHeight: itemHeight/1.25
                 hoverEnabled: true
                 // acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -223,6 +221,48 @@ Item { id: widget
                             visible: !(treeView.isEditable && treeView.menuActionIndex == index)
                         }
             
+                        XsButton{id: favButton
+                        
+                            text: ""
+                            imgSrc: isFavorited? "qrc:/icons/star-filled.svg":"qrc:/feather_icons/star.svg"
+                            visible: typeRole=="Shot" && (isMouseHovered || isFavorited)
+                            width: height
+                            height: parent.height - frameWidth*2
+                            image.sourceSize.width: height/1.2
+                            image.sourceSize.height: height/1.2
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right
+                            anchors.rightMargin: itemSpacing*4
+                            // isActive: isFavorited
+                            property bool isFavorited: false
+                            // layer {
+                            //     enabled: true
+                            //     effect:
+                            //     ColorOverlay {
+                            //         color: isMouseHovered? textColorNormal : isSelected? itemColorActive : "#404040"
+                            //     }
+                            // }
+                        
+                            onClicked: {
+                                isFavorited= !isFavorited
+                            }
+                        }
+                        XsButton{id: pinButton
+                        
+                            text: ""
+                            imgSrc: "qrc:/icons/pin.png"
+                            visible: typeRole=="Shot" && isMouseHovered
+                            width: height
+                            height: parent.height - frameWidth*2
+                            image.sourceSize.width: height/1.2
+                            image.sourceSize.height: height/1.2
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: favButton.left
+                            anchors.rightMargin: itemSpacing
+                        
+                            onClicked: {
+                            }
+                        }
                     }
 
                     Item { id: childView
@@ -232,6 +272,7 @@ Item { id: widget
                         Layout.minimumWidth: parent.width
                         Layout.fillHeight: true
                         Layout.minimumHeight: isExpanded? treeItemHeight*childCount : 0 //#TODO: Handle height when levels>2
+
                         // Rectangle{anchors.fill: parent; color:"blue"; opacity: index==2?0.1:0.4; border.color:"yellow"}
 
                     }

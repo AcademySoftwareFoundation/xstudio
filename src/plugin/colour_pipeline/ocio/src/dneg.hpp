@@ -129,8 +129,9 @@ std::string dneg_ocio_default_display(
     and 1D LUT).
     */
 
-    else if (hostname_lower.find("playback") != std::string::npos
-        && check_displays(CONST_DISPLAY["playback"])) {
+    else if (
+        hostname_lower.find("playback") != std::string::npos &&
+        check_displays(CONST_DISPLAY["playback"])) {
         display = CONST_DISPLAY["playback"];
     }
 

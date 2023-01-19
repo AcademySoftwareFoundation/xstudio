@@ -82,7 +82,9 @@ void py_config::add_messages() {
     add_message_type<std::vector<media::MediaKey>>(
         "MediaKeyVec", "std::vector<xstudio::media::MediaKey>", nullptr);
     add_message_type<std::pair<utility::Uuid, utility::UuidActor>>(
-        "UuidUuidActor", "std::pair<xstudio::utility::Uuid, xstudio::utility::UuidActor>", nullptr);
+        "UuidUuidActor",
+        "std::pair<xstudio::utility::Uuid, xstudio::utility::UuidActor>",
+        nullptr);
     add_message_type<std::tuple<int, double, utility::Timecode>>(
         "std::tuple<int, double, Timecode>", "std::tuple<int, double, Timecode>", nullptr);
     add_message_type<std::vector<utility::MediaReference>>(
