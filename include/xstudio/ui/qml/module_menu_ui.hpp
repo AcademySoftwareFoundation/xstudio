@@ -14,53 +14,6 @@ CAF_POP_WARNINGS
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/module/module.hpp"
 
-/**
- *  @brief ModuleMenusModel class.
- *
- *  @details
- *   This class defines a custom type in QML called 'XsModuleMenu'. The type can be used to
- *   expose in QML any backend 'attributes' belonging to a Module that include data for the
- *   'MenuPath' role. The MenuPath role data is one or more strings containing sub strings
- *   delimitied  by a | (pipe) symbol, and these strings define the 'path' to the menu item
- *   that will expose the attribute state in the UI.
- *
- *   For example, let's say you have a multi choice attribute in your module created as follows:
- *
-          channel_ = add_string_choice_attribute(
-              "Channel",
-              "Chan",
-              "RGB",
-              {"RGB","Red","Green","Blue","Alpha","Luminance"},
-              {"RGB","R","G","B","A","L"}
-          );
-          channel_->set_role_data(
-              module::Attribute::MenuPaths,
-              std::vector<std::string>({"my_dynamic_menu|Colour|Channel"})
-          );
- *
- *   This means we can add a 'Colour' sub-menu to any QML Menu in the front end, with a
- 'Channel'
- *   menu under the 'Colour' menu and then under the 'Channel' menu there will be 5 checkable
- *   menu items labelled 'Red', 'Green', 'Blue', 'Alpha', 'Luminance' and from there the user
- *   can set the value of your 'channel_' property in the back end Module.
- *
- *   To create the Menu in QML you will need this:
- *
-      Menu {
-
-        id: myMenu
-        title: "My Module Menu"
-
-        XsModuleMenuBuilder {
-          parent_menu: myMenu
-          root_menu_name: "my_dynamic_menu"
-        }
-      }
- *
- *
- *   Note that menus are built dymically, so runtime changes to the 'MenuPaths' role data on
- *   an attribute will be reflected in the UI
- */
 
 namespace xstudio {
 namespace ui {

@@ -3,7 +3,7 @@ from xstudio.core import get_playlists_atom, get_playlist_atom, add_playlist_ato
 from xstudio.core import get_container_atom, create_group_atom, remove_container_atom, path_atom, get_media_atom
 from xstudio.core import rename_container_atom, create_divider_atom, media_rate_atom, playhead_rate_atom
 from xstudio.core import reflag_container_atom, merge_playlist_atom, copy_container_to_atom
-from xstudio.core import get_bookmark_atom, save_atom
+from xstudio.core import get_bookmark_atom, save_atom, current_playlist_atom
 from xstudio.core import URI, Uuid, UuidVec
 
 from xstudio.api.session.container import Container, PlaylistTree, PlaylistItem
@@ -209,6 +209,18 @@ class Session(Container):
 
         result = self.connection.request_receive(self.remote, get_container_atom(), src)[0]
         return PlaylistTree(self.connection, self.remote, result)
+
+    def set_on_screen_source(self, src):
+        """Set the onscreen source.
+
+        Args:
+            src(Container): Playlist, Subset, ContactSheet, Timeline
+        """
+        self.connection.send(
+            self.remote,
+            current_playlist_atom(),
+            src.uuid_actor().actor
+            )
 
     @property
     def playlist_tree(self):

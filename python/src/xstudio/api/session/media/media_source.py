@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_media_stream_atom, current_media_stream_atom, MediaType, media_reference_atom
-from xstudio.core import media_status_atom
+from xstudio.core import media_status_atom, get_json_atom, set_json_atom, JsonStore
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_stream import MediaStream
+
+import json
 
 class MediaSource(Container):
     """MediaSource object."""
@@ -113,6 +115,29 @@ class MediaSource(Container):
             self.connection.request_receive(self.remote, media_reference_atom(), mr)
         except RuntimeError:
             pass
+
+    @property
+    def metadata(self):
+        """Get media metadata.
+
+        Returns:
+            metadata(json): Media metadata.
+        """
+        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), "")[0].dump())
+
+
+    @metadata.setter
+    def metadata(self, new_metadata):
+        """Set media reference rate.
+
+        Args:
+            new_metadata(json): Json dict to set as media source metadata
+
+        Returns:
+            bool: success
+
+        """
+        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(new_metadata))
 
     @property
     def image_stream(self):

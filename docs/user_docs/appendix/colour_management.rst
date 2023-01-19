@@ -1,0 +1,55 @@
+#################################
+Colour Management
+#################################
+
+xSTUDIO features colour management thanks to integration with the `OpenColorIO (OCIO) <https://opencolorio.org/>`_ framework. With the appropriate configuration files in place it can be ensured that that the colour profile of your display device (monitor, projector etc) is combined correctly with the media source colour space such that the final image is represented correctly. Artistic look modifications such as grading values or a film emulation LUT can also be incorporated before pixels hit the screen. xSTUDIO takes advantage of the latest V2 features of OCIO to compute colour space transforms and apply LUTs on your graphics card for guranteed accuracy and high performance.
+
+.. note::
+    If advanced colour management is not necessary: xSTUDIO works out-of-the-box without OCIO features enabled. You will see the ‘Display’ toolbar button shows ‘sRGB’ and the ‘View’ toolbar button shows ‘Raw’ - this means that colour values from video sources are displayed on-screen ‘as-is’ with no colour transformation applied to the RGB values before the pixels hit your monitor.
+
+The following guide applies if you do have a valid OCIO configuration in place:
+
+    - **Toolbar ‘Display’ options:** Use this toolbar button to choose the appropriate display device from the list to match your given display hardware. Your selection is saved to your local preferences files and will persist between sessions.
+    - **Toolbar ‘View’ options** - Use this toolbar button to select the combined View and Look 
+
+To override the colourspace of the on-screen media you can use the ‘Set source colourspace’ menu option under the Colour menu in the main menu bar. The options that are available will depend on your particular OCIO configuration.
+
+
+OCIO Configuration (For Developers)
+-----------------------------------
+
+To take advantage of these features you will need the required OCIO configuration file and associated LUT data files to be present on your filesystem. For most VFX studios and other post production facilities the configuration of OCIO data is managed by specialist individuals or teams and we take it as read that such technical expertise is on hand. See `the ocio website <https://opencolorio.org/>`_ for full details.
+
+.. note::
+    The OCIO integration with xSTUDIO is implemented as a plugin. This was done so that any studios wishing to add their own OCIO implementation, or some other colour management system, can do so. The OCIO plugin code shipped with xSTUDIO can act as a reference implementation in this case. 
+
+As per the convention xSTUDIO will load the config file from a path stored in the **$OCIO environment variable**. You can override this *per media source* by setting a special metadata value on the media using either the python API or implementing a 'media hook' C++ plugin to add the necessary metadata. Essentially, the 'media hook' plugin provides a callback function that is executed whenever xSTUDIO loads new media. The function returns a json dictionary that is merged into the new media item's metadata. This is one mechanism (among several) that allows the addition of custom metadata to media on creation. 
+
+As part of this custom metadata you can add an 'colour_pipeline' dictionary which will include string key/value pairs that the OCIO plugin will look for. xSTUDIO's OCIO plugin uses these key/value pairs to initiate the context object in the OCIO processors, as well as which OCIO config file to load and apply. So if, for example, your OCIO config is set-up to use file path matching rules to find grading data using the SHOT key, you would set the SHOT value in the media hook plugin. Please refer to the 'dneg.cpp' file in the xSTUDIO source code tree to see DNEG's own implementation for reference.
+
+You can also set an 'ocio_config' value in the media metadata to bypass the OCIO envorinment variable and instead set the OCIO config per source.
+
+.. code-block:: python
+    :caption: Example showing how to set OCIO config and context overrides on all media sources in a session
+
+    from xstudio.connection import Connection
+
+    XSTUDIO = Connection(auto_connect=True)
+    playlists = XSTUDIO.api.session.playlists
+
+    colour_management_metadata = {
+        'input_display': 'Rec709',
+        'input_view': 'Film',
+        'ocio_config': '/home/colour_data/config.ocio',
+        'ocio_context': {
+            'SHOT': 'shot_001',
+            }
+        }
+
+    for playlist in playlists:
+
+        media = playlist.media
+        for m in media:
+            metadata = m.media_source().metadata
+            metadata['colour_pipeline'] = colour_management_metadata
+            m.media_source().metadata = metadata

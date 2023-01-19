@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import play_atom, loop_atom, compare_mode_atom, play_forward_atom
 from xstudio.core import logical_frame_atom, play_rate_mode_atom, source_atom
+from xstudio.core import viewport_playhead_atom
 from xstudio.core import JsonStore, change_attribute_value_atom, jump_atom
 
 from xstudio.api.session import Container
@@ -20,6 +21,11 @@ class Playhead(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+
+    def show_in_viewport(self):
+        """Connect this playhead to the viewport.
+        """
+        self.connection.send(self.remote, viewport_playhead_atom())
 
     @property
     def playing(self):
@@ -134,7 +140,7 @@ class Playhead(Container):
         Returns:
             source(PlayheadSelection): Currently playing this.
         """
-        result =  self.connection.request_receive(self.remote, source_atom())[0]
+        result = self.connection.request_receive(self.remote, selection_actor_atom())
         return PlayheadSelection(self.connection, result.actor, result.uuid)
 
     @source.setter

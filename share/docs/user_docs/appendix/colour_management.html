@@ -1,0 +1,280 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Colour Management &mdash; xStudio 0.9.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Release Notes" href="../release_notes/index.html" />
+    <link rel="prev" title="Python Scripting Introduction" href="python_scripting.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.9.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../playback.html">Video Playback</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notes.html">Notes and Annotations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../preferences.html">Preferences</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Appendix</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="python_scripting.html">Python Scripting Introduction</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Colour Management</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#ocio-configuration-for-developers">OCIO Configuration (For Developers)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">xSTUDIO User Guide</a> &raquo;</li>
+        
+          <li><a href="index.html">Appendix</a> &raquo;</li>
+        
+      <li>Colour Management</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/user_docs/appendix/colour_management.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="colour-management">
+<h1>Colour Management<a class="headerlink" href="#colour-management" title="Permalink to this headline">¶</a></h1>
+<p>xSTUDIO features colour management thanks to integration with the <a class="reference external" href="https://opencolorio.org/">OpenColorIO (OCIO)</a> framework. With the appropriate configuration files in place it can be ensured that that the colour profile of your display device (monitor, projector etc) is combined correctly with the media source colour space such that the final image is represented correctly. Artistic look modifications such as grading values or a film emulation LUT can also be incorporated before pixels hit the screen. xSTUDIO takes advantage of the latest V2 features of OCIO to compute colour space transforms and apply LUTs on your graphics card for guranteed accuracy and high performance.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If advanced colour management is not necessary: xSTUDIO works out-of-the-box without OCIO features enabled. You will see the ‘Display’ toolbar button shows ‘sRGB’ and the ‘View’ toolbar button shows ‘Raw’ - this means that colour values from video sources are displayed on-screen ‘as-is’ with no colour transformation applied to the RGB values before the pixels hit your monitor.</p>
+</div>
+<p>The following guide applies if you do have a valid OCIO configuration in place:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>Toolbar ‘Display’ options:</strong> Use this toolbar button to choose the appropriate display device from the list to match your given display hardware. Your selection is saved to your local preferences files and will persist between sessions.</p></li>
+<li><p><strong>Toolbar ‘View’ options</strong> - Use this toolbar button to select the combined View and Look</p></li>
+</ul>
+</div></blockquote>
+<p>To override the colourspace of the on-screen media you can use the ‘Set source colourspace’ menu option under the Colour menu in the main menu bar. The options that are available will depend on your particular OCIO configuration.</p>
+<div class="section" id="ocio-configuration-for-developers">
+<h2>OCIO Configuration (For Developers)<a class="headerlink" href="#ocio-configuration-for-developers" title="Permalink to this headline">¶</a></h2>
+<p>To take advantage of these features you will need the required OCIO configuration file and associated LUT data files to be present on your filesystem. For most VFX studios and other post production facilities the configuration of OCIO data is managed by specialist individuals or teams and we take it as read that such technical expertise is on hand. See <a class="reference external" href="https://opencolorio.org/">the ocio website</a> for full details.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The OCIO integration with xSTUDIO is implemented as a plugin. This was done so that any studios wishing to add their own OCIO implementation, or some other colour management system, can do so. The OCIO plugin code shipped with xSTUDIO can act as a reference implementation in this case.</p>
+</div>
+<p>As per the convention xSTUDIO will load the config file from a path stored in the <strong>$OCIO environment variable</strong>. You can override this <em>per media source</em> by setting a special metadata value on the media using either the python API or implementing a ‘media hook’ C++ plugin to add the necessary metadata. Essentially, the ‘media hook’ plugin provides a callback function that is executed whenever xSTUDIO loads new media. The function returns a json dictionary that is merged into the new media item’s metadata. This is one mechanism (among several) that allows the addition of custom metadata to media on creation.</p>
+<p>As part of this custom metadata you can add an ‘colour_pipeline’ dictionary which will include string key/value pairs that the OCIO plugin will look for. xSTUDIO’s OCIO plugin uses these key/value pairs to initiate the context object in the OCIO processors, as well as which OCIO config file to load and apply. So if, for example, your OCIO config is set-up to use file path matching rules to find grading data using the SHOT key, you would set the SHOT value in the media hook plugin. Please refer to the ‘dneg.cpp’ file in the xSTUDIO source code tree to see DNEG’s own implementation for reference.</p>
+<p>You can also set an ‘ocio_config’ value in the media metadata to bypass the OCIO envorinment variable and instead set the OCIO config per source.</p>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">Example showing how to set OCIO config and context overrides on all media sources in a session</span><a class="headerlink" href="#id1" title="Permalink to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
+
+<span class="n">XSTUDIO</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">auto_connect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">playlists</span> <span class="o">=</span> <span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">playlists</span>
+
+<span class="n">colour_management_metadata</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;input_display&#39;</span><span class="p">:</span> <span class="s1">&#39;Rec709&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;input_view&#39;</span><span class="p">:</span> <span class="s1">&#39;Film&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ocio_config&#39;</span><span class="p">:</span> <span class="s1">&#39;/home/colour_data/config.ocio&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ocio_context&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;SHOT&#39;</span><span class="p">:</span> <span class="s1">&#39;shot_001&#39;</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+<span class="k">for</span> <span class="n">playlist</span> <span class="ow">in</span> <span class="n">playlists</span><span class="p">:</span>
+
+    <span class="n">media</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">media</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">media</span><span class="p">:</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">media_source</span><span class="p">()</span><span class="o">.</span><span class="n">metadata</span>
+        <span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;colour_pipeline&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">colour_management_metadata</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">media_source</span><span class="p">()</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../release_notes/index.html" class="btn btn-neutral float-right" title="Release Notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="python_scripting.html" class="btn btn-neutral float-left" title="Python Scripting Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2023, DNEG
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

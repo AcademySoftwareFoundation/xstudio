@@ -806,6 +806,13 @@ void PlayheadActor::init() {
             new_source_list(source_list);
         },
 
+        [=](ui::viewport::viewport_playhead_atom) {
+            auto main_vp = system().registry().template get<caf::actor>(main_viewport_registry);
+            if (main_vp) {
+                anon_send(main_vp, ui::viewport::viewport_playhead_atom_v, caf::actor_cast<caf::actor>(this));
+            }
+        },
+
         [=](source_atom, const std::vector<caf::actor> &source_list) -> result<bool> {
             auto rp = make_response_promise<bool>();
 

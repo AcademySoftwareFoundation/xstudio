@@ -608,7 +608,7 @@ XsWindow {
 
                                 anchors.fill: parent
                                 anchors.margins: 1
-                                bgColorNormal: colourRole ? Qt.tint(XsStyle.mainBackground, "#20" + colourRole.substring(3)) :"transparent"
+                                bgColorNormal: popupOptions.opened? palette.base : colourRole ? Qt.tint(XsStyle.mainBackground, "#20" + colourRole.substring(3)) :"transparent"
                                 // color: XsStyle.highlightColor
                                 model: session.bookmarks.categories
                                 textRole: "text"

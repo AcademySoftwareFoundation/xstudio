@@ -230,23 +230,6 @@ void OCIOColourPipeline::update_shader_uniforms(
             spdlog::warn("OCIOColourPipeline: Failed to update shader uniforms: {}", e.what());
         }
     }
-
-    static std::map<utility::Uuid, utility::JsonStore> grr;
-    static std::mutex m;
-
-    m.lock();
-    {
-        if (grr.find(source_uuid) == grr.end()) {
-            grr[source_uuid] = pipe_data.shader_parameters_;
-        }
-
-        if (grr[source_uuid] != pipe_data.shader_parameters_) {
-            // std::cerr << "changed " << to_string(source_uuid) << " " <<
-            // pipe_data.shader_parameters_.dump() << "\n" << grr[source_uuid] << "\n";
-        }
-        grr[source_uuid] = pipe_data.shader_parameters_;
-    }
-    m.unlock();
 }
 
 thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(

@@ -114,6 +114,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::playlist, remove_media_atom);
     ADD_ATOM(xstudio::playlist, remove_orphans_atom);
     ADD_ATOM(xstudio::playlist, rename_container_atom);
+    ADD_ATOM(xstudio::playlist, selection_actor_atom);
     ADD_ATOM(xstudio::playlist, select_all_media_atom);
     ADD_ATOM(xstudio::playlist, select_media_atom);
     ADD_ATOM(xstudio::playlist, set_playlist_in_viewer_atom);
@@ -348,5 +349,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::history, redo_atom);
     ADD_ATOM(xstudio::history, log_atom);
     ADD_ATOM(xstudio::history, history_atom);
+
+    ADD_ATOM(xstudio::ui::viewport, viewport_playhead_atom);
 }
 } // namespace caf::python

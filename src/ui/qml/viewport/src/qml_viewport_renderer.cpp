@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "xstudio/ui/qml/qml_viewport_renderer.hpp"
+#include "xstudio/ui/qml/qml_viewport.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/ui/qml/playhead_ui.hpp"
 
@@ -132,9 +133,21 @@ void QMLViewportRenderer::init_system() {
     thread because this class is a caf::mixing/QObject combo that ensures messages are received
     through QTs event loop thread rather than a regular caf thread.*/
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
-        return viewport_renderer_->message_handler().or_else(caf::message_handler{
-            // insert additional message handlers here
-        });
+        return caf::message_handler({
+            [=](viewport_playhead_atom, caf::actor playhead) -> bool {
+
+                QMLViewport *vp = dynamic_cast<QMLViewport *>(parent());
+                if (vp) {
+                    auto new_playhead = new PlayheadUI(this);
+                    new_playhead->initSystem(this);
+                    new_playhead->set_backend(playhead);
+                    vp->setPlayhead(new_playhead);
+                } else {
+                    viewport_renderer_->set_playhead(playhead);
+                }
+                return true;
+            },
+        }).or_else(viewport_renderer_->message_handler());
     });
 
     /* The global KeypressMonitor filters out system auto repeat when the holder presses and

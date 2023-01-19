@@ -462,7 +462,6 @@ void QMLViewport::wheelEvent(QWheelEvent *event) {
 
 void QMLViewport::setPlayhead(QObject *playhead_qobject) {
     spdlog::debug("QMLViewport::setPlayhead");
-
     playhead_ = dynamic_cast<PlayheadUI *>(playhead_qobject);
     emit(playheadChanged(playhead_qobject));
     renderer_actor->set_playhead(playhead_);

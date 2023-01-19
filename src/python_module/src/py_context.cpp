@@ -41,7 +41,7 @@ std::optional<message> py_context::py_build_message(const py::args &xs) {
         auto kvp              = bindings().find(type_name);
         if (kvp == bindings().end()) {
             set_py_exception(
-                R"(Unable to add element of type ")",
+                R"(Unable to add element of type A ")",
                 type_name,
                 R"(" to message: type is unknown to CAF)");
             return {};
@@ -135,7 +135,7 @@ py::tuple py_context::py_tuple_from_wrapped_message(const py::args &xs) {
                 auto kvp = portable_bindings().find(to_string(meta_obj->type_name));
                 if (kvp == portable_bindings().end()) {
                     set_py_exception(
-                        R"(Unable to add element of type ")",
+                        R"(Unable to add element of type B ")",
                         to_string(meta_obj->type_name),
                         R"(" to message: type is unknown to CAF)");
                     return py::tuple{};
@@ -200,7 +200,7 @@ py::tuple py_context::tuple_from_message(
             auto kvp = portable_bindings().find(to_string(meta_obj->type_name));
             if (kvp == portable_bindings().end()) {
                 set_py_exception(
-                    R"(Unable to add element of type ")",
+                    R"(Unable to add element of type C ")",
                     to_string(meta_obj->type_name),
                     R"(" to message: type is unknown to CAF)");
                 return py::tuple{};
