@@ -1,0 +1,338 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Python Scripting Introduction &mdash; xStudio 0.9.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Colour Management" href="colour_management.html" />
+    <link rel="prev" title="Appendix" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.9.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../playback.html">Video Playback</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notes.html">Notes and Annotations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../preferences.html">Preferences</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Appendix</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Python Scripting Introduction</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#the-communications-port">The Communications Port</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#python-snippets">Python ‘Snippets’</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#python-examples">Python Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="colour_management.html">Colour Management</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">xSTUDIO User Guide</a> &raquo;</li>
+        
+          <li><a href="index.html">Appendix</a> &raquo;</li>
+        
+      <li>Python Scripting Introduction</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/user_docs/appendix/python_scripting.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="python-scripting-introduction">
+<h1>Python Scripting Introduction<a class="headerlink" href="#python-scripting-introduction" title="Permalink to this headline">¶</a></h1>
+<p>xSTUDIO has a python API allowing you to control playback, load media, explore playlists, explore media and more via python scripting. A feature of this API is that behind the scenes all interactions between the Python interpreter and the xSTUDIO application are achieved via a network socket. This means that you can execute python code to control xSTUDIO either in the embedded python interpreter in xSTUDIO or in a completely different process so that your python execution will not block xSTUDIO and vice versa.</p>
+<div class="section" id="the-communications-port">
+<h2>The Communications Port<a class="headerlink" href="#the-communications-port" title="Permalink to this headline">¶</a></h2>
+<p>xSTUDIO opens a port on startup for remote control which is subsequently used by the Python API and also for ‘pushing’ media to a running session through the command line. The range of port numbers that xSTUDIO will try to open can be specified as a command line option or in the preferences files. When creating a Connection object in Python, you can specify the port number of the xSTUDIO session that you want to connect with. For studios that are interested in managing mulitple instances of xSTUDIO to support a workflow this can be exploited with appopriate wrapper scripts and python integration code</p>
+<p>Launch xSTUDIO with a specific port:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">xstudio</span> <span class="o">-</span><span class="n">n</span> <span class="o">--</span><span class="n">port</span><span class="o">=</span><span class="mi">45501</span>
+</pre></div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">Connect to the session</span><a class="headerlink" href="#id1" title="Permalink to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
+<span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
+
+<span class="n">XSTUDIO</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">auto_connect</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">XSTUDIO</span><span class="o">.</span><span class="n">connect_remote</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">45501</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="python-snippets">
+<h2>Python ‘Snippets’<a class="headerlink" href="#python-snippets" title="Permalink to this headline">¶</a></h2>
+<p>Some simple python scripts are included with the xSTUDIO source code. These can be executed from the ‘Panels/Snippets’ menu in the xSTUDIO UI. For developers interested in writing integration tools in python, these snippets can be a useful starting point to get familiar with the API. In the source tree, look in this folder: <strong>python/src/xstudio/demo</strong></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>API classes and methods include docstrings - query them using <strong>help()</strong> and <strong>dir()</strong>.</p>
+</div>
+</div>
+<div class="section" id="python-examples">
+<h2>Python Examples<a class="headerlink" href="#python-examples" title="Permalink to this headline">¶</a></h2>
+<p><strong>Here’s a really basic example that prints out all the media paths in your session.</strong></p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">Print all media paths from current xSTUDIO session</span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
+<span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
+
+<span class="n">XSTUDIO</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">auto_connect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">playlists</span> <span class="o">=</span> <span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">playlists</span>
+
+<span class="k">for</span> <span class="n">playlist</span> <span class="ow">in</span> <span class="n">playlists</span><span class="p">:</span>
+
+    <span class="n">media</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">media</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">media</span><span class="p">:</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">media_source</span><span class="p">()</span><span class="o">.</span><span class="n">media_reference</span><span class="o">.</span><span class="n">uri</span><span class="p">())</span>
+                <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p><strong>The following example shows how you can start building a playlist, modify media play rate and start playback:</strong></p>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text">Adding and playing media basics</span><a class="headerlink" href="#id3" title="Permalink to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">MediaType</span><span class="p">,</span> <span class="n">FrameRate</span>
+
+<span class="n">XSTUDIO</span> <span class="o">=</span> <span class="n">Connection</span><span class="p">(</span><span class="n">auto_connect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># paths to media on the filesystem ...</span>
+<span class="n">frames</span> <span class="o">=</span> <span class="s1">&#39;/home/Media/jpeg_sequence.####.jpg&#39;</span>
+<span class="n">video</span> <span class="o">=</span> <span class="s1">&#39;/home/Media/some_quicktime.mov&#39;</span>
+<span class="n">audio</span> <span class="o">=</span> <span class="s1">&#39;/home/Media/some_audio.wav&#39;</span>
+
+<span class="c1"># create a playlist</span>
+<span class="n">playlist</span> <span class="o">=</span> <span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">create_playlist</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;My Playlist2&#39;</span><span class="p">)</span>
+
+<span class="c1"># make the playlist the &#39;viewed&#39; playlist</span>
+<span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">set_on_screen_source</span><span class="p">(</span><span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># add a frames based source (eg. jpegs.0001.jpg, jpegs.0002.jpg etc.)</span>
+<span class="n">frames_based_media</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
+<span class="c1"># set the frame rate for the frames source</span>
+<span class="n">frames_based_media</span><span class="o">.</span><span class="n">media_source</span><span class="p">()</span><span class="o">.</span><span class="n">rate</span> <span class="o">=</span> <span class="n">FrameRate</span><span class="p">(</span><span class="mf">30.0</span><span class="p">)</span>
+
+<span class="c1"># add a combined audio/video</span>
+<span class="n">video_only</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
+
+<span class="c1"># add a combined audio/video</span>
+<span class="n">combined</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media_with_audio</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">audio</span><span class="p">)</span>
+
+<span class="c1"># add aan audio only source</span>
+<span class="n">audio_only</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">audio</span><span class="p">)</span>
+
+<span class="c1"># create a playhead for the playlist</span>
+<span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">create_playhead</span><span class="p">()</span>
+<span class="n">playhead</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">playheads</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="c1"># get the &#39;playhead_selection&#39; object, which is used to choose</span>
+<span class="c1"># items from a playlist for playing</span>
+<span class="n">plahead_selector</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">playhead_selection</span>
+
+<span class="c1"># select all the added media for playing (using their uuids)</span>
+<span class="n">plahead_selector</span><span class="o">.</span><span class="n">set_selection</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="n">frames_based_media</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+        <span class="n">video_only</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+        <span class="n">combined</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span>
+        <span class="n">audio_only</span><span class="o">.</span><span class="n">uuid</span>
+        <span class="p">])</span>
+
+
+<span class="c1"># start playback</span>
+<span class="n">playhead</span><span class="o">.</span><span class="n">playing</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="colour_management.html" class="btn btn-neutral float-right" title="Colour Management" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="Appendix" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2023, DNEG
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

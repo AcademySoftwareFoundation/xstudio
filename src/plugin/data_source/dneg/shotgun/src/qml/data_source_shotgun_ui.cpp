@@ -1676,7 +1676,8 @@ void ShotgunDataSourceUI::init(caf::actor_system &system) {
                         groups_map_[request.at("id")]->populate(data.at("data"));
                     else if (request.at("type") == "sequence") {
                         sequences_map_[request.at("id")]->populate(data.at("data"));
-                        sequences_tree_map_[request.at("id")]->setModelData(ShotgunSequenceModel::flatToTree(data.at("data")));
+                        sequences_tree_map_[request.at("id")]->setModelData(
+                            ShotgunSequenceModel::flatToTree(data.at("data")));
                     } else if (request.at("type") == "shot") {
                         shots_map_[request.at("id")]->populate(data.at("data"));
                         updateQueryValueCache(

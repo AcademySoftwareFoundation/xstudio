@@ -51,6 +51,8 @@ Button {
             source: imgSrc
             sourceSize.height: parent.height/1.5
             sourceSize.width: parent.width/1.5
+            horizontalAlignment: Image.AlignHCenter
+            verticalAlignment: Image.AlignVCenter
             anchors.centerIn: parent
             smooth: true
             antialiasing: true

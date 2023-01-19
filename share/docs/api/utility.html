@@ -1,0 +1,399 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>utility &mdash; xStudio 0.9.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="enums" href="enums.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.9.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="atoms.html">atoms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="enums.html">enums</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">utility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#caf-helpers">caf_helpers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#chrono">chrono</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#container">container</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#edit-list">edit_list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#edit-section">edit_section</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#enums">enums</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#exports">exports</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#frame-list">frame_list</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#frame-rate">frame_rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#frame-rate-and-duration">frame_rate_and_duration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#frame-time">frame_time</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#helpers">helpers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#json-store">json_store</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#logging">logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#macro">macro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#media-reference">media_reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#remote-session-file">remote_session_file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sequence">sequence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#string-helpers">string_helpers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#time-cache">time_cache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#timecode">timecode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#types">types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#uuid">uuid</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">API</a> &raquo;</li>
+        
+      <li>utility</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/api/utility.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="utility">
+<span id="api-utility"></span><h1>utility<a class="headerlink" href="#utility" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="caf-helpers">
+<h2>caf_helpers<a class="headerlink" href="#caf-helpers" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="chrono">
+<h2>chrono<a class="headerlink" href="#chrono" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="container">
+<h2>container<a class="headerlink" href="#container" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="edit-list">
+<h2>edit_list<a class="headerlink" href="#edit-list" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="edit-section">
+<h2>edit_section<a class="headerlink" href="#edit-section" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="enums">
+<h2>enums<a class="headerlink" href="#enums" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="exports">
+<h2>exports<a class="headerlink" href="#exports" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="frame-list">
+<h2>frame_list<a class="headerlink" href="#frame-list" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="frame-rate">
+<h2>frame_rate<a class="headerlink" href="#frame-rate" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="frame-rate-and-duration">
+<h2>frame_rate_and_duration<a class="headerlink" href="#frame-rate-and-duration" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="frame-time">
+<h2>frame_time<a class="headerlink" href="#frame-time" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="helpers">
+<h2>helpers<a class="headerlink" href="#helpers" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="json-store">
+<h2>json_store<a class="headerlink" href="#json-store" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="logging">
+<h2>logging<a class="headerlink" href="#logging" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="macro">
+<h2>macro<a class="headerlink" href="#macro" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="media-reference">
+<h2>media_reference<a class="headerlink" href="#media-reference" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="remote-session-file">
+<h2>remote_session_file<a class="headerlink" href="#remote-session-file" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="sequence">
+<h2>sequence<a class="headerlink" href="#sequence" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="string-helpers">
+<h2>string_helpers<a class="headerlink" href="#string-helpers" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="time-cache">
+<h2>time_cache<a class="headerlink" href="#time-cache" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="timecode">
+<h2>timecode<a class="headerlink" href="#timecode" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="types">
+<h2>types<a class="headerlink" href="#types" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+<div class="section" id="uuid">
+<h2>uuid<a class="headerlink" href="#uuid" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>doxygenfile: Unable to find project ‘xStudio’ in breathe_projects dictionary</p>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="enums.html" class="btn btn-neutral float-left" title="enums" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2023, DNEG
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

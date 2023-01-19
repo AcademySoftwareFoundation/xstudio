@@ -24,23 +24,24 @@ nlohmann::json ShotgunSequenceModel::flatToTree(const nlohmann::json &src) {
 
     try {
 
-        if(src.is_array()) {
-            auto done = false;
+        if (src.is_array()) {
+            auto done    = false;
             auto changed = false;
 
-            while(not done) {
+            while (not done) {
                 changed = false;
-                done = true;
+                done    = true;
 
-                for(auto seq : src) {
+                for (auto seq : src) {
                     auto id = seq.at("id").get<int>();
                     // already logged ?
-                    if(not seqs.count(id)) {
-                        auto parent_id = seq["relationships"]["sg_parent"]["data"]["id"].get<int>();
+                    if (not seqs.count(id)) {
+                        auto parent_id =
+                            seq["relationships"]["sg_parent"]["data"]["id"].get<int>();
                         // no parent
-                        if(parent_id == id) {
+                        if (parent_id == id) {
                             auto &shots = seq["relationships"]["shots"]["data"];
-                            if(shots.is_array())
+                            if (shots.is_array())
                                 seq["children"] = seq["relationships"]["shots"]["data"];
                             else
                                 seq["children"] = R"([])"_json;
@@ -49,14 +50,17 @@ nlohmann::json ShotgunSequenceModel::flatToTree(const nlohmann::json &src) {
                             seq["relationships"].erase("shots");
                             seq["relationships"].erase("sg_parent");
                             result.emplace_back(seq);
-                            seqs.emplace(std::make_pair(id, nlohmann::json::json_pointer(std::string("/")+std::to_string(result.size()-1))));
+                            seqs.emplace(std::make_pair(
+                                id,
+                                nlohmann::json::json_pointer(
+                                    std::string("/") + std::to_string(result.size() - 1))));
                             changed = true;
-                        } else if(seqs.count(parent_id)) {
+                        } else if (seqs.count(parent_id)) {
                             // parent exists
                             auto parent_pointer = seqs[parent_id];
 
                             auto &shots = seq["relationships"]["shots"]["data"];
-                            if(shots.is_array())
+                            if (shots.is_array())
                                 seq["children"] = seq["relationships"]["shots"]["data"];
                             else
                                 seq["children"] = R"([])"_json;
@@ -68,14 +72,13 @@ nlohmann::json ShotgunSequenceModel::flatToTree(const nlohmann::json &src) {
                             result[parent_pointer]["children"].emplace_back(seq);
                             // spdlog::warn("{}", result[parent_pointer].dump(2));
 
-                            seqs.emplace(
-                                std::make_pair(
-                                    id,
-                                    parent_pointer / nlohmann::json::json_pointer(
-                                        std::string("/") + std::to_string(result[parent_pointer]["children"].size()-1)
-                                    )
-                                )
-                            );
+                            seqs.emplace(std::make_pair(
+                                id,
+                                parent_pointer /
+                                    nlohmann::json::json_pointer(
+                                        std::string("/") +
+                                        std::to_string(
+                                            result[parent_pointer]["children"].size() - 1))));
                             changed = true;
                         } else {
                             done = false;
@@ -83,38 +86,43 @@ nlohmann::json ShotgunSequenceModel::flatToTree(const nlohmann::json &src) {
                     }
                 }
 
-                if(not changed)
+                if (not changed)
                     done = true;
 
-                if(done) {
+                if (done) {
                     auto count = 0;
                     // unresolved..
-                    for(auto unseq : src) {
+                    for (auto unseq : src) {
                         auto id = unseq.at("id").get<int>();
                         // already logged ?
-                        if(not seqs.count(id)) {
-                            auto parent_id = unseq["relationships"]["sg_parent"]["data"]["id"].get<int>();
+                        if (not seqs.count(id)) {
+                            auto parent_id =
+                                unseq["relationships"]["sg_parent"]["data"]["id"].get<int>();
                             // no parent
                             auto &shots = unseq["relationships"]["shots"]["data"];
-                            if(shots.is_array())
+                            if (shots.is_array())
                                 unseq["children"] = unseq["relationships"]["shots"]["data"];
                             else
                                 unseq["children"] = R"([])"_json;
 
-                            unseq["parent_id"] = unseq["relationships"]["sg_parent"]["data"]["id"];
+                            unseq["parent_id"] =
+                                unseq["relationships"]["sg_parent"]["data"]["id"];
                             unseq["relationships"].erase("shots");
                             unseq["relationships"].erase("sg_parent");
                             result.emplace_back(unseq);
-                            seqs.emplace(std::make_pair(id, nlohmann::json::json_pointer(std::string("/")+std::to_string(result.size()-1))));
-                            count ++;
+                            seqs.emplace(std::make_pair(
+                                id,
+                                nlohmann::json::json_pointer(
+                                    std::string("/") + std::to_string(result.size() - 1))));
+                            count++;
                         }
                     }
-                    if(count)
+                    if (count)
                         spdlog::warn("{} unresolved sequences.", count);
                 }
             }
         }
-    } catch(...) {
+    } catch (...) {
     }
 
     // spdlog::warn("{}", result.dump(2));

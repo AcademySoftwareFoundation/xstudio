@@ -17,56 +17,28 @@ import xStudio 1.1
 import xstudio.qml.clipboard 1.0
 
 
-Rectangle{
-
+Rectangle{ id: section
+    property var model: sequenceTreeModel
     color: "transparent" //palette.base
     border.color: frameColor
     border.width: frameWidth
 
-    // property alias backendModel: treeView.delegateModel.model
-    // property int mCount: sequenceTreeModel.count
-    // onMCountChanged:{
-    //     console.log("####R_m: "+sequenceTreeModel.count)
-    //     // childLevel1.childViewHeight: 
-    // }
-    
-
-    XsTreeStructure{ 
-        id: treeView //level0
-        x: frameWidth
-        y: framePadding
-        scrollBar.visible: !searchShotListPopup.visible && treeView.height < treeView.contentHeight
-
-        delegateModel.model: sequenceTreeModel
-        delegateModel.delegate: XsTreeStructureDelegate{
-
-            id: childLevel1
-            childViewHeight: 5*treeItemHeight
-            childView.sourceComponent: XsTreeStructure{
-
-                delegateModel.model: sequenceTreeModel //treeView.delegateModel.model 
-                delegateModel.rootIndex: treeView.delegateModel.modelIndex(index, sequenceTreeModel.rootIndex) 
-                delegateModel.delegate: XsTreeStructureDelegate{
-
-                    // id: childLevel2
-                    // childViewHeight: searchPresetsViewModel.length*treeItemHeight + treeItemHeight
-                    // childView.sourceComponent: XsTreeStructure{ //Level-3
-                    //     delegateModel.model: childLevel1.delegateModel.model 
-                    //     delegateModel.rootIndex: childLevel1.delegateModel.modelIndex(index, childLevel1.delegateModel.model.rootIndex) 
-                    //     delegateModel.delegate: XsTreeStructureDelegate{}
-                    // }
-
-                }
-
-                // Component.onCompleted: { //#TODO: remove
-                //     console.log("####R_c: "+sequenceTreeModel.count)
-                //     console.log("####R_l: "+sequenceTreeModel.length)
-                // }
-                
-            }
-
+    ItemSelectionModel {id: itemSelectionModel
+        model: section.model
+    }
+    ItemSelectionModel {id: itemExpandedModel
+        model: section.model
+    }
+    ShotsTreeView{ id: treeView
+        model: section.model
+        rootIndex:  null
+        selectionModel: itemSelectionModel
+        expandedModel: itemExpandedModel
+        scrollBarVisibility: !searchShotListPopup.visible
+        
+        onShotClicked:{ //#TODO: Not working on child-level
+            console.log("Shot2: "+shot)
         }
-
     }
 
     Rectangle { id: overlapGradient

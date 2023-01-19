@@ -438,7 +438,7 @@ namespace ui {
             QUrl apiDocsUrl();
             QUrl releaseDocsUrl();
             QUrl hotKeyDocsUrl();
-            void switchOnScreenSource(const QUuid &uuid = QUuid());
+            void switchOnScreenSource(const QUuid &uuid = QUuid(), const bool broadcast = true);
             void rebuildPlaylistNamesList();
             void setMediaRate(const double rate);
 

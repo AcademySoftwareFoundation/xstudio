@@ -490,7 +490,6 @@ void SessionActor::init() {
                          .or_else(playlist::PlaylistActor::default_event_handler())
                          .or_else(tag::TagActor::default_event_handler()));
 
-#pragma message "FIXMENOW!! - this causes a random crash when loading a session at startup"
     anon_send(caf::actor_cast<caf::actor>(this), bookmark::associate_bookmark_atom_v);
 }
 
@@ -1241,6 +1240,18 @@ caf::message_handler SessionActor::message_handler() {
                 return a;
 
             return make_error(xstudio_error::error, "No current playlist");
+        },
+
+        [=](session::current_playlist_atom, caf::actor actor, bool broadcast) {
+            current_playlist_ = actor_cast<caf::actor_addr>(actor);
+
+            if (broadcast) {
+                send(
+                    event_group_,
+                    utility::event_atom_v,
+                    session::current_playlist_atom_v,
+                    actor);
+            }
         },
 
         [=](session::current_playlist_atom, caf::actor actor) {

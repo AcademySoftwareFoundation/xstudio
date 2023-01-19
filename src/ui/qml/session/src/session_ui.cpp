@@ -583,7 +583,7 @@ void SessionUI::init(actor_system &system_) {
                         scoped_actor sys{system()};
                         auto uuid = request_receive_wait<utility::Uuid>(
                             *sys, playlist, std::chrono::seconds(1), utility::uuid_atom_v);
-                        switchOnScreenSource(QUuidFromUuid(uuid));
+                        switchOnScreenSource(QUuidFromUuid(uuid), false);
 
                     } else {
                         switchOnScreenSource();
@@ -1610,7 +1610,7 @@ QObject *SessionUI::playlist() { return static_cast<QObject *>(playlist_); }
 QObject *SessionUI::selectedSource() { return selected_source_; }
 
 
-void SessionUI::switchOnScreenSource(const QUuid &uuid) {
+void SessionUI::switchOnScreenSource(const QUuid &uuid, const bool broadcast) {
 
     // This can be called at start-up before a playlist uuid is set-up
     spdlog::debug("switchOnScreenSource {}", to_string(UuidFromQUuid(uuid)));
@@ -1625,7 +1625,11 @@ void SessionUI::switchOnScreenSource(const QUuid &uuid) {
             for (auto i : items_) {
                 if (auto item = dynamic_cast<PlaylistUI *>(i)) {
                     playlist_ = item;
-                    anon_send(backend_, session::current_playlist_atom_v, playlist_->backend());
+                    anon_send(
+                        backend_,
+                        session::current_playlist_atom_v,
+                        playlist_->backend(),
+                        broadcast);
                     on_screen_source_ = playlist_;
                     emit playlistChanged();
                     setSelection(QVariantList({QVariant(item->qcuuid())}), true);
@@ -1643,7 +1647,11 @@ void SessionUI::switchOnScreenSource(const QUuid &uuid) {
             if (auto item = dynamic_cast<PlaylistUI *>(i)) {
                 if (item->quuid() == uuid || item->qcuuid() == uuid) {
                     playlist_ = item;
-                    anon_send(backend_, session::current_playlist_atom_v, playlist_->backend());
+                    anon_send(
+                        backend_,
+                        session::current_playlist_atom_v,
+                        playlist_->backend(),
+                        broadcast);
                     on_screen_source_ = playlist_;
                     emit playlistChanged();
                     break;

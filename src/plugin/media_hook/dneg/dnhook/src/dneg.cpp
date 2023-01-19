@@ -17,114 +17,6 @@ using namespace xstudio;
 using namespace xstudio::media_hook;
 using namespace xstudio::utility;
 
-
-bool iequals(const std::string &a, const std::string &b) {
-    return std::equal(a.begin(), a.end(), b.begin(), b.end(), [](char a, char b) {
-        return tolower(a) == tolower(b);
-    });
-}
-
-bool is_exr(const caf::uri &uri) {
-    static const std::regex exr_match(R"(.+\.(exr|EXR)$)");
-    return std::regex_search(uri_to_posix_path(uri), exr_match);
-}
-
-std::string infer_dneg_leaf_name_from_movie_path(const std::string posix_path) {
-    if (posix_path.find(".dneg.") != std::string::npos) {
-        return std::string("DNEG Movie");
-    } else if (posix_path.find(".review0.") != std::string::npos) {
-        return std::string("Review Proxy 0");
-    } else if (posix_path.find(".review1.") != std::string::npos) {
-        return std::string("Review Proxy 1");
-    } else if (posix_path.find(".review2.") != std::string::npos) {
-        return std::string("Review Proxy 2");
-    }
-    throw std::runtime_error("Unrecognised DNEG pipeline movie path formatting.");
-}
-
-// recursively search 'searchfolder' for a folder called 'target_folder_name',
-// stopping if depth is below zero or if a subfolder is in 'exclude_these_subfolders'
-std::string recursively_find_matching_folder(
-    const std::string searchfolder,
-    const std::string target_folder_name,
-    const int depth,
-    const std::set<std::string> &exclude_these_subfolders) {
-    if (depth < 0)
-        return std::string();
-
-    for (const auto &entry : fs::directory_iterator(searchfolder)) {
-        if (!fs::is_directory(entry.status()))
-            continue;
-        if (exclude_these_subfolders.count(entry.path().filename().string()))
-            continue;
-        if (iequals(entry.path().filename().string(), target_folder_name)) {
-            // case insensitive match because IVY does random stuff with case
-            return entry.path().string();
-        } else {
-            std::string v = recursively_find_matching_folder(
-                entry.path().string(), target_folder_name, depth - 1, exclude_these_subfolders);
-            if (!v.empty())
-                return v;
-        }
-    }
-    return std::string();
-}
-
-// This isn't optimised for speed at all but the vector being sorted has at
-// most about 5 entries
-auto leaf_sort_func = [](const utility::MediaReference &a,
-                         const utility::MediaReference &b) -> bool {
-    static const std::regex exr_res_regex(R"(.+\/([0-9]+)x([0-9]+)\/[^\/]+\.(exr|EXR)$)");
-    std::smatch m1, m2;
-    std::string path1 = uri_to_posix_path(a.uri());
-    std::string path2 = uri_to_posix_path(b.uri());
-
-    bool a_is_exr = std::regex_search(path1, m1, exr_res_regex);
-    bool b_is_exr = std::regex_search(path2, m2, exr_res_regex);
-
-    if (a_is_exr && b_is_exr) {
-
-        int x1 = atoi(m1[1].str().c_str());
-        int y1 = atoi(m1[2].str().c_str());
-        int x2 = atoi(m2[1].str().c_str());
-        int y2 = atoi(m2[2].str().c_str());
-
-        bool p1_is_orig = path1.find("_orig") != std::string::npos;
-        bool p2_is_orig = path2.find("_orig") != std::string::npos;
-        if (p1_is_orig && !p2_is_orig)
-            return false;
-        else if (!p1_is_orig && p2_is_orig)
-            return true;
-        return (x1 * y1) > (x2 * y2);
-
-    } else if (!a_is_exr && b_is_exr) {
-
-        // puts MOVs at the start of the list
-        return true;
-
-    } else if (a_is_exr && !b_is_exr) {
-
-        // puts MOVs at the start of the list
-        return false;
-
-    } else {
-
-        // puts DNEG movs at the start of the list
-
-        bool p1_is_dnmov = path1.find(".dneg.") != std::string::npos;
-        bool p2_is_dnmov = path2.find(".dneg.") != std::string::npos;
-        if (p1_is_dnmov && !p2_is_dnmov)
-            return true;
-        else if (!p1_is_dnmov && p2_is_dnmov)
-            return false;
-        else {
-            // alphabetical sort
-            return path1 < path2;
-        }
-    }
-
-    return false;
-};
 std::optional<std::string> find_stalk_uuid_from_path(const std::string &path) {
     // .stalk_ec2df42f-d4c5-45e3-bb19-e6626e213f2b
     static const std::regex stalk_regex(
@@ -190,10 +82,10 @@ class DNegMediaHook : public MediaHook {
     DNegMediaHook() : MediaHook("DNeg") {}
     ~DNegMediaHook() override = default;
 
-    std::optional<utility::MediaReference>
-    modify_media_reference(const utility::MediaReference &mr, const utility::JsonStore &jsn) override {
+    std::optional<utility::MediaReference> modify_media_reference(
+        const utility::MediaReference &mr, const utility::JsonStore &jsn) override {
         utility::MediaReference result = mr;
-        auto changed = false;
+        auto changed                   = false;
         // sneaky ?
 
         // test paths
@@ -205,49 +97,55 @@ class DNegMediaHook : public MediaHook {
                 // local path
                 // add local host name + /hosts
                 // validate it's a valid path.
-                auto hostname                  = get_host_name();
-                path                           = "/hosts/" + hostname + path;
+                auto hostname = get_host_name();
+                path          = "/hosts/" + hostname + path;
                 result.set_uri(posix_path_to_uri(path));
                 changed = true;
             }
         }
         // we chomp the first frame if internal movie..
         // why do we come here multiple times ??
-        if (not result.frame_list().start() and
-            result.container()) {
+        if (not result.frame_list().start() and result.container()) {
             auto path = to_string(result.uri().path());
 
             if (ends_with(path, ".dneg.mov")) {
                 // check metadata..
                 int slate_frames = 1;
 
-                //"comment": "\nsource frame range: 1001-1101\nsource image: aspect 1.85004516712 crop: l 0.0 r 0.0 b 0.0 t 0.0 slateFrames: 0",
+                //"comment": "\nsource frame range: 1001-1101\nsource image:
+                // aspect 1.85004516712 crop: l 0.0 r 0.0 b 0.0 t 0.0 slateFrames: 0",
                 try {
-                    auto comment = jsn.at("metadata").at("media").at("@").at("format").at("tags").at("comment").get<std::string>();
+                    auto comment = jsn.at("metadata")
+                                       .at("media")
+                                       .at("@")
+                                       .at("format")
+                                       .at("tags")
+                                       .at("comment")
+                                       .get<std::string>();
                     // regex..
                     static const std::regex slate_match(R"(.*slateFrames: (\d+).*)");
 
                     std::smatch m;
-                    if(std::regex_search(comment, m, slate_match)){
+                    if (std::regex_search(comment, m, slate_match)) {
                         slate_frames = std::atoi(m[1].str().c_str());
                     }
 
-                } catch(...) {}
+                } catch (...) {
+                }
 
-                while(slate_frames) {
+                while (slate_frames) {
                     auto fr = result.frame_list();
                     if (fr.pop_front()) {
                         result.set_frame_list(fr);
-                        result.set_timecode(
-                            result.timecode() + 1);
+                        result.set_timecode(result.timecode() + 1);
                         changed = true;
                     }
-                    slate_frames --;
+                    slate_frames--;
                 }
             }
         }
 
-        if(not changed)
+        if (not changed)
             return {};
 
         return result;
@@ -361,6 +259,8 @@ class DNegMediaHook : public MediaHook {
         }
 
         // DNEG specific colour plugin behaviour
+        // TODO: ColSci
+        // Disable when not building DNEG version
         r["viewing_rules"] = true;
 
         auto dynamic_cdl       = utility::JsonStore();
@@ -370,258 +270,6 @@ class DNegMediaHook : public MediaHook {
 
         return r;
     }
-
-    // std::vector<std::pair<std::string,MediaReference>> gather_media_sources(
-    //     const std::vector<utility::MediaReference> & media_refs,
-    //     const std::vector<std::string> &media_source_names,
-    //     std::string & preferred_source
-    //     ) override {
-
-    //     auto tt = utility::clock::now();
-
-    //     std::stringstream ss;
-    //     for (const auto &media_ref: media_refs) {
-    //         spdlog::debug("DNEG Media Hook gathering sources for {}.",
-    //         to_string(media_ref.uri()));
-    //     }
-
-    //     // N.B. This is nothing more than a rough demo/placeholder until we
-    //     // can execute IVY queries from xstudio. We are doing a filesystem
-    //     // search of the shot folder to find quicktimes and EXRs that also match
-    //     // the 'existing_source_refs'.
-
-    //     // for now we aren't going to trawl EXR folders, it's proving too slow
-    //     const bool full_search = false;
-
-    //     // make a map of the source names to refs so we can re-use if we need to
-    //     std::map<caf::uri, std::string> orig_names;
-    //     {
-    //         auto p = media_refs.begin();
-    //         auto q = media_source_names.begin();
-    //         while (p != media_refs.end() && q != media_source_names.end()) {
-    //             orig_names[(*p).uri()] = *q;
-    //             p++;
-    //             q++;
-    //         }
-    //     }
-
-    //     static const std::regex movie_regex(R"((.+\/movie.+)\/([^\.]+)(.+)(mov|MOV|mp4)$)");
-    //     static const std::regex
-    //     exr_stalk_regex(R"((.+)\/([0-9]+x[0-9]+)\/(.+)\.(exr|EXR)$)");
-
-    //     typedef std::vector<std::pair<caf::uri, FrameList>> UriAndFrameListVec;
-
-    //     std::vector<utility::MediaReference> expanded_sources = media_refs;
-
-    //     for (const auto &ref: media_refs) {
-
-    //         std::string path = uri_to_posix_path(ref.uri());
-    //         std::smatch m;
-
-    //         if (std::regex_search(path, m, movie_regex)) {
-
-    //             // search for other movie sources
-    //             UriAndFrameListVec others = utility::scan_posix_path(m[1].str(), 1);
-    //             for (const auto &o: others) {
-    //                 if (uri_to_posix_path(o.first) != path) {
-    //                     expanded_sources.emplace_back(
-    //                         o.first,
-    //                         o.second,
-    //                         false,
-    //                         ref.rate()
-    //                         );
-    //                 }
-    //             }
-
-    //             if (full_search) {
-    //                 // now search for EXR sources by finding the matching stalk
-    //                 // directory starting at the same level as the 'movie' folder
-    //                 std::string stalkname = m[2].str();
-    //                 std::string stemfolder = std::string(path,0,path.find("/movie"));
-    //                 std::string stalk_folder = recursively_find_matching_folder(
-    //                     stemfolder,
-    //                     stalkname,
-    //                     2,
-    //                     std::set<std::string>({"movie", "source"}));
-
-    //                 if (!stalk_folder.empty()) {
-    //                     UriAndFrameListVec others = utility::scan_posix_path(stalk_folder,
-    //                     2); for (const auto &o: others) {
-    //                         if (uri_to_posix_path(o.first) != path &&
-    //                             std::regex_search(uri_to_posix_path(o.first),
-    //                             exr_stalk_regex) ) {
-
-    //                             expanded_sources.emplace_back(
-    //                                 o.first,
-    //                                 o.second,
-    //                                 false,
-    //                                 ref.rate()
-    //                             );
-    //                         }
-    //                     }
-    //                 }
-    //             }
-
-    //         } else if (std::regex_search(path, m, exr_stalk_regex)) {
-
-    //             std::string stalk_folder = m[1].str(); // i.e. render/scan folder etc
-    //             // search the containing stalk folder for other resolutions (proxies)
-    //             if (full_search) {
-    //                 UriAndFrameListVec others = utility::scan_posix_path(stalk_folder, 2);
-    //                 for (const auto &o: others) {
-    //                     if (uri_to_posix_path(o.first) != path &&
-    //                         std::regex_search(uri_to_posix_path(o.first), exr_stalk_regex))
-    //                     {
-    //                         expanded_sources.emplace_back(
-    //                             o.first,
-    //                             o.second,
-    //                             false,
-    //                             ref.rate()
-    //                         );
-    //                     }
-    //                 }
-    //             }
-
-    //             // this captures /jobs/$SHOW/$SHOT in 1
-    //             static const std::regex exr_stalk_regex2(
-    //                 R"((.*\/jobs\/[_A-Z0-9]+\/[^\/]+)\/.+\/([0-9]+x[0-9]+)\/([^\.]+).+(exr|EXR)$)"
-    //                 );
-
-    //             if (std::regex_search(path, m, exr_stalk_regex2)) {
-
-    //                 // assuming we have a movies folder under the shot folder
-    //                 std::string movies_folder = m[1].str() + std::string("/movie");
-    //                 std::string stalk_name = m[3].str();
-
-    //                 try {
-    //                     // look in the movie folder for subfolder matching the stalk
-    //                     // (render) name
-    //                     std::string movie_stalk_folder = recursively_find_matching_folder(
-    //                         movies_folder,
-    //                         stalk_name,
-    //                         3,
-    //                         std::set<std::string>());
-
-    //                     if (!movie_stalk_folder.empty()) {
-    //                         UriAndFrameListVec others =
-    //                         utility::scan_posix_path(movie_stalk_folder, 2); for (const auto
-    //                         &o: others) {
-    //                             if (std::regex_search(uri_to_posix_path(o.first),
-    //                             movie_regex)) {
-    //                                 expanded_sources.emplace_back(
-    //                                     o.first,
-    //                                     o.second,
-    //                                     false,
-    //                                     ref.rate()
-    //                                 );
-    //                             }
-    //                         }
-    //                     }
-    //                 } catch (std::exception & e) {
-    //                      spdlog::warn("DNEG Media Hook {}.", e.what());
-    //                 }
-
-    //             }
-
-    //         }
-
-    //     }
-
-
-    //     // now sort the sources (if any) by their resolutions, or movie names
-    //     std::sort(
-    //         expanded_sources.begin(),
-    //         expanded_sources.end(),
-    //         leaf_sort_func);
-
-    //     auto is_orig_res = [](const caf::uri & uri) -> bool{
-    //         return uri_to_posix_path(uri).find("_orig.") != std::string::npos;
-    //     };
-
-    //     if (!expanded_sources.empty()) {
-    //         // remove duplicates, if any
-    //         auto p = expanded_sources.begin();
-    //         auto pp = expanded_sources.begin();
-    //         pp++;
-    //         while (pp != expanded_sources.end()) {
-    //             if ((*pp).uri() == (*p).uri())  {
-    //                 pp = expanded_sources.erase(pp);
-    //             } else {
-    //                 p++;
-    //                 pp++;
-    //             }
-    //         }
-    //     }
-
-    //     // To name the EXR sources I'm using some really basic assumptions -
-    //     // the highest res is the main_prox0 ... unless it contiains the string
-    //     // '_orig.' which you will see on a SCAN, and this is
-    //     int main_idx = 0;
-    //     int orig_idx = 0;
-    //     int unknown_mov_idx = 1;
-    //     media_source_names.clear();
-
-    //     for (const auto &source: expanded_sources) {
-    //         std::stringstream ss;
-    //         if (is_exr(source.uri())) {
-    //             if (is_orig_res(source.uri())) {
-    //                 ss << "EXR: OrigProxy " << orig_idx;
-    //                 orig_idx++;
-    //             } else {
-    //                 if (!main_idx) ss << "EXR: Main";
-    //                 else ss << "EXR: Proxy " << main_idx;
-    //                 main_idx++;
-    //             }
-    //             media_source_names.push_back(ss.str());
-    //         } else {
-    //             try {
-    //                 media_source_names.push_back(
-    //                     infer_dneg_leaf_name_from_movie_path(
-    //                         uri_to_posix_path(source.uri())
-    //                         )
-    //                     );
-    //             } catch (...) {
-    //                 if (orig_names.find(source.uri()) != orig_names.end()) {
-    //                     media_source_names.push_back(orig_names[source.uri()]);
-    //                 } else {
-    //                     ss << "Other MOV " << unknown_mov_idx++;
-    //                     media_source_names.push_back(ss.str());
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     // compare final list with original list map, and remove dups.
-    //     // this whole function needs breaking up..
-    //     {
-    //         auto es = expanded_sources.begin();
-    //         auto en = media_source_names.begin();
-
-    //         for(;es!=expanded_sources.end(); ){
-    //             auto esuri = es->uri();
-    //             if(orig_names.count(esuri) and orig_names[esuri] == *en) {
-    //                 // spdlog::debug("Remove dup {} {}", to_string(esuri),
-    //                 orig_names[esuri]); es = expanded_sources.erase(es); en =
-    //                 media_source_names.erase(en);
-    //             } else {
-    //                 es++;
-    //                 en++;
-    //             }
-    //         }
-    //     }
-
-    //     spdlog::debug(
-    //         "DNEG Media Hook gathering sources for {} took {} milliseconds.",
-    //         ss.str(),
-    //         std::chrono::duration_cast<std::chrono::milliseconds>(
-    //             utility::clock::now()-tt
-    //         ).count()
-    //         );
-
-    //     media_refs = expanded_sources;
-    //     preferred_source = "Review Proxy 1";
-    //     return true;
-    // }
 };
 
 extern "C" {

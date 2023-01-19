@@ -31,6 +31,10 @@ void OCIOColourPipeline::media_source_changed(
             std::static_pointer_cast<OCIO::ColorSpaceTransform>(transform);
         detected_cs = csc->getSrc();
     } else if (transform->getTransformType() == OCIO::TRANSFORM_TYPE_DISPLAY_VIEW) {
+        // TODO: ColSci
+        // Note that in case the view uses looks, the colour space returned here
+        // is not representing the input processing accurately and will be out
+        // of sync with what the input transform actually is (inverse display view).
         OCIO::DisplayViewTransformRcPtr disp =
             std::static_pointer_cast<OCIO::DisplayViewTransform>(transform);
         const std::string view_cs = new_media_param.ocio_config->getDisplayViewColorSpaceName(

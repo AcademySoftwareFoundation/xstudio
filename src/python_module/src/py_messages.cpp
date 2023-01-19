@@ -77,10 +77,14 @@ void py_config::add_messages() {
         "std::tuple<std::string, std::string>",
         nullptr);
 
+    add_message_type<utility::UuidActor>(
+        "UuidActor", "xstudio::utility::UuidActor", &register_uuid_actor_class);
     add_message_type<std::vector<media::MediaKey>>(
         "MediaKeyVec", "std::vector<xstudio::media::MediaKey>", nullptr);
     add_message_type<std::pair<utility::Uuid, utility::UuidActor>>(
-        "UuidUuidActor", "std::pair<xstudio::utility::Uuid, utility::UuidActor>", nullptr);
+        "UuidUuidActor",
+        "std::pair<xstudio::utility::Uuid, xstudio::utility::UuidActor>",
+        nullptr);
     add_message_type<std::tuple<int, double, utility::Timecode>>(
         "std::tuple<int, double, Timecode>", "std::tuple<int, double, Timecode>", nullptr);
     add_message_type<std::vector<utility::MediaReference>>(
@@ -128,9 +132,6 @@ void py_config::add_messages() {
     add_message_type<utility::TimeSourceMode>(
         "TimeSourceMode", "xstudio::utility::TimeSourceMode", nullptr);
     add_message_type<utility::Uuid>("Uuid", "xstudio::utility::Uuid", &register_uuid_class);
-
-    add_message_type<utility::UuidActor>(
-        "UuidActor", "xstudio::utility::UuidActor", &register_uuid_actor_class);
 
     add_message_type<std::vector<xstudio::utility::UuidActor>>(
         "UuidActorVec", "xstudio::utility::UuidActorVector", &register_uuid_actor_vector_class);

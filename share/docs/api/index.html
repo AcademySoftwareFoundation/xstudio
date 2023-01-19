@@ -1,0 +1,246 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>API &mdash; xStudio 0.9.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="atoms" href="atoms.html" />
+    <link rel="prev" title="Colour Management" href="../user_docs/appendix/colour_management.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.9.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="atoms.html">atoms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="enums.html">enums</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html">utility</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+      <li>API</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/api/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="api">
+<span id="id1"></span><h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="atoms.html">atoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="enums.html">enums</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utility.html">utility</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#caf-helpers">caf_helpers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#chrono">chrono</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#container">container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#edit-list">edit_list</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#edit-section">edit_section</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#enums">enums</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#exports">exports</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#frame-list">frame_list</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#frame-rate">frame_rate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#frame-rate-and-duration">frame_rate_and_duration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#frame-time">frame_time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#helpers">helpers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#json-store">json_store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#logging">logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#macro">macro</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#media-reference">media_reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#remote-session-file">remote_session_file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#sequence">sequence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#string-helpers">string_helpers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#time-cache">time_cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#timecode">timecode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#types">types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utility.html#uuid">uuid</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="atoms.html" class="btn btn-neutral float-right" title="atoms" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../user_docs/appendix/colour_management.html" class="btn btn-neutral float-left" title="Colour Management" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2023, DNEG
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
