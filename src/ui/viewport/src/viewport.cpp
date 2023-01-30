@@ -812,6 +812,7 @@ caf::message_handler Viewport::message_handler() {
     caf::actor keyboard_events_actor;
     if (a) {
         keyboard_events_actor = a->system().registry().get<caf::actor>(keyboard_events);
+        media_cache_actor_    = a->system().registry().get<caf::actor>(image_cache_registry);
     }
 
     return module::Module::message_handler().or_else(caf::message_handler(
@@ -1166,6 +1167,13 @@ void Viewport::update_onscreen_frame_info(const media_reader::ImageBufPtr &frame
 
 void Viewport::framebuffer_swapped() {
 
+    anon_send(
+        display_frames_queue_actor_,
+        ui::fps_monitor::framebuffer_swapped_atom_v,
+        utility::clock::now(),
+        screen_refresh_period_,
+        is_main_viewer_);
+
     if (about_to_go_on_screen_frame_buffer_ != on_screen_frame_buffer_) {
 
         on_screen_frame_buffer_ = about_to_go_on_screen_frame_buffer_;
@@ -1175,7 +1183,6 @@ void Viewport::framebuffer_swapped() {
                 on_screen_frame_buffer_->params().end()) {
             f = on_screen_frame_buffer_->params()["playhead_frame"].get<int>();
         }
-
         anon_send(
             fps_monitor(),
             ui::fps_monitor::framebuffer_swapped_atom_v,
@@ -1346,7 +1353,8 @@ void Viewport::set_screen_infos(
     const std::string &name,
     const std::string &model,
     const std::string &manufacturer,
-    const std::string &serialNumber) {
+    const std::string &serialNumber,
+    const double refresh_rate) {
     get_colour_pipeline();
     anon_send(
         colour_pipeline_,
@@ -1356,4 +1364,6 @@ void Viewport::set_screen_infos(
         model,
         manufacturer,
         serialNumber);
+    if (refresh_rate)
+        screen_refresh_period_ = timebase::to_flicks(1.0 / refresh_rate);
 }

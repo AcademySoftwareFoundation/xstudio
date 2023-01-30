@@ -85,7 +85,8 @@ namespace media_reader {
             : Base(static_cast<const Base &>(o)),
               colour_pipe_data_(o.colour_pipe_data_),
               when_to_display_(o.when_to_display_),
-              plugin_blind_data_(o.plugin_blind_data_) {}
+              plugin_blind_data_(o.plugin_blind_data_),
+              tts_(o.tts_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
             Base &b            = static_cast<Base &>(*this);
@@ -93,20 +94,22 @@ namespace media_reader {
             colour_pipe_data_  = o.colour_pipe_data_;
             when_to_display_   = o.when_to_display_;
             plugin_blind_data_ = o.plugin_blind_data_;
+            tts_               = o.tts_;
             return *this;
         }
 
         ~ImageBufPtr() = default;
 
         bool operator==(const ImageBufPtr &o) const {
-            return this->get() == o.get() && colour_pipe_data_ == o.colour_pipe_data_;
+            return this->get() == o.get() && colour_pipe_data_ == o.colour_pipe_data_ &&
+                   tts_ == o.tts_;
         }
 
-        bool operator<(const ImageBufPtr &o) const {
-            return when_to_display_ < o.when_to_display_;
-        }
+        bool operator<(const ImageBufPtr &o) const { return tts_ < o.tts_; }
 
         bool operator<(const utility::time_point &t) const { return when_to_display_ < t; }
+
+        bool operator<(const timebase::flicks &t) const { return tts_ < t; }
 
         colour_pipeline::ColourPipelineDataPtr colour_pipe_data_;
         utility::time_point when_to_display_;
@@ -126,7 +129,11 @@ namespace media_reader {
 
         std::map<utility::Uuid, utility::BlindDataObjectPtr> plugin_blind_data_;
 
+        [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
+        void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
+
       private:
+        timebase::flicks tts_ = timebase::flicks{0};
     };
 
 } // namespace media_reader

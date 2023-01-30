@@ -29,10 +29,10 @@ XsWindow {
 
     centerOnOpen: true
 
-    property real itemHeight: 22
-    property real itemSpacing: 4
+    property int itemHeight: 22
+    property int itemSpacing: 4
 
-    property real padding: 6
+    property int padding: 6
 
     property int notesCount: (payload_obj ? payload_obj["payload"].length : 0)
     onNotesCountChanged:{

@@ -98,6 +98,10 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
     textures_[0]->set_texture_type("SSBO"); // texture_mode_preference_->value());
 
     if (onscreen_frame_) {
+        if (onscreen_frame_->error_state() == BufferErrorState::HAS_ERROR) {
+            // the frame contains errors, no need to continue from that point
+            return;
+        }
 
         // check if the frame we need to draw has already been
         // uploaded to texture memory and set the 'draw_texture_index_'
@@ -109,7 +113,6 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
         colour_pipe_textures_.upload_luts(colour_pipe_data->luts_, is_main_viewer_);
         latest_colour_pipe_data_cacheid_ = colour_pipe_data->cache_id_;
     }
-
 
     if (onscreen_frame_ && colour_pipe_data &&
         activate_shader(
@@ -363,12 +366,12 @@ bool OpenGLViewportRenderer::activate_shader(
     const viewport::GPUShaderPtr &colour_pipeline_shader) {
 
     if (!image_buffer_unpack_shader) {
-        spdlog::error("{} {}", __PRETTY_FUNCTION__, "No shader passed with image buffer.");
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, "No shader passed with image buffer.");
         return false;
     }
 
     if (!colour_pipeline_shader) {
-        spdlog::error(
+        spdlog::warn(
             "{} {}", __PRETTY_FUNCTION__, "No shader passed with colour pipeline LUTs.");
         return false;
     }

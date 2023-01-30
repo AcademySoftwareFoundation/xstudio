@@ -54,7 +54,8 @@ namespace ui {
                 const std::string &name,
                 const std::string &model,
                 const std::string &manufacturer,
-                const std::string &serialNumber);
+                const std::string &serialNumber,
+                const double refresh_rate);
 
             /**
              *  @brief Switch the fit mode and zoom to it's previous state (usually before
@@ -300,6 +301,7 @@ namespace ui {
             std::string frame_rate_expr_ = {"--/--"};
             media_reader::ImageBufPtr on_screen_frame_buffer_;
             media_reader::ImageBufPtr about_to_go_on_screen_frame_buffer_;
+            timebase::flicks screen_refresh_period_ = timebase::k_flicks_zero_seconds;
 
             caf::actor display_frames_queue_actor_;
             caf::actor parent_actor_;
@@ -309,6 +311,7 @@ namespace ui {
             caf::actor viewport_events_actor_;
             caf::actor other_viewport_;
             caf::actor colour_pipeline_;
+            caf::actor media_cache_actor_;
 
             caf::actor_addr playhead_addr_;
 

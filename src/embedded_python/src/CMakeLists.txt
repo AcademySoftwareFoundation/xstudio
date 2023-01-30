@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.12)
 project(embedded_python VERSION 0.1.0 LANGUAGES CXX)
 
 find_package(pybind11 REQUIRED)  # or `add_subdirectory(pybind11)`

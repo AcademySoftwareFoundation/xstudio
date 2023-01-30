@@ -21,6 +21,8 @@ Rectangle{ id: leftDiv
     property alias projectCurrentIndex: projComboBox.currentIndex
 
     property string currentCategory: "Playlists"
+    property string currentCategoryClass: currentCategory.replace(' Tree','')
+    property bool treeMode: currentCategory.includes(" Tree")
 
     property bool liveLinkProjectChange: false
     property var authenticateFunc: null
@@ -52,6 +54,9 @@ Rectangle{ id: leftDiv
     property var shotModel: null
     property var shotModelFunc: null
 
+    property var customEntity24Model: null
+    property var customEntity24ModelFunc: null
+
     property var shotSearchFilterModel: null
     property var shotSearchFilterModelFunc: null
 
@@ -61,14 +66,19 @@ Rectangle{ id: leftDiv
     property var filterViewModel: null
 
     property alias presetSelectionModel: presetsDiv.presetSelectionModel
+    property alias presetTreeSelectionModel: presetsMiniDiv.presetSelectionModel
+
     property var searchPresetsViewModel: null
+    property var searchTreePresetsViewModel: null
     property var searchQueryViewModel: null
 
     property var shotPresetsModel: null
+    property var shotTreePresetsModel: null
     property var playlistPresetsModel: null
     property var editPresetsModel: null
     property var referencePresetsModel: null
     property var notePresetsModel: null
+    property var noteTreePresetsModel: null
     property var mediaActionPresetsModel: null
 
     property var shotFilterModel: null
@@ -87,8 +97,8 @@ Rectangle{ id: leftDiv
 
     property var lastQuery: null
 
-    property alias presetsModel: presetsDiv.presetsModel
-    property alias searchPresetsView: presetsDiv.searchPresetsView
+    property var presetsModel: presetsDiv.presetsModel
+    property var searchPresetsView: presetsDiv.searchPresetsView
     property alias presetsDiv: presetsDiv
 
     color: "transparent"
@@ -168,7 +178,8 @@ Rectangle{ id: leftDiv
 "Result Limit",
 "Shot Status",
 "Site",
-"Tag"
+"Tag",
+"Unit"
     ]
     property var referenceFilters: [
 "Author",
@@ -215,6 +226,7 @@ Rectangle{ id: leftDiv
 "Preferred Visual",
 "Recipient",
 "Result Limit",
+"Sequence",
 "Shot Status",
 "Shot",
 "Tag",
@@ -222,6 +234,19 @@ Rectangle{ id: leftDiv
 "Twig Type",
 "Version Name"
     ]
+
+    onTreeModeChanged:{
+        tabBar.currentIndex = treeMode ? 1 : 0
+        if(treeMode) {
+            presetsModel = presetsMiniDiv.presetsModel
+            searchPresetsView = presetsMiniDiv.searchPresetsView
+        } else {
+            presetsModel = presetsDiv.presetsModel
+            searchPresetsView = presetsDiv.searchPresetsView
+        }
+
+        if( !["Shots","Notes"].includes(currentCategoryClass) ) tabBar.currentIndex = 0
+    }
 
     property bool isCollapsed: false
     onIsCollapsedChanged:{
@@ -268,6 +293,7 @@ Rectangle{ id: leftDiv
     }
 
     function executeQuery() {
+        // console.log("executeQuery()")
         if(!launch_query.running)
             launch_query.start()
     }
@@ -297,19 +323,23 @@ Rectangle{ id: leftDiv
 
     function buildQuery() {
         let override  = []
+        let query = null
 
-        if(pipelineStepFilterIndex != undefined && pipelineStepFilterIndex != -1) {
-            override.push({"term": "Pipeline Step",  "value": stepModel.get(pipelineStepFilterIndex, "nameRole"), "enabled": true})
-        }
+        if(presetsModel &&  filterViewModel && searchPresetsView.currentIndex != -1) {
 
-        if(onDiskFilterIndex != undefined && onDiskFilterIndex != -1) {
-             override.push({"term": "On Disk",  "value": onDiskModel.get(onDiskFilterIndex, "nameRole"), "enabled": true})
-        }
+            if(pipelineStepFilterIndex != undefined && pipelineStepFilterIndex != -1) {
+                override.push({"term": "Pipeline Step",  "value": stepModel.get(pipelineStepFilterIndex, "nameRole"), "enabled": true})
+            }
 
-        let query = mergeQueriesFunc(presetsModel.get(searchPresetsView.currentIndex, "jsonRole"), filterViewModel.get(0, "jsonRole"))
+            if(onDiskFilterIndex != undefined && onDiskFilterIndex != -1) {
+                 override.push({"term": "On Disk",  "value": onDiskModel.get(onDiskFilterIndex, "nameRole"), "enabled": true})
+            }
 
-        if(override.length) {
-            query = mergeQueriesFunc(query, {"queries":override})
+            query = mergeQueriesFunc(presetsModel.get(searchPresetsView.currentIndex, "jsonRole"), filterViewModel.get(0, "jsonRole"))
+
+            if(override.length) {
+                query = mergeQueriesFunc(query, {"queries":override})
+            }
         }
 
         return query
@@ -318,26 +348,30 @@ Rectangle{ id: leftDiv
     function executeQueryReal() {
         if(currentCategory) {
             let query = buildQuery()
-            lastQuery = query
+            if(query !== null) {
+                lastQuery = query
 
-            let preset_index = searchPresetsView.currentIndex
-            busyQuery(preset_index, true)
+                let preset_index = searchPresetsView.currentIndex
+                busyQuery(preset_index, true)
 
-            Future.promise(
-                executeQueryFunc(currentCategory, projectModel.get(projComboBox.currentIndex, "idRole"), query, true)
-            ).then(function(json_string) {
-                busyQuery(preset_index, false)
+                Future.promise(
+                    executeQueryFunc(currentCategory, projectModel.get(projComboBox.currentIndex, "idRole"), query, true)
+                ).then(function(json_string) {
+                    busyQuery(preset_index, false)
 
-                try {
-                    JSON.parse(json_string)
-                } catch(err) {
-                    error_dialog.text = json_string
-                    error_dialog.open()
-                }
-            },
-            function() {
-                busyQuery(preset_index, false)
-            })
+                    try {
+                        JSON.parse(json_string)
+                    } catch(err) {
+                        error_dialog.text = json_string
+                        error_dialog.open()
+                    }
+                },
+                function() {
+                    busyQuery(preset_index, false)
+                })
+            } else {
+                // console.log("Bad query")
+            }
         }
     }
 
@@ -346,6 +380,7 @@ Rectangle{ id: leftDiv
         // rightDiv.searchPresetsView.clearLoaded()
         rightDiv.clearFilter()
         presetSelectionModel.clear()
+        presetTreeSelectionModel.clear()
         searchPresetsView.currentIndex = -1
     }
 
@@ -417,6 +452,9 @@ Rectangle{ id: leftDiv
                             if(shotModelFunc) {
                                 shotModel = shotModelFunc(pid)
                             }
+                            if(customEntity24ModelFunc) {
+                                customEntity24Model = customEntity24ModelFunc(pid)
+                            }
                             if(shotSearchFilterModelFunc) {
                                 shotSearchFilterModel = shotSearchFilterModelFunc(pid)
                             }
@@ -436,6 +474,7 @@ Rectangle{ id: leftDiv
                             } else {
                                 searchPresetsView.currentIndex = -1
                                 presetSelectionModel.clear()
+                                presetTreeSelectionModel.clear()
                             }
                         }
                     }
@@ -466,6 +505,11 @@ Rectangle{ id: leftDiv
                         margins: 0
                         padding: 0
 
+                        onAboutToShow: {
+                            preFilterListView.queryModel = filterViewModel
+                            preFilterListView.queryRootIndex = filterViewModel.index(0,0)
+                        }
+
                         Rectangle {
                             anchors.fill: parent
                             color: "#222"
@@ -482,9 +526,8 @@ Rectangle{ id: leftDiv
                                     Layout.fillWidth: true
 
                                     onSnapshot: snapshotGlobals()
-                                    queryModel: filterViewModel.length != 0  ? filterViewModel : null
-                                    queryRootIndex: filterViewModel.length != 0 ?  filterViewModel.index(0, 0) : null
-                                    isLoaded: searchPresetsView.currentIndex != -1
+                                    // queryModel: filterViewModel.length ? filterViewModel : null
+                                    // queryRootIndex: filterViewModel.index(0,0)
                                 }
 
                                 XsButton{
@@ -524,7 +567,7 @@ Rectangle{ id: leftDiv
                     XsButton{ id: categoryButton
                         Layout.fillHeight: true
                         text: ""
-                        isActive: currentCategory === modelData
+                        isActive: currentCategoryClass === modelData
                         enabled: text !== "Edits"
                         hoverEnabled: enabled
 
@@ -540,7 +583,7 @@ Rectangle{ id: leftDiv
 
                             font.pixelSize: fontSize
                             font.family: fontFamily
-                            color: enabled? currentCategory === modelData || categoryButton.down || categoryButton.hovered || parent.isActive? textColorActive: textColorNormal : Qt.darker(textColorNormal,1.5)
+                            color: enabled? currentCategoryClass === modelData || categoryButton.down || categoryButton.hovered || parent.isActive? textColorActive: textColorNormal : Qt.darker(textColorNormal,1.5)
                             horizontalAlignment: Text.AlignHCenter
 
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -563,14 +606,14 @@ Rectangle{ id: leftDiv
                                 enabled: true
                                 effect:
                                 ColorOverlay {
-                                    color: enabled? currentCategory === modelData || categoryButton.down || categoryButton.hovered || parent.isActive? textColorActive: textColorNormal : Qt.darker(textColorNormal,1.5)
+                                    color: enabled? currentCategoryClass === modelData || categoryButton.down || categoryButton.hovered || parent.isActive? textColorActive: textColorNormal : Qt.darker(textColorNormal,1.5)
                                 }
                             }
                         }
 
                         onClicked: {
                             shotgunBrowser.categorySwitchedOnClick= true
-                            currentCategory= modelData
+                            currentCategory = modelData
                             rightDiv.selectionModel.resetSelection(true)
                         }
 
@@ -596,7 +639,7 @@ Rectangle{ id: leftDiv
             radius: frameRadius
             border.color: frameColor
             border.width: frameWidth
-            visible: ["Shots"].includes(currentCategory) || ( isTreeVisible && ["Shots","Notes"].includes(currentCategory) )
+            visible: ["Shots"].includes(currentCategoryClass) || ( isTreeVisible && ["Shots","Notes"].includes(currentCategoryClass) )
 
             property bool isTreeVisible: true
 
@@ -635,11 +678,11 @@ Rectangle{ id: leftDiv
 
                     XsTextField {
                         id: searchTextField
-                        enabled: !(["Notes"].includes(currentCategory) && placeholderText=="Shot Search")
+                        enabled: !(["Notes"].includes(currentCategoryClass) && placeholderText=="Shot Search")
                         width: parent.width
                         height: itemHeight
                         font.pixelSize: fontSize*1.2
-                        placeholderText: tabBar.currentIndex==0?currentCategory=="Reference"?"Reference Search" : "Shot Search" : "Tree Search"
+                        placeholderText: tabBar.currentIndex==0?currentCategoryClass=="Reference"?"Reference Search" : "Shot Search" : "Tree Search"
                         onAccepted: focus = false
                         onTextEdited: shotSearchFilterModel.setFilterWildcard(text)
                     }
@@ -719,13 +762,13 @@ Rectangle{ id: leftDiv
                         onClicked: {
                             searchTextField.text=""
                             if(currentCategory == "Notes" ){
-                                notePresetsModel.clearLoaded()
-                                notePresetsModel.insert(
-                                    notePresetsModel.rowCount(),
-                                    notePresetsModel.index(notePresetsModel.rowCount(),0),
+                                let mymodel = notePresetsModel
+                                mymodel.clearLoaded()
+                                mymodel.insert(
+                                    mymodel.rowCount(),
+                                    mymodel.index(mymodel.rowCount(),0),
                                     {
                                         "expanded": false,
-                                        "loaded": true,
                                         "name": nameRole + " Notes",
                                         "queries": [
                                             {
@@ -736,16 +779,16 @@ Rectangle{ id: leftDiv
                                         ]
                                     }
                                 )
-                                rightDiv.forceSelectPreset(notePresetsModel.rowCount()-1)
+                                mymodel.activePreset = mymodel.rowCount()-1
                             }
                             else{
-                                shotPresetsModel.clearLoaded()
-                                shotPresetsModel.insert(
-                                    shotPresetsModel.rowCount(),
-                                    shotPresetsModel.index(shotPresetsModel.rowCount(),0),
+                                let mymodel = shotPresetsModel
+                                mymodel.clearLoaded()
+                                mymodel.insert(
+                                    mymodel.rowCount(),
+                                    mymodel.index(mymodel.rowCount(),0),
                                     {
                                       "expanded": false,
-                                      "loaded": true,
                                       "name": "Shot Search - " + nameRole,
 
                                         "queries": [
@@ -792,7 +835,7 @@ Rectangle{ id: leftDiv
                                         ]
                                     }
                                 )
-                                rightDiv.forceSelectPreset(shotPresetsModel.rowCount()-1)
+                                mymodel.activePreset = mymodel.rowCount()-1
                             }
 
                             searchTextField.focus = false //closes list
@@ -807,13 +850,23 @@ Rectangle{ id: leftDiv
         StackLayout {
             Layout.fillWidth: true
             currentIndex: tabBar.currentIndex
-            property string category: currentCategory
-            onCategoryChanged:{
-                if( !["Shots","Notes"].includes(currentCategory) ) tabBar.currentIndex=0
+
+            onCurrentIndexChanged: {
+                if(currentIndex == 1) {
+                    currentCategory = currentCategoryClass + " Tree"
+                } else {
+                    currentCategory = currentCategoryClass
+                }
             }
 
             LeftPresetView{id: presetsDiv
                 backendModel: searchPresetsViewModel
+                onBackendModelChanged: {
+                    if(searchPresetsViewModel) {
+                        searchPresetsView.currentIndex = searchPresetsViewModel.activePreset
+                        // console.log("onBackendModelChanged", searchPresetsViewModel, searchPresetsViewModel.activePreset)
+                    }
+                }
             }
 
             XsSplitView { id: leftAndRightDivs
@@ -823,6 +876,110 @@ Rectangle{ id: leftDiv
                     SplitView.minimumWidth: parent.width
                     SplitView.minimumHeight: parent.height/2
                     SplitView.fillHeight: true
+
+                    onClicked: {
+                        if(searchTreePresetsViewModel.activePreset != -1) {
+                            let index = searchTreePresetsViewModel.index(searchTreePresetsViewModel.activePreset,0)
+                            let term = searchTreePresetsViewModel.get(0,index,"termRole")
+                            searchTreePresetsViewModel.set(0, name, "argRole", index);
+                            if(term != type) {
+                                searchTreePresetsViewModel.set(0, type, "termRole", index);
+                                searchTreePresetsViewModel.set(0, false, "enabledRole", index);
+                                searchTreePresetsViewModel.set(0, true, "enabledRole", index);
+                            }
+                        }
+                    }
+
+                    onDoubleClicked: {
+                        // find / insert all versions
+                        // needs to handle sequence as well as shot..
+
+                        let preset_id = searchTreePresetsViewModel.search("All Versions")
+                        if(preset_id == -1) {
+                            if(currentCategoryClass == "Shots" ) {
+                                searchTreePresetsViewModel.insert(
+                                    searchTreePresetsViewModel.rowCount(),
+                                    searchTreePresetsViewModel.index(searchTreePresetsViewModel.rowCount(), 0),
+                                    {
+                                        "expanded": false,
+                                        "name": "All Versions",
+                                        "queries": [
+                                            {
+                                                "enabled": true,
+                                                "term": type == "Shot" ? "Shot" : "Sequence",
+                                                "dynamic": true,
+                                                "value": name
+                                            },
+                                            {
+                                                "enabled": true,
+                                                "term": "Latest Version",
+                                                "value": "True"
+                                            },
+                                            {
+                                              "enabled": true,
+                                              "livelink": false,
+                                              "term": "Twig Type",
+                                              "value": "scan"
+                                            },
+                                            {
+                                              "enabled": true,
+                                              "livelink": false,
+                                              "term": "Twig Type",
+                                              "value": "render/element"
+                                            },
+                                            {
+                                              "enabled": true,
+                                              "livelink": false,
+                                              "term": "Twig Type",
+                                              "value": "render/out"
+                                            },
+                                            {
+                                              "enabled": true,
+                                              "livelink": false,
+                                              "term": "Twig Type",
+                                              "value": "render/playblast"
+                                            },
+                                            {
+                                              "enabled": true,
+                                              "livelink": false,
+                                              "term": "Twig Type",
+                                              "value": "render/playblast/working"
+                                            },
+                                            {
+                                                "enabled": true,
+                                                "term": "Flag Media",
+                                                "value": "Orange"
+                                            }
+                                        ]
+                                    }
+                                )
+                            } else if(currentCategoryClass == "Notes") {
+                                searchTreePresetsViewModel.insert(
+                                    searchTreePresetsViewModel.rowCount(),
+                                    searchTreePresetsViewModel.index(searchTreePresetsViewModel.rowCount(), 0),
+                                    {
+                                        "expanded": false,
+                                        "name": "All Versions",
+                                        "queries": [
+                                            {
+                                                "enabled": true,
+                                                "term": type == "Shot" ? "Shot" : "Sequence",
+                                                "dynamic": true,
+                                                "value": name
+                                            }
+                                        ]
+                                    }
+                                )
+                            }
+                            preset_id = searchTreePresetsViewModel.rowCount()-1
+                        } else {
+                            // will break if user fiddles...
+                            searchTreePresetsViewModel.set(0, type, "termRole", searchTreePresetsViewModel.index(preset_id,0));
+                            searchTreePresetsViewModel.set(0, name, "argRole", searchTreePresetsViewModel.index(preset_id,0));
+                        }
+                        searchTreePresetsViewModel.activePreset = preset_id
+                    }
+
                     // SplitView.preferredHeight:  SplitView.minimumHeight
 
                     // backendModel: sequenceTreeModel
@@ -832,11 +989,15 @@ Rectangle{ id: leftDiv
                     SplitView.minimumHeight: (itemHeight + framePadding*2) + (presetTitleHeight + presetTitleHeight/2 + itemSpacing)
                     SplitView.preferredHeight: (itemHeight + framePadding*2) + (presetTitleHeight+itemSpacing)*2.5
 
-                    backendModel: searchPresetsViewModel
+                    backendModel: searchTreePresetsViewModel
+                    onBackendModelChanged: {
+                        if(searchTreePresetsViewModel) {
+                            presetsMiniDiv.searchPresetsView.currentIndex = searchTreePresetsViewModel.activePreset
+                            // console.log("onBackendModelChanged", searchTreePresetsViewModel, searchTreePresetsViewModel.activePreset)
+                        }
+                    }
                 }
             }
-
         }
     }
-
 }

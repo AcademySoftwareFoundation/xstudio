@@ -15,6 +15,14 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
 
     set_default_handler(caf::drop);
 
+    set_down_handler([=](down_msg &msg) {
+        // find in playhead list..
+        if (msg.source == playhead_) {
+            demonitor(playhead_);
+            playhead_ = caf::actor();
+        }
+    });
+
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
@@ -58,11 +66,8 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
                         if (prefetch_inital_image) {
                             request(playhead, infinite, playhead::buffer_atom_v)
                                 .then(
-                                    [=](const media_reader::ImageBufPtr &buf) mutable {
-                                        onscreen_image_[curr_playhead_uuid] = buf;
-                                        queue_image_buffer_for_drawing(
-                                            onscreen_image_[curr_playhead_uuid],
-                                            curr_playhead_uuid);
+                                    [=](media_reader::ImageBufPtr buf) mutable {
+                                        queue_image_buffer_for_drawing(buf, curr_playhead_uuid);
                                         update_blind_data(
                                             std::vector<media_reader::ImageBufPtr>({buf}),
                                             false);
@@ -74,6 +79,11 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
                         }
                     },
                     [=](const error &err) mutable { rp.deliver(err); });
+
+            if (playhead_)
+                demonitor(playhead_);
+            playhead_ = playhead;
+            monitor(playhead_);
             return rp;
         },
 
@@ -86,9 +96,22 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             const utility::Uuid &playhead_uuid,
             const utility::time_point &tp) { current_playhead_ = playhead_uuid; },
 
-        [=](playhead::play_atom, const bool playing) {
-            if (!playing)
-                drop_future_frames();
+        [=](playhead::play_atom, const bool playing) { playing_ = playing; },
+
+        [=](ui::fps_monitor::framebuffer_swapped_atom,
+            const utility::time_point &message_send_tp,
+            const timebase::flicks video_refresh_rate_hint,
+            const bool main_viewer) {
+            // this incoming message originates from the video layer and 'message_send_tp'
+            // should be, as accurately as possible, the actual time that the framebuffer was
+            // swapped to the screen.
+
+            video_refresh_data_.refresh_history_.push_back(message_send_tp);
+            if (video_refresh_data_.refresh_history_.size() > 128) {
+                video_refresh_data_.refresh_history_.pop_front();
+            }
+            video_refresh_data_.refresh_rate_hint_  = video_refresh_rate_hint;
+            video_refresh_data_.last_video_refresh_ = message_send_tp;
         },
 
         [=](playhead::show_atom,
@@ -98,13 +121,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             const bool is_playing,
             const bool is_onscreen_frame) {
             playing_ = is_playing;
-            if (is_onscreen_frame) {
-                onscreen_image_[playhead_uuid] = buf;
-                queue_image_buffer_for_drawing(onscreen_image_[playhead_uuid], playhead_uuid);
-            } else {
-                queue_image_buffer_for_drawing(buf, playhead_uuid);
-            }
-
+            queue_image_buffer_for_drawing(buf, playhead_uuid);
             update_blind_data(std::vector<media_reader::ImageBufPtr>({buf}), false);
         },
 
@@ -112,11 +129,6 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         [=](playhead::show_atom,
             const utility::Uuid &playhead_uuid,
             std::vector<media_reader::ImageBufPtr> future_bufs) {
-            // put the current frame back in the queue of frame buffers to be
-            // drawn, if there is one
-            if (onscreen_image_.find(playhead_uuid) != onscreen_image_.end()) {
-                queue_image_buffer_for_drawing(onscreen_image_[playhead_uuid], playhead_uuid);
-            }
             // now insert the new future frames ready for drawing
             for (auto &buf : future_bufs) {
                 if (buf && buf.colour_pipe_data_) {
@@ -148,16 +160,45 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         [=](const error &err) mutable { aout(this) << err << std::endl; });
 }
 
-void ViewportFrameQueueActor::drop_future_frames() {
-    // if playback has stopped, to prevent 'future frames' that are queued to display with only
-    // a system clock timestamp from being put on screen we empty the queue here
-    const auto now = utility::clock::now();
+xstudio::media_reader::ImageBufPtr
+ViewportFrameQueueActor::get_least_old_image_in_set(const OrderedImagesToDraw &image_set) {
+
+    if (image_set.empty())
+        return media_reader::ImageBufPtr();
+    media_reader::ImageBufPtr least_old_buf;
+    auto r        = image_set.begin();
+    least_old_buf = *r;
+    r++;
+    while (r != image_set.end()) {
+        if ((*r).when_to_display_ > least_old_buf.when_to_display_) {
+            least_old_buf = *r;
+        }
+        r++;
+    }
+    return least_old_buf;
+}
+
+void ViewportFrameQueueActor::drop_old_frames(const utility::time_point out_of_date_threshold) {
+
+    // remove old frames from the queue against a threshold
+
     for (auto &p : frames_to_draw_per_playhead_) {
-        auto &image_set = p.second;
-        auto r          = std::lower_bound(image_set.begin(), image_set.end(), now);
-        if (r != image_set.begin())
-            r--;
-        image_set.erase(r, image_set.end());
+        auto &image_set                         = p.second;
+        media_reader::ImageBufPtr least_old_buf = get_least_old_image_in_set(image_set);
+        auto r                                  = image_set.begin();
+        while (r != image_set.end()) {
+            if ((*r).when_to_display_ < out_of_date_threshold) {
+                r = image_set.erase(r);
+            } else {
+                r++;
+            }
+        }
+        // if all the images in the queue are older than out_of_date_threshold then
+        // we add back in the 'least old' buffer so we have something to show.
+        if (image_set.empty() && least_old_buf) {
+            image_set.insert(image_set.end(), least_old_buf);
+            std::sort(image_set.begin(), image_set.end());
+        }
     }
 }
 
@@ -166,40 +207,25 @@ void ViewportFrameQueueActor::queue_image_buffer_for_drawing(
 
     auto &image_set = frames_to_draw_per_playhead_[playhead_id];
 
-    auto p = image_set.begin();
+
+    OrderedImagesToDraw::iterator p = image_set.begin();
     while (p != image_set.end()) {
         if (*p == buf) {
             (*p).when_to_display_ = buf.when_to_display_;
-            buf                   = (*p); // this copies blind data from our cache back to buf
             break;
         }
         p++;
     }
 
-    if (p != frames_to_draw_per_playhead_[playhead_id].end()) {
-
+    if (p == frames_to_draw_per_playhead_[playhead_id].end()) {
+        image_set.insert(image_set.end(), buf);
         std::sort(image_set.begin(), image_set.end());
-
-    } else {
-
-        auto r = std::lower_bound(image_set.begin(), image_set.end(), buf.when_to_display_);
-        image_set.insert(r, buf);
     }
 
     {
         // purge images in the queue that were supposed to be displayed before now.
-        const auto now = utility::clock::now();
-
-        auto r = std::lower_bound(image_set.begin(), image_set.end(), now);
-        if (r != image_set.begin())
-            r--;
-        // remove any images in the queue that are out of date (their display timestamp is
-        // further back in time than the image we are returning)
-        auto n = std::distance(image_set.begin(), r);
-        while (n) {
-            image_set.erase(image_set.begin());
-            n--;
-        }
+        const auto now = utility::clock::now() - std::chrono::milliseconds(100);
+        drop_old_frames(now);
     }
 }
 
@@ -207,20 +233,12 @@ void ViewportFrameQueueActor::queue_image_buffer_for_drawing(
 void ViewportFrameQueueActor::get_frames_for_display(
     const utility::Uuid &playhead_id, std::vector<media_reader::ImageBufPtr> &next_images) {
 
-    if (onscreen_image_.find(playhead_id) != onscreen_image_.end()) {
-        // the first image in the list to be displayed is the image that should
-        // be on-screen right now
-        next_images.push_back(onscreen_image_[playhead_id]);
-    }
-
-    // if not in playback, we do not need to upload 'future' frames
-    if (!playing_)
-        return;
 
     if (frames_to_draw_per_playhead_.find(playhead_id) == frames_to_draw_per_playhead_.end()) {
         // no images queued for display for the indicated playhead
         return;
     }
+
 
     // find the entry in our queue of frames to draw whose display timestamp
     // is closest to 'now'
@@ -229,8 +247,10 @@ void ViewportFrameQueueActor::get_frames_for_display(
         return;
     }
 
-    const auto now = utility::clock::now();
-    auto r         = std::lower_bound(image_set.begin(), image_set.end(), now);
+    auto r = std::lower_bound(
+        image_set.begin(),
+        image_set.end(),
+        predicted_playhead_position_at_next_video_refresh());
 
     if (r == image_set.end()) {
         // No entry in the queue has a higher timestamp than 'now', so
@@ -244,25 +264,21 @@ void ViewportFrameQueueActor::get_frames_for_display(
         r--;
     }
 
-    // check we haven't already added this via the 'onsreen_image_'
-    if (next_images.size() && next_images.front() != *r) {
-        next_images.push_back(*r);
-    }
+    next_images.push_back(*r);
 
     auto r_next = r;
     r_next++;
     while (r_next != image_set.end() && next_images.size() < 4) {
+
         next_images.push_back(*r_next);
         r_next++;
     }
 
-
-    // remove any images in the queue that are out of date (their display timestamp is
-    // further back in time than the image we are returning)
-    auto n = std::distance(image_set.begin(), r);
-    while (n) {
-        image_set.erase(image_set.begin());
-        n--;
+    // now that we have picked frames for display, the first frame in 'next_images'
+    // is the one that should be on-screen now ... and frames that should have been
+    // displayed before this one can be dropped from the queue
+    if (next_images.size()) {
+        drop_old_frames((*next_images.begin()).when_to_display_);
     }
 }
 
@@ -275,9 +291,6 @@ void ViewportFrameQueueActor::child_playheads_deleted(
         if (it != frames_to_draw_per_playhead_.end()) {
             frames_to_draw_per_playhead_.erase(it);
         }
-        auto it2 = onscreen_image_.find(uuid);
-        if (it2 != onscreen_image_.end())
-            onscreen_image_.erase(it2);
     }
 }
 
@@ -285,19 +298,18 @@ void ViewportFrameQueueActor::add_blind_data_to_image_in_queue(
     const media_reader::ImageBufPtr &image,
     const utility::BlindDataObjectPtr &bdata,
     const utility::Uuid &overlay_actor_uuid) {
-    for (auto &ons_pph : onscreen_image_) {
-        if (ons_pph.second == image) {
-            ons_pph.second.add_plugin_blind_data(overlay_actor_uuid, bdata);
-        }
-    }
 
     for (auto &per_playhead : frames_to_draw_per_playhead_) {
-        auto &image_set = per_playhead.second;
+        OrderedImagesToDraw image_set = per_playhead.second;
+        bool changed                  = false;
         for (auto &im : image_set) {
             if (im == image) {
                 im.add_plugin_blind_data(overlay_actor_uuid, bdata);
+                changed = true;
             }
         }
+        if (changed)
+            per_playhead.second = image_set;
     }
 }
 
@@ -371,4 +383,149 @@ void ViewportFrameQueueActor::update_image_blind_data_and_deliver(
                     rp.deliver(err);
                 });
     }
+}
+
+timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_video_refresh() {
+
+    if (!playhead_)
+        return timebase::flicks(0);
+
+    const timebase::flicks video_refresh_period     = compute_video_refresh();
+    const utility::time_point next_video_refresh_tp = next_video_refresh(video_refresh_period);
+
+    caf::scoped_actor sys(system());
+    try {
+
+        // we need the playhead to estimate what its position will be when we next swap an image
+        // onto the screen. We then use this to pick which of the frames that we've been sent to
+        // show we actually show.
+        timebase::flicks estimate_playhead_position_at_next_redraw =
+            request_receive_wait<timebase::flicks>(
+                *sys,
+                playhead_,
+                std::chrono::milliseconds(100),
+                playhead::position_atom_v,
+                next_video_refresh_tp,
+                video_refresh_period);
+
+        // To enact a stable pulldown we need to round this value down to a multiple of the
+        // video_refresh_period. There is a catch, though. The playhead is 'free running' and is
+        // not synced in any way to the video refresh. There will be some error in
+        // 'estimate_playhead_position_at_next_redraw' due to jitter or innacuracies in the
+        // video refresh signal we get from the UI layer. Doing a straight rounding of the
+        // number could therefore mean dropping frames or otherwise innacurate pulldown as the
+        // rounded playhead position might erratically bounce around the frame transition
+        // boundary in the timeline. To overcome this we add a 'phase adjustment' that tries to
+        // ensure we are about mid way between video refresh beats before we do the rounding.
+        // The key is that we only change this phase adjustment occasionally as the phase
+        // between the playhead and the video refresh beats drifts.
+
+        timebase::flicks phase_adjusted_tp =
+            estimate_playhead_position_at_next_redraw + playhead_vid_sync_phase_adjust_;
+        timebase::flicks rounded_phase_adjusted_tp = timebase::flicks(
+            video_refresh_period.count() *
+            (phase_adjusted_tp.count() / video_refresh_period.count()));
+        const double phase =
+            timebase::to_seconds(phase_adjusted_tp - rounded_phase_adjusted_tp) /
+            timebase::to_seconds(video_refresh_period);
+
+        if (phase < 0.1 || phase > 0.9) {
+            playhead_vid_sync_phase_adjust_ = timebase::flicks(
+                video_refresh_period.count() / 2 -
+                estimate_playhead_position_at_next_redraw.count() +
+                video_refresh_period.count() *
+                    (estimate_playhead_position_at_next_redraw.count() /
+                     video_refresh_period.count()));
+            phase_adjusted_tp =
+                estimate_playhead_position_at_next_redraw + playhead_vid_sync_phase_adjust_;
+            rounded_phase_adjusted_tp = timebase::flicks(
+                video_refresh_period.count() *
+                (phase_adjusted_tp.count() / video_refresh_period.count()));
+        }
+        return rounded_phase_adjusted_tp;
+
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+    return timebase::flicks(0);
+}
+
+xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
+    const timebase::flicks &video_refresh_period) const {
+
+    // it's possible we are not receiving refresh signals from the UI layer on
+    // completion of the glXSwapBuffers(), so we have to do some sanity checks
+    // and then make up an appropriate refresh time if we need to.
+    utility::time_point last_vid_refresh;
+    if (video_refresh_data_.refresh_history_.empty()) {
+        last_vid_refresh =
+            utility::clock::now() -
+            std::chrono::duration_cast<std::chrono::microseconds>(video_refresh_period);
+    } else {
+        if (std::chrono::duration_cast<timebase::flicks>(
+                utility::clock::now() - video_refresh_data_.last_video_refresh_) <
+            timebase::k_flicks_one_fifteenth_second) {
+            last_vid_refresh = video_refresh_data_.last_video_refresh_;
+        } else {
+            last_vid_refresh =
+                utility::clock::now() -
+                std::chrono::duration_cast<std::chrono::microseconds>(video_refresh_period);
+        }
+    }
+    return last_vid_refresh +
+           std::chrono::duration_cast<std::chrono::microseconds>(video_refresh_period);
+}
+
+timebase::flicks ViewportFrameQueueActor::compute_video_refresh() const {
+
+    if (video_refresh_data_.refresh_rate_hint_ != timebase::k_flicks_zero_seconds) {
+
+        // we've got system information about the refresh, let's trust it
+        return video_refresh_data_.refresh_rate_hint_;
+
+    } else if (video_refresh_data_.refresh_history_.size() > 64) {
+
+        // Here, take the delta time between subsequent video refresh messages
+        // and take the average. Ignore the lowest 8 and highest 8 deltas ..
+        std::vector<timebase::flicks> deltas;
+        deltas.reserve(video_refresh_data_.refresh_history_.size());
+        auto p  = video_refresh_data_.refresh_history_.begin();
+        auto pp = p;
+        pp++;
+        while (pp != video_refresh_data_.refresh_history_.end()) {
+            deltas.push_back(std::chrono::duration_cast<timebase::flicks>(*pp - *p));
+            pp++;
+            p++;
+        }
+        std::sort(deltas.begin(), deltas.end());
+
+        auto r = deltas.begin() + 8;
+        int ct = deltas.size() - 16;
+        timebase::flicks t(0);
+        while (ct--) {
+            t += *(r++);
+        }
+
+        // This measurement of the refresh rate is only accurate if the UI layer
+        // (probably Qt) is giving us time-accurate signals when the GLXSwapBuffers
+        // call completes. Also the assumption is that the UI redraw is limited to
+        // the display refresh rate (which happens if the draw time isn't longer than
+        // the refresh period and also that the swap buffers is synced to VBlank).
+        // Here we try to match out measurement with commong video refresh rates:
+
+        // Assume 24fps is the minimum refresh we'll ever encounter
+        const int hertz_refresh =
+            std::max(24, int(round(float(deltas.size() - 16)) / timebase::to_seconds(t)));
+        static const std::vector<int> common_refresh_rates(
+            {24, 25, 30, 48, 60, 75, 90, 120, 144, 240, 360});
+        auto match = std::lower_bound(
+            common_refresh_rates.begin(), common_refresh_rates.end(), hertz_refresh);
+        if (match != common_refresh_rates.end() && abs(*match - hertz_refresh) < 2) {
+            return timebase::to_flicks(1.0 / double(*match));
+        }
+    }
+
+    // default fallback to 60Hz
+    return timebase::k_flicks_one_sixtieth_second;
 }

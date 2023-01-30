@@ -16,6 +16,7 @@
 #include "xstudio/ui/keyboard.hpp"
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/ui/opengl/opengl_viewport_renderer.hpp"
+#include "xstudio/ui/viewport/viewport.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +35,7 @@ typedef GLXContext (*glXCreateContextAttribsARBProc)(
 
 using namespace xstudio;
 using namespace xstudio::ui;
+using namespace xstudio::ui::viewport;
 using namespace xstudio::ui::opengl;
 
 // Helper to check for extension string presence.  Adapted from:
@@ -120,6 +122,10 @@ class GLXWindowViewportActor : public caf::event_based_actor {
                              .count()
                       << "\n";
             glXSwapBuffers(display, win);
+
+            // this is crucial for video refresh sync, the viewport
+            // needs to know when the image was put on the screen
+            viewport_renderer->framebuffer_swapped();
         }
 
         glXMakeCurrent(display, 0, 0); // releases the context so that this function can be
@@ -128,7 +134,7 @@ class GLXWindowViewportActor : public caf::event_based_actor {
 
     void receive_change_notification(viewport::Viewport::ChangeCallbackId) {}
 
-    OpenGLViewportRenderer *viewport_renderer;
+    Viewport *viewport_renderer;
     GLXContext ctx = 0;
     Display *display;
     Window win;
@@ -138,6 +144,7 @@ class GLXWindowViewportActor : public caf::event_based_actor {
     int width  = 800;
     int height = 800;
 };
+
 
 static GLXWindowViewportActor *foofoo = nullptr;
 
@@ -153,8 +160,11 @@ GLXWindowViewportActor::GLXWindowViewportActor(caf::actor_config &cfg)
     /* Here we create the xstudio OpenGLViewportRenderer class that actually draws video to the
      * screen
      */
-    viewport_renderer =
-        new opengl::OpenGLViewportRenderer(jsn, caf::actor_cast<caf::actor>(this), true, false);
+    viewport_renderer = new ui::viewport::Viewport(
+        jsn,
+        caf::actor_cast<caf::actor>(this),
+        true,
+        ui::viewport::ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false)));
 
     /* Provide a callback so the xstudio OpenGLViewportRenderer can tell this class when some
     property of the viewport has changed, or a redraw is needed, so the window
@@ -421,6 +431,11 @@ void GLXWindowViewportActor::create_glx_window() {
         printf("Failed to create window.\n");
         exit(1);
     }
+
+    PFNGLXSWAPINTERVALEXTPROC glXSwapIntervalEXT = (PFNGLXSWAPINTERVALEXTPROC)glXGetProcAddress(
+        (const GLubyte *)"glXSwapIntervalEXT"); // Set the glxSwapInterval to 0, ie. disable
+                                                // vsync!  khronos.org/opengl/wiki/Swap_Interval
+    glXSwapIntervalEXT(display, win, 1);        // glXSwapIntervalEXT(0);
 
     // Done with the visual info data
     XFree(vi);

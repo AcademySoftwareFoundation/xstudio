@@ -39,6 +39,10 @@ class JSONTreeModel : public QAbstractItemModel {
     bool
     setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 
+
+    Q_INVOKABLE [[nodiscard]] QVariant
+    get(const QModelIndex &item, const QString &role = "display") const;
+
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE bool
@@ -51,6 +55,9 @@ class JSONTreeModel : public QAbstractItemModel {
         int destinationChild) override;
     Q_INVOKABLE bool
     insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
+
+    Q_INVOKABLE int
+    countExpandedChildren(const QModelIndex parent, const QModelIndexList &expanded);
 
 
     const nlohmann::json &modelData() const { return data_; }

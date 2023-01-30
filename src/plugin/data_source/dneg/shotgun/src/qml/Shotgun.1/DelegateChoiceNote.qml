@@ -50,10 +50,10 @@ DelegateChoice {
                     selectionModel.prevSelectedIndex = index
                     applySelection(function(items){
                         addShotsToPlaylist(items,
-                            data_source.preferredVisual("Notes"),
-                            data_source.preferredAudio("Notes"),
-                            data_source.flagText("Notes"),
-                            data_source.flagColour("Notes")
+                            data_source.preferredVisual(currentCategory),
+                            data_source.preferredAudio(currentCategory),
+                            data_source.flagText(currentCategory),
+                            data_source.flagColour(currentCategory)
                         )
                     })
                 }
@@ -254,7 +254,7 @@ DelegateChoice {
                 color: root.isSelected? Qt.darker(itemColorActive, 3):"#242424" //"transparent"
 
                 XsTextButton{ id: nameDisplayText
-                    text: versionNameRole
+                    text: versionNameRole || ""
 
                     anchors.left: nameDisplay.left
                     anchors.leftMargin: framePadding
@@ -270,13 +270,13 @@ DelegateChoice {
                     forcedMouseHover: isMouseHovered
 
                     onTextClicked: {
-                        notePresetsModel.clearLoaded()
-                        notePresetsModel.insert(
-                            notePresetsModel.rowCount(),
-                            notePresetsModel.index(notePresetsModel.rowCount(), 0),
+                        let mymodel = notePresetsModel
+                        mymodel.clearLoaded()
+                        mymodel.insert(
+                            mymodel.rowCount(),
+                            mymodel.index(mymodel.rowCount(), 0),
                             {
                                 "expanded": false,
-                                "loaded": true,
                                 "name": shotNameRole + " Notes",
                                 "queries": [
                                     {
@@ -318,10 +318,10 @@ DelegateChoice {
                             }
                         )
 
-                        forceSelectPreset(notePresetsModel.rowCount()-1)
+                        mymodel.activePreset = mymodel.rowCount()-1
                     }
 
-                    ToolTip.text: versionNameRole
+                    ToolTip.text: versionNameRole || ""
                     ToolTip.visible: hovered & textDiv.truncated
                 }
             }

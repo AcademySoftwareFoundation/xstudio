@@ -167,14 +167,14 @@ void QMLViewport::handleWindowChanged(QQuickWindow *win) {
 }
 
 void QMLViewport::handleScreenChanged(QScreen *screen) {
+
     spdlog::debug("QMLViewport::handleScreenChanged");
-
-    QString name         = screen->name();
-    QString model        = screen->model();
-    QString manufacturer = screen->manufacturer();
-    QString serialNumber = screen->serialNumber();
-
-    renderer_actor->setScreenInfos(name, model, manufacturer, serialNumber);
+    renderer_actor->setScreenInfos(
+        screen->name(),
+        screen->model(),
+        screen->manufacturer(),
+        screen->serialNumber(),
+        screen->refreshRate());
 }
 
 PointerEvent

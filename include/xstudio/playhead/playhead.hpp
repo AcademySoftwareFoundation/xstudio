@@ -63,6 +63,7 @@ namespace playhead {
         [[nodiscard]] bool use_loop_range() const { return use_loop_range_; }
         [[nodiscard]] timebase::flicks duration() const { return duration_; }
         [[nodiscard]] timebase::flicks effective_frame_period() const;
+        timebase::flicks clamp_timepoint_to_loop_range(const timebase::flicks pos) const;
 
         void set_forward(const bool forward = true) { forward_->set_value(forward); }
         void set_loop(const LoopMode loop = LM_LOOP) { loop_ = loop; }

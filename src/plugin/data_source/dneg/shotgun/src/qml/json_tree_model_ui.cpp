@@ -45,6 +45,42 @@ void JSONTreeModel::setModelData(const nlohmann::json &data) {
     endResetModel();
 }
 
+QVariant JSONTreeModel::get(const QModelIndex &item, const QString &role) const {
+    int role_id = -1;
+
+    QHashIterator<int, QByteArray> it(roleNames());
+    if (it.findNext(role.toUtf8())) {
+        role_id = it.key();
+    }
+
+    return data(item, role_id);
+}
+
+
+int JSONTreeModel::countExpandedChildren(
+    const QModelIndex parent, const QModelIndexList &expanded) {
+    int count = 0;
+
+    if (hasChildren(parent)) {
+        // root contains all..
+        if (parent == QModelIndex()) {
+            count = rowCount(parent);
+            for (const auto &i : expanded)
+                count += rowCount(i);
+            // spdlog::warn("I'm groot {}", count);
+        } else if (expanded.contains(parent)) {
+            count = rowCount(parent);
+
+            // check if any of our children are also expanded.
+            // this is recursive..
+            for (int i = 0; i < rowCount(parent); i++)
+                count += countExpandedChildren(index(i, 0, parent), expanded);
+
+            // spdlog::warn("I'm expanded {}", count);
+        }
+    }
+    return count;
+}
 
 bool JSONTreeModel::hasChildren(const QModelIndex &parent) const {
     auto result = false;

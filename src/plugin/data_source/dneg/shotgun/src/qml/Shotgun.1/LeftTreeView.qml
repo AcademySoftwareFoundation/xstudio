@@ -23,8 +23,20 @@ Rectangle{ id: section
     border.color: frameColor
     border.width: frameWidth
 
+    signal clicked(string type, string name, int id)
+    signal doubleClicked(string type, string name, int id)
+
     ItemSelectionModel {id: itemSelectionModel
         model: section.model
+        onSelectionChanged: {
+            if(selectedIndexes.length){
+                clicked(
+                    section.model.get(selectedIndexes[0],"typeRole"),
+                    section.model.get(selectedIndexes[0],"nameRole"),
+                    section.model.get(selectedIndexes[0],"idRole"),
+                )
+            }
+        }
     }
     ItemSelectionModel {id: itemExpandedModel
         model: section.model
@@ -35,10 +47,11 @@ Rectangle{ id: section
         selectionModel: itemSelectionModel
         expandedModel: itemExpandedModel
         scrollBarVisibility: !searchShotListPopup.visible
-        
-        onShotClicked:{ //#TODO: Not working on child-level
-            console.log("Shot2: "+shot)
-        }
+        itemDoubleClicked: itemDoubleClickedFunction
+    }
+
+    function itemDoubleClickedFunction(type, name, id) {
+        doubleClicked(type, name, id)
     }
 
     Rectangle { id: overlapGradient

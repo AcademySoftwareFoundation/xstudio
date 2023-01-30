@@ -39,6 +39,8 @@ namespace media_reader {
 
         int readers_per_source_;
         int soundcard_sample_rate_ = {4000};
+
+        ImageBufPtr last_decoded_image_;
     };
 } // namespace media_reader
 } // namespace xstudio

@@ -20,7 +20,7 @@ ListView{
     property var expanded: true
 
     property alias queryRootIndex: queryTreeModel.rootIndex
-    property alias queryModel: queryTreeModel.model
+    property alias queryModel: queryTreeModel.baseModel
 
     property bool isLoaded: true
     property real queryItemHeight: itemHeight/1.15
@@ -201,7 +201,7 @@ ListView{
                         padding: 0
                         onClicked: {
                             enabledRole = !enabledRole
-                            if(isLoaded == true)
+                            if(isLoaded)
                                 executeQuery()
                         }
                     }
@@ -209,9 +209,10 @@ ListView{
                     XsComboBox{ id: queryBox
                         Layout.preferredWidth: 150
                         Layout.preferredHeight: queryItemHeight
+                        property var termrole: termRole
 
                         model: {
-                            if(currentCategory == "Shots")
+                            if(currentCategory == "Shots" || currentCategory == "Shots Tree")
                                 return shotFilters
                             else if(currentCategory == "Playlists")
                                 return playlistFilters
@@ -221,12 +222,16 @@ ListView{
                                 return referenceFilters
                             else if(currentCategory == "Menu Setup")
                                 return mediaActionFilters
-                            else if(currentCategory == "Notes")
+                            else if(currentCategory == "Notes" || currentCategory == "Notes Tree")
                                 return noteFilters
                         }
                         editable: false
                         // currentIndex: {console.log(termRole, queryBox.find(termRole)); return queryBox.find(termRole)}
                         enabled: isEnabled
+
+                        onTermroleChanged: {
+                            currentIndex = queryBox.indexOfValue(termRole)
+                        }
 
                         Component.onCompleted: {
                             currentIndex = queryBox.indexOfValue(termRole)
@@ -237,7 +242,7 @@ ListView{
                                 termRole = currentText
                                 if(valueBox.count<50) valueBox.popupOptions.open()
 
-                                if(isLoaded == true)
+                                if(isLoaded)
                                     executeQuery()
                             }
                         }
@@ -339,6 +344,7 @@ ListView{
                             ListElement { nameRole: "Tag" }
                             ListElement { nameRole: "Twig Name" }
                             ListElement { nameRole: "Twig Type" }
+                            ListElement { nameRole: "Unit" }
                             ListElement { nameRole: "Version Name" }
                         }
 
@@ -413,6 +419,7 @@ ListView{
                             else if(termRole=="Tag") dummyModel
                             else if(termRole=="Twig Name") dummyModel
                             else if(termRole=="Twig Type") twigTypeCodeModel
+                            else if(termRole=="Unit") customEntity24Model
                             else if(termRole=="Version Name") dummyModel
                         }
                         Timer {
@@ -469,13 +476,12 @@ ListView{
                         onFocusChanged: if(!focus) accepted()
 
                         function doUpdate() {
+                            // console.log("doUpdate")
                             if(currentText !== "" && argRole != currentText)
                                 argRole = currentText
 
-                            // if(currentIndex !== -1) {
-                                if(isLoaded == true)
-                                    executeQuery()
-                            // }
+                            if(isLoaded)
+                                executeQuery()
                         }
 
                         onActivated: doUpdate()
@@ -492,7 +498,7 @@ ListView{
                             snapshot()
                             queryTreeModel.remove(index)
                             snapshot()
-                            if(isLoaded == true)
+                            if(isLoaded)
                                 executeQuery()
                         }
                     }
@@ -515,7 +521,7 @@ ListView{
                 Layout.leftMargin: (queryItemHeight+itemSpacing) + (framePadding*2+itemSpacing)
 
                 model: {
-                    if(currentCategory == "Shots")
+                    if(currentCategory == "Shots" || currentCategory == "Shots Tree")
                         return ["-- Select --"].concat(shotFilters)
                     else if(currentCategory == "Playlists")
                         return ["-- Select --"].concat(playlistFilters)
@@ -525,7 +531,7 @@ ListView{
                         return ["-- Select --"].concat(referenceFilters)
                     else if(currentCategory == "Menu Setup")
                         return ["-- Select --"].concat(mediaActionFilters)
-                    else if(currentCategory == "Notes")
+                    else if(currentCategory == "Notes" || currentCategory == "Notes Tree")
                         return ["-- Select --"].concat(noteFilters)
                 }
 
@@ -568,7 +574,7 @@ ListView{
 
                         currentIndex = 0
                         // update query on change.
-                        if(isLoaded == true && value != "")
+                        if(isLoaded && value != "")
                             executeQuery()
                     }
                 }

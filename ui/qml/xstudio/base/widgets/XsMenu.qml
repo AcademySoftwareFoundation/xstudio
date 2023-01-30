@@ -19,6 +19,8 @@ Menu {
     property bool fakeDisabled: false
     topPadding: Math.max(3, XsStyle.menuRadius)
     bottomPadding: topPadding
+    dim: true
+    
     background: Rectangle {
         id: bgrect
         border {

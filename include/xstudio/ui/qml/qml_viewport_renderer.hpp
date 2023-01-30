@@ -70,7 +70,11 @@ namespace ui {
             void setTranslate(const QVector2D &t);
             bool pointerEvent(const PointerEvent &e);
             void setScreenInfos(
-                QString name, QString model, QString manufacturer, QString serialNumber);
+                QString name,
+                QString model,
+                QString manufacturer,
+                QString serialNumber,
+                double refresh_rate);
 
           public slots:
 

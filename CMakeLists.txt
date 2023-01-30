@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
-set(XSTUDIO_GLOBAL_VERSION 1.2.0)
+set(XSTUDIO_GLOBAL_VERSION "0.8.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
@@ -12,6 +12,7 @@ option(BUILD_DOCS "Build xStudio documentation" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
 option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
+option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
@@ -28,7 +29,27 @@ if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "
 endif()
 
 set(CXXOPTS_BUILD_TESTS OFF CACHE BOOL "Enable or disable cxxopts' tests")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always -march=nehalem")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always")
+
+if (${OPTIMIZE_FOR_NATIVE})
+  include(CheckCXXCompilerFlag)
+  CHECK_CXX_COMPILER_FLAG("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
+  if(COMPILER_SUPPORTS_MARCH_NATIVE)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+  endif()
+endif()
+
+set(GCC_MARCH_OVERRIDE "" CACHE STRING "Override -march")
+
+if (NOT ${GCC_MARCH_OVERRIDE} STREQUAL "")
+  include(CheckCXXCompilerFlag)
+  CHECK_CXX_COMPILER_FLAG("-march=${GCC_MARCH_OVERRIDE}" COMPILER_SUPPORTS_MARCH)
+  if(COMPILER_SUPPORTS_MARCH)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${GCC_MARCH_OVERRIDE}")
+  endif()
+endif()
+
+
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
 
 set(TEST_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/test_resource")

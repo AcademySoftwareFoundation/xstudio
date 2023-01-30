@@ -258,6 +258,56 @@ timebase::flicks PlayheadBase::effective_frame_period() const {
                                    playhead_rate_.to_seconds() * (1.0f / throttle_)));
 }
 
+timebase::flicks PlayheadBase::clamp_timepoint_to_loop_range(const timebase::flicks pos) const {
+
+    const timebase::flicks in  = loop_start();
+    const timebase::flicks out = loop_end();
+
+    auto rt = pos;
+    if (loop_ == LM_LOOP) {
+
+        if (forward()) {
+            if (pos > out || pos < in) {
+                rt = in;
+            }
+        } else {
+            if (rt < in || rt > out) {
+                rt = out;
+            }
+        }
+
+    } else if (loop_ == LM_PING_PONG) {
+
+        if (forward()) {
+            if (pos > out) {
+                rt = out;
+            } else if (pos < in) {
+                rt = in;
+            }
+        } else {
+            if (pos < in) {
+                rt = in;
+            } else if (pos > out) {
+                rt = out;
+            }
+        }
+
+    } else {
+
+        if (forward()) {
+
+            if (pos > out) {
+                rt = out;
+            }
+
+        } else if (pos < in) {
+
+            rt = in;
+        }
+    }
+    return rt;
+}
+
 void PlayheadBase::set_position(const timebase::flicks p) { position_ = p; }
 
 bool PlayheadBase::set_use_loop_range(const bool use_loop_range) {

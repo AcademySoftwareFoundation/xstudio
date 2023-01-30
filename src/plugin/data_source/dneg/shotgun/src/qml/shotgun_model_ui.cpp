@@ -927,6 +927,7 @@ void ShotgunTreeModel::populate(const utility::JsonStore &data) {
     // dirty update..
     setModelData(data);
 
+    setActivePreset();
     emit lengthChanged();
 
     checkForActiveFilter();
@@ -936,15 +937,12 @@ void ShotgunTreeModel::populate(const utility::JsonStore &data) {
 void ShotgunTreeModel::checkForActiveLiveLink() {
     try {
         bool active = false;
-        if (not data_.is_null()) {
-            for (const auto &i : data_) {
-                if (i.value("loaded", false)) {
-                    for (const auto &j : i.at(children_)) {
-                        if (j.value("enabled", false) and j.value("livelink", false)) {
-                            active = true;
-                            break;
-                        }
-                    }
+        if (not data_.is_null() and active_preset_ != -1 and
+            active_preset_ < static_cast<int>(data_.size())) {
+            const auto &i = data_.at(active_preset_);
+            for (const auto &j : i.at(children_)) {
+                if (j.value("enabled", false) and j.value("livelink", false)) {
+                    active = true;
                     break;
                 }
             }
@@ -963,15 +961,13 @@ void ShotgunTreeModel::checkForActiveFilter() {
 
     try {
         bool active = false;
-        if (not data_.is_null()) {
-            for (const auto &i : data_) {
-                if (i.at("loaded")) {
-                    for (const auto &j : i.at(children_)) {
-                        if (j.at("enabled")) {
-                            active = true;
-                            break;
-                        }
-                    }
+        if (not data_.is_null() and active_preset_ != -1 and
+            active_preset_ < static_cast<int>(data_.size())) {
+            const auto &i = data_.at(active_preset_);
+
+            for (const auto &j : i.at(children_)) {
+                if (j.at("enabled")) {
+                    active = true;
                     break;
                 }
             }
@@ -1013,9 +1009,7 @@ bool ShotgunTreeModel::insert(int row, const QModelIndex &parent, const QVariant
 }
 
 void ShotgunTreeModel::clearLoaded() {
-    for (size_t i = 0; i < data_.size(); i++) {
-        set(i, false, "loadedRole", QModelIndex());
-    }
+    setActivePreset();
     checkForActiveFilter();
     checkForActiveLiveLink();
 }
@@ -1166,10 +1160,6 @@ QVariant ShotgunTreeModel::data(const QModelIndex &index, int role) const {
                 result = QString::fromStdString(j.value("type", "user"));
                 break;
 
-            case Roles::loadedRole:
-                result = j.at("loaded").get<bool>();
-                break;
-
             case Roles::expandedRole:
                 result = j.at("expanded").get<bool>();
                 break;
@@ -1255,7 +1245,10 @@ bool ShotgunTreeModel::setData(const QModelIndex &index, const QVariant &value, 
                 break;
 
             case Roles::termRole:
+                if (j.value("livelink", false) or j.value("dynamic", false))
+                    sync_change = false;
                 j["term"] = value.toByteArray();
+                checkForActiveLiveLink();
                 break;
 
             case Roles::argRole:
@@ -1287,13 +1280,6 @@ bool ShotgunTreeModel::setData(const QModelIndex &index, const QVariant &value, 
             case Roles::expandedRole:
                 sync_change   = false;
                 j["expanded"] = value.toBool();
-                break;
-
-            case Roles::loadedRole:
-                sync_change = false;
-                j["loaded"] = value.toBool();
-                checkForActiveFilter();
-                checkForActiveLiveLink();
                 break;
 
             default:

@@ -17,9 +17,9 @@ XsWindow {
 
     centerOnOpen: true
 
-    property real itemHeight: 22
-    property real itemSpacing: 1
-    property real padding: 6
+    property int itemHeight: 22
+    property int itemSpacing: 1
+    property int padding: 6
 
     property int buttonCount: 3
     property int totalLogCount: logsView.count

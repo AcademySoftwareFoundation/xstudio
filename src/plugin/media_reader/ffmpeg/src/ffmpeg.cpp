@@ -197,6 +197,10 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
 ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
     std::string path = uri_to_posix_path(mptr.uri_);
 
+    if (last_decoded_image_ && last_decoded_image_->media_key() == mptr.key_) {
+        return last_decoded_image_;
+    }
+
     if (!decoder || decoder->path() != path) {
         decoder.reset(
             new FFMpegDecoder(path, soundcard_sample_rate_, VIDEO_STREAM, mptr.stream_id_));
@@ -207,6 +211,7 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
 
     if (rt) {
         rt->set_shader(ffmpeg_shader);
+        last_decoded_image_ = rt;
     }
 
     return rt;

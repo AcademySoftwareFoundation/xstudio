@@ -65,21 +65,22 @@ Rectangle{ id: rightDiv
 
             let shot = searchResultsViewModel.get(i,"shotNameRole")
             //  depends on the result model...
-            if(["Shots","Reference"].includes(currentCategory)) {
+            if(["Shots","Reference"].includes(currentCategoryClass)) {
                 shot = searchResultsViewModel.get(i,"shotRole")
             }
 
-            shotPresetsModel.clearLoaded()
+            let mymodel = shotPresetsModel
+
+            mymodel.clearLoaded()
 
             // find named preset..
-            let preset_id = shotPresetsModel.search("---- All Versions ----")
+            let preset_id = mymodel.search("---- All Versions ----")
             if(preset_id == -1) {
-                shotPresetsModel.insert(
-                    shotPresetsModel.rowCount(),
-                    shotPresetsModel.index(shotPresetsModel.rowCount(), 0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(), 0),
                     {
                         "expanded": false,
-                        "loaded": true,
                         "name": "---- All Versions ----",
                         "queries": [
                             {
@@ -131,14 +132,15 @@ Rectangle{ id: rightDiv
                         ]
                     }
                 )
-                preset_id = shotPresetsModel.rowCount()-1
+                preset_id = mymodel.rowCount()-1
             } else {
                 // update shot,,,
                 // will break if user fiddles...
-                shotPresetsModel.set(0, shot, "argRole", shotPresetsModel.index(preset_id,0));
+                mymodel.set(0, shot, "argRole", mymodel.index(preset_id,0));
             }
-            setBrowserCategory("Shots")
-            leftDiv.searchPresetsView.currentIndex = preset_id
+            currentCategory = "Shots"
+            mymodel.activePreset = preset_id
+            // leftDiv.searchPresetsView.currentIndex = preset_id
 
         } else if(actionText == "Related Versions") {
             let i = index
@@ -156,22 +158,22 @@ Rectangle{ id: rightDiv
             let twigtype = searchResultsViewModel.get(i,"twigTypeRole")
 
             //  depends on the result model...
-            if(["Shots","Reference"].includes(currentCategory)) {
+            if(["Shots","Reference"].includes(currentCategoryClass)) {
                 shot = searchResultsViewModel.get(i,"shotRole")
             }
 
+            let mymodel = shotPresetsModel
             // create related versions preset..
-            shotPresetsModel.clearLoaded()
+            mymodel.clearLoaded()
 
-            let preset_id = shotPresetsModel.search("---- Related Versions ----")
+            let preset_id = mymodel.search("---- Related Versions ----")
             if(preset_id == -1) {
 
-                shotPresetsModel.insert(
-                    shotPresetsModel.rowCount(),
-                    shotPresetsModel.index(shotPresetsModel.rowCount(), 0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(), 0),
                     {
                         "expanded": false,
-                        "loaded": true,
                         "name": "---- Related Versions ----",
                         "queries": [
                             {
@@ -219,19 +221,19 @@ Rectangle{ id: rightDiv
                         ]
                     }
                 )
-                preset_id = shotPresetsModel.rowCount()-1
+                preset_id = mymodel.rowCount()-1
             } else {
                 // update shot,,,
                 // will break if user fiddles...
-                let pindex = shotPresetsModel.index(preset_id,0)
-                shotPresetsModel.set(0, shot, "argRole", pindex);
-                shotPresetsModel.set(1, pstep ? pstep :"", "argRole", pindex);
-                shotPresetsModel.set(2, twigtype ? twigtype :"", "argRole", pindex);
-                shotPresetsModel.set(3, twigname, "argRole", pindex);
+                let pindex = mymodel.index(preset_id,0)
+                mymodel.set(0, shot, "argRole", pindex);
+                mymodel.set(1, pstep ? pstep :"", "argRole", pindex);
+                mymodel.set(2, twigtype ? twigtype :"", "argRole", pindex);
+                mymodel.set(3, twigname, "argRole", pindex);
             }
 
-            setBrowserCategory("Shots")
-            leftDiv.searchPresetsView.currentIndex = preset_id
+            currentCategory = "Shots"
+            mymodel.activePreset = preset_id
 
         } else if(actionText == "Select All") {
             selectionModel.resetSelection()
@@ -315,7 +317,7 @@ Rectangle{ id: rightDiv
     function applySelection(func, singleIndex=-1) {
         let result = []
 
-        if(currentCategory == "Notes") {
+        if(currentCategoryClass == "Notes") {
             // collect version ids..
             let project_id = 0
 
@@ -414,8 +416,8 @@ Rectangle{ id: rightDiv
                 text: ""
                 imgSrc: if(searchResultsViewModel.sortRoleName == "shotRole" && searchResultsViewModel.sortAscending) "qrc:/icons/sort_az_down.png"
                         else if(searchResultsViewModel.sortRoleName == "shotRole") "qrc:/icons/sort_az_up.png"
-                        else if(searchResultsViewModel.sortRoleName == "nameRole" && searchResultsViewModel.sortAscending) (currentCategory == "Playlists")? "qrc:/icons/sort_az_down.png" : "qrc:/icons/sort_ver_down.png"
-                        else if(searchResultsViewModel.sortRoleName == "nameRole") (currentCategory == "Playlists")? "qrc:/icons/sort_az_up.png" : "qrc:/icons/sort_ver_up.png"
+                        else if(searchResultsViewModel.sortRoleName == "nameRole" && searchResultsViewModel.sortAscending) (currentCategoryClass == "Playlists")? "qrc:/icons/sort_az_down.png" : "qrc:/icons/sort_ver_down.png"
+                        else if(searchResultsViewModel.sortRoleName == "nameRole") (currentCategoryClass == "Playlists")? "qrc:/icons/sort_az_up.png" : "qrc:/icons/sort_ver_up.png"
                         else if(searchResultsViewModel.sortRoleName == "createdDateRole" && searchResultsViewModel.sortAscending) "qrc:/icons/sort_clock_down.png"
                         else if(searchResultsViewModel.sortRoleName == "createdDateRole") "qrc:/icons/sort_clock_up.png"
                 width: itemHeight
@@ -450,7 +452,7 @@ Rectangle{ id: rightDiv
                 XsMenuItem {
                     mytext: "Shot Name";
                     checkable: enabled
-                    visible: currentCategory == "Shots" || currentCategory == "Reference"
+                    visible: ["Shots", "Reference"].includes(currentCategoryClass)
                     checked: searchResultsViewModel.sortRoleName == "shotRole"
                     actiongroup: sortTypeGroup
                     onTriggered: {
@@ -532,11 +534,11 @@ Rectangle{ id: rightDiv
                     width: 90
                     height: itemHeight
                     anchors.verticalCenter: parent.verticalCenter
-                    text: (searchResultsViewModel.count + " / " +  searchResultsViewModel.sourceModel.count)
+                    text: (searchResultsViewModel.count + " / " +  searchResultsViewModel.sourceModel.count + (searchResultsViewModel.sourceModel.truncated ? "+":""))
                 }
 
                 XsComboBox{ id: filterStepBox
-                    visible: currentCategory !== "Playlists"
+                    visible: currentCategoryClass !== "Playlists"
                     width: visible? 120 + (clearStepBox.anchors.rightMargin + framePadding/2): 0
                     height: itemHeight
                     anchors.verticalCenter: parent.verticalCenter
@@ -582,7 +584,7 @@ Rectangle{ id: rightDiv
                 }
 
                 XsComboBox{ id: filterOnDiskBox
-                    visible: currentCategory !== "Playlists" && currentCategory !== "Notes"
+                    visible: !["Playlists", "Notes"].includes(currentCategoryClass)
                     width: visible? 72 + (clearOnDiskBox.anchors.rightMargin + framePadding/2): 0
                     height: itemHeight
                     anchors.verticalCenter: parent.verticalCenter
@@ -698,12 +700,16 @@ Rectangle{ id: rightDiv
 
                 property int shotsSelectedCount: 0
                 onShotsSelectedCountChanged: selectedCount = shotsSelectedCount;
+                property int shotTreeSelectedCount: 0
+                onShotTreeSelectedCountChanged: selectedCount = shotTreeSelectedCount;
                 property int referenceSelectedCount: 0
                 onReferenceSelectedCountChanged: selectedCount = referenceSelectedCount;
                 property int playlistsSelectedCount: 0
                 onPlaylistsSelectedCountChanged: selectedCount = playlistsSelectedCount;
                 property int notesSelectedCount: 0
                 onNotesSelectedCountChanged: selectedCount = notesSelectedCount;
+                property int noteTreeSelectedCount: 0
+                onNoteTreeSelectedCountChanged: selectedCount = noteTreeSelectedCount;
                 property int mediaActionSelectedCount: 0
                 onMediaActionSelectedCountChanged: selectedCount = mediaActionSelectedCount;
 
@@ -717,9 +723,11 @@ Rectangle{ id: rightDiv
 
                     switch(currentCategory){
                         case "Shots":  shotsSelectedCount=0; break;
+                        case "Shots Tree":  shotTreeSelectedCount=0; break;
                         case "Reference":  referenceSelectedCount=0; break;
                         case "Playlists":  playlistsSelectedCount=0; break;
                         case "Notes":  notesSelectedCount=0; break;
+                        case "Notes Tree":  noteTreeSelectedCount=0; break;
                         case "Menu Setup":  mediaActionSelectedCount=0; break;
                     }
                 }
@@ -728,18 +736,22 @@ Rectangle{ id: rightDiv
                     if(isSelected) {
                         switch(currentCategory){
                             case "Shots":  shotsSelectedCount++; break;
+                            case "Shots Tree":  shotTreeSelectedCount++; break;
                             case "Reference":  referenceSelectedCount++; break;
                             case "Playlists":  playlistsSelectedCount++; break;
                             case "Notes":  notesSelectedCount++; break;
+                            case "Notes Tree":  noteTreeSelectedCount++; break;
                             case "Menu Setup":  mediaActionSelectedCount++; break;
                         }
                     }
                     else {
                         switch(currentCategory){
                             case "Shots":  shotsSelectedCount--; break;
+                            case "Shots Tree":  shotTreeSelectedCount--; break;
                             case "Reference":  referenceSelectedCount--; break;
                             case "Playlists":  playlistsSelectedCount--; break;
                             case "Notes":  notesSelectedCount--; break;
+                            case "Notes Tree":  noteTreeSelectedCount--; break;
                             case "Menu Setup":  mediaActionSelectedCount--; break;
                         }
                     }
@@ -831,10 +843,10 @@ Rectangle{ id: rightDiv
                 y: framePadding
                 width: parent.width - framePadding- resultScrollBar.width/2
                 height: (parent.height -framePadding*3 -buttonsDiv.height)
-                cellWidth: currentCategory == "Edits" ? 260: (searchResultsView.width - resultScrollBar.width)
-                cellHeight: (currentCategory == "Edits")? (itemHeight*3 - itemSpacing)/2:
-                            (currentCategory == "Playlists")? (itemHeight*3 - itemSpacing)/1.15:
-                            (currentCategory == "Notes")? (itemHeight*7 - itemSpacing):
+                cellWidth: currentCategoryClass == "Edits" ? 260: (searchResultsView.width - resultScrollBar.width)
+                cellHeight: (currentCategoryClass == "Edits")? (itemHeight*3 - itemSpacing)/2:
+                            (currentCategoryClass == "Playlists")? (itemHeight*3 - itemSpacing)/1.15:
+                            (currentCategoryClass == "Notes")? (itemHeight*7 - itemSpacing):
                             (itemHeight*3 - itemSpacing)
 
                 clip: true
@@ -871,7 +883,7 @@ Rectangle{ id: rightDiv
                 XsMenuItem {
                     mytext: "Related Versions"; onTriggered: popupMenuAction(text)
                     shortcut: "V";
-                    enabled: ["Notes","Shots","Reference"].includes(currentCategory) && selectionModel.selectedIndexes.length
+                    enabled: ["Notes","Shots","Reference"].includes(currentCategoryClass) && selectionModel.selectedIndexes.length
                 }
 
                 XsMenuSeparator {}
@@ -886,34 +898,38 @@ Rectangle{ id: rightDiv
                 }
 
                 XsMenuSeparator {
+                    // visible: transferMenu.visible
                 }
-                XsMenu {
+                XsMenu { id: transferMenu
                     width: 145
                     title: "Transfer Selected"
+                    enabled: !["Playlists", "Notes"].includes(currentCategory)
+                    // visible: enabled
+                    // rightClickMenu.insertItem(index, item)
 
                     XsMenuItem {
                         mytext: "To Chennai"; onTriggered: popupMenuAction("Transfer chn")
-                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategory)
+                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategoryClass)
                     }
                     XsMenuItem {
                         mytext: "To London"; onTriggered: popupMenuAction("Transfer lon")
-                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategory)
+                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategoryClass)
                     }
                     XsMenuItem {
                         mytext: "To Montreal"; onTriggered: popupMenuAction("Transfer mtl")
-                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategory)
+                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategoryClass)
                     }
                     XsMenuItem {
                         mytext: "To Mumbai"; onTriggered: popupMenuAction("Transfer mum")
-                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategory)
+                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategoryClass)
                     }
                     XsMenuItem {
                         mytext: "To Sydney"; onTriggered: popupMenuAction("Transfer syd")
-                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategory)
+                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategoryClass)
                     }
                     XsMenuItem {
                         mytext: "To Vancouver"; onTriggered: popupMenuAction("Transfer van")
-                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategory)
+                        enabled: selectionModel.selectedIndexes.length && ["Shots","Reference"].includes(currentCategoryClass)
                     }
                     XsMenuSeparator {}
                     XsMenuItem {
@@ -979,10 +995,10 @@ Rectangle{ id: rightDiv
                 anchors.rightMargin: framePadding
 
                 width: parent.width
-                height: ["Shots","Reference","Notes","Menu Setup"].includes(currentCategory) ? itemHeight*2 + itemSpacing : itemHeight
+                height: ["Shots","Reference","Notes","Menu Setup"].includes(currentCategoryClass) ? itemHeight*2 + itemSpacing : itemHeight
 
                 GridLayout{
-                    visible: ["Shots","Reference","Notes","Menu Setup"].includes(currentCategory)
+                    visible: ["Shots","Reference","Notes","Menu Setup"].includes(currentCategoryClass)
 
                     width: parent.width
                     height: parent.height
@@ -1045,7 +1061,7 @@ Rectangle{ id: rightDiv
                 }
 
                 RowLayout{
-                    visible: !["Shots","Reference","Notes","Media Actions"].includes(currentCategory)
+                    visible: !["Shots","Reference","Notes","Media Actions"].includes(currentCategoryClass)
                     spacing: itemSpacing
                     anchors.fill: parent
 

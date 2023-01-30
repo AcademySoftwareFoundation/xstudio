@@ -813,7 +813,14 @@ void GlobalMediaReaderActor::read_and_cache_image(
                         predicted_time,
                         playhead_uuid)
                         .then(
-                            [=](const bool /*stored*/) {
+                            [=](const bool stored) {
+                                if (!stored) {
+                                    // woops, cache is full. Stop pre-reading.
+                                    playback_precache_request_queue_.clear_pending_requests(
+                                        playhead_uuid);
+                                    background_precache_request_queue_.clear_pending_requests(
+                                        playhead_uuid);
+                                }
                                 mark_playhead_received_precache_result(playhead_uuid);
 
                                 // still might have work to do

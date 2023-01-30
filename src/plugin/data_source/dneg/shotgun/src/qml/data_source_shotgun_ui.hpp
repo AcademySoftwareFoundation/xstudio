@@ -77,6 +77,7 @@ namespace ui {
             Q_INVOKABLE QObject *sequenceModel(const int project_id);
             Q_INVOKABLE QObject *sequenceTreeModel(const int project_id);
             Q_INVOKABLE QObject *shotModel(const int project_id);
+            Q_INVOKABLE QObject *customEntity24Model(const int project_id);
             Q_INVOKABLE QObject *shotSearchFilterModel(const int project_id);
             Q_INVOKABLE QObject *playlistModel(const int project_id);
 
@@ -167,6 +168,11 @@ namespace ui {
 
             QString getDepartments() { return getDepartmentsFuture().result(); }
             QFuture<QString> getDepartmentsFuture();
+
+            QString getCustomEntity24(const int project_id) {
+                return getCustomEntity24Future(project_id).result();
+            }
+            QFuture<QString> getCustomEntity24Future(const int project_id);
 
             QString updateEntity(
                 const QString &entity, const int record_id, const QString &update_json);
@@ -384,8 +390,15 @@ namespace ui {
             void setPreset(const std::string &preset, const utility::JsonStore &data);
             utility::JsonStore getPresetData(const std::string &preset);
 
+            void createCustomEntity24Models(const int project_id);
             void createShotModels(const int project_id);
             void createSequenceModels(const int project_id);
+
+            void handleResult(
+                const utility::JsonStore &request,
+                const utility::JsonStore &data,
+                const std::string &model,
+                const std::string &name);
 
             bool connected_{false};
             caf::actor backend_;
@@ -397,6 +410,7 @@ namespace ui {
             QMap<int, ShotgunListModel *> sequences_map_;
             QMap<int, ShotgunSequenceModel *> sequences_tree_map_;
             QMap<int, ShotgunListModel *> shots_map_;
+            QMap<int, ShotgunListModel *> custom_entity_24_map_;
             QMap<int, ShotgunFilterModel *> shots_filter_map_;
             QMap<int, ShotgunListModel *> playlists_map_;
 
@@ -419,6 +433,7 @@ namespace ui {
             QQmlPropertyMap *result_models_{nullptr};
             QQmlPropertyMap *preset_models_{nullptr};
             bool disable_flush_{true};
+            std::map<std::string, uint64_t> epoc_map_;
         };
 
     } // namespace qml

@@ -366,9 +366,9 @@ void SubPlayhead::init() {
         [=](buffer_atom) -> result<ImageBufPtr> {
             auto rp = make_response_promise<ImageBufPtr>();
             int logical_frame;
-            timebase::flicks frame_period;
+            timebase::flicks frame_period, timeline_pts;
             std::shared_ptr<const media::AVFrameID> frame =
-                get_frame(position_flicks_, logical_frame, frame_period);
+                get_frame(position_flicks_, logical_frame, frame_period, timeline_pts);
             request(
                 pre_reader_,
                 std::chrono::milliseconds(5000),
@@ -380,6 +380,7 @@ void SubPlayhead::init() {
 
                     [=](ImageBufPtr image_buffer) mutable {
                         image_buffer.when_to_display_ = utility::clock::now();
+                        image_buffer.set_timline_timestamp(timeline_pts);
 
                         request(
                             colour_pipeline_,
@@ -542,9 +543,9 @@ void SubPlayhead::set_position(
     playback_velocity_ = velocity;
 
     int logical_frame;
-    timebase::flicks frame_period;
+    timebase::flicks frame_period, timeline_pts;
     std::shared_ptr<const media::AVFrameID> frame =
-        get_frame(time, logical_frame, frame_period);
+        get_frame(time, logical_frame, frame_period, timeline_pts);
 
     if (logical_frame_ != logical_frame || force_updates) {
 
@@ -560,7 +561,7 @@ void SubPlayhead::set_position(
             // make a blocking request to retrieve the image
             if (media_type_ == media::MediaType::MT_IMAGE) {
 
-                broadcast_image_frame(now, frame, playing);
+                broadcast_image_frame(now, frame, playing, timeline_pts);
 
             } else if (media_type_ == media::MediaType::MT_AUDIO && playing) {
                 broadcast_audio_frame(now, frame, false);
@@ -617,7 +618,7 @@ void SubPlayhead::set_position(
             if (read_ahead_frames_ < 1 || force_updates) {
                 auto rp = make_response_promise<bool>();
                 update_playback_precache_requests(rp);
-                read_ahead_frames_ = pre_cache_read_ahead_frames_ / 4;
+                read_ahead_frames_ = 8;
             } else {
                 read_ahead_frames_--;
             }
@@ -632,7 +633,8 @@ void SubPlayhead::set_position(
 void SubPlayhead::broadcast_image_frame(
     const utility::time_point when_to_show_frame,
     std::shared_ptr<const media::AVFrameID> frame_media_pointer,
-    const bool playing) {
+    const bool playing,
+    const timebase::flicks timeline_pts) {
 
     // This function is called during playback whenever a new frame
     // is needed. However, we might still be waiting for the previous
@@ -672,6 +674,7 @@ void SubPlayhead::broadcast_image_frame(
 
             [=](ImageBufPtr image_buffer) mutable {
                 image_buffer.when_to_display_ = when_to_show_frame;
+                image_buffer.set_timline_timestamp(timeline_pts);
 
                 request(
                     colour_pipeline_,
@@ -771,11 +774,12 @@ void SubPlayhead::broadcast_audio_frame(
             });
 }
 
-void SubPlayhead::get_lookahead_frame_pointers(
+std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
     media::AVFrameIDsAndTimePoints &result, const int max_num_frames) {
 
+    std::vector<timebase::flicks> tps;
     if (full_timeline_frames_.size() < 2) {
-        return;
+        return tps;
     }
 
     timebase::flicks current_frame_tp =
@@ -813,6 +817,7 @@ void SubPlayhead::get_lookahead_frame_pointers(
             // we don't send pre-read requests for 'blank' frames where
             // source_uuid is null
             result.emplace_back(tt, frame->second);
+            tps.push_back(frame->first);
         }
 
         // this tests if we've looped around the full range before hitting
@@ -821,13 +826,14 @@ void SubPlayhead::get_lookahead_frame_pointers(
         if (frame == start_point)
             break;
     }
+    return tps;
 }
 
 
 void SubPlayhead::request_future_frames() {
 
     media::AVFrameIDsAndTimePoints future_frames;
-    get_lookahead_frame_pointers(future_frames, 4);
+    auto timeline_pts_vec = get_lookahead_frame_pointers(future_frames, 4);
 
     request(
         pre_reader_,
@@ -852,8 +858,10 @@ void SubPlayhead::request_future_frames() {
                             }
 
                             auto cp = colour_pipe_data.begin();
+                            auto tp = timeline_pts_vec.begin();
                             for (auto &imbuf : image_buffers) {
                                 imbuf.colour_pipe_data_ = *(cp++);
+                                imbuf.set_timline_timestamp(*(tp++));
                             }
                             send(
                                 parent_,
@@ -871,6 +879,8 @@ void SubPlayhead::request_future_frames() {
 }
 
 void SubPlayhead::update_playback_precache_requests(caf::typed_response_promise<bool> &rp) {
+
+    auto tt = utility::clock::now();
 
     // get the AVFrameID iterator for the current frame
     media::AVFrameIDsAndTimePoints requests;
@@ -895,7 +905,7 @@ void SubPlayhead::make_static_precache_request(
 
         media::AVFrameIDsAndTimePoints requests;
         get_lookahead_frame_pointers(
-            requests, 256
+            requests, 2048
             // std::numeric_limits<int>::max() // this will fetch *ALL* frames in the source
         );
 
@@ -943,6 +953,13 @@ void SubPlayhead::receive_image_from_cache(
                 }
 
                 image_buffer.when_to_display_ = utility::clock::now();
+                if (mptr.playhead_logical_frame_ < full_timeline_frames_.size()) {
+                    auto p = full_timeline_frames_.begin();
+                    std::advance(p, mptr.playhead_logical_frame_);
+                    image_buffer.set_timline_timestamp(p->first);
+                } else {
+                    image_buffer.set_timline_timestamp(position_flicks_);
+                }
 
                 send(
                     parent_,
@@ -1007,7 +1024,10 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
 }
 
 std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
-    const timebase::flicks &time, int &logical_frame, timebase::flicks &frame_period) {
+    const timebase::flicks &time,
+    int &logical_frame,
+    timebase::flicks &frame_period,
+    timebase::flicks &timeline_pts) {
 
     // If rate = 25fps (40ms per frame) ...
     // if first frame is shown at time = 0, second frame is shown at time = 40ms.
@@ -1024,6 +1044,7 @@ std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
     if (full_timeline_frames_.size() < 2) {
         // and give the others values something valid ???
         frame_period  = timebase::k_flicks_zero_seconds;
+        timeline_pts  = timebase::k_flicks_zero_seconds;
         logical_frame = 0;
         return std::shared_ptr<media::AVFrameID>();
     }
@@ -1041,6 +1062,7 @@ std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
     auto next_frame = frame;
     next_frame++;
     frame_period = next_frame->first - frame->first;
+    timeline_pts = frame->first;
 
     logical_frame = std::distance(full_timeline_frames_.begin(), frame);
 

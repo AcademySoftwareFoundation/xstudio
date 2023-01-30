@@ -773,9 +773,9 @@ void ShotgunClientActor::init() {
                 "groups",
                 jfilter,
                 std::vector<std::string>({"code", "id"}),
-                std::vector<std::string>(),
+                std::vector<std::string>({"code"}),
                 1,
-                1000);
+                4999);
         },
 
         [=](shotgun_projects_atom) {
@@ -789,7 +789,7 @@ void ShotgunClientActor::init() {
                 std::vector<std::string>({"name"}),
                 std::vector<std::string>({"name"}),
                 1,
-                5000);
+                4999);
         },
 
         [=](shotgun_refresh_token_atom atom) {

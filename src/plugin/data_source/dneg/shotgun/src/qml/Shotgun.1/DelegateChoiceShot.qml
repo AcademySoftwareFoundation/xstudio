@@ -49,10 +49,10 @@ DelegateChoice {
                         function(items){
                             addShotsToPlaylist(
                                 items,
-                                data_source.preferredVisual("Shots"),
-                                data_source.preferredAudio("Shots"),
-                                data_source.flagText("Shots"),
-                                data_source.flagColour("Shots")
+                                data_source.preferredVisual(currentCategory),
+                                data_source.preferredAudio(currentCategory),
+                                data_source.flagText(currentCategory),
+                                data_source.flagColour(currentCategory)
                             )
                         }
                     )
@@ -97,13 +97,13 @@ DelegateChoice {
                         textDiv.topPadding: 2.5
 
                         onClicked: {
-                            notePresetsModel.clearLoaded()
-                            notePresetsModel.insert(
-                                notePresetsModel.rowCount(),
-                                notePresetsModel.index(notePresetsModel.rowCount(),0),
+                            let mymodel = notePresetsModel
+                            mymodel.clearLoaded()
+                            mymodel.insert(
+                                mymodel.rowCount(),
+                                mymodel.index(mymodel.rowCount(),0),
                                 {
                                     "expanded": false,
-                                    "loaded": true,
                                     "name": nameRole + " Notes",
                                     "queries": [
                                         {
@@ -139,7 +139,8 @@ DelegateChoice {
                                     ]
                                 }
                             )
-                            setBrowserCategory("Notes")
+                            currentCategory = "Notes"
+                            mymodel.activePreset = mymodel.rowCount()-1
                         }
                     }
                     XsButton{ id: dailiesStatusDisplay
@@ -285,7 +286,7 @@ DelegateChoice {
 
                 ToolTip.text: text
                 ToolTip.visible: hovered && textDiv.truncated
-            
+
                 onTextClicked: createPreset("Pipeline Step", textDiv.text)
             }
 

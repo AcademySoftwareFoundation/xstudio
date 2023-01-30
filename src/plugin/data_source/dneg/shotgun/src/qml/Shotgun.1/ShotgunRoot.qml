@@ -434,21 +434,26 @@ Item {
         sequenceTreeModelFunc: data_source.connected ? data_source.sequenceTreeModel : null
         sequenceModelFunc: data_source.connected ? data_source.sequenceModel : null
         shotModelFunc: data_source.connected ? data_source.shotModel : null
+        customEntity24ModelFunc: data_source.connected ? data_source.customEntity24Model : null
         shotSearchFilterModelFunc: data_source.connected ? data_source.shotSearchFilterModel : null
         playlistModelFunc: data_source.connected ? data_source.playlistModel : null
 
         shotResultsModel: data_source.resultModels.shotResultsModel
+        shotTreeResultsModel: data_source.resultModels.shotTreeResultsModel
         playlistResultsModel: data_source.resultModels.playlistResultsModel
         editResultsModel: data_source.resultModels.editResultsModel
         referenceResultsModel: data_source.resultModels.referenceResultsModel
         noteResultsModel: data_source.resultModels.noteResultsModel
+        noteTreeResultsModel: data_source.resultModels.noteTreeResultsModel
         mediaActionResultsModel: data_source.resultModels.mediaActionResultsModel
 
         shotPresetsModel: data_source.presetModels.shotPresetsModel
+        shotTreePresetsModel: data_source.presetModels.shotTreePresetsModel
         playlistPresetsModel: data_source.presetModels.playlistPresetsModel
         editPresetsModel: data_source.presetModels.editPresetsModel
         referencePresetsModel: data_source.presetModels.referencePresetsModel
         notePresetsModel: data_source.presetModels.notePresetsModel
+        noteTreePresetsModel: data_source.presetModels.noteTreePresetsModel
         mediaActionPresetsModel: data_source.presetModels.mediaActionPresetsModel
 
         shotFilterModel: data_source.presetModels.shotFilterModel
@@ -799,19 +804,19 @@ Item {
             push_playlist_notes()
         } else if(key == "notes_history") {
             show_browser()
-            setBrowserCategory("Notes")
+            browser.currentCategory = "Notes"
             createPresetType("Live Notes")
         } else if(key == "live_related_versions") {
             show_browser()
-            setBrowserCategory("Shots")
+            browser.currentCategory = "Shots"
             createPresetType("Live Related Versions")
         } else if(key == "live_all_versions") {
             show_browser()
-            setBrowserCategory("Shots")
+            browser.currentCategory = "Shots"
             createPresetType("Live All Versions")
         } else if(key == "all_versions") {
             show_browser()
-            setBrowserCategory("Shots")
+            browser.currentCategory = "Shots"
             createPresetType("All Versions")
         } else if(key == "substitute_with") {
             substitute_with(value)
@@ -921,10 +926,6 @@ Item {
 
     function createPresetType(mode) {
         browser.createPresetType(mode)
-    }
-
-    function setBrowserCategory(cat) {
-        browser.currentCategory = cat
     }
 
     function toggle_browser() {

@@ -446,6 +446,32 @@ void PlayheadActor::init() {
             delegate(playlist_selection_, playlist::select_media_atom_v, selection);
         },
 
+        [=](playhead::position_atom,
+            const utility::time_point next_video_refresh,
+            const timebase::flicks video_refresh_period) -> result<timebase::flicks> {
+            // this message is sent from the ViewportFrameQueueActor on
+            // every redraw - it wants
+            // to know where the playhead will be at the time 'next_video_refresh'
+            // so it can pick which image to draw (the playhead has already sent
+            // a few frames ahead of time, with display timestamps).
+
+            // we're not moving - just return our position.
+            if (!playing())
+                return position();
+
+            // predict where we will be at the timepoint 'next_video_refresh' ...
+            const timebase::flicks delta = std::chrono::duration_cast<timebase::flicks>(
+                next_video_refresh - utility::clock::now());
+            const double v = (forward() ? 1.0f : -1.0f) * velocity() * velocity_multiplier();
+            const timebase::flicks estimated_playhead_position =
+                timebase::to_flicks(v * timebase::to_seconds(delta)) + position();
+            const timebase::flicks clamped_estimated_playhead_position =
+                clamp_timepoint_to_loop_range(estimated_playhead_position);
+
+            return clamped_estimated_playhead_position;
+        },
+
+
         [=](position_atom,
             actor child,
             const int logical_frame,

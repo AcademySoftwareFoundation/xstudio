@@ -32,6 +32,7 @@ namespace ui {
             caf::behavior behavior_;
 
             caf::actor playhead_broadcast_group_;
+            caf::actor playhead_;
             utility::Uuid current_playhead_;
 
             /**
@@ -78,22 +79,37 @@ namespace ui {
             void update_blind_data(
                 const std::vector<media_reader::ImageBufPtr> bufs, const bool wait = false);
 
-            void drop_future_frames();
+            typedef std::vector<media_reader::ImageBufPtr> OrderedImagesToDraw;
+
+            media_reader::ImageBufPtr
+            get_least_old_image_in_set(const OrderedImagesToDraw &image_set);
+
+            void drop_old_frames(const utility::time_point out_of_date_threshold);
 
             void update_image_blind_data_and_deliver(
                 const media_reader::ImageBufPtr &buf,
                 caf::typed_response_promise<std::vector<media_reader::ImageBufPtr>> rp);
 
+            timebase::flicks compute_video_refresh() const;
 
-            typedef std::vector<media_reader::ImageBufPtr> OrderedImagesToDraw;
+            utility::time_point
+            next_video_refresh(const timebase::flicks &video_refresh_period) const;
+
+            timebase::flicks predicted_playhead_position_at_next_video_refresh();
 
             bool playing_ = {false};
-
-            std::map<utility::Uuid, media_reader::ImageBufPtr> onscreen_image_;
 
             std::map<utility::Uuid, caf::actor> overlay_actors_;
 
             std::map<utility::Uuid, OrderedImagesToDraw> frames_to_draw_per_playhead_;
+
+            struct ViewportRefreshData {
+                std::deque<utility::time_point> refresh_history_;
+                timebase::flicks refresh_rate_hint_ = timebase::k_flicks_zero_seconds;
+                utility::time_point last_video_refresh_;
+            } video_refresh_data_;
+
+            timebase::flicks playhead_vid_sync_phase_adjust_ = timebase::k_flicks_zero_seconds;
         };
 
     } // namespace viewport

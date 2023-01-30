@@ -48,6 +48,8 @@ namespace ui {
             Q_PROPERTY(
                 bool hasActiveLiveLink READ hasActiveLiveLink NOTIFY hasActiveLiveLinkChanged)
             Q_PROPERTY(int length READ length NOTIFY lengthChanged)
+            Q_PROPERTY(int activePreset READ activePreset WRITE setActivePreset NOTIFY
+                           activePresetChanged)
 
           public:
             enum Roles {
@@ -56,7 +58,6 @@ namespace ui {
                 enabledRole,
                 expandedRole,
                 idRole,
-                loadedRole,
                 nameRole,
                 queriesRole,
                 liveLinkRole,
@@ -72,7 +73,6 @@ namespace ui {
                      "enabledRole",
                      "expandedRole",
                      "idRole",
-                     "loadedRole",
                      "nameRole",
                      "queriesRole",
                      "liveLinkRole",
@@ -101,6 +101,7 @@ namespace ui {
             }
 
             [[nodiscard]] int length() const { return rowCount(); }
+            [[nodiscard]] int activePreset() const { return active_preset_; }
 
             [[nodiscard]] QVariant
             data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -140,6 +141,16 @@ namespace ui {
             Q_INVOKABLE void clearExpanded();
             Q_INVOKABLE void clearLiveLinks();
 
+            Q_INVOKABLE void setActivePreset(const int row = -1) {
+                if (active_preset_ != row) {
+                    active_preset_ = row;
+                    checkForActiveFilter();
+                    checkForActiveLiveLink();
+
+                    emit activePresetChanged();
+                }
+            }
+
             Q_INVOKABLE QVariant
             applyLiveLink(const QVariant &preset, const QVariant &livelink);
             Q_INVOKABLE [[nodiscard]] int getProjectId(const QVariant &livelink) const;
@@ -173,6 +184,7 @@ namespace ui {
             void lengthChanged();
             void hasActiveFilterChanged();
             void hasActiveLiveLinkChanged();
+            void activePresetChanged();
 
           private:
             void checkForActiveFilter();
@@ -182,9 +194,8 @@ namespace ui {
             utility::JsonStore live_link_data_;
             bool has_active_filter_{true};
             bool has_active_live_link_{false};
-
-          private:
             const QMap<int, ShotgunListModel *> *sequence_map_{nullptr};
+            int active_preset_{-1};
         };
 
 
@@ -193,6 +204,7 @@ namespace ui {
 
             Q_PROPERTY(int length READ length NOTIFY lengthChanged)
             Q_PROPERTY(int count READ length NOTIFY lengthChanged)
+            Q_PROPERTY(bool truncated READ truncated NOTIFY truncatedChanged)
 
           public:
             enum Roles {
@@ -315,6 +327,12 @@ namespace ui {
             }
 
             void populate(const utility::JsonStore &);
+            void setTruncated(const bool truncated = true) {
+                if (truncated_ != truncated) {
+                    truncated_ = truncated;
+                    emit truncatedChanged();
+                }
+            }
 
             [[nodiscard]] int
             rowCount(const QModelIndex &parent = QModelIndex()) const override {
@@ -322,6 +340,7 @@ namespace ui {
                 return (data_.is_null() ? 0 : data_.size());
             }
             [[nodiscard]] int length() const { return rowCount(); }
+            [[nodiscard]] bool truncated() const { return truncated_; }
 
             Q_INVOKABLE int
             search(const QVariant &value, const QString &role = "display", const int start = 0);
@@ -353,9 +372,11 @@ namespace ui {
 
           signals:
             void lengthChanged();
+            void truncatedChanged();
 
           protected:
             utility::JsonStore data_;
+            bool truncated_{false};
             const std::map<std::string, std::map<std::string, utility::JsonStore>>
                 *query_value_cache_{nullptr};
         };

@@ -83,6 +83,11 @@ namespace playhead {
         bool has_selection_changed();
         int previous_selected_sources_count_ = {-1};
 
+        void manage_playback_video_refresh_sync(
+            const utility::time_point &when_video_framebuffer_was_swapped_to_screen,
+            const timebase::flicks video_refresh_rate_hint,
+            const bool main_viewer);
+
       protected:
         void attribute_changed(const utility::Uuid &attr_uuid, const int /*role*/) override;
         void connected_to_ui_changed() override;
@@ -117,8 +122,9 @@ namespace playhead {
         std::set<media::MediaKey> frames_cached_;
 
         media::MediaKeyVector all_frames_keys_;
-        bool updating_source_list_   = {false};
-        bool child_playhead_changed_ = {false};
+        bool updating_source_list_                      = {false};
+        bool child_playhead_changed_                    = {false};
+        timebase::flicks vid_refresh_sync_phase_adjust_ = timebase::flicks{0};
     };
 } // namespace playhead
 } // namespace xstudio
