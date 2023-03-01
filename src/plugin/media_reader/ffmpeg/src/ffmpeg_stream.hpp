@@ -108,7 +108,11 @@ namespace media_reader {
             }
 
             [[nodiscard]] double duration_seconds() const {
-                return double(avc_stream_->duration * avc_stream_->time_base.num) /
+                const int64_t dur =
+                    avc_stream_->duration == std::numeric_limits<int64_t>::lowest()
+                        ? 1
+                        : avc_stream_->duration;
+                return double(dur * avc_stream_->time_base.num) /
                        double(avc_stream_->time_base.den);
             }
 

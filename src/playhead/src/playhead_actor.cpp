@@ -211,12 +211,6 @@ void PlayheadActor::init() {
 
         [=](actual_playback_rate_atom atom) { delegate(key_playhead_, atom); },
 
-        [=](align_clips_atom) -> result<bool> {
-            auto rp = make_response_promise<bool>();
-            align_clip_frame_numbers(rp);
-            return rp;
-        },
-
         [=](clear_precache_requests_atom) -> result<bool> {
             auto rp = make_response_promise<bool>();
             clear_all_precache_requests(rp);
@@ -241,6 +235,31 @@ void PlayheadActor::init() {
 
         /* move all child playheads to current position */
         [=](jump_atom) { update_child_playhead_positions(true); },
+
+        [=](jump_atom, caf::actor_addr sub_playhead_addr) {
+            // this is a request made by a sub playhead to get the updated
+            // playhead position - it does this during scrubbing when it
+            // has to skip a frame broadcast because the reader can't keep
+            // up with the speed that the playhead is being moved at. If it
+            // skips the frame but the user happend to have just stopped
+            // scrubbing, we need to re-request the frame until the reader
+            // finally responds and we do this with using the 'jump' atom
+            // in a loop between sub-playhead and parent playhead like this:
+            caf::actor sub_playhead = caf::actor_cast<caf::actor>(sub_playhead_addr);
+            for (const auto &i : playheads_) {
+                if (i == sub_playhead) {
+                    anon_send(
+                        i,
+                        jump_atom_v,
+                        position(),
+                        forward(),
+                        velocity(),
+                        playing(),
+                        true,
+                        connected_to_ui());
+                }
+            }
+        },
 
         [=](jump_atom, const int frame) -> result<bool> {
             auto rp = make_response_promise<bool>();
@@ -456,8 +475,10 @@ void PlayheadActor::init() {
             // a few frames ahead of time, with display timestamps).
 
             // we're not moving - just return our position.
-            if (!playing())
-                return position();
+            if (!playing()) {
+                auto r = position();
+                return r;
+            }
 
             // predict where we will be at the timepoint 'next_video_refresh' ...
             const timebase::flicks delta = std::chrono::duration_cast<timebase::flicks>(
@@ -1166,18 +1187,11 @@ void PlayheadActor::rebuild() {
     }
 
     if (!(compare_mode() == CM_OFF || compare_mode() == CM_STRING)) {
+
         // for A/B mode, grid mode etc we need the child playheads to match
         // their durations so that they map to a common (shared) timeline
-        if (auto_align()) {
-            request(actor_cast<caf::actor>(this), infinite, align_clips_atom_v)
-                .then(
-                    [=](bool) { equalise_clip_lengths(); },
-                    [=](caf::error &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                    });
-        } else {
-            equalise_clip_lengths();
-        }
+        align_clip_frame_numbers();
+        anon_send(this, duration_flicks_atom_v);
     }
 }
 
@@ -1648,7 +1662,7 @@ void PlayheadActor::rebuild_cached_frames_status() {
     }
 }
 
-void PlayheadActor::align_clip_frame_numbers(caf::typed_response_promise<bool> rp) {
+void PlayheadActor::align_clip_frame_numbers() {
 
     try {
 
@@ -1659,34 +1673,96 @@ void PlayheadActor::align_clip_frame_numbers(caf::typed_response_promise<bool> r
 
         auto timeout = std::chrono::milliseconds(500);
 
-        // Use timecode to align the sources - get the delta between the first
-        // frame timecode of the first source in the list of sources and other
-        // sources and apply that
-        // delta as a time shift (as long as it doesn't exceed the clip length
-        // and take it completely out of range - which indicates clips with no
-        // overlap are selected)
+        const bool align = auto_align_mode() != AAM_ALIGN_OFF;
+        const bool trim  = auto_align_mode() == AAM_ALIGN_TRIM;
 
-        const auto key_source_first_frame = request_receive_wait<media::AVFrameID>(
-            *sys, playheads_[0], timeout, first_frame_media_pointer_atom_v);
-        const auto reference_timecode = key_source_first_frame.timecode_;
+        // Use timecode to align the sources - if we are trimming, we use trim to the latest
+        // start frame and the earliest end frame across all sources. If not we do the reverse,
+        // i.e. extend all sources to start on the first frame of the source with the earliest
+        // first frame and the last frame of the last source.
+        //
+        // Source1:                1001---------------------------1020
+        // Source2:                              1008-------------------------1030
+        // Result with trim:                     1008-------------1020
+        // Result without trim:    1001---------------------------------------1030
+        //
+        // Or:
+        //
+        // Source1:                ---------------------------------------------
+        // Source2:                              -----------------
+        // Result with trim:                     -----------------
+        // Result without trim:    ---------------------------------------------
+        //
+        // Etc ...
+
+
+        int first_frame =
+            trim ? std::numeric_limits<int>::lowest() : std::numeric_limits<int>::max();
+        int last_frame =
+            trim ? std::numeric_limits<int>::max() : std::numeric_limits<int>::lowest();
+        int max_duration = std::numeric_limits<int>::lowest();
+
+
+        for (auto &sub_playhead : playheads_) {
+
+            // reset the offset to zero so we get the 'true' media first & last frame
+            request_receive_wait<bool>(
+                *sys, sub_playhead, timeout, media::source_offset_frames_atom_v, 0);
+
+            // reset the duration to cancel any retiming already done on the source
+            request_receive_wait<bool>(
+                *sys,
+                sub_playhead,
+                timeout,
+                timeline::duration_atom_v,
+                timebase::k_flicks_zero_seconds);
+
+            // get the first and last frame of the source
+            const int source_first_frame =
+                request_receive_wait<media::AVFrameID>(
+                    *sys, sub_playhead, timeout, first_frame_media_pointer_atom_v)
+                    .timecode_.total_frames();
+
+            const int source_last_frame =
+                request_receive_wait<media::AVFrameID>(
+                    *sys, sub_playhead, timeout, last_frame_media_pointer_atom_v)
+                    .timecode_.total_frames();
+
+            // get the timecode frames for first and last frame
+            first_frame  = trim ? std::max(first_frame, source_first_frame)
+                                : std::min(first_frame, source_first_frame);
+            last_frame   = trim ? std::min(last_frame, source_last_frame)
+                                : std::max(last_frame, source_last_frame);
+            max_duration = std::max(max_duration, source_last_frame - source_first_frame);
+        }
+
+        if (align && first_frame >= last_frame) {
+            throw std::runtime_error("Attempt to do align + trimmed compare with sources that "
+                                     "don't have overlapping frame range!");
+        }
 
         for (auto sub_playhead : playheads_) {
 
-            if (sub_playhead == playheads_[0])
-                continue;
+            auto duration_flicks = request_receive_wait<timebase::flicks>(
+                *sys,
+                sub_playhead,
+                timeout,
+                logical_frame_to_flicks_atom_v,
+                align ? last_frame - first_frame : max_duration);
 
-            const auto source_first_frame_timecode =
-                request_receive_wait<media::AVFrameID>(
-                    *sys, sub_playhead, timeout, first_frame_media_pointer_atom_v)
-                    .timecode_;
+            if (position() > duration_flicks) {
+                // make sure the playhead position is within the new
+                // duration of aligned sources
+                set_position(timebase::k_flicks_zero_seconds);
+            }
 
-            int frames_shift =
-                source_first_frame_timecode.total_frames() - reference_timecode.total_frames();
+            if (align) {
+                const auto source_first_frame = request_receive_wait<media::AVFrameID>(
+                    *sys, sub_playhead, timeout, first_frame_media_pointer_atom_v);
 
-            int duration =
-                request_receive_wait<int>(*sys, sub_playhead, infinite, duration_frames_atom_v);
+                int frames_shift = source_first_frame.timecode_.total_frames() - first_frame;
 
-            if (abs(frames_shift) < duration) {
+                // apply the time offset
                 request_receive_wait<bool>(
                     *sys,
                     sub_playhead,
@@ -1694,105 +1770,18 @@ void PlayheadActor::align_clip_frame_numbers(caf::typed_response_promise<bool> r
                     media::source_offset_frames_atom_v,
                     frames_shift);
             }
-        }
 
-        rp.deliver(true);
+            // and trim the duration
+            request_receive_wait<bool>(
+                *sys, sub_playhead, timeout, timeline::duration_atom_v, duration_flicks);
+        }
 
     } catch (std::exception &e) {
 
         // supressing errors as 'No Frames' is thrown when the source is empty,
         // which isn't really an error
-        spdlog::debug("{} NRL {}", __PRETTY_FUNCTION__, e.what());
-        rp.deliver(true);
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-
-    /*
-
-    For reference I'm leaving this here as an alternative 'async' approach but
-    as you can see it's harder to do it this way and keep the code clear
-
-    auto err_handler = [rp](const error &err) { if (rp.pending()) rp.deliver(err); }
-
-    request(key_playhead_, infinite, first_frame_media_pointer_atom_v).then(
-        [=](const media::AVFrameID & mptr) {
-            const auto reference_tc = mptr.timecode_;
-            // track the number of responses left to come in
-            auto counter = std::make_shared<int>(playheads_.size()-1);
-            for (auto p: playheads_) {
-
-                if (p == key_playhead_) continue;
-                auto sub_playhead = p;
-
-                auto handle_set_offset_result = [=](bool) {
-                        *(counter)--;
-                        if (!*counter && rp.pending()) {
-                            // we've received all responses
-                            rp.deliver(true);
-                        }
-                    };
-
-                auto handle_duration_result = [=](int duration) {
-                    if (duration > fabs(frames_diff) && rp.pending()) {
-                        request(sub_playhead, infinite, sub_playhead,
-    media::source_offset_frames_atom_v, -frames_diff).then( handle_set_offset_result,
-                            err_handler);
-                    }};
-
-                auto handle_first_frame_response = [=](const media::AVFrameID & mptr) {
-                        int frames_diff = reference_tc.total_frames() -
-    mptr.timecode_.total_frames(); request(sub_playhead, infinite, duration_frames_atom_v).then(
-                            handle_duration_result,
-                            err_handler);
-                    };
-
-                request(sub_playhead, infinite, first_frame_media_pointer_atom_v).then(
-                    handle_first_frame_response,
-                    err_handler);
-
-            }
-        },
-        err_handler);*/
-}
-
-void PlayheadActor::equalise_clip_lengths() {
-
-    // find out the longest clip, and adjust the other clips to match the length
-    // of the longest
-    fan_out_request<policy::select_all>(playheads_, infinite, duration_flicks_atom_v)
-        .await(
-            [=](std::vector<timebase::flicks> durations) mutable {
-                timebase::flicks longest =
-                    *(std::max_element(durations.begin(), durations.end()));
-
-                // passing duration_atom with a flicks value will SET the duration on
-                // the source (if it allows)
-                fan_out_request<policy::select_all>(
-                    playheads_, infinite, timeline::duration_atom_v, longest)
-                    .await(
-
-
-                        [=](std::vector<bool>) mutable {
-                            // if current playhead position is beyond the end of the longest
-                            // clip, we need to move the playhead to the last frame
-                            if (position() >= longest) {
-                                request(key_playhead_, infinite, duration_frames_atom_v)
-                                    .then(
-                                        [=](const int duration_frames) mutable {
-                                            anon_send(this, jump_atom_v, duration_frames - 1);
-                                        },
-                                        [=](error &err) mutable {
-                                            spdlog::warn(
-                                                "{} {}", __PRETTY_FUNCTION__, to_string(err));
-                                        });
-                            }
-                        },
-                        [=](error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        });
-            },
-            [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-            });
 }
 
 void PlayheadActor::move_playhead_to_last_viewed_frame_of_current_source() {
@@ -1857,7 +1846,7 @@ void PlayheadActor::move_playhead_to_last_viewed_frame_of_given_source(
 
 void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int role) {
 
-    if (attr_uuid == compare_mode_->uuid() || attr_uuid == auto_align_->uuid()) {
+    if (attr_uuid == compare_mode_->uuid() || attr_uuid == auto_align_mode_->uuid()) {
         // send a change event to self - this will kick a rebuild of the timeline/child
         // playheads including apply (or not apply) the auto alignment
         send(this, utility::event_atom_v, utility::change_atom_v);
@@ -1872,6 +1861,7 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
     } else if (attr_uuid == forward_->uuid()) {
         update_child_playhead_positions(true);
         send(fps_moniotor_group_, utility::event_atom_v, play_forward_atom_v, forward());
+        send(broadcast_, play_forward_atom_v, forward());
     } else if (attr_uuid == source_->uuid() && !updating_source_list_) {
         switch_media_source(source_->value());
     } else if (attr_uuid == playing_->uuid()) {

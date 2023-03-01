@@ -239,11 +239,19 @@ void OpenGLViewportRenderer::render(
 
     glUseProgram(0);
 
-    /* Call the render functions of overlay plugins */
+    /* Call the render functions of overlay plugins - for the BeforeImage pass, we only call
+    this if we have an alpha buffer that allows us to 'under' the image with the overlay
+    drawings. */
     if (onscreen_frame_ && has_alpha_) {
         for (auto orf : viewport_overlay_renderers_) {
-            orf.second->render_opengl_before_image(
-                to_scene_matrix, transform_viewport_to_image_space, onscreen_frame_);
+            if (orf.second->preferred_render_pass() ==
+                plugin::ViewportOverlayRenderer::BeforeImage) {
+                orf.second->render_opengl(
+                    to_scene_matrix,
+                    transform_viewport_to_image_space,
+                    onscreen_frame_,
+                    has_alpha_);
+            }
         }
     }
 
@@ -334,17 +342,19 @@ void OpenGLViewportRenderer::render(
 
     release_textures();
 
-    /* Call the render functions of overlay plugins */
+    /* Call the render functions of overlay plugins - note that if the overlay prefers to draw
+    before the image but we have no alpha channel, we still call its render function here */
     if (onscreen_frame_) {
         for (auto orf : viewport_overlay_renderers_) {
-            if (!has_alpha_) {
-                // if we don't have alpha blending for comping the image under overlays, we have
-                // to put the overlays ontop thus:
-                orf.second->render_opengl_before_image(
-                    to_scene_matrix, transform_viewport_to_image_space, onscreen_frame_);
+            if (orf.second->preferred_render_pass() ==
+                    plugin::ViewportOverlayRenderer::AfterImage ||
+                !has_alpha_) {
+                orf.second->render_opengl(
+                    to_scene_matrix,
+                    transform_viewport_to_image_space,
+                    onscreen_frame_,
+                    has_alpha_);
             }
-            orf.second->render_opengl_after_image(
-                to_scene_matrix, transform_viewport_to_image_space, onscreen_frame_);
         }
     }
 
@@ -411,6 +421,12 @@ bool OpenGLViewportRenderer::activate_shader(
 void OpenGLViewportRenderer::pre_init() {
 
     glewInit();
+
+    // we need to know if we have alpha in our draw buffer, which might require
+    // different strategies for drawing overlays
+    int alpha_bits;
+    glGetIntegerv(GL_ALPHA_BITS, &alpha_bits);
+    has_alpha_ = alpha_bits != 0;
 
     // N.B. - if sharing of GL contexts is set-up for multiple GL viewport
     // then we only create one set of textures and use them in both viewports

@@ -20,11 +20,8 @@ import QtQml 2.15
 import xstudio.qml.viewport 1.0
 import xstudio.qml.session 1.0
 import xstudio.qml.playlist 1.0
-import xstudio.qml.global_store 1.0
-import xstudio.qml.root_store 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
-import xstudio.qml.properties 1.0
 import xstudio.qml.clipboard 1.0
 import xstudio.qml.bookmarks 1.0
 
@@ -84,14 +81,14 @@ Rectangle {
             }
             if(semantic_version.compare(preferences.latest_version.value) > 0) {
                 // immediate update..
-                global_store.set_preference_value(preferences.latest_version.path, Qt.application.version, false)
+                preferences.latest_version.value = Qt.application.version
             }
         }
 
         function store() {
             if(semantic_version.compare(preferences.latest_version.value) > 0) {
                 // immediate update..
-                global_store.set_preference_value(preferences.latest_version.path, Qt.application.version, false)
+                preferences.latest_version.value = Qt.application.version
             }
         }
     }
@@ -104,8 +101,6 @@ Rectangle {
 
     // the global store object is instantiated and injected into
     // this var by the c++ main method
-    property var global_store: RootStore
-
     BookmarkDetail {
         id: bookmark_detail
         colour: ""

@@ -4,6 +4,7 @@
 #include "xstudio/media/media.hpp"
 #include "xstudio/media_reader/buffer.hpp"
 #include "xstudio/media_reader/audio_buffer.hpp"
+#include "xstudio/media_reader/pixel_info.hpp"
 #include "xstudio/ui/viewport/shader.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 
@@ -57,6 +58,17 @@ namespace media_reader {
         [[nodiscard]] int decoder_frame_number() const { return frame_num_; }
         void set_decoder_frame_number(const int f) { frame_num_ = f; }
 
+        typedef std::function<PixelInfo(
+            const ImageBuffer &buf, const Imath::V2i &pixel_location)>
+            PixelPickerFunc;
+        void set_pixel_picker_func(PixelPickerFunc func) { pixel_picker_ = func; }
+
+        PixelInfo pixel_info(const Imath::V2i &pixel_location) const {
+            if (pixel_picker_)
+                return pixel_picker_(*this, pixel_location);
+            return PixelInfo(pixel_location);
+        }
+
         AudioBufPtr audio_;
 
       private:
@@ -69,6 +81,7 @@ namespace media_reader {
         double frame_duration_ = {1.0};
         int frame_num_         = -1;
         ui::viewport::GPUShaderPtr shader_;
+        PixelPickerFunc pixel_picker_;
     };
 
     /* Extending std::shared_ptr<ImageBuffer> by adding a pointer to colour pipe
@@ -110,6 +123,8 @@ namespace media_reader {
         bool operator<(const utility::time_point &t) const { return when_to_display_ < t; }
 
         bool operator<(const timebase::flicks &t) const { return tts_ < t; }
+
+        bool operator>(const timebase::flicks &t) const { return tts_ > t; }
 
         colour_pipeline::ColourPipelineDataPtr colour_pipe_data_;
         utility::time_point when_to_display_;

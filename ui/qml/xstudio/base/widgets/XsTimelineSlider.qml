@@ -237,7 +237,7 @@ Rectangle {
                 Repeater {
                     model: playhead ? playhead.bookmarkedFrames : null
                     Rectangle {
-                        height: (control.tickHeight / 3) - 1
+                        height: bgRect.height - ((control.tickHeight / 6) - 2)*2
                         color: modelData.c ? modelData.c  : preferences.accent_color
                         opacity: 0.5
                         x: Math.min((control.width / control.duration) * (modelData.x ?  modelData.x-0.5  : 0), control.width-1 )
@@ -247,7 +247,7 @@ Rectangle {
                             ),
                             control.width-1
                         )
-                        y: bgRect.height - control.tickHeight / 6 - 2
+                        y: control.tickHeight / 6 - 2// bgRect.height - control.tickHeight / 6 - 2
                     }
                 }
             }

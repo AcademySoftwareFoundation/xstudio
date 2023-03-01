@@ -182,3 +182,5 @@ uint8_t MediaReader::maximum_readers(const caf::uri &) const { return 1; }
 bool MediaReader::prefer_sequential_access(const caf::uri &) const { return true; }
 
 bool MediaReader::can_decode_audio() const { return false; }
+
+bool MediaReader::can_do_partial_frames() const { return false; }

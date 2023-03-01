@@ -77,7 +77,7 @@ Rectangle {
             id: auto_align_option
             label_text: "Auto Align"
             visible: auto_align_enabled
-            tooltip_text: "When turned on, every time a new selection is made, xStudio will try to line up the frame numbers of the selected items"    
+            tooltip_text: "Select option 'On' to auto align and extend range to include frames from all sources. Select 'On (Trim)' to auto align and reduce to frame range common to all sources."   
         }
 
         XsMediaInfoBarOffset {

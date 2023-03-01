@@ -2,6 +2,7 @@
 import QtQuick 2.12
 
 import xStudio 1.0
+import xstudio.qml.helpers 1.0
 
 Item
 {
@@ -48,203 +49,241 @@ Item
 
     property color accent_color: '#bb7700'
 
-    XsPreferenceStore {
-        id: click_to_toggle_play
-        path: "/ui/qml/click_to_toggle_play"
-    }
-
-    XsPreferenceStore {
-        id: session_link_prefix
-        path: "/core/session/session_link_prefix"
-    }
-
-    XsPreferenceStore {
-        id: xplayer_window
-        path: "/ui/qml/xplayer_window"
-    }
-
-    XsPreferenceStore {
-        id: volume
-        path: "/ui/qml/volume"
-    }
-
-    XsPreferenceStore {
-        id: mute
-        path: "/ui/qml/audio_mute"
-    }
-
-    XsPreferenceStore {
+    XsModelProperty {
         id: velocity
-        path: "/ui/qml/velocity"
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/velocity", "pathRole")
     }
 
-    XsPreferenceStore {
-        id: image_cache_limit
-        path: "/core/image_cache/max_size"
-    }
-
-    XsPreferenceStore {
-        id: media_flags
-        path: "/core/session/media_flags"
-    }
-
-    XsPreferenceStore {
-        id: auto_gather_sources
-        path: "/core/media_reader/auto_gather_sources"
-    }
-
-    XsPreferenceStore {
-        id: new_media_rate
-        path: "/core/session/media_rate"
-    }
-
-    XsPreferenceStore {
-        id: viewport_scrub_sensitivity
-        path: "/ui/viewport/viewport_scrub_sensitivity"
-    }
-
-    XsPreferenceStore {
-        id: compare
-        path: "/ui/qml/compare"
-    }
-
-    XsPreferenceStore {
+    XsModelProperty {
         id: exposure
-        path: "/ui/qml/exposure"
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/exposure", "pathRole")
     }
 
-    XsPreferenceStore {
+    XsModelProperty {
+        id: new_media_rate
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/media_rate", "pathRole")
+    }
+
+    XsModelProperty {
+        id: click_to_toggle_play
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/click_to_toggle_play", "pathRole")
+    }
+
+    XsModelProperty {
+        id: session_link_prefix
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/session_link_prefix", "pathRole")
+    }
+
+    XsModelProperty {
+        id: xplayer_window
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/xplayer_window", "pathRole")
+    }
+
+    XsModelProperty {
+        id: volume
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/volume", "pathRole")
+    }
+
+    XsModelProperty {
+        id: mute
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/audio_mute", "pathRole")
+    }
+
+    XsModelProperty {
+        id: image_cache_limit
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/image_cache/max_size", "pathRole")
+    }
+
+    XsModelProperty {
+        id: media_flags
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/media_flags", "pathRole")
+    }
+
+    XsModelProperty {
+        id: auto_gather_sources
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/media_reader/auto_gather_sources", "pathRole")
+    }
+
+    XsModelProperty {
+        id: viewport_scrub_sensitivity
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/viewport/viewport_scrub_sensitivity", "pathRole")
+    }
+
+    XsModelProperty {
+        id: compare
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/compare", "pathRole")
+    }
+
+    XsModelProperty {
         id: channel
-        path: "/ui/qml/channel"
-     }
-    XsPreferenceStore {
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/channel", "pathRole")
+    }
+
+    XsModelProperty {
         id: display
-        path: "/ui/qml/display"
-     }
-    XsPreferenceStore {
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/display", "pathRole")
+    }
+
+    XsModelProperty {
         id: view
-        path: "/ui/qml/view"
-     }
-    XsPreferenceStore {
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/view", "pathRole")
+    }
+
+    XsModelProperty {
         id: source
-        path: "/ui/qml/source"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/source", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: control_values
-        path: "/ui/qml/control_values"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/control_values", "pathRole")
+    }
 
-    // XsPreferenceStore {
-    //     id: panel_geoms
-    //     path: "/ui/qml/panel_geoms"
-    // }
-
-    XsPreferenceStore {
+    XsModelProperty {
         id: do_overlay_messages
-        path: "/ui/qml/do_overlay_messages"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/do_overlay_messages", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: do_shutdown_anim
-        path: "/ui/qml/do_shutdown_anim"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/do_shutdown_anim", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: check_unsaved_session
-        path: "/ui/qml/check_unsaved_session"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/check_unsaved_session", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: restore_play_state_after_scrub
-        path: "/ui/qml/restore_play_state_after_scrub"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/restore_play_state_after_scrub", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: timeline_units
-        path: "/ui/qml/timeline_units"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/timeline_units", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: timeline_indicator
-        path: "/ui/qml/timeline_indicator"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/timeline_indicator", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: loop_mode
-        path: "/ui/qml/loop_mode"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/loop_mode", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: autosave
-        path: "/ui/qml/autosave"
-        onValue_changed: { if(global_store.autosave != value)  {global_store.autosave = value}}
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/autosave", "pathRole")
+        onValueChanged: {
+            if(app_window.globalStoreModel.autosave != value)  {app_window.globalStoreModel.autosave = value}
+        }
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: accent_color_string
-        path: "/ui/qml/accent_color"
-        onValue_changed: {
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/accent_color", "pathRole")
+        onValueChanged: {
             if(!app_window.initialized){
                 styleGradient.highlightColorString = value
                 initialized = true
             }
         }
-     }
+    }
 
-     XsPreferenceStore {
+    XsModelProperty {
         id: audio_latency_millisecs
-        path: "/core/audio/audio_latency_millisecs"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/audio/audio_latency_millisecs", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: latest_version
-        path: "/ui/qml/latest_version"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/latest_version", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: enable_presentation_mode
-        path: "/ui/qml/enable_presentation_mode"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/enable_presentation_mode", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: last_auto_save
-        path: "/core/session/autosave/last_auto_save"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/autosave/last_auto_save", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: start_play_on_load
-        path: "/ui/qml/start_play_on_load"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/start_play_on_load", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: view_top_toolbar
-        path: "/ui/qml/view_top_toolbar"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/view_top_toolbar", "pathRole")
+    }
 
-     XsPreferenceStore {
+    XsModelProperty {
         id: popout_viewer_visible
-        path: "/ui/qml/popout_viewer_visible"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/popout_viewer_visible", "pathRole")
+    }
 
-     XsPreferenceStore {
+    XsModelProperty {
         id: python_history
-        path: "/ui/qml/python_history"
-     }
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/python_history", "pathRole")
+    }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: recent_history
-        path: "/ui/qml/recent_history"
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/recent_history", "pathRole")
     }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: cycle_through_playlist
-        path: "/ui/qml/cycle_through_playlist"
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/cycle_through_playlist", "pathRole")
     }
 
-    XsPreferenceStore {
+    XsModelProperty {
         id: default_playhead_compare_mode
-        path: "/ui/qml/default_playhead_compare_mode"
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/default_playhead_compare_mode", "pathRole")
     }
 
     Gradient {

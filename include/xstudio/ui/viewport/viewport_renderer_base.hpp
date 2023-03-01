@@ -43,8 +43,6 @@ namespace ui {
                 const Imath::M44f &projection_matrix,
                 const Imath::M44f &fit_mode_matrix) = 0;
 
-            void has_alpha(const bool _has_alpha) { has_alpha_ = _has_alpha; }
-
             void add_overlay_renderer(
                 const utility::Uuid &uuid, plugin::ViewportOverlayRendererPtr renderer) {
                 viewport_overlay_renderers_[uuid] = renderer;
@@ -82,7 +80,6 @@ namespace ui {
                 viewport_overlay_renderers_;
 
             RenderHints render_hints_ = {BilinearWhenZoomedOut};
-            bool has_alpha_           = {true};
             bool done_init_           = false;
         };
 

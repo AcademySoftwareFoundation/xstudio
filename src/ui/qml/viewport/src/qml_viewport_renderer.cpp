@@ -46,10 +46,6 @@ void QMLViewportRenderer::paint() {
     if (!init_done) {
         init_done = true;
         init_renderer();
-
-        if (m_window && m_window->openglContext()) {
-            // viewport_renderer_->has_alpha(m_window->openglContext()->format().hasAlpha());
-        }
     }
 
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);

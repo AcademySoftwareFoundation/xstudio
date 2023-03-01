@@ -307,7 +307,6 @@
 		<file>bars/XsToolBar.qml</file>
 		<file>base/core/XsDraggableItem.qml</file>
 		<file>base/core/XsModuleMenuBuilder.qml</file>
-		<file>base/core/XsPreferenceStore.qml</file>
 		<file>base/core/XsTimer.qml</file>
 		<file>base/core/XsSortFilterModel.qml</file>
 		<file>base/core/XsWindowStateSaver.qml</file>

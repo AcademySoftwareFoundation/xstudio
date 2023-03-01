@@ -81,6 +81,16 @@ Item {
                             Layout.fillHeight: false
                             Layout.fillWidth: false
                         }
+                        Label {
+                            text: datatypeRole ? datatypeRole : ""
+                            Layout.fillHeight: false
+                            Layout.fillWidth: false
+                        }
+                        Label {
+                            text: datatypeRole != "group" && contextRole ? contextRole : ""
+                            Layout.fillHeight: false
+                            Layout.fillWidth: false
+                        }
                         XsButton {
                             Layout.fillHeight: false
                             Layout.fillWidth: false

@@ -98,6 +98,8 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
 
         [=](playhead::play_atom, const bool playing) { playing_ = playing; },
 
+        [=](playhead::play_forward_atom, const bool forward) { playing_forwards_ = forward; },
+
         [=](ui::fps_monitor::framebuffer_swapped_atom,
             const utility::time_point &message_send_tp,
             const timebase::flicks video_refresh_rate_hint,
@@ -160,16 +162,16 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         [=](const error &err) mutable { aout(this) << err << std::endl; });
 }
 
-xstudio::media_reader::ImageBufPtr
-ViewportFrameQueueActor::get_least_old_image_in_set(const OrderedImagesToDraw &image_set) {
+xstudio::media_reader::ImageBufPtr ViewportFrameQueueActor::get_least_old_image_in_set(
+    const OrderedImagesToDraw &frames_queued_for_display) {
 
-    if (image_set.empty())
+    if (frames_queued_for_display.empty())
         return media_reader::ImageBufPtr();
     media_reader::ImageBufPtr least_old_buf;
-    auto r        = image_set.begin();
+    auto r        = frames_queued_for_display.begin();
     least_old_buf = *r;
     r++;
-    while (r != image_set.end()) {
+    while (r != frames_queued_for_display.end()) {
         if ((*r).when_to_display_ > least_old_buf.when_to_display_) {
             least_old_buf = *r;
         }
@@ -183,44 +185,44 @@ void ViewportFrameQueueActor::drop_old_frames(const utility::time_point out_of_d
     // remove old frames from the queue against a threshold
 
     for (auto &p : frames_to_draw_per_playhead_) {
-        auto &image_set                         = p.second;
-        media_reader::ImageBufPtr least_old_buf = get_least_old_image_in_set(image_set);
-        auto r                                  = image_set.begin();
-        while (r != image_set.end()) {
+        auto &frames_queued_for_display = p.second;
+        media_reader::ImageBufPtr least_old_buf =
+            get_least_old_image_in_set(frames_queued_for_display);
+        auto r = frames_queued_for_display.begin();
+        while (r != frames_queued_for_display.end()) {
             if ((*r).when_to_display_ < out_of_date_threshold) {
-                r = image_set.erase(r);
+                r = frames_queued_for_display.erase(r);
             } else {
                 r++;
             }
         }
         // if all the images in the queue are older than out_of_date_threshold then
         // we add back in the 'least old' buffer so we have something to show.
-        if (image_set.empty() && least_old_buf) {
-            image_set.insert(image_set.end(), least_old_buf);
-            std::sort(image_set.begin(), image_set.end());
+        if (frames_queued_for_display.empty() && least_old_buf) {
+            frames_queued_for_display.insert(frames_queued_for_display.end(), least_old_buf);
         }
+        std::sort(frames_queued_for_display.begin(), frames_queued_for_display.end());
     }
 }
 
 void ViewportFrameQueueActor::queue_image_buffer_for_drawing(
     media_reader::ImageBufPtr &buf, const utility::Uuid &playhead_id) {
 
-    auto &image_set = frames_to_draw_per_playhead_[playhead_id];
+    auto &frames_queued_for_display = frames_to_draw_per_playhead_[playhead_id];
 
-
-    OrderedImagesToDraw::iterator p = image_set.begin();
-    while (p != image_set.end()) {
-        if (*p == buf) {
-            (*p).when_to_display_ = buf.when_to_display_;
-            break;
+    OrderedImagesToDraw::iterator p = frames_queued_for_display.begin();
+    while (p != frames_queued_for_display.end()) {
+        // there can only be one image in the display queue for a given
+        // timeline timestamp. Remove images already in the queue so the
+        // incoming can be added.
+        if ((*p).timeline_timestamp() == buf.timeline_timestamp()) {
+            p = frames_queued_for_display.erase(p);
+        } else {
+            p++;
         }
-        p++;
     }
 
-    if (p == frames_to_draw_per_playhead_[playhead_id].end()) {
-        image_set.insert(image_set.end(), buf);
-        std::sort(image_set.begin(), image_set.end());
-    }
+    frames_queued_for_display.push_back(buf);
 
     {
         // purge images in the queue that were supposed to be displayed before now.
@@ -242,36 +244,45 @@ void ViewportFrameQueueActor::get_frames_for_display(
 
     // find the entry in our queue of frames to draw whose display timestamp
     // is closest to 'now'
-    auto &image_set = frames_to_draw_per_playhead_[playhead_id];
-    if (image_set.empty()) {
+    auto &frames_queued_for_display = frames_to_draw_per_playhead_[playhead_id];
+    if (frames_queued_for_display.empty()) {
         return;
     }
 
+    const auto playhead_position = predicted_playhead_position_at_next_video_refresh();
+
     auto r = std::lower_bound(
-        image_set.begin(),
-        image_set.end(),
-        predicted_playhead_position_at_next_video_refresh());
+        frames_queued_for_display.begin(), frames_queued_for_display.end(), playhead_position);
 
-    if (r == image_set.end()) {
-        // No entry in the queue has a higher timestamp than 'now', so
-        // use last entry in the queue.
+    if (r == frames_queued_for_display.end()) {
+        // No entry in the queue has a higher display timestamp
+        // than the current playhead position, so pick the last
         r--;
-    } else if (r != image_set.begin()) {
+    } else if (
+        r != frames_queued_for_display.begin() &&
+        (*r).timeline_timestamp() != playhead_position) {
 
-        // lower bound gives us the first element that is NOT LESS than now.
-        // If it's not the first element, then we want to use the previous frame
-        // as it is the one that should be on screen NOW
+        // upper bound gives us the first frame whose timeline
+        // timestamp is *after* playhead_position, so we decrement
+        // it once to get the frame that should be on screen.
         r--;
     }
 
     next_images.push_back(*r);
 
     auto r_next = r;
-    r_next++;
-    while (r_next != image_set.end() && next_images.size() < 4) {
-
-        next_images.push_back(*r_next);
+    if (playing_forwards_) {
         r_next++;
+        while (r_next != frames_queued_for_display.end() && next_images.size() < 4) {
+
+            next_images.push_back(*r_next);
+            r_next++;
+        }
+    } else {
+        while (r_next != frames_queued_for_display.begin() && next_images.size() < 4) {
+            r_next--;
+            next_images.push_back(*r_next);
+        }
     }
 
     // now that we have picked frames for display, the first frame in 'next_images'
@@ -300,16 +311,16 @@ void ViewportFrameQueueActor::add_blind_data_to_image_in_queue(
     const utility::Uuid &overlay_actor_uuid) {
 
     for (auto &per_playhead : frames_to_draw_per_playhead_) {
-        OrderedImagesToDraw image_set = per_playhead.second;
-        bool changed                  = false;
-        for (auto &im : image_set) {
+        OrderedImagesToDraw frames_queued_for_display = per_playhead.second;
+        bool changed                                  = false;
+        for (auto &im : frames_queued_for_display) {
             if (im == image) {
                 im.add_plugin_blind_data(overlay_actor_uuid, bdata);
                 changed = true;
             }
         }
         if (changed)
-            per_playhead.second = image_set;
+            per_playhead.second = frames_queued_for_display;
     }
 }
 
@@ -328,7 +339,7 @@ void ViewportFrameQueueActor::update_blind_data(
             for (const media_reader::ImageBufPtr im : bufs) {
                 try {
                     auto bdata = request_receive<utility::BlindDataObjectPtr>(
-                        *sys, overlay_actor, prepare_overlay_render_data_atom_v, im);
+                        *sys, overlay_actor, prepare_overlay_render_data_atom_v, im, false);
                     add_blind_data_to_image_in_queue(im, bdata, overlay_actor_uuid);
                 } catch (std::exception &e) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -342,7 +353,7 @@ void ViewportFrameQueueActor::update_blind_data(
             utility::Uuid overlay_actor_uuid = p.first;
             caf::actor overlay_actor         = p.second;
             for (const media_reader::ImageBufPtr im : bufs) {
-                request(overlay_actor, infinite, prepare_overlay_render_data_atom_v, im)
+                request(overlay_actor, infinite, prepare_overlay_render_data_atom_v, im, false)
                     .then(
                         [=](const utility::BlindDataObjectPtr &bdata) {
                             add_blind_data_to_image_in_queue(im, bdata, overlay_actor_uuid);
@@ -369,7 +380,7 @@ void ViewportFrameQueueActor::update_image_blind_data_and_deliver(
 
         utility::Uuid overlay_actor_uuid = p.first;
         caf::actor overlay_actor         = p.second;
-        request(overlay_actor, infinite, prepare_overlay_render_data_atom_v, *image_cpy)
+        request(overlay_actor, infinite, prepare_overlay_render_data_atom_v, *image_cpy, false)
             .then(
                 [=](const utility::BlindDataObjectPtr &bdata) mutable {
                     image_cpy->add_plugin_blind_data(overlay_actor_uuid, bdata);
@@ -407,6 +418,9 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
                 playhead::position_atom_v,
                 next_video_refresh_tp,
                 video_refresh_period);
+
+        if (!playing_)
+            return estimate_playhead_position_at_next_redraw;
 
         // To enact a stable pulldown we need to round this value down to a multiple of the
         // video_refresh_period. There is a catch, though. The playhead is 'free running' and is

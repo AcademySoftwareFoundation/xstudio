@@ -23,6 +23,7 @@ Rectangle{ id: presetsDiv
     property alias searchPresetsView: searchPresetsView
     property real presetTitleHeight: itemHeight
     property var backendModel//: searchPresetsViewModel
+    property bool isActiveView: true
 
     color: "transparent"
     border.color: frameColor
@@ -43,7 +44,7 @@ Rectangle{ id: presetsDiv
             acceptedButtons: Qt.LeftButton | Qt.RightButton
 
             property var model: DelegateModel.model
-            property bool presetLoadedRole: backendModel.activePreset === index
+            property bool presetLoadedRole: backendModel.activePreset === index && isActiveView
             property bool isMouseHovered: containsMouse || (editMenu.visible && searchPresetsView.menuActionIndex==index)
             property bool held: false
             property bool was_current: false
@@ -417,6 +418,8 @@ Rectangle{ id: presetsDiv
                 searchPresetsView.currentIndex = backendModel.activePreset
                 searchPresetsView.isEditable = false
                 searchPresetsView.menuActionIndex = -1
+                if(backendModel.activePreset != -1 && backendModel.get(backendModel.activePreset).startsWith("Live "))
+                    clearFilter()
                 presetSelectionModel.select(presetsModel.modelIndex(backendModel.activePreset), ItemSelectionModel.ClearAndSelect)
                 executeQuery()
             }

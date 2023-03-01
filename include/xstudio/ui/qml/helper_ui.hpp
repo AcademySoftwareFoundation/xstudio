@@ -25,12 +25,112 @@ CAF_PUSH_WARNINGS
 #include <QString>
 #include <QUrl>
 #include <QUuid>
+#include <QModelIndex>
+#include <QPersistentModelIndex>
+#include <QQmlPropertyMap>
+
 CAF_POP_WARNINGS
 
 namespace xstudio {
 namespace ui {
     namespace qml {
         using namespace caf;
+
+
+        QVariant mapFromValue(const nlohmann::json &value);
+        nlohmann::json mapFromValue(const QVariant &value);
+
+        class ModelProperty : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
+            Q_PROPERTY(int roleId READ roleId NOTIFY roleIdChanged)
+            Q_PROPERTY(QString role READ role WRITE setRole NOTIFY roleChanged)
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+
+          public:
+            explicit ModelProperty(QObject *parent = nullptr) : QObject(parent) {}
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] QVariant value() const { return value_; }
+            [[nodiscard]] int roleId() const { return role_id_; }
+            [[nodiscard]] QString role() const { return role_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+            Q_INVOKABLE void setRole(const QString &role);
+            Q_INVOKABLE void setValue(const QVariant &value);
+
+          signals:
+            void valueChanged();
+            void roleIdChanged();
+            void roleChanged();
+            void indexChanged();
+
+          private slots:
+            void dataChanged(
+                const QModelIndex &topLeft,
+                const QModelIndex &bottomRight,
+                const QVector<int> &roles = QVector<int>());
+
+          private:
+            bool updateValue();
+            int getRoleId(const QString &role) const;
+
+            QPersistentModelIndex index_;
+            QString role_;
+            int role_id_{-1};
+            QVariant value_;
+        };
+
+        class ModelPropertyMap : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(QQmlPropertyMap *values READ values NOTIFY valuesChanged)
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+
+          public:
+            explicit ModelPropertyMap(QObject *parent = nullptr);
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] QQmlPropertyMap *values() const { return values_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+
+          signals:
+            void indexChanged();
+            void valuesChanged();
+
+          protected slots:
+            void dataChanged(
+                const QModelIndex &topLeft,
+                const QModelIndex &bottomRight,
+                const QVector<int> &roles = QVector<int>());
+            void valueChangedSlot(const QString &key, const QVariant &value);
+
+          protected:
+            virtual void valueChanged(const QString &key, const QVariant &value);
+            virtual void updateValues(const QVector<int> &roles = {});
+            int getRoleId(const QString &role) const;
+
+
+            QPersistentModelIndex index_;
+            QQmlPropertyMap *values_{nullptr};
+        };
+
+        class ModelNestedPropertyMap : public ModelPropertyMap {
+            Q_OBJECT
+
+          public:
+            explicit ModelNestedPropertyMap(QObject *parent = nullptr)
+                : ModelPropertyMap(parent) {}
+
+
+          protected:
+            virtual void updateValues(const QVector<int> &roles = {}) override;
+            virtual void valueChanged(const QString &key, const QVariant &value) override;
+
+            QString data_role_ = {"valueRole"};
+        };
 
         class CafSystemObject : public QObject {
 

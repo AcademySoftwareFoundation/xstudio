@@ -11,6 +11,7 @@ using namespace xstudio::ui::qml;
 #include <QProcess>
 #include <QJSValue>
 #include <QMimeData>
+#include <QItemSelectionRange>
 
 CafSystemObject::CafSystemObject(QObject *parent, caf::actor_system &sys)
     : QObject(parent), system_ref_(sys) {
@@ -59,11 +60,10 @@ QString xstudio::ui::qml::getThumbnailURL(
             auto mp = utility::request_receive<media::AVFrameID>(
                 *sys, actor, media::get_media_pointer_atom_v, frame);
 
-            auto colour_pipe_data =
-                utility::request_receive<colour_pipeline::ColourPipelineDataPtr>(
-                    *sys, colour_pipe, colour_pipeline::get_colour_pipe_data_atom_v, mp);
+            auto display_transform_hash = utility::request_receive<std::string>(
+                *sys, colour_pipe, colour_pipeline::display_colour_transform_hash_atom_v, mp);
             hash = std::hash<std::string>{}(
-                static_cast<const std::string &>(colour_pipe_data->cache_id_));
+                static_cast<const std::string &>(display_transform_hash));
         } catch (const std::exception &err) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }

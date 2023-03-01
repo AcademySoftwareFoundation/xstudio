@@ -14,10 +14,12 @@ Item { id: widget
     property var selectionModel: null
     property var expandedModel: null
     property var itemDoubleClicked: null
+    property var scrollTo: null
 
     property int totalChildCount: 0
     // property var childObj: null
     property bool scrollBarVisibility: true
+    property alias listView: treeView
 
     x: frameWidth + framePadding
 
@@ -31,11 +33,27 @@ Item { id: widget
     Connections {
         target: expandedModel ? expandedModel : null
         function onSelectionChanged(selected, deselected) {
-            updateCount()
+            if(expandedModel.selectedIndexes.includes(rootIndex)) {
+                updateCount()
+            }
         }
     }
 
-    function createTreeNode(parent, myModel, myRootIndex, mySelectionModel, myExpandedModel, myItemDoubleClicked) {
+    Connections {
+        target: selectionModel ? selectionModel : null
+        function onSelectionChanged(selected, deselected) {
+            jumpToSelected()
+        }
+    }
+
+    function jumpToSelected() {
+        if(selectionModel.selectedIndexes.length && selectionModel.selectedIndexes[0].parent == rootIndex) {
+            let item = treeView.itemAtIndex(selectionModel.selectedIndexes[0].row)
+            widget.scrollTo(item)
+        }
+    }
+
+    function createTreeNode(parent, myModel, myRootIndex, mySelectionModel, myExpandedModel, myItemDoubleClicked, myScrollTo) {
         const component = Qt.createComponent("ShotsTreeView.qml");
         const incubator = component.incubateObject(
             parent,
@@ -46,7 +64,8 @@ Item { id: widget
                 expandedModel: myExpandedModel,
                 x: itemHeight/1.25-frameWidth*2,
                 scrollBarVisibility:false,
-                itemDoubleClicked: myItemDoubleClicked
+                itemDoubleClicked: myItemDoubleClicked,
+                scrollTo: myScrollTo
             }
         );
 
@@ -73,6 +92,8 @@ Item { id: widget
         orientation: ListView.Vertical
         interactive: true
         currentIndex: -1
+        highlightRangeMode: ListView.ApplyRange
+        // snapMode: ListView.SnapToItem
         cacheBuffer: 100000
 
         ScrollBar.vertical: XsScrollBar {id: scrollBar; x:width; visible: scrollBarVisibility && treeView.height < treeView.contentHeight}
@@ -136,6 +157,16 @@ Item { id: widget
                     itemDoubleClicked(typeRole, nameRole, idRole)
                 }
 
+                onIsExpandedChanged: {
+                    if(isExpanded) {
+                        if(!isPopulated) {
+                            createTreeNode(childView, treeModel.model, treeModel.modelIndex(index, treeModel.rootIndex), selectionModel, expandedModel, itemDoubleClicked, scrollTo)
+                            isPopulated = true
+                        }
+                        jumpToSelected()
+                    }
+                }
+
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
@@ -143,12 +174,12 @@ Item { id: widget
                     Rectangle{id: nameDiv
                         Layout.preferredWidth: parent.width
                         Layout.preferredHeight: treeItemHeight
-                        color: "transparent"
+                        color: isSelected ? Qt.darker(itemColorActive, 2.75) : "transparent"
 
                         XsButton{id: expandButton
 
                             text: ""
-                            imgSrc: "qrc:/feather_icons/chevron-down.svg"
+                            imgSrc: childCount > 0 ? "qrc:/feather_icons/chevron-down.svg" : null
                             width: height
                             height: parent.height - frameWidth*2
                             image.sourceSize.width: height/1.2
@@ -156,6 +187,7 @@ Item { id: widget
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
                             borderColorNormal: Qt.lighter(itemColorNormal, 0.3)
+                            opacity: !childCount ? 0 : 1
                             isActive: isExpanded
                             enabled: childCount > 0
 
@@ -163,19 +195,12 @@ Item { id: widget
                             rotation: (isExpanded)? 0: -90
                             Behavior on rotation {NumberAnimation{id: rotationAnim; duration: 150 }}
 
-                            onClicked: {
-                                if(!isExpanded) {
-                                    if(!isPopulated) {
-                                        createTreeNode(childView, treeModel.model, treeModel.modelIndex(index, treeModel.rootIndex), selectionModel, expandedModel, itemDoubleClicked)
-                                        isPopulated = true
-                                    }
-                                }
-                                expandedModel.select(treeModel.modelIndex(index, treeModel.rootIndex), ItemSelectionModel.Toggle)
-                            }
+                            onClicked: expandedModel.select(treeModel.modelIndex(index, treeModel.rootIndex), ItemSelectionModel.Toggle)
                             Component.onCompleted: {
                                 if(isExpanded) {
-                                    createTreeNode(childView, treeModel.model, treeModel.modelIndex(index, treeModel.rootIndex), selectionModel, expandedModel, itemDoubleClicked)
+                                    createTreeNode(childView, treeModel.model, treeModel.modelIndex(index, treeModel.rootIndex), selectionModel, expandedModel, itemDoubleClicked, scrollTo)
                                     isPopulated = true
+                                    jumpToSelected()
                                 }
                             }
                         }
@@ -208,7 +233,13 @@ Item { id: widget
 
                             elide: Text.ElideRight
                             font.pixelSize: fontSize*1.2
-                            color: isSelected? itemColorActive : containsMouse? textColorActive : textColorNormal//itemColorNormal
+
+
+                            color: isSelected ? (containsMouse ? textColorNormal : textColorActive) : (containsMouse? itemColorActive : textColorNormal)
+                            // isSelected? textColorActive : containsMouse? itemColorActive : textColorNormal//itemColorNormal
+                            // color: isMouseHovered || presetLoadedRole? textColorActive: textColorNormal
+
+
                             horizontalAlignment: Text.AlignLeft
                             verticalAlignment: Text.AlignVCenter
                             ToolTip.text: nameRole
@@ -216,59 +247,59 @@ Item { id: widget
                             visible: !(treeView.isEditable && treeView.menuActionIndex == index)
                         }
 
-                        XsButton{id: favButton
+                        // XsButton{id: favButton
 
-                            text: ""
-                            imgSrc: isFavorited? "qrc:/icons/star-filled.svg":"qrc:/feather_icons/star.svg"
-                            visible: typeRole=="Shot" && (containsMouse || isFavorited)
-                            width: height
-                            height: parent.height - frameWidth*2
-                            image.sourceSize.width: height/1.2
-                            image.sourceSize.height: height/1.2
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.right: parent.right
-                            anchors.rightMargin: itemSpacing*4
-                            bgColorNormal: "transparent"
-                            borderWidth: hovered? 1 : 0
-                            property bool isFavorited: false
-                            layer {
-                                textureSize: Qt.size(favButton.width, favButton.height)
-                                enabled: true
-                                effect:
-                                ColorOverlay {
-                                    color: favButton.pressed? "transparent": favButton.isFavorited? itemColorActive : "transparent"
-                                }
-                            }
+                        //     text: ""
+                        //     imgSrc: isFavorited? "qrc:/icons/star-filled.svg":"qrc:/feather_icons/star.svg"
+                        //     visible: typeRole=="Shot" && (containsMouse || isFavorited)
+                        //     width: height
+                        //     height: parent.height - frameWidth*2
+                        //     image.sourceSize.width: height/1.2
+                        //     image.sourceSize.height: height/1.2
+                        //     anchors.verticalCenter: parent.verticalCenter
+                        //     anchors.right: parent.right
+                        //     anchors.rightMargin: itemSpacing*4
+                        //     bgColorNormal: "transparent"
+                        //     borderWidth: hovered? 1 : 0
+                        //     property bool isFavorited: false
+                        //     layer {
+                        //         textureSize: Qt.size(favButton.width, favButton.height)
+                        //         enabled: true
+                        //         effect:
+                        //         ColorOverlay {
+                        //             color: favButton.pressed? "transparent": favButton.isFavorited? itemColorActive : "transparent"
+                        //         }
+                        //     }
 
-                            onClicked: {
-                                isFavorited= !isFavorited
-                            }
-                        }
-                        XsButton{id: pinButton
+                        //     onClicked: {
+                        //         isFavorited= !isFavorited
+                        //     }
+                        // }
+                        // XsButton{id: pinButton
 
-                            text: ""
-                            imgSrc: "qrc:/icons/pin.png"
-                            visible: typeRole=="Shot" && containsMouse
-                            width: height
-                            height: parent.height - frameWidth*2
-                            image.sourceSize.width: height/1.2
-                            image.sourceSize.height: height/1.2
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.right: favButton.left
-                            anchors.rightMargin: itemSpacing
-                            bgColorNormal: "transparent"
-                            borderWidth: hovered? 1 : 0
-                            // layer {
-                            //     textureSize: Qt.size(pinButton.width, pinButton.height)
-                            //     enabled: true
-                            //     effect:
-                            //     ColorOverlay {
-                            //         color: pinButton.hovered? pinButton.textColorPressed : "transparent"
-                            //     }
-                            // }
-                            onClicked: {
-                            }
-                        }
+                        //     text: ""
+                        //     imgSrc: "qrc:/icons/pin.png"
+                        //     visible: typeRole=="Shot" && containsMouse
+                        //     width: height
+                        //     height: parent.height - frameWidth*2
+                        //     image.sourceSize.width: height/1.2
+                        //     image.sourceSize.height: height/1.2
+                        //     anchors.verticalCenter: parent.verticalCenter
+                        //     anchors.right: favButton.left
+                        //     anchors.rightMargin: itemSpacing
+                        //     bgColorNormal: "transparent"
+                        //     borderWidth: hovered? 1 : 0
+                        //     // layer {
+                        //     //     textureSize: Qt.size(pinButton.width, pinButton.height)
+                        //     //     enabled: true
+                        //     //     effect:
+                        //     //     ColorOverlay {
+                        //     //         color: pinButton.hovered? pinButton.textColorPressed : "transparent"
+                        //     //     }
+                        //     // }
+                        //     onClicked: {
+                        //     }
+                        // }
                     }
 
                     Item { id: childView
@@ -276,8 +307,8 @@ Item { id: widget
                         Layout.fillWidth: true
                         Layout.minimumWidth: parent.width
                         Layout.fillHeight: true
-                        Layout.minimumHeight: isExpanded ? treeItemHeight * children[0].totalChildCount : 0 //#TODO: Handle height when levels>2
-                        Layout.maximumHeight: isExpanded ? treeItemHeight * children[0].totalChildCount : 0 //#TODO: Handle height when levels>2
+                        Layout.minimumHeight: isExpanded ? treeItemHeight * children[0].totalChildCount : 0
+                        Layout.maximumHeight: isExpanded ? treeItemHeight * children[0].totalChildCount : 0
                     }
                 }
             }

@@ -203,6 +203,46 @@ DelegateChoice {
                         horizontalAlignment: Text.AlignRight
                     }
 
+
+                    Text{
+                        text: "From :"
+                        font.pixelSize: fontSize
+                        font.family: fontFamily
+                        color: isMouseHovered? textColorActive: textColorNormal
+                        opacity: 0.6
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignLeft
+                        verticalAlignment: Text.AlignVCenter
+                        Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+                        Layout.preferredHeight: typeDisplay.height
+                    }
+
+                    Text{
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        text: createdByRole ? createdByRole : ""
+                        font.pixelSize: fontSize
+                        font.family: fontFamily
+                        color: isMouseHovered? textColorActive: textColorNormal
+                        opacity: 0.6
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignRight
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: typeDisplay.height
+
+                        XsToolTip{
+                            text: parent.text
+                            visible: fromToolTip.containsMouse && parent.truncated
+                            width: textDivMetrics.width == 0? 0 : 150
+                            x: 0
+                       }
+                        MouseArea {
+                            id: fromToolTip
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            propagateComposedEvents: true
+                        }
+                    }
+
                     Text{
                         text: "To :"
                         font.pixelSize: fontSize
@@ -216,7 +256,7 @@ DelegateChoice {
                         Layout.preferredHeight: typeDisplay.height
                     }
 
-                    Text{ id: toDisplay
+                    Text{
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         text: addressingRole ? addressingRole.join("\n") : ""
                         font.pixelSize: fontSize
@@ -268,10 +308,11 @@ DelegateChoice {
                     anchors.bottom: nameDisplay.bottom
                     anchors.bottomMargin: (parent.height - height)/2 - 1
                     forcedMouseHover: isMouseHovered
+                    isClickable: shotNameRole !== undefined
 
                     onTextClicked: {
-                        let mymodel = notePresetsModel
-                        mymodel.clearLoaded()
+                        let mymodel = noteTreePresetsModel
+                        // mymodel.clearLoaded()
                         mymodel.insert(
                             mymodel.rowCount(),
                             mymodel.index(mymodel.rowCount(), 0),
@@ -281,13 +322,13 @@ DelegateChoice {
                                 "queries": [
                                     {
                                         "enabled": true,
-                                        "term": "Shot",
-                                        "value": shotNameRole
+                                        "term": "Twig Name",
+                                        "value": "^"+twigNameRole+"$"
                                     },
                                     {
                                         "enabled": true,
-                                        "term": "Twig Name",
-                                        "value": twigNameRole
+                                        "term": "Shot",
+                                        "value": shotNameRole
                                     },
                                     {
                                         "enabled": false,
@@ -318,6 +359,7 @@ DelegateChoice {
                             }
                         )
 
+                        currentCategory = "Notes Tree"
                         mymodel.activePreset = mymodel.rowCount()-1
                     }
 

@@ -16,15 +16,21 @@ namespace plugin {
     class ViewportOverlayRenderer {
 
       public:
-        virtual void render_opengl_after_image(
-            const Imath::M44f &transform_window_to_viewport_space,
-            const Imath::M44f &transform_viewport_to_image_space,
-            const xstudio::media_reader::ImageBufPtr &frame){};
+        enum RenderPass { BeforeImage, AfterImage };
 
-        virtual void render_opengl_before_image(
+        /* An overlay can render before the image is rendered - the
+        image is themn plotted with an 'Under' blend operation. This
+        allows for alpha blending on a black background. Alternatively
+        the overlay can render ontop of the image, after it is drawn.
+        If 'have_alpha_buffer' is false, the BeforeImage pass is not
+        executed. */
+        virtual void render_opengl(
             const Imath::M44f &transform_window_to_viewport_space,
             const Imath::M44f &transform_viewport_to_image_space,
-            const xstudio::media_reader::ImageBufPtr &frame){};
+            const xstudio::media_reader::ImageBufPtr &frame,
+            const bool have_alpha_buffer){};
+
+        virtual RenderPass preferred_render_pass() const { return AfterImage; }
     };
 
     typedef std::shared_ptr<ViewportOverlayRenderer> ViewportOverlayRendererPtr;
@@ -50,8 +56,8 @@ namespace plugin {
 
         caf::message_handler message_handler_;
 
-        virtual utility::BlindDataObjectPtr
-        prepare_render_data(const media_reader::ImageBufPtr & /*image*/
+        virtual utility::BlindDataObjectPtr prepare_render_data(
+            const media_reader::ImageBufPtr & /*image*/, const bool /*offscreen*/
         ) const {
             return utility::BlindDataObjectPtr();
         }

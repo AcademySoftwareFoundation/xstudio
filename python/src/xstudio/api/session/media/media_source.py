@@ -139,6 +139,31 @@ class MediaSource(Container):
         """
         return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(new_metadata))
 
+    def get_metadata(self, path):
+        """Get metdata at JSON path
+
+        Args:
+            path(str): JSON Pointer
+
+        Returns:
+            metadata(json) Json at pointer location
+        """
+
+        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), path)[0].dump())
+
+    def set_metadata(self, data, path):
+        """Get metdata at JSON path
+
+        Args:
+            data(json): JSON Data
+            path(str): JSON Pointer
+
+        Returns:
+            bool: success
+        """
+
+        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(data), path)[0]
+
     @property
     def image_stream(self):
         """Get current image stream.

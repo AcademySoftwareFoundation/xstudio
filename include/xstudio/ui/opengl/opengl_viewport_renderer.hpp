@@ -80,6 +80,7 @@ namespace ui {
             media_reader::ImageBufPtr onscreen_frame_;
 
             bool is_main_viewer_;
+            bool has_alpha_ = {false};
         };
     } // namespace opengl
 } // namespace ui

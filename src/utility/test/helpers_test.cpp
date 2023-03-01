@@ -21,7 +21,7 @@ ACTOR_TEST_SETUP()
 TEST(HelpersTest, Test) {
     FrameList fl;
 
-    EXPECT_EQ(posix_path_to_uri("file.mov", true), parse_cli_posix_path("file.mov", fl));
+    EXPECT_EQ(posix_path_to_uri("/file.mov", true), parse_cli_posix_path("/file.mov", fl));
 
     EXPECT_EQ(to_string(posix_path_to_uri("file.exr")), "file:file.exr");
 
@@ -35,32 +35,33 @@ TEST(HelpersTest, Test) {
         << "Should be exception";
 
     EXPECT_EQ(
-        posix_path_to_uri("file.{:04d}.exr", true),
-        parse_cli_posix_path("file.{:04d}.exr=1-10", fl));
+        posix_path_to_uri("/file.{:04d}.exr", true),
+        parse_cli_posix_path("/file.{:04d}.exr=1-10", fl));
     EXPECT_EQ("1-10", to_string(fl));
 
     EXPECT_EQ(
-        posix_path_to_uri("file.{:04d}.exr", true),
-        parse_cli_posix_path("file.1-10{:04d}.exr", fl));
+        posix_path_to_uri("/file.{:04d}.exr", true),
+        parse_cli_posix_path("/file.1-10{:04d}.exr", fl));
     EXPECT_EQ("1-10", to_string(fl));
 
     EXPECT_EQ(
-        posix_path_to_uri("file.{:04d}.exr", true), parse_cli_posix_path("file.1-10#.exr", fl));
+        posix_path_to_uri("/file.{:04d}.exr", true),
+        parse_cli_posix_path("/file.1-10#.exr", fl));
     EXPECT_EQ("1-10", to_string(fl));
 
     EXPECT_EQ(
-        posix_path_to_uri("file.{:04d}.exr", true),
-        parse_cli_posix_path("file.@@@@.exr=1-10", fl));
+        posix_path_to_uri("/file.{:04d}.exr", true),
+        parse_cli_posix_path("/file.@@@@.exr=1-10", fl));
     EXPECT_EQ("1-10", to_string(fl));
 
     EXPECT_EQ(
-        posix_path_to_uri("file.{:04d}.exr", true),
-        parse_cli_posix_path("file.#.exr=1-10", fl));
+        posix_path_to_uri("/file.{:04d}.exr", true),
+        parse_cli_posix_path("/file.#.exr=1-10", fl));
     EXPECT_EQ("1-10", to_string(fl));
 
     EXPECT_EQ(
-        posix_path_to_uri("file.{:03d}.exr", true),
-        parse_cli_posix_path("file.###.exr=1-10", fl));
+        posix_path_to_uri("/file.{:03d}.exr", true),
+        parse_cli_posix_path("/file.###.exr=1-10", fl));
     EXPECT_EQ("1-10", to_string(fl));
 
     EXPECT_EQ(

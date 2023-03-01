@@ -23,7 +23,6 @@ const char *thick_line_vertex_shader = R"(
     out vec2 frag_pos;
     out float soft_edge;
     uniform bool do_soft_edge;
-    flat out int plot_circle;
     uniform int point_count;
     uniform int offset_into_points;
 
@@ -40,50 +39,46 @@ const char *thick_line_vertex_shader = R"(
         // with a circular join between each connected pair of vertices
 
         int v_idx = gl_VertexID/4;
-        if (v_idx >= (point_count-1)) {
-            plot_circle = 1;
-            v_idx = v_idx-point_count+1;
-        } else {
-            plot_circle = 0;
-        }
         int i = gl_VertexID%4;
         vec2 vtx;
-        float soft_size = 0.0f;
-        float zz = z_adjust;
+        float quad_thickness = thickness + (do_soft_edge ? soft_dim : 0.00001f);
+        float zz = z_adjust - (do_soft_edge ? 0.0005 : 0.0);
 
-        if (do_soft_edge) {
-            zz -= 0.0005;
-            soft_size = soft_dim;
+        line_start = ssboData.vtxs[offset_into_points+v_idx].xy; // current vertex in stroke
+        line_end = ssboData.vtxs[offset_into_points+1+v_idx].xy; // next vertex in stroke
+
+        if (line_start == line_end) {
+            // draw a quad centred on the line point
+            if (i == 0) {
+                vtx = line_start+vec2(-quad_thickness, -quad_thickness);
+            } else if (i == 1) {
+                vtx = line_start+vec2(-quad_thickness, quad_thickness);
+            } else if (i == 2) {
+                vtx = line_end+vec2(quad_thickness, quad_thickness);
+            } else {
+                vtx = line_end+vec2(quad_thickness, -quad_thickness);
+            }
         } else {
-            soft_size = 0.00001f;
+            // draw a quad around the line segment 
+            vec2 v = normalize(line_end-line_start); // vector between the two vertices
+            vec2 tr = normalize(vec2(v.y,-v.x))*quad_thickness; // tangent
+
+            // now we 'emit' one of four vertices to make a quad. We do it by adding
+            // or subtracting the tangent to the line segment , depending of the
+            // vertex index in the quad
+
+            if (i == 0) {
+                vtx = line_start-tr-v*quad_thickness;
+            } else if (i == 1) {
+                vtx = line_start+tr-v*quad_thickness;
+            } else if (i == 2) {
+                vtx = line_end+tr;
+            } else {
+                vtx = line_end-tr;
+            }
         }
 
-        if (plot_circle == 1) {
-            line_start = ssboData.vtxs[offset_into_points+v_idx].xy-vec2((thickness + soft_size),0.0);
-            line_end = ssboData.vtxs[offset_into_points+v_idx].xy+vec2((thickness + soft_size),0.0);
-        } else {
-            line_start = ssboData.vtxs[offset_into_points+v_idx].xy; // current vertex in stroke
-            line_end = ssboData.vtxs[offset_into_points+1+v_idx].xy; // next vertex in stroke
-        }
-
-        vec2 v = normalize(line_end-line_start); // vector between the two vertices
-        vec2 tr = normalize(vec2(v.y,-v.x))*(thickness + soft_size); // tangent
-
-        // now we 'emit' one of four vertices to make a quad. We do it by adding
-        // or subtracting the tangent to the line segment , depending of the
-        // vertex index in the quad
-
-        if (i == 0) {
-            vtx = line_start-tr;
-        } else if (i == 1) {
-            vtx = line_start+tr;
-        } else if (i == 2) {
-            vtx = line_end+tr;
-        } else {
-            vtx = line_end-tr;
-        }
-
-        soft_edge = soft_size;
+        soft_edge = (do_soft_edge ? soft_dim : 0.00001f);
         gl_Position = vec4(vtx,0.0,1.0)*to_coord_system*to_canvas;
         gl_Position.z = (zz)*gl_Position.w;
         viewportCoordinate = vtx;
@@ -102,41 +97,39 @@ const char *thick_line_frag_shader = R"(
     in float soft_edge;
     uniform float thickness;
     uniform bool do_soft_edge;
-    flat in int plot_circle;
 
     float distToLine(vec2 pt)
     {
 
-        if (line_start == line_end) return length(pt-line_start);
+        float l2 = (line_end.x - line_start.x)*(line_end.x - line_start.x) +
+            (line_end.y - line_start.y)*(line_end.y - line_start.y);
 
-        float t = (pt.x - line_start.x)*(line_end.x - line_start.x) +
-            (pt.y - line_start.y)*(line_end.y - line_start.y);
+        if (l2 == 0.0) return length(pt-line_start);
 
         vec2 a = pt-line_start;
-        vec2 L = (line_end-line_start);
-        vec2 b = normalize(L);
+        vec2 L = line_end-line_start;
 
-        float dot = (a.x*b.x + a.y*b.y);
+        float dot = (a.x*L.x + a.y*L.y);
 
-        vec2 np = line_start + b*dot;
-        return length(pt - np);
+        float t = max(0.0, min(1.0, dot / l2));
+        vec2 p = line_start + t*L;
+        return length(pt-p);
 
     }
 
     void main(void)
     {
-        float r = plot_circle == 1 ? length(frag_pos-(line_start+line_end)*0.5) : distToLine(frag_pos);
+        float r = distToLine(frag_pos);
 
         if (do_soft_edge) {
             r = smoothstep(
                     thickness + soft_edge,
                     thickness,
                     r);
-        } else if (plot_circle == 1) {
-            r = r < thickness ? 1.0f: 0.0f;
         } else {
-            r = 1.0f;
+            r = r < thickness ? 1.0f: 0.0f;
         }
+
         if (r == 0.0f) discard;
         if (do_soft_edge && r == 1.0f) {
             discard;
@@ -155,8 +148,9 @@ const char *text_handles_vertex_shader = R"(
     #version 430 core
     uniform mat4 to_coord_system;
     uniform mat4 to_canvas;
-    uniform vec2 top_left;
-    uniform vec2 bottom_right;
+    uniform vec2 box_position;
+    uniform vec2 box_size;
+    uniform vec2 aa_nudge;    
     uniform float du_dx;
     layout (location = 0) in vec2 aPos;
     //layout (location = 1) in vec2 bPos;
@@ -169,9 +163,9 @@ const char *text_handles_vertex_shader = R"(
         // or subtracting the tangent to the line segment , depending of the
         // vertex index in the quad
         vec2 vertex_pos = aPos.xy;
-        vertex_pos.x = vertex_pos.x*(bottom_right.x-top_left.x);
-        vertex_pos.y = vertex_pos.y*(bottom_right.y-top_left.y);
-        vertex_pos += top_left;
+        vertex_pos.x = vertex_pos.x*box_size.x;
+        vertex_pos.y = vertex_pos.y*box_size.y;
+        vertex_pos += box_position + aa_nudge*du_dx;
         screen_pixel = vertex_pos/du_dx;
         gl_Position = vec4(vertex_pos,0.0,1.0)*to_coord_system*to_canvas;
     }
@@ -187,24 +181,61 @@ const char *text_handles_frag_shader = R"(
     void main(void)
     {
         ivec2 offset_screen_pixel = ivec2(screen_pixel) + ivec2(5000,5000); // move away from origin
-        if (box_type==1 && ((offset_screen_pixel.x/20) & 1) == ((offset_screen_pixel.y/20) & 1))
+        if (box_type==1) {
+            // draws a dotted line
+            if (((offset_screen_pixel.x/20) & 1) == ((offset_screen_pixel.y/20) & 1)) {
+                FragColor = vec4(0.0f, 0.0f, 0.0f, opacity);
+            } else {
+                FragColor = vec4(1.0f, 1.0f, 1.0f, opacity);
+            }
+        } else if (box_type==2) {
             FragColor = vec4(0.0f, 0.0f, 0.0f, opacity);
-        else if (box_type==2 && ((offset_screen_pixel.x/4) & 1) == ((offset_screen_pixel.y/4) & 1)) {
-            FragColor = vec4(0.0f, 0.0f, 0.0f, opacity);
+        } else if (box_type==3) {
+            FragColor = vec4(0.7f, 0.7f, 0.7f, opacity);
         } else {
             FragColor = vec4(1.0f, 1.0f, 1.0f, opacity);
         }
-
+            
     }
 
     )";
 
+static struct AAJitterTable {
+
+    struct {
+        Imath::V2f operator()(int N, int i, int j) {
+            auto x = -0.5f + (i + 0.5f) / N;
+            auto y = -0.5f + (j + 0.5f) / N;
+            return {x, y};
+        }
+    } gridLookup;
+
+    AAJitterTable() {
+        aa_nudge.resize(16);
+        int lookup[16] = {11, 6, 10, 8, 9, 12, 7, 1, 3, 13, 5, 4, 2, 15, 0, 14};
+        int ct         = 0;
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                aa_nudge[lookup[ct]]["aa_nudge"] = gridLookup(4, i, j);
+                ct++;
+            }
+        }
+    }
+
+    std::vector<utility::JsonStore> aa_nudge;
+
+} aa_jitter_table;
+
 } // namespace
 
-void AnnotationsRenderer::render_opengl_before_image(
+void AnnotationsRenderer::render_opengl(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
-    const xstudio::media_reader::ImageBufPtr &frame) {
+    const xstudio::media_reader::ImageBufPtr &frame,
+    const bool have_alpha_buffer) {
+
+    if (!shader_)
+        init_overlay_opengl();
 
     std::lock_guard<std::mutex> lock(immediate_data_gate_);
     utility::BlindDataObjectPtr render_data =
@@ -213,36 +244,34 @@ void AnnotationsRenderer::render_opengl_before_image(
     if (data) {
         for (const auto &p : *data) {
             render_annotation_to_screen(
-                p, transform_window_to_viewport_space, transform_viewport_to_image_space);
-            render_text_handles_to_screen(
-                p, transform_window_to_viewport_space, transform_viewport_to_image_space);
+                p,
+                transform_window_to_viewport_space,
+                transform_viewport_to_image_space,
+                !have_alpha_buffer);
         }
+        render_text_handles_to_screen(
+            transform_window_to_viewport_space, transform_viewport_to_image_space);
         return;
     }
     if (current_edited_annotation_render_data_) {
         render_annotation_to_screen(
             current_edited_annotation_render_data_,
             transform_window_to_viewport_space,
-            transform_viewport_to_image_space);
-        if (true) {
-            render_text_handles_to_screen(
-                current_edited_annotation_render_data_,
-                transform_window_to_viewport_space,
-                transform_viewport_to_image_space);
-        }
+            transform_viewport_to_image_space,
+            !have_alpha_buffer);
+        render_text_handles_to_screen(
+            transform_window_to_viewport_space, transform_viewport_to_image_space);
     }
 }
 
 void AnnotationsRenderer::render_annotation_to_screen(
     const AnnotationRenderDataPtr render_data,
     const Imath::M44f &transform_window_to_viewport_space,
-    const Imath::M44f &transform_viewport_to_image_space) {
+    const Imath::M44f &transform_viewport_to_image_space,
+    const bool do_erase_strokes_first) {
 
     if (!render_data)
         return;
-
-    if (!shader_)
-        init_overlay_opengl();
 
     // strokes are made up of partially overlapping triangles - as we
     // draw with opacity we use depth test to stop overlapping triangles
@@ -283,7 +312,6 @@ void AnnotationsRenderer::render_annotation_to_screen(
     shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
     shader_params["to_canvas"]       = transform_window_to_viewport_space;
     shader_params["soft_dim"]        = viewport_du_dx * 4.0f;
-    shader_params["plot_circle"]     = false;
 
     shader_->use();
     shader_->set_shader_parameters(shader_params);
@@ -321,8 +349,32 @@ void AnnotationsRenderer::render_annotation_to_screen(
 
     GLint offset = 0;
 
-
+    if (do_erase_strokes_first) {
+        glDepthFunc(GL_GREATER);
+        for (const auto &stroke_info : render_data->stroke_info_) {
+            if (!stroke_info.is_erase_stroke_) {
+                offset += (stroke_info.stroke_point_count_);
+                continue;
+            }
+            shader_params2["z_adjust"]           = stroke_info.stroke_depth_;
+            shader_params2["brush_colour"]       = stroke_info.brush_colour_;
+            shader_params2["brush_opacity"]      = 0.0f;
+            shader_params2["thickness"]          = stroke_info.brush_thickness_;
+            shader_params2["do_soft_edge"]       = false;
+            shader_params2["point_count"]        = stroke_info.stroke_point_count_;
+            shader_params2["offset_into_points"] = offset;
+            shader_->set_shader_parameters(shader_params2);
+            glDrawArrays(GL_QUADS, 0, (stroke_info.stroke_point_count_ - 1) * 4);
+            offset += (stroke_info.stroke_point_count_);
+        }
+    }
+    offset = 0;
     for (const auto &stroke_info : render_data->stroke_info_) {
+
+        if (do_erase_strokes_first && stroke_info.is_erase_stroke_) {
+            offset += (stroke_info.stroke_point_count_);
+            continue;
+        }
 
         /* ---- First pass, draw solid stroke ---- */
 
@@ -375,7 +427,7 @@ void AnnotationsRenderer::render_annotation_to_screen(
         // to the stroke and also rounded 'elbows' at angled joins.
         // The vertex shader computes the 4 vertices for each quad directly from
         // the stroke points and thickness
-        glDrawArrays(GL_QUADS, 0, (stroke_info.stroke_point_count_ * 2 - 1) * 4);
+        glDrawArrays(GL_QUADS, 0, (stroke_info.stroke_point_count_ - 1) * 4);
 
         /* ---- Scond pass, draw soft edged stroke underneath ---- */
 
@@ -391,7 +443,7 @@ void AnnotationsRenderer::render_annotation_to_screen(
 
         shader_params3["do_soft_edge"] = true;
         shader_->set_shader_parameters(shader_params3);
-        glDrawArrays(GL_QUADS, 0, (stroke_info.stroke_point_count_ * 2 - 1) * 4);
+        glDrawArrays(GL_QUADS, 0, (stroke_info.stroke_point_count_ - 1) * 4);
 
         offset += (stroke_info.stroke_point_count_);
     }
@@ -422,7 +474,6 @@ void AnnotationsRenderer::render_annotation_to_screen(
 }
 
 void AnnotationsRenderer::render_text_handles_to_screen(
-    const AnnotationRenderDataPtr render_data,
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space) {
 
@@ -457,65 +508,99 @@ void AnnotationsRenderer::render_text_handles_to_screen(
     if (!current_caption_bdb_.isEmpty()) {
 
         // draw the box around the current edited caption
-        shader_params2["top_left"]     = current_caption_bdb_.min;
-        shader_params2["bottom_right"] = current_caption_bdb_.max;
+        shader_params2["box_position"] = current_caption_bdb_.min;
+        shader_params2["box_size"]     = current_caption_bdb_.size();
         shader_params2["opacity"]      = 0.6;
         shader_params2["box_type"]     = 1;
+        shader_params2["aa_nudge"]     = Imath::V2f(0.0f, 0.0f);
+
 
         text_handles_shader_->set_shader_parameters(shader_params2);
-        glBindVertexArray(vertex_array_object2_);
+        glBindVertexArray(handles_vertex_array_);
         glLineWidth(2.0f);
         glDrawArrays(GL_LINE_LOOP, 0, 4);
 
-        // now we draw the 'move' handle (a small box) to the top left
-        // of the caption boundart
-        shader_params2["top_left"] = current_caption_bdb_.min;
-        shader_params2["bottom_right"] =
-            current_caption_bdb_.min - Annotation::captionHandleSize * viewport_du_dx;
-        shader_params2["opacity"] =
-            caption_hover_state_ == Caption::HoveredOnMoveHandle ? 0.6f : 0.3f;
-        shader_params2["box_type"] = 2;
+        const auto handle_size = Annotation::captionHandleSize * viewport_du_dx;
 
-        text_handles_shader_->set_shader_parameters(shader_params2);
-        glBindVertexArray(vertex_array_object2_);
-        glLineWidth(2.0f);
-        glDrawArrays(GL_QUADS, 0, 4);
+        // Draw the three
+        static const auto hndls = std::vector<Caption::HoverState>(
+            {Caption::HoveredOnMoveHandle,
+             Caption::HoveredOnResizeHandle,
+             Caption::HoveredOnDeleteHandle});
 
-        // now we draw the 'scale' handle (a small box) to the bottom right
-        // of the caption boundary
-        shader_params2["top_left"] = current_caption_bdb_.max;
-        shader_params2["bottom_right"] =
-            current_caption_bdb_.max + Annotation::captionHandleSize * viewport_du_dx;
-        shader_params2["opacity"] =
-            caption_hover_state_ == Caption::HoveredOnResizeHandle ? 0.6f : 0.3f;
-        shader_params2["box_type"] = 2;
+        static const auto vtx_offsets = std::vector<int>({4, 14, 24});
+        static const auto vtx_counts  = std::vector<int>({20, 10, 4});
 
-        text_handles_shader_->set_shader_parameters(shader_params2);
-        glBindVertexArray(vertex_array_object2_);
-        glLineWidth(2.0f);
-        glDrawArrays(GL_QUADS, 0, 4);
+        const auto positions = std::vector<Imath::V2f>(
+            {current_caption_bdb_.min - handle_size,
+             current_caption_bdb_.max,
+             {current_caption_bdb_.max.x, current_caption_bdb_.min.y - handle_size.y}});
+
+        shader_params2["box_size"] = handle_size;
+
+        glBindVertexArray(handles_vertex_array_);
+
+        // draw a grey box for each handle
+        shader_params2["opacity"] = 0.6f;
+        for (int i = 0; i < hndls.size(); ++i) {
+            shader_params2["box_position"] = positions[i];
+            shader_params2["box_type"]     = 2;
+            text_handles_shader_->set_shader_parameters(shader_params2);
+            glDrawArrays(GL_QUADS, 0, 4);
+        }
+
+        static const auto aa_jitter = std::vector<Imath::V2f>(
+            {{-0.33f, -0.33f},
+             {-0.0f, -0.33f},
+             {0.33f, -0.33f},
+             {-0.33f, 0.0f},
+             {0.0f, 0.0f},
+             {0.33f, 0.0f},
+             {-0.33f, 0.33f},
+             {0.0f, 0.33f},
+             {0.33f, 0.33f}});
+
+
+        shader_params2["box_size"] = handle_size * 0.8f;
+        // draw the lines for each handle
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        shader_params2["opacity"] = 1.0f / 16.0f;
+        for (int i = 0; i < hndls.size(); ++i) {
+            shader_params2["box_position"] = positions[i] + 0.1f * handle_size;
+            shader_params2["box_type"]     = caption_hover_state_ == hndls[i] ? 4 : 3;
+            text_handles_shader_->set_shader_parameters(shader_params2);
+            // plot it 9 times with anti-aliasing jitter to get a better looking
+            // result
+            utility::JsonStore param;
+            for (const auto &aa_nudge : aa_jitter_table.aa_nudge) {
+                text_handles_shader_->set_shader_parameters(aa_nudge);
+                glDrawArrays(GL_LINES, vtx_offsets[i], vtx_counts[i]);
+            }
+        }
     }
 
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     if (!under_mouse_caption_bdb_.isEmpty()) {
-        shader_params2["top_left"]     = under_mouse_caption_bdb_.min;
-        shader_params2["bottom_right"] = under_mouse_caption_bdb_.max;
+        shader_params2["box_position"] = under_mouse_caption_bdb_.min;
+        shader_params2["box_size"]     = under_mouse_caption_bdb_.size();
         shader_params2["opacity"]      = 0.3;
         shader_params2["box_type"]     = 1;
 
         text_handles_shader_->set_shader_parameters(shader_params2);
 
-        glBindVertexArray(vertex_array_object2_);
+        glBindVertexArray(handles_vertex_array_);
 
         glLineWidth(2.0f);
         glDrawArrays(GL_LINE_LOOP, 0, 4);
     }
 
-    if (cursor_position_[0] != Imath::V2f() && show_text_cursor_) {
-        shader_params2["top_left"]     = cursor_position_[0];
-        shader_params2["bottom_right"] = cursor_position_[1];
-        shader_params2["box_type"]     = 3;
+    if (cursor_position_[0] != Imath::V2f(0.0f, 0.0f)) {
+        shader_params2["opacity"]      = 0.6f;
+        shader_params2["box_position"] = cursor_position_[0];
+        shader_params2["box_size"]     = cursor_position_[1] - cursor_position_[0];
+        shader_params2["box_type"]     = text_cursor_blink_state_ ? 2 : 0;
         text_handles_shader_->set_shader_parameters(shader_params2);
-        glBindVertexArray(vertex_array_object2_);
+        glBindVertexArray(handles_vertex_array_);
         glLineWidth(3.0f);
         glDrawArrays(GL_LINE_LOOP, 0, 4);
     }
@@ -548,93 +633,62 @@ void AnnotationsRenderer::init_overlay_opengl() {
 
 void AnnotationsRenderer::init_caption_handles_graphics() {
 
-    glGenBuffers(1, &vertex_buffer_object_);
-    glGenVertexArrays(1, &vertex_array_object_);
+    glGenBuffers(1, &handles_vertex_buffer_obj_);
+    glGenVertexArrays(1, &handles_vertex_array_);
 
-    // here specifying pairs of coordinates: 1st vec is position normalised to
-    // caption origin and width, 2nd vec is a position offset *in screen pixel
-    // coordinates*.
-    // 1st V2f is 'aPos' in shader, 2nd is 'bPos'.
+    static std::array<Imath::V2f, 38> handles_vertices = {
 
-    // So to declare a point that is 20 pixels above and to the left of the origin
-    // of the text caption we would do this:
-    // Imath::V2f(0.0f, 0.0f), Imath::V2f(-20.0f, -20.0f)
-    //
-    // To declare a point 30 pixels to the right of the right wrap boundary of the
-    // caption we do this:
-    // Imath::V2f(1.0f, 0.0f), Imath::V2f(30.0f, 0.0f)
-
-    static std::array<Imath::V2f, 22> vertices = {
-
-        // draw a line from caption left-to-right under the first line of text
-        // extending 20 pixels to left and right
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(-20.0f, 0.0f),
-        Imath::V2f(1.0f, 0.0f),
-        Imath::V2f(20.0f, 0.0f),
-
-        // vert line 40 pixels long at origin
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(0.0f, -20.0f),
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(0.0f, 20.0f),
-
-        // vert line 40 pixels long at right wrap boundary
-        Imath::V2f(1.0f, 0.0f),
-        Imath::V2f(0.0f, -20.0f),
-        Imath::V2f(1.0f, 0.0f),
-        Imath::V2f(0.0f, 20.0f),
-
-        // now a box
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(30.0f, 30.0f),
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(30.0f, 60.0f),
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(60.0f, 60.0f),
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(60.0f, 30.0f),
-
-        Imath::V2f(0.0f, 0.0f),
-        Imath::V2f(60.0f, 30.0f)
-
-    };
-
-    glBindVertexArray(vertex_array_object_);
-    // 2. copy our vertices array in a buffer for OpenGL to use
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
-    // 3. then set our vertex module pointers
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 2 * sizeof(Imath::V2f), nullptr);
-    glVertexAttribPointer(
-        1, 4, GL_FLOAT, GL_FALSE, 2 * sizeof(Imath::V2f), (void *)sizeof(Imath::V2f));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-
-    glGenBuffers(1, &vertex_buffer_object2_);
-    glGenVertexArrays(1, &vertex_array_object2_);
-
-    static std::array<Imath::V2f, 4> vertices2 = {
-
-        // draw a line from caption left-to-right under the first line of text
-        // extending 20 pixels to left and right
+        // unit box for drawing boxes!
         Imath::V2f(0.0f, 0.0f),
         Imath::V2f(1.0f, 0.0f),
-
-        // vert line 40 pixels long at origin
         Imath::V2f(1.0f, 1.0f),
-        Imath::V2f(0.0f, 1.0f)
+        Imath::V2f(0.0f, 1.0f),
+
+        // double headed arrow, vertical
+        Imath::V2f(0.5f, 0.0f),
+        Imath::V2f(0.5f, 1.0f),
+
+        Imath::V2f(0.5f, 0.0f),
+        Imath::V2f(0.5f - 0.2f, 0.2f),
+
+        Imath::V2f(0.5f, 0.0f),
+        Imath::V2f(0.5f + 0.2f, 0.2f),
+
+        Imath::V2f(0.5f, 1.0f),
+        Imath::V2f(0.5f - 0.2f, 1.0f - 0.2f),
+
+        Imath::V2f(0.5f, 1.0f),
+        Imath::V2f(0.5f + 0.2f, 1.0f - 0.2f),
+
+        // double headed arrow, horizontal
+        Imath::V2f(0.0f, 0.5f),
+        Imath::V2f(1.0f, 0.5f),
+
+        Imath::V2f(0.0f, 0.5f),
+        Imath::V2f(0.2f, 0.5f - 0.2f),
+
+        Imath::V2f(0.0f, 0.5f),
+        Imath::V2f(0.2f, 0.5f + 0.2f),
+
+        Imath::V2f(1.0f, 0.5f),
+        Imath::V2f(1.0f - 0.2f, 0.5f - 0.2f),
+
+        Imath::V2f(1.0f, 0.5f),
+        Imath::V2f(1.0f - 0.2f, 0.5f + 0.2f),
+
+        // crossed lines
+        Imath::V2f(0.2f, 0.2f),
+        Imath::V2f(0.8f, 0.8f),
+        Imath::V2f(0.8f, 0.2f),
+        Imath::V2f(0.2f, 0.8f),
 
     };
 
-    glBindVertexArray(vertex_array_object2_);
+    glBindVertexArray(handles_vertex_array_);
     // 2. copy our vertices array in a buffer for OpenGL to use
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object2_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices2), vertices2.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, handles_vertex_buffer_obj_);
+    glBufferData(
+        GL_ARRAY_BUFFER, sizeof(handles_vertices), handles_vertices.data(), GL_STATIC_DRAW);
     // 3. then set our vertex module pointers
     glEnableVertexAttribArray(0);
     // glEnableVertexAttribArray(1);

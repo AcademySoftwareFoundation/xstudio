@@ -453,6 +453,8 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
 
     set_pointer_event_viewport_coords(pointer_event);
 
+    update_pixel_picker_info(pointer_event);
+
     // return value tells us if the pointer event was consumed by the viewport. If not, it is
     // forwarded to any 'Module' that is interested in pointer events
     bool rt_val = false;
@@ -1319,7 +1321,7 @@ media_reader::ImageBufPtr Viewport::get_image_from_playhead(caf::actor playhead)
         caf::actor overlay_actor         = p.second;
 
         auto bdata = request_receive<utility::BlindDataObjectPtr>(
-            *sys, overlay_actor, prepare_overlay_render_data_atom_v, image);
+            *sys, overlay_actor, prepare_overlay_render_data_atom_v, image, true);
 
         image.add_plugin_blind_data(overlay_actor_uuid, bdata);
     }
@@ -1366,4 +1368,27 @@ void Viewport::set_screen_infos(
         serialNumber);
     if (refresh_rate)
         screen_refresh_period_ = timebase::to_flicks(1.0 / refresh_rate);
+}
+
+void Viewport::update_pixel_picker_info(const PointerEvent &pointer_event) {
+
+    if (on_screen_frame_buffer_) {
+
+        // WIP!
+
+        Imath::V2i image_dims  = on_screen_frame_buffer_->image_size_in_pixels();
+        Imath::V2f pointer_pos = pointer_event.position_in_viewport_coord_sys();
+        // Image is width-fitted to viewport coordinates -1.0 to 1.0:
+        const float image_aspect =
+            image_dims.y / (image_dims.x * on_screen_frame_buffer_->pixel_aspect());
+        Imath::V2i image_coord(
+            int(round(
+                (pointer_pos.x + 1.0f) * 0.5f *
+                on_screen_frame_buffer_->image_size_in_pixels().x)),
+            int(round(
+                (pointer_pos.y + 1.0f / image_aspect) * 0.5f * image_aspect *
+                on_screen_frame_buffer_->image_size_in_pixels().y)));
+
+        auto pixel_info = on_screen_frame_buffer_->pixel_info(image_coord);
+    }
 }

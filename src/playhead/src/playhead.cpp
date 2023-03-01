@@ -69,7 +69,12 @@ void PlayheadBase::add_attributes() {
 
     playing_ = add_boolean_attribute("playing", "playing", false);
 
-    auto_align_ = add_boolean_attribute("Auto Align", "Auto Align", true);
+    auto_align_mode_ =
+        add_string_choice_attribute("Auto Align", "Auto Align", auto_align_mode_names);
+
+    auto_align_mode_->set_value("Alignment Off");
+    auto_align_mode_->set_role_data(
+        module::Attribute::PreferencePath, "/core/playhead/align_mode");
 
     max_compare_sources_ =
         add_integer_attribute("Max Compare Sources", "Max Compare Sources", 9, 2, 32);
@@ -98,7 +103,8 @@ void PlayheadBase::add_attributes() {
         nlohmann::json{"main_toolbar", "popout_toolbar", "playhead"});
     playing_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
     forward_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
-    auto_align_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
+    auto_align_mode_->set_role_data(
+        module::Attribute::Groups, nlohmann::json{"playhead_align_mode"});
 
     velocity_->set_role_data(module::Attribute::ToolbarPosition, 3.0f);
     compare_mode_->set_role_data(module::Attribute::ToolbarPosition, 9.0f);
@@ -373,6 +379,19 @@ void PlayheadBase::revert_throttle() {
         throttle_ = 1.0f;
 }
 
+AutoAlignMode PlayheadBase::auto_align_mode() const {
+
+    AutoAlignMode rt      = AAM_ALIGN_OFF;
+    const std::string aam = auto_align_mode_->value();
+
+    for (auto opt : auto_align_mode_names) {
+        if (std::get<1>(opt) == aam)
+            rt = std::get<0>(opt);
+    }
+
+    return rt;
+}
+
 CompareMode PlayheadBase::compare_mode() const {
 
     CompareMode rt         = CM_OFF;
@@ -479,3 +498,5 @@ void PlayheadBase::hotkey_pressed(
         forward_->set_value(true);
     }
 }
+
+void PlayheadBase::set_duration(const timebase::flicks duration) { duration_ = duration; }

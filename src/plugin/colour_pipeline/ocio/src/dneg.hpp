@@ -4,6 +4,35 @@
 #include <OpenColorIO/OpenColorIO.h> //NOLINT
 
 
+/*
+This function checks the playback machines yaml file to determine if the playback
+machine display is a cinema screen or HDR TV.
+*/
+std::string get_playback_display() {
+    const std::string CONST_PLAYBACK_FILE = "/var/playback/sys-config.yaml";
+
+    std::map<std::string, std::string> CONST_DISPLAY = {
+        {"cinema", "DCI-P3"}, {"hdr", "HDR"}, {"playback", "Playback"}};
+
+    std::fstream data_load;
+    data_load.open(CONST_PLAYBACK_FILE, std::ios::in);
+
+    if (data_load.is_open()) {
+        std::string temp;
+        while (std::getline(data_load, temp)) {
+            if (temp.find("cinema") != std::string::npos) {
+                return CONST_DISPLAY["cinema"];
+            } else if (temp.find("hdr") != std::string::npos) {
+                return CONST_DISPLAY["hdr"];
+            }
+        }
+        data_load.close();
+    }
+
+    return CONST_DISPLAY["playback"];
+}
+
+
 std::string dneg_ocio_default_display(
     const OCIO::ConstConfigRcPtr &ocio_config, const std::string &device) {
     std::string display = "";
@@ -28,8 +57,8 @@ std::string dneg_ocio_default_display(
     std::string hostname_lower;
 
     if (hostname_env && *hostname_env) {
-        hostname                   = hostname_env;
-        std::string hostname_lower = hostname;
+        hostname       = hostname_env;
+        hostname_lower = hostname;
     }
     hostname[0] = std::toupper(hostname[0]);
 
@@ -132,7 +161,7 @@ std::string dneg_ocio_default_display(
     else if (
         hostname_lower.find("playback") != std::string::npos &&
         check_displays(CONST_DISPLAY["playback"])) {
-        display = CONST_DISPLAY["playback"];
+        display = get_playback_display();
     }
 
     else if (check_displays(hostname)) {

@@ -85,7 +85,7 @@ DelegateChoice {
                 textDiv.topPadding: 3
 
                 onClicked: {
-                    let mymodel = notePresetsModel
+                    let mymodel = noteTreePresetsModel
 
                     mymodel.clearLoaded()
                     mymodel.insert(
@@ -123,7 +123,7 @@ DelegateChoice {
                             ]
                         }
                     )
-                    currentCategory = "Notes"
+                    currentCategory = "Notes Tree"
                     mymodel.activePreset = mymodel.rowCount()-1
                 }
             }
@@ -151,7 +151,7 @@ DelegateChoice {
                         mymodel.index(mymodel.rowCount(), 0),
                         {
                             "expanded": false,
-                            "name": nameRole + " Shots",
+                            "name": nameRole + " Versions",
                             "queries": [
                                 {
                                     "enabled": true,
@@ -161,7 +161,7 @@ DelegateChoice {
                             ]
                         }
                     )
-                    currentCategory = "Shots"
+                    currentCategory = "Versions"
                     mymodel.activePreset = mymodel.rowCount()-1
                 }
             }

@@ -207,21 +207,27 @@ namespace ui {
                 const QUuid &playlist,
                 const int project_id,
                 const QString &name,
-                const QString &location) {
-                return createPlaylistFuture(playlist, project_id, name, location).result();
+                const QString &location,
+                const QString &playlist_type) {
+
+                return createPlaylistFuture(playlist, project_id, name, location, playlist_type)
+                    .result();
             }
             QFuture<QString> createPlaylistFuture(
                 const QVariant &playlist,
                 const int project_id,
                 const QString &name,
-                const QString &location) {
-                return createPlaylistFuture(playlist.toUuid(), project_id, name, location);
+                const QString &location,
+                const QString &playlist_type) {
+                return createPlaylistFuture(
+                    playlist.toUuid(), project_id, name, location, playlist_type);
             }
             QFuture<QString> createPlaylistFuture(
                 const QUuid &playlist,
                 const int project_id,
                 const QString &name,
-                const QString &location);
+                const QString &location,
+                const QString &playlist_type);
 
 
             QString getVersions(const int project_id, const QVariant &ids) {
@@ -358,13 +364,19 @@ namespace ui {
 
 
           private:
+            utility::JsonStore purgeOldSystem(
+                const utility::JsonStore &vprefs, const utility::JsonStore &drefs) const;
+
             void populatePresetModel(
                 const utility::JsonStore &prefs,
                 const std::string &path,
                 ShotgunTreeModel *model,
+                const bool purge_old   = true,
                 const bool clear_flags = false);
-            shotgun_client::Text
-            addTextValue(const std::string &filter, const std::string &value) const;
+            shotgun_client::Text addTextValue(
+                const std::string &filter,
+                const std::string &value,
+                const bool negated = false) const;
 
             void addTerm(
                 const int project_id,
@@ -383,7 +395,7 @@ namespace ui {
                 const int project_id,
                 const utility::JsonStore &query);
 
-            void loadPresets();
+            void loadPresets(const bool purge_old = true);
             void flushPreset(const std::string &preset);
             utility::JsonStore buildDataFromField(const utility::JsonStore &data);
 
@@ -407,6 +419,7 @@ namespace ui {
             QString name_{"test"};
 
             QMap<int, ShotgunListModel *> groups_map_;
+            QMap<int, ShotgunFilterModel *> groups_filter_map_;
             QMap<int, ShotgunListModel *> sequences_map_;
             QMap<int, ShotgunSequenceModel *> sequences_tree_map_;
             QMap<int, ShotgunListModel *> shots_map_;

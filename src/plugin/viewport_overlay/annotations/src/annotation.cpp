@@ -8,8 +8,9 @@
 using namespace xstudio::ui::viewport;
 using namespace xstudio;
 
-Annotation::Annotation(std::map<std::string, std::shared_ptr<SDFBitmapFont>> &fonts)
-    : bookmark::AnnotationBase(), fonts_(fonts) {}
+Annotation::Annotation(
+    std::map<std::string, std::shared_ptr<SDFBitmapFont>> &fonts, bool is_laser_annotatio)
+    : bookmark::AnnotationBase(), fonts_(fonts), is_laser_annotation_(is_laser_annotatio) {}
 
 Annotation::Annotation(
     const utility::JsonStore &s, std::map<std::string, std::shared_ptr<SDFBitmapFont>> &fonts)
@@ -41,14 +42,10 @@ bool Annotation::test_click_in_caption(const Imath::V2f pointer_position) {
     finished_current_stroke();
     std::string::const_iterator cursor;
     float r = 0.1f;
-    current_caption_.reset();
 
     for (auto &caption : captions_) {
 
-        if (caption->bounding_box_.min.x > pointer_position.x ||
-            caption->bounding_box_.min.y > pointer_position.y ||
-            caption->bounding_box_.max.x < pointer_position.x ||
-            caption->bounding_box_.max.y < pointer_position.y)
+        if (!caption->bounding_box_.intersects(pointer_position))
             continue;
 
         const std::string::const_iterator cursor_pos =
@@ -61,6 +58,7 @@ bool Annotation::test_click_in_caption(const Imath::V2f pointer_position) {
                 caption->justification_,
                 1.0f);
 
+        copy_of_edited_caption_.reset(new Caption(*caption.get()));
         current_caption_ = caption;
         cursor_position_ = cursor_pos;
         break;
@@ -78,9 +76,11 @@ void Annotation::start_new_caption(
     const Justification justification,
     const std::string &font_name) {
     finished_current_stroke();
+    copy_of_edited_caption_.reset();
     current_caption_.reset(new Caption(
         position, wrap_width, font_size, colour, opacity, justification, font_name));
     captions_.push_back(current_caption_);
+    update_render_data();
 }
 
 void Annotation::modify_caption_text(const std::string &t) {
@@ -178,14 +178,21 @@ Caption::HoverState Annotation::mouse_hover_on_selected_caption(
             cp = cursor_position - current_caption_->bounding_box_.max;
             if (handle_extent.intersects(cp)) {
                 result = Caption::HoveredOnResizeHandle;
+            } else {
+                // delete handle is top left of the box
+                cp = cursor_position - Imath::V2f(
+                                           current_caption_->bounding_box_.max.x,
+                                           current_caption_->bounding_box_.min.y -
+                                               captionHandleSize.y * viewport_pixel_scale);
+                if (handle_extent.intersects(cp)) {
+                    result = Caption::HoveredOnDeleteHandle;
+                }
             }
         }
     }
 
     return result;
 }
-
-void key_down(const int key);
 
 void Annotation::start_pen_stroke(
     const utility::ColourTriplet &c, const float thickness, const float opacity) {
@@ -205,8 +212,6 @@ void Annotation::add_point_to_current_stroke(const Imath::V2f pt) {
         update_render_data();
     }
 }
-
-void Annotation::stroke_finished() { finished_current_stroke(); }
 
 AnnotationRenderDataPtr Annotation::render_data(const bool is_edited_annotation) const {
     return cached_render_data_;
@@ -331,19 +336,19 @@ void Annotation::finished_current_stroke() {
         update_render_data();
     }
     if (current_caption_) {
-        /*undo_stack_.emplace_back(
-            static_cast<UndoRedo *>(
-                new UndoRedoStroke(*current_stroke_.get())
-                )
-            );
-        redo_stack_.clear();*/
-        if (current_caption_->text_.empty()) {
+
+        if (current_caption_->text_.empty() && !copy_of_edited_caption_) {
             auto p = std::find(captions_.begin(), captions_.end(), current_caption_);
             if (p != captions_.end()) {
                 captions_.erase(p);
             }
+        } else {
+            undo_stack_.emplace_back(static_cast<UndoRedo *>(
+                new UndoRedoAddCaption(current_caption_, copy_of_edited_caption_)));
+            redo_stack_.clear();
         }
         current_caption_.reset();
+        copy_of_edited_caption_.reset();
         update_render_data();
     }
 }
@@ -396,6 +401,37 @@ void Annotation::set_edit_caption_font_size(const float sz) {
     update_render_data();
 }
 
+void Annotation::set_edited_caption_font(const std::string &font) {
+    if (current_caption_)
+        current_caption_->font_name_ = font;
+    update_render_data();
+}
+
+void Annotation::delete_edited_caption() {
+
+    if (current_caption_) {
+        if (current_caption_->text_.empty() && !copy_of_edited_caption_) {
+            // empty caption deletion doesn't need undo/redo
+            auto p = std::find(captions_.begin(), captions_.end(), current_caption_);
+            if (p != captions_.end()) {
+                captions_.erase(p);
+            }
+        } else {
+            copy_of_edited_caption_.reset();
+            undo_stack_.emplace_back(static_cast<UndoRedo *>(
+                new UndoRedoAddCaption(copy_of_edited_caption_, current_caption_)));
+            redo_stack_.clear();
+            auto p = std::find(captions_.begin(), captions_.end(), current_caption_);
+            if (p != captions_.end()) {
+                captions_.erase(p);
+            }
+            current_caption_.reset();
+        }
+        update_render_data();
+    }
+}
+
+
 bool Annotation::caption_cursor_position(Imath::V2f &top, Imath::V2f &bottom) const {
 
     if (current_caption_) {
@@ -411,8 +447,11 @@ bool Annotation::caption_cursor_position(Imath::V2f &top, Imath::V2f &bottom) co
                                cursor_position_);
 
         top    = v;
-        bottom = v - Imath::V2f(0.0f, current_caption_->font_size_ * 2.0f / 1920.0f);
+        bottom = v - Imath::V2f(0.0f, current_caption_->font_size_ * 2.0f / 1920.0f * 0.8f);
         return true;
+    } else {
+        top    = Imath::V2f(0.0f, 0.0f);
+        bottom = Imath::V2f(0.0f, 0.0f);
     }
     return false;
 }
@@ -424,6 +463,32 @@ void UndoRedoStroke::undo(Annotation *anno) {
         anno->strokes_.pop_back();
         anno->update_render_data();
     }
+}
+
+void UndoRedoAddCaption::redo(Annotation *anno) {
+    if (caption_old_state_) {
+        Caption c           = *caption_;
+        *caption_           = *caption_old_state_;
+        *caption_old_state_ = c;
+    } else {
+        anno->captions_.push_back(caption_);
+    }
+}
+
+void UndoRedoAddCaption::undo(Annotation *anno) {
+    if (caption_old_state_ && caption_) {
+        // undo a change to a caption
+        Caption c           = *caption_;
+        *caption_           = *caption_old_state_;
+        *caption_old_state_ = c;
+    } else if (caption_old_state_) {
+        // undo a change to a caption deletion
+        anno->captions_.push_back(caption_old_state_);
+    } else {
+        // undo a caption creation
+        anno->captions_.pop_back();
+    }
+    anno->update_render_data();
 }
 
 void UndoRedoClear::redo(Annotation *anno) {

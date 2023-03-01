@@ -27,8 +27,14 @@ namespace media_reader {
         thumbnail(const media::AVFrameID &mpr, const size_t thumb_size) override;
 
         [[nodiscard]] utility::Uuid plugin_uuid() const override;
+        [[nodiscard]] ImageBuffer::PixelPickerFunc pixel_picker_func() const override {
+            return &OpenEXRMediaReader::exr_buffer_pixel_picker;
+        }
 
       private:
+        static PixelInfo
+        exr_buffer_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location);
+
         float max_exr_overscan_percent_;
         int readers_per_source_;
     };

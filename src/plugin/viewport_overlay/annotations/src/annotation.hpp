@@ -92,7 +92,9 @@ namespace ui {
         class Annotation : public bookmark::AnnotationBase {
 
           public:
-            Annotation(std::map<std::string, std::shared_ptr<SDFBitmapFont>> &fonts);
+            Annotation(
+                std::map<std::string, std::shared_ptr<SDFBitmapFont>> &fonts,
+                bool is_laser_annotation = false);
             Annotation(
                 const utility::JsonStore &s,
                 std::map<std::string, std::shared_ptr<SDFBitmapFont>> &fonts);
@@ -130,13 +132,15 @@ namespace ui {
 
             void add_point_to_current_stroke(const Imath::V2f pt);
 
-            void stroke_finished();
+            void finished_current_stroke();
 
             [[nodiscard]] utility::JsonStore
             serialise(utility::Uuid &plugin_uuid) const override;
 
             [[nodiscard]] AnnotationRenderDataPtr
             render_data(const bool is_edited_annotation = false) const;
+
+            [[nodiscard]] bool is_laser_annotation() const { return is_laser_annotation_; }
 
             void clear();
 
@@ -150,14 +154,15 @@ namespace ui {
 
             std::shared_ptr<PenStroke> current_stroke_;
             std::shared_ptr<Caption> current_caption_;
+            std::shared_ptr<Caption> copy_of_edited_caption_;
             std::vector<PenStroke> strokes_;
             std::vector<std::shared_ptr<Caption>> captions_;
 
-            inline static const Imath::V2f captionHandleSize = {Imath::V2f(30.0f, 30.0f)};
+            inline static const Imath::V2f captionHandleSize = {Imath::V2f(50.0f, 50.0f)};
 
             bool have_edited_caption() const { return bool(current_caption_); }
             Imath::V2f edited_caption_position() const {
-                return current_caption_ ? current_caption_->position_ : Imath::V2f();
+                return current_caption_ ? current_caption_->position_ : Imath::V2f(0.0f, 0.0f);
             }
             Imath::Box2f edited_caption_bounding_box() const {
                 return current_caption_ ? current_caption_->bounding_box_ : Imath::Box2f();
@@ -171,6 +176,9 @@ namespace ui {
             float edited_caption_opacity() const {
                 return current_caption_ ? current_caption_->opacity_ : 1.0f;
             }
+            std::string edited_caption_font_name() const {
+                return current_caption_ ? current_caption_->font_name_ : "";
+            }
 
             float edited_caption_font_size() const {
                 return current_caption_ ? current_caption_->font_size_ : 50.0f;
@@ -181,6 +189,8 @@ namespace ui {
             void set_edited_caption_colour(const utility::ColourTriplet &c);
             void set_edited_caption_opacity(const float opac);
             void set_edit_caption_font_size(const float sz);
+            void set_edited_caption_font(const std::string &font);
+            void delete_edited_caption();
 
             bool caption_cursor_position(Imath::V2f &top, Imath::V2f &bottom) const;
 
@@ -191,8 +201,6 @@ namespace ui {
             friend class UndoRedoStroke;
             friend class UndoRedoClear;
 
-            void finished_current_stroke();
-
             AnnotationRenderDataPtr cached_render_data_;
 
             std::map<std::string, std::shared_ptr<SDFBitmapFont>> fonts_;
@@ -200,7 +208,8 @@ namespace ui {
             friend class AnnotationsRenderer;
             friend class AnnotationSerialiser;
 
-            bool stroking_ = {false};
+            bool stroking_            = {false};
+            bool is_laser_annotation_ = {false};
 
             AnnotationRenderData render_data_;
 
@@ -221,6 +230,20 @@ namespace ui {
             void undo(Annotation *) override;
 
             PenStroke stroke_data_;
+        };
+
+        class UndoRedoAddCaption : public UndoRedo {
+
+          public:
+            UndoRedoAddCaption(
+                std::shared_ptr<Caption> &caption, std::shared_ptr<Caption> &old_state)
+                : caption_(caption), caption_old_state_(old_state) {}
+
+            void redo(Annotation *) override;
+            void undo(Annotation *) override;
+
+            std::shared_ptr<Caption> caption_;
+            std::shared_ptr<Caption> caption_old_state_;
         };
 
         class UndoRedoClear : public UndoRedo {

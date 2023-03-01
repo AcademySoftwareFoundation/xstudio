@@ -17,9 +17,9 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/helper_ui.hpp"
+#include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/utility/json_store.hpp"
-#include "json_tree_model_ui.hpp"
 
 namespace xstudio {
 using namespace shotgun_client;
@@ -51,6 +51,8 @@ namespace ui {
             Q_PROPERTY(int activePreset READ activePreset WRITE setActivePreset NOTIFY
                            activePresetChanged)
 
+            Q_PROPERTY(QString activeSeqShot READ activeSeqShot NOTIFY activeSeqShotChanged)
+
           public:
             enum Roles {
                 argRole = JSONTreeModel::Roles::LASTROLE,
@@ -59,6 +61,7 @@ namespace ui {
                 expandedRole,
                 idRole,
                 nameRole,
+                negationRole,
                 queriesRole,
                 liveLinkRole,
                 termRole,
@@ -74,6 +77,7 @@ namespace ui {
                      "expandedRole",
                      "idRole",
                      "nameRole",
+                     "negationRole",
                      "queriesRole",
                      "liveLinkRole",
                      "termRole",
@@ -102,6 +106,7 @@ namespace ui {
 
             [[nodiscard]] int length() const { return rowCount(); }
             [[nodiscard]] int activePreset() const { return active_preset_; }
+            [[nodiscard]] QString activeSeqShot() const { return active_seq_shot_; }
 
             [[nodiscard]] QVariant
             data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -121,6 +126,10 @@ namespace ui {
             get(int row,
                 const QModelIndex &parent = QModelIndex(),
                 const QString &role       = "display") const;
+
+            Q_INVOKABLE [[nodiscard]] QVariant
+            get(const QModelIndex &index, const QString &role = "display") const;
+
             Q_INVOKABLE QVariant get(int row, const QString &role) const {
                 return get(row, QModelIndex(), role);
             }
@@ -141,15 +150,7 @@ namespace ui {
             Q_INVOKABLE void clearExpanded();
             Q_INVOKABLE void clearLiveLinks();
 
-            Q_INVOKABLE void setActivePreset(const int row = -1) {
-                if (active_preset_ != row) {
-                    active_preset_ = row;
-                    checkForActiveFilter();
-                    checkForActiveLiveLink();
-
-                    emit activePresetChanged();
-                }
-            }
+            Q_INVOKABLE void setActivePreset(const int row = -1);
 
             Q_INVOKABLE QVariant
             applyLiveLink(const QVariant &preset, const QVariant &livelink);
@@ -185,6 +186,7 @@ namespace ui {
             void hasActiveFilterChanged();
             void hasActiveLiveLinkChanged();
             void activePresetChanged();
+            void activeSeqShotChanged();
 
           private:
             void checkForActiveFilter();
@@ -196,6 +198,7 @@ namespace ui {
             bool has_active_live_link_{false};
             const QMap<int, ShotgunListModel *> *sequence_map_{nullptr};
             int active_preset_{-1};
+            QString active_seq_shot_{};
         };
 
 
@@ -210,6 +213,7 @@ namespace ui {
             enum Roles {
                 JSONRole = Qt::UserRole + 1,
                 addressingRole,
+                artistRole,
                 assetRole,
                 authorRole,
                 clientNoteRole,
@@ -262,6 +266,7 @@ namespace ui {
 
             inline static const std::map<int, std::string> role_names = {
                 {addressingRole, "addressingRole"},
+                {artistRole, "artistRole"},
                 {assetRole, "assetRole"},
                 {authorRole, "authorRole"},
                 {clientNoteRole, "clientNoteRole"},

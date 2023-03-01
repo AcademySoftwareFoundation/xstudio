@@ -148,9 +148,20 @@ void SubPlayhead::init() {
             return rp;
         },
 
-        [=](timeline::duration_atom, const timebase::flicks &new_duration) {
-            // request to force a new duration on the source
-            delegate(source_, timeline::duration_atom_v, new_duration);
+        [=](timeline::duration_atom, const timebase::flicks &new_duration) -> result<bool> {
+            // request to force a new duration on the source, need to update
+            // our full_timeline_frames_ afterwards
+            auto rp = make_response_promise<bool>();
+            request(source_, infinite, timeline::duration_atom_v, new_duration)
+                .then(
+                    [=](bool) mutable {
+                        request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+                            .then(
+                                [=](caf::actor) mutable { rp.deliver(true); },
+                                [=](const error &err) mutable { rp.deliver(err); });
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return rp;
         },
 
         [=](duration_flicks_atom atom) {
@@ -280,8 +291,21 @@ void SubPlayhead::init() {
 
         [=](media::source_offset_frames_atom atom) { delegate(source_, atom); },
 
-        [=](media::source_offset_frames_atom atom, const int offset) {
-            delegate(source_, atom, offset);
+        [=](media::source_offset_frames_atom atom, const int offset) -> result<bool> {
+            // change the time offset on the source ... this means we have
+            // to rebuild full_timeline_frames_ too - so we don't respond until
+            // that has been done
+            auto rp = make_response_promise<bool>();
+            request(source_, infinite, atom, offset)
+                .then(
+                    [=](bool) mutable {
+                        request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+                            .then(
+                                [=](caf::actor) mutable { rp.deliver(true); },
+                                [=](const error &err) mutable { rp.deliver(err); });
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return rp;
         },
 
         [=](first_frame_media_pointer_atom) -> result<media::AVFrameID> {
@@ -290,6 +314,20 @@ void SubPlayhead::init() {
                     return make_error(xstudio_error::error, "Empty frame");
                 }
                 return *(full_timeline_frames_.begin()->second);
+            }
+            return make_error(xstudio_error::error, "No Frames");
+        },
+
+        [=](last_frame_media_pointer_atom) -> result<media::AVFrameID> {
+            if (full_timeline_frames_.size() > 1) {
+                // remember the last entry in full_timeline_frames_ is
+                // a dummy frame marking the end of the last frame
+                auto p = full_timeline_frames_.rbegin();
+                p++;
+                if (!p->second) {
+                    return make_error(xstudio_error::error, "Empty frame");
+                }
+                return *(p->second);
             }
             return make_error(xstudio_error::error, "No Frames");
         },
@@ -574,16 +612,18 @@ void SubPlayhead::set_position(
             // us. The reader actor will send the image back to us if/wen it's
             // got it (see 'push_image_atom' handler above). Subsequent requests
             // will override this one if the reader isn't able to keep up.
-            media::AVFrameID mptr(*(frame.get()));
-            mptr.playhead_logical_frame_ = logical_frame_;
-            anon_send(
-                pre_reader_,
-                media_reader::get_image_atom_v,
-                mptr,
-                actor_cast<caf::actor>(this),
-                base_.uuid(),
-                now,
-                logical_frame_);
+            if (media_type_ == media::MediaType::MT_IMAGE) {
+                media::AVFrameID mptr(*(frame.get()));
+                mptr.playhead_logical_frame_ = logical_frame_;
+                anon_send(
+                    pre_reader_,
+                    media_reader::get_image_atom_v,
+                    mptr,
+                    actor_cast<caf::actor>(this),
+                    base_.uuid(),
+                    now,
+                    logical_frame_);
+            }
         }
 
         // update the parent playhead with our position
@@ -636,13 +676,30 @@ void SubPlayhead::broadcast_image_frame(
     const bool playing,
     const timebase::flicks timeline_pts) {
 
-    // This function is called during playback whenever a new frame
-    // is needed. However, we might still be waiting for the previous
-    // frame to come back from the readers, in which case we simply
-    // igore the request
     if (waiting_for_next_frame_) {
-        send(parent_, dropped_frame_atom_v);
-        return;
+        // we have entered this function, trying to get an up-to-date frame to
+        // broadcast (to the viewer, for example) but the last frame we
+        // requested hasn't come back yet ...
+        if (playing) {
+            // .. we are in playback, assumption is that the readers/cache
+            // can't decode frames fast enough - so we have to tell the parent
+            // that we are dropping frames
+            send(parent_, dropped_frame_atom_v);
+            return;
+        } else {
+            // we're not playing, assumption is that the timeline is being scrubbed
+            // and the reader(s) can't keep up. We can't request more frames until
+            // the reader has responded or we could build up a big list of pending frame
+            // requests. Instead, we'll send a delayed message to the parent playhead
+            // to re-broadcast its position to us so that (when the reader is less busy)
+            // we can try again to fetch the current frame and broadcast to the viewer
+            delayed_anon_send(
+                parent_,
+                std::chrono::milliseconds(10),
+                jump_atom_v,
+                caf::actor_cast<caf::actor_addr>(this));
+            return;
+        }
     }
 
     if (!frame_media_pointer || frame_media_pointer->is_nil()) {
@@ -1005,6 +1062,12 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
         .await(
             [=](const media::FrameTimeMap &mpts) mutable {
                 full_timeline_frames_ = mpts;
+                timeline_logical_frame_pts_.clear();
+                int idx = 0;
+                for (const auto &f : full_timeline_frames_) {
+                    timeline_logical_frame_pts_[f.first] = idx++;
+                }
+
 
                 set_in_and_out_frames();
 
@@ -1053,6 +1116,7 @@ std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
 
     // get the frame to be show *after* time point t and decrement to get our
     // frame.
+    auto tt    = utility::clock::now();
     auto frame = full_timeline_frames_.upper_bound(t);
     if (frame != full_timeline_frames_.begin())
         frame--;
@@ -1064,8 +1128,12 @@ std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
     frame_period = next_frame->first - frame->first;
     timeline_pts = frame->first;
 
-    logical_frame = std::distance(full_timeline_frames_.begin(), frame);
-
+    auto lf = timeline_logical_frame_pts_.find(frame->first);
+    if (lf != timeline_logical_frame_pts_.end()) {
+        logical_frame = lf->second;
+    } else {
+        logical_frame = std::distance(full_timeline_frames_.begin(), frame);
+    }
     return frame->second;
 }
 

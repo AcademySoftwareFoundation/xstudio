@@ -125,6 +125,7 @@ namespace playhead {
         const media::MediaType media_type_;
         std::shared_ptr<const media::AVFrameID> previous_frame_;
 
+        std::map<timebase::flicks, int> timeline_logical_frame_pts_;
         media::FrameTimeMap full_timeline_frames_;
         media::FrameTimeMap::iterator in_frame_, out_frame_, first_frame_, last_frame_;
 

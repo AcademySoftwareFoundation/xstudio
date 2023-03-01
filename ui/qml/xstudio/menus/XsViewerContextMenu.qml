@@ -2,7 +2,6 @@
 import QtQuick 2.12
 import QtQuick.Window 2.12
 import QtQuick.Controls 2.12
-import xstudio.qml.properties 1.0
 
 import xStudio 1.0
 
@@ -11,11 +10,6 @@ XsMenu {
     title: qsTr("Viewer")
     id: viewer_context_menu_colour_items
     property bool is_popout_viewport: false
-
-    XsPreferenceSet {
-        id: timeline_units_pref
-        preferencePath: "/ui/qml/timeline_units"
-    }
 
     XsMenuItem {
         mytext: qsTr("Presentation Mode")
@@ -84,10 +78,10 @@ XsMenu {
     }
 
     // need an invisible separator so that we can stuff the 'channel'
-    // menu item that is added at runtime by the OCIO plugin in the 
+    // menu item that is added at runtime by the OCIO plugin in the
     // place we want here ... later we will have a better
     // API for plugins
-    MenuSeparator { 
+    MenuSeparator {
         visible: false
         height: 0
         id: dummy_sep

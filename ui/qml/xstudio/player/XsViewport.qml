@@ -11,8 +11,9 @@ import QtGraphicalEffects 1.12
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
 import xstudio.qml.module 1.0
+import xstudio.qml.helpers 1.0
+
 
 Viewport {
 
@@ -82,21 +83,23 @@ Viewport {
         is_popout_viewport: viewport.is_popout_viewport
     }
 
-    XsPreferenceSet {
+    XsModelProperty {
         id: fit_mode_pref
-        preferencePath: "/ui/qml/fit_mode"
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/fit_mode", "pathRole")
     }
 
-    XsPreferenceSet {
+    XsModelProperty {
         id: popout_fit_mode_pref
-        preferencePath: "/ui/qml/second_window_fit_mode"
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/second_window_fit_mode", "pathRole")
     }
 
     XsModuleAttributes {
         id: zoom_and_pane_attrs
         attributesGroupName: "viewport_zoom_and_pan_modes"
 
-        onValueChanged: {            
+        onValueChanged: {
             if(zoom_and_pane_attrs.zoom) viewport.setOverrideCursor( "://cursors/magnifier_cursor.svg", true)
             else if(zoom_and_pane_attrs.pan) viewport.setOverrideCursor(Qt.OpenHandCursor)
             else viewport.setOverrideCursor("", false);
@@ -108,11 +111,11 @@ Viewport {
         attributesGroupName: "viewport_attributes"
 
         onAttrAdded: {
-            if (attr_name == "fit") fit = fit_mode_pref.properties.value
+            if (attr_name == "fit") fit = fit_mode_pref.value
         }
 
         onValueChanged: {
-            if (key == "fit" && fit != "Off") fit_mode_pref.properties.value = value
+            if (key == "fit" && fit != "Off") fit_mode_pref.value = value
         }
     }
 
@@ -121,18 +124,18 @@ Viewport {
         attributesGroupName: "popout_viewport_attributes"
 
         onAttrAdded: {
-            if (attr_name == "fit") fit = popout_fit_mode_pref.properties.value
+            if (attr_name == "fit") fit = popout_fit_mode_pref.value
         }
 
         onValueChanged: {
-            if (key == "fit" && fit != "Off") popout_fit_mode_pref.properties.value = value
+            if (key == "fit" && fit != "Off") popout_fit_mode_pref.value = value
         }
     }
 
     function resetViewport() {
 
-        if (viewport_attrs.fit) viewport_attrs.fit = fit_mode_pref.properties.value
-        if (popout_viewport_attrs.fit) popout_viewport_attrs.fit = popout_fit_mode_pref.properties.value
+        if (viewport_attrs.fit) viewport_attrs.fit = fit_mode_pref.value
+        if (popout_viewport_attrs.fit) popout_viewport_attrs.fit = popout_fit_mode_pref.value
         //fitMode = fit_mode_pref.properties.value
         /*if (colourPipeline.exposure != 0.0) {
             colourPipeline.previousSetExposure = colourPipeline.exposure

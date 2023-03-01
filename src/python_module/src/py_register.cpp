@@ -338,6 +338,14 @@ void register_uuid_actor_vector_class(py::module &m, const std::string &name) {
         .def("pop_back", &std::vector<xstudio::utility::UuidActor>::pop_back)
         .def("__len__", &std::vector<xstudio::utility::UuidActor>::size)
         .def(
+            "__getitem__",
+            [](const std::vector<xstudio::utility::UuidActor> &s, size_t i) {
+                if (i >= s.size()) {
+                    throw py::index_error();
+                }
+                return s[i];
+            })
+        .def(
             "__iter__",
             [](std::vector<xstudio::utility::UuidActor> &v) {
                 return py::make_iterator(v.begin(), v.end());

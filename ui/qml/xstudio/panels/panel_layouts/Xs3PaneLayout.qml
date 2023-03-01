@@ -3,13 +3,13 @@ import QtQuick 2.12
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
+import xstudio.qml.helpers 1.0
 
 //    Layout 3 widgets as follows with animated hide/show
 //    and resize slider bars
 //
 //    |----------------------------------------------|
-//    |           |                                  | 
+//    |           |                                  |
 //    |           |                                  |
 //    |      A    |                                  |
 //    |           |                                  |
@@ -23,12 +23,12 @@ import xstudio.qml.properties 1.0
 //    |           |                                  |
 //    |----------------------------------------------|
 //
-// 
+//
 
 
 Rectangle {
 
-    id: the_root    
+    id: the_root
     color: "#00000000"
     property var layout_name: ""
     property var parent_window_name: "main_window"
@@ -39,10 +39,12 @@ Rectangle {
     visible: active
 
     // create a binding to backend prefs to store the divider positions
-    XsPreferenceSet {
+    XsModelNestedPropertyMap {
         id: prefs
-        preferencePath: "/ui/qml/" + parent_window_name + "_" + layout_name
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/" + parent_window_name + "_" + layout_name, "pathRole")
+        property alias properties: prefs.values
     }
+
     property alias prefs: prefs
 
     function contains(widget) {
@@ -60,7 +62,7 @@ Rectangle {
         prefs_store_object: the_root.prefs
         is_horizontal: false
 
-        XsSplitWidget {            
+        XsSplitWidget {
             active: the_root.active
             id: a_and_b
             widgetA: child_widget_A
@@ -70,7 +72,7 @@ Rectangle {
             is_horizontal: true
 
         }
-    
+
     }
 
     function toggle_widget_vis(widget) {

@@ -24,10 +24,9 @@ import QuickPromise 1.0
 import xstudio.qml.viewport 1.0
 import xstudio.qml.session 1.0
 import xstudio.qml.playlist 1.0
-import xstudio.qml.global_store 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
-import xstudio.qml.properties 1.0
+import xstudio.qml.helpers 1.0
 
 Rectangle {
 
@@ -60,9 +59,11 @@ Rectangle {
 
     // create a binding to prefs where the current layout for this session
     // widget is kept
-    XsPreferenceSet {
+
+    XsModelNestedPropertyMap {
         id: prefs
-        preferencePath: "/ui/qml/" + window_name + "_settings"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/" + window_name + "_settings", "pathRole")
+        property alias properties: prefs.values
     }
 
     XsDragDropIndicator {
@@ -88,7 +89,7 @@ Rectangle {
         is_presentation_mode: true
         is_main_window: sessionWidget.is_main_window
     }
-    
+
     XsStatusBar {
         id: status_bar
         opacity: 0

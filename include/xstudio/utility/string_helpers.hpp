@@ -273,5 +273,29 @@ namespace utility {
         return result;
     }
 
+    template <typename V>
+    std::vector<std::vector<typename V::value_type>> split_vector(const V &m, size_t count) {
+        std::vector<std::vector<typename V::value_type>> result;
+        count = std::min(count, m.size());
+
+        auto chunk_count = m.size() / count + ((m.size() % count ? 1 : 0));
+
+        result.reserve(chunk_count);
+        for (size_t chunk = 0; chunk < chunk_count; chunk++) {
+
+            result.emplace_back(std::vector<typename V::value_type>(
+                m.begin() + (chunk * count),
+                m.begin() + (chunk * count) +
+                    ((chunk + 1) * count <= m.size() ? count : m.size() % count)));
+        }
+
+        // for (auto it = m.begin(); it != m.end(); ++it) {
+
+        //     result.push_back(it->second);
+        // }
+        return result;
+    }
+
+
 } // namespace utility
 } // namespace xstudio

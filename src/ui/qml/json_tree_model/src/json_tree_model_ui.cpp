@@ -2,7 +2,7 @@
 #include <set>
 #include <nlohmann/json.hpp>
 
-#include "json_tree_model_ui.hpp"
+#include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/ui/qml/helper_ui.hpp"
@@ -54,6 +54,53 @@ QVariant JSONTreeModel::get(const QModelIndex &item, const QString &role) const 
     }
 
     return data(item, role_id);
+}
+
+bool JSONTreeModel::set(const QModelIndex &item, const QVariant &value, const QString &role) {
+    int role_id = -1;
+
+    QHashIterator<int, QByteArray> it(roleNames());
+    if (it.findNext(role.toUtf8())) {
+        role_id = it.key();
+    }
+
+    return setData(item, value, role_id);
+}
+
+
+QModelIndex JSONTreeModel::search(
+    const QVariant &value, const QString &role, const QModelIndex &parent, const int start) {
+    auto result = QModelIndex();
+
+    int role_id = -1;
+
+    QHashIterator<int, QByteArray> it(roleNames());
+    if (it.findNext(role.toUtf8())) {
+        role_id = it.key();
+    }
+
+    auto indexes = match(index(start, 0, parent), role_id, value);
+
+    if (not indexes.empty())
+        result = indexes[0];
+
+    return result;
+}
+
+QModelIndex JSONTreeModel::search_recursive(
+    const QVariant &value, const QString &role, const QModelIndex &parent, const int start) {
+
+    auto result = search(value, role, parent, start);
+
+    if (result == QModelIndex()) {
+        for (int i = start; i < rowCount(parent); i++) {
+            result = search_recursive(value, role, index(i, 0, parent), 0);
+            if (result != QModelIndex())
+                break;
+        }
+    }
+
+    return result;
 }
 
 
@@ -205,18 +252,8 @@ QVariant JSONTreeModel::data(const QModelIndex &index, int role) const {
             } break;
             }
 
-            if (not field.empty() and j.count(field)) {
-                if (j[field].is_boolean())
-                    result = QVariant::fromValue(j[field].get<bool>());
-                else if (j[field].is_number_integer())
-                    result = QVariant::fromValue(j[field].get<int>());
-                else if (j[field].is_number_unsigned())
-                    result = QVariant::fromValue(j[field].get<int>());
-                else if (j[field].is_number_float())
-                    result = QVariant::fromValue(j[field].get<float>());
-                else if (j[field].is_string())
-                    result = QVariant::fromValue(QStringFromStd(j[field].get<std::string>()));
-            }
+            if (not field.empty() and j.count(field))
+                result = mapFromValue(j[field]);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -224,6 +261,7 @@ QVariant JSONTreeModel::data(const QModelIndex &index, int role) const {
 
     return result;
 }
+
 
 bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int role) {
     bool result = false;
@@ -258,30 +296,8 @@ bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int
                     field = role_names_[id];
                 }
                 if (j.count(field)) {
-                    switch (value.type()) {
-                    case QMetaType::Bool:
-                        j[field] = value.toBool();
-                        result   = true;
-                        break;
-                    case QMetaType::Double:
-                        j[field] = value.toDouble();
-                        result   = true;
-                        break;
-                    case QMetaType::Int:
-                        j[field] = value.toInt();
-                        result   = true;
-                        break;
-                    case QMetaType::LongLong:
-                        j[field] = value.toLongLong();
-                        result   = true;
-                        break;
-                    case QMetaType::QString:
-                        j[field] = StdFromQString(value.toString());
-                        result   = true;
-                        break;
-                    default:
-                        break;
-                    }
+                    j[field] = mapFromValue(value);
+                    result   = true;
                 }
 
             } break;

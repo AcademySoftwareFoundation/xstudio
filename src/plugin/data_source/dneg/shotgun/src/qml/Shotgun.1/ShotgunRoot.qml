@@ -8,8 +8,8 @@ import QtQml 2.14
 import xStudio 1.0
 import xstudio.qml.uuid 1.0
 import xstudio.qml.module 1.0
-import xstudio.qml.properties 1.0
 import xstudio.qml.viewport 1.0
+import xstudio.qml.helpers 1.0
 import Shotgun 1.0
 
 import QuickFuture 1.0
@@ -18,10 +18,20 @@ import QuickPromise 1.0
 import QtQuick.Controls.impl 2.4
 import QtQuick.Templates 2.4 as T
 
+
+
 Item {
     id: control
     property bool connected: data_source ? data_source.connected : false
     property alias data_source: data_source
+
+
+    readonly property string menuLiveHistory : "Live History"
+    readonly property string menuLiveLatest : "Live Latest"
+    readonly property string menuLiveNotes : "Live Notes"
+
+    readonly property string menuHistory : "History"
+    readonly property string menuLatest : "Latest"
 
     property var browser: browser
 
@@ -98,7 +108,34 @@ Item {
         name: "Show Shot Browser"
         description: "Shows the shot browser interface"
         onActivated: {
-            control.shotgun_menu_action("shotgun_browser","shotgun_browser")
+            control.shotgun_menu_action("shotgun_browser", "shotgun_browser")
+        }
+    }
+
+    XsHotkey {
+        sequence: "Alt+n"
+        name: "Next Version"
+        description: "Replace With Next Version"
+        onActivated: {
+            control.shotgun_menu_action("substitute_with", "Next Version")
+        }
+    }
+
+    XsHotkey {
+        sequence: "Alt+p"
+        name: "Previous Version"
+        description: "Replace With Previous Version"
+        onActivated: {
+            control.shotgun_menu_action("substitute_with", "Previous Version")
+        }
+    }
+
+    XsHotkey {
+        sequence: "Alt+l"
+        name: "Latest Version"
+        description: "Replace With Latest Version"
+        onActivated: {
+            control.shotgun_menu_action("substitute_with", "Latest Version")
         }
     }
 
@@ -118,13 +155,24 @@ Item {
         onValueChanged: control.shotgun_menu_action(key, value)
     }
 
-    XsPreferenceSet {
-        id: project_id_pref
-        preferencePath: "/plugin/data_source/shotgun/project_id"
+    XsModelProperty {
+        id: project_id_preference
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/plugin/data_source/shotgun/project_id", "pathRole")
     }
-    XsPreferenceSet {
-        id: location_pref
-        preferencePath: "/plugin/data_source/shotgun/location"
+
+    property alias currentCategory: context_preference.value
+
+    XsModelProperty {
+        id: context_preference
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/plugin/data_source/shotgun/context", "pathRole")
+    }
+
+    XsModelProperty {
+        id: location_preference
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/plugin/data_source/shotgun/location", "pathRole")
     }
 
     Component.onCompleted: {
@@ -167,22 +215,45 @@ Item {
             }
         }
     }
+
+    XsMenuItem {
+        visible: false
+        id: replaceNextMenu
+        mytext :  "Next Version"
+        shortcut : "Alt+N"
+        onTriggered: shotgun_menu_action("substitute_with", "Next Version")
+    }
+    XsMenuItem {
+        visible: false
+        id: replacePreviousMenu
+        mytext :  "Previous Version"
+        shortcut : "Alt+P"
+        onTriggered: shotgun_menu_action("substitute_with", "Previous Version")
+    }
+    XsMenuItem {
+        visible: false
+        id: replaceLatestMenu
+        mytext :  "Latest Version"
+        shortcut : "Alt+l"
+        onTriggered: shotgun_menu_action("substitute_with", "Latest Version")
+    }
+
     XsMenuItem {
         visible: false
         id: allVersionsMenu
-        mytext : "Live Versions (All)..."
-        onTriggered: shotgun_menu_action("live_all_versions", "")
+        mytext : menuLiveLatest + "..."
+        onTriggered: shotgun_menu_action("live_latest_versions", "")
     }
     XsMenuItem {
         visible: false
         id: relatedMenu
-        mytext : "Live Versions (Related)..."
-        onTriggered: shotgun_menu_action("live_related_versions", "")
+        mytext : menuLiveHistory + "..."
+        onTriggered: shotgun_menu_action("live_version_history", "")
     }
     XsMenuItem {
         visible: false
         id: showNoteseMenu
-        mytext : "Live Notes..."
+        mytext : menuLiveNotes + "..."
         onTriggered: shotgun_menu_action("notes_history", "")
     }
     XsMenuSeparator {
@@ -221,20 +292,42 @@ Item {
     }
     XsMenuItem {
         visible: false
+        id: replaceNextMenuP
+        mytext :  "Next Version"
+        shortcut : "Alt+N"
+        onTriggered: shotgun_menu_action("substitute_with", "Next Version")
+    }
+    XsMenuItem {
+        visible: false
+        id: replacePreviousMenuP
+        mytext :  "Previous Version"
+        shortcut : "Alt+P"
+        onTriggered: shotgun_menu_action("substitute_with", "Previous Version")
+    }
+    XsMenuItem {
+        visible: false
+        id: replaceLatestMenuP
+        mytext :  "Latest Version"
+        shortcut : "Alt+l"
+        onTriggered: shotgun_menu_action("substitute_with", "Latest Version")
+    }
+
+    XsMenuItem {
+        visible: false
         id: allVersionsMenuP
-        mytext : "Live Versions (All)..."
-        onTriggered: shotgun_menu_action("live_all_versions", "")
+        mytext : menuLiveLatest + "..."
+        onTriggered: shotgun_menu_action("live_latest_versions", "")
     }
     XsMenuItem {
         visible: false
         id: relatedMenuP
-        mytext : "Live Versions (Related)..."
-        onTriggered: shotgun_menu_action("live_related_versions", "")
+        mytext : menuLiveHistory + "..."
+        onTriggered: shotgun_menu_action("live_version_history", "")
     }
     XsMenuItem {
         visible: false
         id: showNoteseMenuP
-        mytext : "Live Notes..."
+        mytext : menuLiveNotes + "..."
         onTriggered: shotgun_menu_action("notes_history", "")
     }
     XsMenuSeparator {
@@ -253,6 +346,11 @@ Item {
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, showNoteseMenu)
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, allVersionsMenu)
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, relatedMenu)
+
+            sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, replaceLatestMenu)
+            sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, replacePreviousMenu)
+            sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, replaceNextMenu)
+
             sessionWidget.sessionMenu.mediaMenu.insertMenu(m_index, substituteMenu)
             sessionWidget.sessionMenu.mediaMenu.insertMenu(m_index, compareMenu)
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, menuSep)
@@ -261,17 +359,26 @@ Item {
             sessionWidget.mediaMenu1.insertItem(m_index, showNoteseMenuP)
             sessionWidget.mediaMenu1.insertItem(m_index, allVersionsMenuP)
             sessionWidget.mediaMenu1.insertItem(m_index, relatedMenuP)
+            sessionWidget.mediaMenu1.insertItem(m_index, replaceLatestMenuP)
+            sessionWidget.mediaMenu1.insertItem(m_index, replacePreviousMenuP)
+            sessionWidget.mediaMenu1.insertItem(m_index, replaceNextMenuP)
             sessionWidget.mediaMenu1.insertMenu(m_index, substituteMenuP)
             sessionWidget.mediaMenu1.insertMenu(m_index, compareMenuP)
             sessionWidget.mediaMenu1.insertItem(m_index, menuSepP)
 
             toggleBrowser.visible = true
             showNoteseMenu.visible = true
+            replaceLatestMenu.visible = true
+            replacePreviousMenu.visible = true
+            replaceNextMenu.visible = true
             allVersionsMenu.visible = true
             relatedMenu.visible = true
             menuSep.visible = true
             showNoteseMenuP.visible = true
             allVersionsMenuP.visible = true
+            replaceLatestMenuP.visible = true
+            replacePreviousMenuP.visible = true
+            replaceNextMenuP.visible = true
             relatedMenuP.visible = true
             menuSepP.visible = true
         }
@@ -283,6 +390,9 @@ Item {
         sessionWidget.sessionMenu.mediaMenu.removeItem(showNoteseMenu)
         sessionWidget.sessionMenu.mediaMenu.removeItem(allVersionsMenu)
         sessionWidget.sessionMenu.mediaMenu.removeItem(relatedMenu)
+        sessionWidget.sessionMenu.mediaMenu.removeItem(replaceLatestMenu)
+        sessionWidget.sessionMenu.mediaMenu.removeItem(replacePreviousMenu)
+        sessionWidget.sessionMenu.mediaMenu.removeItem(replaceNextMenu)
         sessionWidget.sessionMenu.mediaMenu.removeMenu(substituteMenu)
         sessionWidget.sessionMenu.mediaMenu.removeMenu(compareMenu)
         sessionWidget.sessionMenu.mediaMenu.removeItem(menuSep)
@@ -291,6 +401,9 @@ Item {
         sessionWidget.mediaMenu1.removeItem(showNoteseMenuP)
         sessionWidget.mediaMenu1.removeItem(allVersionsMenuP)
         sessionWidget.mediaMenu1.removeItem(relatedMenuP)
+        sessionWidget.mediaMenu1.removeItem(replaceLatestMenuP)
+        sessionWidget.mediaMenu1.removeItem(replacePreviousMenuP)
+        sessionWidget.mediaMenu1.removeItem(replaceNextMenuP)
         sessionWidget.mediaMenu1.removeMenu(substituteMenuP)
         sessionWidget.mediaMenu1.removeMenu(compareMenuP)
         sessionWidget.mediaMenu1.removeItem(menuSepP)
@@ -376,17 +489,17 @@ Item {
         onAccepted: data_source.connected = true
     }
 
-    TreeTest {
-        id: tree_test
-        model: data_source.connected ? data_source.sequenceTreeModel(project_id_pref.properties.value) : null
-    }
+    // TreeTest {
+    //     id: tree_test
+    //     model: data_source.connected ? data_source.sequenceTreeModel(project_id_preference.value) : null
+    // }
 
     ShotgunCreatePlaylist {
         id: create_dialog
         width: 350
-        height: 200
+        height: 250
 
-        onAccepted: create_playlist_promise(data_source, playlist, playlist_uuid, project_id, playlist_name, create_dialog.site_name, error)
+        onAccepted: create_playlist_promise(data_source, playlist, playlist_uuid, project_id, playlist_name, create_dialog.site_name,create_dialog.playlist_type, error)
     }
 
     ShotgunPublishNotes {
@@ -426,7 +539,7 @@ Item {
         pipelineStatusModel:  data_source.connected ? data_source.termModels.pipelineStatusModel : null
         playlistTypeModel: data_source.connected ? data_source.termModels.playlistTypeModel : null
         productionStatusModel:  data_source.connected ? data_source.termModels.productionStatusModel : null
-        projectCurrentIndex: data_source.termModels.projectModel && data_source.termModels.projectModel.count ? data_source.termModels.projectModel.search(project_id_pref.properties.value, "idRole") : -1
+        projectCurrentIndex: data_source.termModels.projectModel && data_source.termModels.projectModel.count ? data_source.termModels.projectModel.search(project_id_preference.value, "idRole") : -1
         projectModel: data_source.connected ? data_source.termModels.projectModel : null
         siteModel: data_source.connected ? data_source.termModels.locationModel : null
         shotStatusModel: data_source.connected ? data_source.termModels.shotStatusModel : null
@@ -462,11 +575,6 @@ Item {
         referenceFilterModel: data_source.presetModels.referenceFilterModel
         noteFilterModel: data_source.presetModels.noteFilterModel
         mediaActionFilterModel: data_source.presetModels.mediaActionFilterModel
-
-        // onVisibleChanged: {
-        //     console.log("onVisibleChanged", project_id_pref.properties.value, data_source.projectModel.count, data_source.projectModel.search(project_id_pref.properties.value, "idRole"))
-        //     projectCurrentIndex = projectModel.count ? data_source.projectModel.search(project_id_pref.properties.value, "idRole") : -1
-        // }
 
         loadPlaylists: control.loadPlaylists
         addShotsToNewPlaylist: control.addShotsToNewPlaylist
@@ -526,9 +634,10 @@ Item {
         }
 
         create_dialog.siteModel = data_source.termModels.locationModel
-        create_dialog.siteCurrentIndex = data_source.termModels.locationModel.search(location_pref.properties.value)
+        create_dialog.siteCurrentIndex = data_source.termModels.locationModel.search(location_preference.value)
         create_dialog.projectModel = data_source.termModels.projectModel
-        create_dialog.projectCurrentIndex = data_source.termModels.projectModel.search(project_id_pref.properties.value, "idRole")
+        create_dialog.projectCurrentIndex = data_source.termModels.projectModel.search(project_id_preference.value, "idRole")
+        create_dialog.playlistTypeModel = data_source.connected ? data_source.termModels.playlistTypeModel : null
 
         if(playlist) {
             create_dialog.playlist = playlist
@@ -590,9 +699,9 @@ Item {
         }
     }
 
-    function create_playlist_promise(data_source, playlist, playlist_uuid, project_id, name, location, error) {
+    function create_playlist_promise(data_source, playlist, playlist_uuid, project_id, name, location, playlist_type,  error) {
         Future.promise(
-            data_source.createPlaylistFuture(playlist_uuid, project_id, name, location)
+            data_source.createPlaylistFuture(playlist_uuid, project_id, name, location, playlist_type)
         ).then(function(json_string) {
             playlist.isBusy = false
             // load new playlist..
@@ -804,20 +913,20 @@ Item {
             push_playlist_notes()
         } else if(key == "notes_history") {
             show_browser()
-            browser.currentCategory = "Notes"
-            createPresetType("Live Notes")
-        } else if(key == "live_related_versions") {
+            browser.currentCategory = "Notes Tree"
+            createPresetType(menuLiveNotes)
+        } else if(key == "live_version_history") {
             show_browser()
-            browser.currentCategory = "Shots"
-            createPresetType("Live Related Versions")
-        } else if(key == "live_all_versions") {
+            browser.currentCategory = "Versions"
+            createPresetType(menuLiveHistory)
+        } else if(key == "live_latest_versions") {
             show_browser()
-            browser.currentCategory = "Shots"
-            createPresetType("Live All Versions")
+            browser.currentCategory = "Versions"
+            createPresetType(menuLiveLatest)
         } else if(key == "all_versions") {
             show_browser()
-            browser.currentCategory = "Shots"
-            createPresetType("All Versions")
+            browser.currentCategory = "Versions"
+            createPresetType("All")
         } else if(key == "substitute_with") {
             substitute_with(value)
         } else if(key == "compare_with") {
@@ -854,7 +963,6 @@ Item {
                             if(result.length) {
                             // remove old..
                                 let remove_uuid = media_obj.uuid
-                                source.removeMedia(remove_uuid)
                                 let new_uuids = []
                                 for(let i=0;i<result.length; i++) {
                                     new_uuids.push(helpers.QVariantFromUuidString(result[i]))
@@ -870,6 +978,10 @@ Item {
                                 session.selectedSource.selectionFilter.newSelection(
                                     new_uuids
                                 )
+
+                                source.removeMedia(remove_uuid)
+                            } else {
+                                status_bar.normalMessage("No results", "Shot Browser - Substitute with")
                             }
                         }
                     )
@@ -914,6 +1026,8 @@ Item {
                                 session.selectedSource.selectionFilter.newSelection(
                                     new_uuids
                                 )
+                            } else {
+                                status_bar.normalMessage("No results", "Shot Browser - Compare with")
                             }
                         }
                     )

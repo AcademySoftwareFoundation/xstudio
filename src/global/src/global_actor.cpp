@@ -130,10 +130,8 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     sync_port_maximum_ = 12346;
     sync_bind_address_ = "127.0.0.1";
 
-    StatusType status_ = StatusType::ST_NONE;
-    event_group_       = spawn<broadcast::BroadcastActor>(this);
+    event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
-    std::set<caf::actor_addr> busy_;
 
     try {
         auto prefs = GlobalStoreHelper(system());
@@ -213,98 +211,106 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             if (session_autosave_path_.empty()) {
                 spdlog::warn("Autosave path not set, autosave skipped.");
             } else {
-                // get session actor
-                request(studio_, infinite, session::session_atom_v)
-                    .then(
-                        [=](caf::actor session) {
-                            // request path from session
-                            request(session, infinite, session::path_atom_v)
-                                .then(
-                                    [=](const std::pair<caf::uri, fs::file_time_type>
-                                            &path_time) {
-                                        // save session
-                                        try {
-                                            auto session_name =
-                                                fs::path(uri_to_posix_path(path_time.first))
-                                                    .stem()
-                                                    .string();
-                                            if (session_name.empty())
-                                                session_name = "Unsaved";
+                if (status_ & ST_BUSY) {
+                    spdlog::debug("Skipping autosave whilst playing.");
+                } else {
+                    // get session actor
+                    request(studio_, infinite, session::session_atom_v)
+                        .then(
+                            [=](caf::actor session) {
+                                // request path from session
+                                request(session, infinite, session::path_atom_v)
+                                    .then(
+                                        [=](const std::pair<caf::uri, fs::file_time_type>
+                                                &path_time) {
+                                            // save session
+                                            try {
+                                                auto session_name =
+                                                    fs::path(uri_to_posix_path(path_time.first))
+                                                        .stem()
+                                                        .string();
+                                                if (session_name.empty())
+                                                    session_name = "Unsaved";
 
-                                            // add timestamp+ext
-                                            auto session_fullname = std::string(fmt::format(
-                                                "{}_{:%Y%m%d_%H%M%S}.xst",
-                                                session_name,
-                                                fmt::localtime(std::time(nullptr))));
+                                                // add timestamp+ext
+                                                auto session_fullname = std::string(fmt::format(
+                                                    "{}_{:%Y%m%d_%H%M%S}.xst",
+                                                    session_name,
+                                                    fmt::localtime(std::time(nullptr))));
 
-                                            // build path to autosave store.
-                                            auto fspath = fs::path(uri_to_posix_path(
-                                                              session_autosave_path_)) /
-                                                          session_name / session_fullname;
+                                                // build path to autosave store.
+                                                auto fspath = fs::path(uri_to_posix_path(
+                                                                  session_autosave_path_)) /
+                                                              session_name / session_fullname;
 
-                                            // create autosave dirs
-                                            fs::create_directories(fspath.parent_path());
+                                                // create autosave dirs
+                                                fs::create_directories(fspath.parent_path());
 
-                                            // prune autosaves
-                                            std::set<fs::path> saves;
-                                            for (const auto &entry :
-                                                 fs::directory_iterator(fspath.parent_path())) {
-                                                if (fs::is_regular_file(entry.status()))
-                                                    saves.insert(entry.path());
+                                                // prune autosaves
+                                                std::set<fs::path> saves;
+                                                for (const auto &entry : fs::directory_iterator(
+                                                         fspath.parent_path())) {
+                                                    if (fs::is_regular_file(entry.status()))
+                                                        saves.insert(entry.path());
+                                                }
+
+                                                while (saves.size() >= 10) {
+                                                    fs::remove(*(saves.begin()));
+                                                    saves.erase(saves.begin());
+                                                }
+
+                                                request(
+                                                    session,
+                                                    infinite,
+                                                    global_store::save_atom_v,
+                                                    posix_path_to_uri(fspath.string()),
+                                                    session_autosave_hash_)
+                                                    .then(
+                                                        [=](const size_t hash) {
+                                                            if (hash !=
+                                                                session_autosave_hash_) {
+                                                                spdlog::info(
+                                                                    "Session autosaved {}.",
+                                                                    fspath.string());
+                                                                auto prefs = global_store::
+                                                                    GlobalStoreHelper(system());
+                                                                prefs.set_value(
+                                                                    fspath.string(),
+                                                                    "/core/session/autosave/"
+                                                                    "last_auto_save");
+                                                                prefs.save("APPLICATION");
+
+                                                                session_autosave_hash_ = hash;
+                                                            }
+                                                        },
+                                                        [=](const error &err) {
+                                                            auto msg = std::string(fmt::format(
+                                                                "Failed to autosave session - "
+                                                                "your "
+                                                                "session is broken {}.\nCheck "
+                                                                "{} "
+                                                                "for last valid autosave",
+                                                                to_string(err),
+                                                                fspath.parent_path().string()));
+                                                            spdlog::critical(msg);
+                                                        });
+                                            } catch (const std::exception &err) {
+                                                spdlog::critical(
+                                                    "Failed to autosave session path {}.",
+                                                    err.what());
                                             }
-
-                                            while (saves.size() >= 10) {
-                                                fs::remove(*(saves.begin()));
-                                                saves.erase(saves.begin());
-                                            }
-
-                                            request(
-                                                session,
-                                                infinite,
-                                                global_store::save_atom_v,
-                                                posix_path_to_uri(fspath.string()),
-                                                session_autosave_hash_)
-                                                .then(
-                                                    [=](const size_t hash) {
-                                                        if (hash != session_autosave_hash_) {
-                                                            spdlog::info(
-                                                                "Session autosaved {}.",
-                                                                fspath.string());
-                                                            auto prefs =
-                                                                global_store::GlobalStoreHelper(
-                                                                    system());
-                                                            prefs.set_value(
-                                                                fspath.string(),
-                                                                "/core/session/autosave/"
-                                                                "last_auto_save");
-                                                            prefs.save("APPLICATION");
-
-                                                            session_autosave_hash_ = hash;
-                                                        }
-                                                    },
-                                                    [=](const error &err) {
-                                                        auto msg = std::string(fmt::format(
-                                                            "Failed to autosave session - your "
-                                                            "session is broken {}.\nCheck {} "
-                                                            "for last valid autosave",
-                                                            to_string(err),
-                                                            fspath.parent_path().string()));
-                                                        spdlog::critical(msg);
-                                                    });
-                                        } catch (const std::exception &err) {
+                                        },
+                                        [=](const error &err) {
                                             spdlog::critical(
-                                                "Failed to autosave session path {}.",
-                                                err.what());
-                                        }
-                                    },
-                                    [=](const error &err) {
-                                        spdlog::critical(
-                                            "Failed to get session path {}.", to_string(err));
-                                    });
-                        },
-                        [=](const error &err) {
-                            spdlog::critical("Failed to get session actor {}.", to_string(err));
-                        });
+                                                "Failed to get session path {}.",
+                                                to_string(err));
+                                        });
+                            },
+                            [=](const error &err) {
+                                spdlog::critical(
+                                    "Failed to get session actor {}.", to_string(err));
+                            });
+                }
             }
         },
 

@@ -20,7 +20,7 @@ DelegateChoice {
         property bool isMouseHovered: mArea.containsMouse || nameDisplay.hovered || stepDisplay.hovered ||
                                       authorDisplay.hovered || pipelineStatusDisplay.hovered ||
                                       pipeStatusDisplay.hovered || submitToClientDisplay.hovered ||
-                                      frameToolTip.containsMouse || dateToolTip.containsMouse || versionsButton.hovered || allVersionsButton.hovered
+                                      frameToolTip.containsMouse || dateToolTip.containsMouse || treeVersionsButton.hovered || allVersionsButton.hovered
         width: searchResultsView.cellWidth
         height: searchResultsView.cellHeight-itemSpacing
         color:  isSelected ? Qt.darker(itemColorActive, 2.75): itemColorNormal
@@ -68,7 +68,7 @@ DelegateChoice {
             anchors.fill: parent
             anchors.margins: framePadding
             rows: 2
-            columns: 9
+            columns: treeMode ? 8: 9
             rowSpacing: itemSpacing
 
             Rectangle{ id: indicators
@@ -97,7 +97,7 @@ DelegateChoice {
                         textDiv.topPadding: 2.5
 
                         onClicked: {
-                            let mymodel = notePresetsModel
+                            let mymodel = noteTreePresetsModel
                             mymodel.clearLoaded()
                             mymodel.insert(
                                 mymodel.rowCount(),
@@ -107,14 +107,14 @@ DelegateChoice {
                                     "name": nameRole + " Notes",
                                     "queries": [
                                         {
+                                            "enabled": true,
+                                            "term": "Twig Name",
+                                            "value": "^"+twigNameRole+"$"
+                                        },
+                                        {
                                             "enabled": shotRole != undefined,
                                             "term": "Shot",
                                             "value": shotRole != undefined ? shotRole : ""
-                                        },
-                                        {
-                                            "enabled": true,
-                                            "term": "Twig Name",
-                                            "value": twigNameRole
                                         },
                                         {
                                             "enabled": true,
@@ -139,7 +139,7 @@ DelegateChoice {
                                     ]
                                 }
                             )
-                            currentCategory = "Notes"
+                            currentCategory = "Notes Tree"
                             mymodel.activePreset = mymodel.rowCount()-1
                         }
                     }
@@ -212,12 +212,12 @@ DelegateChoice {
                 }
             }
 
-            XsButton{ id: versionsButton
+            XsButton{ id: treeVersionsButton
                 Layout.preferredWidth: pipeStatusDisplay.width
                 Layout.preferredHeight: parent.height
                 Layout.rowSpan: 2
 
-                text: "Related"
+                text: menuHistory
                 textDiv.width: parent.height
                 textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
                 textDiv.rotation: -90
@@ -227,7 +227,7 @@ DelegateChoice {
                 font.weight: Font.DemiBold
                 padding: 0
                 bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
-                onClicked: rightDiv.popupMenuAction("Related Versions", index)
+                onClicked: rightDiv.popupMenuAction(menuHistory, index)
             }
 
             XsButton{ id: allVersionsButton
@@ -235,7 +235,8 @@ DelegateChoice {
                 Layout.preferredHeight: parent.height
                 Layout.rowSpan: 2
 
-                text: "All"
+                visible: !treeMode
+                text: menuLatest
                 textDiv.width: parent.height
                 textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
                 textDiv.rotation: -90
@@ -245,7 +246,7 @@ DelegateChoice {
                 font.weight: Font.DemiBold
                 padding: 0
                 bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
-                onClicked: rightDiv.popupMenuAction("All Versions", index)
+                onClicked: rightDiv.popupMenuAction(menuLatest, index)
             }
 
             XsTextButton{ id: nameDisplay
@@ -349,7 +350,6 @@ DelegateChoice {
 
             Text{ id: dateDisplay
                 Layout.alignment: Qt.AlignLeft
-                // Layout.fillWidth: true
                 property var dateFormatted: createdDateRole.toUTCString().substr(4,20).split(" ")
                 text: " "+dateFormatted[0]+" "+dateFormatted[1]+" "+dateFormatted[3]
                 font.pixelSize: fontSize

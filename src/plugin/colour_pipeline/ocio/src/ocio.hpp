@@ -83,6 +83,8 @@ class OCIOColourPipeline : public ColourPipeline {
     thumbnail::ThumbnailBufferPtr process_thumbnail(
         const media::AVFrameID &media_ptr, const thumbnail::ThumbnailBufferPtr &buf) override;
 
+    std::string fast_display_transform_hash(const media::AVFrameID &media_ptr) override;
+
     // GUI handling
     void media_source_changed(
         const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) override;
@@ -208,6 +210,7 @@ class OCIOColourPipeline : public ColourPipeline {
     // Holds info about the currently on screen media
     utility::Uuid current_source_uuid_;
     std::string current_config_name_;
+    MediaParams current_source_media_params_;
 
     // Holds data on display screen option
     std::string main_monitor_name_;

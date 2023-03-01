@@ -292,6 +292,12 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
     return buf;
 }
 
+
+std::string OCIOColourPipeline::fast_display_transform_hash(const media::AVFrameID &media_ptr) {
+    return get_media_params(media_ptr.source_uuid_, media_ptr.params_).compute_hash() +
+           display_->value() + view_->value();
+}
+
 OCIOColourPipeline::MediaParams OCIOColourPipeline::get_media_params(
     const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) const {
     std::scoped_lock lock(media_params_mutex_);

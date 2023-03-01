@@ -57,22 +57,21 @@ CAF_PUSH_WARNINGS
 #include <QQuickView>
 CAF_POP_WARNINGS
 
-#include "xstudio/ui/qml/module_ui.hpp"          //NOLINT
-#include "xstudio/ui/qml/module_menu_ui.hpp"     //NOLINT
-#include "xstudio/ui/qml/contact_sheet_ui.hpp"   //NOLINT
-#include "xstudio/ui/qml/embedded_python_ui.hpp" //NOLINT
-#include "xstudio/ui/qml/global_store_ui.hpp"    //NOLINT
-#include "xstudio/ui/qml/helper_ui.hpp"          //NOLINT
-#include "xstudio/ui/qml/media_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/event_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/log_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/playlist_ui.hpp"        //NOLINT
-#include "xstudio/ui/qml/properties_ui.hpp"      //NOLINT
-#include "xstudio/ui/qml/bookmark_ui.hpp"        //NOLINT
-#include "xstudio/ui/qml/session_ui.hpp"         //NOLINT
-#include "xstudio/ui/qml/studio_ui.hpp"          //NOLINT
-#include "xstudio/ui/qml/subset_ui.hpp"          //NOLINT
-#include "xstudio/ui/qml/timeline_ui.hpp"        //NOLINT
+#include "xstudio/ui/qml/module_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/module_menu_ui.hpp"        //NOLINT
+#include "xstudio/ui/qml/contact_sheet_ui.hpp"      //NOLINT
+#include "xstudio/ui/qml/embedded_python_ui.hpp"    //NOLINT
+#include "xstudio/ui/qml/helper_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/media_ui.hpp"              //NOLINT
+#include "xstudio/ui/qml/event_ui.hpp"              //NOLINT
+#include "xstudio/ui/qml/log_ui.hpp"                //NOLINT
+#include "xstudio/ui/qml/playlist_ui.hpp"           //NOLINT
+#include "xstudio/ui/qml/bookmark_ui.hpp"           //NOLINT
+#include "xstudio/ui/qml/session_ui.hpp"            //NOLINT
+#include "xstudio/ui/qml/studio_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/subset_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/global_store_model_ui.hpp" //NOLINT
+#include "xstudio/ui/qml/timeline_ui.hpp"           //NOLINT
 #include "xstudio/ui/qml/thumbnail_ui.hpp"
 #include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
 #include "xstudio/ui/qml/shotgun_provider_ui.hpp"
@@ -597,7 +596,7 @@ struct Launcher {
             uri_fl.insert(uri_fl.end(), file_items.begin(), file_items.end());
         }
 
-        if (!compare_mode.empty()) {
+        if (not compare_mode.empty()) {
 
             // To set compare mode, we must have a playhead (which is where
             // compare mode setting is held)
@@ -659,17 +658,20 @@ struct Launcher {
 
         // get the actor that is responsible for selecting items from the playlist
         // for viewing
-        auto playhead_selection_actor =
-            request_receive<caf::actor>(*self, playlist, playlist::selection_actor_atom_v);
+        if (not compare_mode.empty()) {
+            auto playhead_selection_actor =
+                request_receive<caf::actor>(*self, playlist, playlist::selection_actor_atom_v);
 
-        if (playhead_selection_actor) {
-            // Reset the current selection so that the added media is what is
-            // selected.
-            UuidList selection;
-            for (auto &new_media : added_media) {
-                selection.push_back(new_media.uuid());
+            if (playhead_selection_actor) {
+                // Reset the current selection so that the added media is what is
+                // selected.
+                UuidList selection;
+                for (auto &new_media : added_media) {
+                    selection.push_back(new_media.uuid());
+                }
+                self->anon_send(
+                    playhead_selection_actor, playlist::select_media_atom_v, selection);
             }
-            self->anon_send(playhead_selection_actor, playlist::select_media_atom_v, selection);
         }
 
         // finally, to ensure what we've added appears on screen we need to
@@ -825,7 +827,6 @@ int main(int argc, char **argv) {
                 // palette.setColor(QPalette::Normal, QPalette::HighlightedText, QColor("Red"));
                 // app.setPalette(palette);
 
-                qmlRegisterType<GlobalStoreUI>("xstudio.qml.global_store", 1, 0, "GlobalStore");
                 qmlRegisterType<SemVer>("xstudio.qml.semver", 1, 0, "SemVer");
                 qmlRegisterType<CursorPosProvider>(
                     "xstudio.qml.cursor_pos_provider", 1, 0, "CursorPosProvider");
@@ -843,8 +844,6 @@ int main(int argc, char **argv) {
                 qmlRegisterType<EmbeddedPythonUI>(
                     "xstudio.qml.embedded_python", 1, 0, "EmbeddedPython");
 
-                qmlRegisterType<PreferenceSet>(
-                    "xstudio.qml.properties", 1, 0, "XsPreferenceSet");
                 qmlRegisterType<SessionUI>("xstudio.qml.session", 1, 0, "Session");
                 qmlRegisterType<ContainerGroupUI>(
                     "xstudio.qml.session", 1, 0, "ContainerGroupUI");
@@ -865,6 +864,14 @@ int main(int argc, char **argv) {
                     "xstudio.qml.module", 1, 0, "XsModuleAttributes");
                 qmlRegisterType<ModuleMenusModel>("xstudio.qml.module", 1, 0, "XsModuleMenu");
                 qmlRegisterType<EventAttrs>("xstudio.qml.event", 1, 0, "XsEvent");
+
+                qmlRegisterType<GlobalStoreModel>(
+                    "xstudio.qml.global_store_model", 1, 0, "XsGlobalStoreModel");
+                qmlRegisterType<ModelProperty>("xstudio.qml.helpers", 1, 0, "XsModelProperty");
+                qmlRegisterType<ModelPropertyMap>(
+                    "xstudio.qml.helpers", 1, 0, "XsModelPropertyMap");
+                qmlRegisterType<ModelNestedPropertyMap>(
+                    "xstudio.qml.helpers", 1, 0, "XsModelNestedPropertyMap");
 
                 qRegisterMetaType<MediaUI *>("MediaUI*");
                 // qRegisterMetaType<BookmarkDetailUI*>("BookmarkDetailUI*");
@@ -921,11 +928,6 @@ int main(int argc, char **argv) {
                 // gui plugins..
                 engine.addImportPath(QStringFromStd(xstudio_root("/plugin/qml")));
                 engine.addPluginPath(QStringFromStd(xstudio_root("/plugin/qml")));
-
-                QScopedPointer<GlobalStoreUI> root_store(new GlobalStoreUI);
-                root_store->init(system);
-                qmlRegisterSingletonInstance(
-                    "xstudio.qml.root_store", 1, 0, "RootStore", root_store.get());
 
                 QObject::connect(
                     &engine,

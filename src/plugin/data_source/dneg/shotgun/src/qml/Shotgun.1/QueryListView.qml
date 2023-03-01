@@ -206,13 +206,37 @@ ListView{
                         }
                     }
 
+                    XsButton {id: negation
+                        property bool hasNegation: negationRole !== undefined
+                        z: 1
+                        subtleActive: true
+                        isActive: hasNegation ? negationRole : false
+                        enabled: hasNegation && isEnabled ? true : false
+                        opacity: hasNegation ? 1.0 : 0.0
+                        Layout.preferredWidth: queryItemHeight/2//-framePadding*1.5
+                        Layout.preferredHeight: queryItemHeight//-framePadding*1.5
+                        // image.sourceSize.height: height/1.1
+                        // image.sourceSize.width: width/1.2
+                        text: "!"
+                        textColorNormal: hasNegation && negationRole ? bgColorPressed : "darkgray"
+                        // imgSrc: "qrc:/feather_icons/link-2.svg"
+                        // rotation: 90
+                        clip: true
+                        onClicked: {
+                            negationRole = !negationRole
+                            if(isLoaded)
+                                executeQuery()
+                        }
+                    }
+
+
                     XsComboBox{ id: queryBox
                         Layout.preferredWidth: 150
                         Layout.preferredHeight: queryItemHeight
                         property var termrole: termRole
 
                         model: {
-                            if(currentCategory == "Shots" || currentCategory == "Shots Tree")
+                            if(currentCategory == "Versions" || currentCategory == "Versions Tree")
                                 return shotFilters
                             else if(currentCategory == "Playlists")
                                 return playlistFilters
@@ -397,7 +421,9 @@ ListView{
                             else if(termRole=="Latest Version") boolModel
                             else if(termRole=="Lookback") lookbackModel
                             else if(termRole=="Exclude Shot Status") shotStatusModel
+                            else if(termRole=="Newer Version") dummyModel
                             else if(termRole=="Note Type") noteTypeModel
+                            else if(termRole=="Older Version") dummyModel
                             else if(termRole=="On Disk") onDiskModel
                             else if(termRole=="Order By") orderByModel
                             else if(termRole=="Pipeline Status") pipelineStatusModel
@@ -480,8 +506,9 @@ ListView{
                             if(currentText !== "" && argRole != currentText)
                                 argRole = currentText
 
-                            if(isLoaded)
+                            if(isLoaded) {
                                 executeQuery()
+                            }
                         }
 
                         onActivated: doUpdate()
@@ -518,10 +545,10 @@ ListView{
                 id: selectField
                 Layout.preferredWidth: 150
                 Layout.preferredHeight: queryItemHeight
-                Layout.leftMargin: (queryItemHeight+itemSpacing) + (framePadding*2+itemSpacing)
+                Layout.leftMargin: (queryItemHeight/2)+itemSpacing+(queryItemHeight+itemSpacing) + (framePadding*2+itemSpacing)
 
                 model: {
-                    if(currentCategory == "Shots" || currentCategory == "Shots Tree")
+                    if(currentCategory == "Versions" || currentCategory == "Versions Tree")
                         return ["-- Select --"].concat(shotFilters)
                     else if(currentCategory == "Playlists")
                         return ["-- Select --"].concat(playlistFilters)
@@ -563,13 +590,21 @@ ListView{
 
                         snapshot()
 
+                        let term = {"term": selectField.currentText, "value": value, "enabled": true}
+
                         // only certain terms can be pinned..
-                        if(["Version Name", "Author", "Recipient", "Shot", "Pipeline Step", "Twig Name", "Twig Type", "Sequence"].includes(selectField.currentText)) {
-                            queryTreeModel.insert(queryTreeModel.count, {"term": selectField.currentText, "livelink": false, "value": value, "enabled": true})
-                        } else {
-                            queryTreeModel.insert(queryTreeModel.count, {"term": selectField.currentText, "value": value, "enabled": true})
+                        if(["Older Version","Newer Version", "Version Name", "Author", "Recipient", "Shot", "Pipeline Step", "Twig Name", "Twig Type", "Sequence"].includes(selectField.currentText)) {
+                            term["livelink"] = false
                         }
 
+                        if(["Pipeline Step", "Playlist Type", "Site", "Department",
+                            "Filter", "Tag", "Unit", "Note Type","Version Name", "Pipeline Status",
+                            "Production Status", "Shot Status", "Twig Type", "Twig Name", "Shot Status",
+                            "Tag (Version)", "Twig Name", "Completion Location", "On Disk"].includes(selectField.currentText)) {
+                            term["negated"] = false
+                        }
+
+                        queryTreeModel.insert(queryTreeModel.count, term)
                         snapshot()
 
                         currentIndex = 0

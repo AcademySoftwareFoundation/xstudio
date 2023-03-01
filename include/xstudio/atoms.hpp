@@ -663,6 +663,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, xstudio_session_atoms_last_type_
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, viewport_events_group_atom)
 
     // **************** add new entries here ******************
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, last_frame_media_pointer_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, display_colour_transform_hash_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_playback_atoms)
 

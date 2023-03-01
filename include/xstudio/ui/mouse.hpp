@@ -4,6 +4,8 @@
 #include <caf/type_id.hpp>
 #include <ostream>
 #include <utility>
+#include <Imath/ImathVec.h>
+
 #include "xstudio/utility/chrono.hpp"
 
 namespace xstudio {
@@ -123,8 +125,8 @@ namespace ui {
         friend std::ostream &operator<<(std::ostream &out, const PointerEvent &o) {
             out << "PointerEvent " << (int)o.type() << " " << (int)o.buttons() << " "
                 << (int)o.modifiers() << " " << o.x_position_ << " " << o.y_position_ << " "
-                << o.x_position_in_viewport_coord_sys_ << " "
-                << o.y_position_in_viewport_coord_sys_ << " "
+                << o.position_in_viewport_coord_sys_.y << " "
+                << o.position_in_viewport_coord_sys_.x << " "
                 << " " << o.width_ << " " << o.height_ << " " << o.angle_delta_.first << " "
                 << o.angle_delta_.second;
             return out;
@@ -135,8 +137,7 @@ namespace ui {
                 f.field("sig", x.signature_),
                 f.field("x", x.x_position_),
                 f.field("y", x.y_position_),
-                f.field("x_in_cs", x.x_position_in_viewport_coord_sys_),
-                f.field("y_in_cs", x.y_position_in_viewport_coord_sys_),
+                f.field("pos_in_cs", x.position_in_viewport_coord_sys_),
                 f.field("vp_du_dx", x.viewport_pixel_scale_),
                 f.field("w", x.width_),
                 f.field("h", x.height_),
@@ -148,11 +149,8 @@ namespace ui {
 
         [[nodiscard]] int x() const { return x_position_; }
         [[nodiscard]] int y() const { return y_position_; }
-        [[nodiscard]] float x_position_in_viewport_coord_sys() const {
-            return x_position_in_viewport_coord_sys_;
-        }
-        [[nodiscard]] float y_position_in_viewport_coord_sys() const {
-            return y_position_in_viewport_coord_sys_;
+        [[nodiscard]] Imath::V2f position_in_viewport_coord_sys() const {
+            return position_in_viewport_coord_sys_;
         }
         [[nodiscard]] float viewport_pixel_scale() const { return viewport_pixel_scale_; }
         [[nodiscard]] int width() const { return width_; }
@@ -166,8 +164,8 @@ namespace ui {
         [[nodiscard]] const std::string &context() const { return context_; }
 
         void set_pos_in_coord_sys(const float x, const float y, const float du_dx) {
-            x_position_in_viewport_coord_sys_ = x;
-            y_position_in_viewport_coord_sys_ = y;
+            position_in_viewport_coord_sys_.x = x;
+            position_in_viewport_coord_sys_.y = y;
             viewport_pixel_scale_             = du_dx;
         }
 
@@ -180,9 +178,9 @@ namespace ui {
         std::pair<int, int> angle_delta_;
         std::pair<int, int> pixel_delta_;
         std::string context_;
-        float x_position_in_viewport_coord_sys_ = {std::numeric_limits<float>::lowest()};
-        float y_position_in_viewport_coord_sys_ = {std::numeric_limits<float>::lowest()};
-        float viewport_pixel_scale_             = {0.01f};
+        Imath::V2f position_in_viewport_coord_sys_ = Imath::V2f{
+            std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()};
+        float viewport_pixel_scale_ = {0.01f};
     };
 } // namespace ui
 } // namespace xstudio

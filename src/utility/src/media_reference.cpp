@@ -107,7 +107,6 @@ void MediaReference::set_uri(const caf::uri &uri) { uri_ = uri; }
 
 std::vector<std::pair<caf::uri, int>> MediaReference::uris() const {
     std::vector<std::pair<caf::uri, int>> frames;
-
     int frame;
     for (auto i = 0; i < duration_.frames(); i++) {
         if (not container_) {

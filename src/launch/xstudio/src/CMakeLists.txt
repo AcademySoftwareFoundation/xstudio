@@ -34,10 +34,9 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::qml::event
 		xstudio::ui::qml::global_store
 		xstudio::ui::qml::helper
+		xstudio::ui::qml::log
 		xstudio::ui::qml::media
 		xstudio::ui::qml::module
-		xstudio::ui::qml::log
-		xstudio::ui::qml::timeline
 		xstudio::ui::qml::playhead
 		xstudio::ui::qml::playlist
 		xstudio::ui::qml::quickfuture
@@ -45,6 +44,7 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::qml::studio
 		xstudio::ui::qml::subset
 		xstudio::ui::qml::tag
+		xstudio::ui::qml::timeline
 		xstudio::ui::qml::viewport
 		xstudio::ui::viewport
 		xstudio::utility

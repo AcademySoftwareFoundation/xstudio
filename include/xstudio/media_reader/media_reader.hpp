@@ -32,6 +32,7 @@
 #include "xstudio/media_reader/audio_buffer.hpp"
 #include "xstudio/media_reader/frame_request_queue.hpp"
 #include "xstudio/media_reader/image_buffer.hpp"
+#include "xstudio/media_reader/pixel_info.hpp"
 #include "xstudio/plugin_manager/plugin_factory.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -53,7 +54,17 @@ namespace media_reader {
         [[nodiscard]] std::string name() const;
 
         virtual void update_preferences(const utility::JsonStore &prefs);
+
         virtual ImageBufPtr image(const media::AVFrameID &mptr);
+
+        virtual ImageBufPtr partial_image(
+            const media::AVFrameID &mptr,
+            ImageBufPtr &current_loaded,
+            const Imath::Box2f &viewport_visible_area,
+            const Imath::V2i &viewport_size_screen_pixels,
+            const Imath::M44f &image_transform) {
+            return image(mptr);
+        }
         virtual AudioBufPtr audio(const media::AVFrameID &mptr);
 
         virtual std::shared_ptr<thumbnail::ThumbnailBuffer>
@@ -62,12 +73,20 @@ namespace media_reader {
         [[nodiscard]] virtual uint8_t maximum_readers(const caf::uri &uri) const;
         [[nodiscard]] virtual bool prefer_sequential_access(const caf::uri &uri) const;
         [[nodiscard]] virtual bool can_decode_audio() const;
+        [[nodiscard]] virtual bool can_do_partial_frames() const;
         [[nodiscard]] virtual utility::Uuid plugin_uuid() const = 0;
+        [[nodiscard]] virtual ImageBuffer::PixelPickerFunc pixel_picker_func() const {
+            return &MediaReader::default_pixel_picker;
+        }
 
         virtual MRCertainty
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature);
 
       private:
+        static PixelInfo
+        default_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+            return PixelInfo(pixel_location);
+        }
         const std::string name_;
     };
 
@@ -132,6 +151,7 @@ namespace media_reader {
                         mb               = media_reader_.image(mptr);
                         if (mb) {
                             mb->set_media_key(mptr.key_);
+                            mb->set_pixel_picker_func(media_reader_.pixel_picker_func());
                             if (mb->audio_) {
                                 mb->audio_->set_media_key(mptr.key_);
                             }

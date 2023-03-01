@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/media_reader/image_buffer.hpp"
 
 using namespace xstudio;
 using namespace xstudio::plugin;
@@ -62,8 +63,9 @@ StandardPlugin::StandardPlugin(
             }
         },
         [=](ui::viewport::prepare_overlay_render_data_atom,
-            const media_reader::ImageBufPtr &image) -> utility::BlindDataObjectPtr {
-            return prepare_render_data(image);
+            const media_reader::ImageBufPtr &image,
+            const bool offscreen) -> utility::BlindDataObjectPtr {
+            return prepare_render_data(image, offscreen);
         },
         [=](ui::viewport::overlay_render_function_atom, const bool is_main_viewer)
             -> ViewportOverlayRendererPtr { return make_overlay_renderer(is_main_viewer); },
@@ -228,6 +230,13 @@ void StandardPlugin::push_annotation_to_bookmark(
 
         utility::request_receive<bool>(
             *sys, curr_bookmark.actor(), bookmark::add_annotation_atom_v, annotation);
+
+        // kick the playhead to rebroadcast the bookmarks for the current frame
+        auto playhead = caf::actor_cast<caf::actor>(active_viewport_playhead_);
+        if (playhead) {
+            anon_send(playhead, bookmark::get_bookmarks_atom_v);
+        }
+
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }

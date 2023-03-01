@@ -104,7 +104,7 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
             // while other read requests are not complete
             bool start = queues_empty();
             auto rp    = make_response_promise<MediaDetail>();
-            media_detail_request_queue_.emplace_back(_uri, key, rp);
+            media_detail_request_queue_.emplace(_uri, key, rp);
             if (start)
                 anon_send(
                     caf::actor_cast<caf::actor>(this),
@@ -117,7 +117,7 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
             const size_t size) -> result<thumbnail::ThumbnailBufferPtr> {
             bool start = queues_empty();
             auto rp    = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-            thumbnail_request_queue_.emplace_back(mptr, size, rp);
+            thumbnail_request_queue_.emplace(mptr, size, rp);
             if (start)
                 anon_send(
                     caf::actor_cast<caf::actor>(this),
@@ -136,7 +136,7 @@ void MediaDetailAndThumbnailReaderActor::process_get_thumbnail_queue() {
     num_detail_requests_since_thumbnail_request_ = 0;
 
     const auto thumbnail_request = thumbnail_request_queue_.front();
-    thumbnail_request_queue_.erase(thumbnail_request_queue_.begin());
+    thumbnail_request_queue_.pop();
 
     media::AVFrameID mptr = thumbnail_request.media_pointer_;
     const size_t size     = thumbnail_request.size_;
@@ -217,12 +217,12 @@ void MediaDetailAndThumbnailReaderActor::get_thumbnail_from_reader_plugin(
 
 void MediaDetailAndThumbnailReaderActor::process_get_media_detail_queue() {
 
-    if (!media_detail_request_queue_.size())
+    if (media_detail_request_queue_.empty())
         return;
 
     num_detail_requests_since_thumbnail_request_++;
     const auto media_detail_request = media_detail_request_queue_.front();
-    media_detail_request_queue_.erase(media_detail_request_queue_.begin());
+    media_detail_request_queue_.pop();
 
     const caf::uri _uri                         = media_detail_request.uri_;
     const caf::actor_addr key                   = media_detail_request.key_;

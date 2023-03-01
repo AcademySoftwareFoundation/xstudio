@@ -318,7 +318,13 @@ std::string::const_iterator AlphaBitmapFont::cursor_up_or_down(
     // a cursor
 
     Imath::V2f cursor_position_now = get_cursor_screen_position(
-        text, Imath::V2f(), wrap_width, text_size, just, line_spacing, current_cursor_pos);
+        text,
+        Imath::V2f(0.0f, 0.0f),
+        wrap_width,
+        text_size,
+        just,
+        line_spacing,
+        current_cursor_pos);
 
     float line_height = line_spacing * text_size * 2.0f / (1920.0f);
 
@@ -332,7 +338,13 @@ std::string::const_iterator AlphaBitmapFont::cursor_up_or_down(
     }
 
     return viewport_position_to_cursor(
-        try_cursor_position, text, Imath::V2f(), wrap_width, text_size, just, line_spacing);
+        try_cursor_position,
+        text,
+        Imath::V2f(0.0f, 0.0f),
+        wrap_width,
+        text_size,
+        just,
+        line_spacing);
 }
 
 Imath::V2f AlphaBitmapFont::get_cursor_screen_position(
@@ -379,7 +391,9 @@ Imath::V2f AlphaBitmapFont::get_cursor_screen_position(
         c++;
     }
 
-    return Imath::V2f(x, y);
+    // need this to get the cursor looking 'right' in the overlay
+    const float fudge = scale * glyph_pixel_size() * 0.05f;
+    return Imath::V2f(x, y + fudge);
 }
 
 

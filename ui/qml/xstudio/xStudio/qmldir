@@ -20,7 +20,6 @@ XsViewportTitleBar          1.0 ../bars/XsViewportTitleBar.qml
 
 XsDraggableItem             1.0 ../base/core/XsDraggableItem.qml
 XsModuleMenuBuilder         1.0 ../base/core/XsModuleMenuBuilder.qml
-XsPreferenceStore           1.0 ../base/core/XsPreferenceStore.qml
 XsSortFilterModel           1.0 ../base/core/XsSortFilterModel.qml
 XsTimer                     1.0 ../base/core/XsTimer.qml
 XsWindowStateSaver          1.0 ../base/core/XsWindowStateSaver.qml

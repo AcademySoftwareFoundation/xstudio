@@ -97,7 +97,8 @@ namespace ui {
 
             timebase::flicks predicted_playhead_position_at_next_video_refresh();
 
-            bool playing_ = {false};
+            bool playing_          = {false};
+            bool playing_forwards_ = {false};
 
             std::map<utility::Uuid, caf::actor> overlay_actors_;
 

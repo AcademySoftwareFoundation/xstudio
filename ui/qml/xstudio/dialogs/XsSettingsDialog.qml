@@ -15,10 +15,6 @@ XsDialogModal {
 
     centerOnOpen: true
 
-    onClosing: {
-        preferences.default_playhead_compare_mode.value = compareBox.currentText
-    }
-
     XsHotkeysDialog {
         id: hotkeys_dialog
     }
@@ -453,7 +449,7 @@ XsDialogModal {
                 id: compareBox
                 implicitWidth: 200
                 implicitHeight: 18
-                property var value_: preferences.default_playhead_compare_mode.value
+
                 model: ListModel {
                     id: model
                     ListElement { text: "String" }
@@ -463,11 +459,22 @@ XsDialogModal {
                     //ListElement { text: "Grid" }
                     ListElement { text: "Off" }
                 }
-                onValue_Changed: {
-                    currentIndex = find(value_)
+                currentIndex: -1
+
+                onCurrentIndexChanged: {
+                    if(currentIndex != -1)
+                        preferences.default_playhead_compare_mode.value = compareBox.model.get(currentIndex).text
+                }
+                Component.onCompleted: {
+                    currentIndex = compareBox.find(preferences.default_playhead_compare_mode.value)
+                }
+                Connections {
+                    target: preferences.default_playhead_compare_mode
+                    function onValueChanged() {
+                        compareBox.currentIndex = compareBox.find(preferences.default_playhead_compare_mode.value)
+                    }
                 }
             }
-
         }
         DialogButtonBox {
 

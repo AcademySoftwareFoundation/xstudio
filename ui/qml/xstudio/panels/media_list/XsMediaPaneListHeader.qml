@@ -6,7 +6,7 @@ import QtGraphicalEffects 1.12
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
+import xstudio.qml.helpers 1.0
 
 Rectangle {
 
@@ -17,15 +17,16 @@ Rectangle {
     property var item_height: thumb_size*9/16
     property int media_list_idx: 0
     property string row_height_property_name: "pane" + media_list_idx + "_row_height"
-    property var thumb_size: media_pane_column_sizes.properties.value
+    property alias thumb_size: media_list_thumnail_size.value
     property var selection_indicator_width: 20
     property var parent_window_name: "main_window"
     property var filename_left: thumb_size + selection_indicator_width
     property var min_thumb_size: 20
 
-    XsPreferenceSet {
-        id: media_pane_column_sizes
-        preferencePath: "/ui/qml/media_list_thumnail_size"
+    XsModelProperty {
+        id: media_list_thumnail_size
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/media_list_thumnail_size", "pathRole")
     }
 
     Rectangle {
@@ -68,7 +69,7 @@ Rectangle {
     }
 
     MouseArea {
-        
+
         id: dragArea
         anchors.fill: parent
         hoverEnabled: true
@@ -88,7 +89,6 @@ Rectangle {
             if (pressed && underMouseIdx == 1) {
                 var new_size = drag_start_thumb_size + (mouseX-drag_start_x)
                 thumb_size = new_size < min_thumb_size ? min_thumb_size : new_size
-                media_pane_column_sizes.properties.value = thumb_size
             } else if (!pressed) {
                 var divider_pos = thumb_size + selection_indicator_width
                 if (Math.abs(mouseX-divider_pos) < 5) {

@@ -18,13 +18,12 @@ import QtQml 2.14
 //------------------------------------------------------------------------------
 import xstudio.qml.viewport 1.0
 import xstudio.qml.playlist 1.0
-import xstudio.qml.global_store 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
-import xstudio.qml.properties 1.0
 import xstudio.qml.session 1.0
 import xstudio.qml.uuid 1.0
 import xstudio.qml.module 1.0
+import xstudio.qml.helpers 1.0
 
 //------------------------------------------------------------------------------
 // END COMMENT OUT WHEN WORKING INSIDE Qt Creator
@@ -48,7 +47,7 @@ Rectangle {
     property alias player_prefs: player_prefs
     property bool is_full_screen: { parent_win ? parent_win.visibility == Window.FullScreen : false }
     property var playlist_panel
-    property string preferencePath
+    property string preferencePath: ""
     property bool is_presentation_mode: false
 
     // quick fix for v1.0.1
@@ -65,6 +64,12 @@ Rectangle {
     property bool menu_bar_visible: (controlsVisible || !is_presentation_mode) ? player_prefs.properties.menuBarVisible : 0
 
     property bool is_main_window
+
+    XsModelNestedPropertyMap {
+        id: player_prefs
+        index: app_window.globalStoreModel.search_recursive(playerWidget.preferencePath, "pathRole")
+        property alias properties: player_prefs.values
+    }
 
     function toggleFullscreen() {
         parent_win.toggleFullscreen()
@@ -179,11 +184,6 @@ Rectangle {
         }
     }
 
-    XsPreferenceSet {
-        id: player_prefs
-        preferencePath: playerWidget.preferencePath
-    }
-
     ColumnLayout {
         spacing: 0
         anchors.fill: parent
@@ -264,7 +264,7 @@ Rectangle {
                         NumberAnimation { duration: playerWidget.doTrayAnim?200:0 }
                     }
                 }
-        
+
 
             }
 

@@ -26,6 +26,7 @@ T.ComboBox { id: widget
     property int displayItemCount: 10
     property bool wasEditable: false
     property alias popupOptions: popupOptions
+    property bool downArrowVisible: true
 
     onHoveredChanged: {
         downArrow.requestPaint()
@@ -115,6 +116,7 @@ T.ComboBox { id: widget
         height: 8
         contextType: "2d"
         opacity: widget.enabled ? 1: 0.3
+        visible: downArrowVisible
 
         Connections {
             target: widget
@@ -196,6 +198,8 @@ T.ComboBox { id: widget
             focus = false
             downArrow.requestPaint()
             widget.editable = widget.wasEditable
+            // ensure active focus is passed back to viewport
+            sessionWidget.playerWidget.viewport.forceActiveFocus()
         }
     }
 

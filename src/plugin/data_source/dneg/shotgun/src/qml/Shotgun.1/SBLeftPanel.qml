@@ -20,12 +20,10 @@ Rectangle{ id: leftDiv
     property var projectModel: null
     property alias projectCurrentIndex: projComboBox.currentIndex
 
-    property string currentCategory: "Playlists"
-    property string currentCategoryClass: currentCategory.replace(' Tree','')
-    property bool treeMode: currentCategory.includes(" Tree")
-
     property bool liveLinkProjectChange: false
     property var authenticateFunc: null
+
+    property var treeMode: null
 
     property var authorModel: null
     property var siteModel: null
@@ -96,10 +94,13 @@ Rectangle{ id: leftDiv
     property var onDiskFilterIndex: null
 
     property var lastQuery: null
+    property var categoryLastMode: {"Versions": "Versions Tree", "Notes": "Notes"}
 
     property var presetsModel: presetsDiv.presetsModel
     property var searchPresetsView: presetsDiv.searchPresetsView
     property alias presetsDiv: presetsDiv
+    property var clearFilter: null
+
 
     color: "transparent"
 
@@ -114,6 +115,8 @@ Rectangle{ id: leftDiv
 "Is Hero",
 "Latest Version",
 "Lookback",
+"Newer Version",
+"Older Version",
 "On Disk",
 "Order By",
 "Pipeline Status",
@@ -143,6 +146,8 @@ Rectangle{ id: leftDiv
 "Is Hero",
 "Latest Version",
 "Lookback",
+"Newer Version",
+"Older Version",
 "On Disk",
 "Order By",
 "Pipeline Status",
@@ -245,7 +250,7 @@ Rectangle{ id: leftDiv
             searchPresetsView = presetsDiv.searchPresetsView
         }
 
-        if( !["Shots","Notes"].includes(currentCategoryClass) ) tabBar.currentIndex = 0
+        if( !["Versions","Notes"].includes(currentCategoryClass) ) tabBar.currentIndex = 0
     }
 
     property bool isCollapsed: false
@@ -325,7 +330,7 @@ Rectangle{ id: leftDiv
         let override  = []
         let query = null
 
-        if(presetsModel &&  filterViewModel && searchPresetsView.currentIndex != -1) {
+        if(presetsModel &&  filterViewModel && presetsModel.model.activePreset != -1) {
 
             if(pipelineStepFilterIndex != undefined && pipelineStepFilterIndex != -1) {
                 override.push({"term": "Pipeline Step",  "value": stepModel.get(pipelineStepFilterIndex, "nameRole"), "enabled": true})
@@ -335,7 +340,7 @@ Rectangle{ id: leftDiv
                  override.push({"term": "On Disk",  "value": onDiskModel.get(onDiskFilterIndex, "nameRole"), "enabled": true})
             }
 
-            query = mergeQueriesFunc(presetsModel.get(searchPresetsView.currentIndex, "jsonRole"), filterViewModel.get(0, "jsonRole"))
+            query = mergeQueriesFunc(presetsModel.get(presetsModel.model.activePreset, "jsonRole"), filterViewModel.get(0, "jsonRole"))
 
             if(override.length) {
                 query = mergeQueriesFunc(query, {"queries":override})
@@ -351,7 +356,7 @@ Rectangle{ id: leftDiv
             if(query !== null) {
                 lastQuery = query
 
-                let preset_index = searchPresetsView.currentIndex
+                let preset_index = presetsModel.model.activePreset
                 busyQuery(preset_index, true)
 
                 Future.promise(
@@ -377,11 +382,315 @@ Rectangle{ id: leftDiv
 
     function clearResults() {
         rightDiv.searchResultsViewModel.sourceModel.clear()
-        // rightDiv.searchPresetsView.clearLoaded()
         rightDiv.clearFilter()
         presetSelectionModel.clear()
         presetTreeSelectionModel.clear()
         searchPresetsView.currentIndex = -1
+    }
+
+    function updateVersionHistory(shot, twigname, pstep, twigtype) {
+        let mymodel = searchTreePresetsViewModel
+        let preset_id = mymodel.search(menuHistory)
+
+        if(preset_id == -1) {
+
+            mymodel.insert(
+                mymodel.rowCount(),
+                mymodel.index(mymodel.rowCount(), 0),
+                {
+                    "expanded": false,
+                    "name": menuHistory,
+                    "queries": [
+                        {
+                            "enabled": (pstep !== undefined && pstep !== ""),
+                            "livelink": false,
+                            "dynamic": true,
+                            "term": "Pipeline Step",
+                            "value": pstep ? pstep :""
+                        },
+                        {
+                            "enabled": true,
+                            "term": "Shot",
+                            "dynamic": true,
+                            "value": shot
+                        },
+                        {
+                            "enabled": (twigtype !== undefined && twigtype !== ""),
+                            "livelink": !(twigtype !== undefined && twigtype !== ""),
+                            "dynamic": true,
+                            "term": "Twig Type",
+                            "value": twigtype ? twigtype :""
+                        },
+                        {
+                            "enabled": true,
+                            "livelink": false,
+                            "dynamic": true,
+                            "term": "Twig Name",
+                            "value": "^"+twigname+"$"
+                        },
+                        {
+                            "enabled": false,
+                            "term": "Latest Version",
+                            "value": "True"
+                        },
+                        {
+                            "enabled": false,
+                            "term": "Sent To Client",
+                            "value": "True"
+                        },
+                        {
+                            "enabled": true,
+                            "term": "Flag Media",
+                            "value": "Orange"
+                        }
+                    ]
+                }
+            )
+            preset_id = mymodel.rowCount()-1
+        } else {
+            // update shot,,,
+            // will break if user fiddles...
+            let pindex = mymodel.index(preset_id,0)
+            mymodel.set(0, shot, "argRole", pindex);
+            mymodel.set(1, pstep ? pstep :"", "argRole", pindex);
+            mymodel.set(2, twigtype ? twigtype :"", "argRole", pindex);
+            mymodel.set(3, "^"+twigname+"$", "argRole", pindex);
+        }
+
+        if(mymodel.activePreset == preset_id) {
+            executeQuery()
+        } else {
+            mymodel.activePreset = preset_id
+        }
+
+        treeTab.selectItem(
+            sequenceTreeModel.search_recursive(
+                shot,
+                "nameRole"
+            )
+        )
+    }
+
+    function updatePreset(type, name, id, mode) {
+        let preset_id = -1;
+
+        if(mode == "Versions" ) {
+            preset_id = searchTreePresetsViewModel.search(menuLatest)
+        } else if(mode == "Notes" ) {
+            preset_id = searchTreePresetsViewModel.search("All")
+        }
+
+        if(preset_id != -1) {
+            setPreset(type, name, id, preset_id)
+            if(searchTreePresetsViewModel.activePreset == preset_id) {
+                searchTreePresetsViewModel.activePreset = -1
+            }
+        } else {
+            if(mode == "Versions" ) {
+                searchTreePresetsViewModel.insert(
+                    searchTreePresetsViewModel.rowCount(),
+                    searchTreePresetsViewModel.index(searchTreePresetsViewModel.rowCount(), 0),
+                    {
+                        "expanded": false,
+                        "name": menuLatest,
+                        "queries": [
+                            {
+                                "enabled": true,
+                                "term": type == "Shot" ? "Shot" : "Sequence",
+                                "dynamic": true,
+                                "value": name
+                            },
+                            {
+                                "enabled": true,
+                                "term": "Latest Version",
+                                "value": "True"
+                            },
+                            {
+                              "enabled": true,
+                              "livelink": false,
+                              "term": "Twig Type",
+                              "value": "scan"
+                            },
+                            {
+                              "enabled": true,
+                              "livelink": false,
+                              "term": "Twig Type",
+                              "value": "render/element"
+                            },
+                            {
+                              "enabled": true,
+                              "livelink": false,
+                              "term": "Twig Type",
+                              "value": "render/out"
+                            },
+                            {
+                              "enabled": true,
+                              "livelink": false,
+                              "term": "Twig Type",
+                              "value": "render/playblast"
+                            },
+                            {
+                              "enabled": true,
+                              "livelink": false,
+                              "term": "Twig Type",
+                              "value": "render/playblast/working"
+                            },
+                            {
+                                "enabled": true,
+                                "term": "Flag Media",
+                                "value": "Orange"
+                            }
+                        ]
+                    }
+                )
+            } else if(mode == "Notes") {
+                searchTreePresetsViewModel.insert(
+                    searchTreePresetsViewModel.rowCount(),
+                    searchTreePresetsViewModel.index(searchTreePresetsViewModel.rowCount(), 0),
+                    {
+                        "expanded": false,
+                        "name": "All",
+                        "queries": [
+                            {
+                                "enabled": true,
+                                "term": type == "Shot" ? "Shot" : "Sequence",
+                                "dynamic": true,
+                                "value": name
+                            }
+                        ]
+                    }
+                )
+            }
+            preset_id = searchTreePresetsViewModel.rowCount()-1
+        }
+
+        searchTreePresetsViewModel.activePreset = preset_id
+        treeTab.selectItem(
+            sequenceTreeModel.search_recursive(
+                name,
+                "nameRole"
+            )
+        )
+    }
+
+    function setPreset(type, name, id, row) {
+        let index = searchTreePresetsViewModel.index(row, 0)
+        let term = searchTreePresetsViewModel.get(0, index, "termRole")
+        let live = searchTreePresetsViewModel.get(0, index, "liveLinkRole")
+
+        if(!["Shot","Sequence"].includes(term))
+            return
+
+        if(live == undefined)
+            live = false
+
+        if(term != type && !live) {
+            searchTreePresetsViewModel.set(0, type, "termRole", index);
+            searchTreePresetsViewModel.set(0, name, "argRole", index);
+            searchTreePresetsViewModel.set(0, false, "enabledRole", index);
+            searchTreePresetsViewModel.set(0, true, "enabledRole", index);
+        } else {
+            searchTreePresetsViewModel.set(0, name, "argRole", index);
+        }
+
+        // when changing preset make sure twig is set as well..
+        let title = searchTreePresetsViewModel.get(index, "nameRole")
+        if(title != menuHistory) {
+            let twig_row = searchTreePresetsViewModel.search(menuHistory)
+            if(twig_row != -1)
+                setPreset(type, name, id, twig_row)
+        }
+    }
+
+    function selectSearchedIndex(clickedIndex){
+
+        searchTextField.text=""
+        if(currentCategory == "Notes" ){
+            let mymodel = notePresetsModel
+            mymodel.clearLoaded()
+            mymodel.insert(
+                mymodel.rowCount(),
+                mymodel.index(mymodel.rowCount(),0),
+                {
+                    "expanded": false,
+                    "name": shotSearchFilterModel.get(clickedIndex, "nameRole") + " Notes",
+                    "queries": [
+                        {
+                            "enabled": true,
+                            "term": "Shot",
+                            "value": shotSearchFilterModel.get(clickedIndex, "nameRole")
+                        }
+                    ]
+                }
+            )
+            mymodel.activePreset = mymodel.rowCount()-1
+        }
+        else if(currentCategory == "Versions" ) {
+            let mymodel = shotPresetsModel
+            mymodel.clearLoaded()
+            mymodel.insert(
+                mymodel.rowCount(),
+                mymodel.index(mymodel.rowCount(),0),
+                {
+                  "expanded": false,
+                  "name": "Shot Search - " + shotSearchFilterModel.get(clickedIndex, "nameRole"),
+
+                    "queries": [
+                        {
+                            "enabled": true,
+                            "term": "Shot",
+                            "value": shotSearchFilterModel.get(clickedIndex, "nameRole")
+                        },
+                        {
+                            "enabled": true,
+                            "term": "Latest Version",
+                            "value": "True"
+                        },
+                        {
+                          "enabled": true,
+                          "livelink": false,
+                          "term": "Twig Type",
+                          "value": "scan"
+                        },
+                        {
+                          "enabled": true,
+                          "livelink": false,
+                          "term": "Twig Type",
+                          "value": "render/element"
+                        },
+                        {
+                          "enabled": true,
+                          "livelink": false,
+                          "term": "Twig Type",
+                          "value": "render/out"
+                        },
+                        {
+                          "enabled": true,
+                          "livelink": false,
+                          "term": "Twig Type",
+                          "value": "render/playblast"
+                        },
+                        {
+                          "enabled": true,
+                          "livelink": false,
+                          "term": "Twig Type",
+                          "value": "render/playblast/working"
+                        }
+                    ]
+                }
+            )
+            mymodel.activePreset = mymodel.rowCount()-1
+        } else if(currentCategory == "Versions Tree" || currentCategory == "Notes Tree") {
+            // console.log(nameRole, typeRole, idRole)
+            treeTab.selectItem(
+                sequenceTreeModel.search_recursive(
+                    shotSearchFilterModel.get(clickedIndex, "idRole"),
+                    "idRole"
+                )
+            )
+        }
+
+        searchTextField.focus = false //closes list
     }
 
     ColumnLayout { id: leftView
@@ -441,7 +750,7 @@ Rectangle{ id: leftDiv
                         onFocusChanged: if(!focus) accepted()
                         onCurrentIndexChanged: {
                             let pid = projectModel.get(currentIndex, "idRole")
-                            project_id_pref.properties.value = pid
+                            project_id_preference.value = pid
 
                             if(sequenceModelFunc) {
                                 sequenceModel = sequenceModelFunc(pid)
@@ -462,7 +771,6 @@ Rectangle{ id: leftDiv
                                 playlistModel = playlistModelFunc(pid)
                             }
 
-                            rightDiv.clearFilter()
                             // clear loaded and selected presets.
                             projectChanged(pid)
 
@@ -562,13 +870,12 @@ Rectangle{ id: leftDiv
                 Repeater { id: categoriesRep
                     width: parent.width
                     height: parent.height
-                    model: ["Playlists", "Shots", "Reference", "Notes", "Menu Setup"]
+                    model: ["Playlists", "Versions", "Reference", "Notes", "Menu Setup"]
 
                     XsButton{ id: categoryButton
                         Layout.fillHeight: true
                         text: ""
                         isActive: currentCategoryClass === modelData
-                        enabled: text !== "Edits"
                         hoverEnabled: enabled
 
                         ToolTip {
@@ -595,7 +902,7 @@ Rectangle{ id: leftDiv
                             anchors.bottomMargin: (model.index==4)? (categoryButton.height-height)/2 : framePadding/2
                             width: 20
                             height: width
-                            source: //["Playlists", "Shots", "Reference", "Notes", "Menu Setup"]
+                            source: //["Playlists", "Versions", "Reference", "Notes", "Menu Setup"]
                                 if(model.index==0) "qrc:///feather_icons/list.svg"
                                 else if(model.index==1) "qrc:///feather_icons/film.svg"
                                 else if(model.index==2) "qrc:///feather_icons/image.svg"
@@ -613,7 +920,13 @@ Rectangle{ id: leftDiv
 
                         onClicked: {
                             shotgunBrowser.categorySwitchedOnClick= true
-                            currentCategory = modelData
+                            if(modelData in categoryLastMode) {
+                                currentCategory = categoryLastMode[modelData]
+                            } else {
+                                currentCategory = modelData
+                                categoryLastMode[currentCategory] = currentCategory
+                            }
+                            // context_pref2.value = currentCategory
                             rightDiv.selectionModel.resetSelection(true)
                         }
 
@@ -639,7 +952,7 @@ Rectangle{ id: leftDiv
             radius: frameRadius
             border.color: frameColor
             border.width: frameWidth
-            visible: ["Shots"].includes(currentCategoryClass) || ( isTreeVisible && ["Shots","Notes"].includes(currentCategoryClass) )
+            visible: ["Versions"].includes(currentCategoryClass) || ( isTreeVisible && ["Versions","Notes"].includes(currentCategoryClass) )
 
             property bool isTreeVisible: true
 
@@ -658,7 +971,7 @@ Rectangle{ id: leftDiv
                     contentHeight: buttonsDiv.isTreeVisible? itemHeight : 0
 
                     XsTabButton {
-                        text: qsTr("Presets")
+                        text: qsTr("Find")
                         isActive: tabBar.currentIndex == 0
                         width: tabBar.width/2-frameWidth
                     }
@@ -678,13 +991,40 @@ Rectangle{ id: leftDiv
 
                     XsTextField {
                         id: searchTextField
-                        enabled: !(["Notes"].includes(currentCategoryClass) && placeholderText=="Shot Search")
+                        // enabled: !["Notes"].includes(currentCategoryClass)
                         width: parent.width
                         height: itemHeight
                         font.pixelSize: fontSize*1.2
-                        placeholderText: tabBar.currentIndex==0?currentCategoryClass=="Reference"?"Reference Search" : "Shot Search" : "Tree Search"
-                        onAccepted: focus = false
+                        placeholderText: "Search"
+                        onAccepted: {
+                            focus = false
+                            if(shotSearchFilterModel.count>0) {
+                                if(searchShotListPopup.currentIndex==-1) searchShotListPopup.currentIndex=0
+                                searchShotListPopup.focus = true
+                            }
+                        }
                         onTextEdited: shotSearchFilterModel.setFilterWildcard(text)
+
+                        onFocusChanged: {
+                            if(focus) searchShotListPopup.currentIndex=-1
+                        }
+                        Keys.onPressed: (event)=> {
+                            if (event.key == Qt.Key_Down) {
+                                if(shotSearchFilterModel.count>0) {
+                                    if(searchShotListPopup.currentIndex===-1) searchShotListPopup.currentIndex=0
+                                    else if(searchShotListPopup.currentIndex!==-1) searchShotListPopup.currentIndex+=1
+                                    searchShotListPopup.focus = true
+                                }
+                            }
+                            else if (event.key == Qt.Key_Up) {
+                                if(shotSearchFilterModel.count>0) {
+                                    if(searchShotListPopup.currentIndex!==-1) {
+                                        searchShotListPopup.currentIndex-=1
+                                        searchShotListPopup.focus = true
+                                    }
+                                }
+                            }
+                        }
                     }
                     XsButton{
                         id: clearButton
@@ -714,7 +1054,7 @@ Rectangle{ id: leftDiv
                 Rectangle{ anchors.fill: parent; color: "transparent";
                 border.color: Qt.lighter(frameColor, 1.3); border.width: frameWidth }
 
-                visible: searchTextField.text.length !== 0 && searchTextField.activeFocus
+                visible: searchTextField.text.length !== 0
                 clip: true
                 orientation: ListView.Vertical
                 snapMode: ListView.SnapToItem
@@ -722,9 +1062,6 @@ Rectangle{ id: leftDiv
 
                 x: searchField.x + framePadding
                 y: searchField.y + searchField.height + framePadding
-                // anchors.horizontalCenter: searchField.horizontalCenter
-                // anchors.top: searchField.bottom
-                // anchors.topMargin: -framePadding
                 width: searchField.width
                 height: searchModelCount>=12? searchItemHeight*12 : searchItemHeight*searchModelCount
                 ScrollBar.vertical: XsScrollBar { id: searchScrollBar; padding: 2}//; thumbWidth: 8}
@@ -735,18 +1072,32 @@ Rectangle{ id: leftDiv
                     }
                 }
 
+                Keys.onUpPressed: {
+                    if(currentIndex!=-1) currentIndex-=1
+
+                    if(currentIndex==-1) searchTextField.focus=true
+                }
+                Keys.onDownPressed: {
+                    if(currentIndex!=model.count-1) currentIndex+=1
+                }
+                Keys.onPressed: (event)=> {
+                    if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
+                        selectSearchedIndex(currentIndex)
+                    }
+                }
+
                 delegate: Rectangle{
                     property bool isHovered: mouseArea.containsMouse
                     width: searchShotListPopup.width
                     height: searchShotListPopup.searchItemHeight
-                    color: isHovered? Qt.darker(itemColorActive, 2.75) : Qt.darker(palette.base, 1.5)
+                    color: searchShotListPopup.currentIndex==index? Qt.darker(itemColorActive, 2.75) : Qt.darker(palette.base, 1.5)
 
                     Text{
                         text: nameRole
                         font.pixelSize: fontSize
                         font.family: XsStyle.fontFamily
                         font.weight: Font.Normal
-                        color: isHovered? textColorActive: textColorNormal
+                        color: searchShotListPopup.currentIndex==index? textColorActive: textColorNormal
                         elide: Text.ElideRight
                         width: parent.width
                         height: parent.height
@@ -759,90 +1110,13 @@ Rectangle{ id: leftDiv
 
                     MouseArea{id: mouseArea; anchors.fill: parent; hoverEnabled: true
 
-                        onClicked: {
-                            searchTextField.text=""
-                            if(currentCategory == "Notes" ){
-                                let mymodel = notePresetsModel
-                                mymodel.clearLoaded()
-                                mymodel.insert(
-                                    mymodel.rowCount(),
-                                    mymodel.index(mymodel.rowCount(),0),
-                                    {
-                                        "expanded": false,
-                                        "name": nameRole + " Notes",
-                                        "queries": [
-                                            {
-                                                "enabled": true,
-                                                "term": "Shot",
-                                                "value": nameRole
-                                            }
-                                        ]
-                                    }
-                                )
-                                mymodel.activePreset = mymodel.rowCount()-1
-                            }
-                            else{
-                                let mymodel = shotPresetsModel
-                                mymodel.clearLoaded()
-                                mymodel.insert(
-                                    mymodel.rowCount(),
-                                    mymodel.index(mymodel.rowCount(),0),
-                                    {
-                                      "expanded": false,
-                                      "name": "Shot Search - " + nameRole,
+                        onClicked: selectSearchedIndex(index)
 
-                                        "queries": [
-                                            {
-                                                "enabled": true,
-                                                "term": "Shot",
-                                                "value": nameRole
-                                            },
-                                            {
-                                                "enabled": true,
-                                                "term": "Latest Version",
-                                                "value": "True"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "scan"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/element"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/out"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/playblast"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/playblast/working"
-                                            }
-                                        ]
-                                    }
-                                )
-                                mymodel.activePreset = mymodel.rowCount()-1
-                            }
-
-                            searchTextField.focus = false //closes list
-                        }
+                        onEntered: searchShotListPopup.currentIndex=index
                     }
                 }
             }
+
 
         }
 
@@ -857,9 +1131,12 @@ Rectangle{ id: leftDiv
                 } else {
                     currentCategory = currentCategoryClass
                 }
+                categoryLastMode[currentCategoryClass] = currentCategory
+                // context_pref2.value = currentCategory
             }
 
             LeftPresetView{id: presetsDiv
+                isActiveView: !treeMode
                 backendModel: searchPresetsViewModel
                 onBackendModelChanged: {
                     if(searchPresetsViewModel) {
@@ -872,128 +1149,53 @@ Rectangle{ id: leftDiv
             XsSplitView { id: leftAndRightDivs
                 orientation: Qt.Vertical
 
+                Connections {
+                    target: searchTreePresetsViewModel
+                    function onActiveSeqShotChanged() {
+                        if(treeMode) {
+                            let index = sequenceTreeModel.search_recursive(searchTreePresetsViewModel.activeSeqShot, "nameRole")
+                            treeTab.selectItem(index)
+                        }
+                    }
+                }
+
                 LeftTreeView{id: treeTab
                     SplitView.minimumWidth: parent.width
-                    SplitView.minimumHeight: parent.height/2
+                    SplitView.minimumHeight: parent.height/8
                     SplitView.fillHeight: true
 
                     onClicked: {
-                        if(searchTreePresetsViewModel.activePreset != -1) {
+                        if(searchTreePresetsViewModel.activePreset == -1) {
+                            updatePreset(type, name, id, currentCategoryClass)
+                        } else {
                             let index = searchTreePresetsViewModel.index(searchTreePresetsViewModel.activePreset,0)
-                            let term = searchTreePresetsViewModel.get(0,index,"termRole")
-                            searchTreePresetsViewModel.set(0, name, "argRole", index);
-                            if(term != type) {
-                                searchTreePresetsViewModel.set(0, type, "termRole", index);
-                                searchTreePresetsViewModel.set(0, false, "enabledRole", index);
-                                searchTreePresetsViewModel.set(0, true, "enabledRole", index);
+                            let title = searchTreePresetsViewModel.get(index, "nameRole")
+                            let arg = searchTreePresetsViewModel.get(0, index, "argRole")
+                            let term = searchTreePresetsViewModel.get(0, index, "termRole")
+
+                            if(!["Shot","Sequence"].includes(term)) {
+                                updatePreset(type, name, id, currentCategoryClass)
+                            } else if(arg != name) {
+                                updatePreset(type, name, id, currentCategoryClass)
+                            } else {
+                                setPreset(type, name, id, searchTreePresetsViewModel.activePreset)
                             }
                         }
                     }
 
                     onDoubleClicked: {
-                        // find / insert all versions
-                        // needs to handle sequence as well as shot..
-
-                        let preset_id = searchTreePresetsViewModel.search("All Versions")
-                        if(preset_id == -1) {
-                            if(currentCategoryClass == "Shots" ) {
-                                searchTreePresetsViewModel.insert(
-                                    searchTreePresetsViewModel.rowCount(),
-                                    searchTreePresetsViewModel.index(searchTreePresetsViewModel.rowCount(), 0),
-                                    {
-                                        "expanded": false,
-                                        "name": "All Versions",
-                                        "queries": [
-                                            {
-                                                "enabled": true,
-                                                "term": type == "Shot" ? "Shot" : "Sequence",
-                                                "dynamic": true,
-                                                "value": name
-                                            },
-                                            {
-                                                "enabled": true,
-                                                "term": "Latest Version",
-                                                "value": "True"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "scan"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/element"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/out"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/playblast"
-                                            },
-                                            {
-                                              "enabled": true,
-                                              "livelink": false,
-                                              "term": "Twig Type",
-                                              "value": "render/playblast/working"
-                                            },
-                                            {
-                                                "enabled": true,
-                                                "term": "Flag Media",
-                                                "value": "Orange"
-                                            }
-                                        ]
-                                    }
-                                )
-                            } else if(currentCategoryClass == "Notes") {
-                                searchTreePresetsViewModel.insert(
-                                    searchTreePresetsViewModel.rowCount(),
-                                    searchTreePresetsViewModel.index(searchTreePresetsViewModel.rowCount(), 0),
-                                    {
-                                        "expanded": false,
-                                        "name": "All Versions",
-                                        "queries": [
-                                            {
-                                                "enabled": true,
-                                                "term": type == "Shot" ? "Shot" : "Sequence",
-                                                "dynamic": true,
-                                                "value": name
-                                            }
-                                        ]
-                                    }
-                                )
-                            }
-                            preset_id = searchTreePresetsViewModel.rowCount()-1
-                        } else {
-                            // will break if user fiddles...
-                            searchTreePresetsViewModel.set(0, type, "termRole", searchTreePresetsViewModel.index(preset_id,0));
-                            searchTreePresetsViewModel.set(0, name, "argRole", searchTreePresetsViewModel.index(preset_id,0));
-                        }
-                        searchTreePresetsViewModel.activePreset = preset_id
+                        updatePreset(type, name, id, currentCategoryClass)
                     }
-
-                    // SplitView.preferredHeight:  SplitView.minimumHeight
-
-                    // backendModel: sequenceTreeModel
                 }
                 LeftPresetView{id: presetsMiniDiv
                     SplitView.minimumWidth: parent.width
-                    SplitView.minimumHeight: (itemHeight + framePadding*2) + (presetTitleHeight + presetTitleHeight/2 + itemSpacing)
+                    SplitView.minimumHeight: (itemHeight * 2)  + (framePadding*2) + itemSpacing
                     SplitView.preferredHeight: (itemHeight + framePadding*2) + (presetTitleHeight+itemSpacing)*2.5
-
+                    isActiveView: treeMode
                     backendModel: searchTreePresetsViewModel
                     onBackendModelChanged: {
                         if(searchTreePresetsViewModel) {
                             presetsMiniDiv.searchPresetsView.currentIndex = searchTreePresetsViewModel.activePreset
-                            // console.log("onBackendModelChanged", searchTreePresetsViewModel, searchTreePresetsViewModel.activePreset)
                         }
                     }
                 }

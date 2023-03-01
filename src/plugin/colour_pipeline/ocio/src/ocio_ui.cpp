@@ -13,14 +13,15 @@ void OCIOColourPipeline::media_source_changed(
 
     const bool need_ui_update =
         not current_source_uuid_ or
-        old_media_param.ocio_config_name != new_media_param.ocio_config_name;
+        current_source_media_params_.ocio_config_name != new_media_param.ocio_config_name;
 
     if (need_ui_update) {
         populate_ui(new_media_param);
     }
 
-    current_source_uuid_ = source_uuid;
-    current_config_name_ = new_media_param.ocio_config_name;
+    current_source_uuid_         = source_uuid;
+    current_config_name_         = new_media_param.ocio_config_name;
+    current_source_media_params_ = new_media_param;
 
     // Extract the input colorspace as detected by the plugin and update the UI
     std::string detected_cs;
@@ -154,11 +155,20 @@ void OCIOColourPipeline::screen_changed(
     const std::string monitor_name = manufacturer + " " + model;
     const std::string display      = default_display(media_param, monitor_name);
 
+    auto menu_populated = [](module::StringChoiceAttribute *attr) {
+        return attr->get_role_data<std::vector<std::string>>(module::Attribute::StringChoices)
+                   .size() > 0;
+    };
+
     if (is_primary_viewer) {
-        display_->set_value(display);
+        if (menu_populated(display_)) {
+            display_->set_value(display);
+        }
         main_monitor_name_ = monitor_name;
     } else {
-        popout_viewer_display_->set_value(display);
+        if (menu_populated(popout_viewer_display_)) {
+            popout_viewer_display_->set_value(display);
+        }
         popout_monitor_name_ = monitor_name;
     }
 }

@@ -6,7 +6,6 @@ import QtQuick.Layouts 1.3
 import xStudio 1.1
 
 import xstudio.qml.module 1.0
-import xstudio.qml.properties 1.0
 
 XsDialogModal {
     id: dialog
@@ -22,10 +21,12 @@ XsDialogModal {
     property var siteCurrentIndex: -1
     property var projectModel: null
     property var projectCurrentIndex: -1
+    property var playlistTypeModel: null
 
 
     property alias playlist_name: playlist_name_.text
     property alias site_name: siteCB.currentText
+    property alias playlist_type: ptype.currentText
     property int project_id: project.currentIndex !==-1 ? data_source.termModels.projectModel.get(project.currentIndex, "idRole") : -1
 
     onVisibleChanged: {
@@ -54,7 +55,7 @@ XsDialogModal {
             XsComboBox {
                 id: project
                 Layout.fillWidth: true
-                Layout.preferredHeight: project_label.height*1.5
+                Layout.preferredHeight: project_label.height*2
                 Layout.rightMargin: 6
 
                 model: projectModel
@@ -76,7 +77,7 @@ XsDialogModal {
             XsComboBox {
                 id: siteCB
                 Layout.fillWidth: true
-                Layout.preferredHeight: project_label.height*1.5
+                Layout.preferredHeight: project_label.height*2
                 Layout.rightMargin: 6
 
                 font.pixelSize: XsStyle.sessionBarFontSize
@@ -87,6 +88,35 @@ XsDialogModal {
                 currentIndex: siteCurrentIndex
                 textRole: "nameRole"
                 valueRole: "nameRole"
+            }
+
+            XsLabel {
+                id: ptype_label
+                text: "Type : "
+                Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
+            }
+            XsComboBox {
+                id: ptype
+                Layout.fillWidth: true
+                Layout.preferredHeight: ptype_label.height*2
+                Layout.rightMargin: 6
+
+                model: playlistTypeModel
+
+                onModelChanged: {
+                    if(model)
+                        currentIndex = model.search("Dailies", "nameRole")
+                }
+
+                currentIndex: -1
+                textRole: "nameRole"
+                valueRole: "nameRole"
+
+                font.pixelSize: XsStyle.sessionBarFontSize
+                font.family: XsStyle.controlTitleFontFamily
+                font.hintingPreference: Font.PreferNoHinting
+                selectTextByMouse: true
+                editable: true
             }
 
 

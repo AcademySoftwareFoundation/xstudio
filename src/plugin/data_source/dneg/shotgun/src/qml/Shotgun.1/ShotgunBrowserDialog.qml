@@ -145,8 +145,9 @@ XsWindow { id: shotgunBrowser
     property real fontSize: XsStyle.menuFontSize
     property string fontFamily: XsStyle.menuFontFamily
 
-    property alias currentCategory: leftDiv.currentCategory
-    property alias currentCategoryClass: leftDiv.currentCategoryClass
+    // property string currentCategory: context_pref.properties.value
+    property string currentCategoryClass: currentCategory.replace(' Tree','')
+    property bool treeMode: currentCategory.includes(" Tree")
 
     Shortcut {
         context:  Qt.WindowShortcut
@@ -233,16 +234,18 @@ XsWindow { id: shotgunBrowser
     }
 
     function createPresetType(mode) {
-        if(mode == "Live Notes") {
+        if(mode == menuLiveNotes) {
+            let mymodel = noteTreePresetsModel
+
             // check it doesn't already exist.
-            let ind = notePresetsModel.search("---- Live Notes ----")
+            let ind = mymodel.search(menuLiveNotes)
             if(ind == -1) {
-                notePresetsModel.insert(
-                    notePresetsModel.rowCount(),
-                    notePresetsModel.index(notePresetsModel.rowCount(),0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(),0),
                     {
                         "expanded": false,
-                        "name": "---- Live Notes ----",
+                        "name": menuLiveNotes,
                         "queries": [
                             {
                                 "enabled": true,
@@ -281,18 +284,24 @@ XsWindow { id: shotgunBrowser
                         ]
                     }
                 )
-                ind = notePresetsModel.rowCount()-1
+                ind = mymodel.rowCount()-1
             }
-            notePresetsModel.activePreset = ind
-        } else if(mode == "Live All Versions") {
-            let ind = shotPresetsModel.search("---- Live Versions (All) ----")
+            currentCategory = "Notes Tree"
+            if(mymodel.activePreset == ind) {
+                executeQuery()
+            } else {
+                mymodel.activePreset = ind
+            }
+        } else if(mode == menuLiveLatest) {
+            let mymodel = shotTreePresetsModel
+            let ind = mymodel.search(menuLiveLatest)
             if(ind == -1) {
-                shotPresetsModel.insert(
-                    shotPresetsModel.rowCount(),
-                    shotPresetsModel.index(shotPresetsModel.rowCount(),0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(),0),
                     {
                         "expanded": false,
-                        "name": "---- Live Versions (All) ----",
+                        "name": menuLiveLatest,
                         "queries": [
                             {
                                 "enabled": true,
@@ -343,18 +352,25 @@ XsWindow { id: shotgunBrowser
                         ]
                     }
                 )
-                ind = shotPresetsModel.rowCount()-1
+                ind = mymodel.rowCount()-1
             }
-            shotPresetsModel.activePreset = ind
-        } else if(mode == "Live Related Versions") {
-            let ind = shotPresetsModel.search("---- Live Versions (Related) ----")
+            currentCategory = "Versions Tree"
+            if(mymodel.activePreset == ind) {
+                executeQuery()
+            } else {
+                mymodel.activePreset = ind
+            }
+        } else if(mode == menuLiveHistory) {
+            let mymodel = shotTreePresetsModel
+            let ind = mymodel.search(menuLiveHistory)
+
             if(ind == -1) {
-                shotPresetsModel.insert(
-                    shotPresetsModel.rowCount(),
-                    shotPresetsModel.index(shotPresetsModel.rowCount(),0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(),0),
                     {
                         "expanded": false,
-                        "name": "---- Live Versions (Related) ----",
+                        "name": menuLiveHistory,
                         "queries": [
                             {
                                 "enabled": true,
@@ -398,16 +414,22 @@ XsWindow { id: shotgunBrowser
                         ]
                     }
                 )
-                ind = shotPresetsModel.rowCount()-1
+                ind = mymodel.rowCount()-1
             }
-            shotPresetsModel.activePreset = ind
-        } else if(mode == "All Versions") {
+            currentCategory = "Versions Tree"
+
+            if(mymodel.activePreset == ind) {
+                executeQuery()
+            } else {
+                mymodel.activePreset = ind
+            }
+        } else if(mode == "All") {
             shotPresetsModel.insert(
                 shotPresetsModel.rowCount(),
                 shotPresetsModel.index(shotPresetsModel.rowCount(),0),
                 {
                     "expanded": false,
-                    "name": "All Versions",
+                    "name": "All",
                     "queries": [
                         {
                             "enabled": true,
@@ -432,7 +454,7 @@ XsWindow { id: shotgunBrowser
     }
 
     function currentCategoryUpdate() {
-        if(currentCategory == "Shots")
+        if(currentCategory == "Versions")
         {
             leftDiv.presetSelectionModel.clearSelection()
 
@@ -441,7 +463,7 @@ XsWindow { id: shotgunBrowser
             leftDiv.searchTreePresetsViewModel = shotTreePresetsModel
             rightDiv.searchResultsViewModel = shotResultsModel
         }
-        else if(currentCategory == "Shots Tree")
+        else if(currentCategory == "Versions Tree")
         {
             leftDiv.presetSelectionModel.clearSelection()
 
@@ -522,7 +544,12 @@ XsWindow { id: shotgunBrowser
         executeQueryOnCategorySwitch = true
     }
 
-    onCurrentCategoryChanged: currentCategoryUpdate()
+    Connections {
+        target: context_preference
+        function onValueChanged() {
+            currentCategoryUpdate()
+        }
+    }
 
     Connections {
         target: leftDiv
@@ -593,6 +620,7 @@ XsWindow { id: shotgunBrowser
         }
 
         SBLeftPanel{ id: leftDiv
+            treeMode: shotgunBrowser.treeMode
             projectModel: shotgunBrowser.projectModel
             projectCurrentIndex: shotgunBrowser.projectCurrentIndex
 
@@ -657,11 +685,15 @@ XsWindow { id: shotgunBrowser
             pipelineStepFilterIndex: rightDiv.pipelineStepFilterIndex
             onDiskFilterIndex: rightDiv.onDiskFilterIndex
 
+            clearFilter: rightDiv.clearFilter
+
             onUndo: data_source.undo()
             onRedo: data_source.redo()
             onSnapshotGlobals: {
                 let preset = ""
-                if(currentCategory == "Shots")
+                if(currentCategory == "Versions")
+                    preset = "shot_filter"
+                else if(currentCategory == "Versions Tree")
                     preset = "shot_filter"
                 else if(currentCategory == "Shots Tree")
                     preset = "shot_filter"
@@ -682,9 +714,9 @@ XsWindow { id: shotgunBrowser
             }
             onSnapshotPresets: {
                 let preset = ""
-                if(currentCategory == "Shots")
+                if(currentCategory == "Versions")
                     preset = "shot"
-                else if(currentCategory == "Shots Tree")
+                else if(currentCategory == "Versions Tree")
                     preset = "shot_tree"
                 else if(currentCategory == "Playlists")
                     preset = "playlist"
@@ -711,10 +743,20 @@ XsWindow { id: shotgunBrowser
             addShotsToNewPlaylist: shotgunBrowser.addShotsToNewPlaylistWrapper
             addAndCompareShotsToPlaylist: shotgunBrowser.addAndCompareShotsToPlaylistWrapper
 
+            onShowLatestVersion: {
+                currentCategory = "Versions Tree"
+                leftDiv.updatePreset(type, name, id, mode)
+            }
+
+            onShowVersionHistory: {
+                currentCategory = "Versions Tree"
+                leftDiv.updateVersionHistory(shot, twigname, pstep, twigtype)
+            }
+
             Connections {
                 target: shotgunBrowser
                 function onShowRelatedVersions() {
-                    rightDiv.popupMenuAction("Related Versions")
+                    rightDiv.popupMenuAction(menuHistory)
                 }
             }
         }

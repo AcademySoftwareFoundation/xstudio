@@ -14,7 +14,7 @@ using namespace xstudio::data_source;
 const auto UpdatePlaylistJSON =
     R"({"entity":"Playlist", "relationship": "Version", "playlist_uuid": null})"_json;
 const auto CreatePlaylistJSON =
-    R"({"entity":"Playlist", "playlist_uuid": null, "project_id": null, "code": null})"_json;
+    R"({"entity":"Playlist", "playlist_uuid": null, "project_id": null, "code": null, "location": null, "playlist_type": "Dailies"})"_json;
 const auto LoadPlaylistJSON = R"({"entity":"Playlist", "playlist_id": 0})"_json;
 const auto GetPlaylistValidMediaJSON =
     R"({"playlist_uuid": null, "operation": "MediaCount"})"_json;

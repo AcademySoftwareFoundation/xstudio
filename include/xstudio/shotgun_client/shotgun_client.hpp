@@ -1187,8 +1187,16 @@ namespace shotgun_client {
             Field<utility::JsonStore>::is(value);
             return *this;
         }
+        RelationType &is_not(const utility::JsonStore value) {
+            Field<utility::JsonStore>::is_not(value);
+            return *this;
+        }
         RelationType &in(const std::vector<utility::JsonStore> value) {
             Field<utility::JsonStore>::in(value);
+            return *this;
+        }
+        RelationType &not_in(const std::vector<utility::JsonStore> value) {
+            Field<utility::JsonStore>::not_in(value);
             return *this;
         }
         RelationType &is_null() {

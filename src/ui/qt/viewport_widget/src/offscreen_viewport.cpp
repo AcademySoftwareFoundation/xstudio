@@ -196,8 +196,17 @@ void OffscreenViewport::initGL() {
 
     if (!gl_context_) {
         // create our own GL context
+        QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+        format.setDepthBufferSize(24);
+        format.setRedBufferSize(8);
+        format.setGreenBufferSize(8);
+        format.setBlueBufferSize(8);
+        format.setAlphaBufferSize(8);
+        format.setRenderableType(QSurfaceFormat::OpenGL);
+
         gl_context_ =
             new QOpenGLContext(static_cast<QObject *>(this)); // m_window->openglContext();
+        gl_context_->setFormat(format);
         if (!gl_context_)
             throw std::runtime_error(
                 "OffscreenViewport::initGL - could not create QOpenGLContext.");
@@ -208,8 +217,10 @@ void OffscreenViewport::initGL() {
 
         // we also require a QSurface to use the GL context
         surface_ = new QOffscreenSurface(nullptr, static_cast<QObject *>(this));
-        surface_->setFormat(gl_context_->format());
+        surface_->setFormat(format);
         surface_->create();
+
+        gl_context_->makeCurrent(surface_);
     }
 }
 
@@ -359,7 +370,7 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
     // intialises shaders and textures where necessary
     viewport_renderer_->init();
 
-    unsigned int texId;
+    unsigned int texId, depth_texId;
     unsigned int fboId;
 
     // create texture
@@ -372,12 +383,42 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
+    {
+
+        glGenTextures(1, &depth_texId);
+        glBindTexture(GL_TEXTURE_2D, depth_texId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_INTENSITY);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+        // NULL means reserve texture memory, but texels are undefined
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_DEPTH_COMPONENT24,
+            w,
+            h,
+            0,
+            GL_DEPTH_COMPONENT,
+            GL_UNSIGNED_BYTE,
+            NULL);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    }
+
     // init framebuffer
     glGenFramebuffers(1, &fboId);
     // bind framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, fboId);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texId, 0);
 
     // Clearup before render, probably useless for a new buffer
     glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -414,6 +455,8 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDeleteTextures(1, &texId);
     glDeleteFramebuffers(1, &fboId);
+    glDeleteTextures(1, &depth_texId);
+
 
     // Thumbanil coord system has y=0 at top of image, whereas GL viewport is
     // y=0 at bottom.

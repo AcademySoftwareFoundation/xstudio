@@ -5,6 +5,7 @@
 #include <caf/behavior.hpp>
 #include <caf/event_based_actor.hpp>
 
+#include "xstudio/global/enums.hpp"
 #include "xstudio/utility/exports.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -57,6 +58,8 @@ namespace global {
         caf::uri session_autosave_path_{};
         int session_autosave_interval_{300};
         size_t session_autosave_hash_{0};
+        StatusType status_{StatusType::ST_NONE};
+        std::set<caf::actor_addr> busy_;
     };
 } // namespace global
 } // namespace xstudio

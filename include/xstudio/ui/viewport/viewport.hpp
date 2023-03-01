@@ -259,6 +259,7 @@ namespace ui {
 
             void instance_overlay_plugins(const bool share_plugin_instances);
 
+
           private:
             struct ViewportState {
                 Imath::V3f translate_            = {0.0f, 0.0f, 0.0f};
@@ -290,6 +291,8 @@ namespace ui {
             void update_matrix();
 
             void get_colour_pipeline();
+
+            void update_pixel_picker_info(const PointerEvent &pointer_event);
 
             utility::JsonStore settings_;
 

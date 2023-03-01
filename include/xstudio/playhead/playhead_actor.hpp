@@ -70,8 +70,7 @@ namespace playhead {
         void rebuild_bookmark_frames_ranges();
         void
         select_media(const utility::UuidList &selection, caf::typed_response_promise<bool> &rp);
-        void align_clip_frame_numbers(caf::typed_response_promise<bool> rp);
-        void equalise_clip_lengths();
+        void align_clip_frame_numbers();
         void move_playhead_to_last_viewed_frame_of_current_source();
         void
         move_playhead_to_last_viewed_frame_of_given_source(const utility::Uuid &source_uuid);

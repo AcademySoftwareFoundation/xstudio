@@ -3,11 +3,10 @@ import QtQuick 2.12
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
 
 //    A simple rectangle item that sizes two sibling
 //    items inside itself with a vertical splitter that
-//    can be dragged left/right. It also handles 
+//    can be dragged left/right. It also handles
 //    hiding either one of the widgets, making the other
 //    widget fill its area
 //
@@ -36,8 +35,9 @@ Rectangle {
     property var ratio: divider.ratio
 
     onRatioChanged: {
-        if (!divider.hidden && prefs_store_object != undefined) {
-            var ratios = prefs_store_object.properties.divider_positions
+        if (!divider.hidden && prefs_store_object != undefined && prefs_store_object.properties.divider_positions) {
+            // console.log(prefs_store_object, prefs_store_object.index)
+            let ratios = prefs_store_object.properties.divider_positions
             if (ratios != undefined) {
                 ratios[index] = ratio
                 prefs_store_object.properties.divider_positions = ratios
@@ -60,7 +60,7 @@ Rectangle {
         anchors.right: parent.right
         visible: parent.is_horizontal
         id: horiz_divider
-        ratio: prefs_store_object ? prefs_store_object.properties.divider_positions[index] : 0.3
+        ratio: prefs_store_object !== undefined ? prefs_store_object.properties.divider_positions[index] : 0.3
         onYChanged: arrange()
         onHeightChanged: arrange()
 
@@ -70,7 +70,7 @@ Rectangle {
 
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        ratio: prefs_store_object ? prefs_store_object.properties.divider_positions[index] : 0.3
+        ratio: prefs_store_object  !== undefined ? prefs_store_object.properties.divider_positions[index] : 0.3
         visible: !parent.is_horizontal
         id: vert_divider
         onXChanged: arrange()
@@ -133,20 +133,20 @@ Rectangle {
 
             if (divider.ratio <= 0.0) {
                 divider.unhide()
-            } 
+            }
             if (widgetA.unhide_widget != undefined) {
                 widgetA.unhide_widget(widget)
             }
-        } 
+        }
 
         if (sectionBContainsWidget(widget)) {
             if (divider.ratio >= 1.0) {
                 divider.unhide()
-            } 
+            }
             if (widgetB.unhide_widget != undefined) {
                 widgetB.unhide_widget(widget)
             }
-        } 
+        }
 
     }
 

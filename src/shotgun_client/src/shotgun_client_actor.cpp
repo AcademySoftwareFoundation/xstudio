@@ -544,7 +544,8 @@ void ShotgunClientActor::init() {
                                     }
                                     rp.deliver(JsonStore(std::move(jsn)));
                                 } catch (const std::exception &err) {
-                                    rp.deliver(make_error(sce::response_error, err.what()));
+                                    rp.deliver(make_error(
+                                        sce::response_error, err.what() + response.body));
                                 }
                             },
                             [=](error &err) mutable { rp.deliver(std::move(err)); });

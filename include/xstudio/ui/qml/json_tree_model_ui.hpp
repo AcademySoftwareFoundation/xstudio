@@ -36,9 +36,12 @@ class JSONTreeModel : public QAbstractItemModel {
     [[nodiscard]] QModelIndex parent(const QModelIndex &child) const override;
     [[nodiscard]] QVariant
     data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
     bool
     setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 
+    Q_INVOKABLE [[nodiscard]] bool
+    set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
 
     Q_INVOKABLE [[nodiscard]] QVariant
     get(const QModelIndex &item, const QString &role = "display") const;
@@ -59,6 +62,17 @@ class JSONTreeModel : public QAbstractItemModel {
     Q_INVOKABLE int
     countExpandedChildren(const QModelIndex parent, const QModelIndexList &expanded);
 
+    Q_INVOKABLE QModelIndex search(
+        const QVariant &value,
+        const QString &role       = "display",
+        const QModelIndex &parent = QModelIndex(),
+        const int start           = 0);
+
+    Q_INVOKABLE QModelIndex search_recursive(
+        const QVariant &value,
+        const QString &role       = "display",
+        const QModelIndex &parent = QModelIndex(),
+        const int start           = 0);
 
     const nlohmann::json &modelData() const { return data_; }
     void setModelData(const nlohmann::json &data);
