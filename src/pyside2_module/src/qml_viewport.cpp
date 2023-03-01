@@ -9,12 +9,10 @@
 #include "xstudio/ui/qml/module_menu_ui.hpp"     //NOLINT
 #include "xstudio/ui/qml/contact_sheet_ui.hpp"   //NOLINT
 #include "xstudio/ui/qml/embedded_python_ui.hpp" //NOLINT
-#include "xstudio/ui/qml/global_store_ui.hpp"    //NOLINT
 #include "xstudio/ui/qml/helper_ui.hpp"          //NOLINT
 #include "xstudio/ui/qml/media_ui.hpp"           //NOLINT
 #include "xstudio/ui/qml/timeline_ui.hpp"        //NOLINT
 #include "xstudio/ui/qml/playlist_ui.hpp"        //NOLINT
-#include "xstudio/ui/qml/properties_ui.hpp"      //NOLINT
 #include "xstudio/ui/qml/bookmark_ui.hpp"        //NOLINT
 #include "xstudio/ui/qml/session_ui.hpp"         //NOLINT
 #include "xstudio/ui/qml/studio_ui.hpp"          //NOLINT
@@ -68,7 +66,6 @@ QMLViewport::QMLViewport(QWidget *parent) : QQuickWidget(parent) {
                               .second;
 
     // Register our custom types
-    qmlRegisterType<GlobalStoreUI>("xstudio.qml.global_store", 1, 0, "GlobalStore");
     qmlRegisterType<StudioUI>("xstudio.qml.studio", 1, 0, "Studio");
     qmlRegisterType<SemVer>("xstudio.qml.semver", 1, 0, "SemVer");
     qmlRegisterType<CursorPosProvider>(
@@ -82,7 +79,6 @@ QMLViewport::QMLViewport(QWidget *parent) : QQuickWidget(parent) {
     qmlRegisterType<BookmarkDetailUI>("xstudio.qml.bookmarks", 1, 0, "BookmarkDetail");
     qmlRegisterType<EmbeddedPythonUI>("xstudio.qml.embedded_python", 1, 0, "EmbeddedPython");
 
-    qmlRegisterType<PreferenceSet>("xstudio.qml.properties", 1, 0, "XsPreferenceSet");
     qmlRegisterType<SessionUI>("xstudio.qml.session", 1, 0, "Session");
     qmlRegisterType<ContainerGroupUI>("xstudio.qml.session", 1, 0, "ContainerGroupUI");
     qmlRegisterType<ContainerDividerUI>("xstudio.qml.session", 1, 0, "ContainerDividerUI");
@@ -122,10 +118,6 @@ QMLViewport::QMLViewport(QWidget *parent) : QQuickWidget(parent) {
     // gui plugins..
     engine()->addImportPath(QStringFromStd(xstudio_root("/plugin/qml")));
     engine()->addPluginPath(QStringFromStd(xstudio_root("/plugin/qml")));
-
-    root_store.reset(new GlobalStoreUI);
-    root_store->init(CafSys::instance()->system());
-    qmlRegisterSingletonInstance("xstudio.qml.root_store", 1, 0, "RootStore", root_store.get());
 
     setSource(url);
 }

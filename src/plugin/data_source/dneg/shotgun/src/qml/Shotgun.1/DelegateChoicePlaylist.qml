@@ -17,7 +17,7 @@ DelegateChoice {
     roleValue: "Playlist"
     Rectangle {
         property bool isSelected: selectionModel.isSelected(searchResultsViewModel.index(index, 0))
-        property bool isMouseHovered: mArea.containsMouse || noteDisplay.hovered || 
+        property bool isMouseHovered: mArea.containsMouse || noteDisplay.hovered ||
                                       dateToolTip.containsMouse || typeToolTip.containsMouse ||
                                       nameToolTip.containsMouse || deptToolTip.containsMouse ||
                                       authorToolTip.containsMouse || versionsButton.hovered
@@ -53,10 +53,10 @@ DelegateChoice {
                         function(items){
                             loadPlaylists(
                                 items,
-                                data_source.preferredVisual("Playlists"),
-                                data_source.preferredAudio("Playlists"),
-                                data_source.flagText("Playlists"),
-                                data_source.flagColour("Playlists")
+                                data_source.preferredVisual(currentCategory),
+                                data_source.preferredAudio(currentCategory),
+                                data_source.flagText(currentCategory),
+                                data_source.flagColour(currentCategory)
                             )
                         }
                     )
@@ -85,13 +85,14 @@ DelegateChoice {
                 textDiv.topPadding: 3
 
                 onClicked: {
-                    notePresetsModel.clearLoaded()
-                    notePresetsModel.insert(
-                        notePresetsModel.rowCount(),
-                        notePresetsModel.index(notePresetsModel.rowCount(), 0),
+                    let mymodel = noteTreePresetsModel
+
+                    mymodel.clearLoaded()
+                    mymodel.insert(
+                        mymodel.rowCount(),
+                        mymodel.index(mymodel.rowCount(), 0),
                         {
                             "expanded": false,
-                            "loaded": true,
                             "name": nameRole + " Notes",
                             "queries": [
                                 {
@@ -122,8 +123,8 @@ DelegateChoice {
                             ]
                         }
                     )
-                    setBrowserCategory("Notes")
-                    // currentPresetIndex = notePresetsModel.rowCount()-1
+                    currentCategory = "Notes Tree"
+                    mymodel.activePreset = mymodel.rowCount()-1
                 }
             }
 
@@ -143,14 +144,14 @@ DelegateChoice {
                 padding: 0
                 bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
                 onClicked: {
-                    shotPresetsModel.clearLoaded()
-                    shotPresetsModel.insert(
-                        shotPresetsModel.rowCount(),
-                        shotPresetsModel.index(shotPresetsModel.rowCount(), 0),
+                    let mymodel = shotPresetsModel
+                    mymodel.clearLoaded()
+                    mymodel.insert(
+                        mymodel.rowCount(),
+                        mymodel.index(mymodel.rowCount(), 0),
                         {
                             "expanded": false,
-                            "loaded": true,
-                            "name": nameRole + " Shots",
+                            "name": nameRole + " Versions",
                             "queries": [
                                 {
                                     "enabled": true,
@@ -160,8 +161,8 @@ DelegateChoice {
                             ]
                         }
                     )
-                    setBrowserCategory("Shots")
-                    // currentPresetIndex = notePresetsModel.rowCount()-1
+                    currentCategory = "Versions"
+                    mymodel.activePreset = mymodel.rowCount()-1
                 }
             }
 

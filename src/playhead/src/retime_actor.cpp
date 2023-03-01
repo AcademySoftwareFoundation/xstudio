@@ -39,9 +39,10 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
         [=](utility::event_atom, utility::change_atom) {
             // my sources have changed..
             caf::scoped_actor sys(system());
-            source_edit_list_ =
+            auto duration = source_edit_list_ =
                 request_receive<EditList>(*sys, source_, media::get_edit_list_atom_v, Uuid());
-            retime_edit_list_ = source_edit_list_;
+            // if duration was previously set externally, we want to retain that
+            set_duration(forced_duration_);
             send(event_group_, utility::event_atom_v, utility::change_atom_v);
         },
         [=](utility::event_atom, utility::last_changed_atom, const time_point &) {
@@ -67,7 +68,8 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
             caf::scoped_actor sys(system());
             source_edit_list_ =
                 request_receive<EditList>(*sys, source_, media::get_edit_list_atom_v, Uuid());
-            retime_edit_list_ = source_edit_list_;
+            // if duration was previously set externally, we want to retain that
+            set_duration(forced_duration_);
             send(event_group_, utility::event_atom_v, utility::change_atom_v);
         },
 
@@ -143,7 +145,6 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
             }
             return rp;
         },
-
 
         [=](media::get_media_pointers_atom,
             const media::MediaType media_type,
@@ -254,10 +255,15 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
 
 void RetimeActor::set_duration(const timebase::flicks &new_duration) {
 
-    retime_edit_list_.clear();
-    auto clip = source_edit_list_.section_list()[0];
-    clip.frame_rate_and_duration_.set_duration(new_duration);
-    retime_edit_list_.append(clip);
+    forced_duration_ = new_duration;
+    if (forced_duration_.count()) {
+        retime_edit_list_.clear();
+        auto clip = source_edit_list_.section_list()[0];
+        clip.frame_rate_and_duration_.set_duration(new_duration);
+        retime_edit_list_.append(clip);
+    } else {
+        retime_edit_list_ = source_edit_list_;
+    }
     send(event_group_, utility::event_atom_v, utility::change_atom_v);
 }
 

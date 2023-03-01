@@ -1,27 +1,30 @@
-// SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
+import QtQml 2.15
+import QtQml.Models 2.14
+import QtQuick.Dialogs 1.3 //for ColorDialog
+import QtGraphicalEffects 1.15 //for RadialGradient
 
-import xStudio 1.0
+import xStudio 1.1
 import xstudio.qml.module 1.0
+
 
 Rectangle {
 
     color: "transparent"
     property string label_text
     property string tooltip_text
-    width: tm1.width + theCheckbox.width + gap
+    width: tm1.width + popup_container.width + gap
     property int gap: 4
-    height: 20
+    height: parent.height
     property var font_family: XsStyle.mediaInfoBarFontSize
     property var font_size: XsStyle.mediaInfoBarFontSize
     property bool mouseHovered: mouseArea.containsMouse
 
-    XsModuleAttributes {
-        id: playhead_attrs
-        attributesGroupName: "playhead"
-    }
-
     Text {
+
         text: label_text
         color: XsStyle.controlTitleColor
         horizontalAlignment: Qt.AlignLeft
@@ -29,6 +32,7 @@ Rectangle {
         id: theLabel
         anchors.top: parent.top
         anchors.bottom: parent.bottom
+        anchors.margins: 3
     
         font {
             pixelSize: font_family
@@ -36,25 +40,10 @@ Rectangle {
             hintingPreference: Font.PreferNoHinting
         }
 
-    }
-
-    TextMetrics {
-        id: tm1
-        font: theLabel.font
-        text: theLabel.text
-    }
-
-    XsCheckbox {
-        id: theCheckbox
-        width: theLabel.font.pixelSize*1.2
-        height: theLabel.font.pixelSize*1.2
-        anchors.left: theLabel.right
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.margins: 5
-
-        checked: playhead_attrs.auto_align !== undefined ? playhead_attrs.auto_align : false
-        onTriggered: {
-            playhead_attrs.auto_align = !playhead_attrs.auto_align
+        TextMetrics {
+            id: tm1
+            font: theLabel.font
+            text: theLabel.text
         }
     }
 
@@ -73,4 +62,45 @@ Rectangle {
         }
     }
 
+
+    Rectangle {
+        height: parent.height
+        width: 90
+        Layout.fillWidth: true
+        color: "transparent"
+        anchors.left: theLabel.right
+        anchors.margins: 3
+        id: popup_container
+
+        XsModuleAttributesModel {
+            id: align_attr
+            attributesGroupName: "playhead_align_mode"
+        }
+
+        Repeater {
+
+            // Using a repeater here - but 'vp_mouse_wheel_behaviour_attr' only
+            // has one row by the way. The use of a repeater means the model role
+            // data are all visible in the XsComboBox instance.
+            model: align_attr
+
+            XsComboBox {
+
+                width: 110
+                anchors.fill: parent
+                model: combo_box_options
+                property var value_: value ? value : null
+                onValue_Changed: {
+                    currentIndex = indexOfValue(value_)
+                }
+                Component.onCompleted: currentIndex = indexOfValue(value_)
+                onCurrentValueChanged: {
+                    value = currentValue;
+                }
+                downArrowVisible: false
+            }
+        }
+
+    }
+    
 }

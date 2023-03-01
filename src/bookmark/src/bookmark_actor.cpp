@@ -272,8 +272,13 @@ void BookmarkActor::init() {
 
         [=](get_annotation_atom) -> std::shared_ptr<bookmark::AnnotationBase> {
             if (!base_.annotation_) {
-                // just an empty annotation
-                base_.annotation_.reset(
+                // if there is no annotation on this note, we return a temporary empty
+                // annotation base that just does the job of carrying the bookmark uuid through
+                // to the annotation tools. We need this because when the user starts drawing on
+                // screen on a frame where a note (bookmark) exists but there is as-yet no
+                // annotation we want to add the new drawings to the note. The annotation tool
+                // needs to know the uuid of the on-screen note to do this.
+                return std::shared_ptr<bookmark::AnnotationBase>(
                     new bookmark::AnnotationBase(utility::JsonStore(), base_.uuid()));
             }
             return base_.annotation_;

@@ -3,13 +3,13 @@ import QtQuick 2.12
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
+import xstudio.qml.helpers 1.0
 
 //    Layout 4 widgets as follows with animated hide/show
 //    and resize slider bars
 //
 //    |----------------------------------------------|
-//    |           |                 |                | 
+//    |           |                 |                |
 //    |           |                 |                |
 //    |      A    |        B        |        C       |
 //    |           |                 |                |
@@ -23,12 +23,12 @@ import xstudio.qml.properties 1.0
 //    |           |                                  |
 //    |----------------------------------------------|
 //
-// 
+//
 
 
 Rectangle {
 
-    id: the_root    
+    id: the_root
     color: "#00000000"
     property var layout_name: ""
     property var parent_window_name: "main_window"
@@ -37,13 +37,15 @@ Rectangle {
     property var child_widget_C
     property var child_widget_D
     property bool active: false
-    visible: active    
+    visible: active
 
     // create a binding to backend prefs to store the divider positions
-    XsPreferenceSet {
+    XsModelNestedPropertyMap {
         id: prefs
-        preferencePath: "/ui/qml/" + parent_window_name + "_" + layout_name
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/" + parent_window_name + "_" + layout_name, "pathRole")
+        property alias properties: prefs.values
     }
+
     property alias prefs: prefs
 
     function contains(widget) {
@@ -61,7 +63,7 @@ Rectangle {
         prefs_store_object: the_root.prefs
         is_horizontal: false
 
-        XsSplitWidget {            
+        XsSplitWidget {
             active: the_root.active
             id: child_widget_BCD
             widgetA: child_widget_BC
@@ -70,7 +72,7 @@ Rectangle {
             prefs_store_object: the_root.prefs
             is_horizontal: true
 
-            XsSplitWidget {            
+            XsSplitWidget {
                 active: the_root.active
                 id: child_widget_BC
                 widgetA: child_widget_B
@@ -78,11 +80,11 @@ Rectangle {
                 index: 2
                 prefs_store_object: the_root.prefs
                 is_horizontal: false
-    
+
             }
 
         }
-    
+
     }
 
 

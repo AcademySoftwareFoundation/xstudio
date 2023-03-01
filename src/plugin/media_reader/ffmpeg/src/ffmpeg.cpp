@@ -143,10 +143,58 @@ vec4 fetch_rgba_pixel_from_yuv(ivec2 image_coord)
 
 }
 
+vec4 fetch_rgba_pixel_from_rgb_48(ivec2 image_coord)
+{
+    // 2 bytes per channel, 3 channels per pix
+	int address = image_coord.x*6 + image_coord.y*y_linesize;
+    ivec4 rgba;
+    rgba.x = get_image_data_2bytes(address);
+    rgba.y = get_image_data_2bytes(address+2);
+    rgba.z = get_image_data_2bytes(address+4);
+    return vec4(vec3(rgba.xyz) * norm_coeff, 1.0f);
+}
+
+vec4 fetch_rgba_pixel_from_rgba_64(ivec2 image_coord)
+{
+    // 2 bytes per channel, 4 channels per pix
+	int address = image_coord.x*8 + image_coord.y*y_linesize;
+    ivec4 rgba;
+    rgba.x = get_image_data_2bytes(address);
+    rgba.y = get_image_data_2bytes(address+2);
+    rgba.z = get_image_data_2bytes(address+4);
+    rgba.w = get_image_data_2bytes(address+6);
+    return vec4(rgba) * norm_coeff;
+}
+
+
+vec4 fetch_rgba_pixel_from_gbr_planar(ivec2 image_coord)
+{
+    // 2 bytes per channel, 3 channels per pix
+	int address = image_coord.x*2 + image_coord.y*y_linesize;
+	
+    ivec4 rgba;
+    rgba.x = get_image_data_2bytes(address+v_plane_bytes_offset);
+    rgba.y = get_image_data_2bytes(address+y_plane_bytes_offset);
+    rgba.z = get_image_data_2bytes(address+u_plane_bytes_offset);
+    if (a_linesize != 0) {
+        rgba.w = get_image_data_2bytes(address+a_plane_bytes_offset);
+        return vec4(rgba) * norm_coeff;
+    } else {
+        return vec4(vec3(rgba.xyz) * norm_coeff, 1.0f);
+    }
+    
+}
+
 vec4 fetch_rgba_pixel(ivec2 image_coord)
 {
 	if (rgb == 0) {
 		return fetch_rgba_pixel_from_yuv(image_coord);
+	} else if (rgb == 9) {
+        return fetch_rgba_pixel_from_rgba_64(image_coord);
+     }else if (rgb == 8) {
+		return fetch_rgba_pixel_from_rgb_48(image_coord);
+	} else if (rgb == 7) {
+		return fetch_rgba_pixel_from_gbr_planar(image_coord);
 	} else if (rgb > 2) {
 		return fetch_rgba_pixel_from_rgba32(image_coord);
 	} else {
@@ -197,6 +245,10 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
 ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
     std::string path = uri_to_posix_path(mptr.uri_);
 
+    if (last_decoded_image_ && last_decoded_image_->media_key() == mptr.key_) {
+        return last_decoded_image_;
+    }
+
     if (!decoder || decoder->path() != path) {
         decoder.reset(
             new FFMpegDecoder(path, soundcard_sample_rate_, VIDEO_STREAM, mptr.stream_id_));
@@ -207,6 +259,7 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
 
     if (rt) {
         rt->set_shader(ffmpeg_shader);
+        last_decoded_image_ = rt;
     }
 
     return rt;

@@ -23,22 +23,68 @@ Rectangle{ id: section
     border.color: frameColor
     border.width: frameWidth
 
+    signal clicked(string type, string name, int id)
+    signal doubleClicked(string type, string name, int id)
+
+    Timer {
+        id: callback_delay_timer
+        function setTimeout(cb, delayTime) {
+            callback_delay_timer.interval = delayTime;
+            callback_delay_timer.repeat = false;
+            callback_delay_timer.triggered.connect(cb);
+            callback_delay_timer.triggered.connect(function release () {
+                callback_delay_timer.triggered.disconnect(cb); // This is important
+                callback_delay_timer.triggered.disconnect(release); // This is important as well
+            });
+            callback_delay_timer.start();
+        }
+    }
+
+    function selectItem(index) {
+        itemExpandedModel.select(index.parent, ItemSelectionModel.Select)
+        callback_delay_timer.setTimeout(function(){ itemSelectionModel.select(index, ItemSelectionModel.ClearAndSelect) }, 100);
+    }
+
+    function scrollToFunc(target) {
+        let ty = treeView.listView.mapFromItem(target, 0, 0).y + treeView.listView.contentY
+        let visibleHeight = treeView.listView.visibleArea.heightRatio * treeView.listView.contentHeight
+
+        if(ty < treeView.listView.contentY) {
+            treeView.listView.contentY = ty
+        } else if(ty > (treeView.listView.contentY + visibleHeight - 20) ){
+            treeView.listView.contentY = treeView.listView.contentY + (ty - (treeView.listView.contentY + visibleHeight - 20))
+        }
+    }
+
     ItemSelectionModel {id: itemSelectionModel
         model: section.model
+        onSelectionChanged: {
+            if(selectedIndexes.length){
+                clicked(
+                    section.model.get(selectedIndexes[0],"typeRole"),
+                    section.model.get(selectedIndexes[0],"nameRole"),
+                    section.model.get(selectedIndexes[0],"idRole"),
+                )
+            }
+        }
     }
+
     ItemSelectionModel {id: itemExpandedModel
         model: section.model
     }
+
     ShotsTreeView{ id: treeView
         model: section.model
         rootIndex:  null
         selectionModel: itemSelectionModel
         expandedModel: itemExpandedModel
         scrollBarVisibility: !searchShotListPopup.visible
-        
-        onShotClicked:{ //#TODO: Not working on child-level
-            console.log("Shot2: "+shot)
-        }
+        itemDoubleClicked: itemDoubleClickedFunction
+        scrollTo: scrollToFunc
+    }
+
+    function itemDoubleClickedFunction(type, name, id) {
+        doubleClicked(type, name, id)
     }
 
     Rectangle { id: overlapGradient

@@ -17,9 +17,9 @@ XsWindow {
 
     centerOnOpen: true
 
-    property real itemHeight: 22
-    property real itemSpacing: 1
-    property real padding: 6
+    property int itemHeight: 22
+    property int itemSpacing: 1
+    property int padding: 6
 
     property int buttonCount: 3
     property int totalLogCount: logsView.count
@@ -27,6 +27,8 @@ XsWindow {
     property int startSelection: -1
     property int endSelection: -1
     property int selectedCount: startSelection == -1 ? 0 : endSelection - startSelection + 1
+
+    property int showLevel: 5
 
     property string statusText
 
@@ -50,33 +52,49 @@ XsWindow {
             ColumnLayout {
                 anchors.fill: parent
 
-                XsTextField {
+                RowLayout {
                     Layout.fillWidth: true
                     Layout.minimumHeight: itemHeight
 
-                    placeholderText: "Enter filter text"
-                    onTextEdited: {
-                        logger.setFilterWildcard(text)
-                        // totalLogCount = logger.rowCount()
-                    }
-                }
+                    XsTextField {
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: itemHeight
+                        Layout.maximumHeight: itemHeight
 
-                XsComboBox { id: logLevel
-                    Layout.fillWidth: true
-                    Layout.minimumHeight: itemHeight
-                    Layout.maximumHeight: itemHeight
-                    model: logger.logLevels
-                    currentIndex: logger.logLevel
-                    onCurrentIndexChanged: {
-                        logger.logLevel = currentIndex
-                        // totalLogCount = logger.rowCount()
-                        resetSelection()
+                        placeholderText: "Enter filter text"
+                        onTextEdited: {
+                            logger.setFilterWildcard(text)
+                            // totalLogCount = logger.rowCount()
+                        }
                     }
-                    // Component.onCompleted: {
-                    //     for(var i=0; i<logger.logLevels.length; i++)
-                    //     // console.log(i+" - "+logger.logLevels[i])
-                    //     if(logger.logLevels[i] == "trace") logger.logLevels[i] = "All"
-                    // }
+
+                    XsComboBox { id: logLevel
+                        // Layout.fillWidth: true
+                        Layout.minimumHeight: itemHeight
+                        Layout.maximumHeight: itemHeight
+                        Layout.preferredWidth: 100
+                        model: logger.logLevels
+                        currentIndex: logger.logLevel
+                        onCurrentIndexChanged: {
+                            logger.logLevel = currentIndex
+                            resetSelection()
+                        }
+                    }
+                    XsLabel {
+                        text: "Show on"
+                    }
+
+                    XsComboBox { id: showLogLevel
+                        // Layout.fillWidth: true
+                        Layout.minimumHeight: itemHeight
+                        Layout.maximumHeight: itemHeight
+                        Layout.preferredWidth: 100
+                        model: logger.logLevels
+                        currentIndex: showLevel
+                        onCurrentIndexChanged: {
+                            showLevel = currentIndex
+                        }
+                    }
                 }
 
                 ListView {

@@ -103,6 +103,10 @@ namespace colour_pipeline {
                     get_cached_colour_pipeline_data(rp, media_ptr);
                     return rp;
                 },
+                [=](display_colour_transform_hash_atom,
+                    const media::AVFrameID &media_ptr) -> std::string {
+                    return colour_pipeline_->fast_display_transform_hash(media_ptr);
+                },
                 [=](media_reader::process_thumbnail_atom,
                     const media::AVFrameID &mptr,
                     const thumbnail::ThumbnailBufferPtr &buf)
@@ -198,6 +202,16 @@ namespace colour_pipeline {
                 },
                 caf::actor_pool::round_robin());
             link_to(pool_);
+
+            thumbnail_processor_pool_ = caf::actor_pool::make(
+                system().dummy_execution_unit(),
+                colour_pipeline_worker_count,
+                [&] {
+                    return system().template spawn<ColourPipelineWorkerActor<T>>(
+                        init_settings, &colour_pipeline_, cache_);
+                },
+                caf::actor_pool::round_robin());
+            link_to(thumbnail_processor_pool_);
         }
 
         ~ColourPipelineActor() override = default;
@@ -213,6 +227,7 @@ namespace colour_pipeline {
         caf::actor cache_;
         caf::actor event_group_;
         caf::actor pool_;
+        caf::actor thumbnail_processor_pool_;
         utility::Uuid uuid_;
         T colour_pipeline_;
     };
@@ -227,6 +242,14 @@ namespace colour_pipeline {
             },
             [=](get_colour_pipe_data_atom atom, const media::AVFrameID &media_ptr) {
                 delegate(pool_, atom, media_ptr);
+            },
+            [=](get_colour_pipe_data_atom atom,
+                const media::AVFrameID &media_ptr,
+                bool use_thumbnail_pool) {
+                delegate(thumbnail_processor_pool_, atom, media_ptr);
+            },
+            [=](display_colour_transform_hash_atom atom, const media::AVFrameID &media_ptr) {
+                delegate(thumbnail_processor_pool_, atom, media_ptr);
             },
             [=](get_colour_pipe_data_atom,
                 const media::AVFrameIDsAndTimePoints &mptr_and_timepoints)
@@ -298,7 +321,11 @@ namespace colour_pipeline {
             [=](media_reader::process_thumbnail_atom,
                 const media::AVFrameID &mptr,
                 const thumbnail::ThumbnailBufferPtr &buf) {
-                delegate(pool_, media_reader::process_thumbnail_atom_v, mptr, buf);
+                delegate(
+                    thumbnail_processor_pool_,
+                    media_reader::process_thumbnail_atom_v,
+                    mptr,
+                    buf);
             },
             [=](json_store::update_atom,
                 const utility::JsonStore & /*change*/,

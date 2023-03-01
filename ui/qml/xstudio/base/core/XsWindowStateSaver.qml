@@ -6,7 +6,7 @@ import Qt.labs.settings 1.0
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
+import xstudio.qml.helpers 1.0
 
 Item
 {
@@ -16,10 +16,10 @@ Item
 
     property alias window_settings: window_settings
 
-    XsPreferenceSet {
-
+    XsModelNestedPropertyMap {
         id: window_settings
-        preferencePath: override_pref_path ? override_pref_path : "/ui/qml/" + windowName + "_settings"
+        index: app_window.globalStoreModel.search_recursive(override_pref_path ? override_pref_path : "/ui/qml/" + windowName + "_settings", "pathRole")
+        property alias properties: window_settings.values
     }
 
     Component.onCompleted:

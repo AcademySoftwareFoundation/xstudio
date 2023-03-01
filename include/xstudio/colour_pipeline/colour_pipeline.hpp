@@ -99,6 +99,8 @@ namespace colour_pipeline {
         virtual thumbnail::ThumbnailBufferPtr process_thumbnail(
             const media::AVFrameID &media_ptr, const thumbnail::ThumbnailBufferPtr &buf) = 0;
 
+        virtual std::string fast_display_transform_hash(const media::AVFrameID &media_ptr) = 0;
+
       protected:
         utility::Uuid uuid_;
     };

@@ -18,7 +18,6 @@ import QtQml 2.14
 //------------------------------------------------------------------------------
 import xstudio.qml.viewport 1.0
 import xstudio.qml.playlist 1.0
-import xstudio.qml.global_store 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
 

@@ -25,6 +25,15 @@ OCIO::GradingPrimary grading_primary_from_cdl(const OCIO::ConstCDLTransformRcPtr
     cdl->getPower(power.data());
     sat = cdl->getSat();
 
+    // TODO: ColSci
+    // GradingPrimary with only saturation is currently considered identity
+    // Temporary workaround until OCIO fix the issue by adding a clamp to
+    // an arbitrary low value.
+    if (slope == decltype(slope){1.0, 1.0, 1.0} && offset == decltype(offset){0.0, 0.0, 0.0} &&
+        power == decltype(power){1.0, 1.0, 1.0} && sat != 1.0) {
+        gp.m_clampBlack = -1e6;
+    }
+
     for (int i = 0; i < 3; ++i) {
         offset[i] = offset[i] / slope[i];
         slope[i]  = std::log2(slope[i]);
@@ -281,6 +290,12 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
     }
 
     return buf;
+}
+
+
+std::string OCIOColourPipeline::fast_display_transform_hash(const media::AVFrameID &media_ptr) {
+    return get_media_params(media_ptr.source_uuid_, media_ptr.params_).compute_hash() +
+           display_->value() + view_->value();
 }
 
 OCIOColourPipeline::MediaParams OCIOColourPipeline::get_media_params(

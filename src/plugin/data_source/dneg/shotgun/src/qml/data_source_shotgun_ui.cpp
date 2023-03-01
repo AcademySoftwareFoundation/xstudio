@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "data_source_shotgun_ui.hpp"
 #include "shotgun_model_ui.hpp"
-#include "json_tree_model_ui.hpp"
 #include "../data_source_shotgun.hpp"
 #include "xstudio/utility/string_helpers.hpp"
+#include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/atoms.hpp"
 #include "xstudio/ui/qml/module_ui.hpp"
@@ -21,6 +21,38 @@ using namespace std::chrono_literals;
 using namespace xstudio::global_store;
 
 auto SHOTGUN_TIMEOUT = 120s;
+
+const auto PresetModelLookup = std::map<std::string, std::string>(
+    {{"edit", "editPresetsModel"},
+     {"edit_filter", "editFilterModel"},
+     {"media_action", "mediaActionPresetsModel"},
+     {"media_action_filter", "mediaActionFilterModel"},
+     {"note", "notePresetsModel"},
+     {"note_filter", "noteFilterModel"},
+     {"note_tree", "noteTreePresetsModel"},
+     {"playlist", "playlistPresetsModel"},
+     {"playlist_filter", "playlistFilterModel"},
+     {"reference", "referencePresetsModel"},
+     {"reference_filter", "referenceFilterModel"},
+     {"shot", "shotPresetsModel"},
+     {"shot_filter", "shotFilterModel"},
+     {"shot_tree", "shotTreePresetsModel"}});
+
+const auto PresetPreferenceLookup = std::map<std::string, std::string>(
+    {{"edit", "presets/edit"},
+     {"edit_filter", "global_filters/edit"},
+     {"media_action", "presets/media_action"},
+     {"media_action_filter", "global_filters/media_action"},
+     {"note", "presets/note"},
+     {"note_filter", "global_filters/note"},
+     {"note_tree", "presets/note_tree"},
+     {"playlist", "presets/playlist"},
+     {"playlist_filter", "global_filters/playlist"},
+     {"reference", "presets/reference"},
+     {"reference_filter", "global_filters/reference"},
+     {"shot", "presets/shot"},
+     {"shot_filter", "global_filters/shot"},
+     {"shot_tree", "presets/shot_tree"}});
 
 
 const auto TwigTypeCodes = JsonStore(R"([
@@ -239,6 +271,7 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
         {"name": "Camera Track"},
         {"name": "Comp"},
         {"name": "Creature"},
+        {"name": "DMP"},
         {"name": "Editorial"},
         {"name": "Environ"},
         {"name": "Envsetup"},
@@ -251,11 +284,14 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
         {"name": "Muscle"},
         {"name": "Prep"},
         {"name": "Previs"},
+        {"name": "Retime Layout"},
         {"name": "Rig"},
         {"name": "Roto"},
         {"name": "Scan"},
         {"name": "Skin"},
-        {"name": "TD"}
+        {"name": "Sweatbox"},
+        {"name": "TD"},
+        {"name": "None"}
     ])"_json);
 
     term_models_->insert("twigTypeCodeModel", QVariant::fromValue(new ShotgunListModel(this)));
@@ -295,7 +331,12 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
     term_models_->insert("resultLimitModel", QVariant::fromValue(new ShotgunListModel(this)));
     qvariant_cast<ShotgunListModel *>(term_models_->value("resultLimitModel"))->populate(R"([
         {"name": "1"},
+        {"name": "2"},
+        {"name": "4"},
+        {"name": "8"},
         {"name": "10"},
+        {"name": "20"},
+        {"name": "40"},
         {"name": "100"},
         {"name": "200"},
         {"name": "500"},
@@ -313,7 +354,9 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
         {"name": "Updated ASC"},
         {"name": "Updated DESC"},
         {"name": "Client Submit ASC"},
-        {"name": "Client Submit DESC"}
+        {"name": "Client Submit DESC"},
+        {"name": "Version ASC"},
+        {"name": "Version DESC"}
     ])"_json);
 
     updateQueryValueCache(
@@ -344,6 +387,18 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
 
         result_models_->insert("shotResultsModel", QVariant::fromValue(filter));
         result_models_->insert("shotResultsBaseModel", QVariant::fromValue(model));
+    }
+
+    {
+        auto model  = new ShotModel(this);
+        auto filter = new ShotgunFilterModel(this);
+
+        model->setSequenceMap(&sequences_map_);
+        model->setQueryValueCache(&query_value_cache_);
+        filter->setSourceModel(model);
+
+        result_models_->insert("shotTreeResultsModel", QVariant::fromValue(filter));
+        result_models_->insert("shotTreeResultsBaseModel", QVariant::fromValue(model));
     }
 
     {
@@ -395,6 +450,17 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
     }
 
     {
+        auto model  = new NoteModel(this);
+        auto filter = new ShotgunFilterModel(this);
+
+        model->setQueryValueCache(&query_value_cache_);
+        filter->setSourceModel(model);
+
+        result_models_->insert("noteTreeResultsModel", QVariant::fromValue(filter));
+        result_models_->insert("noteTreeResultsBaseModel", QVariant::fromValue(model));
+    }
+
+    {
         auto model  = new MediaActionModel(this);
         auto filter = new ShotgunFilterModel(this);
 
@@ -408,28 +474,36 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
 
     for (const auto &[m, f] : std::vector<std::tuple<std::string, std::string>>{
              {"shotPresetsModel", "shotFilterModel"},
+             {"shotTreePresetsModel", "shotFilterModel"},
              {"playlistPresetsModel", "playlistFilterModel"},
              {"editPresetsModel", "editFilterModel"},
              {"referencePresetsModel", "referenceFilterModel"},
              {"notePresetsModel", "noteFilterModel"},
+             {"noteTreePresetsModel", "noteFilterModel"},
              {"mediaActionPresetsModel", "mediaActionFilterModel"}}) {
-        auto model  = new ShotgunTreeModel(this);
-        auto filter = new ShotgunTreeModel(this);
 
-        model->setSequenceMap(&sequences_map_);
+        if (not preset_models_->contains(QStringFromStd(m))) {
+            auto model = new ShotgunTreeModel(this);
+            model->setSequenceMap(&sequences_map_);
+            preset_models_->insert(QStringFromStd(m), QVariant::fromValue(model));
+        }
 
-        preset_models_->insert(QStringFromStd(m), QVariant::fromValue(model));
-        preset_models_->insert(QStringFromStd(f), QVariant::fromValue(filter));
+        if (not preset_models_->contains(QStringFromStd(f))) {
+            auto filter = new ShotgunTreeModel(this);
+            preset_models_->insert(QStringFromStd(f), QVariant::fromValue(filter));
+        }
     }
 
     init(CafSystemObject::get_actor_system());
 
     for (const auto &[m, n] : std::vector<std::tuple<std::string, std::string>>{
              {"shotPresetsModel", "shot"},
+             {"shotTreePresetsModel", "shot_tree"},
              {"playlistPresetsModel", "playlist"},
              {"editPresetsModel", "edit"},
              {"referencePresetsModel", "reference"},
              {"notePresetsModel", "note"},
+             {"noteTreePresetsModel", "note_tree"},
              {"mediaActionPresetsModel", "media_action"},
 
              {"shotFilterModel", "shot_filter"},
@@ -448,11 +522,14 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
 
 QObject *ShotgunDataSourceUI::groupModel(const int project_id) {
     if (not groups_map_.count(project_id)) {
-        groups_map_[project_id] = new ShotgunListModel(this);
+        groups_map_[project_id]        = new ShotgunListModel(this);
+        groups_filter_map_[project_id] = new ShotgunFilterModel(this);
+        groups_filter_map_[project_id]->setSourceModel(groups_map_[project_id]);
+
         getGroupsFuture(project_id);
     }
 
-    return groups_map_[project_id];
+    return groups_filter_map_[project_id];
 }
 
 void ShotgunDataSourceUI::createSequenceModels(const int project_id) {
@@ -482,10 +559,22 @@ void ShotgunDataSourceUI::createShotModels(const int project_id) {
     }
 }
 
+void ShotgunDataSourceUI::createCustomEntity24Models(const int project_id) {
+    if (not custom_entity_24_map_.count(project_id)) {
+        custom_entity_24_map_[project_id] = new ShotgunListModel(this);
+        getCustomEntity24Future(project_id);
+    }
+}
+
 
 QObject *ShotgunDataSourceUI::shotModel(const int project_id) {
     createShotModels(project_id);
     return shots_map_[project_id];
+}
+
+QObject *ShotgunDataSourceUI::customEntity24Model(const int project_id) {
+    createCustomEntity24Models(project_id);
+    return custom_entity_24_map_[project_id];
 }
 
 QObject *ShotgunDataSourceUI::shotSearchFilterModel(const int project_id) {
@@ -717,10 +806,12 @@ void ShotgunDataSourceUI::setLiveLinkMetadata(QString &data) {
             // trigger update of models with new livelink data..
             for (const auto &i :
                  {"shotPresetsModel",
+                  "shotTreePresetsModel",
                   "playlistPresetsModel",
                   "editPresetsModel",
                   "referencePresetsModel",
                   "notePresetsModel",
+                  "noteTreePresetsModel",
                   "mediaActionPresetsModel"})
                 qvariant_cast<ShotgunTreeModel *>(preset_models_->value(i))
                     ->updateLiveLinks(live_link_metadata_);
@@ -768,14 +859,18 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
 
             if (context == "Playlists")
                 model_update["type"] = "playlist_result";
-            else if (context == "Shots")
+            else if (context == "Versions")
                 model_update["type"] = "shot_result";
             else if (context == "Reference")
                 model_update["type"] = "reference_result";
+            else if (context == "Versions Tree")
+                model_update["type"] = "shot_tree_result";
             else if (context == "Menu Setup")
                 model_update["type"] = "media_action_result";
             else if (context == "Notes")
                 model_update["type"] = "note_result";
+            else if (context == "Notes Tree")
+                model_update["type"] = "note_tree_result";
 
             try {
                 scoped_actor sys{system()};
@@ -787,6 +882,7 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
                 model_update["audio_source"]  = source_selection.second;
                 model_update["flag_text"]     = flag_selection.first;
                 model_update["flag_colour"]   = flag_selection.second;
+                model_update["truncated"]     = false;
 
                 if (context == "Playlists") {
                     data = request_receive_wait<JsonStore>(
@@ -810,7 +906,9 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
                         orderby,
                         1,
                         max_count);
-                } else if (context == "Shots") {
+                } else if (
+                    context == "Versions" or context == "Versions Tree" or
+                    context == "Reference" or context == "Menu Setup") {
                     data = request_receive_wait<JsonStore>(
                         *sys,
                         backend_,
@@ -822,31 +920,7 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
                         orderby,
                         1,
                         max_count);
-                } else if (context == "Reference") {
-                    data = request_receive_wait<JsonStore>(
-                        *sys,
-                        backend_,
-                        SHOTGUN_TIMEOUT,
-                        shotgun_entity_search_atom_v,
-                        "Versions",
-                        filter,
-                        VersionFields,
-                        orderby,
-                        1,
-                        max_count);
-                } else if (context == "Menu Setup") {
-                    data = request_receive_wait<JsonStore>(
-                        *sys,
-                        backend_,
-                        SHOTGUN_TIMEOUT,
-                        shotgun_entity_search_atom_v,
-                        "Versions",
-                        filter,
-                        VersionFields,
-                        orderby,
-                        1,
-                        max_count);
-                } else if (context == "Notes") {
+                } else if (context == "Notes" or context == "Notes Tree") {
                     data = request_receive_wait<JsonStore>(
                         *sys,
                         backend_,
@@ -861,6 +935,7 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
                              "client_note",
                              "sg_location",
                              "sg_note_type",
+                             "sg_artist",
                              "sg_pipeline_step",
                              "subject",
                              "content",
@@ -874,6 +949,8 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
                         max_count);
                 }
 
+                if (static_cast<int>(data.at("data").size()) == max_count)
+                    model_update["truncated"] = true;
                 data["preferred_visual_source"] = source_selection.first;
                 data["preferred_audio_source"]  = source_selection.second;
                 data["flag_text"]               = flag_selection.first;
@@ -906,14 +983,19 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
 }
 
 Text ShotgunDataSourceUI::addTextValue(
-    const std::string &filter, const std::string &value) const {
+    const std::string &filter, const std::string &value, const bool negated) const {
     if (starts_with(value, "^") and ends_with(value, "$")) {
+        if (negated)
+            return Text(filter).is_not(value.substr(0, value.size() - 1).substr(1));
+
         return Text(filter).is(value.substr(0, value.size() - 1).substr(1));
     } else if (ends_with(value, "$")) {
         return Text(filter).ends_with(value.substr(0, value.size() - 1));
     } else if (starts_with(value, "^")) {
         return Text(filter).starts_with(value.substr(1));
     }
+    if (negated)
+        return Text(filter).not_contains(value);
 
     return Text(filter).contains(value);
 }
@@ -921,8 +1003,17 @@ Text ShotgunDataSourceUI::addTextValue(
 void ShotgunDataSourceUI::addTerm(
     const int project_id, const std::string &context, FilterBy *qry, const JsonStore &term) {
     // qry->push_back(Text("versions").is_not_null());
-    auto trm = term.at("term").get<std::string>();
-    auto val = term.at("value").get<std::string>();
+    auto trm     = term.at("term").get<std::string>();
+    auto val     = term.at("value").get<std::string>();
+    auto live    = term.value("livelink", false);
+    auto negated = term.value("negated", false);
+
+
+    // kill queries with invalid shot live link.
+    if (val.empty() and live and trm == "Shot") {
+        auto rel = R"({"type": "Shot", "id":0})"_json;
+        qry->push_back(RelationType("entity").is(JsonStore(rel)));
+    }
 
     if (val.empty()) {
         throw XStudioError("Empty query value " + trm);
@@ -957,7 +1048,10 @@ void ShotgunDataSourceUI::addTerm(
                 throw XStudioError("Invalid query term " + trm + " " + val);
             }
         } else if (trm == "Playlist Type") {
-            qry->push_back(Text("sg_type").is(val));
+            if (negated)
+                qry->push_back(Text("sg_type").is_not(val));
+            else
+                qry->push_back(Text("sg_type").is(val));
         } else if (trm == "Has Contents") {
             if (val == "False")
                 qry->push_back(Text("versions").is_null());
@@ -966,17 +1060,24 @@ void ShotgunDataSourceUI::addTerm(
             else
                 throw XStudioError("Invalid query term " + trm + " " + val);
         } else if (trm == "Site") {
-            qry->push_back(Text("sg_location").is(val));
+            if (negated)
+                qry->push_back(Text("sg_location").is_not(val));
+            else
+                qry->push_back(Text("sg_location").is(val));
         } else if (trm == "Department") {
-            qry->push_back(Number("sg_department_unit.Department.id")
-                               .is(getQueryValue(trm, JsonStore(val)).get<int>()));
+            if (negated)
+                qry->push_back(Number("sg_department_unit.Department.id")
+                                   .is_not(getQueryValue(trm, JsonStore(val)).get<int>()));
+            else
+                qry->push_back(Number("sg_department_unit.Department.id")
+                                   .is(getQueryValue(trm, JsonStore(val)).get<int>()));
         } else if (trm == "Author") {
             qry->push_back(Number("created_by.HumanUser.id")
                                .is(getQueryValue(trm, JsonStore(val)).get<int>()));
         } else if (trm == "Filter") {
-            qry->push_back(addTextValue("code", val));
+            qry->push_back(addTextValue("code", val, negated));
         } else if (trm == "Tag") {
-            qry->push_back(addTextValue("tags.Tag.name", val));
+            qry->push_back(addTextValue("tags.Tag.name", val, negated));
         } else if (trm == "Has Notes") {
             if (val == "False")
                 qry->push_back(Text("notes").is_null());
@@ -984,9 +1085,16 @@ void ShotgunDataSourceUI::addTerm(
                 qry->push_back(Text("notes").is_not_null());
             else
                 throw XStudioError("Invalid query term " + trm + " " + val);
+        } else if (trm == "Unit") {
+            auto tmp  = R"({"type": "CustomEntity24", "id":0})"_json;
+            tmp["id"] = getQueryValue(trm, JsonStore(val), project_id).get<int>();
+            if (negated)
+                qry->push_back(RelationType("sg_unit2").in({JsonStore(tmp)}));
+            else
+                qry->push_back(RelationType("sg_unit2").not_in({JsonStore(tmp)}));
         }
 
-    } else if (context == "Notes") {
+    } else if (context == "Notes" || context == "Notes Tree") {
         if (trm == "Lookback") {
             if (val == "Today")
                 qry->push_back(DateTime("created_at").in_calendar_day(0));
@@ -1012,9 +1120,12 @@ void ShotgunDataSourceUI::addTerm(
             } else
                 throw XStudioError("Invalid query term " + trm + " " + val);
         } else if (trm == "Filter") {
-            qry->push_back(addTextValue("subject", val));
+            qry->push_back(addTextValue("subject", val, negated));
         } else if (trm == "Note Type") {
-            qry->push_back(Text("sg_note_type").is(val));
+            if (negated)
+                qry->push_back(Text("sg_note_type").is_not(val));
+            else
+                qry->push_back(Text("sg_note_type").is(val));
         } else if (trm == "Author") {
             qry->push_back(Number("created_by.HumanUser.id")
                                .is(getQueryValue(trm, JsonStore(val)).get<int>()));
@@ -1026,20 +1137,58 @@ void ShotgunDataSourceUI::addTerm(
             auto tmp  = R"({"type": "Shot", "id":0})"_json;
             tmp["id"] = getQueryValue(trm, JsonStore(val), project_id).get<int>();
             qry->push_back(RelationType("note_links").in({JsonStore(tmp)}));
+        } else if (trm == "Sequence") {
+            try {
+                if (sequences_map_.count(project_id)) {
+                    auto row = sequences_map_[project_id]->search(
+                        QVariant::fromValue(QStringFromStd(val)), QStringFromStd("display"), 0);
+                    if (row != -1) {
+                        auto rel = std::vector<JsonStore>();
+                        // auto sht   = R"({"type": "Shot", "id":0})"_json;
+                        // auto shots = sequences_map_[project_id]
+                        //                  ->modelData()
+                        //                  .at(row)
+                        //                  .at("relationships")
+                        //                  .at("shots")
+                        //                  .at("data");
+
+                        // for (const auto &i : shots) {
+                        //     sht["id"] = i.at("id").get<int>();
+                        //     rel.emplace_back(sht);
+                        // }
+                        auto seq = R"({"type": "Sequence", "id":0})"_json;
+                        seq["id"] =
+                            sequences_map_[project_id]->modelData().at(row).at("id").get<int>();
+                        rel.emplace_back(seq);
+
+                        qry->push_back(RelationType("note_links").in(rel));
+                    } else
+                        throw XStudioError("Invalid query term " + trm + " " + val);
+                }
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                throw XStudioError("Invalid query term " + trm + " " + val);
+            }
         } else if (trm == "Playlist") {
             auto tmp  = R"({"type": "Playlist", "id":0})"_json;
             tmp["id"] = getQueryValue(trm, JsonStore(val), project_id).get<int>();
             qry->push_back(RelationType("note_links").in({JsonStore(tmp)}));
         } else if (trm == "Version Name") {
-            qry->push_back(addTextValue("note_links.Version.code", val));
+            qry->push_back(addTextValue("note_links.Version.code", val, negated));
         } else if (trm == "Tag") {
-            qry->push_back(addTextValue("tags.Tag.name", val));
+            qry->push_back(addTextValue("tags.Tag.name", val, negated));
         } else if (trm == "Twig Type") {
-            qry->push_back(
-                Text("note_links.Version.sg_twig_type_code")
-                    .is(getQueryValue("TwigTypeCode", JsonStore(val)).get<std::string>()));
+            if (negated)
+                qry->push_back(
+                    Text("note_links.Version.sg_twig_type_code")
+                        .is_not(
+                            getQueryValue("TwigTypeCode", JsonStore(val)).get<std::string>()));
+            else
+                qry->push_back(
+                    Text("note_links.Version.sg_twig_type_code")
+                        .is(getQueryValue("TwigTypeCode", JsonStore(val)).get<std::string>()));
         } else if (trm == "Twig Name") {
-            qry->push_back(addTextValue("note_links.Version.sg_twig_name", val));
+            qry->push_back(addTextValue("note_links.Version.sg_twig_name", val, negated));
         } else if (trm == "Client Note") {
             if (val == "False")
                 qry->push_back(Checkbox("client_note").is(false));
@@ -1049,10 +1198,22 @@ void ShotgunDataSourceUI::addTerm(
                 throw XStudioError("Invalid query term " + trm + " " + val);
 
         } else if (trm == "Pipeline Step") {
-            qry->push_back(Text("sg_pipeline_step").is(val));
+            if (negated) {
+                if (val == "None")
+                    qry->push_back(Text("sg_pipeline_step").is_not_null());
+                else
+                    qry->push_back(Text("sg_pipeline_step").is_not(val));
+            } else {
+                if (val == "None")
+                    qry->push_back(Text("sg_pipeline_step").is_null());
+                else
+                    qry->push_back(Text("sg_pipeline_step").is(val));
+            }
         }
 
-    } else if (context == "Shots" or context == "Reference" or context == "Menu Setup") {
+    } else if (
+        context == "Versions" or context == "Reference" or context == "Versions Tree" or
+        context == "Menu Setup") {
         if (trm == "Lookback") {
             if (val == "Today")
                 qry->push_back(DateTime("created_at").in_calendar_day(0));
@@ -1084,22 +1245,57 @@ void ShotgunDataSourceUI::addTerm(
         } else if (trm == "Author") {
             qry->push_back(Number("created_by.HumanUser.id")
                                .is(getQueryValue(trm, JsonStore(val)).get<int>()));
+        } else if (trm == "Older Version") {
+            qry->push_back(Number("sg_dneg_version").less_than(std::stoi(val)));
+        } else if (trm == "Newer Version") {
+            qry->push_back(Number("sg_dneg_version").greater_than(std::stoi(val)));
         } else if (trm == "Site") {
-            qry->push_back(Text("sg_location").is(val));
+            if (negated)
+                qry->push_back(Text("sg_location").is_not(val));
+            else
+                qry->push_back(Text("sg_location").is(val));
         } else if (trm == "On Disk") {
             std::string prop = std::string("sg_on_disk_") + val;
-            qry->push_back(FilterBy().Or(Text(prop).is("Full"), Text(prop).is("Partial")));
+            if (negated)
+                qry->push_back(Text(prop).is("None"));
+            else
+                qry->push_back(FilterBy().Or(Text(prop).is("Full"), Text(prop).is("Partial")));
         } else if (trm == "Pipeline Step") {
-            qry->push_back(Text("sg_pipeline_step").is(val));
+            if (negated) {
+                if (val == "None")
+                    qry->push_back(Text("sg_pipeline_step").is_not_null());
+                else
+                    qry->push_back(Text("sg_pipeline_step").is_not(val));
+            } else {
+                if (val == "None")
+                    qry->push_back(Text("sg_pipeline_step").is_null());
+                else
+                    qry->push_back(Text("sg_pipeline_step").is(val));
+            }
         } else if (trm == "Pipeline Status") {
-            qry->push_back(Text("sg_status_list")
-                               .is(getQueryValue(trm, JsonStore(val)).get<std::string>()));
+            if (negated)
+                qry->push_back(
+                    Text("sg_status_list")
+                        .is_not(getQueryValue(trm, JsonStore(val)).get<std::string>()));
+            else
+                qry->push_back(Text("sg_status_list")
+                                   .is(getQueryValue(trm, JsonStore(val)).get<std::string>()));
         } else if (trm == "Production Status") {
-            qry->push_back(Text("sg_production_status")
-                               .is(getQueryValue(trm, JsonStore(val)).get<std::string>()));
+            if (negated)
+                qry->push_back(
+                    Text("sg_production_status")
+                        .is_not(getQueryValue(trm, JsonStore(val)).get<std::string>()));
+            else
+                qry->push_back(Text("sg_production_status")
+                                   .is(getQueryValue(trm, JsonStore(val)).get<std::string>()));
         } else if (trm == "Shot Status") {
-            qry->push_back(Text("entity.Shot.sg_status_list")
-                               .is(getQueryValue(trm, JsonStore(val)).get<std::string>()));
+            if (negated)
+                qry->push_back(
+                    Text("entity.Shot.sg_status_list")
+                        .is_not(getQueryValue(trm, JsonStore(val)).get<std::string>()));
+            else
+                qry->push_back(Text("entity.Shot.sg_status_list")
+                                   .is(getQueryValue(trm, JsonStore(val)).get<std::string>()));
         } else if (trm == "Exclude Shot Status") {
             qry->push_back(Text("entity.Shot.sg_status_list")
                                .is_not(getQueryValue(trm, JsonStore(val)).get<std::string>()));
@@ -1127,19 +1323,19 @@ void ShotgunDataSourceUI::addTerm(
                     auto row = sequences_map_[project_id]->search(
                         QVariant::fromValue(QStringFromStd(val)), QStringFromStd("display"), 0);
                     if (row != -1) {
-                        auto rel   = std::vector<JsonStore>();
-                        auto sht   = R"({"type": "Shot", "id":0})"_json;
-                        auto shots = sequences_map_[project_id]
-                                         ->modelData()
-                                         .at(row)
-                                         .at("relationships")
-                                         .at("shots")
-                                         .at("data");
+                        auto rel = std::vector<JsonStore>();
+                        // auto sht   = R"({"type": "Shot", "id":0})"_json;
+                        // auto shots = sequences_map_[project_id]
+                        //                  ->modelData()
+                        //                  .at(row)
+                        //                  .at("relationships")
+                        //                  .at("shots")
+                        //                  .at("data");
 
-                        for (const auto &i : shots) {
-                            sht["id"] = i.at("id").get<int>();
-                            rel.emplace_back(sht);
-                        }
+                        // for (const auto &i : shots) {
+                        //     sht["id"] = i.at("id").get<int>();
+                        //     rel.emplace_back(sht);
+                        // }
                         auto seq = R"({"type": "Sequence", "id":0})"_json;
                         seq["id"] =
                             sequences_map_[project_id]->modelData().at(row).at("id").get<int>();
@@ -1187,22 +1383,32 @@ void ShotgunDataSourceUI::addTerm(
             else
                 throw XStudioError("Invalid query term " + trm + " " + val);
         } else if (trm == "Filter") {
-            qry->push_back(addTextValue("code", val));
+            qry->push_back(addTextValue("code", val, negated));
         } else if (trm == "Tag") {
-            qry->push_back(addTextValue("entity.Shot.tags.Tag.name", val));
+            qry->push_back(addTextValue("entity.Shot.tags.Tag.name", val, negated));
         } else if (trm == "Tag (Version)") {
-            qry->push_back(addTextValue("tags.Tag.name", val));
+            qry->push_back(addTextValue("tags.Tag.name", val, negated));
         } else if (trm == "Twig Name") {
-            qry->push_back(addTextValue("sg_twig_name", val));
+            qry->push_back(addTextValue("sg_twig_name", val, negated));
         } else if (trm == "Twig Type") {
-            qry->push_back(
-                Text("sg_twig_type_code")
-                    .is(getQueryValue("TwigTypeCode", JsonStore(val)).get<std::string>()));
+            if (negated)
+                qry->push_back(
+                    Text("sg_twig_type_code")
+                        .is_not(
+                            getQueryValue("TwigTypeCode", JsonStore(val)).get<std::string>()));
+            else
+                qry->push_back(
+                    Text("sg_twig_type_code")
+                        .is(getQueryValue("TwigTypeCode", JsonStore(val)).get<std::string>()));
         } else if (trm == "Completion Location") {
             auto rel  = R"({"type": "CustomNonProjectEntity16", "id":0})"_json;
             rel["id"] = getQueryValue(trm, JsonStore(val)).get<int>();
-            qry->push_back(
-                RelationType("entity.Shot.sg_primary_shot_location").is(JsonStore(rel)));
+            if (negated)
+                qry->push_back(RelationType("entity.Shot.sg_primary_shot_location")
+                                   .is_not(JsonStore(rel)));
+            else
+                qry->push_back(
+                    RelationType("entity.Shot.sg_primary_shot_location").is(JsonStore(rel)));
 
         } else {
             spdlog::warn("{} Unhandled {} {}", __PRETTY_FUNCTION__, trm, val);
@@ -1280,8 +1486,8 @@ ShotgunDataSourceUI::buildQuery(
                         else if (val == "Updated")
                             field = "updated_at";
                     } else if (
-                        context == "Shots" or context == "Reference" or
-                        context == "Menu Setup") {
+                        context == "Versions" or context == "Versions Tree" or
+                        context == "Reference" or context == "Menu Setup") {
                         if (val == "Date And Time")
                             field = "created_at";
                         else if (val == "Created")
@@ -1290,7 +1496,9 @@ ShotgunDataSourceUI::buildQuery(
                             field = "updated_at";
                         else if (val == "Client Submit")
                             field = "sg_date_submitted_to_client";
-                    } else if (context == "Notes") {
+                        else if (val == "Version")
+                            field = "sg_dneg_version";
+                    } else if (context == "Notes" or context == "Notes Tree") {
                         if (val == "Created")
                             field = "created_at";
                         else if (val == "Updated")
@@ -1301,7 +1509,10 @@ ShotgunDataSourceUI::buildQuery(
                         order_by.push_back(descending ? "-" + field : field);
                 } else {
                     // add normal term to map.
-                    qry_terms.insert(std::make_pair(i.at("term"), i));
+                    qry_terms.insert(std::make_pair(
+                        std::string(i.value("negated", false) ? "Not " : "") +
+                            i.at("term").get<std::string>(),
+                        i));
                 }
             }
 
@@ -1315,10 +1526,11 @@ ShotgunDataSourceUI::buildQuery(
         // add terms we always want.
         if (context == "Playlists") {
             qry.push_back(Number("project.Project.id").is(project_id));
-        } else if (context == "Shots" || context == "Menu Setup") {
+        } else if (
+            context == "Versions" or context == "Versions Tree" or context == "Menu Setup") {
             qry.push_back(Number("project.Project.id").is(project_id));
             qry.push_back(Text("sg_deleted").is_null());
-            qry.push_back(Entity("entity").type_is("Shot"));
+            // qry.push_back(Entity("entity").type_is("Shot"));
             qry.push_back(FilterBy().Or(
                 Text("sg_path_to_movie").is_not_null(),
                 Text("sg_path_to_frames").is_not_null()));
@@ -1328,8 +1540,8 @@ ShotgunDataSourceUI::buildQuery(
             qry.push_back(FilterBy().Or(
                 Text("sg_path_to_movie").is_not_null(),
                 Text("sg_path_to_frames").is_not_null()));
-            qry.push_back(Entity("entity").type_is("Asset"));
-        } else if (context == "Notes") {
+            // qry.push_back(Entity("entity").type_is("Asset"));
+        } else if (context == "Notes" or context == "Notes Tree") {
             qry.push_back(Number("project.Project.id").is(project_id));
         }
 
@@ -1368,13 +1580,13 @@ ShotgunDataSourceUI::buildQuery(
     if (order_by.empty()) {
         if (context == "Playlists")
             order_by.emplace_back("-created_at");
-        else if (context == "Shots")
+        else if (context == "Versions" or context == "Versions Tree")
             order_by.emplace_back("-created_at");
         else if (context == "Reference")
             order_by.emplace_back("-created_at");
         else if (context == "Menu Setup")
             order_by.emplace_back("-created_at");
-        else if (context == "Notes")
+        else if (context == "Notes" or context == "Notes Tree")
             order_by.emplace_back("-created_at");
     }
 
@@ -1398,20 +1610,67 @@ QString ShotgunDataSourceUI::getShotgunUserName() {
     return result;
 }
 
+// remove old system presets from user preferences.
+utility::JsonStore ShotgunDataSourceUI::purgeOldSystem(
+    const utility::JsonStore &vprefs, const utility::JsonStore &dprefs) const {
+
+    utility::JsonStore result = dprefs;
+
+    auto count = 0;
+
+    for (const auto &i : vprefs) {
+        try {
+            if (i.value("type", "") == "system")
+                count++;
+        } catch (...) {
+        }
+    }
+
+    if (count != result.size()) {
+        spdlog::warn("Purging old presets. {} {}", count, result.size());
+        for (const auto &i : vprefs) {
+            try {
+                if (i.value("type", "") == "system")
+                    continue;
+            } catch (...) {
+            }
+            result.push_back(i);
+        }
+    } else {
+        result = vprefs;
+    }
+
+    return result;
+}
+
 void ShotgunDataSourceUI::populatePresetModel(
     const utility::JsonStore &prefs,
     const std::string &path,
     ShotgunTreeModel *model,
+    const bool purge_old,
     const bool clear_flags) {
     try {
         // replace embedded envvars
-        auto tmp = expand_envvars(preference_value<JsonStore>(prefs, path).dump());
+        std::string tmp;
+
+        // spdlog::warn("path {}", path);
+
+        if (purge_old)
+            tmp = expand_envvars(purgeOldSystem(
+                                     preference_value<JsonStore>(prefs, path),
+                                     preference_default_value<JsonStore>(prefs, path))
+                                     .dump());
+        else
+            tmp = expand_envvars(preference_value<JsonStore>(prefs, path).dump());
 
         model->populate(JsonStore(nlohmann::json::parse(tmp)));
         if (clear_flags) {
             model->clearLoaded();
             model->clearExpanded();
             model->clearLiveLinks();
+        } else {
+            // filter model set index 0 as active.
+            model->setActivePreset(0);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1425,7 +1684,7 @@ Q_INVOKABLE void ShotgunDataSourceUI::resetPreset(const QString &qpreset, const 
         auto defval             = JsonStore();
         ShotgunTreeModel *model = nullptr;
 
-        if (preset == "Shots")
+        if (preset == "Versions")
             preset = "shot";
         else if (preset == "Playlists")
             preset = "playlist";
@@ -1437,61 +1696,16 @@ Q_INVOKABLE void ShotgunDataSourceUI::resetPreset(const QString &qpreset, const 
             preset = "edit";
         else if (preset == "Reference")
             preset = "reference";
+        else if (preset == "Versions Tree")
+            preset = "shot_tree";
+        else if (preset == "Notes Tree")
+            preset = "note_tree";
 
-        if (preset == "shot") {
-            defval = prefs.default_value<JsonStore>("/plugin/data_source/shotgun/presets/shot");
-            model =
-                qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotPresetsModel"));
-        } else if (preset == "playlist") {
-            defval =
-                prefs.default_value<JsonStore>("/plugin/data_source/shotgun/presets/playlist");
+        if (PresetModelLookup.count(preset)) {
+            defval = prefs.default_value<JsonStore>(
+                "/plugin/data_source/shotgun/" + PresetPreferenceLookup.at(preset));
             model = qvariant_cast<ShotgunTreeModel *>(
-                preset_models_->value("playlistPresetsModel"));
-        } else if (preset == "note") {
-            defval = prefs.default_value<JsonStore>("/plugin/data_source/shotgun/presets/note");
-            model =
-                qvariant_cast<ShotgunTreeModel *>(preset_models_->value("notePresetsModel"));
-        } else if (preset == "media_action") {
-            defval = prefs.default_value<JsonStore>(
-                "/plugin/data_source/shotgun/presets/media_action");
-            model = qvariant_cast<ShotgunTreeModel *>(
-                preset_models_->value("mediaActionPresetsModel"));
-        } else if (preset == "edit") {
-            defval = prefs.default_value<JsonStore>("/plugin/data_source/shotgun/presets/edit");
-            model =
-                qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editPresetsModel"));
-        } else if (preset == "reference") {
-            defval =
-                prefs.default_value<JsonStore>("/plugin/data_source/shotgun/presets/reference");
-            model = qvariant_cast<ShotgunTreeModel *>(
-                preset_models_->value("referencePresetsModel"));
-        } else if (preset == "shot_filter") {
-            defval = prefs.default_value<JsonStore>(
-                "/plugin/data_source/shotgun/global_filters/shot");
-            model = qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotFilterModel"));
-        } else if (preset == "playlist_filter") {
-            defval = prefs.default_value<JsonStore>(
-                "/plugin/data_source/shotgun/global_filters/playlist");
-            model =
-                qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistFilterModel"));
-        } else if (preset == "note_filter") {
-            defval = prefs.default_value<JsonStore>(
-                "/plugin/data_source/shotgun/global_filters/note");
-            model = qvariant_cast<ShotgunTreeModel *>(preset_models_->value("noteFilterModel"));
-        } else if (preset == "media_action_filter") {
-            defval = prefs.default_value<JsonStore>(
-                "/plugin/data_source/shotgun/global_filters/media_action");
-            model = qvariant_cast<ShotgunTreeModel *>(
-                preset_models_->value("mediaActionFilterModel"));
-        } else if (preset == "edit_filter") {
-            defval = prefs.default_value<JsonStore>(
-                "/plugin/data_source/shotgun/global_filters/edit");
-            model = qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editFilterModel"));
-        } else if (preset == "reference_filter") {
-            defval = prefs.default_value<JsonStore>(
-                "/plugin/data_source/shotgun/global_filters/reference");
-            model = qvariant_cast<ShotgunTreeModel *>(
-                preset_models_->value("referenceFilterModel"));
+                preset_models_->value(QStringFromStd(PresetModelLookup.at(preset))));
         }
 
         if (model == nullptr)
@@ -1527,12 +1741,13 @@ Q_INVOKABLE void ShotgunDataSourceUI::resetPreset(const QString &qpreset, const 
 
         // reset model..
         model->populate(data);
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 }
 
-void ShotgunDataSourceUI::loadPresets() {
+void ShotgunDataSourceUI::loadPresets(const bool purge_old) {
     try {
         auto prefs = GlobalStoreHelper(system());
         JsonStore js;
@@ -1545,67 +1760,37 @@ void ShotgunDataSourceUI::loadPresets() {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/presets/shot",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotPresetsModel")),
-            true);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/presets/playlist",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistPresetsModel")),
-            true);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/presets/reference",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referencePresetsModel")),
-            true);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/presets/edit",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editPresetsModel")),
-            true);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/presets/note",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("notePresetsModel")),
-            true);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/presets/media_action",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("mediaActionPresetsModel")),
-            true);
+        for (const auto &[m, f] : std::vector<std::tuple<std::string, std::string>>{
+                 {"shot", "shotPresetsModel"},
+                 {"shot_tree", "shotTreePresetsModel"},
+                 {"playlist", "playlistPresetsModel"},
+                 {"reference", "referencePresetsModel"},
+                 {"edit", "editPresetsModel"},
+                 {"note", "notePresetsModel"},
+                 {"note_tree", "noteTreePresetsModel"},
+                 {"media_action", "mediaActionPresetsModel"}}) {
+            populatePresetModel(
+                js,
+                "/plugin/data_source/shotgun/presets/" + m,
+                qvariant_cast<ShotgunTreeModel *>(preset_models_->value(QStringFromStd(f))),
+                purge_old,
+                true);
+        }
 
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/global_filters/shot",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotFilterModel")),
-            false);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/global_filters/playlist",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistFilterModel")),
-            false);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/global_filters/reference",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referenceFilterModel")),
-            false);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/global_filters/edit",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editFilterModel")),
-            false);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/global_filters/note",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("noteFilterModel")),
-            false);
-        populatePresetModel(
-            js,
-            "/plugin/data_source/shotgun/global_filters/media_action",
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("mediaActionFilterModel")),
-            false);
+        for (const auto &[m, f] : std::vector<std::tuple<std::string, std::string>>{
+                 {"shot", "shotFilterModel"},
+                 {"playlist", "playlistFilterModel"},
+                 {"reference", "referenceFilterModel"},
+                 {"edit", "editFilterModel"},
+                 {"note", "noteFilterModel"},
+                 {"media_action", "mediaActionFilterModel"}}) {
+            populatePresetModel(
+                js,
+                "/plugin/data_source/shotgun/global_filters/" + m,
+                qvariant_cast<ShotgunTreeModel *>(preset_models_->value(QStringFromStd(f))),
+                false,
+                false);
+        }
 
         disable_flush_ = false;
     } catch (const std::exception &err) {
@@ -1613,6 +1798,28 @@ void ShotgunDataSourceUI::loadPresets() {
     }
 }
 
+void ShotgunDataSourceUI::handleResult(
+    const JsonStore &request,
+    const JsonStore &data,
+    const std::string &model,
+    const std::string &name) {
+    if (not epoc_map_.count(request.at("type")) or
+        epoc_map_.at(request.at("type")) < request.at("epoc")) {
+        auto slm =
+            qvariant_cast<ShotgunListModel *>(result_models_->value(QStringFromStd(model)));
+
+        slm->populate(data.at("data"));
+        slm->setTruncated(request.at("truncated").get<bool>());
+
+        source_selection_[name] = std::make_pair(
+            request.at("visual_source").get<std::string>(),
+            request.at("audio_source").get<std::string>());
+        flag_selection_[name] = std::make_pair(
+            request.at("flag_text").get<std::string>(),
+            request.at("flag_colour").get<std::string>());
+        epoc_map_[request.at("type")] = request.at("epoc");
+    }
+}
 
 void ShotgunDataSourceUI::init(caf::actor_system &system) {
     QMLActor::init(system);
@@ -1632,7 +1839,6 @@ void ShotgunDataSourceUI::init(caf::actor_system &system) {
 
             // catchall for dealing with results from shotgun
             [=](shotgun_info_atom, const JsonStore &request, const JsonStore &data) {
-                static std::map<std::string, uint64_t> epoc_map;
                 try {
                     if (request.at("type") == "project")
                         qvariant_cast<ShotgunListModel *>(term_models_->value("projectModel"))
@@ -1659,7 +1865,11 @@ void ShotgunDataSourceUI::init(caf::actor_system &system) {
                         qvariant_cast<ShotgunListModel *>(
                             term_models_->value("playlistTypeModel"))
                             ->populate(data.at("data"));
-                    else if (request.at("type") == "production_status") {
+                    else if (request.at("type") == "custom_entity_24") {
+                        custom_entity_24_map_[request.at("id")]->populate(data.at("data"));
+                        updateQueryValueCache(
+                            "Unit", data.at("data"), request.at("id").get<int>());
+                    } else if (request.at("type") == "production_status") {
                         qvariant_cast<ShotgunListModel *>(
                             term_models_->value("productionStatusModel"))
                             ->populate(data.at("data"));
@@ -1687,89 +1897,23 @@ void ShotgunDataSourceUI::init(caf::actor_system &system) {
                         updateQueryValueCache(
                             "Playlist", data.at("data"), request.at("id").get<int>());
                     } else if (request.at("type") == "playlist_result") {
-                        if (not epoc_map.count(request.at("type")) or
-                            epoc_map.at(request.at("type")) < request.at("epoc")) {
-                            qvariant_cast<ShotgunListModel *>(
-                                result_models_->value("playlistResultsBaseModel"))
-                                ->populate(data.at("data"));
-                            source_selection_["Playlists"] = std::make_pair(
-                                request.at("visual_source").get<std::string>(),
-                                request.at("audio_source").get<std::string>());
-                            flag_selection_["Playlists"] = std::make_pair(
-                                request.at("flag_text").get<std::string>(),
-                                request.at("flag_colour").get<std::string>());
-                            epoc_map[request.at("type")] = request.at("epoc");
-                        }
+                        handleResult(request, data, "playlistResultsBaseModel", "Playlists");
                     } else if (request.at("type") == "shot_result") {
-                        if (not epoc_map.count(request.at("type")) or
-                            epoc_map.at(request.at("type")) < request.at("epoc")) {
-                            qvariant_cast<ShotgunListModel *>(
-                                result_models_->value("shotResultsBaseModel"))
-                                ->populate(data.at("data"));
-                            epoc_map[request.at("type")] = request.at("epoc");
-                            source_selection_["Shots"]   = std::make_pair(
-                                request.at("visual_source").get<std::string>(),
-                                request.at("audio_source").get<std::string>());
-                            flag_selection_["Shots"] = std::make_pair(
-                                request.at("flag_text").get<std::string>(),
-                                request.at("flag_colour").get<std::string>());
-                        }
+                        handleResult(request, data, "shotResultsBaseModel", "Versions");
+                    } else if (request.at("type") == "shot_tree_result") {
+                        handleResult(
+                            request, data, "shotTreeResultsBaseModel", "Versions Tree");
                     } else if (request.at("type") == "media_action_result") {
-                        if (not epoc_map.count(request.at("type")) or
-                            epoc_map.at(request.at("type")) < request.at("epoc")) {
-                            qvariant_cast<ShotgunListModel *>(
-                                result_models_->value("mediaActionResultsBaseModel"))
-                                ->populate(data.at("data"));
-                            epoc_map[request.at("type")]    = request.at("epoc");
-                            source_selection_["Menu Setup"] = std::make_pair(
-                                request.at("visual_source").get<std::string>(),
-                                request.at("audio_source").get<std::string>());
-                            flag_selection_["Menu Setup"] = std::make_pair(
-                                request.at("flag_text").get<std::string>(),
-                                request.at("flag_colour").get<std::string>());
-                        }
+                        handleResult(
+                            request, data, "mediaActionResultsBaseModel", "Menu Setup");
                     } else if (request.at("type") == "reference_result") {
-                        if (not epoc_map.count(request.at("type")) or
-                            epoc_map.at(request.at("type")) < request.at("epoc")) {
-                            qvariant_cast<ShotgunListModel *>(
-                                result_models_->value("referenceResultsBaseModel"))
-                                ->populate(data.at("data"));
-                            epoc_map[request.at("type")]   = request.at("epoc");
-                            source_selection_["Reference"] = std::make_pair(
-                                request.at("visual_source").get<std::string>(),
-                                request.at("audio_source").get<std::string>());
-                            flag_selection_["Reference"] = std::make_pair(
-                                request.at("flag_text").get<std::string>(),
-                                request.at("flag_colour").get<std::string>());
-                        }
+                        handleResult(request, data, "referenceResultsBaseModel", "Reference");
                     } else if (request.at("type") == "note_result") {
-                        if (not epoc_map.count(request.at("type")) or
-                            epoc_map.at(request.at("type")) < request.at("epoc")) {
-                            qvariant_cast<ShotgunListModel *>(
-                                result_models_->value("noteResultsBaseModel"))
-                                ->populate(data.at("data"));
-                            epoc_map[request.at("type")] = request.at("epoc");
-                            source_selection_["Notes"]   = std::make_pair(
-                                request.at("visual_source").get<std::string>(),
-                                request.at("audio_source").get<std::string>());
-                            flag_selection_["Notes"] = std::make_pair(
-                                request.at("flag_text").get<std::string>(),
-                                request.at("flag_colour").get<std::string>());
-                        }
+                        handleResult(request, data, "noteResultsBaseModel", "Notes");
+                    } else if (request.at("type") == "note_tree_result") {
+                        handleResult(request, data, "noteTreeResultsBaseModel", "Notes Tree");
                     } else if (request.at("type") == "edit_result") {
-                        if (not epoc_map.count(request.at("type")) or
-                            epoc_map.at(request.at("type")) < request.at("epoc")) {
-                            qvariant_cast<ShotgunListModel *>(
-                                result_models_->value("editResultsBaseModel"))
-                                ->populate(data.at("data"));
-                            epoc_map[request.at("type")] = request.at("epoc");
-                            source_selection_["Edits"]   = std::make_pair(
-                                request.at("visual_source").get<std::string>(),
-                                request.at("audio_source").get<std::string>());
-                            flag_selection_["Edits"] = std::make_pair(
-                                request.at("flag_text").get<std::string>(),
-                                request.at("flag_colour").get<std::string>());
-                        }
+                        handleResult(request, data, "editResultsBaseModel", "Edits");
                     }
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1818,85 +1962,18 @@ void ShotgunDataSourceUI::snapshot(const QString &preset) {
 }
 
 void ShotgunDataSourceUI::setPreset(const std::string &preset, const utility::JsonStore &data) {
-    if (preset == "shot") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotPresetsModel"))
+    if (PresetModelLookup.count(preset))
+        qvariant_cast<ShotgunTreeModel *>(
+            preset_models_->value(QStringFromStd(PresetModelLookup.at(preset))))
             ->populate(data);
-    } else if (preset == "playlist") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistPresetsModel"))
-            ->populate(data);
-    } else if (preset == "note") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("notePresetsModel"))
-            ->populate(data);
-    } else if (preset == "media_action") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("mediaActionPresetsModel"))
-            ->populate(data);
-    } else if (preset == "edit") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editPresetsModel"))
-            ->populate(data);
-    } else if (preset == "reference") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referencePresetsModel"))
-            ->populate(data);
-    } else if (preset == "shot_filter") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotFilterModel"))
-            ->populate(data);
-    } else if (preset == "playlist_filter") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistFilterModel"))
-            ->populate(data);
-    } else if (preset == "note_filter") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("noteFilterModel"))
-            ->populate(data);
-    } else if (preset == "media_action_filter") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("mediaActionFilterModel"))
-            ->populate(data);
-    } else if (preset == "edit_filter") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editFilterModel"))
-            ->populate(data);
-    } else if (preset == "reference_filter") {
-        qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referenceFilterModel"))
-            ->populate(data);
-    }
 }
 
 utility::JsonStore ShotgunDataSourceUI::getPresetData(const std::string &preset) {
-    if (preset == "shot") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotPresetsModel"))
-            ->modelData();
-    } else if (preset == "playlist") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistPresetsModel"))
-            ->modelData();
-    } else if (preset == "note") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("notePresetsModel"))
-            ->modelData();
-    } else if (preset == "media_action") {
+    if (PresetModelLookup.count(preset))
         return qvariant_cast<ShotgunTreeModel *>(
-                   preset_models_->value("mediaActionPresetsModel"))
+                   preset_models_->value(QStringFromStd(PresetModelLookup.at(preset))))
             ->modelData();
-    } else if (preset == "edit") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editPresetsModel"))
-            ->modelData();
-    } else if (preset == "reference") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referencePresetsModel"))
-            ->modelData();
-    } else if (preset == "shot_filter") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotFilterModel"))
-            ->modelData();
-    } else if (preset == "playlist_filter") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistFilterModel"))
-            ->modelData();
-    } else if (preset == "note_filter") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("noteFilterModel"))
-            ->modelData();
-    } else if (preset == "media_action_filter") {
-        return qvariant_cast<ShotgunTreeModel *>(
-                   preset_models_->value("mediaActionFilterModel"))
-            ->modelData();
-    } else if (preset == "edit_filter") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editFilterModel"))
-            ->modelData();
-    } else if (preset == "reference_filter") {
-        return qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referenceFilterModel"))
-            ->modelData();
-    }
+
     return utility::JsonStore();
 }
 
@@ -1907,66 +1984,13 @@ void ShotgunDataSourceUI::flushPreset(const std::string &preset) {
     preset_update_pending_[preset] = false;
     // flush relevant changes to global dict.
     auto prefs = GlobalStoreHelper(system());
-    if (preset == "shot") {
+
+    if (PresetModelLookup.count(preset)) {
         prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotPresetsModel"))
+            qvariant_cast<ShotgunTreeModel *>(
+                preset_models_->value(QStringFromStd(PresetModelLookup.at(preset))))
                 ->modelData(),
-            "/plugin/data_source/shotgun/presets/shot");
-    } else if (preset == "playlist") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistPresetsModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/presets/playlist");
-    } else if (preset == "note") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("notePresetsModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/presets/note");
-    } else if (preset == "media_action") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("mediaActionPresetsModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/presets/media_action");
-    } else if (preset == "edit") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editPresetsModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/presets/edit");
-    } else if (preset == "reference") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referencePresetsModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/presets/reference");
-    } else if (preset == "shot_filter") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("shotFilterModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/global_filters/shot");
-    } else if (preset == "playlist_filter") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("playlistFilterModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/global_filters/playlist");
-    } else if (preset == "note_filter") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("noteFilterModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/global_filters/note");
-    } else if (preset == "media_action_filter") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("mediaActionFilterModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/global_filters/media_action");
-    } else if (preset == "edit_filter") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("editFilterModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/global_filters/edit");
-    } else if (preset == "reference_filter") {
-        prefs.set_value(
-            qvariant_cast<ShotgunTreeModel *>(preset_models_->value("referenceFilterModel"))
-                ->modelData(),
-            "/plugin/data_source/shotgun/global_filters/reference");
+            "/plugin/data_source/shotgun/" + PresetPreferenceLookup.at(preset));
     }
 }
 
@@ -2019,6 +2043,7 @@ void ShotgunDataSourceUI::populateCaches() {
     getProjectsFuture();
     getUsersFuture();
     getDepartmentsFuture();
+
     getSchemaFieldsFuture("playlist", "sg_location", "location");
     getSchemaFieldsFuture("playlist", "sg_type", "playlist_type");
 
@@ -2321,6 +2346,9 @@ QFuture<QString> ShotgunDataSourceUI::getSequencesFuture(const int project_id) {
                 if (not data.count("data"))
                     throw std::runtime_error(data.dump(2));
 
+                if (data.at("data").size() == 4999)
+                    spdlog::warn("{} Sequence list truncated.", __PRETTY_FUNCTION__);
+
                 auto request  = R"({"type": "sequence", "id": 0})"_json;
                 request["id"] = project_id;
                 anon_send(as_actor(), shotgun_info_atom_v, JsonStore(request), data);
@@ -2526,6 +2554,7 @@ QFuture<QString> ShotgunDataSourceUI::getUsersFuture() {
         return QString();
     });
 }
+
 QFuture<QString> ShotgunDataSourceUI::getDepartmentsFuture() {
     return QtConcurrent::run([=]() {
         if (backend_) {
@@ -2562,6 +2591,58 @@ QFuture<QString> ShotgunDataSourceUI::getDepartmentsFuture() {
                     shotgun_info_atom_v,
                     JsonStore(R"({"type": "department"})"_json),
                     data);
+
+                return QStringFromStd(data.dump());
+            } catch (const XStudioError &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                auto error                = R"({'error':{})"_json;
+                error["error"]["source"]  = to_string(err.type());
+                error["error"]["message"] = err.what();
+                return QStringFromStd(JsonStore(error).dump());
+
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                return QStringFromStd(err.what());
+            }
+        }
+        return QString();
+    });
+}
+
+QFuture<QString> ShotgunDataSourceUI::getCustomEntity24Future(const int project_id) {
+    return QtConcurrent::run([=]() {
+        if (backend_) {
+            try {
+                scoped_actor sys{system()};
+
+                auto filter = R"(
+                {
+                    "logical_operator": "and",
+                    "conditions": [
+                        ["project", "is", {"type":"Project", "id":0}]
+                    ]
+                })"_json;
+
+                filter["conditions"][0][2]["id"] = project_id;
+
+                auto data = request_receive_wait<JsonStore>(
+                    *sys,
+                    backend_,
+                    SHOTGUN_TIMEOUT,
+                    shotgun_entity_search_atom_v,
+                    "CustomEntity24",
+                    JsonStore(filter),
+                    std::vector<std::string>({"code", "id"}),
+                    std::vector<std::string>({"code"}),
+                    1,
+                    4999);
+
+                if (not data.count("data"))
+                    throw std::runtime_error(data.dump(2));
+
+                auto request  = R"({"type": "custom_entity_24", "id": 0})"_json;
+                request["id"] = project_id;
+                anon_send(as_actor(), shotgun_info_atom_v, JsonStore(request), data);
 
                 return QStringFromStd(data.dump());
             } catch (const XStudioError &err) {
@@ -2735,7 +2816,11 @@ ShotgunDataSourceUI::pushPlaylistNotesFuture(const QString &notes, const QUuid &
 
 
 QFuture<QString> ShotgunDataSourceUI::createPlaylistFuture(
-    const QUuid &playlist, const int project_id, const QString &name, const QString &location) {
+    const QUuid &playlist,
+    const int project_id,
+    const QString &name,
+    const QString &location,
+    const QString &playlist_type) {
     return QtConcurrent::run([=]() {
         if (backend_) {
             try {
@@ -2745,6 +2830,7 @@ QFuture<QString> ShotgunDataSourceUI::createPlaylistFuture(
                 req["project_id"]    = project_id;
                 req["code"]          = StdFromQString(name);
                 req["location"]      = StdFromQString(location);
+                req["playlist_type"] = StdFromQString(playlist_type);
 
                 auto js = request_receive_wait<JsonStore>(
                     *sys, backend_, SHOTGUN_TIMEOUT, data_source::post_data_atom_v, req);
@@ -2947,41 +3033,46 @@ QFuture<QString> ShotgunDataSourceUI::getPlaylistVersionsFuture(const int id) {
 
                 // expand version information..
                 // get versions
-                auto query  = R"({})"_json;
-                query["id"] = join_as_string(version_ids, ",");
+                auto query       = R"({})"_json;
+                auto chunked_ids = split_vector(version_ids, 100);
+                auto data        = R"([])"_json;
 
-                auto js = request_receive_wait<JsonStore>(
-                    *sys,
-                    backend_,
-                    SHOTGUN_TIMEOUT,
-                    shotgun_entity_filter_atom_v,
-                    "Versions",
-                    JsonStore(query),
-                    VersionFields,
-                    std::vector<std::string>(),
-                    1,
-                    4999);
-                // reorder list based on playlist..
-                // spdlog::warn("{}", js.dump(2));
-                auto data = R"([])"_json;
+                for (const auto &chunk : chunked_ids) {
+                    query["id"] = join_as_string(chunk, ",");
 
-                for (const auto &i : version_ids) {
-                    for (auto &j : js["data"]) {
+                    auto js = request_receive_wait<JsonStore>(
+                        *sys,
+                        backend_,
+                        SHOTGUN_TIMEOUT,
+                        shotgun_entity_filter_atom_v,
+                        "Versions",
+                        JsonStore(query),
+                        VersionFields,
+                        std::vector<std::string>(),
+                        1,
+                        4999);
+                    // reorder list based on playlist..
+                    // spdlog::warn("{}", js.dump(2));
 
-                        // spdlog::warn("{} {}", std::to_string(j["id"].get<int>()), i);
-                        if (std::to_string(j["id"].get<int>()) == i) {
-                            data.push_back(j);
-                            break;
+                    for (const auto &i : chunk) {
+                        for (auto &j : js["data"]) {
+
+                            // spdlog::warn("{} {}", std::to_string(j["id"].get<int>()), i);
+                            if (std::to_string(j["id"].get<int>()) == i) {
+                                data.push_back(j);
+                                break;
+                            }
                         }
                     }
                 }
 
-                js["data"] = data;
+                auto data_tmp    = R"({"data":[]})"_json;
+                data_tmp["data"] = data;
 
                 // spdlog::warn("{}", js.dump(2));
 
                 // add back in
-                vers["data"]["relationships"]["versions"] = js;
+                vers["data"]["relationships"]["versions"] = data_tmp;
 
                 // create playlist..
                 return QStringFromStd(vers.dump());

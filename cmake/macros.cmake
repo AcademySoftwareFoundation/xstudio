@@ -309,7 +309,7 @@ macro(create_test PATH DEPS)
 	)
 	set_target_properties(${NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
-	add_test(${PARENT}_tests ${NAME})
+	add_test(${PARENT}_${NAME} ${NAME})
 
 endmacro()
 

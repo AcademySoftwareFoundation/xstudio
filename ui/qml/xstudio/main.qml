@@ -23,14 +23,13 @@ import xstudio.qml.bookmarks 1.0
 import xstudio.qml.clipboard 1.0
 import xstudio.qml.cursor_pos_provider 1.0
 import xstudio.qml.event 1.0
-import xstudio.qml.global_store 1.0
+import xstudio.qml.global_store_model 1.0
 import xstudio.qml.module 1.0
 import xstudio.qml.playlist 1.0
-import xstudio.qml.properties 1.0
-import xstudio.qml.root_store 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.session 1.0
 import xstudio.qml.viewport 1.0
+import xstudio.qml.helpers 1.0
 
 //------------------------------------------------------------------------------
 // END COMMENT OUT WHEN WORKING INSIDE Qt Creator
@@ -113,6 +112,12 @@ ApplicationWindow {
       id: clipboard
     }
 
+    XsGlobalStoreModel {
+        id: globalStoreModel
+    }
+    property alias globalStoreModel: globalStoreModel
+
+
     XsEvent {
         id: events
     }
@@ -125,11 +130,11 @@ ApplicationWindow {
     }
 
     // Apply the shown state of the second window from last session
-    XsPreferenceSet {
 
+    XsModelNestedPropertyMap {
         id: second_window_settings
-        preferencePath: "/ui/qml/second_window_settings"
-
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/second_window_settings", "pathRole")
+        property alias properties: second_window_settings.values
     }
 
     Timer {
@@ -167,17 +172,11 @@ ApplicationWindow {
     }
     property alias styleGradient: styleGradient
 
-
-    // the global store object is instantiated and injected into
-    // this var by the c++ main method
-    property var global_store: RootStore
-
-
     SemVer {
         id: semantic_version
         version: Qt.application.version
 
-        function show_features() {
+           function show_features() {
 
             if (semantic_version.compare(preferences.latest_version.value) > 0) {
                 XsUtils.openDialog("qrc:/dialogs/XsFunctionalFeaturesDialog.qml").open()
@@ -188,7 +187,7 @@ ApplicationWindow {
         function store() {
             if(semantic_version.compare(preferences.latest_version.value) > 0) {
                 // immediate update..
-                global_store.set_preference_value(preferences.latest_version.path, Qt.application.version, false)
+                preferences.latest_version.value = Qt.application.version
             }
         }
     }
@@ -208,7 +207,7 @@ ApplicationWindow {
         target: logger
         function onNewLogRecord(timestamp, level, text) {
             // show on critical
-            if(level > 4)
+            if(level >= log_dialog.showLevel)
                 log_dialog.show()
         }
     }

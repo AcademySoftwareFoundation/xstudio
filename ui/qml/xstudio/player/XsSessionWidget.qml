@@ -24,10 +24,9 @@ import QuickPromise 1.0
 import xstudio.qml.viewport 1.0
 import xstudio.qml.session 1.0
 import xstudio.qml.playlist 1.0
-import xstudio.qml.global_store 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
-import xstudio.qml.properties 1.0
+import xstudio.qml.helpers 1.0
 
 Rectangle {
 
@@ -72,13 +71,14 @@ Rectangle {
 
     // create a binding to prefs where the current layout for this session
     // widget is kept
-    XsPreferenceSet {
+    XsModelNestedPropertyMap {
         id: prefs
-        preferencePath: "/ui/qml/" + window_name + "_settings"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/" + window_name + "_settings", "pathRole")
+        property alias properties: prefs.values
     }
 
-    property string layout_name: prefs.properties.layout_name
-    property string previous_layout: prefs.properties.layout_name
+    property string layout_name: prefs.values.layout_name !== undefined ? prefs.values.layout_name : ""
+    property string previous_layout: prefs.values.layout_name !== undefined ? prefs.values.layout_name : ""
 
     PropertyAnimation {
         id: border_animator
@@ -573,7 +573,7 @@ Rectangle {
     }*/
 
     onLayout_nameChanged: {
-        previous_layout = prefs.properties.layout_name
+        previous_layout = prefs.values.layout_name
         // if(previous_layout == "presentation_layout" && !playerWidget.controlsVisible){
         //     playerWidget.controlsVisible = previousControlVisible
         // }
@@ -597,7 +597,7 @@ Rectangle {
             the_layout = presentation_layout
             switch_layout()
         }
-        prefs.properties.layout_name = layout_name
+        prefs.values.layout_name = layout_name
     }
 
     function toggleNotes(show=undefined) {

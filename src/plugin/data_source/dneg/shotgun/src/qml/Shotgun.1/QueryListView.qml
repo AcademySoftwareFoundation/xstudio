@@ -20,7 +20,7 @@ ListView{
     property var expanded: true
 
     property alias queryRootIndex: queryTreeModel.rootIndex
-    property alias queryModel: queryTreeModel.model
+    property alias queryModel: queryTreeModel.baseModel
 
     property bool isLoaded: true
     property real queryItemHeight: itemHeight/1.15
@@ -201,17 +201,42 @@ ListView{
                         padding: 0
                         onClicked: {
                             enabledRole = !enabledRole
-                            if(isLoaded == true)
+                            if(isLoaded)
                                 executeQuery()
                         }
                     }
 
+                    XsButton {id: negation
+                        property bool hasNegation: negationRole !== undefined
+                        z: 1
+                        subtleActive: true
+                        isActive: hasNegation ? negationRole : false
+                        enabled: hasNegation && isEnabled ? true : false
+                        opacity: hasNegation ? 1.0 : 0.0
+                        Layout.preferredWidth: queryItemHeight/2//-framePadding*1.5
+                        Layout.preferredHeight: queryItemHeight//-framePadding*1.5
+                        // image.sourceSize.height: height/1.1
+                        // image.sourceSize.width: width/1.2
+                        text: "!"
+                        textColorNormal: hasNegation && negationRole ? bgColorPressed : "darkgray"
+                        // imgSrc: "qrc:/feather_icons/link-2.svg"
+                        // rotation: 90
+                        clip: true
+                        onClicked: {
+                            negationRole = !negationRole
+                            if(isLoaded)
+                                executeQuery()
+                        }
+                    }
+
+
                     XsComboBox{ id: queryBox
                         Layout.preferredWidth: 150
                         Layout.preferredHeight: queryItemHeight
+                        property var termrole: termRole
 
                         model: {
-                            if(currentCategory == "Shots")
+                            if(currentCategory == "Versions" || currentCategory == "Versions Tree")
                                 return shotFilters
                             else if(currentCategory == "Playlists")
                                 return playlistFilters
@@ -221,12 +246,16 @@ ListView{
                                 return referenceFilters
                             else if(currentCategory == "Menu Setup")
                                 return mediaActionFilters
-                            else if(currentCategory == "Notes")
+                            else if(currentCategory == "Notes" || currentCategory == "Notes Tree")
                                 return noteFilters
                         }
                         editable: false
                         // currentIndex: {console.log(termRole, queryBox.find(termRole)); return queryBox.find(termRole)}
                         enabled: isEnabled
+
+                        onTermroleChanged: {
+                            currentIndex = queryBox.indexOfValue(termRole)
+                        }
 
                         Component.onCompleted: {
                             currentIndex = queryBox.indexOfValue(termRole)
@@ -237,7 +266,7 @@ ListView{
                                 termRole = currentText
                                 if(valueBox.count<50) valueBox.popupOptions.open()
 
-                                if(isLoaded == true)
+                                if(isLoaded)
                                     executeQuery()
                             }
                         }
@@ -339,6 +368,7 @@ ListView{
                             ListElement { nameRole: "Tag" }
                             ListElement { nameRole: "Twig Name" }
                             ListElement { nameRole: "Twig Type" }
+                            ListElement { nameRole: "Unit" }
                             ListElement { nameRole: "Version Name" }
                         }
 
@@ -391,7 +421,9 @@ ListView{
                             else if(termRole=="Latest Version") boolModel
                             else if(termRole=="Lookback") lookbackModel
                             else if(termRole=="Exclude Shot Status") shotStatusModel
+                            else if(termRole=="Newer Version") dummyModel
                             else if(termRole=="Note Type") noteTypeModel
+                            else if(termRole=="Older Version") dummyModel
                             else if(termRole=="On Disk") onDiskModel
                             else if(termRole=="Order By") orderByModel
                             else if(termRole=="Pipeline Status") pipelineStatusModel
@@ -413,6 +445,7 @@ ListView{
                             else if(termRole=="Tag") dummyModel
                             else if(termRole=="Twig Name") dummyModel
                             else if(termRole=="Twig Type") twigTypeCodeModel
+                            else if(termRole=="Unit") customEntity24Model
                             else if(termRole=="Version Name") dummyModel
                         }
                         Timer {
@@ -469,13 +502,13 @@ ListView{
                         onFocusChanged: if(!focus) accepted()
 
                         function doUpdate() {
+                            // console.log("doUpdate")
                             if(currentText !== "" && argRole != currentText)
                                 argRole = currentText
 
-                            // if(currentIndex !== -1) {
-                                if(isLoaded == true)
-                                    executeQuery()
-                            // }
+                            if(isLoaded) {
+                                executeQuery()
+                            }
                         }
 
                         onActivated: doUpdate()
@@ -492,7 +525,7 @@ ListView{
                             snapshot()
                             queryTreeModel.remove(index)
                             snapshot()
-                            if(isLoaded == true)
+                            if(isLoaded)
                                 executeQuery()
                         }
                     }
@@ -512,10 +545,10 @@ ListView{
                 id: selectField
                 Layout.preferredWidth: 150
                 Layout.preferredHeight: queryItemHeight
-                Layout.leftMargin: (queryItemHeight+itemSpacing) + (framePadding*2+itemSpacing)
+                Layout.leftMargin: (queryItemHeight/2)+itemSpacing+(queryItemHeight+itemSpacing) + (framePadding*2+itemSpacing)
 
                 model: {
-                    if(currentCategory == "Shots")
+                    if(currentCategory == "Versions" || currentCategory == "Versions Tree")
                         return ["-- Select --"].concat(shotFilters)
                     else if(currentCategory == "Playlists")
                         return ["-- Select --"].concat(playlistFilters)
@@ -525,7 +558,7 @@ ListView{
                         return ["-- Select --"].concat(referenceFilters)
                     else if(currentCategory == "Menu Setup")
                         return ["-- Select --"].concat(mediaActionFilters)
-                    else if(currentCategory == "Notes")
+                    else if(currentCategory == "Notes" || currentCategory == "Notes Tree")
                         return ["-- Select --"].concat(noteFilters)
                 }
 
@@ -557,18 +590,26 @@ ListView{
 
                         snapshot()
 
+                        let term = {"term": selectField.currentText, "value": value, "enabled": true}
+
                         // only certain terms can be pinned..
-                        if(["Version Name", "Author", "Recipient", "Shot", "Pipeline Step", "Twig Name", "Twig Type", "Sequence"].includes(selectField.currentText)) {
-                            queryTreeModel.insert(queryTreeModel.count, {"term": selectField.currentText, "livelink": false, "value": value, "enabled": true})
-                        } else {
-                            queryTreeModel.insert(queryTreeModel.count, {"term": selectField.currentText, "value": value, "enabled": true})
+                        if(["Older Version","Newer Version", "Version Name", "Author", "Recipient", "Shot", "Pipeline Step", "Twig Name", "Twig Type", "Sequence"].includes(selectField.currentText)) {
+                            term["livelink"] = false
                         }
 
+                        if(["Pipeline Step", "Playlist Type", "Site", "Department",
+                            "Filter", "Tag", "Unit", "Note Type","Version Name", "Pipeline Status",
+                            "Production Status", "Shot Status", "Twig Type", "Twig Name", "Shot Status",
+                            "Tag (Version)", "Twig Name", "Completion Location", "On Disk"].includes(selectField.currentText)) {
+                            term["negated"] = false
+                        }
+
+                        queryTreeModel.insert(queryTreeModel.count, term)
                         snapshot()
 
                         currentIndex = 0
                         // update query on change.
-                        if(isLoaded == true && value != "")
+                        if(isLoaded && value != "")
                             executeQuery()
                     }
                 }

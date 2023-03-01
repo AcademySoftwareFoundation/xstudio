@@ -16,7 +16,8 @@ namespace ui {
                 NotHovered,
                 HoveredOnMoveHandle,
                 HoveredOnResizeHandle,
-                HoveredInCaptionArea
+                HoveredInCaptionArea,
+                HoveredOnDeleteHandle
             };
 
             Caption(
@@ -29,6 +30,8 @@ namespace ui {
                 const std::string &font_name);
             Caption()                 = default;
             Caption(const Caption &o) = default;
+
+            Caption &operator=(const Caption &o) = default;
 
             void modify_text(const std::string &t, std::string::const_iterator &cursor);
 

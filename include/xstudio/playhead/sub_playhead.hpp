@@ -51,14 +51,15 @@ namespace playhead {
         void broadcast_image_frame(
             const utility::time_point when_to_show_frame,
             std::shared_ptr<const media::AVFrameID> frame,
-            const bool is_future_frame);
+            const bool is_future_frame,
+            const timebase::flicks timeline_pts);
 
         void broadcast_audio_frame(
             const utility::time_point when_to_show_frame,
             std::shared_ptr<const media::AVFrameID> frame,
             const bool is_future_frame);
 
-        void get_lookahead_frame_pointers(
+        std::vector<timebase::flicks> get_lookahead_frame_pointers(
             media::AVFrameIDsAndTimePoints &result, const int max_num_frames);
 
         void request_future_frames();
@@ -76,7 +77,10 @@ namespace playhead {
         void get_full_timeline_frame_list(caf::typed_response_promise<caf::actor> rp);
 
         std::shared_ptr<const media::AVFrameID> get_frame(
-            const timebase::flicks &time, int &logical_frame, timebase::flicks &frame_period);
+            const timebase::flicks &time,
+            int &logical_frame,
+            timebase::flicks &frame_period,
+            timebase::flicks &timeline_pts);
 
         void get_position_after_step_by_frames(
             const timebase::flicks start_position,
@@ -121,6 +125,7 @@ namespace playhead {
         const media::MediaType media_type_;
         std::shared_ptr<const media::AVFrameID> previous_frame_;
 
+        std::map<timebase::flicks, int> timeline_logical_frame_pts_;
         media::FrameTimeMap full_timeline_frames_;
         media::FrameTimeMap::iterator in_frame_, out_frame_, first_frame_, last_frame_;
 

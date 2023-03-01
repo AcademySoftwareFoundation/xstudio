@@ -8,7 +8,7 @@ import QtQuick.Layouts 1.3
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
+import xstudio.qml.helpers 1.0
 
 XsMultiWidget {
 	id: timepos
@@ -19,34 +19,34 @@ XsMultiWidget {
 
 	implicitWidth: selected == 2 ? 100 : 50
 
-    XsPreferenceSet {
+    XsModelProperty {
         id: timeline_units_pref
-        preferencePath: "/ui/qml/timeline_units"
-    }
-
-    property var timeline_units: timeline_units_pref.properties.value
-
-    onTimeline_unitsChanged: {
-        if (timeline_units == "Frames" && selected != 0) {
-            selected = 0
-        } else if (timeline_units == "Time" && selected != 1) {
-            selected = 1
-        } else if (timeline_units == "Timecode" && selected != 2) {
-            selected = 2
-        } else if (timeline_units == "Frames From Timecode" && selected != 3) {
-            selected = 3
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/timeline_units", "pathRole")
+        onValueChanged: {
+            if (timeline_units == "Frames" && selected != 0) {
+                selected = 0
+            } else if (timeline_units == "Time" && selected != 1) {
+                selected = 1
+            } else if (timeline_units == "Timecode" && selected != 2) {
+                selected = 2
+            } else if (timeline_units == "Frames From Timecode" && selected != 3) {
+                selected = 3
+            }
         }
     }
 
+    property alias timeline_units: timeline_units_pref.value
+
     onSelectedChanged: {
         if (selected == 0 && timeline_units != "Frames") {
-            timeline_units_pref.properties.value = "Frames"
+            timeline_units_pref.value = "Frames"
         } else if (selected == 1 && timeline_units != "Time") {
-            timeline_units_pref.properties.value = "Time"
+            timeline_units_pref.value = "Time"
         } else if (selected == 2 && timeline_units != "Timecode") {
-            timeline_units_pref.properties.value = "Timecode"
+            timeline_units_pref.value = "Timecode"
         } else if (selected == 3 && timeline_units != "Frames From Timecode") {
-            timeline_units_pref.properties.value = "Frames From Timecode"
+            timeline_units_pref.value = "Frames From Timecode"
         }
     }
 

@@ -31,23 +31,15 @@ void xstudio::media_reader::ffmpeg::AVC_CHECK_THROW(int errorNum, const char *av
 namespace {
 
 static const std::set<int> shader_supported_pix_formats = {
-    AV_PIX_FMT_RGB24,
-    AV_PIX_FMT_BGR24,
-    AV_PIX_FMT_ARGB,
-    AV_PIX_FMT_RGBA,
-    AV_PIX_FMT_BGRA,
-    AV_PIX_FMT_YUV422P,
-    AV_PIX_FMT_YUVJ422P,
-    AV_PIX_FMT_YUV420P,
-    AV_PIX_FMT_YUVJ420P,
-    AV_PIX_FMT_YUV422P10LE,
-    AV_PIX_FMT_YUV420P10LE,
-    AV_PIX_FMT_YUV444P10LE,
-    AV_PIX_FMT_YUVA444P10LE,
-    AV_PIX_FMT_YUV422P12LE,
-    AV_PIX_FMT_YUV444P12LE,
-    AV_PIX_FMT_YUVA422P12LE,
-    AV_PIX_FMT_YUVA444P12LE};
+    AV_PIX_FMT_RGB24,        AV_PIX_FMT_BGR24,       AV_PIX_FMT_RGB48LE,
+    AV_PIX_FMT_RGBA64LE,     AV_PIX_FMT_ARGB,        AV_PIX_FMT_RGBA,
+    AV_PIX_FMT_BGRA,         AV_PIX_FMT_YUV422P,     AV_PIX_FMT_YUVJ422P,
+    AV_PIX_FMT_YUV420P,      AV_PIX_FMT_YUVJ420P,    AV_PIX_FMT_YUV422P10LE,
+    AV_PIX_FMT_YUV420P10LE,  AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUVA444P10LE,
+    AV_PIX_FMT_YUV422P12LE,  AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUVA422P12LE,
+    AV_PIX_FMT_YUVA444P12LE, AV_PIX_FMT_GBRP10LE,    AV_PIX_FMT_GBRP12LE,
+    AV_PIX_FMT_GBRAP10LE,    AV_PIX_FMT_GBRAP12LE,   AV_PIX_FMT_GBRAP16LE,
+    AV_PIX_FMT_GBRAP16LE};
 
 // Matrix generated with colour science for Python 0.3.15
 
@@ -88,6 +80,30 @@ void set_shader_pix_format_info(
         break;
     case AV_PIX_FMT_BGRA:
         jsn["rgb"] = 6;
+        break;
+    case AV_PIX_FMT_GBRP10LE:
+        jsn["rgb"] = 7;
+        break;
+    case AV_PIX_FMT_GBRP12LE:
+        jsn["rgb"] = 7;
+        break;
+    case AV_PIX_FMT_GBRAP10LE:
+        jsn["rgb"] = 7;
+        break;
+    case AV_PIX_FMT_GBRAP12LE:
+        jsn["rgb"] = 7;
+        break;
+    case AV_PIX_FMT_GBRP16LE:
+        jsn["rgb"] = 7;
+        break;
+    case AV_PIX_FMT_GBRAP16LE:
+        jsn["rgb"] = 7;
+        break;
+    case AV_PIX_FMT_RGB48LE:
+        jsn["rgb"] = 8;
+        break;
+    case AV_PIX_FMT_RGBA64LE:
+        jsn["rgb"] = 9;
         break;
     default:
         jsn["rgb"] = 0;
@@ -258,9 +274,10 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         if (!format_conversion_warning_issued) {
             format_conversion_warning_issued = true;
             spdlog::warn(
-                "Pixel format for {} not supported in GPU shader, using CPU to convert. "
+                "Pixel format for {} of {} not supported in GPU shader, using CPU to convert. "
                 "Playback performance may be affected.",
-                source_path);
+                source_path,
+                ffmpeg_pixel_format);
         }
 
         image_buffer.reset(new ImageBuffer());
@@ -549,7 +566,7 @@ FFMpegStream::FFMpegStream(
             }
         }
 
-    } else if (codec_type_ == AVMEDIA_TYPE_VIDEO) {
+    } else if (codec_type_ == AVMEDIA_TYPE_VIDEO && codec_) {
 
         stream_type_ = VIDEO_STREAM;
 
@@ -582,7 +599,7 @@ FFMpegStream::FFMpegStream(
         codec_context_->opaque = this;
 
 
-    } else if (codec_type_ == AVMEDIA_TYPE_AUDIO) {
+    } else if (codec_type_ == AVMEDIA_TYPE_AUDIO && codec_) {
         stream_type_ = AUDIO_STREAM;
 
         /** initialize the stream parameters with demuxer information */
@@ -590,6 +607,8 @@ FFMpegStream::FFMpegStream(
             avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
             "avcodec_parameters_to_context");
         AVC_CHECK_THROW(avcodec_open2(codec_context_, codec_, nullptr), "avcodec_open2");
+    } else {
+        throw std::runtime_error("No decoder found.");
     }
 
     // Set the fps if it has been set correctly in the stream

@@ -15,6 +15,8 @@
 #include <ImfRationalAttribute.h>
 #include <ImfRgbaFile.h>
 #include <ImfTimeCodeAttribute.h>
+#include <ImfIntAttribute.h>
+#include <ImfVecAttribute.h>
 
 #include "xstudio/media/media_error.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
@@ -451,21 +453,29 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
 
     try {
         Imf::MultiPartInputFile input(path.c_str());
-        double fr = 30.0;
+        double fr = 0.0;
         // int parts = input.parts();
         // bool fileComplete = true;
 
         // for (int prt = 0; prt < parts && fileComplete; ++prt)
         // 	if (!input.partComplete (prt))
         // 		fileComplete = false;
-        const Imf::Header &h = input.header(0);
-        const auto rate      = h.findTypedAttribute<Imf::RationalAttribute>("framesPerSecond");
-        const auto timecode  = h.findTypedAttribute<Imf::TimeCodeAttribute>("timeCode");
+        const Imf::Header &h  = input.header(0);
+        const auto rate       = h.findTypedAttribute<Imf::RationalAttribute>("framesPerSecond");
+        const auto rate_bogus = h.findTypedAttribute<Imf::V2iAttribute>("framesPerSecond");
+        const auto timecode   = h.findTypedAttribute<Imf::TimeCodeAttribute>("timeCode");
+        const auto timecode_rate = h.findTypedAttribute<Imf::IntAttribute>("timecodeRate");
 
-        if (rate) {
+        if (rate)
             fr = static_cast<double>(rate->value());
-            frd.set_rate(utility::FrameRate(1.0 / fr));
-        }
+        else if (rate_bogus and rate_bogus->value().y > 0)
+            fr = static_cast<double>(rate_bogus->value().x) /
+                 static_cast<double>(rate_bogus->value().y);
+        else if (timecode_rate)
+            fr = static_cast<double>(timecode_rate->value());
+        else
+            fr = 24.0;
+
 
         if (timecode) {
             tc = utility::Timecode(
@@ -479,7 +489,7 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
             tc = utility::Timecode("00:00:00:00", fr);
         }
 
-        spdlog::debug("{} {}", fr, frd.rate().to_fps());
+        frd.set_rate(utility::FrameRate(1.0 / fr));
     } catch (const std::exception &e) {
         throw media_corrupt_error(e.what());
     }
@@ -530,4 +540,108 @@ OpenEXRMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_s
         return thumb;
     }
     throw media_corrupt_error("Failed to read preview " + uri_to_posix_path(mptr.uri_));
+}
+
+/*
+ *
+ * Note how this looks a *lot* like the glsl unpack pixel shader!
+ *
+ */
+PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
+    const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+    int width                         = buf.image_size_in_pixels().x;
+    int height                        = buf.image_size_in_pixels().y;
+    int num_channels                  = buf.shader_params().value("num_channels", 0);
+    int pix_type                      = buf.shader_params().value("pix_type", 0);
+    const Imath::V2i image_bounds_min = buf.image_pixels_bounding_box().min;
+    const Imath::V2i image_bounds_max = buf.image_pixels_bounding_box().max;
+
+    auto get_image_data_float32 = [&](const int address) -> float {
+        if (address < 0 || address >= buf.size())
+            return 0.0f;
+        return *((float *)(buf.buffer() + address));
+    };
+
+    auto get_image_data_2xhalf_float = [&](const int address) -> Imath::V2f {
+        if (address < 0 || address >= buf.size())
+            return Imath::V2f(0.0f, 0.0f);
+        half *v = (half *)(buf.buffer() + address);
+        return Imath::V2f(v[0], v[1]);
+    };
+
+    auto fetch_pixel_32bitfloat = [&](const Imath::V2i image_coord) -> Imath::V4f {
+        if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x)
+            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+        if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y)
+            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+
+        int pixel_address_bytes =
+            ((image_coord.x - image_bounds_min.x) +
+             (image_coord.y - image_bounds_min.y) * (image_bounds_max.x - image_bounds_min.x)) *
+            num_channels * 4;
+
+        float R = get_image_data_float32(pixel_address_bytes);
+
+        if (num_channels > 2) {
+
+            float G = get_image_data_float32(pixel_address_bytes + 4);
+            float B = get_image_data_float32(pixel_address_bytes + 8);
+            if (num_channels == 3) {
+                return Imath::V4f(R, G, B, 1.0);
+            } else {
+                float A = get_image_data_float32(pixel_address_bytes + 12);
+                return Imath::V4f(R, G, B, A);
+            }
+        } else if (num_channels == 2) {
+            // using Luminance/Alpha layout
+            float A = get_image_data_float32(pixel_address_bytes + 4);
+            return Imath::V4f(R, R, R, A);
+        } else if (num_channels == 1) {
+            // 1 channels, assume luminance
+            return Imath::V4f(R, R, R, 1.0);
+        }
+
+        return Imath::V4f(0.9, 0.4, 0.0, 1.0);
+    };
+
+    auto fetch_pixel_16bitfloat = [&](const Imath::V2i image_coord) -> Imath::V4f {
+        if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x)
+            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+        if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y)
+            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+
+        int pixel_address_bytes =
+            ((image_coord.x - image_bounds_min.x) +
+             (image_coord.y - image_bounds_min.y) * (image_bounds_max.x - image_bounds_min.x)) *
+            num_channels * 2;
+
+        Imath::V2f pixRG = get_image_data_2xhalf_float(pixel_address_bytes);
+
+        if (num_channels > 2) {
+
+            Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes + 4);
+            if (num_channels == 3) {
+                return Imath::V4f(pixRG.x, pixRG.y, pixBA.x, 1.0);
+            } else {
+                return Imath::V4f(pixRG.x, pixRG.y, pixBA.x, pixBA.y);
+            }
+        } else if (num_channels == 2) {
+            // 2 channels, assume luminance/alpha
+            return Imath::V4f(pixRG.x, pixRG.x, pixRG.x, pixRG.y);
+        } else if (num_channels == 1) {
+            // 1 channels, assume luminance
+            return Imath::V4f(pixRG.x, pixRG.x, pixRG.x, 1.0);
+        }
+
+        return Imath::V4f(0.9, 0.4, 0.0, 1.0);
+    };
+
+    const Imath::V4f rgba_pix = pix_type == 1 ? fetch_pixel_16bitfloat(pixel_location)
+                                              : fetch_pixel_32bitfloat(pixel_location);
+    PixelInfo r(pixel_location);
+    r.add_pixel_channel_info("R", rgba_pix.x);
+    r.add_pixel_channel_info("G", rgba_pix.y);
+    r.add_pixel_channel_info("B", rgba_pix.z);
+    r.add_pixel_channel_info("A", rgba_pix.w);
+    return r;
 }

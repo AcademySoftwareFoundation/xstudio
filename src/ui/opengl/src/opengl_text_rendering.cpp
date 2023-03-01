@@ -179,15 +179,13 @@ uniform float opacity;
 
 void main()
 {
-    vec4 sampled = vec4(
-        1.0, 1.0, 1.0,
-        smoothstep(
+    float opac = smoothstep(
             -aa_edge_transition,
             aa_edge_transition,
             texture(text, TexCoords).r
-            )*opacity
-        );
-    color = vec4(textColor, 1.0)*sampled;
+            )*opacity;
+
+    color = vec4(textColor*opac, opac);
 }
 )";
 } // namespace
@@ -277,7 +275,7 @@ void OpenGLTextRendererSDF::render_text(
     glBindVertexArray(vao_);
 
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     glBindTexture(GL_TEXTURE_RECTANGLE, texture_);
     // update content of vbo_ memory
@@ -292,7 +290,6 @@ void OpenGLTextRendererSDF::render_text(
 
     // render quad
     glDrawArrays(GL_QUADS, 0, precomputed_vertex_buffer.size() / 4);
-    // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_RECTANGLE, 0);

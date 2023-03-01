@@ -79,10 +79,6 @@ AnnotationsButton {
         utility::map_value_to_vec(tool_names_).front(),
         utility::map_value_to_vec(tool_names_));
 
-    // disable the text tool as this is still WIP.
-    active_tool_->set_role_data(
-        module::Attribute::StringChoicesEnabled, std::vector<bool>({true, true, false, true}));
-
     active_tool_->expose_in_ui_attrs_group("annotations_tool_settings");
     active_tool_->expose_in_ui_attrs_group("annotations_tool_types");
 
@@ -216,14 +212,14 @@ void AnnotationsTool::on_playhead_playing_changed(const bool is_playing) {
     playhead_is_playing_ = is_playing;
 }
 
-utility::BlindDataObjectPtr
-AnnotationsTool::prepare_render_data(const media_reader::ImageBufPtr &image) const {
+utility::BlindDataObjectPtr AnnotationsTool::prepare_render_data(
+    const media_reader::ImageBufPtr &image, const bool offscreen) const {
 
     const bool annoations_visible =
-        ((display_mode_ == Always) ||
-         (display_mode_ == WithDrawTool && tool_is_active_->value()) ||
-         (display_mode_ == OnlyWhenPaused && !playhead_is_playing_)) &&
-        (current_edited_annotation_ || current_viewed_annotations_.size());
+        offscreen || ((display_mode_ == Always) ||
+                      (display_mode_ == WithDrawTool && tool_is_active_->value()) ||
+                      (display_mode_ == OnlyWhenPaused && !playhead_is_playing_)) &&
+                         (current_edited_annotation_ || current_viewed_annotations_.size());
 
     utility::BlindDataObjectPtr r;
     if (annoations_visible) {
@@ -298,9 +294,7 @@ bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
 
     bool redraw = false;
 
-    const Imath::V2f pointer_pos(
-        e.x_position_in_viewport_coord_sys(), e.y_position_in_viewport_coord_sys());
-
+    const Imath::V2f pointer_pos = e.position_in_viewport_coord_sys();
 
     if (e.type() == ui::Signature::EventType::ButtonRelease && current_edited_annotation_ &&
         active_tool_->value() != "Text") {
@@ -394,11 +388,17 @@ void AnnotationsTool::start_or_edit_caption(
             caption_drag_width_height_      = Imath::V2f(
                 current_edited_annotation_->edited_caption_width(),
                 current_edited_annotation_->edited_caption_bounding_box().max.y);
+        } else if (hover_state_ == Caption::HoveredOnDeleteHandle) {
+            current_edited_annotation_->delete_edited_caption();
+            clear_caption_overlays();
+            release_keyboard_focus();
+            return;
         } else if (
             hover_state_ == Caption::HoveredInCaptionArea &&
             current_edited_annotation_->test_click_in_caption(p)) {
             pen_colour_->set_value(current_edited_annotation_->edited_caption_colour());
             text_size_->set_value(current_edited_annotation_->edited_caption_font_size());
+            font_choice_->set_value(current_edited_annotation_->edited_caption_font_name());
         }
 
         for (auto &r : renderers_) {
@@ -409,6 +409,19 @@ void AnnotationsTool::start_or_edit_caption(
 
         if (!current_edited_annotation_)
             create_new_annotation();
+
+        // if there was an 'on screen annotation' this has now
+        // been made into the current_edited_annotation_ so we
+        // should check if the user was clicking on an existing
+        // caption ...
+        check_pointer_hover_on_text(p, viewport_pixel_scale);
+
+        // ... ok user was clicking on an existing caption, re-enter  this
+        // function to run the bit in the other half of this if() block
+        if (current_edited_annotation_ && hover_state_ != Caption::NotHovered) {
+            start_or_edit_caption(p, viewport_pixel_scale);
+            return;
+        }
 
         current_edited_annotation_->start_new_caption(
             p,
@@ -446,18 +459,24 @@ void AnnotationsTool::caption_drag(const Imath::V2f &p) {
 
 void AnnotationsTool::update_caption_overlay() {
 
-    auto edited_capt_bdb = current_edited_annotation_->edited_caption_bounding_box();
+    if (current_edited_annotation_) {
 
-    Imath::V2f t, b;
-    if (current_edited_annotation_->caption_cursor_position(t, b)) {
-
+        auto edited_capt_bdb = current_edited_annotation_->edited_caption_bounding_box();
+        Imath::V2f t, b;
+        current_edited_annotation_->caption_cursor_position(t, b);
         interact_start();
         for (auto &r : renderers_) {
             r->set_current_edited_caption_bdb(edited_capt_bdb);
             r->set_cursor_position(t, b);
         }
         interact_end();
-        // toggling this value starts a loop toggleing it on/off. See 'attribute_changed'
+    } else {
+        interact_start();
+        for (auto &r : renderers_) {
+            r->set_current_edited_caption_bdb(Imath::Box2f());
+            r->set_cursor_position(Imath::V2f(0.0f, 0.0f), Imath::V2f(0.0f, 0.0f));
+        }
+        interact_end();
     }
 }
 
@@ -499,18 +518,19 @@ void AnnotationsTool::update_shape_placement(const Imath::V2f &pointer_pos) {
 bool AnnotationsTool::check_pointer_hover_on_text(
     const Imath::V2f &pointer_pos, const float viewport_pixel_scale) {
 
+    auto old     = hover_state_;
+    auto old_bdb = under_mouse_caption_bdb_;
     if (current_edited_annotation_) {
 
-        auto old     = hover_state_;
         hover_state_ = current_edited_annotation_->mouse_hover_on_selected_caption(
             pointer_pos, viewport_pixel_scale);
         if (hover_state_ == Caption::NotHovered) {
-            Imath::Box2f hover_box = current_edited_annotation_->mouse_hover_on_captions(
+            under_mouse_caption_bdb_ = current_edited_annotation_->mouse_hover_on_captions(
                 pointer_pos, viewport_pixel_scale);
             for (auto &r : renderers_) {
-                r->set_under_mouse_caption_bdb(hover_box);
+                r->set_under_mouse_caption_bdb(under_mouse_caption_bdb_);
             }
-            if (!hover_box.isEmpty()) {
+            if (!under_mouse_caption_bdb_.isEmpty()) {
                 hover_state_ = Caption::HoveredInCaptionArea;
             }
         }
@@ -518,13 +538,31 @@ bool AnnotationsTool::check_pointer_hover_on_text(
             moving_scaling_text_attr_->set_value(int(hover_state_));
         }
 
+
+    } else {
+        // hover over non edited captions?
+        hover_state_             = Caption::NotHovered;
+        under_mouse_caption_bdb_ = Imath::Box2f();
+        for (auto &anno_uuid : current_viewed_annotations_) {
+
+            auto p = annotations_render_data_.find(anno_uuid);
+            if (p != annotations_render_data_.end()) {
+                for (const auto &cap_info : p->second->caption_info_) {
+                    if (cap_info.bounding_box.intersects(pointer_pos)) {
+                        under_mouse_caption_bdb_ = cap_info.bounding_box;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (hover_state_ != old || under_mouse_caption_bdb_ != old_bdb) {
         for (auto &r : renderers_) {
+            r->set_under_mouse_caption_bdb(under_mouse_caption_bdb_);
             r->set_caption_hover_state(hover_state_);
         }
-        return hover_state_ != old;
-    } else {
-
-        // hover over non edited captions?
+        return true;
     }
     return false;
 }
@@ -533,7 +571,7 @@ void AnnotationsTool::end_stroke(const Imath::V2f &) {
 
     if (current_edited_annotation_) {
 
-        current_edited_annotation_->stroke_finished();
+        current_edited_annotation_->finished_current_stroke();
 
         // update annotation data attached to bookmark
         if (!is_laser_mode()) {
@@ -585,6 +623,11 @@ void AnnotationsTool::text_entered(const std::string &text, const std::string &c
 void AnnotationsTool::key_pressed(
     const int key, const std::string &context, const bool auto_repeat) {
     if (active_tool_->value() == "Text" && current_edited_annotation_) {
+        if (key == 16777216) {
+            // escape key
+            current_edited_annotation_->finished_current_stroke();
+            release_keyboard_focus();
+        }
         current_edited_annotation_->key_down(key);
         update_caption_overlay();
     }
@@ -614,7 +657,10 @@ void AnnotationsTool::attribute_changed(
         } else {
             release_mouse_focus();
             release_keyboard_focus();
+            if (current_edited_annotation_)
+                current_edited_annotation_->finished_current_stroke();
             moving_scaling_text_attr_->set_value(0);
+            clear_caption_overlays();
         }
 
     } else if (attribute_uuid == active_tool_->uuid()) {
@@ -628,14 +674,12 @@ void AnnotationsTool::attribute_changed(
             }
 
             if (active_tool == "Text") {
-                grab_keyboard_focus();
             } else {
+                if (current_edited_annotation_)
+                    current_edited_annotation_->finished_current_stroke();
                 release_keyboard_focus();
                 moving_scaling_text_attr_->set_value(0);
-                for (auto &r : renderers_) {
-                    r->set_current_edited_caption_bdb(Imath::Box2f());
-                    r->set_cursor_position(Imath::V2f(), Imath::V2f());
-                }
+                clear_caption_overlays();
             }
         }
 
@@ -672,10 +716,20 @@ void AnnotationsTool::attribute_changed(
 
         if (current_edited_annotation_) {
             if (is_laser_mode()) {
+                current_edited_annotation_
+                    ->finished_current_stroke(); // this ensure current edited caption is
+                                                 // finished
+                release_keyboard_focus();
+
                 // This 'saves' the current edited annotation by pushing to the bookmark
                 push_annotation_to_bookmark(std::shared_ptr<bookmark::AnnotationBase>(
                     static_cast<bookmark::AnnotationBase *>(
                         new Annotation(*current_edited_annotation_))));
+
+                edited_annotation_cache_[current_edited_annotation_->bookmark_uuid_] =
+                    current_edited_annotation_;
+                last_edited_annotation_uuid_ = current_edited_annotation_->bookmark_uuid_;
+
                 // Now we store the annotation's render data for immediate display
                 // since we are about to 'clear' it from the edited annotation
                 annotations_render_data_[current_edited_annotation_->bookmark_uuid_] =
@@ -727,19 +781,31 @@ void AnnotationsTool::attribute_changed(
             current_edited_annotation_->set_edited_caption_opacity(
                 pen_opacity_->value() / 100.0f);
         }
+    } else if (attribute_uuid == font_choice_->uuid()) {
+
+        if (current_edited_annotation_ && current_edited_annotation_->have_edited_caption()) {
+
+            current_edited_annotation_->set_edited_caption_font(font_choice_->value());
+            update_caption_overlay();
+        }
     }
 
-
-    if (attribute_uuid == active_tool_->uuid() && current_edited_annotation_) {
+    if ((attribute_uuid == active_tool_->uuid() || attribute_uuid == draw_mode_->uuid()) &&
+        current_edited_annotation_) {
 
         if (active_tool_->value() == "Draw" && draw_mode_->value() == "Laser") {
+
             // user might have switch from shapes mode to draw (laser mode) -- need to save
             // whatever was in the current annotations before laser drwaing
             push_annotation_to_bookmark(std::shared_ptr<bookmark::AnnotationBase>(
                 static_cast<bookmark::AnnotationBase *>(
                     new Annotation(*current_edited_annotation_))));
+            edited_annotation_cache_[current_edited_annotation_->bookmark_uuid_] =
+                current_edited_annotation_;
+            last_edited_annotation_uuid_ = current_edited_annotation_->bookmark_uuid_;
             clear_edited_annotation();
-        } else if (is_laser_annotation_) {
+
+        } else if (current_edited_annotation_->is_laser_annotation()) {
             clear_edited_annotation();
         }
     }
@@ -793,7 +859,7 @@ void AnnotationsTool::clear_caption_overlays() {
     for (auto &r : renderers_) {
         r->set_current_edited_caption_bdb(Imath::Box2f());
         r->set_under_mouse_caption_bdb(Imath::Box2f());
-        r->set_cursor_position(Imath::V2f(), Imath::V2f());
+        r->set_cursor_position(Imath::V2f(0.0f, 0.0f), Imath::V2f(0.0f, 0.0f));
     }
     interact_end();
 }
@@ -809,13 +875,18 @@ void AnnotationsTool::on_screen_media_changed(
 void AnnotationsTool::create_new_annotation() {
 
     if (is_laser_mode()) {
-
-        current_edited_annotation_.reset(new Annotation(fonts_));
+        current_edited_annotation_.reset(new Annotation(fonts_, true));
         current_edited_annotation_->bookmark_uuid_ = utility::Uuid();
-        is_laser_annotation_                       = true;
         return;
-    } else {
-        is_laser_annotation_ = false;
+    }
+
+    if (current_bookmark_uuid_.is_null()) {
+        if (std::find(
+                current_viewed_annotations_.begin(),
+                current_viewed_annotations_.end(),
+                last_edited_annotation_uuid_) != current_viewed_annotations_.end()) {
+            current_bookmark_uuid_ = last_edited_annotation_uuid_;
+        }
     }
 
     cleared_annotations_serialised_data_.clear();
@@ -895,7 +966,7 @@ void AnnotationsTool::on_screen_frame_changed(
 void AnnotationsTool::on_screen_annotation_changed(
     std::vector<std::shared_ptr<bookmark::AnnotationBase>> annotations) {
 
-    if (current_edited_annotation_ && !is_laser_annotation_) {
+    if (current_edited_annotation_ && !current_edited_annotation_->is_laser_annotation()) {
 
         // we need to check if the timeline has scrubbed off the in/out range
         // of our currently edited annotation, if so we need to store our edited
@@ -909,6 +980,11 @@ void AnnotationsTool::on_screen_annotation_changed(
         }
 
         if (!edited_annotation_still_on_screen) {
+
+            // make sure current edited caption is completed
+            current_edited_annotation_->finished_current_stroke();
+            release_keyboard_focus();
+
             // we have moved off the frame range of the current edited annotation
             // so we make a full copy and push to the bookmark for storage
             push_annotation_to_bookmark(std::shared_ptr<bookmark::AnnotationBase>(
@@ -942,6 +1018,8 @@ void AnnotationsTool::on_screen_annotation_changed(
         current_viewed_annotations_.clear();
         current_bookmark_uuid_ = utility::Uuid();
     }
+
+    update_caption_overlay();
 }
 
 void AnnotationsTool::clear_onscreen_annotations() {
@@ -971,10 +1049,16 @@ void AnnotationsTool::restore_onscreen_annotations() {
 
 void AnnotationsTool::clear_edited_annotation() {
 
-    if (!is_laser_mode() && current_edited_annotation_) {
+    release_keyboard_focus();
+
+    if (current_edited_annotation_ && !current_edited_annotation_->is_laser_annotation()) {
         edited_annotation_cache_[current_edited_annotation_->bookmark_uuid_] =
             current_edited_annotation_;
+        last_edited_annotation_uuid_ = current_edited_annotation_->bookmark_uuid_;
+        annotations_render_data_[current_edited_annotation_->bookmark_uuid_] =
+            current_edited_annotation_->render_data();
     }
+
     current_edited_annotation_.reset();
     current_bookmark_uuid_ = utility::Uuid();
 

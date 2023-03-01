@@ -2,6 +2,7 @@
 from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom
 from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid
 from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI
+from xstudio.core import set_json_atom, JsonStore
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_source import MediaSource
@@ -97,6 +98,44 @@ class Media(Container):
         """
         return json.loads(self.connection.request_receive(self.remote, get_json_atom(), Uuid(), "")[0].dump())
 
+    @metadata.setter
+    def metadata(self, new_metadata):
+        """Set media reference rate.
+
+        Args:
+            new_metadata(json): Json dict to set as media source metadata
+
+        Returns:
+            bool: success
+
+        """
+        return self.connection.request_receive(self.remote, set_json_atom(), Uuid(), JsonStore(new_metadata))
+
+    def get_metadata(self, path):
+        """Get metdata at JSON path
+
+        Args:
+            path(str): JSON Pointer
+
+        Returns:
+            metadata(json) Json at pointer location
+        """
+
+        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), Uuid(), path)[0].dump())
+
+    def set_metadata(self, data, path):
+        """Get metdata at JSON path
+
+        Args:
+            data(json): JSON Data
+            path(str): JSON Pointer
+
+        Returns:
+            bool: success
+        """
+
+        return self.connection.request_receive(self.remote, set_json_atom(), Uuid(), JsonStore(data), path)[0]
+
     @property
     def source_metadata(self):
         """Get media metadata.
@@ -163,6 +202,6 @@ class Media(Container):
         for bookmark in all_bookmarks.bookmarks:
             if bookmark.detail.owner.uuid == self.uuid:
                 result.append(bookmark)
-        
+
         result = sorted(result, key=lambda x: x.detail.start)
         return result

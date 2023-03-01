@@ -86,10 +86,11 @@ const char *frag_shader = R"(
     )";
 } // namespace
 
-void BasicMaskRenderer::render_opengl_before_image(
+void BasicMaskRenderer::render_opengl(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
-    const xstudio::media_reader::ImageBufPtr &frame) {
+    const xstudio::media_reader::ImageBufPtr &frame,
+    const bool have_alpha_buffer) {
 
     if (!shader_)
         init_overlay_opengl();
@@ -133,6 +134,10 @@ void BasicMaskRenderer::render_opengl_before_image(
     shader_->set_shader_parameters(shader_params);
 
     shader_->use();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+    glDisable(GL_DEPTH_TEST);
     glBindVertexArray(vertex_array_object_);
     glDrawArrays(GL_QUADS, 0, 4);
     shader_->stop_using();
@@ -350,8 +355,8 @@ void BasicViewportMasking::register_hotkeys() {
 }
 
 
-utility::BlindDataObjectPtr
-BasicViewportMasking::prepare_render_data(const media_reader::ImageBufPtr &image) const {
+utility::BlindDataObjectPtr BasicViewportMasking::prepare_render_data(
+    const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
 
     auto r = utility::BlindDataObjectPtr();
 

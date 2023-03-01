@@ -7,6 +7,7 @@ from xstudio.core import create_divider_atom, media_rate_atom, playhead_rate_ato
 from xstudio.core import remove_media_atom, UuidVec, move_media_atom, create_playhead_atom, selection_actor_atom
 from xstudio.core import convert_to_timeline_atom, convert_to_subset_atom, convert_to_contact_sheet_atom
 from xstudio.core import FrameList, FrameRate, MediaType
+from xstudio.core import get_json_atom, set_json_atom, JsonStore
 
 from xstudio.api.session.container import Container, PlaylistTree
 from xstudio.api.session.playhead.playhead import Playhead
@@ -15,6 +16,8 @@ from xstudio.api.session.media.media import Media
 from xstudio.api.session.playlist.subset import Subset
 from xstudio.api.session.playlist.contact_sheet import ContactSheet
 from xstudio.api.session.playlist.timeline import Timeline
+
+import json
 
 class Playlist(Container):
     """Playlist object."""
@@ -521,5 +524,53 @@ class Playlist(Container):
 
         result = self.connection.request_receive(self.remote, convert_to_timeline_atom(), src, name, before)[0]
         return (result[0], Timeline(self.connection, result[1].actor, result[1].uuid))
+
+    @property
+    def metadata(self):
+        """Get metadata.
+
+        Returns:
+            metadata(json): Metadata attached to playlist.
+        """
+
+        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), "")[0].dump())
+
+    @metadata.setter
+    def metadata(self, new_metadata):
+        """Set media reference rate.
+
+        Args:
+            new_metadata(json): Json dict to set as media source metadata
+
+        Returns:
+            bool: success
+
+        """
+        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(new_metadata))
+
+    def get_metadata(self, path):
+        """Get metdata at JSON path
+
+        Args:
+            path(str): JSON Pointer
+
+        Returns:
+            metadata(json) Json at pointer location
+        """
+
+        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), path)[0].dump())
+
+    def set_metadata(self, data, path):
+        """Get metdata at JSON path
+
+        Args:
+            data(json): JSON Data
+            path(str): JSON Pointer
+
+        Returns:
+            bool: success
+        """
+
+        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(data), path)[0]
 
 from xstudio.api.auxiliary.otio import import_timeline_from_file

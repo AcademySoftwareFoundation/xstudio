@@ -46,10 +46,6 @@ void QMLViewportRenderer::paint() {
     if (!init_done) {
         init_done = true;
         init_renderer();
-
-        if (m_window && m_window->openglContext()) {
-            // viewport_renderer_->has_alpha(m_window->openglContext()->format().hasAlpha());
-        }
     }
 
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
@@ -295,11 +291,16 @@ void QMLViewportRenderer::receive_change_notification(Viewport::ChangeCallbackId
 }
 
 void QMLViewportRenderer::setScreenInfos(
-    QString name, QString model, QString manufacturer, QString serialNumber) {
+    QString name,
+    QString model,
+    QString manufacturer,
+    QString serialNumber,
+    double refresh_rate) {
     viewport_renderer_->set_screen_infos(
         is_primary_viewer_,
         name.toStdString(),
         model.toStdString(),
         manufacturer.toStdString(),
-        serialNumber.toStdString());
+        serialNumber.toStdString(),
+        refresh_rate);
 }

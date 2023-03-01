@@ -12,10 +12,11 @@
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
 
-void ViewportHUDRenderer::render_opengl_before_image(
+void ViewportHUDRenderer::render_opengl(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
-    const xstudio::media_reader::ImageBufPtr &frame) {
+    const xstudio::media_reader::ImageBufPtr &frame,
+    const bool /*have_alpha_buffer*/) {
 
     bool hud_on            = false;
     bool draw_bbox         = false;
@@ -39,6 +40,11 @@ void ViewportHUDRenderer::render_opengl_before_image(
     auto image_bounds_min = frame ? frame->image_pixels_bounding_box().min : Imath::V2i();
     auto image_bounds_max = frame ? frame->image_pixels_bounding_box().max : Imath::V2i();
     auto pixel_aspect     = frame ? frame->pixel_aspect() : 1.0f;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+    glDisable(GL_DEPTH_TEST);
 
     if (draw_bbox) {
         draw_gl_box(
@@ -140,8 +146,8 @@ ViewportHUD::ViewportHUD(caf::actor_config &cfg, const utility::JsonStore &init_
 
 ViewportHUD::~ViewportHUD() = default;
 
-utility::BlindDataObjectPtr
-ViewportHUD::prepare_render_data(const media_reader::ImageBufPtr &image) const {
+utility::BlindDataObjectPtr ViewportHUD::prepare_render_data(
+    const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
 
     auto r = utility::BlindDataObjectPtr();
 

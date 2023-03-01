@@ -20,7 +20,7 @@ DelegateChoice {
         property bool isMouseHovered: mArea.containsMouse || nameDisplay.hovered || stepDisplay.hovered ||
                                       authorDisplay.hovered || pipelineStatusDisplay.hovered ||
                                       pipeStatusDisplay.hovered || submitToClientDisplay.hovered ||
-                                      frameToolTip.containsMouse || dateToolTip.containsMouse || versionsButton.hovered || allVersionsButton.hovered
+                                      frameToolTip.containsMouse || dateToolTip.containsMouse// || versionsButton.hovered || allVersionsButton.hovered
         width: searchResultsView.cellWidth
         height: searchResultsView.cellHeight-itemSpacing
         color:  isSelected ? Qt.darker(itemColorActive, 2.75): itemColorNormal
@@ -49,10 +49,10 @@ DelegateChoice {
                         function(items){
                             addShotsToPlaylist(
                                 items,
-                                data_source.preferredVisual("Shots"),
-                                data_source.preferredAudio("Shots"),
-                                data_source.flagText("Shots"),
-                                data_source.flagColour("Shots")
+                                data_source.preferredVisual("Versions"),
+                                data_source.preferredAudio("Versions"),
+                                data_source.flagText("Versions"),
+                                data_source.flagColour("Versions")
                             )
                         }
                     )
@@ -68,7 +68,7 @@ DelegateChoice {
             anchors.fill: parent
             anchors.margins: framePadding
             rows: 2
-            columns: 9
+            columns: 7
             rowSpacing: itemSpacing
 
             Rectangle{ id: indicators
@@ -97,24 +97,24 @@ DelegateChoice {
                         textDiv.topPadding: 2.5
 
                         onClicked: {
-                            notePresetsModel.clearLoaded()
-                            notePresetsModel.insert(
-                                notePresetsModel.rowCount(),
-                                notePresetsModel.index(notePresetsModel.rowCount(),0),
+                            let mymodel = noteTreePresetsModel
+                            mymodel.clearLoaded()
+                            mymodel.insert(
+                                mymodel.rowCount(),
+                                mymodel.index(mymodel.rowCount(),0),
                                 {
                                     "expanded": false,
-                                    "loaded": true,
                                     "name": nameRole + " Notes",
                                     "queries": [
+                                        {
+                                            "enabled": true,
+                                            "term": "Twig Name",
+                                            "value": "^"+twigNameRole+"$"
+                                        },
                                         {
                                             "enabled": shotRole != undefined,
                                             "term": "Shot",
                                             "value": shotRole != undefined ? shotRole : ""
-                                        },
-                                        {
-                                            "enabled": true,
-                                            "term": "Twig Name",
-                                            "value": twigNameRole
                                         },
                                         {
                                             "enabled": true,
@@ -139,7 +139,8 @@ DelegateChoice {
                                     ]
                                 }
                             )
-                            setBrowserCategory("Notes")
+                            currentCategory = "Notes Tree"
+                            mymodel.activePreset = mymodel.rowCount()-1
                         }
                     }
                     XsButton{ id: dailiesStatusDisplay
@@ -211,44 +212,44 @@ DelegateChoice {
                 }
             }
 
-            XsButton{ id: versionsButton
-                Layout.preferredWidth: pipeStatusDisplay.width
-                Layout.preferredHeight: parent.height
-                Layout.rowSpan: 2
+            // XsButton{ id: versionsButton
+            //     Layout.preferredWidth: pipeStatusDisplay.width
+            //     Layout.preferredHeight: parent.height
+            //     Layout.rowSpan: 2
 
-                text: "Related"
-                textDiv.width: parent.height
-                textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
-                textDiv.rotation: -90
-                textDiv.topPadding: 2.5
-                textDiv.rightPadding: 3
-                font.pixelSize: fontSize
-                font.weight: Font.DemiBold
-                padding: 0
-                bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
-                onClicked: {
-                    if(roleValue=="Reference") setBrowserCategory("Shots")
-                    rightDiv.popupMenuAction("Related Versions", index) //createPresetType("Live Versions")
-                }
-            }
+            //     text: "History"
+            //     textDiv.width: parent.height
+            //     textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
+            //     textDiv.rotation: -90
+            //     textDiv.topPadding: 2.5
+            //     textDiv.rightPadding: 3
+            //     font.pixelSize: fontSize
+            //     font.weight: Font.DemiBold
+            //     padding: 0
+            //     bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
+            //     onClicked: {
+            //         if(roleValue=="Reference") currentCategory = "Versions"
+            //         rightDiv.popupMenuAction("Related Versions", index) //createPresetType("Live Versions")
+            //     }
+            // }
 
-            XsButton{ id: allVersionsButton
-                Layout.preferredWidth: pipeStatusDisplay.width
-                Layout.preferredHeight: parent.height
-                Layout.rowSpan: 2
+            // XsButton{ id: allVersionsButton
+            //     Layout.preferredWidth: pipeStatusDisplay.width
+            //     Layout.preferredHeight: parent.height
+            //     Layout.rowSpan: 2
 
-                text: "All"
-                textDiv.width: parent.height
-                textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
-                textDiv.rotation: -90
-                textDiv.topPadding: 2.5
-                textDiv.rightPadding: 3
-                font.pixelSize: fontSize
-                font.weight: Font.DemiBold
-                padding: 0
-                bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
-                onClicked: rightDiv.popupMenuAction("All Versions", index)
-            }
+            //     text: "Latest"
+            //     textDiv.width: parent.height
+            //     textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
+            //     textDiv.rotation: -90
+            //     textDiv.topPadding: 2.5
+            //     textDiv.rightPadding: 3
+            //     font.pixelSize: fontSize
+            //     font.weight: Font.DemiBold
+            //     padding: 0
+            //     bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
+            //     onClicked: rightDiv.popupMenuAction("Latest Versions", index)
+            // }
 
             XsTextButton{ id: nameDisplay
                 text: " "+nameRole
@@ -288,7 +289,7 @@ DelegateChoice {
 
                 ToolTip.text: text
                 ToolTip.visible: hovered && textDiv.truncated
-            
+
                 onTextClicked: createPreset("Pipeline Step", textDiv.text)
             }
 

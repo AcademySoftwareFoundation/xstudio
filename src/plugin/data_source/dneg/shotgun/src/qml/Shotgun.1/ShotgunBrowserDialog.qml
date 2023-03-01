@@ -48,6 +48,9 @@ XsWindow { id: shotgunBrowser
     property var shotModel: null
     property var shotModelFunc: null
 
+    property var customEntity24Model: null
+    property var customEntity24ModelFunc: null
+
     property var shotSearchFilterModel: null
     property var shotSearchFilterModelFunc: null
 
@@ -55,17 +58,21 @@ XsWindow { id: shotgunBrowser
     property var playlistModelFunc: null
 
     property var shotResultsModel: null
+    property var shotTreeResultsModel: null
     property var playlistResultsModel: null
     property var editResultsModel: null
     property var referenceResultsModel: null
     property var noteResultsModel: null
+    property var noteTreeResultsModel: null
     property var mediaActionResultsModel: null
 
     property var shotPresetsModel: null
+    property var shotTreePresetsModel: null
     property var playlistPresetsModel: null
     property var editPresetsModel: null
     property var referencePresetsModel: null
     property var notePresetsModel: null
+    property var noteTreePresetsModel: null
     property var mediaActionPresetsModel: null
 
     property var shotFilterModel: null
@@ -104,13 +111,13 @@ XsWindow { id: shotgunBrowser
     }
 
     width: 840
-    minimumWidth: leftDiv.isCollapsed? minimumLeftSplitViewWidth*1.4 : 840
+    minimumWidth: leftDiv.isCollapsed? minimumLeftSplitViewWidth * 1.4 : 840
     height: 480
     minimumHeight: 480
     property real oldWidth: minimumWidth
     property real oldHeight: 480
     property real minimumLeftSplitViewWidth: 350
-    property real minimumRightSplitViewWidth: minimumLeftSplitViewWidth*1.25
+    property real minimumRightSplitViewWidth: minimumLeftSplitViewWidth * 1.25
     property real minimumSplitViewHeight: 120
     onWidthChanged: {
         if((width-leftDiv.width) < minimumLeftSplitViewWidth)
@@ -123,13 +130,13 @@ XsWindow { id: shotgunBrowser
         oldHeight = height
     }
 
-    property real framePadding: 6
-    property real frameWidth: 1
-    property real frameRadius: 2
+    property int framePadding: 6
+    property int frameWidth: 1
+    property int frameRadius: 2
     property color frameColor: itemColorNormal
 
-    property real itemHeight: 22*1.2
-    property real itemSpacing: 2
+    property int itemHeight: 26
+    property int itemSpacing: 2
     property color itemColorActive: palette.highlight
     property color itemColorNormal: palette.base
 
@@ -138,7 +145,9 @@ XsWindow { id: shotgunBrowser
     property real fontSize: XsStyle.menuFontSize
     property string fontFamily: XsStyle.menuFontFamily
 
-    property alias currentCategory: leftDiv.currentCategory
+    // property string currentCategory: context_pref.properties.value
+    property string currentCategoryClass: currentCategory.replace(' Tree','')
+    property bool treeMode: currentCategory.includes(" Tree")
 
     Shortcut {
         context:  Qt.WindowShortcut
@@ -225,17 +234,18 @@ XsWindow { id: shotgunBrowser
     }
 
     function createPresetType(mode) {
-        if(mode == "Live Notes") {
+        if(mode == menuLiveNotes) {
+            let mymodel = noteTreePresetsModel
+
             // check it doesn't already exist.
-            let ind = notePresetsModel.search("---- Live Notes ----")
+            let ind = mymodel.search(menuLiveNotes)
             if(ind == -1) {
-                notePresetsModel.insert(
-                    notePresetsModel.rowCount(),
-                    notePresetsModel.index(notePresetsModel.rowCount(),0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(),0),
                     {
                         "expanded": false,
-                        "loaded": false,
-                        "name": "---- Live Notes ----",
+                        "name": menuLiveNotes,
                         "queries": [
                             {
                                 "enabled": true,
@@ -274,19 +284,24 @@ XsWindow { id: shotgunBrowser
                         ]
                     }
                 )
-                ind = notePresetsModel.rowCount()-1
+                ind = mymodel.rowCount()-1
             }
-            leftDiv.searchPresetsView.currentIndex = ind
-        } else if(mode == "Live All Versions") {
-            let ind = shotPresetsModel.search("---- Live Versions (All) ----")
+            currentCategory = "Notes Tree"
+            if(mymodel.activePreset == ind) {
+                executeQuery()
+            } else {
+                mymodel.activePreset = ind
+            }
+        } else if(mode == menuLiveLatest) {
+            let mymodel = shotTreePresetsModel
+            let ind = mymodel.search(menuLiveLatest)
             if(ind == -1) {
-                shotPresetsModel.insert(
-                    shotPresetsModel.rowCount(),
-                    shotPresetsModel.index(shotPresetsModel.rowCount(),0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(),0),
                     {
                         "expanded": false,
-                        "loaded": false,
-                        "name": "---- Live Versions (All) ----",
+                        "name": menuLiveLatest,
                         "queries": [
                             {
                                 "enabled": true,
@@ -337,19 +352,25 @@ XsWindow { id: shotgunBrowser
                         ]
                     }
                 )
-                ind = shotPresetsModel.rowCount()-1
+                ind = mymodel.rowCount()-1
             }
-            leftDiv.searchPresetsView.currentIndex = ind
-        } else if(mode == "Live Related Versions") {
-            let ind = shotPresetsModel.search("---- Live Versions (Related) ----")
+            currentCategory = "Versions Tree"
+            if(mymodel.activePreset == ind) {
+                executeQuery()
+            } else {
+                mymodel.activePreset = ind
+            }
+        } else if(mode == menuLiveHistory) {
+            let mymodel = shotTreePresetsModel
+            let ind = mymodel.search(menuLiveHistory)
+
             if(ind == -1) {
-                shotPresetsModel.insert(
-                    shotPresetsModel.rowCount(),
-                    shotPresetsModel.index(shotPresetsModel.rowCount(),0),
+                mymodel.insert(
+                    mymodel.rowCount(),
+                    mymodel.index(mymodel.rowCount(),0),
                     {
                         "expanded": false,
-                        "loaded": false,
-                        "name": "---- Live Versions (Related) ----",
+                        "name": menuLiveHistory,
                         "queries": [
                             {
                                 "enabled": true,
@@ -393,17 +414,22 @@ XsWindow { id: shotgunBrowser
                         ]
                     }
                 )
-                ind = shotPresetsModel.rowCount()-1
+                ind = mymodel.rowCount()-1
             }
-            leftDiv.searchPresetsView.currentIndex = ind
-        } else if(mode == "All Versions") {
+            currentCategory = "Versions Tree"
+
+            if(mymodel.activePreset == ind) {
+                executeQuery()
+            } else {
+                mymodel.activePreset = ind
+            }
+        } else if(mode == "All") {
             shotPresetsModel.insert(
                 shotPresetsModel.rowCount(),
                 shotPresetsModel.index(shotPresetsModel.rowCount(),0),
                 {
                     "expanded": false,
-                    "loaded": false,
-                    "name": "All Versions",
+                    "name": "All",
                     "queries": [
                         {
                             "enabled": true,
@@ -414,7 +440,7 @@ XsWindow { id: shotgunBrowser
                     ]
                 }
             )
-            leftDiv.searchPresetsView.currentIndex = shotPresetsModel.rowCount()-1
+            shotPresetsModel.activePreset = shotPresetsModel.rowCount()-1
         }
     }
 
@@ -428,14 +454,23 @@ XsWindow { id: shotgunBrowser
     }
 
     function currentCategoryUpdate() {
-
-        if(currentCategory == "Shots")
+        if(currentCategory == "Versions")
         {
             leftDiv.presetSelectionModel.clearSelection()
 
             leftDiv.filterViewModel = shotFilterModel
             leftDiv.searchPresetsViewModel = shotPresetsModel
+            leftDiv.searchTreePresetsViewModel = shotTreePresetsModel
             rightDiv.searchResultsViewModel = shotResultsModel
+        }
+        else if(currentCategory == "Versions Tree")
+        {
+            leftDiv.presetSelectionModel.clearSelection()
+
+            leftDiv.filterViewModel = shotFilterModel
+            leftDiv.searchPresetsViewModel = shotPresetsModel
+            leftDiv.searchTreePresetsViewModel = shotTreePresetsModel
+            rightDiv.searchResultsViewModel = shotTreeResultsModel
         }
         else if(currentCategory == "Playlists")
         {
@@ -467,7 +502,17 @@ XsWindow { id: shotgunBrowser
 
             leftDiv.filterViewModel = noteFilterModel
             leftDiv.searchPresetsViewModel = notePresetsModel
+            leftDiv.searchTreePresetsViewModel = noteTreePresetsModel
             rightDiv.searchResultsViewModel = noteResultsModel
+        }
+        else if(currentCategory == "Notes Tree")
+        {
+            leftDiv.presetSelectionModel.clearSelection()
+
+            leftDiv.filterViewModel = noteFilterModel
+            leftDiv.searchPresetsViewModel = notePresetsModel
+            leftDiv.searchTreePresetsViewModel = noteTreePresetsModel
+            rightDiv.searchResultsViewModel = noteTreeResultsModel
         }
         else if(currentCategory == "Menu Setup")
         {
@@ -478,43 +523,54 @@ XsWindow { id: shotgunBrowser
             rightDiv.searchResultsViewModel = mediaActionResultsModel
         }
 
-        let found = false
+        // leftDiv.searchPresetsView.currentIndex = leftDiv.searchPresetsViewModel.activePreset
 
-        for(let i=0; i< leftDiv.presetsModel.count;i++){
-            if(leftDiv.presetsModel.get(i, "loadedRole")) {
-                if(categorySwitchedOnClick) executeQueryOnCategorySwitch = false
-                if(leftDiv.searchPresetsView.currentIndex == i) leftDiv.searchPresetsView.currentIndex = -1
-                leftDiv.searchPresetsView.currentIndex = i
-                found = true
-                break
-            }
-        }
+        // let found = false
 
-        if(!found)
-            leftDiv.searchPresetsView.currentIndex = -1
+        // for(let i=0; i< leftDiv.presetsModel.count;i++){
+        //     if(leftDiv.presetsModel.activePreset != -1) {
+        //         if(categorySwitchedOnClick) executeQueryOnCategorySwitch = false
+        //         if(leftDiv.searchPresetsView.currentIndex == leftDiv.presetsModel.activePreset) leftDiv.searchPresetsView.currentIndex = -1
+        //         leftDiv.searchPresetsView.currentIndex = leftDiv.presetsModel.activePreset
+        //         found = true
+        //         break
+        //     }
+        // }
+
+        // if(!found)
+        //     leftDiv.searchPresetsView.currentIndex = -1
 
         categorySwitchedOnClick = false
         executeQueryOnCategorySwitch = true
     }
 
-    onCurrentCategoryChanged: currentCategoryUpdate()
+    Connections {
+        target: context_preference
+        function onValueChanged() {
+            currentCategoryUpdate()
+        }
+    }
 
     Connections {
         target: leftDiv
         function onProjectChanged(project_id) {
             // reset models
             shotResultsModel.clear()
+            shotTreeResultsModel.clear()
             playlistResultsModel.clear()
             editResultsModel.clear()
             referenceResultsModel.clear()
             noteResultsModel.clear()
+            noteTreeResultsModel.clear()
 
             // set all preset loaded state to false.
             shotPresetsModel.clearLoaded()
+            shotTreePresetsModel.clearLoaded()
             playlistPresetsModel.clearLoaded()
             editPresetsModel.clearLoaded()
             referencePresetsModel.clearLoaded()
             notePresetsModel.clearLoaded()
+            noteTreePresetsModel.clearLoaded()
         }
     }
 
@@ -564,6 +620,7 @@ XsWindow { id: shotgunBrowser
         }
 
         SBLeftPanel{ id: leftDiv
+            treeMode: shotgunBrowser.treeMode
             projectModel: shotgunBrowser.projectModel
             projectCurrentIndex: shotgunBrowser.projectCurrentIndex
 
@@ -579,6 +636,9 @@ XsWindow { id: shotgunBrowser
 
             shotModel: shotgunBrowser.shotModel
             shotModelFunc: shotgunBrowser.shotModelFunc
+
+            customEntity24Model: shotgunBrowser.customEntity24Model
+            customEntity24ModelFunc: shotgunBrowser.customEntity24ModelFunc
 
             shotSearchFilterModel: shotgunBrowser.shotSearchFilterModel
             shotSearchFilterModelFunc: shotgunBrowser.shotSearchFilterModelFunc
@@ -604,10 +664,12 @@ XsWindow { id: shotgunBrowser
             shotStatusModel: shotgunBrowser.shotStatusModel
 
             shotPresetsModel: shotgunBrowser.shotPresetsModel
+            shotTreePresetsModel: shotgunBrowser.shotTreePresetsModel
             playlistPresetsModel: shotgunBrowser.playlistPresetsModel
             editPresetsModel: shotgunBrowser.editPresetsModel
             referencePresetsModel: shotgunBrowser.referencePresetsModel
             notePresetsModel: shotgunBrowser.notePresetsModel
+            noteTreePresetsModel: shotgunBrowser.noteTreePresetsModel
             mediaActionPresetsModel: shotgunBrowser.mediaActionPresetsModel
 
             shotFilterModel: shotgunBrowser.shotFilterModel
@@ -623,11 +685,17 @@ XsWindow { id: shotgunBrowser
             pipelineStepFilterIndex: rightDiv.pipelineStepFilterIndex
             onDiskFilterIndex: rightDiv.onDiskFilterIndex
 
+            clearFilter: rightDiv.clearFilter
+
             onUndo: data_source.undo()
             onRedo: data_source.redo()
             onSnapshotGlobals: {
                 let preset = ""
-                if(currentCategory == "Shots")
+                if(currentCategory == "Versions")
+                    preset = "shot_filter"
+                else if(currentCategory == "Versions Tree")
+                    preset = "shot_filter"
+                else if(currentCategory == "Shots Tree")
                     preset = "shot_filter"
                 else if(currentCategory == "Playlists")
                     preset = "playlist_filter"
@@ -637,6 +705,8 @@ XsWindow { id: shotgunBrowser
                     preset = "reference_filter"
                 else if(currentCategory == "Notes")
                     preset = "note_filter"
+                else if(currentCategory == "Notes Tree")
+                    preset = "note_filter"
                 else if(currentCategory == "Menu Setup")
                     preset = "media_action_filter"
 
@@ -644,8 +714,10 @@ XsWindow { id: shotgunBrowser
             }
             onSnapshotPresets: {
                 let preset = ""
-                if(currentCategory == "Shots")
+                if(currentCategory == "Versions")
                     preset = "shot"
+                else if(currentCategory == "Versions Tree")
+                    preset = "shot_tree"
                 else if(currentCategory == "Playlists")
                     preset = "playlist"
                 else if(currentCategory == "Edits")
@@ -654,6 +726,8 @@ XsWindow { id: shotgunBrowser
                     preset = "reference"
                 else if(currentCategory == "Notes")
                     preset = "note"
+                else if(currentCategory == "Notes Tree")
+                    preset = "note_tree"
                 else if(currentCategory == "Menu Setup")
                     preset = "media_action"
 
@@ -669,10 +743,20 @@ XsWindow { id: shotgunBrowser
             addShotsToNewPlaylist: shotgunBrowser.addShotsToNewPlaylistWrapper
             addAndCompareShotsToPlaylist: shotgunBrowser.addAndCompareShotsToPlaylistWrapper
 
+            onShowLatestVersion: {
+                currentCategory = "Versions Tree"
+                leftDiv.updatePreset(type, name, id, mode)
+            }
+
+            onShowVersionHistory: {
+                currentCategory = "Versions Tree"
+                leftDiv.updateVersionHistory(shot, twigname, pstep, twigtype)
+            }
+
             Connections {
                 target: shotgunBrowser
                 function onShowRelatedVersions() {
-                    rightDiv.popupMenuAction("Related Versions")
+                    rightDiv.popupMenuAction(menuHistory)
                 }
             }
         }

@@ -494,7 +494,7 @@ class Connection(object):
 
         while True:
             msg = self.link.dequeue_message_with_timeout(
-                absolute_receive_timeout(timeout_milli)
+                absolute_receive_timeout(int(timeout_milli))
             )
 
             if msg is None:

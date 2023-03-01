@@ -34,7 +34,6 @@
 						"default_value":  [
                             {
                                 "expanded": false,
-                                "loaded": true,
                                 "name": "Shot Filter",
                                 "queries": [
                                     {
@@ -46,6 +45,11 @@
                                         "enabled": true,
                                         "term": "Preferred Visual",
                                         "value": "movie_dneg"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Result Limit",
+                                        "value": "2500"
                                     },
                                     {
                                         "enabled": true,
@@ -66,15 +70,28 @@
                                         "value": "render/playblast/working"
                                     },
                                     {
+                                        "enabled": true,
+                                        "livelink": false,
+                                        "term": "Twig Type",
+                                        "value": "scan"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "livelink": false,
+                                        "term": "Twig Type",
+                                        "value": "data/clip/cut"
+                                    },
+                                    {
+                                        "enabled": false,
+                                        "livelink": false,
+                                        "term": "Twig Type",
+                                        "value": "render/cg"
+                                    },
+                                    {
                                         "enabled": false,
                                         "livelink": false,
                                         "term": "Twig Type",
                                         "value": "render/element"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "term": "Result Limit",
-                                        "value": "2500"
                                     }
                                 ]
                             }
@@ -89,7 +106,6 @@
 						"default_value":  [
                             {
                                 "expanded": false,
-                                "loaded": true,
                                 "name": "Media Filter",
                                 "queries": [
                                     {
@@ -138,7 +154,6 @@
 						"default_value":  [
                             {
                                 "expanded": false,
-                                "loaded": true,
                                 "name": "playlist Filter",
                                 "queries": [
                                     {
@@ -173,7 +188,7 @@
                         "value": null,
 						"default_value":  [
 					        {
-					            "name": "edit Filter", "loaded": true, "expanded": false,
+					            "name": "edit Filter", "expanded": false,
 					            "queries": []
 					        }
 					    ]
@@ -187,7 +202,6 @@
 						"default_value":  [
                             {
                                 "expanded": false,
-                                "loaded": true,
                                 "name": "reference Filter",
                                 "queries": [
                                     {
@@ -212,7 +226,7 @@
                         "value": null,
 						"default_value":  [
 					        {
-					            "name": "note Filter", "loaded": true, "expanded": false,
+					            "name": "note Filter", "expanded": false,
                                 "queries": [
                                     {
                                         "enabled": true,
@@ -230,6 +244,86 @@
 					}
 				},
 				"presets": {
+                    "note_tree": {
+                        "path": "/plugin/data_source/shotgun/presets/note_tree",
+                        "value": null,
+                        "type": "system",
+                        "description": "Note Tree presets.",
+                        "datatype": "json",
+                        "context": ["APPLICATION"],
+                        "default_value": [
+                            {
+                              "expanded": false,
+                              "type": "system",
+                              "name": "All",
+                              "queries": [
+                                {
+                                  "dynamic": true,
+                                  "enabled": true,
+                                  "term": "Shot",
+                                  "value": ""
+                                }
+                              ]
+                            }
+                        ]
+                    },
+                    "shot_tree": {
+                        "path": "/plugin/data_source/shotgun/presets/shot_tree",
+                        "value": null,
+                        "type": "system",
+                        "description": "Shot Tree presets.",
+                        "datatype": "json",
+                        "context": ["APPLICATION"],
+                        "default_value": [
+                            {
+                              "expanded": false,
+                              "name": "Latest",
+                              "type": "system",
+                              "queries": [
+                                {
+                                  "dynamic": true,
+                                  "enabled": true,
+                                  "term": "Shot",
+                                  "value": ""
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Latest Version",
+                                  "value": "True"
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Flag Media",
+                                  "value": "Orange"
+                                }
+                              ]
+                            },
+                            {
+                                "expanded": false,
+                                "name": "Latest Client",
+                                "type": "system",
+                                "queries": [
+                                    {
+                                        "dynamic": true,
+                                        "enabled": true,
+                                        "term": "Shot",
+                                        "value": "097_tr_0140"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Sent To Client",
+                                        "value": "True"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Flag Media",
+                                        "value": "Orange"
+                                    }
+                                ]
+                            }
+
+                        ]
+                    },
 					"shot": {
 						"path": "/plugin/data_source/shotgun/presets/shot",
                         "value": null,
@@ -238,9 +332,7 @@
 						"context": ["APPLICATION"],
 						"default_value": [
                             {
-                                "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Dailies",
                                 "queries": [
                                     {
@@ -248,12 +340,11 @@
                                         "term": "Lookback",
                                         "value": "3 Days"
                                     }
-                                ]
+                                ],
+                                "type": "system"
                             },
                             {
-                                "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "My Dailies",
                                 "queries": [
                                     {
@@ -267,12 +358,11 @@
                                         "term": "Lookback",
                                         "value": "30 Days"
                                     }
-                                ]
+                                ],
+                                "type": "system"
                             },
                             {
-                                "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Sent To Client",
                                 "queries": [
                                     {
@@ -305,303 +395,84 @@
                                         "term": "Production Status",
                                         "value": "Final TC"
                                     }
-                                ]
+                                ],
+                                "type": "system"
                             },
                             {
-                                "type": "system",
                                 "expanded": false,
-                                "loaded": false,
-                                "name": "Camera & Body Track Dailies",
+                                "name": "Prop Finals",
+                                "type": "system",
                                 "queries": [
                                     {
                                         "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Body Track"
+                                        "term": "Production Status",
+                                        "value": "Proposed Final"
                                     },
                                     {
                                         "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Camera Track"
+                                        "term": "Production Status",
+                                        "value": "Proposed Final Pending"
                                     },
                                     {
                                         "enabled": true,
-                                        "term": "Lookback",
-                                        "value": "20 Days"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "term": "Twig Name",
-                                        "value": "lookthrough"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "cameratrack$"
+                                        "term": "Production Status",
+                                        "value": "Proposed Final TF"
                                     }
                                 ]
                             },
                             {
                                 "expanded": false,
+                                "name": "All Finals",
                                 "type": "system",
-                                "loaded": false,
-                                "name": "Layout Dailies",
                                 "queries": [
                                     {
                                         "enabled": true,
-                                        "term": "Lookback",
-                                        "value": "7 Days"
+                                        "term": "Production Status",
+                                        "value": "Final"
                                     },
                                     {
                                         "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Layout"
+                                        "term": "Production Status",
+                                        "value": "Final - Other"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Production Status",
+                                        "value": "Final - Trailer"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Production Status",
+                                        "value": "Final CBB"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Production Status",
+                                        "value": "Final Pending"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Production Status",
+                                        "value": "Final Pending TC"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Production Status",
+                                        "value": "Final Pending TF"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Production Status",
+                                        "value": "Final TC"
+                                    },
+                                    {
+                                        "enabled": true,
+                                        "term": "Production Status",
+                                        "value": "Final TF"
                                     },
                                     {
                                         "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "layout$"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "layout_QC$"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "layout_tech$"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "layout_slap$"
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "system",
-                                "expanded": false,
-                                "loaded": false,
-                                "name": "Anim Dailies",
-                                "queries": [
-                                    {
-                                        "enabled": true,
-                                        "term": "Lookback",
-                                        "value": "7 Days"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Anim"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "anim$"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "anim_QC$"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "anim_slap$"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "^WP_"
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "system",
-                                "expanded": false,
-                                "loaded": false,
-                                "name": "FX Dailies",
-                                "queries": [
-                                    {
-                                        "enabled": true,
-                                        "term": "Lookback",
-                                        "value": "7 Days"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "FX"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "fx_slap"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "contactsheet"
-                                    }
-                                ]
-                            },
-                            {
-                                "expanded": false,
-                                "type": "system",
-                                "loaded": false,
-                                "name": "Env & DMP Dailies",
-                                "queries": [
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Lookback",
-                                        "value": "7 Days"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Environ"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "digimatte"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "env"
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "system",
-                                "expanded": false,
-                                "loaded": false,
-                                "name": "Lighting Dailies",
-                                "queries": [
-                                    {
-                                        "enabled": true,
-                                        "term": "Lookback",
-                                        "value": "7 Days"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Lighting"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "lighting_comp"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "lighting_slap"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "contactsheet"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "term": "Preferred Visual",
-                                        "value": "review_proxy_1"
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "system",
-                                "expanded": false,
-                                "loaded": false,
-                                "name": "Prep Dailies",
-                                "queries": [
-                                    {
-                                        "enabled": true,
-                                        "term": "Lookback",
-                                        "value": "7 Days"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Prep"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Twig Type",
-                                        "value": "render/element"
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "system",
-                                "expanded": false,
-                                "loaded": false,
-                                "name": "Comp Dailies",
-                                "queries": [
-                                    {
-                                        "enabled": true,
-                                        "term": "Lookback",
-                                        "value": "7 Days"
-                                    },
-                                    {
-                                        "enabled": true,
-                                        "livelink": false,
-                                        "term": "Pipeline Step",
-                                        "value": "Comp"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "comp$"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "retime"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "livelink": false,
-                                        "term": "Twig Name",
-                                        "value": "repo"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "term": "Preferred Visual",
-                                        "value": "review_proxy_1"
-                                    },
-                                    {
-                                        "enabled": false,
-                                        "term": "Sent To Client",
+                                        "term": "Latest Version",
                                         "value": "True"
                                     }
                                 ]
@@ -618,7 +489,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Hero Scan",
                                 "queries": [
                                     {
@@ -653,7 +523,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Scan Retime/Repo",
                                 "queries": [
                                     {
@@ -692,7 +561,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Edit Ref",
                                 "queries": [
                                     {
@@ -728,7 +596,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Client Version",
                                 "queries": [
                                     {
@@ -762,7 +629,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Camera Track",
                                 "queries": [
                                     {
@@ -793,7 +659,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Body Track",
                                 "queries": [
                                     {
@@ -824,7 +689,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Layout",
                                 "queries": [
                                     {
@@ -860,7 +724,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Animation",
                                 "queries": [
                                     {
@@ -917,7 +780,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Crowd",
                                 "queries": [
                                     {
@@ -984,7 +846,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest FX",
                                 "queries": [
                                     {
@@ -1021,7 +882,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest CFX",
                                 "queries": [
                                     {
@@ -1088,7 +948,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Environment",
                                 "queries": [
                                     {
@@ -1141,7 +1000,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Lighting",
                                 "queries": [
                                     {
@@ -1194,7 +1052,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Comp",
                                 "queries": [
                                     {
@@ -1227,7 +1084,146 @@
                                         "value": "comp$"
                                     }
                                 ]
+                            },
+                            {
+                              "expanded": false,
+                              "type": "system",
+                              "name": "Next Version",
+                              "queries": [
+                                {
+                                    "enabled": true,
+                                    "livelink": true,
+                                    "term": "Shot",
+                                    "value": "13VJ_1075"
+                                },
+                                {
+                                  "enabled": true,
+                                  "livelink": true,
+                                  "term": "Twig Name",
+                                  "value": "^O_00TS_0020_comp_repo$"
+                                },
+                                {
+                                    "enabled": true,
+                                    "livelink": true,
+                                    "term": "Twig Type",
+                                    "value": "render/playblast"
+                                },
+                                {
+                                    "enabled": true,
+                                    "term": "On Disk",
+                                    "value": "${DNSITEDATA_SHORT_NAME}"
+                                },
+                                {
+                                  "enabled": true,
+                                  "livelink": true,
+                                  "term": "Newer Version",
+                                  "value": "1"
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Order By",
+                                  "value": "Version ASC"
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Result Limit",
+                                  "value": "1"
+                                }
+                              ]
+                            },
+                            {
+                              "expanded": false,
+                              "name": "Previous Version",
+                              "type": "system",
+                              "queries": [
+                                {
+                                    "enabled": true,
+                                    "livelink": true,
+                                    "term": "Shot",
+                                    "value": "13VJ_1075"
+                                },
+                                {
+                                  "enabled": true,
+                                  "livelink": true,
+                                  "term": "Twig Name",
+                                  "value": "^O_00TS_0020_comp_repo$"
+                                },
+                                {
+                                    "enabled": true,
+                                    "livelink": true,
+                                    "term": "Twig Type",
+                                    "value": "render/playblast"
+                                },
+                                {
+                                    "enabled": true,
+                                    "term": "On Disk",
+                                    "value": "${DNSITEDATA_SHORT_NAME}"
+                                },
+                                {
+                                  "enabled": true,
+                                  "livelink": true,
+                                  "term": "Older Version",
+                                  "value": "1"
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Order By",
+                                  "value": "Version DESC"
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Result Limit",
+                                  "value": "1"
+                                }
+                              ]
+                            },
+                            {
+                              "expanded": false,
+                              "name": "Latest Version",
+                              "queries": [
+                                {
+                                    "enabled": true,
+                                    "livelink": true,
+                                    "term": "Shot",
+                                    "value": "13VJ_1075"
+                                },
+                                {
+                                  "enabled": true,
+                                  "livelink": true,
+                                  "term": "Twig Name",
+                                  "value": "^O_00TS_0030_comp_skinny$"
+                                },
+                                {
+                                    "enabled": true,
+                                    "livelink": true,
+                                    "term": "Twig Type",
+                                    "value": "render/playblast"
+                                },
+                                {
+                                    "enabled": true,
+                                    "term": "On Disk",
+                                    "value": "${DNSITEDATA_SHORT_NAME}"
+                                },
+                                {
+                                  "enabled": true,
+                                  "livelink": true,
+                                  "term": "Newer Version",
+                                  "value": "5"
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Order By",
+                                  "value": "Version DESC"
+                                },
+                                {
+                                  "enabled": true,
+                                  "term": "Result Limit",
+                                  "value": "1"
+                                }
+                              ],
+                              "type": "system"
                             }
+
                         ]
 					},
 
@@ -1241,7 +1237,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Latest Playlists",
                                 "queries": [
                                     {
@@ -1254,7 +1249,6 @@
                             {
                                 "expanded": false,
                                 "type": "system",
-                                "loaded": false,
                                 "name": "Dailies & Desk Reviews",
                                 "queries": [
                                     {
@@ -1277,7 +1271,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Client Playlists",
                                 "queries": [
                                     {
@@ -1305,7 +1298,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Future Playlists",
                                 "queries": [
                                     {
@@ -1323,7 +1315,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Reference Playlists",
                                 "queries": [
                                     {
@@ -1336,7 +1327,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "My Playlists",
                                 "queries": [
                                     {
@@ -1360,7 +1350,6 @@
                             {
                                 "expanded": false,
                                 "type": "system",
-                                "loaded": false,
                                 "name": "Concept Art",
                                 "queries": [
                                     {
@@ -1399,7 +1388,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Video Reference",
                                 "queries": [
                                     {
@@ -1438,7 +1426,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Texture Reference",
                                 "queries": [
                                     {
@@ -1477,7 +1464,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "On Set Reference",
                                 "queries": [
                                     {
@@ -1516,7 +1502,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Witness Cameras",
                                 "queries": [
                                     {
@@ -1536,7 +1521,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "Set Drawings",
                                 "queries": [
                                     {
@@ -1565,21 +1549,21 @@
 						"default_value": [
 					        {
                                 "type": "system",
-					            "name": "Approved Cuts", "loaded": false, "expanded": false,
+					            "name": "Approved Cuts", "expanded": false,
 					            "queries": [
 					                {"term": "Lookback", "value": "1 Day", "enabled": true }
 					            ]
 					        },
 					        {
                                 "type": "system",
-					            "name": "Trailers", "loaded": false, "expanded": false,
+					            "name": "Trailers", "expanded": false,
 					            "queries": [
 					                {"term": "Lookback", "value": "7 Days", "enabled": true }
 					            ]
 					        },
 					        {
                                 "type": "system",
-					            "name": "All Cuts", "loaded": false, "expanded": false,
+					            "name": "All Cuts", "expanded": false,
 					            "queries": [
 					                {"term": "Lookback", "value": "30 Days", "enabled": true }
 					            ]
@@ -1596,7 +1580,6 @@
                             {
                                 "expanded": false,
                                 "type": "system",
-                                "loaded": false,
                                 "name": "Latest Notes",
                                 "queries": [
                                     {
@@ -1609,7 +1592,6 @@
                             {
                                 "expanded": false,
                                 "type": "system",
-                                "loaded": false,
                                 "name": "Supervisor Notes",
                                 "queries": [
                                     {
@@ -1633,7 +1615,6 @@
                             {
                                 "expanded": false,
                                 "type": "system",
-                                "loaded": false,
                                 "name": "Client Notes",
                                 "queries": [
                                     {
@@ -1662,7 +1643,6 @@
                             {
                                 "type": "system",
                                 "expanded": false,
-                                "loaded": false,
                                 "name": "My Notes",
                                 "queries": [
                                     {
@@ -1738,14 +1718,22 @@
 					"datatype": "int",
 					"context": ["APPLICATION"]
 				},
-				"location": {
-					"path": "/plugin/data_source/shotgun/location",
-					"default_value": "${DNSITEDATA_SHORT_NAME}",
-					"description": "Location.",
-					"value": "${DNSITEDATA_SHORT_NAME}",
-					"datatype": "string",
-					"context": ["APPLICATION"]
-				},
+                "location": {
+                    "path": "/plugin/data_source/shotgun/location",
+                    "default_value": "${DNSITEDATA_SHORT_NAME}",
+                    "description": "Location.",
+                    "value": "${DNSITEDATA_SHORT_NAME}",
+                    "datatype": "string",
+                    "context": ["APPLICATION"]
+                },
+                "context": {
+                    "path": "/plugin/data_source/shotgun/context",
+                    "default_value": "Playlists",
+                    "description": "Default context.",
+                    "value": "Playlists",
+                    "datatype": "string",
+                    "context": ["APPLICATION"]
+                },
 				"authentication": {
 					"refresh_token": {
 						"path": "/plugin/data_source/shotgun/authentication/refresh_token",

@@ -24,7 +24,7 @@ namespace media_reader {
         Buffer(const utility::JsonStore &params = utility::JsonStore()) : params_(params) {}
         explicit Buffer(const std::string error_message)
             : error_message_(std::move(error_message)), error_state_(HAS_ERROR) {}
-        virtual ~Buffer() = default;
+        virtual ~Buffer();
 
         virtual byte *allocate(const size_t size);
 
@@ -43,26 +43,41 @@ namespace media_reader {
         [[nodiscard]] const utility::JsonStore &params() const { return params_; }
         utility::JsonStore &params() { return params_; }
         [[nodiscard]] size_t size() const { return size_; }
-        [[nodiscard]] byte *buffer() { return buffer_.get(); }
-        [[nodiscard]] const byte *buffer() const { return (const byte *)(buffer_.get()); }
+        [[nodiscard]] byte *buffer() {
+            return buffer_ ? (byte *)(buffer_->data_.get()) : nullptr;
+        }
+        [[nodiscard]] const byte *buffer() const {
+            return buffer_ ? (const byte *)buffer_->data_.get() : nullptr;
+        }
         [[nodiscard]] BufferErrorState error_state() const { return error_state_; }
         [[nodiscard]] const std::string &error_message() const { return error_message_; }
-
         [[nodiscard]] double display_timestamp_seconds() const { return dts_; }
-        bool display_timestamp_seconds_is_set() const { return dts_ != UNSET_DTS; }
+        [[nodiscard]] bool display_timestamp_seconds_is_set() const {
+            return dts_ != UNSET_DTS;
+        }
+
         void set_display_timestamp_seconds(const double dts) { dts_ = dts; }
         void set_error(const std::string &err) {
             error_message_ = err;
             error_state_   = HAS_ERROR;
         }
 
+        struct BufferData {
+            BufferData(byte *d) { data_.reset(d); }
+            BufferData(size_t sz) { data_.reset(new (std::align_val_t(1024)) byte[sz]); }
+            std::unique_ptr<byte> data_{
+                nullptr}; // using long long which should get result byte alignment
+        };
+        typedef std::shared_ptr<BufferData> BufferDataPtr;
+
       private:
-        std::unique_ptr<byte> buffer_; // use long long to get 16 byte alignment
+        BufferDataPtr buffer_; // use long long to get 16 byte alignment
         size_t size_{0};
         utility::JsonStore params_;
         std::string error_message_;
         BufferErrorState error_state_{NO_ERROR};
         double dts_ = {UNSET_DTS};
     };
+
 } // namespace media_reader
 } // namespace xstudio

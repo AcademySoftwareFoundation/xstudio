@@ -231,7 +231,11 @@ void MediaSourceActor::acquire_detail(
                                     anon_send(this, media_hook::get_media_hook_atom_v);
                                 },
                                 [=](const caf::error &err) mutable {
-                                    spdlog::warn("{} {}.", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::debug(
+                                        "{} {} {}",
+                                        __PRETTY_FUNCTION__,
+                                        to_string(err),
+                                        to_string(base_.media_reference().uri()));
                                     anon_send(this, media_hook::get_media_hook_atom_v);
                                 });
                         if (not base_.media_reference().container() and
@@ -259,6 +263,7 @@ void MediaSourceActor::acquire_detail(
                         // set duration to one frame. Or things get upset.
                         // base_.media_reference().set_duration(
                         //     FrameRateDuration(1, base_.media_reference().duration().rate()));
+                        spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
                         base_.send_changed(event_group_, this);
                         send(event_group_, utility::event_atom_v, change_atom_v);
                         base_.set_error_detail(to_string(err));
@@ -736,18 +741,30 @@ void MediaSourceActor::init() {
 
         [=](json_store::get_json_atom atom, const std::string &path) {
             delegate(json_store_, atom, path);
+            // metadata changed - need to broadcast an update
+            base_.send_changed(event_group_, this);
+            send(event_group_, utility::event_atom_v, change_atom_v);
         },
 
         [=](json_store::set_json_atom atom, const JsonStore &json) {
             delegate(json_store_, atom, json);
+            // metadata changed - need to broadcast an update
+            base_.send_changed(event_group_, this);
+            send(event_group_, utility::event_atom_v, change_atom_v);
         },
 
         [=](json_store::merge_json_atom atom, const JsonStore &json) {
             delegate(json_store_, atom, json);
+            // metadata changed - need to broadcast an update
+            base_.send_changed(event_group_, this);
+            send(event_group_, utility::event_atom_v, change_atom_v);
         },
 
         [=](json_store::set_json_atom atom, const JsonStore &json, const std::string &path) {
             delegate(json_store_, atom, json, path);
+            // metadata changed - need to broadcast an update
+            base_.send_changed(event_group_, this);
+            send(event_group_, utility::event_atom_v, change_atom_v);
         },
 
         [=](media::invalidate_cache_atom) -> caf::result<media::MediaKeyVector> {
@@ -858,22 +875,17 @@ void MediaSourceActor::init() {
 
             try {
                 if (not base_.media_reference().container()) {
+                    int file_frame;
+                    auto first_uri = base_.media_reference().uri(0, file_frame);
 
-                    std::vector<std::pair<caf::uri, int>> frames =
-                        base_.media_reference().uris();
-
-#pragma message "Currently only reading metadata on first frame for image sequences"
+                    // #pragma message "Currently only reading metadata on first frame for image
+                    // sequences"
 
                     // If we read metadata for every frame the whole app grinds when inspecting
                     // big or multiple sequences
-                    if (not frames.empty()) {
+                    if (first_uri) {
 
-                        request(
-                            m_actor,
-                            infinite,
-                            get_metadata_atom_v,
-                            frames[0].first,
-                            frames[0].second)
+                        request(m_actor, infinite, get_metadata_atom_v, *first_uri, file_frame)
                             .then(
                                 [=](const std::pair<JsonStore, int> &meta) mutable {
                                     request(
@@ -898,6 +910,11 @@ void MediaSourceActor::init() {
                                             });
                                 },
                                 [=](error &err) mutable { rp.deliver(std::move(err)); });
+                    } else {
+                        rp.deliver(make_error(
+                            xstudio_error::error,
+                            std::string("Sequence with no frames ") +
+                                to_string(base_.media_reference().uri())));
                     }
 
                     /*for(size_t i=0;i<frames.size();i++) {
@@ -955,9 +972,9 @@ void MediaSourceActor::init() {
                             [=](error &err) mutable { rp.deliver(std::move(err)); });
                 }
             } catch (const std::exception &e) {
-                return make_error(
+                rp.deliver(make_error(
                     xstudio_error::error,
-                    std::string("media_metadata::get_metadata_atom ") + e.what());
+                    std::string("media_metadata::get_metadata_atom ") + e.what()));
             }
 
             return rp;

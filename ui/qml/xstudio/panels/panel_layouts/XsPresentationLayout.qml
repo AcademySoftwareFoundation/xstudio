@@ -3,9 +3,8 @@ import QtQuick 2.12
 
 import xStudio 1.0
 
-import xstudio.qml.properties 1.0
 
-// Layout a single widget! Almost pointless except 
+// Layout a single widget! Almost pointless except
 // we can follow the pattern for other workspacce
 // layouts as they are used by XsStudioWidget
 

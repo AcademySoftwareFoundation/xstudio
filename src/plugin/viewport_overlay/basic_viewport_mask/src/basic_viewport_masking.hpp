@@ -24,10 +24,11 @@ namespace ui {
         class BasicMaskRenderer : public plugin::ViewportOverlayRenderer {
 
           public:
-            void render_opengl_before_image(
+            void render_opengl(
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
-                const xstudio::media_reader::ImageBufPtr &frame) override;
+                const xstudio::media_reader::ImageBufPtr &frame,
+                const bool have_alpha_buffer) override;
 
             void init_overlay_opengl();
 
@@ -65,8 +66,8 @@ namespace ui {
           protected:
             void register_hotkeys() override;
 
-            utility::BlindDataObjectPtr
-            prepare_render_data(const media_reader::ImageBufPtr &) const override;
+            utility::BlindDataObjectPtr prepare_render_data(
+                const media_reader::ImageBufPtr &, const bool /*offscreen*/) const override;
 
             plugin::ViewportOverlayRendererPtr make_overlay_renderer(const bool) override {
                 return plugin::ViewportOverlayRendererPtr(new BasicMaskRenderer());

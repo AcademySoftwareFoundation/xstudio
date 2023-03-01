@@ -69,7 +69,12 @@ void PlayheadBase::add_attributes() {
 
     playing_ = add_boolean_attribute("playing", "playing", false);
 
-    auto_align_ = add_boolean_attribute("Auto Align", "Auto Align", true);
+    auto_align_mode_ =
+        add_string_choice_attribute("Auto Align", "Auto Align", auto_align_mode_names);
+
+    auto_align_mode_->set_value("Alignment Off");
+    auto_align_mode_->set_role_data(
+        module::Attribute::PreferencePath, "/core/playhead/align_mode");
 
     max_compare_sources_ =
         add_integer_attribute("Max Compare Sources", "Max Compare Sources", 9, 2, 32);
@@ -98,7 +103,8 @@ void PlayheadBase::add_attributes() {
         nlohmann::json{"main_toolbar", "popout_toolbar", "playhead"});
     playing_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
     forward_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
-    auto_align_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
+    auto_align_mode_->set_role_data(
+        module::Attribute::Groups, nlohmann::json{"playhead_align_mode"});
 
     velocity_->set_role_data(module::Attribute::ToolbarPosition, 3.0f);
     compare_mode_->set_role_data(module::Attribute::ToolbarPosition, 9.0f);
@@ -258,6 +264,56 @@ timebase::flicks PlayheadBase::effective_frame_period() const {
                                    playhead_rate_.to_seconds() * (1.0f / throttle_)));
 }
 
+timebase::flicks PlayheadBase::clamp_timepoint_to_loop_range(const timebase::flicks pos) const {
+
+    const timebase::flicks in  = loop_start();
+    const timebase::flicks out = loop_end();
+
+    auto rt = pos;
+    if (loop_ == LM_LOOP) {
+
+        if (forward()) {
+            if (pos > out || pos < in) {
+                rt = in;
+            }
+        } else {
+            if (rt < in || rt > out) {
+                rt = out;
+            }
+        }
+
+    } else if (loop_ == LM_PING_PONG) {
+
+        if (forward()) {
+            if (pos > out) {
+                rt = out;
+            } else if (pos < in) {
+                rt = in;
+            }
+        } else {
+            if (pos < in) {
+                rt = in;
+            } else if (pos > out) {
+                rt = out;
+            }
+        }
+
+    } else {
+
+        if (forward()) {
+
+            if (pos > out) {
+                rt = out;
+            }
+
+        } else if (pos < in) {
+
+            rt = in;
+        }
+    }
+    return rt;
+}
+
 void PlayheadBase::set_position(const timebase::flicks p) { position_ = p; }
 
 bool PlayheadBase::set_use_loop_range(const bool use_loop_range) {
@@ -321,6 +377,19 @@ void PlayheadBase::revert_throttle() {
         throttle_ *= 1.2f;
     else
         throttle_ = 1.0f;
+}
+
+AutoAlignMode PlayheadBase::auto_align_mode() const {
+
+    AutoAlignMode rt      = AAM_ALIGN_OFF;
+    const std::string aam = auto_align_mode_->value();
+
+    for (auto opt : auto_align_mode_names) {
+        if (std::get<1>(opt) == aam)
+            rt = std::get<0>(opt);
+    }
+
+    return rt;
 }
 
 CompareMode PlayheadBase::compare_mode() const {
@@ -429,3 +498,5 @@ void PlayheadBase::hotkey_pressed(
         forward_->set_value(true);
     }
 }
+
+void PlayheadBase::set_duration(const timebase::flicks duration) { duration_ = duration; }

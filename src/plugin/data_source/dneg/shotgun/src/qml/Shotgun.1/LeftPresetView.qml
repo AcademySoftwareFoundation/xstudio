@@ -23,6 +23,7 @@ Rectangle{ id: presetsDiv
     property alias searchPresetsView: searchPresetsView
     property real presetTitleHeight: itemHeight
     property var backendModel//: searchPresetsViewModel
+    property bool isActiveView: true
 
     color: "transparent"
     border.color: frameColor
@@ -43,7 +44,7 @@ Rectangle{ id: presetsDiv
             acceptedButtons: Qt.LeftButton | Qt.RightButton
 
             property var model: DelegateModel.model
-            property var presetLoadedRole: loadedRole
+            property bool presetLoadedRole: backendModel.activePreset === index && isActiveView
             property bool isMouseHovered: containsMouse || (editMenu.visible && searchPresetsView.menuActionIndex==index)
             property bool held: false
             property bool was_current: false
@@ -60,12 +61,9 @@ Rectangle{ id: presetsDiv
 
             onDoubleClicked: {
                 presetSelectionModel.select(presetsModel.modelIndex(index), ItemSelectionModel.ClearAndSelect)
-                if(index != searchPresetsView.currentIndex) {
-                    searchPresetsView.currentIndex = index
-                } else {
-                    // force refresh
-                    searchPresetsView.newPresetSelected()
-                }
+                if(presetsModel.model.activePreset == index)
+                    presetsModel.model.activePreset = -1
+                presetsModel.model.activePreset = index
             }
 
             onClicked: {
@@ -76,7 +74,7 @@ Rectangle{ id: presetsDiv
                             editMenu.popup()
                         } else {
                             presetSelectionModel.select(presetsModel.modelIndex(index), ItemSelectionModel.ClearAndSelect)
-                            searchPresetsView.currentIndex = index
+                            presetsModel.model.activePreset = index
                         }
                     }
                 } else if(mouse.button == Qt.LeftButton){
@@ -97,8 +95,8 @@ Rectangle{ id: presetsDiv
 
             onPressAndHold: {
                 held = true
-                if(searchPresetsView.currentIndex == index) {
-                    searchPresetsView.currentIndex = -1
+                if(presetsModel.model.activePreset == index) {
+                    presetsModel.model.activePreset = -1
                     was_current = true
                 }
             }
@@ -106,7 +104,7 @@ Rectangle{ id: presetsDiv
                 held = false
                 if(was_current) {
                     was_current = false
-                    searchPresetsView.currentIndex = index
+                    presetsModel.model.activePreset = index
                 }
             }
 
@@ -131,14 +129,9 @@ Rectangle{ id: presetsDiv
                 // Preset title bar
                 id: content
                 color: "transparent"
-                // property bool isMouseHovered: mArea.containsMouse || expandButton.hovered ||
-                //                             moreButton.hovered || deleteButton.hovered
-
-                // property var presetLoadedRole: loadedRole
 
                 height: (presetTitleHeight+ searchQueryView.height)
                 width: dragArea.width
-                // height: column.implicitHeight + 4
 
                 anchors {
                     horizontalCenter: parent.horizontalCenter
@@ -210,13 +203,14 @@ Rectangle{ id: presetsDiv
                         if(held)
                             Qt.darker(itemColorActive, 3.75)
                         else {
-                            loadedRole || divSelected ? Qt.darker(itemColorActive, 2.75) : itemColorNormal
+                            backendModel.activePreset == index || divSelected ? Qt.darker(itemColorActive, 2.75) : itemColorNormal
                         }
                     }
                     border.color: isMouseHovered? itemColorActive: itemColorNormal
 
                     Rectangle{ id: activeIndicator
-                        visible: loadedRole; z: 10
+                        visible: backendModel.activePreset == index
+                        z: 10
                         width: framePadding/1.5; height: parent.height
                         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                         color: itemColorActive
@@ -232,8 +226,8 @@ Rectangle{ id: presetsDiv
                         width: isCollapsed? parent.width: parent.width - framePadding*2
                         height: parent.height
                         font.pixelSize: fontSize*1.2
-                        font.weight: loadedRole? Font.DemiBold : Font.Normal
-                        color: isMouseHovered || loadedRole? textColorActive: textColorNormal
+                        font.weight: presetLoadedRole? Font.DemiBold : Font.Normal
+                        color: isMouseHovered || presetLoadedRole? textColorActive: textColorNormal
                         horizontalAlignment: Text.AlignHCenter // Text.AlignLeft // Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         ToolTip.text: nameRole
@@ -251,7 +245,7 @@ Rectangle{ id: presetsDiv
                         width: parent.width
                         height: parent.height
                         font.pixelSize: fontSize*1.2
-                        color: isMouseHovered || loadedRole? textColorActive: textColorNormal
+                        color: isMouseHovered || presetLoadedRole? textColorActive: textColorNormal
                         bgVisibility: textField.focus
                         visible: searchPresetsView.isEditable && searchPresetsView.menuActionIndex == index
                         focus: visible
@@ -274,15 +268,6 @@ Rectangle{ id: presetsDiv
                     }
 
 
-                    // Rectangle{ id: slNumBg
-                    //     anchors{
-                    //         left: parent.left; leftMargin: frameWidth;
-                    //         right:serialNumberDiv.right; rightMargin: -framePadding
-                    //         verticalCenter: parent.verticalCenter;
-                    //     }
-                    //     height: serialNumberDiv.height*2;
-                    //     color: textField.activeFocus?Qt.darker(itemColorActive, 2.75): parent.color; radius: 2; visible: serialNumberDiv.visible
-                    // }
                     RadialGradient { id: overlayBg
                         visible: !isCollapsed && (isMouseHovered)
                         anchors.centerIn: parent
@@ -300,20 +285,6 @@ Rectangle{ id: presetsDiv
                             GradientStop { position: 0.85; color: presetNameDiv.color }
                         }
                     }
-                    // XsLabel {
-                    //     id: serialNumberDiv
-                    //     visible: !isCollapsed && !textField.activeFocus
-                    //     text: presetNameDiv.slNumber
-                    //     width: height
-                    //     height: parent.height - framePadding*2.95
-                    //     anchors.verticalCenter: parent.verticalCenter
-                    //     anchors.left: expandButton.right
-                    //     anchors.leftMargin: itemSpacing*3
-                    //     font.pixelSize: fontSize*1.2
-                    //     color: isMouseHovered || loadedRole? textColorActive: textColorNormal
-                    //     horizontalAlignment: Text.AlignHCenter
-                    //     verticalAlignment: Text.AlignVCenter
-                    // }
                     XsButton{id: expandButton
                         property bool isExpanded: expandedRole
 
@@ -401,10 +372,10 @@ Rectangle{ id: presetsDiv
 
                     // trigger after timer.
 
-                    Component.onCompleted: {
-                        if(loadedRole == true) searchPresetsView.currentIndex = index
-                        else loadedRole = false
-                    }
+                    // Component.onCompleted: {
+                    //     if(presetLoadedRole)
+                    //         searchPresetsView.currentIndex = index
+                    // }
                 }
 
                 // Preset TERMS
@@ -430,8 +401,6 @@ Rectangle{ id: presetsDiv
     }
 
     XsTreeStructure{ id: searchPresetsView
-        // property bool isEditable: false
-        // property int menuActionIndex: -1
         property alias treeView: searchPresetsView
         spacing: itemSpacing
         snapMode: ListView.SnapToItem
@@ -443,29 +412,18 @@ Rectangle{ id: presetsDiv
         delegateModel.model: backendModel
         delegateModel.delegate: dragDelegate
 
-        onCurrentIndexChanged: newPresetSelected()
-        function newPresetSelected() {
-            isEditable = false
-            menuActionIndex= -1
-
-            for(let i=0; i<presetsModel.count; i++){
-                if(i == currentIndex) {
-                    presetSelectionModel.select(presetsModel.modelIndex(i), ItemSelectionModel.ClearAndSelect)
-
-                    presetsModel.set(i, true, "loadedRole")
-                    // if(!isCollapsed) presetsModel.set(i, true, "expandedRole")
-
-                    if(shotgunBrowser.executeQueryOnCategorySwitch) executeQuery()
-                }
-                else {
-                    if(currentIndex != -1){
-                        // presetsModel.set(i, false, "expandedRole")
-                    }
-                    presetsModel.set(i, false, "loadedRole")
-                }
+        Connections {
+            target: backendModel
+            function onActivePresetChanged() {
+                searchPresetsView.currentIndex = backendModel.activePreset
+                searchPresetsView.isEditable = false
+                searchPresetsView.menuActionIndex = -1
+                if(backendModel.activePreset != -1 && backendModel.get(backendModel.activePreset).startsWith("Live "))
+                    clearFilter()
+                presetSelectionModel.select(presetsModel.modelIndex(backendModel.activePreset), ItemSelectionModel.ClearAndSelect)
+                executeQuery()
             }
         }
-
 
         MouseArea{ id: focusMArea; width: parent.width; height: parent.height-parent.contentHeight;
             anchors.bottom: parent.bottom; onPressed: focus= true; onReleased: focus= false;
@@ -478,7 +436,7 @@ Rectangle{ id: presetsDiv
     function duplicatePreset(index, title) {
         presetsModel.insert(presetsModel.count, presetsModel.get(index, "jsonRole"))
         presetsModel.set(presetsModel.count-1, title, "nameRole")
-        presetsModel.setType(presetsModel.count-1)
+        presetsModel.model.setType(presetsModel.count-1)
 
         return presetsModel.count-1
     }
@@ -522,7 +480,7 @@ Rectangle{ id: presetsDiv
                 let j = JSON.parse(clipboard.text)
                 for(let i=0;i < j.length; i++) {
                     presetsModel.insert(presetsModel.count, j[i])
-                    presetsModel.setType(presetsModel.count-1)
+                    presetsModel.model.setType(presetsModel.count-1)
                 }
             } catch(err){
                 console.log(actionText+"_Err: "+err)
@@ -541,7 +499,7 @@ Rectangle{ id: presetsDiv
         {
             snapshotPresets()
             if(index !== -1) {
-                if(searchPresetsView.currentIndex == index) {
+                if(presetsModel.model.activePreset == index) {
                     clearResults()
                 }
                 presetsModel.remove(index)
@@ -553,7 +511,7 @@ Rectangle{ id: presetsDiv
                 }
                 to_remove.sort(function(a, b){return b - a}); //sorts numerically in descending order
                 for(let i=0;i<to_remove.length;i++) {
-                    if(searchPresetsView.currentIndex == to_remove[i]) {
+                    if(presetsModel.model.activePreset == to_remove[i]) {
                         clearResults()
                     }
                     presetsModel.remove(to_remove[i])
@@ -572,7 +530,7 @@ Rectangle{ id: presetsDiv
             let title = (value == "True" ? query : value) + " - Versions"
             let id = value
 
-            let newpreset_index = searchPresetsView.currentIndex
+            let newpreset_index = presetsModel.model.activePreset
 
             presetsModel.set(newpreset_index, title, "nameRole")
 
@@ -585,17 +543,17 @@ Rectangle{ id: presetsDiv
             }
 
             presetsModel.append({"term": query,  "value": value, "id": id, "enabled": true}, child_index)
-            if(searchPresetsView.currentIndex == newpreset_index) {
+            if(presetsModel.model.activePreset == newpreset_index) {
                 // force update
                 executeQuery()
             } else {
-                searchPresetsView.currentIndex = newpreset_index
+                presetsModel.model.activePreset = newpreset_index
             }
             snapshotPresets()
         }
 
         function onForceSelectPreset(index) {
-            searchPresetsView.currentIndex = index
+            presetsModel.model.activePreset = index
         }
     }
 
@@ -631,7 +589,7 @@ Rectangle{ id: presetsDiv
                 Layout.preferredHeight: itemHeight
                 font.pixelSize: fontSize*1.2
                 onClicked: {
-                    presetsModel.insert(presetsModel.count, {"name": "Untitled", "loaded": false, "queries": [ ], "expanded": true} )
+                    presetsModel.insert(presetsModel.count, {"name": "Untitled", "queries": [ ], "expanded": true} )
                     searchPresetsView.menuActionIndex = presetsModel.count-1
                     presetsDiv.onMenuAction("RENAME")
                 }
@@ -654,7 +612,7 @@ Rectangle{ id: presetsDiv
             width: 200
 
             XsMenuItem {
-                mytext: "Copy Selected Presets"; onTriggered: {searchPresetsView.menuActionIndex = searchPresetsView.currentIndex; presetsDiv.onMenuAction("COPY")}
+                mytext: "Copy Selected Presets"; onTriggered: {searchPresetsView.menuActionIndex = presetsModel.model.activePreset; presetsDiv.onMenuAction("COPY")}
                 shortcut: "Ctrl+C";
                 enabled: presetSelectionModel.selectedIndexes.length > 0
             }

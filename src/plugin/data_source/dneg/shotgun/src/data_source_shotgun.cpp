@@ -1518,6 +1518,7 @@ void ShotgunDataSourceActor<T>::create_playlist(
         auto project_id    = js["project_id"].template get<int>();
         auto code          = js["code"].template get<std::string>();
         auto loc           = js["location"].template get<std::string>();
+        auto playlist_type = js["playlist_type"].template get<std::string>();
 
         auto session = request_receive<caf::actor>(
             *sys,
@@ -1538,6 +1539,7 @@ void ShotgunDataSourceActor<T>::create_playlist(
         jsn["project"]["id"]    = project_id;
         jsn["code"]             = code;
         jsn["sg_location"]      = loc;
+        jsn["sg_type"]          = playlist_type;
         jsn["sg_date_and_time"] = date_time_and_zone();
 
         // "2021-08-18T19:00:00Z"

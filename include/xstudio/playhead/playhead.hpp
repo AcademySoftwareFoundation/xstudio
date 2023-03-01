@@ -40,7 +40,7 @@ namespace playhead {
 
         [[nodiscard]] bool playing() const { return playing_->value(); }
         [[nodiscard]] bool forward() const { return forward_->value(); }
-        [[nodiscard]] bool auto_align() const { return auto_align_->value(); }
+        [[nodiscard]] AutoAlignMode auto_align_mode() const;
         [[nodiscard]] LoopMode loop() const { return loop_; }
         [[nodiscard]] CompareMode compare_mode() const;
         [[nodiscard]] float velocity() const { return velocity_->value(); }
@@ -63,6 +63,7 @@ namespace playhead {
         [[nodiscard]] bool use_loop_range() const { return use_loop_range_; }
         [[nodiscard]] timebase::flicks duration() const { return duration_; }
         [[nodiscard]] timebase::flicks effective_frame_period() const;
+        timebase::flicks clamp_timepoint_to_loop_range(const timebase::flicks pos) const;
 
         void set_forward(const bool forward = true) { forward_->set_value(forward); }
         void set_loop(const LoopMode loop = LM_LOOP) { loop_ = loop; }
@@ -76,7 +77,7 @@ namespace playhead {
         }
         void set_playhead_rate(const utility::FrameRate &rate) { playhead_rate_ = rate; }
         void set_source(const utility::Uuid &uuid) { source_uuid_ = uuid; }
-        void set_duration(const timebase::flicks duration) { duration_ = duration; }
+        void set_duration(const timebase::flicks duration);
         void set_compare_mode(const CompareMode mode);
 
         bool set_use_loop_range(const bool use_loop_range);
@@ -104,6 +105,13 @@ namespace playhead {
                 {CM_HORIZONTAL, "Horizontal", "Horiz", false},
                 {CM_GRID, "Grid", "Grid", false},
                 {CM_OFF, "Off", "Off", true}};
+
+        inline static const std::vector<
+            std::tuple<AutoAlignMode, std::string, std::string, bool>>
+            auto_align_mode_names = {
+                {AAM_ALIGN_OFF, "Off", "Off", true},
+                {AAM_ALIGN_FRAMES, "On", "On", true},
+                {AAM_ALIGN_TRIM, "On (Trim)", "Trim", true}};
 
         LoopMode loop_{LM_LOOP};
         utility::TimeSourceMode play_rate_mode_{utility::TimeSourceMode::DYNAMIC};
@@ -137,7 +145,7 @@ namespace playhead {
         module::FloatAttribute *velocity_multiplier_;
         module::BooleanAttribute *playing_;
         module::BooleanAttribute *forward_;
-        module::BooleanAttribute *auto_align_;
+        module::StringChoiceAttribute *auto_align_mode_;
 
         module::IntegerAttribute *max_compare_sources_;
         module::BooleanAttribute *restore_play_state_after_scrub_;

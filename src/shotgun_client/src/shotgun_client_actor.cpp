@@ -544,7 +544,8 @@ void ShotgunClientActor::init() {
                                     }
                                     rp.deliver(JsonStore(std::move(jsn)));
                                 } catch (const std::exception &err) {
-                                    rp.deliver(make_error(sce::response_error, err.what()));
+                                    rp.deliver(make_error(
+                                        sce::response_error, err.what() + response.body));
                                 }
                             },
                             [=](error &err) mutable { rp.deliver(std::move(err)); });
@@ -773,9 +774,9 @@ void ShotgunClientActor::init() {
                 "groups",
                 jfilter,
                 std::vector<std::string>({"code", "id"}),
-                std::vector<std::string>(),
+                std::vector<std::string>({"code"}),
                 1,
-                1000);
+                4999);
         },
 
         [=](shotgun_projects_atom) {
@@ -789,7 +790,7 @@ void ShotgunClientActor::init() {
                 std::vector<std::string>({"name"}),
                 std::vector<std::string>({"name"}),
                 1,
-                5000);
+                4999);
         },
 
         [=](shotgun_refresh_token_atom atom) {

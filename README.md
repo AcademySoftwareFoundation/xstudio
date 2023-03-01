@@ -4,7 +4,7 @@ xSTUDIO is a media playback and review application designed for professionals wo
 
 ## Building xSTUDIO
 
-This release of xSTUDIO can be built on various Linux flavours. MacOS and Windows compatibility is not available yet but this work is on the roadmap for 2023. 
+This release of xSTUDIO can be built on various Linux flavours. MacOS and Windows compatibility is not available yet but this work is on the roadmap for 2023.
 
 We provide comprehensive build steps for 3 of the most popular Linux distributions.
 

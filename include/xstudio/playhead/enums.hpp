@@ -12,6 +12,8 @@ namespace playhead {
         CM_OFF
     } CompareMode;
 
+    typedef enum { AAM_ALIGN_OFF = 0, AAM_ALIGN_FRAMES, AAM_ALIGN_TRIM } AutoAlignMode;
+
     typedef enum { LM_PLAY_ONCE = 0, LM_LOOP, LM_PING_PONG } LoopMode;
 
     typedef enum {

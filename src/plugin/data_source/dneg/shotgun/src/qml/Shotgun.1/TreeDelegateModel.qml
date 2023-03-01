@@ -2,6 +2,10 @@
 import QtQml.Models 2.14
 
 DelegateModel {
+	property var baseModel: null
+
+	onBaseModelChanged: model = baseModel
+
 	function remove(row) {
 		model.removeRows(row, 1, rootIndex)
 	}

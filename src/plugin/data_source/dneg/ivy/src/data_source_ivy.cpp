@@ -573,12 +573,7 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
 
 
         [=](use_data_atom atom, const std::string &show, const utility::Uuid &dnuuid) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                atom,
-                show,
-                dnuuid,
-                FrameRate(timebase::k_flicks_24fps));
+            delegate(caf::actor_cast<caf::actor>(this), atom, show, dnuuid, FrameRate());
         },
 
         // create media sources from stalk..
@@ -733,8 +728,10 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
 template <typename T>
 void IvyDataSourceActor<T>::ivy_load_version(
     caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri) {
-    // hardwired to 24fps, as we can't know where we're being added to.
-    auto media_rate = FrameRate(timebase::k_flicks_24fps);
+
+    // should come from session rate as the fallback ?
+
+    auto media_rate = FrameRate();
     auto query      = uri.query();
     auto ids  = std::string("\"") + join_as_string(split(query["ids"], '|'), "\",\"") + "\"";
     auto show = query["show"];
@@ -815,7 +812,7 @@ template <typename T>
 void IvyDataSourceActor<T>::ivy_load_file(
     caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri) {
     // hardwired to 24fps, as we can't know where we're being added to.
-    auto media_rate = FrameRate(timebase::k_flicks_24fps);
+    auto media_rate = FrameRate();
     // this code probably needs to move at some point.
     auto query = uri.query();
     auto ids   = std::string("\"") + join_as_string(split(query["ids"], '|'), "\",\"") + "\"";
@@ -916,7 +913,7 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
     caf::typed_response_promise<utility::UuidActorVector> rp,
     const std::string &show,
     const utility::Uuid &stem_dnuuid) {
-    auto media_rate = FrameRate(timebase::k_flicks_24fps);
+    auto media_rate = FrameRate();
     auto httpquery  = std::string(fmt::format(
         R"({{
   latest_versions(

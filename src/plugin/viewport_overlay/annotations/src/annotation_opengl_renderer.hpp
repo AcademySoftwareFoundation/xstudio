@@ -13,15 +13,18 @@ namespace ui {
         class AnnotationsRenderer : public plugin::ViewportOverlayRenderer {
 
           public:
-            void render_opengl_before_image(
+            void render_opengl(
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
-                const xstudio::media_reader::ImageBufPtr &frame) override;
+                const xstudio::media_reader::ImageBufPtr &frame,
+                const bool have_alpha_buffer) override;
+
+            RenderPass preferred_render_pass() const { return BeforeImage; }
 
             void set_edited_annotation_render_data(
                 AnnotationRenderDataPtr data,
                 const bool show_text_handles  = false,
-                const Imath::V2f &pointer_pos = Imath::V2f()) {
+                const Imath::V2f &pointer_pos = Imath::V2f(0.0f, 0.0f)) {
                 current_edited_annotation_render_data_ = data;
                 show_text_handles_                     = show_text_handles;
             }
@@ -43,7 +46,9 @@ namespace ui {
                 cursor_position_[1] = bottom;
             }
 
-            void blink_text_cursor(const bool show_cursor) { show_text_cursor_ = show_cursor; }
+            void blink_text_cursor(const bool show_cursor) {
+                text_cursor_blink_state_ = show_cursor;
+            }
 
             void lock() { immediate_data_gate_.lock(); }
             void unlock() { immediate_data_gate_.unlock(); }
@@ -52,10 +57,10 @@ namespace ui {
             void render_annotation_to_screen(
                 const AnnotationRenderDataPtr render_data,
                 const Imath::M44f &transform_window_to_viewport_space,
-                const Imath::M44f &transform_viewport_to_image_space);
+                const Imath::M44f &transform_viewport_to_image_space,
+                const bool do_erase_strokes_first);
 
             void render_text_handles_to_screen(
-                const AnnotationRenderDataPtr render_data,
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space);
 
@@ -79,12 +84,10 @@ namespace ui {
             Imath::V2f cursor_position_[2];
             Caption::HoverState caption_hover_state_ = {Caption::NotHovered};
             bool show_text_handles_                  = {false};
-            GLuint vertex_buffer_object_;
-            GLuint vertex_array_object_;
-            GLuint vertex_buffer_object2_;
-            GLuint vertex_array_object2_;
+            GLuint handles_vertex_buffer_obj_;
+            GLuint handles_vertex_array_;
 
-            bool show_text_cursor_ = {false};
+            bool text_cursor_blink_state_ = {false};
         };
 
     } // end namespace viewport

@@ -41,7 +41,8 @@ namespace playhead {
         int frames_offset_;
         utility::Uuid uuid_;
         utility::EditList source_edit_list_, retime_edit_list_;
-        OverflowMode overflow_mode_ = {OM_HOLD};
+        OverflowMode overflow_mode_       = {OM_HOLD};
+        timebase::flicks forced_duration_ = {timebase::k_flicks_zero_seconds};
     };
 } // namespace playhead
 } // namespace xstudio

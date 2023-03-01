@@ -70,8 +70,7 @@ namespace playhead {
         void rebuild_bookmark_frames_ranges();
         void
         select_media(const utility::UuidList &selection, caf::typed_response_promise<bool> &rp);
-        void align_clip_frame_numbers(caf::typed_response_promise<bool> rp);
-        void equalise_clip_lengths();
+        void align_clip_frame_numbers();
         void move_playhead_to_last_viewed_frame_of_current_source();
         void
         move_playhead_to_last_viewed_frame_of_given_source(const utility::Uuid &source_uuid);
@@ -82,6 +81,11 @@ namespace playhead {
         void switch_media_source(const std::string new_source_name);
         bool has_selection_changed();
         int previous_selected_sources_count_ = {-1};
+
+        void manage_playback_video_refresh_sync(
+            const utility::time_point &when_video_framebuffer_was_swapped_to_screen,
+            const timebase::flicks video_refresh_rate_hint,
+            const bool main_viewer);
 
       protected:
         void attribute_changed(const utility::Uuid &attr_uuid, const int /*role*/) override;
@@ -117,8 +121,9 @@ namespace playhead {
         std::set<media::MediaKey> frames_cached_;
 
         media::MediaKeyVector all_frames_keys_;
-        bool updating_source_list_   = {false};
-        bool child_playhead_changed_ = {false};
+        bool updating_source_list_                      = {false};
+        bool child_playhead_changed_                    = {false};
+        timebase::flicks vid_refresh_sync_phase_adjust_ = timebase::flicks{0};
     };
 } // namespace playhead
 } // namespace xstudio

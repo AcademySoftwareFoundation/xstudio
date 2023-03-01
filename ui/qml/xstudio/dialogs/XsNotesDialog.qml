@@ -612,6 +612,9 @@ XsWindow {
                                 // color: XsStyle.highlightColor
                                 model: session.bookmarks.categories
                                 textRole: "text"
+                                displayText: currentText==""? "Note Type":currentText
+                                textColorNormal: popupOptions.opened?"light grey": currentText==""?"grey":"light grey"
+                            
                                 currentIndex: {
                                     let ind = findIndex(model, function(item) {
                                         return item.value === categoryRole

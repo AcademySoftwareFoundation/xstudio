@@ -33,8 +33,8 @@ namespace ui {
                 return message_handler_;
             }
 
-            utility::BlindDataObjectPtr
-            prepare_render_data(const media_reader::ImageBufPtr &) const override;
+            utility::BlindDataObjectPtr prepare_render_data(
+                const media_reader::ImageBufPtr &, const bool /*offscreen*/) const override;
 
             plugin::ViewportOverlayRendererPtr
             make_overlay_renderer(const bool is_main_viewer) override;
@@ -145,6 +145,7 @@ namespace ui {
                 cleared_annotations_serialised_data_;
 
             utility::Uuid current_bookmark_uuid_;
+            utility::Uuid last_edited_annotation_uuid_;
 
             int playhead_logical_frame_ = {-1};
             int media_frame_            = {-1};
@@ -166,9 +167,9 @@ namespace ui {
             Imath::V2f caption_drag_pointer_start_pos_;
             Imath::V2f caption_drag_caption_start_pos_;
             Imath::V2f caption_drag_width_height_;
+            Imath::Box2f under_mouse_caption_bdb_;
 
             bool fade_looping_               = {false};
-            bool is_laser_annotation_        = {false};
             bool interacting_with_renderers_ = {false};
         };
 

@@ -3,6 +3,8 @@
 
 #include <caf/all.hpp>
 
+#include <queue>
+
 #include "xstudio/media/media.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/utility/uuid.hpp"
@@ -77,15 +79,19 @@ namespace media_reader {
       private:
         inline static const std::string NAME = "MediaDetailAndThumbnailReaderActor";
         caf::behavior behavior_;
-        std::vector<MediaDetailRequest> media_detail_request_queue_;
+
+        int num_detail_requests_since_thumbnail_request_ = {0};
+
+        std::queue<MediaDetailRequest> media_detail_request_queue_;
+        std::queue<ThumbnailRequest> thumbnail_request_queue_;
+
+        std::map<caf::uri, media::MediaDetail> media_detail_cache_;
+        std::map<caf::uri, utility::time_point> media_detail_cache_age_;
+
         utility::Uuid uuid_;
-        std::vector<ThumbnailRequest> thumbnail_request_queue_;
         caf::actor colour_pipe_manager_;
         std::vector<caf::actor> plugins_;
         std::map<utility::Uuid, caf::actor> plugins_map_;
-        std::map<caf::uri, media::MediaDetail> media_detail_cache_;
-        std::map<caf::uri, utility::time_point> media_detail_cache_age_;
-        int num_detail_requests_since_thumbnail_request_ = {0};
     };
 } // namespace media_reader
 } // namespace xstudio

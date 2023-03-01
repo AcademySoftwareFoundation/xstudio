@@ -62,6 +62,4 @@ TEST(JsonStoreTest, Test) {
     j.clear();
     j = R"({"test": {"one": 3 }})"_json;
     j.merge(R"({"test": {"two": 3 }, "doube":[1]})"_json);
-
-    EXPECT_EQ(j.dump(2), "bar") << "Should be bar";
 }

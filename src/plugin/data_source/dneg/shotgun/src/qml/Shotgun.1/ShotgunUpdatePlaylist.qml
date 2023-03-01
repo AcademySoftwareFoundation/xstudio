@@ -6,7 +6,6 @@ import QtQuick.Layouts 1.3
 import xStudio 1.0
 
 import xstudio.qml.module 1.0
-import xstudio.qml.properties 1.0
 
 XsDialogModal {
     id: dialog
