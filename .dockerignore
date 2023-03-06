@@ -1,0 +1,3 @@
+# the following files and matching directories will not be copied to the docker container
+Dockerfile*
+build/*
