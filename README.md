@@ -49,3 +49,5 @@ apt-get update \
   && apt-get install -y -qq glmark2 \
   && glmark2
   ```
+
+The run*.sh scripts are WIP scripts to allow you to display from container to host machine. This still needs working on...
