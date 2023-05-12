@@ -52,6 +52,11 @@ namespace module {
                   // enabled
         );
 
+        JsonAttribute *add_json_attribute(
+            const std::string &title,
+            const std::string &abbr_title = "",
+            const nlohmann::json &value   = {});
+
         BooleanAttribute *add_boolean_attribute(
             const std::string &title, const std::string &abbr_title, const bool value);
 
@@ -153,6 +158,11 @@ namespace module {
         // re-implement to receive callback when the on-screen media changes. To
         virtual void on_screen_media_changed(caf::actor media) {}
 
+        // re-implement to receive callback when the on-screen image changes.
+        virtual void on_screen_image(const media_reader::ImageBufPtr &) {}
+
+        // re-implement to receive callback when the on-screen media changes.
+        virtual void on_screen_media_changed(caf::actor media, caf::actor media_source) {}
 
         // re-implement to receive callbacks when bookmarks in the current playhead
         // have changed
@@ -179,6 +189,7 @@ namespace module {
         void release_mouse_focus();
         void grab_keyboard_focus();
         void release_keyboard_focus();
+        void listen_to_playhead_events(const bool listen = true);
 
         [[nodiscard]] bool connected_to_ui() const { return connected_to_ui_; }
         virtual void connected_to_ui_changed() {}

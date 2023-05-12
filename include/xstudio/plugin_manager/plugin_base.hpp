@@ -27,6 +27,7 @@ namespace plugin {
         virtual void render_opengl(
             const Imath::M44f &transform_window_to_viewport_space,
             const Imath::M44f &transform_viewport_to_image_space,
+            const float viewport_du_dpixel,
             const xstudio::media_reader::ImageBufPtr &frame,
             const bool have_alpha_buffer){};
 
@@ -116,6 +117,9 @@ namespace plugin {
         virtual void on_playhead_playing_changed(const bool // is playing
         ) {}
 
+        /* Use this function to define the qml code that draws information over the xstudio
+        viewport. See basic_viewport_masking and pixel_probe plugin examples. */
+        void qml_viewport_overlay_code(const std::string &code);
 
       private:
         // re-implement to receive callback when the on-screen media changes. To
@@ -135,6 +139,8 @@ namespace plugin {
         caf::actor_addr active_viewport_playhead_;
         caf::actor_addr playhead_media_events_group_;
         caf::actor bookmark_manager_;
+
+        module::QmlCodeAttribute *viewport_overlay_qml_code_ = nullptr;
     };
 
 

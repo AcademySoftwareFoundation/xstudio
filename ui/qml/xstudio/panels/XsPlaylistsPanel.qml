@@ -27,9 +27,6 @@ Rectangle {
 
     }
 
-    Keys.onPressed: {
-      console.log("move left 2", event);
-    }
     focus: true
 
     QMLUuid {
@@ -192,22 +189,11 @@ Rectangle {
   property alias mainContent: mainContent
 
   Item {
-    anchors.fill: parent
-    z: 20
-    Keys.onPressed: {
-      console.log("move left 4", event);
-    }
-  }
-
-  Item {
 
     id: mainContent
     property alias the_view: cl.the_view
 
     z: 10
-    Keys.onPressed: {
-      console.log("move left 3", event);
-    }
     focus: true
 
     anchors {

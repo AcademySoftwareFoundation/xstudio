@@ -5,12 +5,16 @@
 #include <algorithm>
 #include <set>
 
+#include <OpenColorIO/OpenColorIO.h> //NOLINT
+
 #include "xstudio/media_hook/media_hook.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 
 namespace fs = std::filesystem;
+
+namespace OCIO = OCIO_NAMESPACE;
 
 
 using namespace xstudio;
@@ -77,10 +81,20 @@ std::optional<std::string> find_stalk_uuid(const std::string &path) {
     return {};
 }
 
+
 class DNegMediaHook : public MediaHook {
   public:
-    DNegMediaHook() : MediaHook("DNeg") {}
+    DNegMediaHook() : MediaHook("DNeg"), force_trim_slate_frame_(true) {}
     ~DNegMediaHook() override = default;
+
+    void update_prefs(const utility::JsonStore &full_prefs_dict) override {
+        try {
+            force_trim_slate_frame_ = full_prefs_dict.get<bool>(
+                "/plugin/dneg_media_hook/force_trim_slate_frame/value");
+        } catch (std::exception &e) {
+            spdlog::warn("DNegMediaHook {}", e.what());
+        }
+    }
 
     std::optional<utility::MediaReference> modify_media_reference(
         const utility::MediaReference &mr, const utility::JsonStore &jsn) override {
@@ -110,7 +124,7 @@ class DNegMediaHook : public MediaHook {
 
             if (ends_with(path, ".dneg.mov")) {
                 // check metadata..
-                int slate_frames = 1;
+                int slate_frames = force_trim_slate_frame_ ? 1 : 0;
 
                 //"comment": "\nsource frame range: 1001-1101\nsource image:
                 // aspect 1.85004516712 crop: l 0.0 r 0.0 b 0.0 t 0.0 slateFrames: 0",
@@ -122,12 +136,16 @@ class DNegMediaHook : public MediaHook {
                                        .at("tags")
                                        .at("comment")
                                        .get<std::string>();
+
+                    std::cerr << "COMMENT " << comment << "\n";
                     // regex..
                     static const std::regex slate_match(R"(.*slateFrames: (\d+).*)");
 
                     std::smatch m;
                     if (std::regex_search(comment, m, slate_match)) {
                         slate_frames = std::atoi(m[1].str().c_str());
+
+                        std::cerr << "MATCHED " << slate_frames << "\n";
                     }
 
                 } catch (...) {
@@ -238,22 +256,39 @@ class DNegMediaHook : public MediaHook {
             static const std::set<std::string> stills_ext{
                 ".png", ".tiff", ".tif", ".jpeg", ".jpg", ".gif"};
 
+            // Detect the style of config
+            bool new_style = is_new_ocio_config(r["ocio_config"]);
+
+            // Newer configs use a colour space instead of inverting the view for
+            // better integration in the UI source colorspace menu.
+            auto fill_baked_space =
+                [new_style](utility::JsonStore &r, const std::string &display) {
+                    if (new_style) {
+                        r["input_colorspace"] = std::string("DNEG_") + display;
+                    } else {
+                        r["input_display"] = display;
+                        r["input_view"]    = "Film";
+                    }
+                };
+
             if (std::regex_match(path, review_regex)) {
                 r["input_colorspace"] = "dneg_proxy_log:log";
             } else if (std::regex_match(path, internal_regex)) {
-                r["input_display"] = "Rec709";
-                r["input_view"]    = "Film";
+                fill_baked_space(r, "Rec709");
             } else if (linear_ext.find(ext) != linear_ext.end()) {
                 r["input_colorspace"] = "linear";
             } else if (log_ext.find(ext) != log_ext.end()) {
                 r["input_colorspace"] = "log";
             } else if (stills_ext.find(ext) != stills_ext.end()) {
-                r["input_display"] = "sRGB";
-                r["input_view"]    = "Film";
+                fill_baked_space(r, "sRGB");
             } else {
-                r["input_display"] = "Rec709";
-                r["input_view"]    = "Film";
+                fill_baked_space(r, "Rec709");
             }
+
+            auto dynamic_cdl       = utility::JsonStore();
+            dynamic_cdl["primary"] = new_style ? "$GRD_PRIMARY" : "GRD_primary";
+            dynamic_cdl["neutral"] = new_style ? "$GRD_NEUTRAL" : "GRD_neutral";
+            r["dynamic_cdl"]       = dynamic_cdl;
         } else {
             r["ocio_config"] = "__raw__";
         }
@@ -263,13 +298,32 @@ class DNegMediaHook : public MediaHook {
         // Disable when not building DNEG version
         r["viewing_rules"] = true;
 
-        auto dynamic_cdl       = utility::JsonStore();
-        dynamic_cdl["primary"] = "GRD_primary";
-        dynamic_cdl["neutral"] = "GRD_neutral";
-        r["dynamic_cdl"]       = dynamic_cdl;
-
         return r;
     }
+
+    bool is_new_ocio_config(const std::string &config_path) {
+        auto p = is_new_config_store_.find(config_path);
+        if (p != is_new_config_store_.end()) {
+            return p->second;
+        }
+        try {
+            OCIO::ConstConfigRcPtr config = OCIO::Config::CreateFromFile(config_path.c_str());
+            for (int i = 0; i < config->getNumLooks(); ++i) {
+                if (xstudio::utility::starts_with(config->getLookNameByIndex(i), "drt_")) {
+                    is_new_config_store_[config_path] = true;
+                    return true;
+                }
+            }
+            is_new_config_store_[config_path] = false;
+            return false;
+        } catch (const std::exception &e) {
+            is_new_config_store_[config_path] = false;
+            return false;
+        }
+    }
+
+    std::map<std::string, bool> is_new_config_store_;
+    bool force_trim_slate_frame_;
 };
 
 extern "C" {

@@ -14,7 +14,7 @@ XsMenu {
         title: "New"
         XsMenuItem {
             mytext: qsTr("&Playlist")
-            shortcut: "Shift+P"
+            //shortcut: "Shift+P"
             onTriggered: XsUtils.openDialog("qrc:/dialogs/XsNewPlaylistDialog.qml", playlist_panel).open()
         }
 

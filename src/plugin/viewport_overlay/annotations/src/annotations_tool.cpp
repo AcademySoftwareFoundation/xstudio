@@ -169,6 +169,9 @@ AnnotationsButton {
             }
             redraw_viewport();
         }};
+
+    make_behavior();
+    listen_to_playhead_events(true);
 }
 
 AnnotationsTool::~AnnotationsTool() = default;
@@ -625,7 +628,7 @@ void AnnotationsTool::key_pressed(
     if (active_tool_->value() == "Text" && current_edited_annotation_) {
         if (key == 16777216) {
             // escape key
-            current_edited_annotation_->finished_current_stroke();
+            end_stroke();
             release_keyboard_focus();
         }
         current_edited_annotation_->key_down(key);
@@ -657,8 +660,7 @@ void AnnotationsTool::attribute_changed(
         } else {
             release_mouse_focus();
             release_keyboard_focus();
-            if (current_edited_annotation_)
-                current_edited_annotation_->finished_current_stroke();
+            end_stroke();
             moving_scaling_text_attr_->set_value(0);
             clear_caption_overlays();
         }
@@ -675,8 +677,7 @@ void AnnotationsTool::attribute_changed(
 
             if (active_tool == "Text") {
             } else {
-                if (current_edited_annotation_)
-                    current_edited_annotation_->finished_current_stroke();
+                end_stroke();
                 release_keyboard_focus();
                 moving_scaling_text_attr_->set_value(0);
                 clear_caption_overlays();
@@ -716,9 +717,8 @@ void AnnotationsTool::attribute_changed(
 
         if (current_edited_annotation_) {
             if (is_laser_mode()) {
-                current_edited_annotation_
-                    ->finished_current_stroke(); // this ensure current edited caption is
-                                                 // finished
+                end_stroke(); // this ensure current edited caption is
+                              // finished
                 release_keyboard_focus();
 
                 // This 'saves' the current edited annotation by pushing to the bookmark
@@ -982,7 +982,7 @@ void AnnotationsTool::on_screen_annotation_changed(
         if (!edited_annotation_still_on_screen) {
 
             // make sure current edited caption is completed
-            current_edited_annotation_->finished_current_stroke();
+            end_stroke();
             release_keyboard_focus();
 
             // we have moved off the frame range of the current edited annotation

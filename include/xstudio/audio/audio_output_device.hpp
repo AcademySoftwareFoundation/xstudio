@@ -29,6 +29,20 @@ class AudioOutputDevice {
     virtual ~AudioOutputDevice() = default;
 
     /**
+     *  @brief Open the connection to the sounding device
+     *
+     *  @details Note this will be called everytime audio playback starts
+     */
+    virtual void connect_to_soundcard() = 0;
+
+    /**
+     *  @brief Close the connection to the sounding device
+     *
+     *  @details Note this will be called everytime audio playback stops
+     */
+    virtual void disconnect_from_soundcard() = 0;
+
+    /**
      *  @brief Query the soundcard for how many samples it would like to recieve for
      * playback
      *

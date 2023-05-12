@@ -29,6 +29,7 @@ const std::string colour_pipeline_registry{"COLOURPIPELINE"};
 const std::string embedded_python_registry{"EMBEDDEDPYTHON"};
 const std::string global_event_group{"XSTUDIO_EVENTS"};
 const std::string global_registry{"GLOBAL"};
+const std::string global_playhead_events_actor{"GLOBALPLAYHEADEVENTS"};
 const std::string global_store_registry{"GLOBALSTORE"};
 const std::string image_cache_registry{"IMAGECACHE"};
 const std::string keyboard_events{"KEYBOARDEVENTS"};
@@ -88,7 +89,6 @@ namespace colour_pipeline {
 } // namespace colour_pipeline
 
 namespace media {
-    class FrameRequestList;
     class MediaDetail;
     class MediaKey;
     class AVFrameID;
@@ -105,6 +105,7 @@ namespace media_reader {
     class AudioBufPtr;
     class ImageBufPtr;
     class MediaReaderManager;
+    class PixelInfo;
 } // namespace media_reader
 
 namespace thumbnail {
@@ -166,6 +167,7 @@ CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::media::AVFrameIDsAndTimePoints)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::media_reader::AudioBuffer)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::media_reader::AudioBufPtr)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::media_reader::ImageBufPtr)
+CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::media_reader::PixelInfo)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::ui::Hotkey)
 
 // clang-format off
@@ -198,6 +200,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, first_custom_type_id)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media_reader::AudioBufPtr))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media_reader::ImageBufPtr))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media_reader::MRCertainty))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media_reader::PixelInfo))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::CompareMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::LoopMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::OverflowMode))
@@ -406,6 +409,9 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, xstudio_complex_types_last_type
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::utility, version_atom)
 
     // **************** add new entries here ******************
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_global_playhead_events_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, attribute_uuids_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_actor_from_registry_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_framework_atoms)
 
@@ -524,7 +530,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, xstudio_plugin_atoms_last_type_id
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, get_media_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, get_media_uuid_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, get_next_media_atom)
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, get_playheads_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, get_playhead_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, insert_container_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, loading_media_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, media_content_changed_atom)
@@ -665,6 +671,10 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, xstudio_session_atoms_last_type_
     // **************** add new entries here ******************
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, last_frame_media_pointer_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, display_colour_transform_hash_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, pixel_info_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_logical_frame_atom)
+
+
 
 CAF_END_TYPE_ID_BLOCK(xstudio_playback_atoms)
 
@@ -701,6 +711,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms, xstudio_playback_atoms_last_type_id+10
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, viewport_set_scene_coordinates_atom)
 
     // **************** add new entries here ******************
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, enable_hud_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, hotkey_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_ui_atoms)
 

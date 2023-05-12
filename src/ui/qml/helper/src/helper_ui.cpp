@@ -32,8 +32,55 @@ caf::actor_system &CafSystemObject::get_actor_system() {
 }
 
 
+std::string xstudio::ui::qml::actorToString(actor_system &sys, const caf::actor &actor) {
+    std::string result;
+
+    try {
+        caf::binary_serializer::container_type buf;
+        caf::binary_serializer bs{sys, buf};
+
+        auto e = bs.apply(caf::actor_cast<caf::actor_addr>(actor));
+        if (not e)
+            throw std::runtime_error(to_string(bs.get_error()));
+
+        result = utility::make_hex_string(std::begin(buf), std::end(buf));
+    } catch (const std::exception &err) {
+        // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
+}
+
+caf::actor xstudio::ui::qml::actorFromString(actor_system &sys, const std::string &str_addr) {
+    caf::actor actor;
+
+    caf::binary_serializer::container_type buf = utility::hex_to_bytes(str_addr);
+    caf::binary_deserializer bd{sys, buf};
+
+    caf::actor_addr addr;
+    auto e = bd.apply(addr);
+
+    if (not e) {
+        spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(bd.get_error()));
+    } else {
+        actor = caf::actor_cast<caf::actor>(addr);
+    }
+
+    return actor;
+}
+
+
+QString xstudio::ui::qml::actorToQString(actor_system &sys, const caf::actor &actor) {
+    return QStringFromStd(actorToString(sys, actor));
+}
+
+caf::actor xstudio::ui::qml::actorFromQString(actor_system &sys, const QString &addr_str) {
+    return actorFromString(sys, StdFromQString(addr_str));
+}
+
+
 QString xstudio::ui::qml::getThumbnailURL(
-    actor_system &system, caf::actor actor, const int frame, const bool cache_to_disk) {
+    actor_system &system, const caf::actor &actor, const int frame, const bool cache_to_disk) {
     //  we introduce a random component to allow reaquiring of thumb.
     // this is for the default thumb which maybe generated before the media source is fully
     // loaded.

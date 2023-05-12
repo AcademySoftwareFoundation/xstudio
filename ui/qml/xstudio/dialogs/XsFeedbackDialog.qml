@@ -5,6 +5,7 @@ import QtGraphicalEffects 1.12
 import QtQuick.Layouts 1.3
 
 import xStudio 1.0
+import xstudio.qml.helpers 1.0
 
 
 XsDialogModal {
@@ -13,6 +14,14 @@ XsDialogModal {
     height: 300
 
     centerOnOpen: true
+
+    XsModelProperty {
+        id: feedback
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/feedback", "pathRole")
+    }
+
+    property bool isUrl: !feedback.value.includes("@")
 
     ColumnLayout {
         anchors.fill: parent
@@ -46,7 +55,7 @@ XsDialogModal {
                     readOnly: true
                     wrapMode: Text.WordWrap
                     selectByMouse: true
-                    text: "support@dneg.com"
+                    text: "Feedback for " + Qt.application.name + ' v' + Qt.application.version
                     font.pixelSize: 40
                     font.hintingPreference: Font.PreferNoHinting
                     font.family: XsStyle.fontFamily
@@ -70,7 +79,7 @@ XsDialogModal {
 
                 TextEdit {
                     id: authorText
-                    text:"Please send bug reports and suggestions about " + Qt.application.name + ' v' + Qt.application.version + " to support@dneg.com"
+                    text:"Please "+(isUrl? "create" : "send") +" bug reports and suggestions " + (isUrl ? "at " : "to ") + feedback.value
                     readOnly: true
                     wrapMode: Text.WordWrap
                     selectByMouse: true
@@ -80,6 +89,7 @@ XsDialogModal {
                     anchors.top: titleText.bottom
                     anchors.topMargin: 10
                     anchors.left: parent.left
+                    anchors.right: parent.right
                     color: XsStyle.hoverColor
                     padding: 10
                 }

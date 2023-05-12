@@ -68,6 +68,12 @@ bool AttributeData::set(const nlohmann::json &data) {
         rt = set(data.get<int>());
     } else if (data.is_number_float()) {
         rt = set(data.get<float>());
+    } else if (data_.type() == typeid(nlohmann::json) && get<nlohmann::json>() != data) {
+        data_ = data;
+        rt    = true;
+    } else if (!data_.has_value()) {
+        data_ = data;
+        rt    = true;
     } else if (data.is_null()) {
         rt = true;
     }

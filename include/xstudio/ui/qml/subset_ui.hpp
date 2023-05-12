@@ -19,7 +19,6 @@ namespace xstudio {
 namespace ui {
     namespace qml {
 
-        class PlayheadUI;
 
         class SubsetUI : public QMLActor {
 
@@ -36,7 +35,6 @@ namespace ui {
             Q_PROPERTY(QVariantMap mediaOrder READ mediaOrder NOTIFY mediaOrderChanged)
 
             Q_PROPERTY(bool selected READ selected WRITE setSelected NOTIFY selectedChanged)
-            Q_PROPERTY(QObject *playhead READ playhead NOTIFY playheadChanged)
             Q_PROPERTY(QObject *selectionFilter READ selectionFilter NOTIFY
                            playlistSelectionThingChanged)
             Q_PROPERTY(
@@ -72,7 +70,6 @@ namespace ui {
             QList<QObject *> mediaList() { return media_; }
             [[nodiscard]] QVariantMap mediaOrder() const { return media_order_; }
 
-            QObject *playhead();
             QObject *selectionFilter();
             QObject *parent_playlist() {
                 return static_cast<QObject *>(dynamic_cast<PlaylistUI *>(parent()));
@@ -92,7 +89,6 @@ namespace ui {
             void expandedChanged();
             void flagChanged();
             void selectedChanged();
-            void playheadChanged();
             void playlistSelectionThingChanged();
             void mediaAdded(const QUuid &uuid);
             void parent_playlistChanged();
@@ -139,7 +135,6 @@ namespace ui {
           private:
             MediaUI *getNextItem(const utility::Uuid &uuid);
             void update_media();
-            void makePlayhead();
 
             utility::Uuid cuuid_;
             caf::actor backend_;
@@ -152,7 +147,6 @@ namespace ui {
             QList<QObject *> media_;
             std::map<utility::Uuid, MediaUI *> uuid_media_;
             QVariantMap media_order_;
-            PlayheadUI *playhead_                    = {nullptr};
             PlaylistSelectionUI *playlist_selection_ = {nullptr};
 
             MediaModel media_model_;

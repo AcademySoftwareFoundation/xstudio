@@ -63,9 +63,9 @@ XsTrayButton {
             // force to int..
             volume_preference.value = volume_cast
 
-            if (!slider.pressed) {
-                popupwidget.value = volume
-            }
+        }
+        if (!slider.pressed) {
+            popupwidget.value = volume
         }
     }
 

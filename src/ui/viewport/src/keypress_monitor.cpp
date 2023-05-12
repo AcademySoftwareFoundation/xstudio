@@ -110,6 +110,14 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             return hks;
         },
 
+        [=](hotkey_atom, const utility::Uuid kotkey_uuid) -> result<Hotkey> {
+            auto p = active_hotkeys_.find(kotkey_uuid);
+            if (p != active_hotkeys_.end()) {
+                return p->second;
+            }
+            return make_error(xstudio_error::error, "Invalid hotkey uuid");
+        },
+
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](const error &err) mutable { aout(this) << err << std::endl; });
 }

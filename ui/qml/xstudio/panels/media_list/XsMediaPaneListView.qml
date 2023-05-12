@@ -24,12 +24,11 @@ Flickable {
     property var item_height: header.item_height
     property var selection_uuids: selectionFilter ? selectionFilter.selectedMediaUuids : []
     property var previousCompareMode: -1
-    property var playhead: source ? source.playhead : undefined
+    property var playhead: sessionWidget.viewport.playhead
     property var selectionFilter: source ? source.selectionFilter : undefined
+    property var firstMediaItemInSelection
 
-    property var currentViewerPlayhead: session.onScreenSource ? session.onScreenSource.playhead : undefined
-    property var currentOnScreenMediaUuid: playhead ? currentViewerPlayhead == playhead ? playhead.media ? playhead.media.uuid : undefined : undefined : undefined
-
+    property var currentOnScreenMediaUuid: playhead.media ? playhead.media.uuid : undefined
     property alias mediaMenu: media_menu
 
     onItem_heightChanged: {
@@ -119,6 +118,7 @@ Flickable {
         if (selection_uuids.length) {
             //playhead.jumpToSource(selection_uuids[selection_uuids.length-1])
         }
+        set_first_in_selection()
 
     }
 
@@ -151,7 +151,7 @@ Flickable {
     function indexFromUuid(uuid) {
         var item_index = -1
         for (var idx = 0; idx < mediaList.length; idx++) {
-            if (repeater.itemAt(idx).uuid == uuid) {
+            if (repeater.itemAt(idx) != undefined && repeater.itemAt(idx).uuid == uuid) {
                 item_index = idx
                 break
             }
@@ -279,8 +279,34 @@ Flickable {
                 item.y = i*item_height
             }
         }
-
+        set_first_in_selection()
         //autoscroll(true, currentOnScreenMediaUuid)
+    }
+
+    function set_first_in_selection() {
+
+        var result = undefined
+        if (selection_uuids.length) {
+            var first_selected = indexFromUuid(selection_uuids[0])
+            if (first_selected != -1) {
+                result = mediaList[first_selected]
+            } else if (mediaList.length) {
+                result = mediaList[0]
+            }
+        } else if (mediaList.length) {
+            result = mediaList[0]
+        }
+        firstMediaItemInSelection = result;
+
+    }
+
+    function switchSelectedToNamedStream(stream_name) {
+        for (var i = 0; i < mediaList.length; ++i) {
+            var item = repeater.itemAt(i)
+            if (item.selected) {
+                mediaList[i].mediaSource.switchToStream(stream_name)
+            }
+        }
     }
 
     onCurrentOnScreenMediaUuidChanged: {

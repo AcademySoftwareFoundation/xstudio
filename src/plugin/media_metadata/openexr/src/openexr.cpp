@@ -138,6 +138,20 @@ OpenEXRMediaMetadata::fill_standard_fields(const nlohmann::json &metadata) {
             auto aspect          = (*h)["pixelAspectRatio"]["value"];
             fields.pixel_aspect_ = aspect.get<float>();
         }
+
+        if ((*h).contains("compression") && (*h)["compression"].contains("value")) {
+            std::stringstream format_str;
+            auto compression = (*h)["compression"]["value"].get<std::string>();
+            if ((compression == "DWAA" || compression == "DWAB") &&
+                (*h).contains("dwaCompressionLevel") &&
+                (*h)["dwaCompressionLevel"].contains("value")) {
+                auto c_level = int((*h)["dwaCompressionLevel"]["value"].get<float>());
+                format_str << "EXR (" << compression << ", level=" << c_level << ")";
+            } else {
+                format_str << "EXR (" << compression << ")";
+            }
+            fields.format_ = format_str.str();
+        }
     }
     return fields;
 }
@@ -166,43 +180,43 @@ template <typename T> void to_json_compression_value(nlohmann::json &root, const
     root["type"] = value->typeName();
     switch (value->value()) {
     case Imf::NO_COMPRESSION:
-        root["value"] = "none";
+        root["value"] = "uncompressed";
         break;
 
     case Imf::RLE_COMPRESSION:
-        root["value"] = "run-length encoding";
+        root["value"] = "RLE";
         break;
 
     case Imf::ZIPS_COMPRESSION:
-        root["value"] = "zip, individual scanlines";
+        root["value"] = "ZIP";
         break;
 
     case Imf::ZIP_COMPRESSION:
-        root["value"] = "zip, multi-scanline blocks";
+        root["value"] = "ZIPS";
         break;
 
     case Imf::PIZ_COMPRESSION:
-        root["value"] = "piz";
+        root["value"] = "PIZ";
         break;
 
     case Imf::PXR24_COMPRESSION:
-        root["value"] = "pxr24";
+        root["value"] = "PXR24";
         break;
 
     case Imf::B44_COMPRESSION:
-        root["value"] = "b44";
+        root["value"] = "B44";
         break;
 
     case Imf::B44A_COMPRESSION:
-        root["value"] = "b44a";
+        root["value"] = "B44A";
         break;
 
     case Imf::DWAA_COMPRESSION:
-        root["value"] = "dwa, small scanline blocks";
+        root["value"] = "DWAA";
         break;
 
     case Imf::DWAB_COMPRESSION:
-        root["value"] = "dwa, medium scanline blocks";
+        root["value"] = "DWAB";
         break;
 
     default:

@@ -3,7 +3,6 @@
 #include <iostream>
 
 #include "xstudio/atoms.hpp"
-#include "xstudio/ui/qml/playhead_ui.hpp"
 #include "xstudio/ui/qml/playlist_ui.hpp"
 #include "xstudio/ui/qml/playlist_selection_ui.hpp"
 #include "xstudio/ui/qml/contact_sheet_ui.hpp"
@@ -61,14 +60,13 @@ void ContactSheetUI::set_backend(caf::actor backend) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
 
-        try {
-            compare_mode_ = request_receive<playhead::CompareMode>(
-                *sys, backend_, playhead::compare_mode_atom_v);
-        } catch (const std::exception &e) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-        }
+        auto selection_actor =
+            request_receive<caf::actor>(*sys, backend_, playlist::selection_actor_atom_v);
+        playlist_selection_ = new PlaylistSelectionUI(this);
+        playlist_selection_->initSystem(this);
+        playlist_selection_->set_backend(selection_actor);
+        emit playlistSelectionThingChanged();
 
-        makePlayhead();
         update_media();
         emit nameChanged();
         emit uuidChanged();
@@ -217,17 +215,6 @@ QFuture<QList<QUuid>> ContactSheetUI::handleDropFuture(const QVariantMap &drop) 
 //     return result;
 // }
 
-void ContactSheetUI::setCompareMode(const int value) {
-    if (compare_mode_ != value) {
-        compare_mode_ = static_cast<playhead::CompareMode>(value);
-
-        scoped_actor sys{system()};
-        sys->send(sys, backend_, playhead::compare_mode_atom_v, compare_mode_);
-
-        emit compareModeChanged();
-    }
-}
-
 void ContactSheetUI::update_media() {
     scoped_actor sys{system()};
 
@@ -298,15 +285,6 @@ void ContactSheetUI::init(actor_system &system_) {
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
             [=](const group_down_msg &) {},
 
-            [=](utility::event_atom,
-                playhead::compare_mode_atom,
-                const playhead::CompareMode mode) {
-                if (compare_mode_ != mode) {
-                    compare_mode_ = mode;
-                    emit compareModeChanged();
-                }
-            },
-
             [=](utility::event_atom, playlist::add_media_atom, const UuidActor &ua) {
                 emit mediaAdded(QUuidFromUuid(ua.uuid()));
             },
@@ -345,34 +323,6 @@ void ContactSheetUI::dragDropReorder(
 void ContactSheetUI::sortAlphabetically() {
     anon_send(backend_, playlist::sort_alphabetically_atom_v);
 }
-
-void ContactSheetUI::makePlayhead() {
-    if (backend_) {
-        try {
-
-            scoped_actor sys{system()};
-            auto ua =
-                request_receive<UuidActor>(*sys, backend_, playlist::create_playhead_atom_v);
-            playhead_ = new PlayheadUI(this);
-            playhead_->initSystem(this);
-            playhead_->set_backend(ua.actor());
-            playhead_->setSourceUuid(uuid());
-            emit playheadChanged();
-
-            auto selection_actor =
-                request_receive<caf::actor>(*sys, backend_, playlist::selection_actor_atom_v);
-            playlist_selection_ = new PlaylistSelectionUI(this);
-            playlist_selection_->initSystem(this);
-            playlist_selection_->set_backend(selection_actor);
-            emit playlistSelectionThingChanged();
-
-        } catch (const std::exception &e) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-        }
-    }
-}
-
-QObject *ContactSheetUI::playhead() { return static_cast<QObject *>(playhead_); }
 
 QObject *ContactSheetUI::selectionFilter() {
     return static_cast<QObject *>(playlist_selection_);

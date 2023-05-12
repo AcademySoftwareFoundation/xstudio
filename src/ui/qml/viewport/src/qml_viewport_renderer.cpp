@@ -121,6 +121,12 @@ void QMLViewportRenderer::init_system() {
     };
     viewport_renderer_->set_change_callback(callback);
 
+    // update PlayheadUI object owned by the 'QMLViewport'
+    QMLViewport *vp = dynamic_cast<QMLViewport *>(parent());
+    if (vp) {
+        vp->setPlayhead(viewport_renderer_->playhead());
+    }
+
     /* The Viewport object provides a message handler that will process update events like new
     frame buffers coming from the playhead and so-on. Instead of being an actor itself, the
     Viewport is a regular class but it will process messages received by a parent actor (like
@@ -129,21 +135,7 @@ void QMLViewportRenderer::init_system() {
     thread because this class is a caf::mixing/QObject combo that ensures messages are received
     through QTs event loop thread rather than a regular caf thread.*/
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
-        return caf::message_handler(
-                   {
-                       [=](viewport_playhead_atom, caf::actor playhead) -> bool {
-                           QMLViewport *vp = dynamic_cast<QMLViewport *>(parent());
-                           if (vp) {
-                               auto new_playhead = new PlayheadUI(this);
-                               new_playhead->initSystem(this);
-                               new_playhead->set_backend(playhead);
-                               vp->setPlayhead(new_playhead);
-                           } else {
-                               viewport_renderer_->set_playhead(playhead);
-                           }
-                           return true;
-                       },
-                   })
+        return caf::message_handler(/*messagehandlers here*/)
             .or_else(viewport_renderer_->message_handler());
     });
 
@@ -287,6 +279,11 @@ void QMLViewportRenderer::receive_change_notification(Viewport::ChangeCallbackId
     } else if (id == Viewport::ChangeCallbackId::TranslationChanged) {
         emit translateChanged(
             QVector2D(viewport_renderer_->pan().x, viewport_renderer_->pan().y));
+    } else if (id == Viewport::ChangeCallbackId::PlayheadChanged) {
+        QMLViewport *vp = dynamic_cast<QMLViewport *>(parent());
+        if (vp) {
+            vp->setPlayhead(viewport_renderer_->playhead());
+        }
     }
 }
 

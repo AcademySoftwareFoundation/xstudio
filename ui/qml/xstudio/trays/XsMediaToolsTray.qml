@@ -57,18 +57,6 @@ RowLayout {
         }
     }
 
-    // XsTrayButton {
-    //     Layout.fillHeight: true
-    //     text: "Markers"
-    //     source: "qrc:/icons/bookmark.png"
-    //     tooltip: "Open the Bookmarks Panel.  Bookmark frames or ranges to loop or skip to."
-    //     buttonPadding: pad
-    //     toggled_on: bookmarkDialog ? bookmarkDialog.visible : false
-    //     onClicked: {
-    //         toggleBookmarkDialog()
-    //     }
-    // }
-
     XsTrayButton {
         Layout.fillHeight: true
         text: "Notes"
@@ -131,18 +119,6 @@ RowLayout {
             colourDialog.hide()
         } else {
             colourDialog.show()
-        }
-    }
-
-    function toggleBookmarkDialog()
-    {
-        if (bookmarkDialog === undefined) {
-            bookmarkDialog = do_component_create("qrc:/dialogs/XsBookmarkDialog.qml")
-            bookmarkDialog.show()
-        } else if (bookmarkDialog.visible) {
-            bookmarkDialog.hide()
-        } else {
-            bookmarkDialog.show()
         }
     }
 

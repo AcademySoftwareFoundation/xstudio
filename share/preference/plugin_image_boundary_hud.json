@@ -1,0 +1,30 @@
+{
+	"plugin": {
+		"image_boundary": {
+			"colour": {
+				"path": "/plugin/image_boundary/colour",
+				"default_value": ["colour", 1, 0.0, 1.0, 0.0],
+				"description": "colour of image boundary indicator",
+				"value": ["colour", 1, 0.0, 1.0, 0.0],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},
+			"width": {
+				"path": "/plugin/image_boundary/width",
+				"default_value": 1,
+				"description": "width of image boundary indicator",
+				"value": 1,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"enabled": {
+				"path": "/plugin/image_boundary/enabled",
+				"default_value": false,
+				"description": "Default enabled state of image boundary overlay",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

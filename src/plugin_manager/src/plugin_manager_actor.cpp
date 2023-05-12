@@ -284,8 +284,11 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         [=](spawn_plugin_base_atom,
             const std::string name,
             const utility::JsonStore &json) -> result<caf::actor> {
-            base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
-            return base_plugins_[name];
+            /*if (base_plugins_.find(name) == base_plugins_.end()) {
+                base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
+                link_to(base_plugins_[name]);
+            }*/
+            return spawn<plugin::StandardPlugin>(name, json); // base_plugins_[name];
         },
 
         [=](spawn_plugin_base_atom, const std::string name) -> result<caf::actor> {

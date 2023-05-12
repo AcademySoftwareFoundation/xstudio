@@ -201,7 +201,13 @@ QVariant ShotgunSequenceModel::data(const QModelIndex &index, int role) const {
 bool ShotgunFilterModel::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
     // check level
-    if (not roleFilterMap_.empty()) {
+    if (not selection_filter_.empty() and sourceModel()) {
+        QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
+        if (not selection_filter_.contains(index))
+            return false;
+    }
+
+    if (not roleFilterMap_.empty() and sourceModel()) {
         QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
         for (const auto &[k, v] : roleFilterMap_) {
             if (not v.isEmpty()) {
@@ -219,19 +225,33 @@ bool ShotgunFilterModel::filterAcceptsRow(
     return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
 }
 
-QString ShotgunFilterModel::getRoleFilter(const QString &role) {
+bool ShotgunFilterModel::lessThan(
+    const QModelIndex &source_left, const QModelIndex &source_right) const {
+    auto left_selected  = selection_sort_.contains(source_left);
+    auto right_selected = selection_sort_.contains(source_right);
+
+    if (left_selected and not right_selected)
+        return sortOrder() == Qt::AscendingOrder;
+
+    if (not left_selected and right_selected)
+        return sortOrder() == Qt::DescendingOrder;
+
+    return QSortFilterProxyModel::lessThan(source_left, source_right);
+}
+
+QString ShotgunFilterModel::getRoleFilter(const QString &role) const {
     auto id = getRoleId(role);
     QString result;
 
     if (roleFilterMap_.count(id))
-        result = roleFilterMap_[id];
+        result = roleFilterMap_.at(id);
 
     return result;
 }
 
 void ShotgunFilterModel::setRoleFilter(const QString &filter, const QString &role) {
     auto id = getRoleId(role);
-    if (not roleFilterMap_.count(id) or roleFilterMap_[id] != filter) {
+    if (not roleFilterMap_.count(id) or roleFilterMap_.at(id) != filter) {
         roleFilterMap_[id] = filter;
         invalidateFilter();
     }
@@ -571,10 +591,16 @@ QVariant ShotModel::data(const QModelIndex &index, int role) const {
                 break;
 
             case Roles::sequenceRole: {
-                auto seq_data = getSequence(
-                    data.at("relationships").at("project").at("data").value("id", 0),
-                    data.at("relationships").at("entity").at("data").value("id", 0));
-                result = QString::fromStdString(seq_data.at("attributes").at("code"));
+                if (data.at("relationships").at("entity").at("data").value("type", "") ==
+                    "Sequence") {
+                    result = QString::fromStdString(
+                        data.at("relationships").at("entity").at("data").value("name", ""));
+                } else {
+                    auto seq_data = getSequence(
+                        data.at("relationships").at("project").at("data").value("id", 0),
+                        data.at("relationships").at("entity").at("data").value("id", 0));
+                    result = QString::fromStdString(seq_data.at("attributes").at("code"));
+                }
             } break;
 
             case Roles::frameSequenceRole:

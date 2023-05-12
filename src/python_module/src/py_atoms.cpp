@@ -35,6 +35,7 @@ using namespace xstudio::sync;
 using namespace xstudio::tag;
 using namespace xstudio::thumbnail;
 using namespace xstudio::timeline;
+using namespace xstudio::ui::keypress_monitor;
 using namespace xstudio::ui::qml;
 using namespace xstudio::ui::viewport;
 using namespace xstudio::utility;
@@ -101,7 +102,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::playlist, get_media_atom);
     ADD_ATOM(xstudio::playlist, get_media_uuid_atom);
     ADD_ATOM(xstudio::playlist, get_next_media_atom);
-    ADD_ATOM(xstudio::playlist, get_playheads_atom);
+    ADD_ATOM(xstudio::playlist, get_playhead_atom);
     ADD_ATOM(xstudio::playlist, insert_container_atom);
     ADD_ATOM(xstudio::playlist, loading_media_atom);
     ADD_ATOM(xstudio::playlist, media_content_changed_atom);
@@ -178,6 +179,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::module, remove_attrs_from_ui_atom);
     ADD_ATOM(xstudio::module, grab_all_keyboard_input_atom);
     ADD_ATOM(xstudio::module, grab_all_mouse_input_atom);
+    ADD_ATOM(xstudio::module, attribute_uuids_atom);
 
     ADD_ATOM(xstudio::global, exit_atom);
     ADD_ATOM(xstudio::global, api_exit_atom);
@@ -187,6 +189,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::global, get_application_mode_atom);
     ADD_ATOM(xstudio::global, get_global_audio_cache_atom);
     ADD_ATOM(xstudio::global, get_global_image_cache_atom);
+    ADD_ATOM(xstudio::global, get_global_playhead_events_atom);
     ADD_ATOM(xstudio::global, get_global_store_atom);
     ADD_ATOM(xstudio::global, get_global_thumbnail_atom);
     ADD_ATOM(xstudio::global, get_plugin_manager_atom);
@@ -195,6 +198,8 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::global, get_scanner_atom);
     ADD_ATOM(xstudio::global, remote_session_name_atom);
     ADD_ATOM(xstudio::global, status_atom);
+    ADD_ATOM(xstudio::global, get_actor_from_registry_atom);
+
     ADD_ATOM(xstudio::media, acquire_media_detail_atom);
     ADD_ATOM(xstudio::media, add_media_source_atom);
     ADD_ATOM(xstudio::media, add_media_stream_atom);
@@ -290,6 +295,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::playhead, fps_event_group_atom);
     ADD_ATOM(xstudio::playhead, viewport_events_group_atom);
     ADD_ATOM(xstudio::playhead, monitored_atom);
+    ADD_ATOM(xstudio::playhead, media_logical_frame_atom);
     // ADD_ATOM(xstudio::audio, push_samples_atom);
     // ADD_ATOM(xstudio::http_client, http_get_atom);
     // ADD_ATOM(xstudio::http_client, http_get_simple_atom);
@@ -351,5 +357,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::history, history_atom);
 
     ADD_ATOM(xstudio::ui::viewport, viewport_playhead_atom);
+    ADD_ATOM(xstudio::ui::keypress_monitor, register_hotkey_atom);
+    ADD_ATOM(xstudio::ui::keypress_monitor, hotkey_event_atom);
 }
 } // namespace caf::python

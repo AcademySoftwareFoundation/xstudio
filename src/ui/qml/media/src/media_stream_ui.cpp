@@ -40,6 +40,7 @@ void MediaStreamUI::set_backend(caf::actor backend) {
         backend_events_ = detail.group_;
         request_receive<bool>(
             *sys, backend_events_, broadcast::join_broadcast_atom_v, as_actor());
+
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }

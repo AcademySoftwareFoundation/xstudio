@@ -1,12 +1,36 @@
 {
 	"ui": {
 		"qml":{
+			"custom_help_menu": {
+				"path": "/ui/qml/custom_help_menu",
+				"default_value": {"title": "", "url": ""},
+				"description": "Custom help menu item.",
+				"value":  {"title": "", "url": ""},
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
 			"enable_presentation_mode": {
 				"path": "/ui/qml/enable_presentation_mode",
 				"default_value": false,
 				"description": "Enable presentation mode.",
 				"value": false,
 				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"feedback": {
+				"path": "/ui/qml/feedback",
+				"default_value": "https://github.com/AcademySoftwareFoundation/xstudio/issues",
+				"description": "Method of logging feedback.",
+				"value": "https://github.com/AcademySoftwareFoundation/xstudio/issues",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"features": {
+				"path": "/ui/qml/features",
+				"default_value": "",
+				"description": "URL for features.",
+				"value": "",
+				"datatype": "string",
 				"context": ["QML_UI"]
 			},
 			"autosave": {
@@ -434,9 +458,17 @@
 			},
 			"default_playhead_compare_mode": {
 				"path": "/ui/qml/default_playhead_compare_mode",
-				"default_value": "Off",
+				"default_value": "A/B",
 				"description": "Default Compare Mode.",
-				"value": "Off",
+				"value": "A/B",
+				"datatype": "string",
+				"context": ["QML_UI"]
+			},
+			"current_saved_session_folder": {
+				"path": "/ui/qml/current_saved_session_folder",
+				"default_value": "",
+				"description": "Default saved session folder",
+				"value": "",
 				"datatype": "string",
 				"context": ["QML_UI"]
 			}

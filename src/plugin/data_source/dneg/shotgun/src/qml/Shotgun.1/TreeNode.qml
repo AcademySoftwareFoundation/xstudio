@@ -13,7 +13,6 @@ Item {
     property var selection: null
 
     function createTreeNode(parent, myModel, myRootIndex, myselection) {
-        console.log(myselection)
         if (Qt.createComponent("TreeNode.qml").createObject(parent, {model: myModel, rootIndex: myRootIndex, selection:myselection}) == null) {
             console.log("Error creating object");
         }

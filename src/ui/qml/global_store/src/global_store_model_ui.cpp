@@ -42,6 +42,7 @@ void GlobalStoreModel::init(caf::actor_system &_system) {
 
         utility::request_receive<bool>(
             *sys, gsh_group, broadcast::join_broadcast_atom_v, as_actor());
+
         setModelData(storeToTree(tmp));
 
         // connect up auto save.
@@ -197,6 +198,7 @@ nlohmann::json GlobalStoreModel::storeToTree(const nlohmann::json &src) {
 
     for (const auto &[k, v] : src.items()) {
         if (v.count("datatype")) {
+            // spdlog::warn("{}", v.dump(2));
             result.push_back(v);
         } else {
             auto item        = R"({})"_json;
@@ -257,6 +259,7 @@ QVariant GlobalStoreModel::data(const QModelIndex &index, int role) const {
                 break;
 
             case Roles::valueRole:
+                // spdlog::warn("{}", j.dump(2));
                 result = mapFromValue(j.at("value"));
                 break;
 

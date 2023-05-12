@@ -38,7 +38,7 @@ Rectangle{ id: rightDiv
     signal forceSelectPreset(index: int)
 
     signal showLatestVersion(type: string, name: string, id: int, mode: string)
-    signal showVersionHistory(shot: string, twigname: string, pstep: string, twigtype: string)
+    signal showVersionHistory(shot_seq: string, is_shot: bool, twigname: string, pstep: string, twigtype: string)
 
     SplitView.minimumWidth: minimumRightSplitViewWidth //+ (minimumWidth - (minimumSplitViewWidth*2))
     SplitView.preferredWidth: minimumRightSplitViewWidth //+ (minimumWidth - (minimumSplitViewWidth*2))
@@ -76,10 +76,12 @@ Rectangle{ id: rightDiv
             }
 
             let shot = searchResultsViewModel.get(i,"shotRole")
+            let seq = searchResultsViewModel.get(i,"sequenceRole")
             let twigname = searchResultsViewModel.get(i,"twigNameRole")
             let pstep = searchResultsViewModel.get(i,"pipelineStepRole")
             let twigtype = searchResultsViewModel.get(i,"twigTypeRole")
-            showVersionHistory(shot, twigname, pstep, twigtype)
+
+            showVersionHistory(shot ? shot : seq, shot ? true : false, twigname, pstep, twigtype)
         } else if(actionText == "Select All") {
             selectionModel.resetSelection()
             for(let idx=0; idx<searchResultsViewModel.count; idx++){

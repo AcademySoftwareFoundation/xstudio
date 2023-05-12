@@ -95,7 +95,7 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
     if (!textures_.size())
         return;
 
-    textures_[0]->set_texture_type("SSBO"); // texture_mode_preference_->value());
+    textures_[0]->set_use_ssbo(use_ssbo_);
 
     if (onscreen_frame_) {
         if (onscreen_frame_->error_state() == BufferErrorState::HAS_ERROR) {
@@ -136,14 +136,12 @@ void OpenGLViewportRenderer::bind_textures() {
     if (!active_shader_program_ || active_shader_program_ == no_image_shader_program_)
         return;
 
-    int tex_idx     = 1;
-    bool using_ssbo = false;
+    int tex_idx = 1;
     Imath::V2i tex_dims;
-    textures_[0]->bind(tex_idx, tex_dims, using_ssbo);
+    textures_[0]->bind(tex_idx, tex_dims);
     utility::JsonStore txshder_param;
     txshder_param["the_tex"]  = tex_idx;
     txshder_param["tex_dims"] = tex_dims;
-    txshder_param["use_ssbo"] = using_ssbo;
 
     tex_idx++;
 
@@ -175,23 +173,54 @@ void OpenGLViewportRenderer::clear_viewport_area(const Imath::M44f &to_scene_mat
     std::array<int, 4> vp;
     glGetIntegerv(GL_VIEWPORT, vp.data());
 
-    Imath::V4f botomleft(0.0, 0.0, 0.0f, 1.0f);
+    // Our ref coord system maps -1.0, -1.0 to the bottom left of the viewport and
+    // 1.0, 1.0 to the top right
+    Imath::V4f botomleft(-1.0, -1.0, 0.0f, 1.0f);
     Imath::V4f topright(1.0, 1.0, 0.0f, 1.0f);
 
     topright  = topright * to_scene_matrix;
     botomleft = botomleft * to_scene_matrix;
 
-    const int xs_vp_left   = (int)round(botomleft.x * vp[2] / botomleft.w);
-    const int xs_vp_bottom = vp[3] - (int)round(topright.y * vp[3] / topright.w);
+    // Now convert to window pixels for glScissor window
+    botomleft *= 1.0f / botomleft.w;
+    topright *= 1.0f / topright.w;
 
-    const int xs_vp_right = (int)round(topright.x * vp[2] / topright.w);
-    const int xs_vp_top   = vp[3] - (int)round(botomleft.y * vp[3] / botomleft.w);
+    float bottom = 0.5f * (botomleft.y + 1.0f) * float(vp[3]);
+    float top    = 0.5f * (topright.y + 1.0f) * float(vp[3]);
 
-    // glEnable(GL_SCISSOR_TEST);
-    // glScissor(xs_vp_left, xs_vp_bottom, xs_vp_right-xs_vp_left, xs_vp_top-xs_vp_bottom);
+    float left  = 0.5f * (botomleft.x + 1.0f) * float(vp[2]);
+    float right = 0.5f * (topright.x + 1.0f) * float(vp[2]);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(
+        (int)round(left),
+        (int)round(bottom),
+        (int)round(right - left),
+        (int)round(top - bottom));
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    // glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+}
+
+utility::JsonStore OpenGLViewportRenderer::default_prefs() {
+    JsonStore r(R"("texture_mode": {
+				"path": "/ui/viewport/texture_mode",
+				"default_value": "Image Texture",
+				"description": "Viewport Low Level Texture mode - SSBO can give better performance on some systems but not all",
+				"value": "Image Texture",
+				"value_range": ["Image Texture", "SSBO"]
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			})");
+    return r;
+}
+
+void OpenGLViewportRenderer::set_prefs(const utility::JsonStore &prefs) {
+    const std::string tex_mode = prefs.value("texture_mode", "SSBO");
+    if (tex_mode == "SSBO")
+        use_ssbo_ = true;
+    else
+        use_ssbo_ = false;
 }
 
 void OpenGLViewportRenderer::render(
@@ -249,6 +278,7 @@ void OpenGLViewportRenderer::render(
                 orf.second->render_opengl(
                     to_scene_matrix,
                     transform_viewport_to_image_space,
+                    viewport_du_dx,
                     onscreen_frame_,
                     has_alpha_);
             }
@@ -266,6 +296,8 @@ void OpenGLViewportRenderer::render(
         active_shader_program_->use();
 
         bool use_bilinear_filtering = false;
+
+
         if (onscreen_frame_) {
             // here we can work out the ratio of image pixels to screen pixels
             const float image_pix_to_screen_pix =
@@ -275,7 +307,7 @@ void OpenGLViewportRenderer::render(
                     image_pix_to_screen_pix < 0.99999f || image_pix_to_screen_pix > 1.00001f;
             else if (render_hints_ == BilinearWhenZoomedOut)
                 use_bilinear_filtering =
-                    image_pix_to_screen_pix < 0.99999f; // filter_mode_ == BilinearWhenZoomedOut
+                    image_pix_to_screen_pix > 1.00001f; // filter_mode_ == BilinearWhenZoomedOut
         }
 
         // coordinate system set-up
@@ -352,6 +384,7 @@ void OpenGLViewportRenderer::render(
                 orf.second->render_opengl(
                     to_scene_matrix,
                     transform_viewport_to_image_space,
+                    viewport_du_dx,
                     onscreen_frame_,
                     has_alpha_);
             }
@@ -389,28 +422,31 @@ bool OpenGLViewportRenderer::activate_shader(
     const auto &ib_sid = image_buffer_unpack_shader->shader_id_;
     const auto &cp_sid = colour_pipeline_shader->shader_id_;
 
+    const std::string shader_id =
+        to_string(ib_sid) + "-" + to_string(cp_sid) + "-" + (use_ssbo_ ? "ssbo" : "tex");
+
     // do we already have this shader compiled?
-    if (programs_.find(ib_sid) == programs_.end() ||
-        programs_[ib_sid].find(cp_sid) == programs_[ib_sid].end()) {
+    if (programs_.find(shader_id) == programs_.end()) {
 
         // try to compile the shader for this combo of image buffer unpack
         // and colour pipeline components
 
         try {
 
-            programs_[ib_sid][cp_sid].reset(new GLShaderProgram(
+            programs_[shader_id].reset(new GLShaderProgram(
                 default_vertex_shader,
                 colour_pipeline_shader->shader_code_,
-                image_buffer_unpack_shader->shader_code_));
+                image_buffer_unpack_shader->shader_code_,
+                use_ssbo_));
 
         } catch (std::exception &e) {
             spdlog::error("{}", e.what());
-            programs_[ib_sid][cp_sid].reset();
+            programs_[shader_id].reset();
         }
     }
 
-    if (programs_[ib_sid][cp_sid]) {
-        active_shader_program_ = programs_[ib_sid][cp_sid];
+    if (programs_[shader_id]) {
+        active_shader_program_ = programs_[shader_id];
     } else {
         active_shader_program_ = no_image_shader_program_;
     }

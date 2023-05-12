@@ -7,7 +7,7 @@ import xStudio 1.0
 
 FileDialog {
     title: "Save session"
-    folder: session.pathNative ? XsUtils.stem(session.path.toString()).replace("localhost","") : shortcuts.home
+    folder: getFolderPath()
     defaultSuffix: "xst"
 
     signal saved
@@ -16,6 +16,13 @@ FileDialog {
     nameFilters:  ["XStudio (*.xst)"]
     selectExisting: false
     selectMultiple: false
+
+    function getFolderPath() {
+        if(preferences.current_saved_session_folder.value != "")
+            return preferences.current_saved_session_folder.value
+
+        return session.pathNative ? XsUtils.stem(session.path.toString()).replace("localhost","") : shortcuts.home
+    }
 
     onAccepted: {
         // check for extension.
@@ -29,6 +36,8 @@ FileDialog {
         session.save_session_path(path)
         app_window.session.copy_session_link(false)
         saved()
+
+        preferences.current_saved_session_folder.value = path.slice(0, path.lastIndexOf("/") + 1)
     }
 
     onRejected: {

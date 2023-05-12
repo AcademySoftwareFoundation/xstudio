@@ -13,6 +13,7 @@
 
 namespace xstudio {
 namespace global {
+
     class DLL_PUBLIC GlobalActor : public caf::event_based_actor {
       public:
         GlobalActor(
@@ -30,6 +31,12 @@ namespace global {
             const std::string &bind_address,
             caf::actor a);
         void init(const utility::JsonStore &prefs = utility::JsonStore());
+
+        void connect_api(const caf::actor &embedded_python);
+        void connect_sync_api();
+        void disconnect_api(const caf::actor &embedded_python, const bool force = false);
+        void disconnect_sync_api(const bool force = false);
+
         inline static const std::string NAME = "GlobalActor";
         caf::behavior behavior_;
         caf::actor studio_;

@@ -159,7 +159,16 @@ void register_streamdetail_class(py::module &m, const std::string &name) {
 
 void register_timecode_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::Timecode &x) { return to_string(x); };
-    py::class_<utility::Timecode>(m, name.c_str()).def(py::init<>()).def("__str__", str_impl);
+    py::class_<utility::Timecode>(m, name.c_str())
+        .def(py::init<>())
+        .def("__str__", str_impl)
+        .def("hours", [](const utility::Timecode &x) { return x.hours(); })
+        .def("minutes", [](const utility::Timecode &x) { return x.minutes(); })
+        .def("seconds", [](const utility::Timecode &x) { return x.seconds(); })
+        .def("frames", [](const utility::Timecode &x) { return x.frames(); })
+        .def("framerate", [](const utility::Timecode &x) { return x.framerate(); })
+        .def("dropframe", [](const utility::Timecode &x) { return x.dropframe(); })
+        .def("total_frames", [](const utility::Timecode &x) { return x.total_frames(); });
 }
 
 void register_mediareference_class(py::module &m, const std::string &name) {
@@ -185,7 +194,13 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("uri_from_frame", &utility::MediaReference::uri_from_frame)
         .def("timecode", &utility::MediaReference::timecode)
         .def("offset", &utility::MediaReference::offset)
-        .def("set_offset", &utility::MediaReference::set_offset);
+        .def("set_offset", &utility::MediaReference::set_offset)
+        .def("frame", [](const utility::MediaReference &x, int i) {
+            auto f = x.frame(i);
+            if (f)
+                return *f;
+            throw pybind11::value_error("Out of range");
+        });
 }
 
 void register_bookmark_detail_class(py::module &m, const std::string &name) {

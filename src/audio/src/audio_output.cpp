@@ -244,8 +244,10 @@ void AudioOutputControl::queue_samples_for_playing(
     const bool forwards,
     const float velocity) {
 
-    if (!playing)
+    if (!playing) {
+
         return;
+    }
 
     playback_velocity_ = audio_repitch_ ? std::max(0.1f, velocity) : 1.0f;
 
@@ -314,7 +316,10 @@ void AudioOutputControl::queue_samples_for_playing(
     }
 }
 
-void AudioOutputControl::clear_queued_samples() { sample_data_.clear(); }
+void AudioOutputControl::clear_queued_samples() {
+    sample_data_.clear();
+    current_buf_.reset();
+}
 
 media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
     const utility::clock::time_point &tp, bool drop_old_buffers) {

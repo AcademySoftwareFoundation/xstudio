@@ -1,0 +1,79 @@
+{
+	"plugin": {
+		"pixel_probe": {
+			"show_code_values": {
+				"path": "/plugin/pixel_probe/show_code_values",
+				"default_value": false,
+				"description": "Show raw YUV/RGB code values from relevant sources",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"show_raw_pixel_values": {
+				"path": "/plugin/pixel_probe/show_raw_pixel_values",
+				"default_value": true,
+				"description": "Show raw normalised pixel values from source image",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"show_linear_pixel_values": {
+				"path": "/plugin/pixel_probe/show_linear_pixel_values",
+				"default_value": false,
+				"description": "Show linear RGB pixel (after colour management) values where possible",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"show_final_screen_rgb_pixel_values": {
+				"path": "/plugin/pixel_probe/show_final_screen_rgb_pixel_values",
+				"default_value": false,
+				"description": "Show final RGB display values",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"font_size": {
+				"path": "/plugin/pixel_probe/font_size",
+				"default_value": 12.0,
+				"description": "Font size for pixel probe overlay",
+				"value": 12.0,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"font_opacity": {
+				"path": "/plugin/pixel_probe/font_opacity",
+				"default_value": 0.8,
+				"description": "Opacity of font in pixel probe overlay",
+				"value": 0.8,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"bg_opacity": {
+				"path": "/plugin/pixel_probe/bg_opacity",
+				"default_value": 0.4,
+				"description": "Opacity of box in pixel probe overlay",
+				"value": 0.4,
+				"datatype": "double",
+				"context": ["APPLICATION"]
+			},
+			"decimals": {
+				"path": "/plugin/pixel_probe/decimals",
+				"default_value": 2,
+				"description": "Opacity of box in pixel probe overlay",
+				"value": 2,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"enabled": {
+				"path": "/plugin/pixel_probe/enabled",
+				"default_value": false,
+				"description": "Default enabled state of pixel probe",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
+

@@ -44,7 +44,7 @@ XsMenu {
     XsMenuSeparator {}
 
     XsMenuItem {
-        mytext: qsTr("Set Loop In-Point")
+        mytext: qsTr("Set Loop In")
         shortcut: "I"
         onTriggered: {
             playhead.setLoopStart(playhead.frame)
@@ -52,13 +52,21 @@ XsMenu {
         }
     }
     XsMenuItem {
-        mytext: qsTr("Set Loop Out-Point")
+        id: bod
+        mytext: qsTr("Set Loop Out")
         shortcut: "O"
         onTriggered: {
             playhead.setLoopEnd(playhead.frame)
             playhead.useLoopRange = true
         }
     }
+
+    XsModuleMenuBuilder {
+        parent_menu: viewer_context_menu_colour_items
+        root_menu_name: "playback_menu"
+        insert_after: bod
+    }
+
     XsMenuItem {
         mytext: qsTr("Enable Loop")
         shortcut: "P"

@@ -13,7 +13,9 @@ def test_add_remove_media(spawn):
     assert isinstance(m, Media) == True
 
     assert m.acquire_metadata() == True
-    assert m.metadata["metadata"]["media"]["@"]["format"]["bit_rate"] == "9761984"
+
+    assert m.source_metadata["metadata"]["media"]["@"]["format"]["bit_rate"] == 183486
+
     assert isinstance(m.media_source(), MediaSource) == True
 
     assert pl.remove_media(m) == True

@@ -407,6 +407,11 @@ void SubPlayhead::init() {
             timebase::flicks frame_period, timeline_pts;
             std::shared_ptr<const media::AVFrameID> frame =
                 get_frame(position_flicks_, logical_frame, frame_period, timeline_pts);
+
+            if (!frame) {
+                rp.deliver(ImageBufPtr());
+                return rp;
+            }
             request(
                 pre_reader_,
                 std::chrono::milliseconds(5000),
@@ -419,6 +424,7 @@ void SubPlayhead::init() {
                     [=](ImageBufPtr image_buffer) mutable {
                         image_buffer.when_to_display_ = utility::clock::now();
                         image_buffer.set_timline_timestamp(timeline_pts);
+                        image_buffer.set_frame_id(*(frame.get()));
 
                         request(
                             colour_pipeline_,
@@ -732,6 +738,7 @@ void SubPlayhead::broadcast_image_frame(
             [=](ImageBufPtr image_buffer) mutable {
                 image_buffer.when_to_display_ = when_to_show_frame;
                 image_buffer.set_timline_timestamp(timeline_pts);
+                image_buffer.set_frame_id(*(frame_media_pointer.get()));
 
                 request(
                     colour_pipeline_,
@@ -914,11 +921,16 @@ void SubPlayhead::request_future_frames() {
                                     "items");
                             }
 
-                            auto cp = colour_pipe_data.begin();
-                            auto tp = timeline_pts_vec.begin();
+                            auto cp   = colour_pipe_data.begin();
+                            auto tp   = timeline_pts_vec.begin();
+                            auto idsp = future_frames.begin();
                             for (auto &imbuf : image_buffers) {
                                 imbuf.colour_pipe_data_ = *(cp++);
                                 imbuf.set_timline_timestamp(*(tp++));
+                                std::shared_ptr<const media::AVFrameID> av_idx =
+                                    (idsp++)->second;
+                                if (av_idx)
+                                    imbuf.set_frame_id(*(av_idx.get()));
                             }
                             send(
                                 parent_,
@@ -1017,6 +1029,7 @@ void SubPlayhead::receive_image_from_cache(
                 } else {
                     image_buffer.set_timline_timestamp(position_flicks_);
                 }
+                image_buffer.set_frame_id(mptr);
 
                 send(
                     parent_,

@@ -64,8 +64,10 @@ int qtModifierToOurs(const Qt::KeyboardModifiers qt_modifiers) {
 qt::OffscreenViewport *QMLViewport::offscreen_viewport_ = nullptr;
 
 
-QMLViewport::QMLViewport(QQuickItem *parent)
-    : QQuickItem(parent), current_fit_action("Revert Fit"), cursor_(Qt::ArrowCursor) {
+QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::ArrowCursor) {
+
+    playhead_ = new PlayheadUI(this);
+    playhead_->init(CafSystemObject::get_actor_system());
 
     connect(this, &QQuickItem::windowChanged, this, &QMLViewport::handleWindowChanged);
     static bool primary  = true;
@@ -110,7 +112,6 @@ QMLViewport::QMLViewport(QQuickItem *parent)
 
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
-
 
     if (!offscreen_viewport_) {
         try {
@@ -232,7 +233,7 @@ void QMLViewport::sync() {
         mapToScene(boundingRect().bottomLeft()),
         window()->size());
 
-    static bool share = false;
+    /*static bool share = false;
     if (window() && !share) {
         // //qDebug() << this << " OGL CONTEXT " << window()->openglContext() << "\n";
         if (window()->openglContext()) {
@@ -243,10 +244,10 @@ void QMLViewport::sync() {
                 window()->openglContext()->setShareContext(__aa);
                 share = true;
             }
-            /*//qDebug() << this << " SHARE " << window()->openglContext()->shareContext() <<
-            "\n";*/
+            //qDebug() << this << " SHARE " << window()->openglContext()->shareContext() <<
+    "\n";
         }
-    }
+    }*/
 }
 
 void QMLViewport::cleanup() {
@@ -401,8 +402,6 @@ void QMLViewport::setZoom(const float z) {
 void QMLViewport::revertFitZoomToPrevious(const bool ignoreOtherViewport) {
     if (renderer_actor)
         renderer_actor->revertFitZoomToPrevious();
-    if (other_viewport && !ignoreOtherViewport)
-        other_viewport->revertFitZoomToPrevious(true);
     window()->update();
 }
 
@@ -460,11 +459,9 @@ void QMLViewport::wheelEvent(QWheelEvent *event) {
     QQuickItem::wheelEvent(event);
 }
 
-void QMLViewport::setPlayhead(QObject *playhead_qobject) {
+void QMLViewport::setPlayhead(caf::actor playhead) {
     spdlog::debug("QMLViewport::setPlayhead");
-    playhead_ = dynamic_cast<PlayheadUI *>(playhead_qobject);
-    emit(playheadChanged(playhead_qobject));
-    renderer_actor->set_playhead(playhead_);
+    playhead_->set_backend(playhead);
 }
 
 void QMLViewport::hideCursor() {
@@ -589,10 +586,4 @@ void QMLViewport::setRegularCursor(const Qt::CursorShape cname) {
 
     cursor_ = QCursor(cname);
     this->setCursor(cursor_);
-}
-
-void QMLViewport::setOtherViewport(QObject *object) {
-    auto vp = dynamic_cast<QMLViewport *>(object);
-    if (vp)
-        other_viewport = vp;
 }

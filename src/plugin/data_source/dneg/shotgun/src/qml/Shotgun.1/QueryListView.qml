@@ -358,6 +358,7 @@ ListView{
                             ListElement { nameRole: "Production Status" }
                             ListElement { nameRole: "Recipient" }
                             ListElement { nameRole: "Result Limit" }
+                            ListElement { nameRole: "Review Location" }
                             ListElement { nameRole: "Sent To Client" }
                             ListElement { nameRole: "Sent To Dailies" }
                             ListElement { nameRole: "Sequence" }
@@ -435,6 +436,7 @@ ListView{
                             else if(termRole=="Production Status") productionStatusModel
                             else if(termRole=="Recipient") authorModel
                             else if(termRole=="Result Limit") resultLimitModel
+                            else if(termRole=="Review Location") reviewLocationModel
                             else if(termRole=="Sent To Client") boolModel
                             else if(termRole=="Sent To Dailies") boolModel
                             else if(termRole=="Sequence") sequenceModel

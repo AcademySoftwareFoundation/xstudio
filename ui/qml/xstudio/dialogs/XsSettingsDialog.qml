@@ -86,6 +86,19 @@ XsDialogModal {
                 }
             }
 
+
+            XsLabel {
+                text: "Force Trim Slate Frames"
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+            }
+            XsCheckboxOld {
+                checked: preferences.force_trim_slate_frame.value
+                onTriggered: {
+                    preferences.force_trim_slate_frame.value = !preferences.force_trim_slate_frame.value
+                }
+            }
+
+
             XsLabel {
                 text: "Pause Playback After Scrubbing"
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight

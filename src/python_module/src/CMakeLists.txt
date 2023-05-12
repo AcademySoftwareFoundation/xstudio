@@ -17,6 +17,7 @@ add_library(
 	py_register.cpp
 	py_remote_session_file.cpp
 	py_types.cpp
+	py_ui.cpp
 	py_utility.cpp
 	py_xstudio.cpp
 )

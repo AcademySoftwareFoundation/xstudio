@@ -266,31 +266,6 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
 
     term_models_->insert("stepModel", QVariant::fromValue(new ShotgunListModel(this)));
     qvariant_cast<ShotgunListModel *>(term_models_->value("stepModel"))->populate(R"([
-        {"name": "Anim"},
-        {"name": "Body Track"},
-        {"name": "Camera Track"},
-        {"name": "Comp"},
-        {"name": "Creature"},
-        {"name": "DMP"},
-        {"name": "Editorial"},
-        {"name": "Environ"},
-        {"name": "Envsetup"},
-        {"name": "FX"},
-        {"name": "Groom"},
-        {"name": "Layout"},
-        {"name": "Lighting"},
-        {"name": "Look Dev"},
-        {"name": "Model"},
-        {"name": "Muscle"},
-        {"name": "Prep"},
-        {"name": "Previs"},
-        {"name": "Retime Layout"},
-        {"name": "Rig"},
-        {"name": "Roto"},
-        {"name": "Scan"},
-        {"name": "Skin"},
-        {"name": "Sweatbox"},
-        {"name": "TD"},
         {"name": "None"}
     ])"_json);
 
@@ -370,6 +345,8 @@ ShotgunDataSourceUI::ShotgunDataSourceUI(QObject *parent) : QMLActor(parent) {
     term_models_->insert("userModel", QVariant::fromValue(new ShotgunListModel(this)));
     term_models_->insert("departmentModel", QVariant::fromValue(new ShotgunListModel(this)));
     term_models_->insert("locationModel", QVariant::fromValue(new ShotgunListModel(this)));
+    term_models_->insert(
+        "reviewLocationModel", QVariant::fromValue(new ShotgunListModel(this)));
     term_models_->insert("playlistTypeModel", QVariant::fromValue(new ShotgunListModel(this)));
     term_models_->insert(
         "productionStatusModel", QVariant::fromValue(new ShotgunListModel(this)));
@@ -832,11 +809,13 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
     auto cxt = StdFromQString(context);
     JsonStore qry;
 
+
     try {
         qry = JsonStore(nlohmann::json::parse(
             QJsonDocument::fromVariant(query.value<QJSValue>().toVariant())
                 .toJson(QJsonDocument::Compact)
                 .constData()));
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -920,6 +899,7 @@ QFuture<QString> ShotgunDataSourceUI::executeQuery(
                         orderby,
                         1,
                         max_count);
+
                 } else if (context == "Notes" or context == "Notes Tree") {
                     data = request_receive_wait<JsonStore>(
                         *sys,
@@ -1064,6 +1044,11 @@ void ShotgunDataSourceUI::addTerm(
                 qry->push_back(Text("sg_location").is_not(val));
             else
                 qry->push_back(Text("sg_location").is(val));
+        } else if (trm == "Review Location") {
+            if (negated)
+                qry->push_back(Text("sg_review_location_1").is_not(val));
+            else
+                qry->push_back(Text("sg_review_location_1").is(val));
         } else if (trm == "Department") {
             if (negated)
                 qry->push_back(Number("sg_department_unit.Department.id")
@@ -1760,6 +1745,14 @@ void ShotgunDataSourceUI::loadPresets(const bool purge_old) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
+        try {
+            qvariant_cast<ShotgunListModel *>(term_models_->value("stepModel"))
+                ->populate(
+                    preference_value<JsonStore>(js, "/plugin/data_source/shotgun/pipestep"));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
         for (const auto &[m, f] : std::vector<std::tuple<std::string, std::string>>{
                  {"shot", "shotPresetsModel"},
                  {"shot_tree", "shotTreePresetsModel"},
@@ -1854,6 +1847,10 @@ void ShotgunDataSourceUI::init(caf::actor_system &system) {
                         updateQueryValueCache("Department", data.at("data"));
                     } else if (request.at("type") == "location")
                         qvariant_cast<ShotgunListModel *>(term_models_->value("locationModel"))
+                            ->populate(data.at("data"));
+                    else if (request.at("type") == "review_location")
+                        qvariant_cast<ShotgunListModel *>(
+                            term_models_->value("reviewLocationModel"))
                             ->populate(data.at("data"));
                     else if (request.at("type") == "shot_status") {
                         updateQueryValueCache("Exclude Shot Status", data.at("data"));
@@ -2045,6 +2042,7 @@ void ShotgunDataSourceUI::populateCaches() {
     getDepartmentsFuture();
 
     getSchemaFieldsFuture("playlist", "sg_location", "location");
+    getSchemaFieldsFuture("playlist", "sg_review_location_1", "review_location");
     getSchemaFieldsFuture("playlist", "sg_type", "playlist_type");
 
     getSchemaFieldsFuture("shot", "sg_status_list", "shot_status");
@@ -2433,12 +2431,14 @@ QFuture<QString> ShotgunDataSourceUI::getShotsFuture(const int project_id) {
             try {
                 scoped_actor sys{system()};
 
+                // removed to include all shots.
+                // ["sg_status_list", "not_in", ["na","del"]]
+
                 auto filter = R"(
                 {
                     "logical_operator": "and",
                     "conditions": [
-                        ["project", "is", {"type":"Project", "id":0}],
-                        ["sg_status_list", "not_in", ["na","del"]]
+                        ["project", "is", {"type":"Project", "id":0}]
                     ]
                 })"_json;
 
@@ -2452,7 +2452,7 @@ QFuture<QString> ShotgunDataSourceUI::getShotsFuture(const int project_id) {
                     shotgun_entity_search_atom_v,
                     "Shots",
                     JsonStore(filter),
-                    std::vector<std::string>({"id", "code"}),
+                    ShotFields,
                     std::vector<std::string>({"code"}),
                     1,
                     4999);
@@ -2744,7 +2744,7 @@ QFuture<QString> ShotgunDataSourceUI::updateEntityFuture(
 QFuture<QString> ShotgunDataSourceUI::preparePlaylistNotesFuture(
     const QUuid &playlist,
     const bool notify_owner,
-    const int notify_group_id,
+    const std::vector<int> notify_group_ids,
     const bool combine,
     const bool add_time,
     const bool add_playlist_name,
@@ -2758,7 +2758,7 @@ QFuture<QString> ShotgunDataSourceUI::preparePlaylistNotesFuture(
                 auto req                  = JsonStore(PreparePlaylistNotesJSON);
                 req["playlist_uuid"]      = to_string(UuidFromQUuid(playlist));
                 req["notify_owner"]       = notify_owner;
-                req["notify_group_id"]    = notify_group_id;
+                req["notify_group_ids"]   = notify_group_ids;
                 req["combine"]            = combine;
                 req["add_time"]           = add_time;
                 req["add_playlist_name"]  = add_playlist_name;

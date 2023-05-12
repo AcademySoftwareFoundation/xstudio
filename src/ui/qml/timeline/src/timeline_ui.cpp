@@ -60,7 +60,6 @@ void TimelineUI::set_backend(caf::actor backend) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
 
-        makePlayhead();
         update_media();
         emit nameChanged();
         emit uuidChanged();
@@ -161,35 +160,6 @@ void TimelineUI::init(actor_system &system_) {
             }};
     });
 }
-
-void TimelineUI::makePlayhead() {
-    if (backend_) {
-        try {
-
-            scoped_actor sys{system()};
-            auto ua =
-                request_receive<UuidActor>(*sys, backend_, playlist::create_playhead_atom_v);
-            playhead_ = new PlayheadUI(this);
-            playhead_->initSystem(this);
-            playhead_->set_backend(ua.actor());
-            playhead_->setSourceUuid(uuid());
-            // anon_send(ua.second, playhead::source_atom_v, backend_);
-            emit playheadChanged();
-
-            auto selection_actor =
-                request_receive<caf::actor>(*sys, backend_, playlist::selection_actor_atom_v);
-            playlist_selection_ = new PlaylistSelectionUI(this);
-            playlist_selection_->initSystem(this);
-            playlist_selection_->set_backend(selection_actor);
-            emit playlistSelectionThingChanged();
-
-        } catch (const std::exception &e) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-        }
-    }
-}
-
-QObject *TimelineUI::playhead() { return static_cast<QObject *>(playhead_); }
 
 QObject *TimelineUI::selectionFilter() { return static_cast<QObject *>(playlist_selection_); }
 

@@ -16,14 +16,14 @@ Rectangle {
     z: 1000
 
     property var source: session.onScreenSource
-    property var playhead: source ? source.playhead : undefined
+    property var playhead: viewport.playhead
     property var currentMedia: playhead ? playhead.media.mediaSource : null
     property var filename: currentMedia ? currentMedia.fileName : ""
     property var format: currentMedia ? currentMedia.format : ""
     property var bitDepth: currentMedia ? currentMedia.bitDepth : ""
     property var fpsString: currentMedia ? currentMedia.fpsString : ""
     property var resolution: currentMedia ? currentMedia.resolution : ""
-    property var pixel_colour: sessionWidget.playerWidget.viewport.colourUnderCursor
+    property var pixel_colour: sessionWidget.viewport.colourUnderCursor
 
     function sourceOffsetFramesChanged() {
         offsetInput.text = (playhead.sourceOffsetFrames > 0 ? '+' : '') + playhead.sourceOffsetFrames
@@ -70,49 +70,87 @@ Rectangle {
 
     RowLayout {
 
-        anchors.centerIn: parent
-        spacing: 100
+        anchors.fill: parent
 
-        XsMediaInfoBarAutoAlign{
-            id: auto_align_option
-            label_text: "Auto Align"
-            visible: auto_align_enabled
-            tooltip_text: "Select option 'On' to auto align and extend range to include frames from all sources. Select 'On (Trim)' to auto align and reduce to frame range common to all sources."   
-        }
-
-        XsMediaInfoBarOffset {
-            id: offset_group
-            visible: offset_enabled
+        Rectangle {
+            color: "transparent"
+            XsMediaInfoBarAutoAlign{
+                anchors.centerIn: parent
+                id: auto_align_option
+                label_text: "Auto Align"
+                visible: auto_align_enabled
+                tooltip_text: "Select option 'On' to auto align and extend range to include frames from all sources. Select 'On (Trim)' to auto align and reduce to frame range common to all sources."   
+            }
+            Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        XsMediaInfoBarItem {
-            id: format_display
-            label_text: "Format"
-            value_text: format
-            tooltip_text: "The image format or video codec of the current source"    
+        Rectangle {
+            color: "transparent"
+            XsMediaInfoBarOffset {
+                id: offset_group
+                visible: offset_enabled
+                anchors.bottom: parent.bottom
+                anchors.top:parent.top
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
 
-        XsMediaInfoBarItem {
-            id: bitdepth_display
-            label_text: "Bit Depth"
-            value_text: bitDepth
-            tooltip_text: "The image bitdepth of the current source"    
+        Rectangle {
+            color: "transparent"
+            XsMediaInfoBarItem {
+                id: format_display
+                label_text: "Format"
+                value_text: format
+                tooltip_text: "The image format or video codec of the current source"    
+                anchors.centerIn: parent
+            }
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
 
-        XsMediaInfoBarItem {
-            id: fps_display
-            label_text: "FPS"
-            value_text: fpsString
-            tooltip_text: "The playback rate of the current source"    
+        Rectangle {
+            color: "transparent"
+            XsMediaInfoBarItem {
+                id: bitdepth_display
+                label_text: "Bit Depth"
+                value_text: bitDepth
+                tooltip_text: "The image bitdepth of the current source"    
+                anchors.centerIn: parent
+            }
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
 
-        XsMediaInfoBarItem {
-            id: res_display
-            label_text: "Res"
-            value_text: resolution
-            tooltip_text: "The image resolution in pixels of the current source"    
+        Rectangle {
+            color: "transparent"
+            XsMediaInfoBarItem {
+                id: fps_display
+                label_text: "FPS"
+                value_text: fpsString
+                tooltip_text: "The playback rate of the current source"    
+                anchors.centerIn: parent
+            }
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
+
+        Rectangle {
+            color: "transparent"
+            XsMediaInfoBarItem {
+                id: res_display
+                label_text: "Res"
+                value_text: resolution
+                tooltip_text: "The image resolution in pixels of the current source"    
+                anchors.centerIn: parent
+            }
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+        }
+
     }
 
     /*Rectangle {

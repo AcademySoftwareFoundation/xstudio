@@ -82,9 +82,9 @@ T.ComboBox { id: widget
         color: widget.enabled? widget.hovered || widget.activeFocus? textColorActive: textColorNormal: textColorDisabled
         width: widget.width //- indicatorMArea.width
         horizontalAlignment: Text.AlignHCenter
-        // height: widget.height
-        // verticalAlignment: Text.AlignVCenter
-        topPadding: (widget.height-textMetrics.height)/2 + 0.75
+        height: widget.height
+        verticalAlignment: Text.AlignVCenter
+        topPadding: (widget.height-textMetrics.height)/4
 
         TextMetrics { id: textMetrics
             font: textField.font
@@ -237,4 +237,5 @@ T.ComboBox { id: widget
             height: widget.height
         }
     }
+
 }

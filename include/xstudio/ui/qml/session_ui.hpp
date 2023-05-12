@@ -27,7 +27,6 @@ namespace ui {
     namespace qml {
 
         class PlaylistUI;
-        class PlayheadUI;
         class BookmarksUI;
         class PlaylistSelectionUI;
 
@@ -280,13 +279,20 @@ namespace ui {
             Q_PROPERTY(bool modified READ modified WRITE setModified NOTIFY modifiedChanged)
             Q_PROPERTY(QUrl path READ path WRITE setPath NOTIFY pathChanged)
             Q_PROPERTY(QString pathNative READ pathNative NOTIFY pathChanged)
+
+
+            Q_PROPERTY(QString bookmarkActorAddr READ bookmarkActorAddr NOTIFY
+                           bookmarkActorAddrChanged)
+            Q_PROPERTY(
+                QString sessionActorAddr READ sessionActorAddr NOTIFY sessionActorAddrChanged)
+
+
             Q_PROPERTY(QVariant playlistNames READ playlistNames NOTIFY playlistNamesChanged)
             Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
             Q_PROPERTY(
                 QDateTime sessionFileMTime READ sessionFileMTime NOTIFY sessionFileMTimechanged)
 
             Q_PROPERTY(QObject *playlist READ playlist NOTIFY playlistChanged)
-            Q_PROPERTY(QObject *bookmarks READ bookmarks NOTIFY bookmarksChanged)
             Q_PROPERTY(QQmlPropertyMap *tags READ tags NOTIFY tagsChanged)
             Q_PROPERTY(QObject *selectedSource READ selectedSource NOTIFY selectedSourceChanged)
             Q_PROPERTY(QObject *onScreenSource READ onScreenSource NOTIFY onScreenSourceChanged)
@@ -326,7 +332,6 @@ namespace ui {
             QVariant playlistNames() { return playlistNames_; }
 
             QObject *playlist();
-            QObject *bookmarks();
             QQmlPropertyMap *tags() { return tag_manager_->attrs_map_; }
 
             QList<QObject *> dataSources() { return data_sources_; }
@@ -341,10 +346,18 @@ namespace ui {
             utility::Uuid cuuid(const QObject *obj) const;
 
             double mediaRate() { return media_rate_.to_fps(); }
+
+            [[nodiscard]] QString bookmarkActorAddr() const { return bookmark_actor_addr_; };
+            [[nodiscard]] QString sessionActorAddr() const { return session_actor_addr_; };
+
           signals:
 
             // void nameChanged();
             void backendChanged();
+
+            void bookmarkActorAddrChanged();
+            void sessionActorAddrChanged();
+
             // void playlistsChanged();
             void modifiedChanged();
             void dataSourcesChanged();
@@ -354,7 +367,6 @@ namespace ui {
             void pathChanged();
             void newItem(QVariant cuuid);
             void playlistRemoved(const QVariant uuid);
-            void bookmarksChanged();
             void tagsChanged();
             void nameChanged();
             void playlistChanged();
@@ -441,7 +453,7 @@ namespace ui {
             void switchOnScreenSource(const QUuid &uuid = QUuid(), const bool broadcast = true);
             void rebuildPlaylistNamesList();
             void setMediaRate(const double rate);
-
+            void setViewerPlayhead();
             QUuid mergePlaylists(
                 const QVariantList &cuuids = QVariantList(),
                 const QString &name        = "Combined Playlist",
@@ -513,7 +525,6 @@ namespace ui {
             utility::time_point last_changed_;
 
             PlaylistUI *playlist_{nullptr};
-            BookmarksUI *bookmarks_{nullptr};
             TagManagerUI *tag_manager_{nullptr};
             QObject *selected_source_{nullptr};
             QObject *on_screen_source_{nullptr};
@@ -521,6 +532,9 @@ namespace ui {
             utility::FrameRate media_rate_;
 
             caf::actor dummy_playlist_;
+
+            QString bookmark_actor_addr_;
+            QString session_actor_addr_;
         };
     } // namespace qml
 } // namespace ui

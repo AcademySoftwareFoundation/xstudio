@@ -68,13 +68,14 @@ void send_output(
     auto stdo = output.stdout_string();
     auto stde = output.stderr_string();
 
-    if (not stdo.empty() or not stde.empty())
+    if (not stdo.empty() or not stde.empty()) {
         act->send(
             grp,
             utility::event_atom_v,
             python_output_atom_v,
             uuid,
             std::make_tuple(stdo, stde));
+    }
 }
 
 #pragma GCC visibility pop
@@ -470,7 +471,6 @@ void EmbeddedPythonActor::act() {
             }
         },
         others >> [=](message &msg) -> skippable_result {
-            spdlog::warn("set_default_handler");
             auto sender = caf::actor_cast<caf::actor>(current_sender());
             base_.push_caf_message_to_py_callbacks(sender, msg);
             return message{};
@@ -490,10 +490,16 @@ void EmbeddedPythonActor::init() {
     system().registry().put(embedded_python_registry, this);
 }
 
+void EmbeddedPythonActor::join_broadcast(caf::actor broadcast_group) {
+
+    send(broadcast_group, broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this));
+}
+
 void EmbeddedPythonActor::join_broadcast(
     caf::actor plugin_base_actor, const std::string &plugin_name) {
 
     auto plugin_manager = system().registry().template get<caf::actor>(plugin_manager_registry);
+
     request(plugin_manager, infinite, plugin_manager::spawn_plugin_base_atom_v, plugin_name)
         .receive(
             [=](caf::actor plugin_actor) {

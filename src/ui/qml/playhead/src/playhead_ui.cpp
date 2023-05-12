@@ -34,117 +34,83 @@ PlayheadUI::PlayheadUI(QObject *parent)
 void PlayheadUI::set_backend(caf::actor backend) {
     scoped_actor sys{system()};
 
+    bool had_backend = bool(backend_);
+
+    if (backend_) {
+        self()->demonitor(backend_);
+        anon_send(backend_, playhead::play_atom_v, false); // make sure we stop playback
+        anon_send(backend_, module::disconnect_from_ui_atom_v);
+    }
+
     backend_ = backend;
     // get backend state..
     if (backend_events_) {
+
         try {
             request_receive<bool>(
                 *sys, backend_events_, broadcast::leave_broadcast_atom_v, as_actor());
         } catch (const std::exception &e) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+            spdlog::warn("A {} {}", __PRETTY_FUNCTION__, e.what());
         }
+        self()->demonitor(backend_events_);
         backend_events_ = caf::actor();
     }
 
-    try {
-        auto detail     = request_receive<ContainerDetail>(*sys, backend_, detail_atom_v);
-        name_           = QString::fromStdString(detail.name_);
-        uuid_           = detail.uuid_;
-        backend_events_ = detail.group_;
-        request_receive<bool>(
-            *sys, backend_events_, broadcast::join_broadcast_atom_v, as_actor());
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        looping_ =
-            (int)request_receive<playhead::LoopMode>(*sys, backend_, playhead::loop_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        play_rate_mode_ =
-            request_receive<TimeSourceMode>(*sys, backend_, playhead::play_rate_mode_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        playing_ = request_receive<bool>(*sys, backend_, playhead::play_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        forward_ = request_receive<bool>(*sys, backend_, playhead::play_forward_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        fr_rate_ = request_receive<FrameRate>(*sys, backend_, utility::rate_atom_v);
-        rate_    = fr_rate_.to_seconds();
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        fr_playhead_rate_ =
-            request_receive<FrameRate>(*sys, backend_, playhead::playhead_rate_atom_v);
-        playhead_rate_ = fr_playhead_rate_.to_seconds();
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        velocity_multiplier_ =
-            request_receive<float>(*sys, backend_, playhead::velocity_multiplier_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        loop_start_ = request_receive<int>(*sys, backend_, playhead::simple_loop_start_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        loop_end_ = request_receive<int>(*sys, backend_, playhead::simple_loop_end_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        frames_ = request_receive<int>(*sys, backend_, playhead::duration_frames_atom_v);
-        // spdlog::warn("playheadUI init {}", frames_);
-
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        use_loop_range_ =
-            request_receive<bool>(*sys, backend_, playhead::use_loop_range_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        key_playhead_index_ =
-            request_receive<int>(*sys, backend_, playhead::key_playhead_index_atom_v);
-    } catch (const std::exception &e) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
-
-    try {
-        source_offset_frames_ =
-            request_receive<int>(*sys, backend_, media::source_offset_frames_atom_v);
-    } catch (const std::exception &e) {
+    if (!backend_) {
+        looping_              = playhead::LoopMode::LM_LOOP;
+        play_rate_mode_       = TimeSourceMode::FIXED;
+        playing_              = false;
+        forward_              = true;
+        fr_rate_              = FrameRate(timebase::k_flicks_24fps);
+        fr_playhead_rate_     = FrameRate(timebase::k_flicks_24fps);
+        velocity_multiplier_  = 1.0f;
+        loop_start_           = 1;
+        loop_end_             = 1;
+        frames_               = 0;
+        use_loop_range_       = false;
+        key_playhead_index_   = 0;
         source_offset_frames_ = 0;
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    } else {
+        self()->monitor(backend_);
+        try {
+
+            auto detail = request_receive<ContainerDetail>(*sys, backend_, detail_atom_v);
+            name_       = QString::fromStdString(detail.name_);
+            uuid_       = detail.uuid_;
+
+            backend_events_ = detail.group_;
+            request_receive<bool>(
+                *sys, backend_events_, broadcast::join_broadcast_atom_v, as_actor());
+            self()->monitor(backend_events_);
+
+            fr_rate_ = request_receive<FrameRate>(*sys, backend_, utility::rate_atom_v);
+            rate_    = fr_rate_.to_seconds();
+            fr_playhead_rate_ =
+                request_receive<FrameRate>(*sys, backend_, playhead::playhead_rate_atom_v);
+            playhead_rate_ = fr_playhead_rate_.to_seconds();
+            velocity_multiplier_ =
+                request_receive<float>(*sys, backend_, playhead::velocity_multiplier_atom_v);
+            loop_start_ =
+                request_receive<int>(*sys, backend_, playhead::simple_loop_start_atom_v);
+            loop_end_ = request_receive<int>(*sys, backend_, playhead::simple_loop_end_atom_v);
+            frames_   = request_receive<int>(*sys, backend_, playhead::duration_frames_atom_v);
+            use_loop_range_ =
+                request_receive<bool>(*sys, backend_, playhead::use_loop_range_atom_v);
+            key_playhead_index_ =
+                request_receive<int>(*sys, backend_, playhead::key_playhead_index_atom_v);
+            source_offset_frames_ =
+                request_receive<int>(*sys, backend_, media::source_offset_frames_atom_v);
+            looping_ =
+                (int)request_receive<playhead::LoopMode>(*sys, backend_, playhead::loop_atom_v);
+            play_rate_mode_ = request_receive<TimeSourceMode>(
+                *sys, backend_, playhead::play_rate_mode_atom_v);
+            playing_ = request_receive<bool>(*sys, backend_, playhead::play_atom_v);
+            forward_ = request_receive<bool>(*sys, backend_, playhead::play_forward_atom_v);
+
+        } catch (const std::exception &e) {
+            source_offset_frames_ = 0;
+            spdlog::warn("B {} {}", __PRETTY_FUNCTION__, e.what());
+        }
     }
 
     loop_mode_options_ = QList<QVariant>({
@@ -188,6 +154,14 @@ void PlayheadUI::set_backend(caf::actor backend) {
     emit bookmarkedFramesChanged();
 
     spdlog::debug("PlayheadUI set_backend {}", to_string(uuid_));
+
+    if (backend_) {
+        anon_send(backend_, module::connect_to_ui_atom_v);
+    }
+
+    if (bool(backend_) != had_backend) {
+        emit isNullChanged();
+    }
 }
 
 void PlayheadUI::initSystem(QObject *system_qobject) {
@@ -204,6 +178,19 @@ void PlayheadUI::init(actor_system &system_) {
     // 		unsubscribe();
     // });
     scoped_actor sys{system()};
+
+    media_ = new MediaUI(this);
+    media_->initSystem(this);
+    emit mediaChanged();
+
+    self()->set_down_handler([=](down_msg &msg) {
+        if (msg.source == backend_) {
+            backend_ = caf::actor();
+            set_backend(caf::actor());
+        } else if (msg.source == backend_events_) {
+            backend_events_ = caf::actor();
+        }
+    });
 
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
@@ -426,10 +413,6 @@ void PlayheadUI::init(actor_system &system_) {
                 }
             }};
     });
-
-    media_ = new MediaUI(this);
-    media_->initSystem(this);
-    emit mediaChanged();
 }
 
 void PlayheadUI::media_changed() {
@@ -458,7 +441,7 @@ void PlayheadUI::setPlaying(const bool playing) {
 
 void PlayheadUI::setFrame(const int frame) {
     if (frame != frame_) {
-        anon_send(backend_, playhead::scrub_frame_atom_v, frame);
+        anon_send(backend_, playhead::scrub_frame_atom_v, std::max(0, frame));
     }
 }
 

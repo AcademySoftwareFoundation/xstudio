@@ -14,9 +14,9 @@ namespace ui {
           public:
             enum HoverState {
                 NotHovered,
+                HoveredInCaptionArea,
                 HoveredOnMoveHandle,
                 HoveredOnResizeHandle,
-                HoveredInCaptionArea,
                 HoveredOnDeleteHandle
             };
 

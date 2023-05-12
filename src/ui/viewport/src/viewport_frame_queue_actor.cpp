@@ -68,10 +68,10 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
                                 .then(
                                     [=](media_reader::ImageBufPtr buf) mutable {
                                         queue_image_buffer_for_drawing(buf, curr_playhead_uuid);
-                                        update_blind_data(
-                                            std::vector<media_reader::ImageBufPtr>({buf}),
-                                            false);
                                         rp.deliver(true);
+                                        drop_old_frames(
+                                            utility::clock::now() -
+                                            std::chrono::milliseconds(100));
                                     },
                                     [=](const error &err) mutable { rp.deliver(err); });
                         } else {
@@ -124,7 +124,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             const bool is_onscreen_frame) {
             playing_ = is_playing;
             queue_image_buffer_for_drawing(buf, playhead_uuid);
-            update_blind_data(std::vector<media_reader::ImageBufPtr>({buf}), false);
+            drop_old_frames(utility::clock::now() - std::chrono::milliseconds(100));
         },
 
         // these are frame bufs that we expect to draw in the very near future
@@ -137,7 +137,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
                     queue_image_buffer_for_drawing(buf, playhead_uuid);
                 }
             }
-            update_blind_data(future_bufs);
+            drop_old_frames(utility::clock::now() - std::chrono::milliseconds(100));
         },
 
         [=](viewport_get_next_frames_for_display_atom)
@@ -223,12 +223,6 @@ void ViewportFrameQueueActor::queue_image_buffer_for_drawing(
     }
 
     frames_queued_for_display.push_back(buf);
-
-    {
-        // purge images in the queue that were supposed to be displayed before now.
-        const auto now = utility::clock::now() - std::chrono::milliseconds(100);
-        drop_old_frames(now);
-    }
 }
 
 
@@ -290,6 +284,22 @@ void ViewportFrameQueueActor::get_frames_for_display(
     // displayed before this one can be dropped from the queue
     if (next_images.size()) {
         drop_old_frames((*next_images.begin()).when_to_display_);
+    }
+
+    auto sys = caf::scoped_actor(home_system());
+    for (auto p : overlay_actors_) {
+
+        utility::Uuid overlay_actor_uuid = p.first;
+        caf::actor overlay_actor         = p.second;
+        for (media_reader::ImageBufPtr &im : next_images) {
+            try {
+                auto bdata = request_receive<utility::BlindDataObjectPtr>(
+                    *sys, overlay_actor, prepare_overlay_render_data_atom_v, im, false);
+                im.add_plugin_blind_data(overlay_actor_uuid, bdata);
+            } catch (std::exception &e) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+            }
+        }
     }
 }
 

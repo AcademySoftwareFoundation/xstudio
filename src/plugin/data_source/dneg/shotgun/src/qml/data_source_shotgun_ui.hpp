@@ -237,18 +237,18 @@ namespace ui {
 
             QString preparePlaylistNotes(
                 const QUuid &playlist,
-                const bool notify_owner       = false,
-                const int notify_group_id     = 0,
-                const bool combine            = false,
-                const bool add_time           = false,
-                const bool add_playlist_name  = false,
-                const bool add_type           = false,
-                const bool anno_requires_note = true,
-                const QString &defaultType    = "") {
+                const bool notify_owner                 = false,
+                const std::vector<int> notify_group_ids = {},
+                const bool combine                      = false,
+                const bool add_time                     = false,
+                const bool add_playlist_name            = false,
+                const bool add_type                     = false,
+                const bool anno_requires_note           = true,
+                const QString &defaultType              = "") {
                 return preparePlaylistNotesFuture(
                            playlist,
                            notify_owner,
-                           notify_group_id,
+                           notify_group_ids,
                            combine,
                            add_time,
                            add_playlist_name,
@@ -259,14 +259,14 @@ namespace ui {
             }
             QFuture<QString> preparePlaylistNotesFuture(
                 const QUuid &playlist,
-                const bool notify_owner       = false,
-                const int notify_group_id     = 0,
-                const bool combine            = false,
-                const bool add_time           = false,
-                const bool add_playlist_name  = false,
-                const bool add_type           = false,
-                const bool anno_requires_note = true,
-                const QString &defaultType    = "");
+                const bool notify_owner                 = false,
+                const std::vector<int> notify_group_ids = {},
+                const bool combine                      = false,
+                const bool add_time                     = false,
+                const bool add_playlist_name            = false,
+                const bool add_type                     = false,
+                const bool anno_requires_note           = true,
+                const QString &defaultType              = "");
 
             QString pushPlaylistNotes(const QString &notes, const QUuid &playlist) {
                 return pushPlaylistNotesFuture(notes, playlist).result();

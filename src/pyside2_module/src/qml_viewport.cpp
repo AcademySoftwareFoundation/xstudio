@@ -35,9 +35,7 @@ CAF_POP_WARNINGS
 
 using namespace xstudio;
 
-static QScopedPointer<GlobalStoreUI> root_store;
-
-QMLViewport::QMLViewport(QWidget *parent) : QQuickWidget(parent) {
+PySideQmlViewport::PySideQmlViewport(QWidget *parent) : QQuickWidget(parent) {
 
     // As far as I can tell caf only allows config to be modified
     // through cli args. We prefer the 'sharing' policy rather than
@@ -58,12 +56,12 @@ QMLViewport::QMLViewport(QWidget *parent) : QQuickWidget(parent) {
     // Get the session to create a playlist
     auto playlist = utility::request_receive<utility::UuidUuidActor>(
                         *self, session, session::add_playlist_atom_v, "Test")
-                        .second.second;
+                        .second.actor();
 
     // ask the playlist to create a playhead
     caf::actor playhead = utility::request_receive<utility::UuidActor>(
                               *self, playlist, playlist::create_playhead_atom_v)
-                              .second;
+                              .actor();
 
     // Register our custom types
     qmlRegisterType<StudioUI>("xstudio.qml.studio", 1, 0, "Studio");
@@ -77,7 +75,6 @@ QMLViewport::QMLViewport(QWidget *parent) : QQuickWidget(parent) {
     qmlRegisterType<MediaStreamUI>("xstudio.qml.media_stream", 1, 0, "MediaStream");
     qmlRegisterType<BookmarksUI>("xstudio.qml.bookmarks", 1, 0, "Bookmarks");
     qmlRegisterType<BookmarkDetailUI>("xstudio.qml.bookmarks", 1, 0, "BookmarkDetail");
-    qmlRegisterType<EmbeddedPythonUI>("xstudio.qml.embedded_python", 1, 0, "EmbeddedPython");
 
     qmlRegisterType<SessionUI>("xstudio.qml.session", 1, 0, "Session");
     qmlRegisterType<ContainerGroupUI>("xstudio.qml.session", 1, 0, "ContainerGroupUI");
@@ -122,9 +119,9 @@ QMLViewport::QMLViewport(QWidget *parent) : QQuickWidget(parent) {
     setSource(url);
 }
 
-void QMLViewport::resizeEvent(QResizeEvent *event) {
+void PySideQmlViewport::resizeEvent(QResizeEvent *event) {
 
-    rootObject()->setWidth(width());
-    rootObject()->setHeight(height());
+    rootObject()->setWidth(event->size().width());
+    rootObject()->setHeight(event->size().height());
     QQuickWidget::resizeEvent(event);
 }

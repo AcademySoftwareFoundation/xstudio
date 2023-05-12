@@ -39,8 +39,15 @@ Item {
 
         model: module_menu_shim
 
-        delegate: XsModuleMenuItem {}
-        onObjectAdded: parent_menu.addItem(object)
+        delegate: XsModuleMenuItem {
+        }
+        onObjectAdded: {
+            if (insert_after_index != -1) {                
+                parent_menu.insertItem(insert_after_index, object)
+            } else {
+                parent_menu.addItem(object)
+            }
+        }
         onObjectRemoved: parent_menu.removeItem(object)
 
     }

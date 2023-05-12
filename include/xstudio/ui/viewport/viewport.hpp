@@ -137,23 +137,38 @@ namespace ui {
                 const int image_height   = 0,
                 const float pixel_aspect = 1.0f);
 
-            float scale() const { return state_.scale_; }
-            float pixel_zoom() const;
-            Imath::V2f size() const { return state_.size_; }
-            Imath::V2f pan() const {
+            [[nodiscard]] float scale() const { return state_.scale_; }
+            [[nodiscard]] float pixel_zoom() const;
+            [[nodiscard]] Imath::V2f size() const { return state_.size_; }
+            [[nodiscard]] Imath::V2f pan() const {
                 return Imath::V2f(state_.translate_.x, state_.translate_.y);
             }
-            Imath::V2i on_screen_image_dims() const { return state_.image_size_; }
-            FitMode fit_mode() const { return state_.fit_mode_; }
-            const Imath::M44f &projection_matrix() const { return projection_matrix_; }
-            const Imath::M44f &inv_projection_matrix() const { return inv_projection_matrix_; }
-            const Imath::M44f &to_scene_matrix() const { return viewport_to_canvas_; }
-            const Imath::M44f &fit_mode_matrix() const { return fit_mode_matrix_; }
-            const std::string &frame_rate_expression() const { return frame_rate_expr_; }
-            bool frame_out_of_range() const { return frame_out_of_range_; }
-            int on_screen_frame() const { return on_screen_frame_; }
-            bool playing() const { return playing_; }
-
+            [[nodiscard]] Imath::V2i on_screen_image_dims() const { return state_.image_size_; }
+            [[nodiscard]] FitMode fit_mode() const { return state_.fit_mode_; }
+            [[nodiscard]] const Imath::M44f &projection_matrix() const {
+                return projection_matrix_;
+            }
+            [[nodiscard]] const Imath::M44f &inv_projection_matrix() const {
+                return inv_projection_matrix_;
+            }
+            [[nodiscard]] const Imath::M44f &to_scene_matrix() const {
+                return viewport_to_canvas_;
+            }
+            [[nodiscard]] const Imath::M44f &fit_mode_matrix() const {
+                return fit_mode_matrix_;
+            }
+            [[nodiscard]] const std::string &frame_rate_expression() const {
+                return frame_rate_expr_;
+            }
+            [[nodiscard]] bool frame_out_of_range() const { return frame_out_of_range_; }
+            [[nodiscard]] int on_screen_frame() const { return on_screen_frame_; }
+            [[nodiscard]] bool playing() const { return playing_; }
+            [[nodiscard]] const std::string &pixel_info_string() const {
+                return pixel_info_string_;
+            }
+            [[nodiscard]] caf::actor playhead() {
+                return caf::actor_cast<caf::actor>(playhead_addr_);
+            }
             utility::JsonStore serialise() const override;
 
             /**
@@ -214,7 +229,8 @@ namespace ui {
                 OutOfRangeChanged,
                 OnScreenFrameChanged,
                 ExposureChanged,
-                TranslationChanged
+                TranslationChanged,
+                PlayheadChanged
             };
 
             typedef std::function<void(ChangeCallbackId)> ChangeCallback;
@@ -292,8 +308,6 @@ namespace ui {
 
             void get_colour_pipeline();
 
-            void update_pixel_picker_info(const PointerEvent &pointer_event);
-
             utility::JsonStore settings_;
 
             typedef std::function<bool(const PointerEvent &pointer_event)> PointerInteractFunc;
@@ -301,7 +315,8 @@ namespace ui {
 
             bool frame_out_of_range_ = {false};
             int on_screen_frame_;
-            std::string frame_rate_expr_ = {"--/--"};
+            std::string frame_rate_expr_   = {"--/--"};
+            std::string pixel_info_string_ = {"--"};
             media_reader::ImageBufPtr on_screen_frame_buffer_;
             media_reader::ImageBufPtr about_to_go_on_screen_frame_buffer_;
             timebase::flicks screen_refresh_period_ = timebase::k_flicks_zero_seconds;
@@ -314,7 +329,7 @@ namespace ui {
             caf::actor viewport_events_actor_;
             caf::actor other_viewport_;
             caf::actor colour_pipeline_;
-            caf::actor media_cache_actor_;
+            caf::actor keyboard_events_actor_;
 
             caf::actor_addr playhead_addr_;
 
@@ -331,6 +346,7 @@ namespace ui {
             std::set<int> held_keys_;
 
             std::map<utility::Uuid, caf::actor> overlay_plugin_instances_;
+            std::map<utility::Uuid, caf::actor> hud_plugin_instances_;
 
             module::BooleanAttribute *zoom_mode_toggle_;
             module::BooleanAttribute *pan_mode_toggle_;
@@ -339,10 +355,13 @@ namespace ui {
             module::StringChoiceAttribute *filter_mode_preference_;
             module::StringChoiceAttribute *texture_mode_preference_;
             module::StringChoiceAttribute *mouse_wheel_behaviour_;
+            module::BooleanAttribute *hud_toggle_;
+            module::StringChoiceAttribute *hud_elements_;
 
             utility::Uuid zoom_hotkey_;
             utility::Uuid pan_hotkey_;
             utility::Uuid reset_hotkey_;
+            utility::Uuid fit_mode_hotkey_;
 
             utility::time_point t1_;
 
@@ -350,6 +369,8 @@ namespace ui {
                 const utility::Uuid &hotkey_uuid, const std::string &context) override;
             void hotkey_released(
                 const utility::Uuid &hotkey_uuid, const std::string &context) override;
+            void update_attrs_from_preferences(const utility::JsonStore &) override;
+
 
             ViewportRendererPtr the_renderer_;
         };

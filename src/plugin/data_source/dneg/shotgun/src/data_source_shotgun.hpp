@@ -22,6 +22,7 @@ const auto GetPlaylistLinkMediaJSON =
     R"({"playlist_uuid": null, "operation": "LinkMedia"})"_json;
 const auto GetVersionIvyUuidJSON =
     R"({"job":null, "ivy_uuid": null, "operation": "VersionFromIvy"})"_json;
+const auto GetShotFromIdJSON = R"({"shot_id": null, "operation": "GetShotFromId"})"_json;
 const auto RefreshPlaylistJSON =
     R"({"entity":"Playlist", "relationship": "Version", "playlist_uuid": null})"_json;
 const auto RefreshPlaylistNotesJSON =
@@ -31,19 +32,19 @@ const auto PublishNoteTemplateJSON = R"(
     "bookmark_uuid": "",
     "shot": "",
     "payload": {
-            "project":{ "type": "Project", "id":null },
+            "project":{ "type": "Project", "id":0 },
             "note_links": [
-                { "type": "Playlist", "id":null },
-                { "type": "Shot", "id":null },
-                { "type": "Version", "id":null }
+                { "type": "Playlist", "id":0 },
+                { "type": "Sequence", "id":0 },
+                { "type": "Shot", "id":0 },
+                { "type": "Version", "id":0 }
             ],
 
             "addressings_to": [
-                { "type": "HumanUser", "id": null}
+                { "type": "HumanUser", "id": 0}
             ],
 
             "addressings_cc": [
-                { "type": "Group", "id": null}
             ],
 
             "sg_note_type": null,
@@ -58,7 +59,7 @@ const auto PreparePlaylistNotesJSON = R"({
     "operation":"PrepareNotes",
     "playlist_uuid": null,
     "notify_owner": false,
-    "notify_group_id": 0,
+    "notify_group_ids": [],
     "combine": false,
     "add_time": false,
     "add_playlist_name": false,
@@ -100,6 +101,8 @@ const auto VersionFields = std::vector<std::string>(
      "sg_comp_range",
      "sg_project_name",
      "sg_twig_type",
+     "sg_cut_order",
+     "cut_order",
      "sg_cut_in",
      "sg_comp_in",
      "sg_cut_out",
@@ -112,6 +115,9 @@ const auto VersionFields = std::vector<std::string>(
      "sg_submit_dailies_van",
      "sg_submit_dailies_mum",
      "image"});
+
+const auto ShotFields =
+    std::vector<std::string>({"id", "code", "sg_comp_range", "sg_cut_range", "project"});
 
 const std::string shotgun_datasource_registry{"SHOTGUNDATASOURCE"};
 
@@ -220,14 +226,14 @@ template <typename T> class ShotgunDataSourceActor : public caf::event_based_act
     void prepare_playlist_notes(
         caf::typed_response_promise<utility::JsonStore> rp,
         const utility::Uuid &playlist_uuid,
-        const bool notify_owner         = false,
-        const int notify_group_id       = 0,
-        const bool combine              = false,
-        const bool add_time             = false,
-        const bool add_playlist_name    = false,
-        const bool add_type             = false,
-        const bool anno_requires_note   = true,
-        const std::string &default_type = "");
+        const bool notify_owner                 = false,
+        const std::vector<int> notify_group_ids = {},
+        const bool combine                      = false,
+        const bool add_time                     = false,
+        const bool add_playlist_name            = false,
+        const bool add_type                     = false,
+        const bool anno_requires_note           = true,
+        const std::string &default_type         = "");
 
     void create_playlist_notes(
         caf::typed_response_promise<utility::JsonStore> rp,
@@ -259,6 +265,8 @@ template <typename T> class ShotgunDataSourceActor : public caf::event_based_act
         caf::typed_response_promise<utility::JsonStore> rp,
         const std::string &uuid,
         const std::string &job);
+    void find_shot(caf::typed_response_promise<utility::JsonStore> rp, const int shot_id);
+
     std::shared_ptr<BuildPlaylistMediaJob> get_next_build_task(bool &is_ivy_build_task);
     void do_add_media_sources_from_shotgun(std::shared_ptr<BuildPlaylistMediaJob>);
     void do_add_media_sources_from_ivy(std::shared_ptr<BuildPlaylistMediaJob>);
@@ -278,4 +286,6 @@ template <typename T> class ShotgunDataSourceActor : public caf::event_based_act
     std::deque<std::shared_ptr<BuildPlaylistMediaJob>> extend_media_with_ivy_tasks_;
     int build_tasks_in_flight_ = {0};
     int worker_count_          = {8};
+
+    std::map<long, utility::JsonStore> shot_cache_;
 };

@@ -324,10 +324,13 @@
 		<file>base/widgets/XsCheckbox.qml</file>
 		<file>base/widgets/XsCheckBoxNew.qml</file>
 		<file>base/widgets/XsCheckBoxWithComboBox.qml</file>
+		<file>base/widgets/XsCheckBoxWithMultiComboBox.qml</file>
 		<file>base/widgets/XsCheckBoxWithTextField.qml</file>
 		<file>base/widgets/XsCollapsibleLabel.qml</file>
 		<file>base/widgets/XsColoredImage.qml</file>
+		<file>base/widgets/XsColourChooser.qml</file>
 		<file>base/widgets/XsComboBoxNew.qml</file>
+		<file>base/widgets/XsComboBoxMultiSelect.qml</file>
 		<file>base/widgets/XsComboBoxWithText.qml</file>
 		<file>base/widgets/XsDecoratorWidget.qml</file>
 		<file>base/widgets/XsExpandButton.qml</file>
@@ -336,6 +339,7 @@
 		<file>base/widgets/XsFramedButton.qml</file>
 		<file>base/widgets/XsHotkeyView.qml</file>
 		<file>base/widgets/XsHSpacer.qml</file>
+		<file>base/widgets/XsIntAttrSlider.qml</file>
 		<file>base/widgets/XsIntSlider.qml</file>
 		<file>base/widgets/XsHSlider.qml</file>
 		<file>base/widgets/XsIntSliderPopupSimple.qml</file>
@@ -392,7 +396,6 @@
 		<file>dialogs/XsFeedbackDialog.qml</file>
 		<file>dialogs/XsFunctionalFeaturesDialog.qml</file>
 		<file>dialogs/XsImportSessionDialog.qml</file>
-		<file>dialogs/XsBookmarkDialog.qml</file>
 		<file>dialogs/XsHotkeysDialog.qml</file>
 		<file>dialogs/XsNewContactSheetDialog.qml</file>
 		<file>dialogs/XsNewPlaylistDialog.qml</file>
@@ -486,6 +489,7 @@
 		<file>trays/XsLayoutTray.qml</file>
 		<file>trays/XsPaneVisibilityTray.qml</file>
 		<file>widgets/XsForwardWidget.qml</file>
+		<file>widgets/XsHudToolbarButton.qml</file>
 		<file>widgets/XsLoopWidget.qml</file>
 		<file>widgets/XsMediaInfoBarItem.qml</file>
 		<file>widgets/XsMediaInfoBarOffset.qml</file>

@@ -57,27 +57,28 @@ CAF_PUSH_WARNINGS
 #include <QQuickView>
 CAF_POP_WARNINGS
 
-#include "xstudio/ui/qml/module_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/module_menu_ui.hpp"        //NOLINT
+#include "xstudio/ui/mouse.hpp"
+#include "xstudio/ui/qml/bookmark_model_ui.hpp"     //NOLINT
 #include "xstudio/ui/qml/contact_sheet_ui.hpp"      //NOLINT
 #include "xstudio/ui/qml/embedded_python_ui.hpp"    //NOLINT
-#include "xstudio/ui/qml/helper_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/media_ui.hpp"              //NOLINT
 #include "xstudio/ui/qml/event_ui.hpp"              //NOLINT
-#include "xstudio/ui/qml/log_ui.hpp"                //NOLINT
-#include "xstudio/ui/qml/playlist_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/bookmark_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/session_ui.hpp"            //NOLINT
-#include "xstudio/ui/qml/studio_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/subset_ui.hpp"             //NOLINT
 #include "xstudio/ui/qml/global_store_model_ui.hpp" //NOLINT
-#include "xstudio/ui/qml/timeline_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/thumbnail_ui.hpp"
-#include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
+#include "xstudio/ui/qml/helper_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/hotkey_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/log_ui.hpp"                //NOLINT
+#include "xstudio/ui/qml/media_ui.hpp"              //NOLINT
+#include "xstudio/ui/qml/module_menu_ui.hpp"        //NOLINT
+#include "xstudio/ui/qml/module_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/playlist_ui.hpp"           //NOLINT
+#include "xstudio/ui/qml/qml_viewport.hpp"          //NOLINT
+#include "xstudio/ui/qml/session_model_ui.hpp"      //NOLINT
+#include "xstudio/ui/qml/session_ui.hpp"            //NOLINT
 #include "xstudio/ui/qml/shotgun_provider_ui.hpp"
-#include "xstudio/ui/qml/hotkey_ui.hpp"    //NOLINT
-#include "xstudio/ui/qml/qml_viewport.hpp" //NOLINT
-#include "xstudio/ui/mouse.hpp"
+#include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
+#include "xstudio/ui/qml/subset_ui.hpp" //NOLINT
+#include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
+#include "xstudio/ui/qml/thumbnail_ui.hpp"
+#include "xstudio/ui/qml/timeline_ui.hpp" //NOLINT
 
 #include "QuickFuture"
 
@@ -326,6 +327,9 @@ struct Launcher {
             // self->anon_send(gsa, json_store::set_json_atom_v, static_cast<JsonStore>(prefs));
 
             request_receive<caf::actor>(*self, global_actor, create_studio_atom_v, "XStudio");
+
+            // this isn't great, the api is already running at this point..
+            // so we have to toggle it..
             if (not actions["session_name"].empty())
                 self->anon_send(
                     global_actor,
@@ -604,20 +608,9 @@ struct Launcher {
             // playlist can have multiple playheads ... but actually we never
             // use this! (see PlaylistUI::createPlayhead()). The actual live
             // playlist playhead should be the first in this list.
-            caf::actor playhead;
-            auto playheads = request_receive<UuidActorVector>(
-                *self, playlist, playlist::get_playheads_atom_v);
-            if (!playheads.empty()) {
-                playhead = playheads[0].actor();
-            } else {
-                // Playlist doesn't have a playhead, which can happen as xstudio
-                // starts up. The playhead would get constructed as part of the
-                // ui setup (see PlalistUI::set_backend()). We can just create
-                // it now instead
-                playhead = request_receive<UuidActor>(
-                               *self, playlist, playlist::create_playhead_atom_v)
-                               .actor();
-            }
+            caf::actor playhead =
+                request_receive<UuidActor>(*self, playlist, playlist::get_playhead_atom_v)
+                    .actor();
 
             // set the playhead to the given compare mode. The compare mode
             // attribute is called 'Compare' - we can set it using this handy
@@ -762,7 +755,15 @@ int main(int argc, char **argv) {
 
     {
         try {
-            actor_system system{config};
+
+            // create the actor system
+            actor_system system(config);
+
+            // store a reference to the actor system, so we can access it
+            // via static method anywhere else we need to (mainly, the python
+            // module instanced in the embedded python interpreter)
+            utility::ActorSystemSingleton::actor_system_ref(system);
+
             scoped_actor self{system};
             Launcher l(argc, argv, system);
 
@@ -832,15 +833,23 @@ int main(int argc, char **argv) {
                     "xstudio.qml.cursor_pos_provider", 1, 0, "CursorPosProvider");
                 qmlRegisterType<HotkeyUI>("xstudio.qml.viewport", 1, 0, "XsHotkey");
                 qmlRegisterType<HotkeysUI>("xstudio.qml.viewport", 1, 0, "XsHotkeysInfo");
+                qmlRegisterType<HotkeyReferenceUI>(
+                    "xstudio.qml.viewport", 1, 0, "XsHotkeyReference");
+
                 qmlRegisterType<QMLViewport>("xstudio.qml.viewport", 1, 0, "Viewport");
                 qmlRegisterType<PlaylistUI>("xstudio.qml.playlist", 1, 0, "Playlist");
                 qmlRegisterType<MediaUI>("xstudio.qml.media", 1, 0, "Media");
                 qmlRegisterType<ThumbNail>("xstudio.qml.media", 1, 0, "XsThumbNail");
                 qmlRegisterType<MediaSourceUI>("xstudio.qml.media_source", 1, 0, "MediaSource");
                 qmlRegisterType<MediaStreamUI>("xstudio.qml.media_stream", 1, 0, "MediaStream");
-                qmlRegisterType<BookmarksUI>("xstudio.qml.bookmarks", 1, 0, "Bookmarks");
-                qmlRegisterType<BookmarkDetailUI>(
-                    "xstudio.qml.bookmarks", 1, 0, "BookmarkDetail");
+
+                qmlRegisterType<BookmarkCategoryModel>(
+                    "xstudio.qml.bookmarks", 1, 0, "XsBookmarkCategories");
+                qmlRegisterType<BookmarkModel>(
+                    "xstudio.qml.bookmarks", 1, 0, "XsBookmarkModel");
+                qmlRegisterType<BookmarkFilterModel>(
+                    "xstudio.qml.bookmarks", 1, 0, "XsBookmarkFilterModel");
+
                 qmlRegisterType<EmbeddedPythonUI>(
                     "xstudio.qml.embedded_python", 1, 0, "EmbeddedPython");
 
@@ -873,9 +882,9 @@ int main(int argc, char **argv) {
                 qmlRegisterType<ModelNestedPropertyMap>(
                     "xstudio.qml.helpers", 1, 0, "XsModelNestedPropertyMap");
 
+                qmlRegisterType<SessionModel>("xstudio.qml.session", 1, 0, "XsSessionModel");
+
                 qRegisterMetaType<MediaUI *>("MediaUI*");
-                // qRegisterMetaType<BookmarkDetailUI*>("BookmarkDetailUI*");
-                qRegisterMetaType<const BookmarkDetailUI *>("const BookmarkDetailUI*");
                 qRegisterMetaType<QQmlPropertyMap *>("QQmlPropertyMap*");
 
                 QuickFuture::registerType<QUuid>();
@@ -966,6 +975,7 @@ int main(int argc, char **argv) {
                 self->send_exit(l.global_actor, caf::exit_reason::user_shutdown);
                 std::this_thread::sleep_for(1s);
             }
+
         } catch (const std::exception &err) {
             spdlog::critical("{} {}", __PRETTY_FUNCTION__, err.what());
             stop_logger();

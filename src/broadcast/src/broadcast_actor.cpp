@@ -128,7 +128,9 @@ void BroadcastActor::init() {
         },
         [=](join_broadcast_atom, caf::actor sub) -> bool {
             auto subscriber = caf::actor_cast<caf::actor_addr>(sub);
+
             if (not subscribers_.count(subscriber)) {
+
                 monitor(sub);
                 subscribers_.insert(subscriber);
                 // spdlog::warn("new subscriber {} {} {}",

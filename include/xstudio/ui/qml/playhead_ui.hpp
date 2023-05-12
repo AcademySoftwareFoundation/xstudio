@@ -103,6 +103,8 @@ namespace ui {
             Q_PROPERTY(QList<TimesliderMarker *> bookmarkedFrames READ bookmarkedFrames NOTIFY
                            bookmarkedFramesChanged)
 
+            Q_PROPERTY(bool isNull READ isNull NOTIFY isNullChanged)
+
           public:
             explicit PlayheadUI(QObject *parent = nullptr);
             ~PlayheadUI() override = default;
@@ -135,6 +137,8 @@ namespace ui {
             void setPlayheadRate(const double playhead_rate);
 
             [[nodiscard]] double rate() const { return rate_; }
+
+            [[nodiscard]] bool isNull() const { return !bool(backend_); }
             // void setRate(const double rate);
 
             [[nodiscard]] QList<QPoint> cachedFrames() const { return cache_detail_; }
@@ -220,6 +224,8 @@ namespace ui {
             void keyPlayheadIndexChanged();
             void compareLayerNameChanged();
             void sourceOffsetFramesChanged();
+
+            void isNullChanged();
 
           public slots:
 

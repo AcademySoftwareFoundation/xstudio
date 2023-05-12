@@ -21,6 +21,10 @@ namespace audio {
 
         ~LinuxAudioOutputDevice() override;
 
+        void connect_to_soundcard() override;
+
+        void disconnect_from_soundcard() override;
+
         long desired_samples() override;
 
         void push_samples(const void *sample_data, const long num_samples) override;
@@ -34,8 +38,6 @@ namespace audio {
         [[nodiscard]] SampleFormat sample_format() const override { return sample_format_; }
 
       private:
-        void connect_to_soundcard();
-
         long sample_rate_           = {44100};
         int num_channels_           = {2};
         long buffer_size_           = {2048};
