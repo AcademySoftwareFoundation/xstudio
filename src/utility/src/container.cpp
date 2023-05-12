@@ -182,10 +182,13 @@ PlaylistTree::find_next_value_at_same_depth(const utility::Uuid &uuid) const {
             }
             // fail, as there is only one chid
         }
-        auto tmp =
-            dynamic_cast<const PlaylistTree *>(&(*i))->find_next_value_at_same_depth(uuid);
-        if (tmp)
-            return *tmp;
+
+        auto child = dynamic_cast<const PlaylistTree *>(&(*i));
+        if (child) {
+            auto tmp = child->find_next_value_at_same_depth(uuid);
+            if (tmp)
+                return *tmp;
+        }
     }
     return {};
 }

@@ -29,7 +29,7 @@ Rectangle {
     anchors.fill: parent
     color:  ((index & 1 == 1) ? XsStyle.mediaListItemBG2 : XsStyle.mediaListItemBG1)
 
-    property var playhead: playerWidget.playhead
+    property var playhead: viewport ? viewport.playhead : undefined
     property var media_item: media_ui_object
     property var media_item_uuid: media_item ? media_item.uuid : null
     // property bool invalid: (media_item && media_source && media_source.streams ? false : true)
@@ -42,7 +42,6 @@ Rectangle {
     property var thumb_width: thumb_image1.width
     property real preview_frame: -1
     property int imageVisible: 1
-
 
     z: -100000
 
@@ -156,7 +155,7 @@ Rectangle {
     onVisibleChanged: {
 
         if (visible) {
-            if(media_source && media_source.durationFrames != "") {                
+            if(media_source && media_source.durationFrames != "") {
                 var frame = preview_frame == -1 ? -1: preview_frame * (media_source.durationFramesNumeric-1);
                 Future.promise(media_source.getThumbnailURLFuture(frame)
                     ).then(function(url){
@@ -299,7 +298,28 @@ Rectangle {
         // anchors.bottomMargin: 1
         // anchors.leftMargin: 1
         // anchors.rightMargin: 4
-        visible: session.bookmarks.ownedBookmarks.hasOwnProperty(uuid.toString().substr(1,36))
+        visible: session.bookmarkModel.search(uuid, "ownerRole").valid
+
+        Connections {
+            target: session.bookmarkModel
+            function onLengthChanged() {
+                callback_delay_timer.setTimeout(function(){ bookmark_indicator.visible = session.bookmarkModel.search(uuid, "ownerRole").valid }, 500);
+            }
+        }
+
+        Timer {
+            id: callback_delay_timer
+            function setTimeout(cb, delayTime) {
+                callback_delay_timer.interval = delayTime;
+                callback_delay_timer.repeat = false;
+                callback_delay_timer.triggered.connect(cb);
+                callback_delay_timer.triggered.connect(function release () {
+                    callback_delay_timer.triggered.disconnect(cb); // This is important
+                    callback_delay_timer.triggered.disconnect(release); // This is important as well
+                });
+                callback_delay_timer.start();
+            }
+        }
     }
     // XsColoredImage{
     //     id: bookmark_indicator

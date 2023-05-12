@@ -1,0 +1,15 @@
+{
+	"plugin": {
+		"dneg_media_hook": {
+			"force_trim_slate_frame": {
+				"path": "/plugin/dneg_media_hook/force_trim_slate_frame",
+				"default_value": true,
+				"description": "For 'dneg' movies, always trim the first frame (assuming it's a slate) unless appropriate slateFrame metadata is available",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
+

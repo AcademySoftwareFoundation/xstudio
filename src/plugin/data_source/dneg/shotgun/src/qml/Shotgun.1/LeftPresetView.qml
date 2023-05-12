@@ -154,6 +154,14 @@ Rectangle{ id: presetsDiv
                     }
                 }
 
+                // we need to somehow update these...
+                Connections {
+                    target: searchQueryView.queryModel
+                    function onJsonChanged() {
+                        searchQueryView.queryRootIndex = model.modelIndex(index, model.rootIndex)
+                    }
+                }
+
 
                 Component.onCompleted: {
                     searchQueryView.queryModel = model.model

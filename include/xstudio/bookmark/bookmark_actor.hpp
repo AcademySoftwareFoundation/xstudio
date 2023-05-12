@@ -29,7 +29,7 @@ namespace bookmark {
 
         void build_annotation_via_plugin(const utility::JsonStore &anno_data);
 
-        void set_owner(caf::actor owner);
+        void set_owner(caf::actor owner, const bool dead = false);
 
 
       private:

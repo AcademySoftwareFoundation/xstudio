@@ -157,32 +157,11 @@ Rectangle {
     property alias viewport: viewport
     property alias viewportTitleBar: viewportTitleBar
     property var playlist: session.onScreenSource
-    property var playhead: playlist ? playlist.playhead : undefined
+    property var playhead: viewport.playhead
     property var selectionFilter: playlist ? playlist.selectionFilter : undefined
     property var previousPlayhead: undefined
     property var auto_played: false
     //property alias shortcuts: shortcuts
-
-    onPlayheadChanged: {
-        if (previousPlayhead) {
-            // important! If user switches playhead/source while
-            // playing we must stop playback on the previous playhead
-            // or it will still be playing invisibly in the background
-            previousPlayhead.playing = false
-            previousPlayhead.disconnectFromUI()
-        }
-
-        if (playhead) playhead.connectToUI()
-        viewport.setPlayhead(playhead)
-        previousPlayhead = playhead
-
-        if (preferences.start_play_on_load.value && !auto_played) {
-            if(playhead) {
-                auto_played = true
-                playhead.playing = true
-            }
-        }
-    }
 
     ColumnLayout {
         spacing: 0

@@ -512,6 +512,18 @@ void MediaActor::init() {
         },
 
         [=](playlist::reflag_container_atom,
+            const std::string &flag_colour,
+            std::string &flag_text) {
+            delegate(
+                actor_cast<caf::actor>(this),
+                playlist::reflag_container_atom_v,
+                std::make_tuple(
+                    std::optional<std::string>(flag_colour),
+                    std::optional<std::string>(flag_text)));
+        },
+
+
+        [=](playlist::reflag_container_atom,
             const std::tuple<std::optional<std::string>, std::optional<std::string>>
                 &flag_tuple) -> bool {
             auto [flag, text] = flag_tuple;
@@ -677,8 +689,9 @@ void MediaActor::init() {
         [=](json_store::set_json_atom atom,
             const JsonStore &json,
             const std::string &path) -> caf::result<bool> {
-            if (base_.empty() or not media_sources_.count(base_.current()))
+            if (base_.empty() or not media_sources_.count(base_.current())) {
                 return make_error(xstudio_error::error, "No MediaSources");
+            }
 
             auto rp = make_response_promise<bool>();
             rp.delegate(media_sources_.at(base_.current()), atom, json, path);

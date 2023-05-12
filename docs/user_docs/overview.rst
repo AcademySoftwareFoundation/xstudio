@@ -11,7 +11,7 @@ xSTUDIO is a media playback and review application designed for professionals wo
 xSTUDIO is optimised to import and handle very large collections of media sources rapidly, loads specialised image formats and displays images with colour management. Users can quickly import, organise and group media into playlists and 'subsets', playing through and looping on media items and adding review notes and sketched annotations, allowing one to view the media in a highly interactive and collaborative way. This enables workflows that are essential for teams in VFX, animation and other post-production activities who need to see, on demand, the artwork that they and their colleagues are creating. For example one can jump between the viewed media source instantaneously, inspect pixels close-up, do frame-by-frame comparisons across multiple media sources, annotate the media with drawings and captions or add feedback notes to share.
 
 
-Current Version: v0.9 (alpha) - Overview
+Current Version: v0.10 (alpha) - Overview
 *****************************************
 
 This version of the application is a robust and high performance playback and review solution. xSTUDIO has been deployed at DNEG since September 2022 and is in daily use by thousands of VFX and Animation artists, supervisors and producers across our global teams to conduct image reviews.
@@ -46,7 +46,7 @@ Here are some key features for users that are available now:
     5. 'Snapshot' button allows you to save an annotation to disk as a jpeg /tiff etc image. 
   - Navigate your media collection through the notes interface by jumping directly to bookmarked frames.
 
-.. image:: ../images/interface-01.png
+.. image:: images/interface-01.png
 
 **The Viewer**
 

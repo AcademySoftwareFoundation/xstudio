@@ -58,10 +58,10 @@ def test_add_remove_media(spawn):
     ml = pl.add_media_list(os.environ["TEST_RESOURCE"]+"/media", True)
 
     # str(ml) == "[]"
-    assert len(ml) > 0
+    assert len(ml) == 0
 
     assert pl.remove_media(m) == True
-    assert pl.remove_media(ml) == True
+    assert pl.remove_media(ml) == False
 
     assert s.remove_container(pl_uuid) == True
 

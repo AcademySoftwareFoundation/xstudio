@@ -1310,7 +1310,10 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} global_store {}",
+                                        __PRETTY_FUNCTION__,
+                                        to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1321,7 +1324,8 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} store {}", __PRETTY_FUNCTION__, to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1332,7 +1336,8 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} bookmarks {}", __PRETTY_FUNCTION__, to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1343,7 +1348,8 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} tags {}", __PRETTY_FUNCTION__, to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1357,7 +1363,10 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} media_hook_versions {}",
+                                        __PRETTY_FUNCTION__,
+                                        to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1384,7 +1393,10 @@ caf::message_handler SessionActor::message_handler() {
                                     }
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} colour_pipeline {}",
+                                        __PRETTY_FUNCTION__,
+                                        to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1404,7 +1416,9 @@ caf::message_handler SessionActor::message_handler() {
                                     },
                                     [=](error &err) mutable {
                                         spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            "{} actors {}",
+                                            __PRETTY_FUNCTION__,
+                                            to_string(err));
                                         rp.deliver(std::move(err));
                                     });
                         }

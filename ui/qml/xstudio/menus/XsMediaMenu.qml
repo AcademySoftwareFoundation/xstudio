@@ -134,6 +134,27 @@ XsMenu {
         onTriggered: app_window.session.reveal_selected_sources()
     }
 
+    XsMenuSeparator {}
+
+    XsMenu {
+
+        id: stream_menu
+        title: "Select Stream"
+        fakeDisabled: false
+        property var fi: sessionWidget.media_list.firstMediaItemInSelection
+        property var stream_model: fi ? fi.mediaSource ? fi.mediaSource.streams : [] : []
+        Repeater {
+            model: stream_menu.stream_model ? stream_menu.stream_model : []
+            XsMenuItem {
+                mytext: stream_menu.stream_model[index].name
+                enabled: true
+                extraLeftMargin: 20
+                onTriggered: sessionWidget.media_list.switchSelectedToNamedStream(stream_menu.stream_model[index].name)
+                mycheckable: true
+                checked: sessionWidget.media_list.firstMediaItemInSelection.mediaSource.current == stream_menu.stream_model[index]
+            }
+        }
+    }
 
     XsMenuSeparator {}
 

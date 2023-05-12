@@ -111,7 +111,6 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::qt::viewport_widget
 		xstudio::ui::qml::module
 		xstudio::ui::qml::contact_sheet
-		xstudio::ui::qml::embedded_python
 		xstudio::ui::qml::global_store
 		xstudio::ui::qml::helper
 		xstudio::ui::qml::media
@@ -124,6 +123,7 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::qml::viewport
 		xstudio::ui::qml::quickfuture
 		xstudio::ui::qml::tag
+		xstudio::ui::qml::timeline
 		xstudio::utility
 		xstudio::module
 	PRIVATE

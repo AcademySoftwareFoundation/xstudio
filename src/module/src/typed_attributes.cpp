@@ -64,3 +64,8 @@ ColourAttribute::ColourAttribute(
     const utility::ColourTriplet &value)
     : TypeAttribute<utility::ColourTriplet>(
           title, abbr_title, value, type_name(Attribute::ColourAttribute)) {}
+
+JsonAttribute::JsonAttribute(
+    const std::string &title, const std::string &abbr_title, const nlohmann::json &value)
+    : TypeAttribute<nlohmann::json>(
+          title, abbr_title, value, type_name(Attribute::JsonAttribute)) {}

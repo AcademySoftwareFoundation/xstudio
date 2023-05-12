@@ -34,6 +34,32 @@ namespace fs = std::filesystem;
 // 	  return err;
 // 	}
 // }
+
+static std::shared_ptr<ActorSystemSingleton> s_actor_system_singleton;
+
+caf::actor_system &ActorSystemSingleton::actor_system_ref(caf::actor_system &sys) {
+
+    // Note that this function is called when instancing the xstudio python module and
+    // allows it to grab a reference to the application actor system (if there is one -
+    // which will be the case if we're in the embedded interpreter in xstudio). If the
+    // python module is instanced outside of an xstudio application, there will be no
+    // existing application actor system so essentially 'sys' is returned. In that case
+    // 'sys' will be a reference to an actor system that is local to the python module
+    // itself.
+
+    if (!s_actor_system_singleton) {
+        // no instance of ActorSystemSingleton exists yet, so create one and
+        // grab a rederence to 'sys'
+        s_actor_system_singleton.reset(new ActorSystemSingleton(sys));
+    } else {
+        // in this case, 'sys' is ignored/unused and we return the ref to previously
+        // created actor_system. We do this to ensure that the python module, when
+        // running in the embedded interpreter in the xstudio application, will spawn
+        // actors within the application system.
+    }
+    return s_actor_system_singleton->get_system();
+}
+
 void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor actor) {
     source->request(actor, caf::infinite, broadcast::join_broadcast_atom_v)
         .then(

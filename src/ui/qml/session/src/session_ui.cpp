@@ -11,7 +11,6 @@
 #include "xstudio/playlist/playlist_actor.hpp"
 #include "xstudio/plugin_manager/plugin_manager.hpp"
 #include "xstudio/session/session_actor.hpp"
-#include "xstudio/ui/qml/bookmark_ui.hpp"
 #include "xstudio/ui/qml/contact_sheet_ui.hpp"
 #include "xstudio/ui/qml/timeline_ui.hpp"
 #include "xstudio/ui/qml/playlist_ui.hpp"
@@ -296,8 +295,6 @@ SessionUI::SessionUI(QObject *parent)
       name_("unknown")
 
 {
-    bookmarks_ = new BookmarksUI(this);
-    bookmarks_->init(CafSystemObject::get_actor_system());
     tag_manager_ = new TagManagerUI(this);
 
     init(CafSystemObject::get_actor_system());
@@ -309,8 +306,6 @@ SessionUI::~SessionUI() {
         dummy_playlist_ = caf::actor();
     }
 }
-
-QObject *SessionUI::bookmarks() { return bookmarks_; }
 
 // helper ?
 
@@ -360,7 +355,10 @@ void SessionUI::set_backend(caf::actor backend) {
 
     try {
         auto actor = request_receive<caf::actor>(*sys, backend_, bookmark::get_bookmark_atom_v);
-        bookmarks_->set_backend(actor);
+
+        bookmark_actor_addr_ = actorToQString(QMLActor::system(), actor);
+        emit bookmarkActorAddrChanged();
+
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -373,7 +371,11 @@ void SessionUI::set_backend(caf::actor backend) {
     }
 
 
-    emit bookmarksChanged();
+    if (backend_) {
+        session_actor_addr_ = actorToQString(QMLActor::system(), backend_);
+        emit sessionActorAddrChanged();
+    }
+
     emit tagsChanged();
     emit mediaRateChanged(media_rate_);
     emit nameChanged();
@@ -393,6 +395,9 @@ void SessionUI::set_backend(caf::actor backend) {
             *sys, dummy_playlist_, infinite, playlist::create_playhead_atom_v);
 
         anon_send(playhead.actor(), module::connect_to_ui_atom_v);
+        auto ph_events =
+            system().registry().template get<caf::actor>(global_playhead_events_actor);
+        anon_send(ph_events, viewport::viewport_playhead_atom_v, playhead.actor());
     }
     emit backendChanged();
 }
@@ -1305,11 +1310,6 @@ void SessionUI::updateItemModel(const bool select_new_items, const bool reset) {
 
         rebuildPlaylistNamesList();
 
-        if (!items_list_.empty() && dummy_playlist_) {
-            anon_send_exit(dummy_playlist_, caf::exit_reason::user_shutdown);
-            dummy_playlist_ = caf::actor();
-        }
-
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -1428,6 +1428,7 @@ void SessionUI::newSession(const QString &name) {
     setPath(QUrl());
     emit brandNewSession();
     switchOnScreenSource(QUuid());
+    setViewerPlayhead();
 }
 
 QString SessionUI::save(const QUrl &path) {
@@ -1667,6 +1668,7 @@ void SessionUI::switchOnScreenSource(const QUuid &uuid, const bool broadcast) {
 
     if (on_screen_source_ != prev_source) {
         emit onScreenSourceChanged();
+        setViewerPlayhead();
     }
 
     if (playlist_ && playlist_ != prev_playlist) {
@@ -1681,6 +1683,35 @@ void SessionUI::switchOnScreenSource(const QUuid &uuid, const bool broadcast) {
         emit playlistChanged();
     }
 }
+
+void SessionUI::setViewerPlayhead() {
+
+
+    caf::actor on_screen_item_backend;
+    if (auto subset = dynamic_cast<SubsetUI *>(on_screen_source_)) {
+        on_screen_item_backend = subset->backend();
+    } else if (auto contact_sheet = dynamic_cast<ContactSheetUI *>(on_screen_source_)) {
+        on_screen_item_backend = contact_sheet->backend();
+    } else if (auto timeline = dynamic_cast<TimelineUI *>(on_screen_source_)) {
+        on_screen_item_backend = timeline->backend();
+    } else if (auto playlist = dynamic_cast<PlaylistUI *>(on_screen_source_)) {
+        on_screen_item_backend = playlist->backend();
+    }
+    auto ph_events = system().registry().template get<caf::actor>(global_playhead_events_actor);
+    if (!on_screen_item_backend) {
+        on_screen_item_backend = dummy_playlist_;
+    }
+    scoped_actor sys{system()};
+    try {
+        auto playhead = request_receive<UuidActor>(
+                            *sys, on_screen_item_backend, playlist::create_playhead_atom_v)
+                            .actor();
+        anon_send(ph_events, viewport::viewport_playhead_atom_v, playhead);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+}
+
 
 QUuid SessionUI::mergePlaylists(
     const QVariantList &cuuids, const QString &name, const QUuid &before_cuuid, const bool) {

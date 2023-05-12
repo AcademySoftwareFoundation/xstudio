@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import get_playheads_atom, get_media_atom, get_container_atom
+from xstudio.core import get_playhead_atom, get_media_atom, get_container_atom
 from xstudio.core import Uuid, create_group_atom, create_contact_sheet_atom, add_media_atom
 from xstudio.core import rename_container_atom, create_subset_atom, create_timeline_atom
 from xstudio.core import move_container_atom, remove_container_atom, type_atom, parse_posix_path
 from xstudio.core import create_divider_atom, media_rate_atom, playhead_rate_atom, URI, FrameRate
 from xstudio.core import remove_media_atom, UuidVec, move_media_atom, create_playhead_atom, selection_actor_atom
 from xstudio.core import convert_to_timeline_atom, convert_to_subset_atom, convert_to_contact_sheet_atom
+from xstudio.core import reflag_container_atom
 from xstudio.core import FrameList, FrameRate, MediaType
 from xstudio.core import get_json_atom, set_json_atom, JsonStore
 
@@ -37,15 +38,15 @@ class Playlist(Container):
         Container.__init__(self, connection, remote, uuid)
 
     @property
-    def playheads(self):
-        """Get playheads.
+    def playhead(self):
+        """Get playhead.
 
         Returns:
-            playheads(list[Playhead]): Playheads attached to playlist.
+            playhead(Playhead): Playhead attached to playlist.
         """
-        result = self.connection.request_receive(self.remote, get_playheads_atom())[0]
+        result = self.connection.request_receive(self.remote, get_playhead_atom())[0]
 
-        return [Playhead(self.connection, i.actor, i.uuid) for i in result]
+        return Playhead(self.connection, result.actor, result.uuid)
 
 
     def add_media_list(self, path, recurse=False, media_rate=None):

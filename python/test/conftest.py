@@ -9,7 +9,7 @@ from xstudio.core import *
 
 @pytest.fixture(scope="session")
 def spawn():
-    p = subprocess.Popen(["../../build/bin/xstudio.bin","--session","pythontest","-e","-n","--log-file","xstudio.log"])
+    p = subprocess.Popen(["./bin/xstudio.bin","--session","pythontest","-e","-n","--log-file","xstudio.log"])
     time.sleep(10)
     m = RemoteSessionManager(remote_session_path())
     s = m.find("pythontest")

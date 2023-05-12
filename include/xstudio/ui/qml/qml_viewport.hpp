@@ -38,7 +38,7 @@ namespace ui {
             Q_PROPERTY(float scale READ scale WRITE setScale NOTIFY scaleChanged)
             Q_PROPERTY(
                 QVector2D translate READ translate WRITE setTranslate NOTIFY translateChanged)
-            Q_PROPERTY(QObject *playhead READ playhead WRITE setPlayhead NOTIFY playheadChanged)
+            Q_PROPERTY(QObject *playhead READ playhead NOTIFY playheadChanged)
             Q_PROPERTY(QStringList colourUnderCursor READ colourUnderCursor NOTIFY
                            colourUnderCursorChanged)
             Q_PROPERTY(int mouseButtons READ mouseButtons NOTIFY mouseButtonsChanged)
@@ -66,6 +66,7 @@ namespace ui {
             }
             [[nodiscard]] bool frameOutOfRange() const { return frame_out_of_range_; }
             [[nodiscard]] bool enableShortcuts() const { return enable_shortcuts_; }
+            void setPlayhead(caf::actor playhead);
 
           protected:
             void mousePressEvent(QMouseEvent *event) override;
@@ -82,7 +83,6 @@ namespace ui {
 
             void sync();
             void cleanup();
-            void setPlayhead(QObject *playhead_qobject);
             void setZoom(const float z);
             void revertFitZoomToPrevious(const bool ignoreOtherViewport = false);
             void handleScreenChanged(QScreen *screen);
@@ -108,8 +108,6 @@ namespace ui {
             void setOverrideCursor(const QString &name, const bool centerOffset);
             void setOverrideCursor(const Qt::CursorShape cname);
             void setRegularCursor(const Qt::CursorShape cname);
-
-            void setOtherViewport(QObject *object);
 
           private slots:
 
@@ -143,12 +141,10 @@ namespace ui {
             QMLViewportRenderer *renderer_actor{nullptr};
             PlayheadUI *playhead_{nullptr};
             static qt::OffscreenViewport *offscreen_viewport_;
-            QMLViewport *other_viewport{nullptr};
 
             bool connected_{false};
             QCursor cursor_;
             bool cursor_hidden{false};
-            QString current_fit_action, previous_fit_action;
             QStringList colour_under_cursor{"--", "--", "--"};
             int mouse_buttons = {0};
             QPoint mouse_position;

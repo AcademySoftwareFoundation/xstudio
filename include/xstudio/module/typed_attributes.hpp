@@ -93,5 +93,13 @@ namespace module {
             const utility::ColourTriplet &value);
     };
 
+    class JsonAttribute : public TypeAttribute<nlohmann::json> {
+      public:
+        JsonAttribute(
+            const std::string &title,
+            const std::string &abbr_title,
+            const nlohmann::json &value);
+    };
+
 } // namespace module
 } // namespace xstudio

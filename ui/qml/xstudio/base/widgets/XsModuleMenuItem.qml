@@ -4,6 +4,8 @@ import QtQuick.Controls 2.5
 import QtGraphicalEffects 1.12
 
 import xStudio 1.0
+import xstudio.qml.viewport 1.0
+import xstudio.qml.uuid 1.0
 
 MenuItem {
 
@@ -22,12 +24,29 @@ MenuItem {
     checkable: xs_module_menu_item_checkable
     checked: checkable ? xs_module_menu_item_value : false
     text: xs_module_menu_item_text
+    property var shortcut: undefined
 
     action: Action {
         onTriggered: {
             xs_module_menu_item_value = !xs_module_menu_item_value
         }
     }
+
+    QMLUuid {
+        id: null_uuid
+    }
+
+    XsHotkeyReference {
+        id: hotkey_ref
+        hotkeyUuid: menuItem.hotkey_uuid ? menuItem.hotkey_uuid : null_uuid.asQuuid
+        onSequenceChanged: {
+            if (sequence) {
+                menuItem.shortcut = sequence
+            }
+        }
+    }
+
+    property var hotkey_uuid: xs_module_menu_hotkey_uuid ? xs_module_menu_hotkey_uuid : undefined
 
     indicator: Item {
         id:checkBoxItem
@@ -120,7 +139,12 @@ MenuItem {
             //            anchors.bottom: parent.bottom
             //            anchors.right: parent.right
             //            anchors.left: iconPart.visible?iconPart.right:parent.left
-            leftPadding: checkBoxItem.visible ? checkBoxItem.width+checkBoxItem.x+3 : 10//3
+            // leftPadding: checkBoxItem.visible ? checkBoxItem.width+checkBoxItem.x+3 : 10//3
+
+            leftPadding: menuItem.menu === null?iconsize:
+                menuItem.menu.hasCheckable?menuItem.indicator.width + 6:
+                    checkBoxItem.visible ? checkBoxItem.width+checkBoxItem.x+3 : iconPart.visible?iconsize + 10:iconsize
+
             rightPadding: menuItem.arrow.width
             text: menuItem.text
             //            font: menuItem.font

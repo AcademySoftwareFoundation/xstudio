@@ -1,0 +1,30 @@
+{
+	"plugin": {
+		"exr_data_window": {
+			"colour": {
+				"path": "/plugin/exr_data_window/colour",
+				"default_value": ["colour", 1, 0.0, 1.0, 0.0],
+				"description": "colour of exr data window indicator",
+				"value": ["colour", 1, 0.0, 1.0, 0.0],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},
+			"width": {
+				"path": "/plugin/exr_data_window/width",
+				"default_value": 1,
+				"description": "Show an on-screen box showing the EXR data window",
+				"value": 1,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"enabled": {
+				"path": "/plugin/exr_data_window/enabled",
+				"default_value": false,
+				"description": "Default enabled state of exr data window overlay",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

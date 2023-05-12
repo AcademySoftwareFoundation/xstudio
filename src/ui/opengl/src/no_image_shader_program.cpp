@@ -34,4 +34,4 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 } // namespace
 
 NoImageShaderProgram::NoImageShaderProgram()
-    : GLShaderProgram(basic_vertex_shd, colour_transforms, basic_frag_shd) {}
+    : GLShaderProgram(basic_vertex_shd, colour_transforms, basic_frag_shd, false) {}

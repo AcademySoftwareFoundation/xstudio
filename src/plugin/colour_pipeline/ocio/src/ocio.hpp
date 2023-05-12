@@ -99,6 +99,9 @@ class OCIOColourPipeline : public ColourPipeline {
         const std::string &manufacturer,
         const std::string &serialNumber) override;
 
+    void extend_pixel_info(
+        media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) override;
+
   private:
     MediaParams get_media_params(
         const utility::Uuid &source_uuid,
@@ -128,8 +131,16 @@ class OCIOColourPipeline : public ColourPipeline {
 
     OCIO::ConstConfigRcPtr load_ocio_config(const std::string &config_name) const;
 
+    OCIO::ConstProcessorRcPtr make_to_lin_processor(const MediaParams &media_paraml) const;
+
     OCIO::ConstProcessorRcPtr make_processor(
         const MediaParams &media_param, bool is_main_viewer, bool is_thumbnail) const;
+
+    OCIO::ConstProcessorRcPtr make_processor(
+        const MediaParams &media_param,
+        bool is_main_viewer,
+        bool is_thumbnail,
+        OCIO::ExposureContrastTransformRcPtr &ect) const;
 
     OCIO::ConstProcessorRcPtr make_dynamic_display_processor(
         const MediaParams &media_param,
@@ -215,6 +226,10 @@ class OCIOColourPipeline : public ColourPipeline {
     // Holds data on display screen option
     std::string main_monitor_name_;
     std::string popout_monitor_name_;
+
+    std::string last_pixel_probe_source_hash_;
+    OCIO::ConstCPUProcessorRcPtr pixel_probe_proc_, pixel_probe_to_lin_proc_;
+    OCIO::ExposureContrastTransformRcPtr pixel_probe_exposure_transform_;
 };
 
 } // namespace xstudio::colour_pipeline

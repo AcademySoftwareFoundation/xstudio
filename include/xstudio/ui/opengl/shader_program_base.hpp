@@ -27,6 +27,7 @@ namespace ui {
                 const std::string &vertex_shader,
                 const std::string &colour_transform_shader,
                 const std::string &fragment_shader,
+                const bool use_ssbo,
                 const bool do_compile = true);
 
             void compile();

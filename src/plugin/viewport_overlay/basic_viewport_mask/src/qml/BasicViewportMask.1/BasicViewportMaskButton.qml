@@ -9,7 +9,7 @@ XsToolbarItem  {
 
     id: control
     property var value_: value ? value : ""
-    title_: "Mask"
+    title_: "Mask (M)"
     hovered: mouse_area.containsMouse
     showHighlighted: mouse_area.containsMouse | mouse_area.pressed | (activated != undefined && activated)
     property int iconsize: XsStyle.menuItemHeight *.66

@@ -133,13 +133,17 @@ void MediaSourceActor::acquire_detail(
         return;
     }
 
-    // clear current settings, probably irrelvant because above.
-    for (auto &i : media_streams_) {
-        unlink_from(i.second);
-        send_exit(i.second, caf::exit_reason::user_shutdown);
-    }
-    media_streams_.clear();
-    base_.clear();
+    // we only want to do the 'get_media_detail' and construct media_streams
+    // once ...
+    pending_stream_detail_requests_.push_back(rp);
+
+    // it's possible that a call is made to acquire_detail
+    // while a previous call is incomplete (and still waiting on the
+    // request call below). Check here and return if this is
+    // the case
+    if (pending_stream_detail_requests_.size() > 1)
+        return;
+
 
     try {
         auto gmra = system().registry().template get<caf::actor>(media_reader_registry);
@@ -148,7 +152,6 @@ void MediaSourceActor::acquire_detail(
             auto _uri = base_.media_reference().uri(0, frame);
             if (not _uri)
                 throw std::runtime_error("Invalid frame index");
-
             request(
                 gmra, infinite, get_media_detail_atom_v, *_uri, actor_cast<actor_addr>(this))
                 .then(
@@ -156,7 +159,6 @@ void MediaSourceActor::acquire_detail(
                         if (not base_.media_reference().timecode().total_frames())
                             base_.media_reference().set_timecode(md.timecode_);
                         base_.set_reader(md.reader_);
-
                         for (auto i : md.streams_) {
                             // HACK!!!
                             if (i.media_type_ == MT_IMAGE) {
@@ -210,6 +212,7 @@ void MediaSourceActor::acquire_detail(
                             join_event_group(this, stream);
                             media_streams_[uuid] = stream;
                             base_.add_media_stream(i.media_type_, uuid);
+
                             send(
                                 event_group_,
                                 utility::event_atom_v,
@@ -222,6 +225,7 @@ void MediaSourceActor::acquire_detail(
                                 base_.media_reference().frame_count(),
                                 to_string(base_.media_reference().timecode()));
                         }
+
                         request(
                             actor_cast<caf::actor>(this),
                             infinite,
@@ -256,7 +260,10 @@ void MediaSourceActor::acquire_detail(
                         base_.send_changed(event_group_, this);
                         send(event_group_, utility::event_atom_v, change_atom_v);
 
-                        rp.deliver(true);
+                        for (auto &_rp : pending_stream_detail_requests_) {
+                            _rp.deliver(true);
+                        }
+                        pending_stream_detail_requests_.clear();
                     },
                     [=](const error &err) mutable {
                         // set media status..
@@ -267,14 +274,23 @@ void MediaSourceActor::acquire_detail(
                         base_.send_changed(event_group_, this);
                         send(event_group_, utility::event_atom_v, change_atom_v);
                         base_.set_error_detail(to_string(err));
-                        rp.deliver(false);
+                        for (auto &_rp : pending_stream_detail_requests_) {
+                            _rp.deliver(false);
+                        }
+                        pending_stream_detail_requests_.clear();
                     });
         } else {
-            rp.deliver(false);
+            for (auto &_rp : pending_stream_detail_requests_) {
+                _rp.deliver(false);
+            }
+            pending_stream_detail_requests_.clear();
         }
     } catch (const std::exception &err) {
         base_.set_error_detail(err.what());
-        rp.deliver(false);
+        for (auto &_rp : pending_stream_detail_requests_) {
+            _rp.deliver(false);
+        }
+        pending_stream_detail_requests_.clear();
     }
 }
 
@@ -397,10 +413,33 @@ void MediaSourceActor::init() {
 
         [=](current_media_stream_atom, const MediaType media_type, const Uuid &uuid) -> bool {
             auto result = base_.set_current(media_type, uuid);
-            if (result)
+            if (result) {
                 base_.send_changed(event_group_, this);
-
+                send(event_group_, utility::event_atom_v, change_atom_v);
+            }
             return result;
+        },
+
+        [=](current_media_stream_atom,
+            const MediaType media_type,
+            const std::string &stream_id) -> bool {
+            caf::scoped_actor sys(system());
+            for (auto &strm : media_streams_) {
+
+                // get uuid..
+                auto stream_detail =
+                    request_receive<StreamDetail>(*sys, strm.second, get_stream_detail_atom_v);
+                if (stream_detail.name_ == stream_id &&
+                    stream_detail.media_type_ == media_type) {
+                    auto result = base_.set_current(media_type, strm.first);
+                    if (result) {
+                        base_.send_changed(event_group_, this);
+                        send(event_group_, utility::event_atom_v, change_atom_v);
+                    }
+                    return result;
+                }
+            }
+            return false;
         },
 
         [=](get_edit_list_atom, const Uuid &uuid) -> utility::EditList {

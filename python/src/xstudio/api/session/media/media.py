@@ -205,3 +205,15 @@ class Media(Container):
 
         result = sorted(result, key=lambda x: x.detail.start)
         return result
+
+    def reflag(self, flag_colour, flag_string):
+        """Reflag media.
+
+        Args:
+            flag(str): New flag colour.
+            flag_string(str): New flag text.
+
+        Returns:
+            success(bool): Returns result.
+        """
+        return self.connection.request_receive(self.remote, reflag_container_atom(), flag_colour, flag_string)[0]

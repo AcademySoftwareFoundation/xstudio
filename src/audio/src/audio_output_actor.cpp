@@ -63,9 +63,11 @@ AudioOutputDeviceActor::AudioOutputDeviceActor(
             if (!is_playing) {
                 // this stops the loop pushing samples to the soundcard
                 playing_ = false;
+                output_device_->disconnect_from_soundcard();
             } else if (is_playing && !playing_) {
                 // start loop
                 playing_ = true;
+                output_device_->connect_to_soundcard();
                 anon_send(actor_cast<caf::actor>(this), push_samples_atom_v);
             }
         },
@@ -169,10 +171,21 @@ void AudioOutputControlActor::init() {
         },
         [=](playhead::sound_audio_atom,
             const std::vector<media_reader::AudioBufPtr> &audio_buffers,
+            const Uuid &sub_playhead,
             const bool playing,
             const bool forwards,
             const float velocity) {
-            base_.queue_samples_for_playing(audio_buffers, playing, forwards, velocity);
+            if (!playing) {
+                base_.clear_queued_samples();
+            } else {
+                if (sub_playhead != sub_playhead_uuid_) {
+                    // sound is coming from a different source to
+                    // previous time
+                    base_.clear_queued_samples();
+                    sub_playhead_uuid_ = sub_playhead;
+                }
+                base_.queue_samples_for_playing(audio_buffers, playing, forwards, velocity);
+            }
         }
 
     );

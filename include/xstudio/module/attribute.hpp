@@ -22,6 +22,7 @@ namespace module {
             IntegerAttribute,
             StringChoiceAttribute,
             ColourAttribute,
+            JsonAttribute
         };
 
         inline static const std::map<int, std::string> type_names = {
@@ -32,7 +33,8 @@ namespace module {
             {IntegerAttribute, "IntegerValue"},
             {FloatAttribute, "FloatScrubber"},
             {ActionAttribute, "Action"},
-            {ColourAttribute, "ColourAttribute"}};
+            {ColourAttribute, "ColourAttribute"},
+            {JsonAttribute, "JsonAttribute"}};
 
         enum Role {
             Type,
@@ -71,7 +73,8 @@ namespace module {
             FontFamily,
             TextAlignment,
             TextContainerBox,
-            Colour
+            Colour,
+            HotkeyUuid
         };
 
         inline static const std::map<int, std::string> role_names = {
@@ -109,7 +112,8 @@ namespace module {
             {FontFamily, "font_family"},
             {TextAlignment, "text_alignment"},
             {TextContainerBox, "text_alignment_box"},
-            {Colour, "attr_colour"}};
+            {Colour, "attr_colour"},
+            {HotkeyUuid, "hotkey_uuid"}};
 
         ~Attribute() = default;
 

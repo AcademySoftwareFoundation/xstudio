@@ -46,6 +46,7 @@ namespace timeline {
         std::map<utility::Uuid, caf::actor> actors_;
         caf::actor_addr playlist_;
         bool content_changed_{false};
+        utility::UuidActor playhead_;
         // bool update_edit_list_;
         // utility::EditList edit_list_;
     };

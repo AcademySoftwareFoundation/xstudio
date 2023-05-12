@@ -8,6 +8,7 @@
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/playhead/playhead.hpp"
 #include "xstudio/global_store/global_store.hpp"
+#include "xstudio/playhead/playhead_global_events_actor.hpp"
 
 #include <iostream>
 
@@ -119,6 +120,14 @@ StringChoiceAttribute *Module::add_string_choice_attribute(
         title, abbr_title, value, options, abbr_options.empty() ? options : abbr_options));
     rt->set_owner(this);
 
+    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    return rt;
+}
+
+JsonAttribute *Module::add_json_attribute(
+    const std::string &title, const std::string &abbr_title, const nlohmann::json &value) {
+    auto *rt(new JsonAttribute(title, abbr_title, value));
+    rt->set_owner(this);
     attributes_.emplace_back(static_cast<Attribute *>(rt));
     return rt;
 }
@@ -263,273 +272,397 @@ AttributeSet Module::menu_attrs(const std::string &root_menu_name) const {
 }
 
 caf::message_handler Module::message_handler() {
-    return {
-        [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+    caf::message_handler h(
+        {[=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        [=](attribute_role_data_atom,
-            utility::Uuid attr_uuid,
-            const std::string &role_name,
-            const utility::JsonStore &value) -> result<bool> {
-            try {
-                for (const auto &p : attributes_) {
-                    if (p->uuid() == attr_uuid) {
+         [=](attribute_role_data_atom,
+             utility::Uuid attr_uuid,
+             const std::string &role_name,
+             const utility::JsonStore &value) -> result<bool> {
+             try {
+                 for (const auto &p : attributes_) {
+                     if (p->uuid() == attr_uuid) {
 
-                        try {
-                            p->set_role_data(Attribute::role_index(role_name), value);
-                            return true;
-                        } catch (std::exception &e) {
-                            return caf::make_error(xstudio_error::error, e.what());
-                        }
-                    }
-                }
+                         try {
+                             p->set_role_data(Attribute::role_index(role_name), value);
+                             return true;
+                         } catch (std::exception &e) {
+                             return caf::make_error(xstudio_error::error, e.what());
+                         }
+                     }
+                 }
 
-                std::stringstream msg;
-                msg << "Failed to set attr in \"" << name_ << "\" - invalid attr uuid passed.";
-                return caf::make_error(xstudio_error::error, msg.str());
+                 std::stringstream msg;
+                 msg << "Failed to set attr in \"" << name_ << "\" - invalid attr uuid passed.";
+                 return caf::make_error(xstudio_error::error, msg.str());
 
-            } catch (std::exception &e) {
-                return caf::make_error(xstudio_error::error, e.what());
-            }
-        },
+             } catch (std::exception &e) {
+                 return caf::make_error(xstudio_error::error, e.what());
+             }
+         },
 
-        [=](utility::get_event_group_atom) -> caf::actor { return attribute_events_group_; },
+         [=](utility::get_event_group_atom) -> caf::actor { return attribute_events_group_; },
 
-        [=](broadcast::join_broadcast_atom, caf::actor subscriber) -> result<bool> {
-            try {
+         [=](broadcast::join_broadcast_atom, caf::actor subscriber) -> result<bool> {
+             try {
 
-                scoped_actor sys{self()->home_system()};
-                bool r = utility::request_receive<bool>(
-                    *sys,
-                    attribute_events_group_,
-                    broadcast::join_broadcast_atom_v,
-                    subscriber);
-                return r;
+                 scoped_actor sys{self()->home_system()};
+                 bool r = utility::request_receive<bool>(
+                     *sys,
+                     attribute_events_group_,
+                     broadcast::join_broadcast_atom_v,
+                     subscriber);
 
-            } catch (std::exception &e) {
-                return caf::make_error(xstudio_error::error, e.what());
-            }
-        },
+                 return r;
 
-        [=](json_store::update_atom,
-            const JsonStore &change,
-            const std::string &path,
-            const JsonStore &full) {
-            try {
-                update_attr_from_preference(path, change);
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-            }
-        },
+             } catch (std::exception &e) {
+                 return caf::make_error(xstudio_error::error, e.what());
+             }
+         },
 
-        [=](json_store::update_atom, const JsonStore &js) {
-            try {
-                update_attrs_from_preferences(js);
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-            }
-        },
+         [=](json_store::update_atom,
+             const JsonStore &change,
+             const std::string &path,
+             const JsonStore &full) {
+             try {
+                 update_attr_from_preference(path, change);
+             } catch (const std::exception &err) {
+                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+             }
+         },
 
-        [=](change_attribute_request_atom,
-            utility::Uuid attr_uuid,
-            const int role,
-            const utility::JsonStore &value) {
-            for (const auto &p : attributes_) {
-                if (p->uuid() == attr_uuid) {
+         [=](json_store::update_atom, const JsonStore &js) {
+             try {
+                 update_attrs_from_preferences(js);
+             } catch (const std::exception &err) {
+                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+             }
+         },
 
-                    try {
-                        p->set_role_data(role, value);
-                    } catch (std::exception &e) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-                    }
-                }
-            }
-        },
+         [=](change_attribute_request_atom,
+             utility::Uuid attr_uuid,
+             const int role,
+             const utility::JsonStore &value) {
+             for (const auto &p : attributes_) {
+                 if (p->uuid() == attr_uuid) {
 
-        [=](change_attribute_request_atom,
-            const std::string &attr_title,
-            const int role,
-            const utility::JsonStore &value) {
-            for (const auto &p : attributes_) {
-                if (p->get_role_data<std::string>(Attribute::Title) == attr_title) {
-                    try {
-                        p->set_role_data(role, value);
-                    } catch (std::exception &e) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-                    }
-                }
-            }
-        },
+                     try {
+                         p->set_role_data(role, value);
+                     } catch (std::exception &e) {
+                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                     }
+                 }
+             }
+         },
 
-        [=](change_attribute_value_atom,
-            const std::string &attr_title,
-            const utility::JsonStore &value,
-            bool notify) -> bool {
-            for (const auto &p : attributes_) {
-                if (p->get_role_data<std::string>(Attribute::Title) == attr_title) {
-                    try {
-                        p->set_role_data(Attribute::Value, value, notify);
-                    } catch (std::exception &e) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-                    }
-                }
-            }
-            return true;
-        },
+         [=](change_attribute_request_atom,
+             const std::string &attr_title,
+             const int role,
+             const utility::JsonStore &value) {
+             for (const auto &p : attributes_) {
+                 if (p->get_role_data<std::string>(Attribute::Title) == attr_title) {
+                     try {
+                         p->set_role_data(role, value);
+                     } catch (std::exception &e) {
+                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                     }
+                 }
+             }
+         },
 
-        [=](change_attribute_value_atom,
-            const utility::Uuid &attr_uuid,
-            const utility::JsonStore &value,
-            bool notify) -> bool {
-            for (const auto &p : attributes_) {
-                if (p->uuid() == attr_uuid) {
-                    try {
-                        p->set_role_data(Attribute::Value, value, notify);
-                    } catch (std::exception &e) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-                    }
-                }
-            }
-            return true;
-        },
+         [=](change_attribute_value_atom,
+             const std::string &attr_title,
+             const utility::JsonStore &value,
+             bool notify) -> bool {
+             for (const auto &p : attributes_) {
+                 if (p->get_role_data<std::string>(Attribute::Title) == attr_title) {
+                     try {
+                         p->set_role_data(Attribute::Value, value, notify);
+                     } catch (std::exception &e) {
+                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                     }
+                 }
+             }
+             return true;
+         },
 
-        [=](attribute_value_atom, const std::string &attr_title) -> result<utility::JsonStore> {
-            for (const auto &p : attributes_) {
-                if (p->get_role_data<std::string>(Attribute::Title) == attr_title) {
-                    return p->role_data_as_json(Attribute::Value);
-                }
-            }
-            const std::string err =
-                std::string("No such attribute \"") + attr_title + std::string(" on ") + name_;
-            return caf::make_error(xstudio_error::error, err);
-        },
+         [=](change_attribute_value_atom,
+             const utility::Uuid &attr_uuid,
+             const utility::JsonStore &value,
+             bool notify) -> bool {
+             for (const auto &p : attributes_) {
+                 if (p->uuid() == attr_uuid) {
+                     try {
+                         p->set_role_data(Attribute::Value, value, notify);
+                     } catch (std::exception &e) {
+                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                     }
+                 }
+             }
+             return true;
+         },
 
-        [=](attribute_value_atom,
-            const utility::Uuid &attr_uuid) -> result<utility::JsonStore> {
-            for (const auto &p : attributes_) {
-                if (p->uuid() == attr_uuid) {
-                    return p->role_data_as_json(Attribute::Value);
-                }
-            }
-            const std::string err = std::string("Request for attribute on module \"") + name_ +
-                                    std::string("\" using unknown attribute uuid.");
-            return caf::make_error(xstudio_error::error, err);
-        },
+         [=](attribute_value_atom,
+             const std::string &attr_title) -> result<utility::JsonStore> {
+             for (const auto &p : attributes_) {
+                 if (p->get_role_data<std::string>(Attribute::Title) == attr_title) {
+                     return p->role_data_as_json(Attribute::Value);
+                 }
+             }
+             const std::string err =
+                 std::string("No such attribute \"") + attr_title + std::string(" on ") + name_;
+             return caf::make_error(xstudio_error::error, err);
+         },
 
-        [=](attribute_value_atom,
-            const utility::Uuid &attr_uuid,
-            const utility::JsonStore &value) -> result<bool> {
-            try {
+         [=](attribute_value_atom,
+             const utility::Uuid &attr_uuid) -> result<utility::JsonStore> {
+             for (const auto &p : attributes_) {
+                 if (p->uuid() == attr_uuid) {
+                     return p->role_data_as_json(Attribute::Value);
+                 }
+             }
+             const std::string err = std::string("Request for attribute on module \"") + name_ +
+                                     std::string("\" using unknown attribute uuid.");
+             return caf::make_error(xstudio_error::error, err);
+         },
 
-                for (const auto &p : attributes_) {
-                    if (p->uuid() == attr_uuid) {
-                        p->set_role_data(Attribute::Value, value);
-                        return true;
-                    }
-                }
+         [=](attribute_value_atom, const utility::Uuid &attr_uuid, const int role)
+             -> result<utility::JsonStore> {
+             for (const auto &p : attributes_) {
+                 if (p->uuid() == attr_uuid) {
+                     if (p->has_role_data(role)) {
+                         return p->role_data_as_json(role);
+                     } else {
+                         std::stringstream ss;
+                         ss << "Request for attribute role data \""
+                            << Attribute::role_name(role) << "\" on attr \""
+                            << p->get_role_data<std::string>(Attribute::Title)
+                            << "\" on module \"" << name_
+                            << "\" : attribute does not have this role data.";
+                         return caf::make_error(xstudio_error::error, ss.str().c_str());
+                     }
+                 }
+             }
+             const std::string err = std::string("Request for attribute on module \"") + name_ +
+                                     std::string("\" using unknown attribute uuid.");
+             return caf::make_error(xstudio_error::error, err);
+         },
 
-                const std::string err = std::string("Request for set attribute on module \"") +
-                                        name_ + std::string("\" using unknown attribute uuid.");
-                throw std::runtime_error(err.c_str());
+         [=](attribute_value_atom,
+             const utility::Uuid &attr_uuid,
+             const utility::JsonStore &value) -> result<bool> {
+             try {
 
-            } catch (std::exception &e) {
+                 for (const auto &p : attributes_) {
+                     if (p->uuid() == attr_uuid) {
+                         p->set_role_data(Attribute::Value, value);
+                         return true;
+                     }
+                 }
 
-                return caf::make_error(xstudio_error::error, e.what());
-            }
-        },
+                 const std::string err = std::string("Request for set attribute on module \"") +
+                                         name_ +
+                                         std::string("\" using unknown attribute uuid.");
+                 throw std::runtime_error(err.c_str());
 
-        [=](add_attribute_atom,
-            const std::string attr_title,
-            const utility::JsonStore &attr_value,
-            const utility::JsonStore &attr_role_data) -> result<utility::Uuid> {
-            try {
+             } catch (std::exception &e) {
 
-                Attribute *attr = add_attribute(attr_title, attr_value, attr_role_data);
+                 return caf::make_error(xstudio_error::error, e.what());
+             }
+         },
 
-                return attr->uuid();
+         [=](add_attribute_atom,
+             const std::string attr_title,
+             const utility::JsonStore &attr_value,
+             const utility::JsonStore &attr_role_data) -> result<utility::Uuid> {
+             try {
 
-            } catch (std::exception &e) {
+                 Attribute *attr = add_attribute(attr_title, attr_value, attr_role_data);
 
-                std::stringstream ss;
-                ss << "Failed to add attribute \"" << attr_title << "\" with value \""
-                   << attr_value.dump() << "\" and role data \"" << attr_role_data.dump()
-                   << " with error: " << e.what();
-                return caf::make_error(xstudio_error::error, ss.str());
-            }
-        },
+                 return attr->uuid();
 
-        [=](request_full_attributes_description_atom,
-            const std::string &attr_group,
-            const utility::Uuid &requester_uuid) {
-            anon_send(
-                module_events_group_,
-                full_attributes_description_atom_v,
-                full_module(attr_group),
-                requester_uuid);
-        },
+             } catch (std::exception &e) {
 
-        [=](request_menu_attributes_description_atom,
-            const std::string &root_menu_name,
-            const utility::Uuid &requester_uuid) {
-            anon_send(
-                module_events_group_,
-                full_attributes_description_atom_v,
-                menu_attrs(root_menu_name),
-                requester_uuid);
-        },
+                 std::stringstream ss;
+                 ss << "Failed to add attribute \"" << attr_title << "\" with value \""
+                    << attr_value.dump() << "\" and role data \"" << attr_role_data.dump()
+                    << " with error: " << e.what();
+                 return caf::make_error(xstudio_error::error, ss.str());
+             }
+         },
 
-        [=](connect_to_ui_atom) { connect_to_ui(); },
+         [=](attribute_uuids_atom) -> std::vector<xstudio::utility::Uuid> {
+             std::vector<xstudio::utility::Uuid> rt;
+             for (auto &attr : attributes_) {
+                 rt.push_back(attr->uuid());
+             }
+             return rt;
+         },
 
-        [=](disconnect_from_ui_atom) { disconnect_from_ui(); },
+         [=](request_full_attributes_description_atom) -> utility::JsonStore {
+             utility::JsonStore r;
+             for (auto &attr : attributes_) {
+                 r[attr->get_role_data<std::string>(Attribute::Title)] = attr->as_json();
+             }
+             return r;
+         },
 
-        [=](ui::keypress_monitor::text_entry_atom,
-            const std::string &text,
-            const std::string &context) { text_entered(text, context); },
-        [=](ui::keypress_monitor::key_down_atom,
-            int key,
-            const std::string &context,
-            const bool auto_repeat) { key_pressed(key, context, auto_repeat); },
+         [=](request_full_attributes_description_atom,
+             const std::string &attr_group,
+             const utility::Uuid &requester_uuid) {
+             anon_send(
+                 module_events_group_,
+                 full_attributes_description_atom_v,
+                 full_module(attr_group),
+                 requester_uuid);
+         },
 
-        [=](ui::keypress_monitor::mouse_event_atom, const ui::PointerEvent &e) {
-            if (!pointer_event(e)) {
-                // pointer event was not used
-            }
-        },
+         [=](request_menu_attributes_description_atom,
+             const std::string &root_menu_name,
+             const utility::Uuid &requester_uuid) {
+             anon_send(
+                 module_events_group_,
+                 full_attributes_description_atom_v,
+                 menu_attrs(root_menu_name),
+                 requester_uuid);
+         },
 
-        [=](ui::keypress_monitor::hotkey_event_atom, const utility::Uuid uuid, bool activated) {
-            if (activated && connected_to_ui_)
-                hotkey_pressed(uuid, std::string());
-            else
-                hotkey_released(uuid, std::string());
-        },
+         [=](connect_to_ui_atom) { connect_to_ui(); },
 
-        [=](deserialise_atom, const utility::JsonStore &json) { deserialise(json); },
+         [=](disconnect_from_ui_atom) { disconnect_from_ui(); },
 
-        [=](update_attribute_in_preferences_atom) {
-            auto prefs = global_store::GlobalStoreHelper(self()->home_system());
-            for (const auto &attr_uuid : attrs_waiting_to_update_prefs_) {
-                Attribute *attr = get_attribute(attr_uuid);
-                if (attr) {
-                    auto pref_path =
-                        attr->get_role_data<std::string>(Attribute::PreferencePath);
-                    prefs.set_value(
-                        attr->role_data_as_json(Attribute::Value),
-                        pref_path,
-                        true,
-                        false // do not broadcast the change *
-                    );
+         [=](ui::keypress_monitor::text_entry_atom,
+             const std::string &text,
+             const std::string &context) { text_entered(text, context); },
+         [=](ui::keypress_monitor::key_down_atom,
+             int key,
+             const std::string &context,
+             const bool auto_repeat) { key_pressed(key, context, auto_repeat); },
 
-                    // * if we set a pref and we don't suppress broadcast the
-                    // GlobalStore actor that manages prefs re-broadcasts the
-                    // new preference and it comes back up to us ... this can
-                    // cause some nasty sync issues and anyway, we only want
-                    // one-way setting of a preference here
-                }
-            }
-            attrs_waiting_to_update_prefs_.clear();
-        },
-        [=](module::current_viewport_playhead_atom, caf::actor_addr) {}
+         [=](ui::keypress_monitor::mouse_event_atom, const ui::PointerEvent &e) {
+             if (!pointer_event(e)) {
+                 // pointer event was not used
+             }
+         },
 
-    };
+         [=](ui::keypress_monitor::register_hotkey_atom,
+             int default_keycode,
+             int default_modifier,
+             const std::string &hotkey_name,
+             const std::string &description,
+             const bool auto_repeat,
+             const std::string &component,
+             const std::string &context) -> result<utility::Uuid> {
+             try {
+                 return register_hotkey(
+                     default_keycode,
+                     default_modifier,
+                     hotkey_name,
+                     description,
+                     auto_repeat,
+                     component,
+                     context);
+             } catch (std::exception &e) {
+                 return make_error(xstudio_error::error, e.what());
+             }
+         },
+
+         [=](ui::keypress_monitor::register_hotkey_atom,
+             std::string key_name,
+             int default_modifier,
+             const std::string &hotkey_name,
+             const std::string &description,
+             const bool auto_repeat,
+             const std::string &component,
+             const std::string &context) -> result<utility::Uuid> {
+             int default_keycode = -1;
+             for (const auto &p : ui::Hotkey::key_names) {
+                 if (p.second == key_name) {
+                     default_keycode = p.first;
+                     break;
+                 }
+             }
+
+             if (default_keycode == -1) {
+                 std::stringstream ss;
+                 ss << "Unkown keyboard key name \"" << key_name << "\"";
+                 return make_error(xstudio_error::error, ss.str().c_str());
+             }
+
+             try {
+                 return register_hotkey(
+                     default_keycode,
+                     default_modifier,
+                     hotkey_name,
+                     description,
+                     auto_repeat,
+                     component,
+                     context);
+             } catch (std::exception &e) {
+                 return make_error(xstudio_error::error, e.what());
+             }
+         },
+
+         [=](ui::keypress_monitor::hotkey_event_atom,
+             const utility::Uuid uuid,
+             bool activated) {
+             anon_send(
+                 attribute_events_group_,
+                 ui::keypress_monitor::hotkey_event_atom_v,
+                 uuid,
+                 activated);
+
+             if (activated && connected_to_ui_)
+                 hotkey_pressed(uuid, std::string());
+             else
+                 hotkey_released(uuid, std::string());
+         },
+
+         [=](deserialise_atom, const utility::JsonStore &json) { deserialise(json); },
+
+         [=](update_attribute_in_preferences_atom) {
+             auto prefs = global_store::GlobalStoreHelper(self()->home_system());
+             for (const auto &attr_uuid : attrs_waiting_to_update_prefs_) {
+                 Attribute *attr = get_attribute(attr_uuid);
+                 if (attr) {
+                     auto pref_path =
+                         attr->get_role_data<std::string>(Attribute::PreferencePath);
+                     prefs.set_value(
+                         attr->role_data_as_json(Attribute::Value),
+                         pref_path,
+                         true,
+                         false // do not broadcast the change *
+                     );
+
+                     // * if we set a pref and we don't suppress broadcast the
+                     // GlobalStore actor that manages prefs re-broadcasts the
+                     // new preference and it comes back up to us ... this can
+                     // cause some nasty sync issues and anyway, we only want
+                     // one-way setting of a preference here
+                 }
+             }
+             attrs_waiting_to_update_prefs_.clear();
+         },
+         [=](module::current_viewport_playhead_atom, caf::actor_addr) {},
+         [=](utility::name_atom) -> std::string { return name(); },
+         [=](utility::event_atom, playhead::show_atom, const media_reader::ImageBufPtr &buf) {
+             on_screen_image(buf);
+         },
+         [=](utility::event_atom,
+             playhead::show_atom,
+             caf::actor media,
+             caf::actor media_source) {
+             on_screen_media_changed(media, media_source);
+             anon_send(
+                 attribute_events_group_,
+                 utility::event_atom_v,
+                 playhead::show_atom_v,
+                 media,
+                 media_source);
+         }
+
+        });
+    return h.or_else(playhead::PlayheadGlobalEventsActor::default_event_handler());
 }
 
 void Module::notify_change(
@@ -660,6 +793,18 @@ void Module::release_keyboard_focus() {
     if (keypress_monitor_actor_ && self()) {
         anon_send(keypress_monitor_actor_, grab_all_keyboard_input_atom_v, self(), false);
     }
+}
+
+void Module::listen_to_playhead_events(const bool listen) {
+
+    // join the global playhead events group - this tells us when the playhead that should
+    // be on screen changes, among other things
+    auto ph_events =
+        self()->home_system().registry().template get<caf::actor>(global_playhead_events_actor);
+    if (listen)
+        anon_send(ph_events, broadcast::join_broadcast_atom_v, self());
+    else
+        anon_send(ph_events, broadcast::leave_broadcast_atom_v, self());
 }
 
 void Module::connect_to_ui() {
@@ -871,6 +1016,10 @@ Attribute *Module::add_attribute(
 
         attr = static_cast<Attribute *>(
             add_qml_code_attribute(title, role_data["qml_code"].get<std::string>()));
+
+    } else if (role_data.contains("menu_paths")) {
+
+        attr = static_cast<Attribute *>(add_action_attribute(title, title));
 
     } else if (value.is_number_integer()) {
 

@@ -10,15 +10,15 @@ using namespace xstudio::audio;
 using namespace xstudio::global_store;
 
 LinuxAudioOutputDevice::LinuxAudioOutputDevice(const utility::JsonStore &prefs)
-    : prefs_(prefs) {
-    connect_to_soundcard();
-}
+    : prefs_(prefs) {}
 
-LinuxAudioOutputDevice::~LinuxAudioOutputDevice() {
+LinuxAudioOutputDevice::~LinuxAudioOutputDevice() { disconnect_from_soundcard(); }
 
+void LinuxAudioOutputDevice::disconnect_from_soundcard() {
     if (playback_handle_) {
         pa_simple_free(playback_handle_);
     }
+    playback_handle_ = nullptr;
 }
 
 void LinuxAudioOutputDevice::connect_to_soundcard() {
@@ -75,7 +75,8 @@ long LinuxAudioOutputDevice::latency_microseconds() {
     pa_usec_t latency;
     int error;
 
-    if ((latency = pa_simple_get_latency(playback_handle_, &error)) == (pa_usec_t)-1) {
+    if (playback_handle_ &&
+        (latency = pa_simple_get_latency(playback_handle_, &error)) == (pa_usec_t)-1) {
         std::stringstream ss;
         ss << __FILE__ ": pa_simple_get_latency() failed: " << pa_strerror(error);
         throw std::runtime_error(ss.str().c_str());
@@ -88,8 +89,9 @@ long LinuxAudioOutputDevice::latency_microseconds() {
 void LinuxAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {
 
     int error;
-    if (pa_simple_write(playback_handle_, sample_data, (size_t)num_samples * 2 * 2, &error) <
-        0) {
+    if (playback_handle_ &&
+        pa_simple_write(playback_handle_, sample_data, (size_t)num_samples * 2 * 2, &error) <
+            0) {
         std::stringstream ss;
         ss << __FILE__ ": pa_simple_write() failed: " << pa_strerror(error);
         throw std::runtime_error(ss.str().c_str());

@@ -109,6 +109,7 @@ namespace media {
         caf::actor_addr parent_;
         utility::Uuid parent_uuid_;
         caf::actor event_group_;
+        std::vector<caf::typed_response_promise<bool>> pending_stream_detail_requests_;
     };
 
     class MediaStreamActor : public caf::event_based_actor {

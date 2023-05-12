@@ -27,8 +27,7 @@ void ShotgunClientActor::init() {
     spdlog::debug("Created ShotgunClientActor");
     print_on_exit(this, "ShotgunClientActor");
 
-    http_ = spawn<HTTPClientActor>(
-        CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, CPPHTTPLIB_READ_TIMEOUT_SECOND * 2);
+    http_ = spawn<HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 20, 20);
     link_to(http_);
 
     event_group_ = spawn<broadcast::BroadcastActor>(this);

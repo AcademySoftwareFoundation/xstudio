@@ -19,7 +19,6 @@ namespace xstudio {
 namespace ui {
     namespace qml {
 
-        class PlayheadUI;
         class PlaylistSelectionUI;
 
         class ContactSheetUI : public QMLActor {
@@ -37,12 +36,9 @@ namespace ui {
             Q_PROPERTY(QVariantMap mediaOrder READ mediaOrder NOTIFY mediaOrderChanged)
 
             Q_PROPERTY(bool selected READ selected WRITE setSelected NOTIFY selectedChanged)
-            Q_PROPERTY(QObject *playhead READ playhead NOTIFY playheadChanged)
             Q_PROPERTY(QObject *selectionFilter READ selectionFilter NOTIFY
                            playlistSelectionThingChanged)
             Q_PROPERTY(QString fullName READ fullName NOTIFY nameChanged)
-            Q_PROPERTY(int compareMode READ compare_mode WRITE setCompareMode NOTIFY
-                           compareModeChanged)
             Q_PROPERTY(
                 QObject *parent_playlist READ parent_playlist NOTIFY parent_playlistChanged)
 
@@ -58,7 +54,6 @@ namespace ui {
             [[nodiscard]] caf::actor backend() const { return backend_; }
 
             [[nodiscard]] bool selected() const { return selected_; }
-            [[nodiscard]] int compare_mode() const { return compare_mode_; }
             [[nodiscard]] QString name() const { return QStringFromStd(name_); }
             [[nodiscard]] QUuid quuid() const { return QUuidFromUuid(uuid_); }
             [[nodiscard]] utility::Uuid uuid() const { return uuid_; }
@@ -76,7 +71,6 @@ namespace ui {
             QList<QObject *> mediaList() { return media_; }
             [[nodiscard]] QVariantMap mediaOrder() const { return media_order_; }
 
-            QObject *playhead();
             QObject *selectionFilter();
             QObject *parent_playlist() {
                 return static_cast<QObject *>(dynamic_cast<PlaylistUI *>(parent()));
@@ -95,7 +89,6 @@ namespace ui {
             void flagChanged();
             void selectedChanged();
             void compareModeChanged();
-            void playheadChanged();
             void playlistSelectionThingChanged();
             void mediaAdded(const QUuid &uuid);
             void parent_playlistChanged();
@@ -130,7 +123,6 @@ namespace ui {
                     emit selectedChanged();
                 }
             }
-            void setCompareMode(const int value = playhead::CM_GRID);
 
             void dragDropReorder(const QVariantList drop_uuids, const QString before_uuid);
 
@@ -141,7 +133,6 @@ namespace ui {
           private:
             MediaUI *getNextItem(const utility::Uuid &uuid);
             void update_media();
-            void makePlayhead();
 
             utility::Uuid cuuid_;
             caf::actor backend_;
@@ -154,10 +145,7 @@ namespace ui {
             QList<QObject *> media_;
             std::map<utility::Uuid, MediaUI *> uuid_media_;
             QVariantMap media_order_;
-            PlayheadUI *playhead_                    = {nullptr};
             PlaylistSelectionUI *playlist_selection_ = {nullptr};
-            playhead::CompareMode compare_mode_;
-
             MediaModel media_model_;
         };
     } // namespace qml

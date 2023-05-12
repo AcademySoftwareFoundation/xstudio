@@ -71,7 +71,8 @@ Button {
             color: widget.down || widget.hovered? textColorPressed: textColorNormal
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            anchors.centerIn: parent
+            topPadding: 1
+            anchors.horizontalCenter: parent.horizontalCenter
             elide: Text.ElideRight
             width: parent.width
             height: parent.height

@@ -134,7 +134,7 @@ class BuildPlaylistMediaJob {
 
 class ShotgunMediaWorker : public caf::event_based_actor {
   public:
-    ShotgunMediaWorker(caf::actor_config &cfg);
+    ShotgunMediaWorker(caf::actor_config &cfg, const caf::actor_addr source);
     ~ShotgunMediaWorker() override = default;
 
     const char *name() const override { return NAME.c_str(); }
@@ -145,9 +145,11 @@ class ShotgunMediaWorker : public caf::event_based_actor {
 
   private:
     caf::behavior behavior_;
+    caf::actor_addr data_source_;
 };
 
-ShotgunMediaWorker::ShotgunMediaWorker(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
+ShotgunMediaWorker::ShotgunMediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
+    : data_source_(std::move(source)), caf::event_based_actor(cfg) {
 
     // for each input we spawn one media item with upto two media sources.
 
@@ -317,6 +319,65 @@ ShotgunMediaWorker::ShotgunMediaWorker(caf::actor_config &cfg) : caf::event_base
                                                                 jsn,
                                                                 ShotgunMetadataPath +
                                                                     "/version");
+
+                                                            // dispatch delayed shot data.
+                                                            try {
+                                                                auto shotreq = JsonStore(
+                                                                    GetShotFromIdJSON);
+                                                                shotreq["shot_id"] =
+                                                                    jsn.at("relationships")
+                                                                        .at("entity")
+                                                                        .at("data")
+                                                                        .value("id", 0);
+
+                                                                request(
+                                                                    caf::actor_cast<caf::actor>(
+                                                                        data_source_),
+                                                                    infinite,
+                                                                    get_data_atom_v,
+                                                                    shotreq)
+                                                                    .then(
+                                                                        [=](const JsonStore
+                                                                                &jsn) mutable {
+                                                                            try {
+                                                                                anon_send(
+                                                                                    media,
+                                                                                    json_store::
+                                                                                        set_json_atom_v,
+                                                                                    utility::
+                                                                                        Uuid(),
+                                                                                    JsonStore(
+                                                                                        jsn.at(
+                                                                                            "da"
+                                                                                            "t"
+                                                                                            "a")),
+                                                                                    ShotgunMetadataPath +
+                                                                                        "/sho"
+                                                                                        "t");
+                                                                            } catch (
+                                                                                const std::
+                                                                                    exception
+                                                                                        &err) {
+                                                                                spdlog::warn(
+                                                                                    "{} {}",
+                                                                                    __PRETTY_FUNCTION__,
+                                                                                    err.what());
+                                                                            }
+                                                                        },
+                                                                        [=](const error
+                                                                                &err) mutable {
+                                                                            spdlog::warn(
+                                                                                "{} {}",
+                                                                                __PRETTY_FUNCTION__,
+                                                                                to_string(err));
+                                                                        });
+                                                            } catch (
+                                                                const std::exception &err) {
+                                                                spdlog::warn(
+                                                                    "{} {}",
+                                                                    __PRETTY_FUNCTION__,
+                                                                    err.what());
+                                                            }
                                                         },
                                                         [=](error &err) {
                                                             spdlog::warn(
@@ -591,7 +652,10 @@ ShotgunDataSourceActor<T>::ShotgunDataSourceActor(
     pool_ = caf::actor_pool::make(
         system().dummy_execution_unit(),
         worker_count_,
-        [&] { return system().template spawn<ShotgunMediaWorker>(); },
+        [&] {
+            return system().template spawn<ShotgunMediaWorker>(
+                actor_cast<caf::actor_addr>(this));
+        },
         caf::actor_pool::round_robin());
     link_to(pool_);
 
@@ -1097,6 +1161,8 @@ ShotgunDataSourceActor<T>::ShotgunDataSourceActor(
                         rp,
                         js.at("ivy_uuid").get<std::string>(),
                         js.at("job").get<std::string>());
+                } else if (js.at("operation") == "GetShotFromId") {
+                    find_shot(rp, js.at("shot_id").get<int>());
                 } else if (js.at("operation") == "LinkMedia") {
                     link_media(rp, utility::Uuid(js.at("playlist_uuid")));
                 } else if (js.at("operation") == "MediaCount") {
@@ -1106,7 +1172,7 @@ ShotgunDataSourceActor<T>::ShotgunDataSourceActor(
                         rp,
                         utility::Uuid(js.at("playlist_uuid")),
                         js.value("notify_owner", false),
-                        js.value("notify_group_id", 0),
+                        js.value("notify_group_ids", std::vector<int>()),
                         js.value("combine", false),
                         js.value("add_time", false),
                         js.value("add_playlist_name", false),
@@ -1560,6 +1626,7 @@ void ShotgunDataSourceActor<T>::create_playlist(
                         // return the result..
                         update_playlist_versions(rp, playlist_uuid, playlist_id);
                     } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, result.dump(2));
                         rp.deliver(make_error(xstudio_error::error, err.what()));
                     }
                 },
@@ -1921,6 +1988,7 @@ void ShotgunDataSourceActor<T>::find_ivy_version(
     const std::string &uuid,
     const std::string &job) {
     // find version from supplied details.
+
     auto version_filter =
         FilterBy().And(Text("project.Project.name").is(job), Text("sg_ivy_dnuuid").is(uuid));
 
@@ -1949,11 +2017,36 @@ void ShotgunDataSourceActor<T>::find_ivy_version(
 }
 
 template <typename T>
+void ShotgunDataSourceActor<T>::find_shot(
+    caf::typed_response_promise<utility::JsonStore> rp, const int shot_id) {
+    // find version from supplied details.
+    if (shot_cache_.count(shot_id))
+        rp.deliver(shot_cache_.at(shot_id));
+
+    request(
+        shotgun_,
+        std::chrono::seconds(static_cast<int>(data_source_.timeout_->value())),
+        shotgun_entity_atom_v,
+        "Shot",
+        shot_id,
+        ShotFields)
+        .then(
+            [=](const JsonStore &jsn) mutable {
+                shot_cache_[shot_id] = jsn;
+                rp.deliver(jsn);
+            },
+            [=](error &err) mutable {
+                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                rp.deliver(JsonStore(R"({"data":{}})"_json));
+            });
+}
+
+template <typename T>
 void ShotgunDataSourceActor<T>::prepare_playlist_notes(
     caf::typed_response_promise<utility::JsonStore> rp,
     const utility::Uuid &playlist_uuid,
     const bool notify_owner,
-    const int notify_group_id,
+    const std::vector<int> notify_group_ids,
     const bool combine,
     const bool add_time,
     const bool add_playlist_name,
@@ -1983,12 +2076,10 @@ void ShotgunDataSourceActor<T>::prepare_playlist_notes(
         try {
             auto sgpl = request_receive<JsonStore>(
                 *sys, playlist, json_store::get_json_atom_v, ShotgunMetadataPath + "/playlist");
-            // spdlog::warn("{}", sgpl.dump(2));
-            playlist_name = sgpl["attributes"]["code"].template get<std::string>();
-            playlist_id   = sgpl["id"].template get<int>();
-            // auto sgpl_loc = sgpl["attributes"]["sg_location"].template get<std::string>();
-            // auto sgpl_proj_id = sgpl["relationships"]["project"]["data"]["id"].template
-            // get<int>();
+
+            playlist_name = sgpl.at("attributes").at("code").get<std::string>();
+            playlist_id   = sgpl.at("id").get<int>();
+
         } catch (const std::exception &err) {
             spdlog::warn("No shotgun playlist information");
         }
@@ -2035,18 +2126,37 @@ void ShotgunDataSourceActor<T>::prepare_playlist_notes(
                                                                   .at("id")
                                                                   .get<int>();
 
+
                             // playlist link
                             jsn["payload"]["note_links"][0]["id"] = playlist_id;
 
-                            // shot link
-                            jsn["payload"]["note_links"][1]["id"] = version.at("relationships")
-                                                                        .at("entity")
-                                                                        .at("data")
-                                                                        .value("id", 0);
+                            if (version.at("relationships")
+                                    .at("entity")
+                                    .at("data")
+                                    .value("type", "") == "Sequence")
+                                // shot link
+                                jsn["payload"]["note_links"][1]["id"] =
+                                    version.at("relationships")
+                                        .at("entity")
+                                        .at("data")
+                                        .value("id", 0);
+                            else if (
+                                version.at("relationships")
+                                    .at("entity")
+                                    .at("data")
+                                    .value("type", "") == "Shot")
+                                // sequence link
+                                jsn["payload"]["note_links"][2]["id"] =
+                                    version.at("relationships")
+                                        .at("entity")
+                                        .at("data")
+                                        .value("id", 0);
 
                             // version link
-                            jsn["payload"]["note_links"][2]["id"] = version.value("id", 0);
+                            jsn["payload"]["note_links"][3]["id"] = version.value("id", 0);
 
+                            if (jsn["payload"]["note_links"][3]["id"].get<int>() == 0)
+                                jsn["payload"]["note_links"].erase(3);
                             if (jsn["payload"]["note_links"][2]["id"].get<int>() == 0)
                                 jsn["payload"]["note_links"].erase(2);
                             if (jsn["payload"]["note_links"][1]["id"].get<int>() == 0)
@@ -2072,9 +2182,18 @@ void ShotgunDataSourceActor<T>::prepare_playlist_notes(
                             else
                                 jsn["payload"].erase("addressings_to");
 
-                            if (notify_group_id)
-                                jsn["payload"]["addressings_cc"][0]["id"] = notify_group_id;
-                            else
+                            if (not notify_group_ids.empty()) {
+                                auto grp = R"({ "type": "Group", "id": null})"_json;
+                                for (const auto g : notify_group_ids) {
+                                    if (g <= 0)
+                                        continue;
+
+                                    grp["id"] = g;
+                                    jsn["payload"]["addressings_cc"].push_back(grp);
+                                }
+                            }
+
+                            if (jsn["payload"]["addressings_cc"].empty())
                                 jsn["payload"].erase("addressings_cc");
 
 
@@ -2390,7 +2509,13 @@ void ShotgunDataSourceActor<T>::create_playlist_notes(
                                                                                 [=](const error &
                                                                                         err) mutable {
                                                                                     spdlog::warn(
-                                                                                        "{} {}",
+                                                                                        "{} "
+                                                                                        "Failed"
+                                                                                        " uploa"
+                                                                                        "d of "
+                                                                                        "annota"
+                                                                                        "tion "
+                                                                                        "{}",
                                                                                         __PRETTY_FUNCTION__,
                                                                                         to_string(
                                                                                             err));
@@ -2401,21 +2526,23 @@ void ShotgunDataSourceActor<T>::create_playlist_notes(
                                                                     [=](const error
                                                                             &err) mutable {
                                                                         spdlog::warn(
-                                                                            "{} {}",
+                                                                            "{} Failed jpeg "
+                                                                            "conversion {}",
                                                                             __PRETTY_FUNCTION__,
                                                                             to_string(err));
                                                                     });
                                                         },
                                                         [=](const error &err) mutable {
                                                             spdlog::warn(
-                                                                "{} {}",
+                                                                "{} Failed render annotation "
+                                                                "{}",
                                                                 __PRETTY_FUNCTION__,
                                                                 to_string(err));
                                                         });
                                             },
                                             [=](const error &err) mutable {
                                                 spdlog::warn(
-                                                    "{} {}",
+                                                    "{} Failed get media {}",
                                                     __PRETTY_FUNCTION__,
                                                     to_string(err));
                                             });
@@ -2459,8 +2586,21 @@ void ShotgunDataSourceActor<T>::create_playlist_notes(
                         }
                     },
                     [=](error &err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        rp.deliver(make_error(xstudio_error::error, to_string(err)));
+                        spdlog::warn(
+                            "Failed create note entity {} {}",
+                            __PRETTY_FUNCTION__,
+                            to_string(err));
+                        (*count)--;
+                        (*failed)++;
+
+                        if (not(*count)) {
+                            auto jsn = JsonStore(R"({"data": {"status": ""}})"_json);
+                            jsn["data"]["status"] = std::string(fmt::format(
+                                "Successfully published {} / {} notes.",
+                                *succeed,
+                                (*failed) + (*succeed)));
+                            rp.deliver(jsn);
+                        }
                     });
         }
 

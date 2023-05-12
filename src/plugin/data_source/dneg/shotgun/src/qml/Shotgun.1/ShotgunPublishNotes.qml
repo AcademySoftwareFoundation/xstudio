@@ -5,11 +5,11 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import QtQml 2.15
-import xstudio.qml.bookmarks 1.0
 import QtQml.Models 2.14
 import QtQuick.Dialogs 1.3 //for ColorDialog
 import QtGraphicalEffects 1.15 //for RadialGradient
 import Qt.labs.qmlmodels 1.0 //for DelegateChooser
+import xstudio.qml.helpers 1.0
 
 import xStudio 1.1
 
@@ -59,8 +59,18 @@ XsWindow {
     property alias add_playlist_name: add_name_cb.checked
     property alias add_type: add_type_cb.checked
     property alias ignore_with_only_drawing: ignore_with_only_drawing_cb.checked
-    property int notify_group_id: notify_group_cb.currentIndex !==-1 && notify_group_cb.checked && notify_group_cb.model ? notify_group_cb.model.get(notify_group_cb.currentIndex, "idRole") : 0
     property string default_type: overrideType.checked ? overrideType.defaultType : ""
+
+    property int notify_group_id: notify_group_cb.currentIndex !==-1 && notify_group_cb.checked && notify_group_cb.model ? notify_group_cb.model.get(notify_group_cb.currentIndex, "idRole") : 0
+    // property var notify_group_ids: notify_group_cb.model ? notify_group_cb.checkedIndexes:0 //#TODO
+
+
+
+    XsModelNestedPropertyMap {
+        id: prefs
+        index: app_window.globalStoreModel.search_recursive("/plugin/data_source/shotgun/note_publish_settings", "pathRole")
+        property alias properties: prefs.values
+    }
 
 
     onPlaylist_uuidChanged: {
@@ -86,12 +96,22 @@ XsWindow {
         }
     }
 
+    function getNotifyGroups() {
+        let result = []
+        if(notify_group_cb.checked) {
+            for(let i =0;i<notify_group_cb.checkedIndexes.length;i++) {
+                result.push(notify_group_cb.model.get(notify_group_cb.checkedIndexes[i], "idRole"))
+            }
+        }
+        return result
+    }
+
     function updatePublish() {
         if(playlist_uuid) {
             publishNotesDialog.payload = data_source.preparePlaylistNotes(
                 playlist_uuid,
                 notify_owner,
-                notify_group_id,
+                getNotifyGroups(),
                 combine,
                 add_time,
                 add_playlist_name,
@@ -100,6 +120,8 @@ XsWindow {
                 default_type
             )
         }
+
+        hideMenu()
     }
 
     function publishNotes() {
@@ -110,7 +132,7 @@ XsWindow {
             let tmp = data_source.preparePlaylistNotes(
                 playlist_uuid,
                 notify_owner,
-                notify_group_id,
+                getNotifyGroups(),
                 combine,
                 add_time,
                 add_playlist_name,
@@ -126,8 +148,19 @@ XsWindow {
         }
     }
 
+    function hideMenu(){
+        notify_group_cb.hide()
+    }
+
     XsFrame{
         id: frame
+
+        MouseArea{
+            anchors.fill: parent
+            hoverEnabled: true
+            visible: notify_group_cb.popup.visible
+            onClicked: hideMenu()
+        }
 
         ColumnLayout {
             anchors.top: parent.top
@@ -138,8 +171,7 @@ XsWindow {
             anchors.rightMargin: padding * 2
             spacing: itemSpacing
 
-            Rectangle {
-                color: "transparent"
+            Item {
                 Layout.minimumHeight: padding
                 Layout.maximumHeight: padding
                 Layout.fillWidth: true
@@ -155,7 +187,10 @@ XsWindow {
                 onCurrentIndexChanged: {
                     if(currentIndex !== -1){
                         notify_group_cb.model = data_source.groupModel(publishNotesDialog.projectModel.get(currentIndex, "idRole"))
+                        notify_group_cb.model.sortRoleName = "nameRole"
+                        notify_group_cb.model.sortAscending = true
                     }
+                    hideMenu()
                 }
 
                 Layout.fillWidth: true
@@ -174,14 +209,14 @@ XsWindow {
                         playlist_uuid = model[currentIndex].uuid
                         updatePublish()
                     }
+                    hideMenu()
                 }
                 Layout.fillWidth: true
                 Layout.minimumHeight: itemHeight*2
                 Layout.maximumHeight: itemHeight*2
             }
 
-            Rectangle {
-                color: "transparent"
+            Item {
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
                 Layout.fillWidth: true
@@ -194,20 +229,36 @@ XsWindow {
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
 
-                property string defaultType: "Default"
+                property string defaultType: prefs.values.defaultType == undefined  ? "Default" : prefs.values.defaultType
                 editable: true
                 text: "Default Type: "
-                model: session.bookmarks.categories
-                textRole: "text"
-                currentIndex: -1
+                model: app_window.bookmark_categories
+                textRole: "textRole"
+                currentIndex: model.search(defaultType).row
 
                 font.family: XsStyle.controlTitleFontFamily
                 font.hintingPreference: Font.PreferNoHinting
-                onCurrentIndexChanged: defaultType = model[currentIndex].value
+                onCurrentIndexChanged: {
+                    defaultType = model.get(model.index(currentIndex,0), "valueRole")
+                    prefs.values.defaultType = defaultType
+                    hideMenu()
+                }
+
+                onCheckedChanged: {
+                    if(checked) {
+                        prefs.values.defaultType = defaultType
+                    } else {
+                        prefs.values.defaultType = null
+                    }
+
+                }
+
+                checked: {
+                    prefs.values.defaultType !== undefined
+                }
             }
 
-            Rectangle {
-                color: "transparent"
+            Item {
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
                 Layout.fillWidth: true
@@ -215,27 +266,29 @@ XsWindow {
 
             XsCheckbox{
                 id: notify_owner_cb
-                checked: true
+                checked: prefs.values.notifyCreator
                 text: "Notify version creator"
-                Layout.fillWidth: true
+                Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
-                onCheckedChanged: updatePublish()
+                onCheckedChanged: {
+                    updatePublish()
+                    prefs.values.notifyCreator = checked
+                }
             }
 
-            XsCheckBoxWithComboBox{
+            XsCheckBoxWithMultiComboBox{
                 id: notify_group_cb
+                z: 1
                 text: "Notify: "
                 model: null
-                textRole: "nameRole"
+                hint: "Recipients"
                 Layout.fillWidth: true
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
-                editable: true
             }
 
-            Rectangle {
-                color: "transparent"
+            Item {
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
                 Layout.fillWidth: true
@@ -245,40 +298,56 @@ XsWindow {
             XsCheckbox{
                 id: combine_cb
                 text: "Combine multiple notes"
-                Layout.fillWidth: true
+                checked: prefs.values.combine
+                Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
-                onCheckedChanged: updatePublish()
+                onCheckedChanged: {
+                    updatePublish()
+                    prefs.values.combine = checked
+                }
             }
 
             XsCheckbox{
                 id: add_time_cb
                 text: "Add \"Frame/Timecode Number\" to notes"
-                Layout.fillWidth: true
+                checked: prefs.values.addFrame
+                Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
+                onCheckedChanged: {
+                    prefs.values.addFrame = checked
+                    hideMenu()
+                }
             }
 
             XsCheckbox{
                 id: add_name_cb
                 text: "Add \"Playlist Name\" to notes"
-                checked: true
-                Layout.fillWidth: true
+                checked: prefs.values.addPlaylistName
+                Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
+                onCheckedChanged: {
+                    prefs.values.addPlaylistName = checked
+                    hideMenu()
+                }
             }
 
             XsCheckbox{
                 id: add_type_cb
-                checked: true
+                checked: prefs.values.addType
                 text: "Add \"Note Type\" to notes"
-                Layout.fillWidth: true
+                Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
+                onCheckedChanged: {
+                    prefs.values.addType = checked
+                    hideMenu()
+                }
             }
 
-            Rectangle {
-                color: "transparent"
+            Item {
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
                 Layout.fillWidth: true
@@ -287,23 +356,25 @@ XsWindow {
 
             XsCheckbox{
                 id: ignore_with_only_drawing_cb
-                checked: true
+                checked: prefs.values.ignoreEmpty
                 text: "Ignore notes with only drawings"
-                onCheckedChanged: updatePublish()
-                Layout.fillWidth: true
+                onCheckedChanged: {
+                    updatePublish()
+                    prefs.values.ignoreEmpty = checked
+                }
+                Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
             }
 
-            Rectangle {
-                color: "transparent"
+            Item {
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
                 Layout.fillWidth: true
             }
 
             XsText{
-                color: "orange"
+                color: XsStyle.highlightColor
                 text: "Only notes attached Shotgun Media are currently supported."
                 font.bold: true
 

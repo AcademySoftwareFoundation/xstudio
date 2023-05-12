@@ -50,6 +50,10 @@ namespace ui {
                 const Imath::M44f &projection_matrix,
                 const Imath::M44f &fit_mode_matrix) override;
 
+            utility::JsonStore default_prefs() override;
+
+            void set_prefs(const utility::JsonStore &prefs) override;
+
           private:
             void pre_init() override;
 
@@ -66,7 +70,7 @@ namespace ui {
             typedef std::shared_ptr<GLDoubleBufferedTexture> GLTexturePtr;
             std::vector<GLTexturePtr> textures_;
 
-            std::map<utility::Uuid, std::map<utility::Uuid, GLShaderProgramPtr>> programs_;
+            std::map<std::string, GLShaderProgramPtr> programs_;
 
             ColourPipeLutCollection colour_pipe_textures_;
 
@@ -76,6 +80,7 @@ namespace ui {
             GLShaderProgramPtr no_image_shader_program_;
             std::string latest_colour_pipe_data_cacheid_;
             bool gl_context_shared_;
+            bool use_ssbo_;
 
             media_reader::ImageBufPtr onscreen_frame_;
 

@@ -7,33 +7,47 @@ from xstudio.core import JsonStore, change_attribute_event_atom
 import sys
 import time, threading
 
-fartoo = """
-import "file://user_data/.tmp/xstudio/python_plugins/dnMask/qml/DnMask.1"
+qml_folder_name = "qml/DnMask.1"
+
+button_qml = """
 DnMaskButton {
     id: control
     anchors.fill: parent
 }
 """
 
-pingpong = """
-import "file://user_data/.tmp/xstudio/python_plugins/dnMask/qml/DnMask.1"
+overlay_qml = """
 DnMaskOverlay {
 }
 """
 
-class MyPlugin(PluginBase):
+class MaskPlugin(PluginBase):
 
     def __init__(self, connection):
 
-        PluginBase.__init__(self, connection, "MyPlugin", JsonStore({"ink": "stonk"}))
+        PluginBase.__init__(
+            self,
+            connection,
+            "MaskPlugin",
+            qml_folder=qml_folder_name)
 
+        # Note we pass a json-like dictionary as the third argument when
+        # using 'add_attribute'. 
+        # This describes the attribute data per 'role'. The role name is the key,
+        # and the role data is the corresponding value. The role name must be
+        # from the list of valid role names - these can be seen in attribute.hpp
+        # file in the xstudio source code. The role data can be string, float,
+        # int, bool, list(str) - no restrictions are placed on the type of the
+        # role data but for UI elements to work correctly you need to use the
+        # type that xSTUDIO expects. So the 'combo_box_options' role data should
+        # be a list(str).
         self.mask = self.add_attribute(
-            "dnMask",
-            "Off",
+            "dnMask", #attr name
+            "Off", #attr intial value
             {
                 "combo_box_options": ["Off", "1.77", "1.89", "2.0"],
-                "groups": ["main_toolbar", "popout_toolbar", "dnmask_values"],
-                "qml_code": fartoo
+                "groups": ["main_toolbar", "popout_toolbar", "dnmask_values"], #same as calling 'expose_in_ui_attrs_group' with these values later
+                "qml_code": button_qml
             })
 
         # attribute to hold the current mask aspect
@@ -91,7 +105,7 @@ class MyPlugin(PluginBase):
             "Mask Overlay",
             "",
             {
-                "qml_code": pingpong
+                "qml_code": overlay_qml
             })
         self.mask_overlay.expose_in_ui_attrs_group(["viewport_overlay_plugins"]);
 
@@ -111,15 +125,13 @@ class MyPlugin(PluginBase):
             else:
                 self.current_mask_aspect.set_value(0.0)
 
-
-
-
+# This method is required by xSTUDIO
 def create_plugin_instance(connection):
-    return MyPlugin(connection)
+    return MaskPlugin(connection)
 
 
 if __name__=="__main__":
 
     XSTUDIO = Connection(auto_connect=True)
-    mask_plugin(XSTUDIO)
+    mask_plugin_instance = create_plugin_instance(XSTUDIO)
     XSTUDIO.process_events_forever()

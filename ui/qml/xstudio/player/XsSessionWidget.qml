@@ -49,6 +49,7 @@ Rectangle {
     property alias media_list: media_list
     property alias playlist_panel: playlist_panel
     property alias is_main_window: sessionWidget.is_main_window
+    property alias viewport: playerWidget.viewport
 
     property var status_bar_visible: playerWidget.status_bar_visible
     property var layout_bar_visible: playerWidget.layout_bar_visible
@@ -147,7 +148,6 @@ Rectangle {
             id: menuBar
 
             Layout.fillWidth: true
-            viewport: playerWidget.viewport
             playerWidget: sessionWidget.playerWidget
             Behavior on opacity {
                 NumberAnimation { duration: playerWidget.doTrayAnim? XsStyle.presentationModeAnimLength : 0 }
@@ -419,8 +419,8 @@ Rectangle {
                 if(session.selectedSource) {
                     Future.promise(session.selectedSource.handleDropFuture(data)).then(
                         function(quuids){
-                            if(session.selectedSource.playhead)
-                                session.selectedSource.playhead.jumpToSource(quuids[0])
+                            if(viewport.playhead)
+                                viewport.playhead.jumpToSource(quuids[0])
                             session.selectedSource.selectionFilter.newSelection([quuids[0]])
                         }
                     )

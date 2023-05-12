@@ -7,6 +7,7 @@
 #include "colour_pipeline.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/media/media.hpp"
+#include "xstudio/media_reader/pixel_info.hpp"
 #include "xstudio/plugin_manager/plugin_factory.hpp"
 #include "xstudio/plugin_manager/plugin_manager.hpp"
 #include "xstudio/utility/chrono.hpp"
@@ -116,6 +117,13 @@ namespace colour_pipeline {
                     } catch (const std::exception &err) {
                         return make_error(sec::runtime_error, err.what());
                     }
+                },
+                [=](pixel_info_atom atom,
+                    const media_reader::PixelInfo &pixel_info,
+                    const media::AVFrameID &mptr) -> media_reader::PixelInfo {
+                    auto p = pixel_info;
+                    colour_pipeline_->extend_pixel_info(p, mptr);
+                    return p;
                 }});
         }
 
@@ -251,6 +259,9 @@ namespace colour_pipeline {
             [=](display_colour_transform_hash_atom atom, const media::AVFrameID &media_ptr) {
                 delegate(thumbnail_processor_pool_, atom, media_ptr);
             },
+            [=](pixel_info_atom atom,
+                const media_reader::PixelInfo &pixel_info,
+                const media::AVFrameID &mptr) { delegate(pool_, atom, pixel_info, mptr); },
             [=](get_colour_pipe_data_atom,
                 const media::AVFrameIDsAndTimePoints &mptr_and_timepoints)
                 -> caf::result<std::vector<ColourPipelineDataPtr>> {

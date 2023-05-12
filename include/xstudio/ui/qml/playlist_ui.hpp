@@ -12,7 +12,6 @@ CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qml/media_ui.hpp"
-#include "xstudio/ui/qml/playhead_ui.hpp"
 #include "xstudio/ui/qml/session_ui.hpp"
 
 namespace xstudio {
@@ -26,7 +25,6 @@ namespace ui {
             Q_OBJECT
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
             Q_PROPERTY(QUuid uuid READ quuid NOTIFY uuidChanged)
-            Q_PROPERTY(QObject *playhead READ playhead NOTIFY playheadChanged)
             Q_PROPERTY(QObject *selectionFilter READ selectionFilter NOTIFY
                            playlistSelectionThingChanged)
             Q_PROPERTY(QString type READ type NOTIFY typeChanged)
@@ -90,7 +88,6 @@ namespace ui {
                 emit isBusyChanged();
             }
 
-            QObject *playhead();
             QObject *selectionFilter();
 
             utility::Uuid cuuid(const QObject *obj) const;
@@ -106,7 +103,6 @@ namespace ui {
             void nameChanged();
             void typeChanged();
             void systemInit(QObject *);
-            void playheadChanged();
             void playlistSelectionThingChanged();
             void backendChanged();
             void compareModeChanged();
@@ -156,8 +152,6 @@ namespace ui {
                 emit expandedChanged();
             }
             void setSelected(const bool value = true, const bool recurse = true);
-
-            void createPlayhead();
 
             QUuid createTimeline(
                 const QString &name = "Untitled Timeline",
@@ -237,7 +231,6 @@ namespace ui {
             caf::actor backend_events_;
             std::string name_;
             std::string flag_;
-            PlayheadUI *playhead_                    = {nullptr};
             PlaylistSelectionUI *playlist_selection_ = {nullptr};
 
             std::map<utility::Uuid, MediaUI *> uuid_media_;

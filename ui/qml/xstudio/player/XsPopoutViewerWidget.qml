@@ -90,6 +90,8 @@ Rectangle {
         is_main_window: sessionWidget.is_main_window
     }
 
+    property var viewport: playerWidget.viewport
+
     XsStatusBar {
         id: status_bar
         opacity: 0

@@ -124,10 +124,13 @@ MenuItem {
     //        }
     //    }
     property alias textPart: contentPart.textPart
+    property real extraLeftMargin: 0
+
     contentItem: Rectangle {
         id: contentPart
         color: "transparent"
         anchors.fill: parent
+        anchors.leftMargin: extraLeftMargin
         implicitHeight: XsStyle.menuItemHeight
         implicitWidth: textPart.implicitWidth + shortcutPart.implicitWidth
         Image {

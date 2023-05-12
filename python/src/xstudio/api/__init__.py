@@ -158,16 +158,6 @@ class API(CommonAPI):
         """
         if self._plugin_manager is None:
 
-            print (self.connection.request_receive(
-                    self.connection.remote(),
-                    get_plugin_manager_atom()
-                )[0])
-
-            print (self.connection.request_receive(
-                    self.connection.remote(),
-                    get_plugin_manager_atom()
-                ))
-
             self._plugin_manager = PluginManager(
                 self.connection,
                 self.connection.request_receive(

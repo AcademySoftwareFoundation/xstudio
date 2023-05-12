@@ -11,8 +11,7 @@ Item {
 
     id: shortcuts
     property var playlist_panel: sessionWidget.playlist_panel
-
-    property var viewport: sessionWidget.playerWidget.viewport
+    property var viewport: sessionWidget.viewport
     property var playhead: viewport.playhead
     property var selectionFilter: sessionWidget.playerWidget.selectionFilter
     property var source: session.selectedSource
@@ -181,10 +180,12 @@ Item {
         name: "Create Bookmark Silently"
         description: "Create a new bookmark on the current frame."
         onActivated: {
-            session.bookmark_detail.start = playhead.mediaSecond
-            session.bookmark_detail.duration = 0
-            session.bookmark_detail.subject = playhead.media.mediaSource.fileName
-            session.add_note(playhead.media, session.bookmark_detail)
+            let ind = session.bookmarkModel.search(session.add_note(playhead.media.uuid), "uuidRole")
+            if(ind.valid) {
+                session.bookmarkModel.set(ind, playhead.media.mediaSource.fileName, "subjectRole")
+                session.bookmarkModel.set(ind, playhead.mediaSecond, "startRole")
+                session.bookmarkModel.set(ind, 0, "durationRole")
+            }
         }
     }
 
@@ -194,10 +195,13 @@ Item {
         name: "Create Bookmark"
         description: "Create a new bookmark on the current frame and pops-up the bookmarks interface."
         onActivated: {
-            session.bookmark_detail.start = playhead.mediaSecond
-            session.bookmark_detail.duration = 0
-            session.bookmark_detail.subject = playhead.media.mediaSource.fileName
-            session.add_note(playhead.media, session.bookmark_detail)
+            let ind = session.bookmarkModel.search(session.add_note(playhead.media.uuid), "uuidRole")
+            if(ind.valid) {
+                session.bookmarkModel.set(ind, playhead.media.mediaSource.fileName, "subjectRole")
+                session.bookmarkModel.set(ind, playhead.mediaSecond, "startRole")
+                session.bookmarkModel.set(ind, 0, "durationRole")
+            }
+
             sessionWidget.toggleNotes(true)
         }
     }
@@ -210,7 +214,10 @@ Item {
         onActivated: {
             let pos = playhead.getNearestBookmark(playhead.frame)
             if(pos.length) {
-                session.bookmarks.setDuration(pos[2], playhead.frame - pos[0]);
+                let ind = session.bookmarkModel.search(pos[2], "uuidRole")
+                if(ind.valid) {
+                    session.bookmarkModel.set(ind, playhead.frame - pos[0], "durationFrameRole")
+                }
            }
         }
     }
@@ -221,7 +228,7 @@ Item {
         id: anno_tool_backend_settings
         attributesGroupName: "annotations_tool_settings"
     }
-            
+
     XsHotkey {
         context: shortcuts.context
         sequence: "n"
@@ -230,13 +237,13 @@ Item {
         onActivated: sessionWidget.toggleNotes()
     }
 
-    XsHotkey {
+    /*XsHotkey {
         context: shortcuts.context
         sequence: "Shift+p"
         name: "Create New Playlist"
         description: "Creates a new playlist."
         onActivated: XsUtils.openDialog("qrc:/dialogs/XsNewPlaylistDialog.qml",playlist_panel).open()
-    }
+    }*/
 
     XsHotkey {
         context: shortcuts.context
@@ -339,14 +346,6 @@ Item {
 
     XsHotkey {
         context: shortcuts.context
-        sequence: "f"
-        name: "Revert image fit"
-        description: "Toggles the image/window fit mode between your last zoom/pan state and fit mode setting"
-        onActivated: viewport.revertFitZoomToPrevious()
-    }
-
-    XsHotkey {
-        context: shortcuts.context
         sequence: "1"
         name: "View 1st selected source"
         onActivated: playhead.keyPlayheadIndex = 0
@@ -414,7 +413,7 @@ Item {
     }
 
     XsHotkey {
-        context: shortcuts.context    
+        context: shortcuts.context
         sequence: "Delete"//, "Backspace"
         name: "Remove media"
         description: "Removes current selected media from playlist"
@@ -428,7 +427,7 @@ Item {
         context: shortcuts.context
                 sequence:  "Ctrl+" + (index == app_window.session.mediaFlags.length-1 ? 0: index+1)
                 name: "Flag media with color " + (index == app_window.session.mediaFlags.length-1 ? 0: index+1)
-                description: "Flags media with the associated colour code"        
+                description: "Flags media with the associated colour code"
                 onActivated: app_window.session.flag_selected_media(modelData.colour, modelData.name)
 
 
@@ -444,7 +443,7 @@ Item {
         context: shortcuts.context
         sequence: "F1"
         name: "Show User Docs"
-        description: "Loads the xstudio user docs into your default web browser"        
+        description: "Loads the xstudio user docs into your default web browser"
         onActivated: {
             var url = session.userDocsUrl()
             if (url == "") {
@@ -460,7 +459,7 @@ Item {
         context: shortcuts.context
         sequence: "Tab"
         name: "Toggle Presentation Mode"
-        description: "Toggles xStudio in/out of presentation mode"        
+        description: "Toggles xStudio in/out of presentation mode"
         onActivated: {
             sessionWidget.togglePresentationLayout()
         }
@@ -470,14 +469,14 @@ Item {
         context: shortcuts.context
         sequence: "Ctrl+s"
         name: "Save Session"
-        description: "Saves current session under current file path."        
+        description: "Saves current session under current file path."
         onActivated: app_window.session.save_session()
     }
     XsHotkey {
         context: shortcuts.context
         sequence: "Ctrl+shift+s"
         name: "Save Session As"
-        description: "Saves current session under a new file path."        
+        description: "Saves current session under a new file path."
         onActivated: app_window.session.save_session_as()
 
     }

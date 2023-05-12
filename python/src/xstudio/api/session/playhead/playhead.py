@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import play_atom, loop_atom, compare_mode_atom, play_forward_atom
-from xstudio.core import logical_frame_atom, play_rate_mode_atom, source_atom
-from xstudio.core import viewport_playhead_atom
+from xstudio.core import logical_frame_atom, play_rate_mode_atom, source_atom, media_atom
+from xstudio.core import simple_loop_start_atom, simple_loop_end_atom, use_loop_range_atom
+from xstudio.core import viewport_playhead_atom, media_logical_frame_atom
 from xstudio.core import JsonStore, change_attribute_value_atom, jump_atom
 
+from xstudio.api.module import ModuleBase
 from xstudio.api.session import Container
 from xstudio.api.session.playhead.playhead_selection import PlayheadSelection
+from xstudio.api.session.media.media import Media
 
-class Playhead(Container):
+class Playhead(ModuleBase):
     """MediaStream object, represents playhead."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -20,7 +23,7 @@ class Playhead(Container):
         Kwargs:
             uuid(Uuid): Uuid of remote actor.
         """
-        Container.__init__(self, connection, remote, uuid)
+        ModuleBase.__init__(self, connection, remote)
 
     def show_in_viewport(self):
         """Connect this playhead to the viewport.
@@ -44,6 +47,60 @@ class Playhead(Container):
             playing(bool): Set playing.
         """
         self.connection.send(self.remote, play_atom(), x)
+
+    @property
+    def use_loop_range(self):
+        """Using loop range
+
+        Returns:
+            use_loop_range(bool): Playhead will loop over specified range (or over whole range of source)
+        """
+        return self.connection.request_receive(self.remote, use_loop_range_atom())[0]
+
+    @use_loop_range.setter
+    def use_loop_range(self, x):
+        """Set playing.
+
+        Args:
+            use_loop_range(bool): Sets if playhead loops over specified range
+        """
+        self.connection.send(self.remote, use_loop_range_atom(), x)
+
+    @property
+    def loop_in_point(self):
+        """Loop in point.
+
+        Returns:
+            loop_in_point(int): Start frame of loop range
+        """
+        return self.connection.request_receive(self.remote, simple_loop_start_atom())[0]
+
+    @loop_in_point.setter
+    def loop_in_point(self, x):
+        """Set playing.
+
+        Args:
+            loop_in_point(int): Set start frame of loop range.
+        """
+        self.connection.send(self.remote, simple_loop_start_atom(), x)
+
+    @property
+    def loop_out_point(self):
+        """Loop out point.
+
+        Returns:
+            loop_out_point(int): End frame of loop range
+        """
+        return self.connection.request_receive(self.remote, simple_loop_end_atom())[0]
+
+    @loop_out_point.setter
+    def loop_out_point(self, x):
+        """Set loop out point.
+
+        Args:
+            loop_out_point(int): Set end frame of loop range.
+        """
+        self.connection.send(self.remote, simple_loop_end_atom(), x)
 
     @property
     def looping(self):
@@ -115,6 +172,15 @@ class Playhead(Container):
         """
         return self.connection.request_receive(self.remote, logical_frame_atom())[0]
 
+    @property
+    def media_frame(self):
+        """Current (media) frame of on-screen media.
+
+        Returns:
+            position(int): Current media frame showing on-screen
+        """
+        return self.connection.request_receive(self.remote, media_logical_frame_atom())[0]
+
     @position.setter
     def position(self, new_position):
         """Set current frame.
@@ -134,20 +200,19 @@ class Playhead(Container):
         return self.connection.request_receive(self.remote, play_rate_mode_atom())[0]
 
     @property
-    def source(self):
-        """Current media sequence.
+    def on_screen_media(self):
+        """Current on-screen media sequence.
 
         Returns:
-            source(PlayheadSelection): Currently playing this.
+            source(Media): Currently playing this.
         """
-        result = self.connection.request_receive(self.remote, selection_actor_atom())
-        return PlayheadSelection(self.connection, result.actor, result.uuid)
+        result = self.connection.request_receive(self.remote, media_atom())[0]
+        return Media(self.connection, result)
 
-    @source.setter
     def source(self, new_source):
-        """Set source.
+        """Set source to play (e.g. Media or Timeline).
 
         Args:
-            new_source(actor): Set source to this.
+            new_source(actor): Set playable source to this.
         """
         self.connection.send(self.remote, source_atom(), new_source)

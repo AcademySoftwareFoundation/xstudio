@@ -103,6 +103,7 @@ bool xstudio::global_store::preference_load_defaults(
         spdlog::warn(
             "Failed preference_load_defaults from path {} with error {}.", path, e.what());
     }
+
     return result;
 }
 

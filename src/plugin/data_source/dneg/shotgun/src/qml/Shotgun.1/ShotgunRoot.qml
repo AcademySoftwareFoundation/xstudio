@@ -86,7 +86,7 @@ Item {
         repeat: false
 
         onTriggered: {
-            if(!sessionWidget.is_main_window)
+            if(!sessionWidget.is_main_window || !session.bookmarkModel)
                 return
 
             session.getPlaylists().forEach(
@@ -94,9 +94,11 @@ Item {
                     processPlaylist(item)
                 }
             )
-            for(let i=0;i<session.bookmarks.bookmarkModel.length;i++){
-                if(session.bookmarks.getJSON(session.bookmarks.bookmarkModel.get(i).objectRole, "/metadata/shotgun")) {
-                    addDecorator(session.bookmarks.bookmarkModel.get(i).uuidRole)
+
+            for(let i=0;i<session.bookmarkModel.length;i++){
+                let ind = session.bookmarkModel.index(i, 0)
+                if(ind.valid && session.bookmarkModel.getJSON(ind, "/metadata/shotgun")) {
+                    addDecorator(session.bookmarkModel.get(ind, "uuidRole"))
                 }
             }
             // tree_test.show()
@@ -433,26 +435,25 @@ Item {
     }
 
     Connections {
-        target: session.bookmarks
-        function onBackendChanged() {
-            if(!sessionWidget.is_main_window)
+        target: session.bookmarkModel
+        function onBookmarkActorAddrChanged() {
+            if(!sessionWidget.is_main_window || !session.bookmarkModel)
                 return
-            for(let i=0;i<session.bookmarks.bookmarkModel.length;i++){
-                if(session.bookmarks.getJSON(session.bookmarks.bookmarkModel.get(i).objectRole, "/metadata/shotgun")) {
-                    addDecorator(session.bookmarks.bookmarkModel.get(i).uuidRole)
+
+            for(let i=0;i<session.bookmarkModel.length;i++){
+                let ind = session.bookmarkModel.index(i, 0)
+                if(ind.valid && session.bookmarkModel.getJSON(ind, "/metadata/shotgun")) {
+                    addDecorator(session.bookmarkModel.get(ind, "uuidRole"))
                 }
             }
-        }
-        function onNewBookmark(bookmark_uuid) {
-            // console.log(bookmark_uuid)
         }
     }
 
     Connections {
-        target: session.selectedSource ? session.selectedSource.playhead : null
+        target: sessionWidget.playerWidget.viewport.playhead
         function onMediaChanged() {
             if(browser.visible) {
-                data_source.liveLinkMetadata = session.selectedSource.playhead.media.getMetadata()
+                data_source.liveLinkMetadata = sessionWidget.playerWidget.viewport.playhead.media.getMetadata()
             }
         }
     }
@@ -471,11 +472,17 @@ Item {
     Connections {
         target: browser
         function onVisibleChanged() {
-            if(browser.visible) {
-                if(session.selectedSource) {
-                    data_source.liveLinkMetadata = session.selectedSource.playhead.media.getMetadata()
+            if(browser.visible &&  session.selectedSource && session.selectedSource.selectionFilter.selectedMediaUuids.length == 1) {
+                let media = session.selectedSource.findMediaObject(session.selectedSource.selectionFilter.selectedMediaUuids[0])
+                if(media) {
+                    data_source.liveLinkMetadata = media.getMetadata()
                 }
             }
+            // if(browser.visible) {
+            //     // if(session.selectedSource) {
+            //     //     data_source.liveLinkMetadata = session.selectedSource.playhead.media.getMetadata()
+            //     // }
+            // }
         }
     }
 
@@ -541,6 +548,7 @@ Item {
         productionStatusModel:  data_source.connected ? data_source.termModels.productionStatusModel : null
         projectCurrentIndex: data_source.termModels.projectModel && data_source.termModels.projectModel.count ? data_source.termModels.projectModel.search(project_id_preference.value, "idRole") : -1
         projectModel: data_source.connected ? data_source.termModels.projectModel : null
+        reviewLocationModel: data_source.connected ? data_source.termModels.reviewLocationModel : null
         siteModel: data_source.connected ? data_source.termModels.locationModel : null
         shotStatusModel: data_source.connected ? data_source.termModels.shotStatusModel : null
 
@@ -848,7 +856,6 @@ Item {
         }
 
         if(playlist) {
-            console.log(playlist)
             push_notes_dialog.playlist_uuid = playlist.uuid
             push_notes_dialog.updatePublish()
             push_notes_dialog.show()
@@ -913,19 +920,19 @@ Item {
             push_playlist_notes()
         } else if(key == "notes_history") {
             show_browser()
-            browser.currentCategory = "Notes Tree"
+            currentCategory = "Notes Tree"
             createPresetType(menuLiveNotes)
         } else if(key == "live_version_history") {
             show_browser()
-            browser.currentCategory = "Versions"
+            currentCategory = "Versions"
             createPresetType(menuLiveHistory)
         } else if(key == "live_latest_versions") {
             show_browser()
-            browser.currentCategory = "Versions"
+            currentCategory = "Versions"
             createPresetType(menuLiveLatest)
         } else if(key == "all_versions") {
             show_browser()
-            browser.currentCategory = "Versions"
+            currentCategory = "Versions"
             createPresetType("All")
         } else if(key == "substitute_with") {
             substitute_with(value)
@@ -1110,10 +1117,6 @@ Item {
                         session.switchOnScreenSource(uuid)
                         // turn uuid strings in to uuids..
                         session.setSelection([uuid], true)
-                        if(data.length) {
-                            let selection = [helpers.QVariantFromUuidString(data[0])]
-                            session.selectedSource.selectionFilter.newSelection(selection)
-                        }
                         app_window.requestActivate()
                         app_window.raise()
                         sessionWidget.playerWidget.forceActiveFocus()

@@ -10,7 +10,7 @@ import xStudio 1.1
 XsDialog {
 
     property var source: session.onScreenSource
-    property var playhead: source ? source.playhead: undefined
+    property var playhead: sessionWidget.viewport.playhead
     property var playerWidget: sessionWidget.playerWidget
     property var currentMedia: playhead ? playhead.media.mediaSource: null
     property var resolution: currentMedia ? currentMedia.resolution: ""

@@ -6,7 +6,6 @@
 #include "xstudio/ui/qml/contact_sheet_ui.hpp"
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qml/timeline_ui.hpp"
-#include "xstudio/ui/qml/playhead_ui.hpp"
 #include "xstudio/ui/qml/playlist_selection_ui.hpp"
 #include "xstudio/ui/qml/playlist_ui.hpp"
 #include "xstudio/ui/qml/session_ui.hpp"
@@ -57,7 +56,7 @@ void PlaylistUI::setSelected(const bool value, const bool recurse) {
 
 
 void PlaylistUI::set_backend(caf::actor backend, const bool partial) {
-    playhead_         = nullptr;
+
     backend_          = caf::actor();
     selected_subitem_ = nullptr;
     scoped_actor sys{system()};
@@ -75,8 +74,6 @@ void PlaylistUI::set_backend(caf::actor backend, const bool partial) {
     if (partial) {
         backend_ = backend;
     } else {
-        emit playheadChanged();
-
 
         try {
             auto detail     = request_receive<ContainerDetail>(*sys, backend, detail_atom_v);
@@ -87,13 +84,19 @@ void PlaylistUI::set_backend(caf::actor backend, const bool partial) {
 
             request_receive<bool>(
                 *sys, backend_events_, broadcast::join_broadcast_atom_v, as_actor());
-            createPlayhead();
 
             emit backendChanged();
             emit nameChanged();
             emit uuidChanged();
             emit selectedSubitemChanged();
             update_on_change(false);
+
+            auto selection_actor =
+                request_receive<caf::actor>(*sys, backend_, playlist::selection_actor_atom_v);
+            playlist_selection_ = new PlaylistSelectionUI(this);
+            playlist_selection_->initSystem(this);
+            playlist_selection_->set_backend(selection_actor);
+            emit playlistSelectionThingChanged();
 
             // this will force the backend playlist to re-broadcast it's list of media
             // back to us (via the event_group)
@@ -160,47 +163,7 @@ bool PlaylistUI::setJSON(const QString &json, const QString &path) {
 QString PlaylistUI::getJSON(const QString &path) { return getJSONFuture(path).result(); }
 
 
-QObject *PlaylistUI::playhead() { return playhead_; }
-
 QObject *PlaylistUI::selectionFilter() { return static_cast<QObject *>(playlist_selection_); }
-
-void PlaylistUI::createPlayhead() {
-    // create actor..
-
-    if (backend_) {
-        try {
-
-            scoped_actor sys{system()};
-
-            UuidActor playhead;
-            auto playheads = request_receive<std::vector<utility::UuidActor>>(
-                *sys, backend_, playlist::get_playheads_atom_v);
-
-            if (playheads.size()) {
-                playhead = playheads[0];
-            } else {
-                playhead = request_receive<UuidActor>(
-                    *sys, backend_, playlist::create_playhead_atom_v);
-            }
-
-            playhead_ = new PlayheadUI(this);
-            playhead_->initSystem(this);
-            playhead_->set_backend(playhead.actor());
-            playhead_->setSourceUuid(uuid());
-            emit playheadChanged();
-
-            auto selection_actor =
-                request_receive<caf::actor>(*sys, backend_, playlist::selection_actor_atom_v);
-            playlist_selection_ = new PlaylistSelectionUI(this);
-            playlist_selection_->initSystem(this);
-            playlist_selection_->set_backend(selection_actor);
-            emit playlistSelectionThingChanged();
-
-        } catch (const std::exception &e) {
-            spdlog::error("{} {}", __PRETTY_FUNCTION__, e.what());
-        }
-    }
-}
 
 // QUrl to Uri ?
 // we need trun a URL into media objects.
@@ -246,6 +209,7 @@ QFuture<QList<QUuid>> PlaylistUI::handleDropFuture(const QVariantMap &drop) {
         } else {
             // forward to datasources for non file paths
             auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
+
             try {
                 auto result = request_receive<UuidActorVector>(
                     *sys, pm, data_source::use_data_atom_v, JsonStore(jsn), true);
@@ -384,7 +348,6 @@ void PlaylistUI::sortAlphabetically() {
 
 void PlaylistUI::update_on_change(const bool select_new_items) {
 
-    // update_playheads(); // see note on commented out method
     updateItemModel(select_new_items);
     emit itemModelChanged();
 }
@@ -455,11 +418,6 @@ void PlaylistUI::init(actor_system &system_) {
                 emit itemModelChanged();
                 // emit newItem(QVariant::fromValue(dynamic_cast<const TimelineUI
                 // *>(findItem(ua.first))->qcuuid()));
-            },
-
-            [=](utility::event_atom, playlist::create_playhead_atom) {
-                // What if playhead is created from backend playlist actor? Not handled (yet)
-                // update_playheads();
             },
 
             [=](utility::event_atom, playlist::create_subset_atom, const UuidActor &) {

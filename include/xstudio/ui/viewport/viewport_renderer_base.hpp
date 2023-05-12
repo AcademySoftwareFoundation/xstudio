@@ -43,6 +43,24 @@ namespace ui {
                 const Imath::M44f &projection_matrix,
                 const Imath::M44f &fit_mode_matrix) = 0;
 
+            /**
+             *  @brief Provide default preference dictionary for the viewport renderer
+             *
+             *  @details ViewportRenderer implementations can declare a json dict for
+             * preferences specific to the given implementation - for example, texture mode or
+             * async upload settings that may be necessary for tuning performance on different
+             * systems. The xSTUDIO UI layer will expose these preferences in the prefs panel.
+             */
+            virtual utility::JsonStore default_prefs() = 0;
+
+            /**
+             *  @brief Set rendering preferences
+             *
+             *  @details A JSON dict passed in from UI layer - store the preference values as
+             * requires
+             */
+            virtual void set_prefs(const utility::JsonStore &prefs) = 0;
+
             void add_overlay_renderer(
                 const utility::Uuid &uuid, plugin::ViewportOverlayRendererPtr renderer) {
                 viewport_overlay_renderers_[uuid] = renderer;

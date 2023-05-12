@@ -225,7 +225,6 @@ class Connection(object):
         Args:
            event (Message tuple): The event.
         """
-
         req_id = event[-2]
         sender = event[-1]
         sender_key = str(sender)
@@ -241,7 +240,8 @@ class Connection(object):
             if len(event) == 3 and type(event[0]) == type(broadcast_down_atom()):
                 self.leave_broadcast(sender, False)
         else:
-            print("ignored broadcast", sender, req_id, event[:len(event)-2])
+            pass
+            # print("ignored broadcast", sender, req_id, event[:len(event)-2])
 
     def get_key_from_stdin(self, lock):
         """Request lock key from user.
@@ -475,6 +475,8 @@ class Connection(object):
                 self._dequeue_messages(timeout)
             except (TimeoutError, SystemError) as e:
                 break
+            except TimeoutError as e:
+                break
 
     def caf_message_to_tuple(self, caf_message):
         """Decompose a CAF message object into a tuple of message params.
@@ -493,9 +495,14 @@ class Connection(object):
         start = time.perf_counter()
 
         while True:
-            msg = self.link.dequeue_message_with_timeout(
-                absolute_receive_timeout(int(timeout_milli))
-            )
+
+            try:
+                msg = self.link.dequeue_message_with_timeout(
+                    absolute_receive_timeout(int(timeout_milli))
+                )
+            except Exception as e:
+                if str(e) == "Dequeue timeout":
+                    raise TimeoutError("Dequeue timeout")
 
             if msg is None:
                 raise TimeoutError("Dequeue timeout")
@@ -605,7 +612,7 @@ class Connection(object):
             module = importlib.util.module_from_spec(spec)
             sys.modules[plugin_name] = module
             spec.loader.exec_module(module)
-            self.plugins[path] = module.create_plugin_instance(self)
+            self.plugins[path + plugin_name] = module.create_plugin_instance(self)
         else:
             print ("Error loading plugin \"{0}\" from \"{0}\" - not python importable.".format(
                 path))

@@ -148,36 +148,6 @@ Viewport::Viewport(
     };
     event_callback_ = callback;
 
-    bool is_offscreen = false;
-
-    if (parent_actor_) {
-
-        auto a = caf::actor_cast<caf::scheduled_actor *>(parent_actor_);
-        caf::scoped_actor sys(a->system());
-        fps_monitor_ = sys->spawn<ui::fps_monitor::FpsMonitor>();
-        is_offscreen = is_main_viewer &&
-                       a->system().registry().template get<caf::actor>(main_viewport_registry);
-
-        if (is_main_viewer) {
-            if (!is_offscreen) {
-                a->system().registry().put(main_viewport_registry, a);
-            }
-        } else {
-            // Popout viewer
-            if (!is_offscreen) {
-                other_viewport_ =
-                    a->system().registry().template get<caf::actor>(main_viewport_registry);
-                anon_send(other_viewport_, other_viewport_atom_v, parent_actor_);
-            }
-        }
-
-        // join the FPS monitor event group
-        auto group =
-            request_receive<caf::actor>(*sys, fps_monitor_, utility::get_event_group_atom_v);
-        utility::request_receive<bool>(
-            *sys, group, broadcast::join_broadcast_atom_v, parent_actor_);
-    }
-
     // TODO: Use the proper settings mechanism here
     try {
         deserialise(state_data);
@@ -259,12 +229,12 @@ Viewport::Viewport(
     pointer_event_handlers_[force_pan_pointer_event_sig] =
         pointer_event_handlers_[pan_pointer_event_sig];
 
-    zoom_mode_toggle_ = add_boolean_attribute("Zoom", "Zm", false);
+    zoom_mode_toggle_ = add_boolean_attribute("Zoom (Z)", "Zm", false);
 
-    pan_mode_toggle_ = add_boolean_attribute("Pan", "Pan", false);
+    pan_mode_toggle_ = add_boolean_attribute("Pan (X)", "Pan", false);
 
     fit_mode_ = add_string_choice_attribute(
-        "Fit",
+        "Fit (F)",
         "Fit",
         "Best",
         {"1:1", "Best", "Width", "Height", "Fill", "Off"},
@@ -346,12 +316,73 @@ Viewport::Viewport(
     frame_error_message_->set_role_data(
         module::Attribute::Groups, nlohmann::json{"viewport_frame_error_message"});
 
+
+    hud_toggle_ = add_boolean_attribute("Hud", "Hud", true);
+    hud_toggle_->set_tool_tip("Access HUD controls");
+    hud_toggle_->expose_in_ui_attrs_group(toolbar_name);
+    hud_toggle_->expose_in_ui_attrs_group("hud_toggle");
+    hud_toggle_->set_preference_path("/ui/viewport/enable_hud");
+    // here we set custom QML code to implement a custom widget that is inserted
+    // into the viewer toolbox.
+    hud_toggle_->set_role_data(
+        module::Attribute::QmlCode,
+        R"(
+            import xStudio 1.0
+            XsHudToolbarButton {
+                id: control
+                anchors.fill: parent
+            }
+        )");
+    hud_toggle_->set_role_data(module::Attribute::ToolbarPosition, 0.0f);
+
     // give the attributes static uuids so that
 
-    module::Module::set_parent_actor_addr(caf::actor_cast<actor_addr>(parent_actor_));
-    if (!is_offscreen)
-        connect_to_ui();
-    instance_overlay_plugins(!is_offscreen);
+    bool is_offscreen = false;
+
+    if (parent_actor_) {
+
+        module::Module::set_parent_actor_addr(caf::actor_cast<actor_addr>(parent_actor_));
+
+        auto a = caf::actor_cast<caf::scheduled_actor *>(parent_actor_);
+        caf::scoped_actor sys(a->system());
+        fps_monitor_ = sys->spawn<ui::fps_monitor::FpsMonitor>();
+        is_offscreen = is_main_viewer &&
+                       a->system().registry().template get<caf::actor>(main_viewport_registry);
+        if (!is_offscreen)
+            connect_to_ui();
+        instance_overlay_plugins(!is_offscreen);
+
+        if (is_main_viewer) {
+            if (!is_offscreen) {
+                a->system().registry().put(main_viewport_registry, a);
+            }
+        } else {
+            // Popout viewer
+            if (!is_offscreen) {
+                other_viewport_ =
+                    a->system().registry().template get<caf::actor>(main_viewport_registry);
+                anon_send(other_viewport_, other_viewport_atom_v, parent_actor_);
+            }
+        }
+
+        // join the FPS monitor event group
+        auto group =
+            request_receive<caf::actor>(*sys, fps_monitor_, utility::get_event_group_atom_v);
+        utility::request_receive<bool>(
+            *sys, group, broadcast::join_broadcast_atom_v, parent_actor_);
+
+        // join the global playhead events group - this tells us when the playhead that should
+        // be on screen changes, among other things
+        listen_to_playhead_events();
+        auto ph_events =
+            a->system().registry().template get<caf::actor>(global_playhead_events_actor);
+        // get current playhead, if there is one:
+        auto playhead =
+            request_receive<caf::actor>(*sys, ph_events, viewport::viewport_playhead_atom_v);
+        if (playhead)
+            set_playhead(playhead);
+    }
+
     set_fit_mode(FitMode::Best);
     // force update our internal filter mode enum
     attribute_changed(
@@ -386,6 +417,13 @@ void Viewport::register_hotkeys() {
         ControlModifier,
         "Reset Viewport",
         "Resets the viewport zoom/fit to your last 'Fit' mode setting");
+
+    fit_mode_hotkey_ = register_hotkey(
+        int('F'),
+        NoModifier,
+        "Toggle Fit Mode On/Off",
+        "Toggles the viewport zoom/fit between your last Fit Mode setting and whatever "
+        "zoom/pan you had previously.");
 }
 
 
@@ -452,8 +490,6 @@ void Viewport::set_pointer_event_viewport_coords(PointerEvent &pointer_event) {
 bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
 
     set_pointer_event_viewport_coords(pointer_event);
-
-    update_pixel_picker_info(pointer_event);
 
     // return value tells us if the pointer event was consumed by the viewport. If not, it is
     // forwarded to any 'Module' that is interested in pointer events
@@ -811,94 +847,99 @@ std::list<std::pair<FitMode, std::string>> Viewport::fit_modes() {
 caf::message_handler Viewport::message_handler() {
 
     auto a = caf::actor_cast<caf::scheduled_actor *>(parent_actor_);
-    caf::actor keyboard_events_actor;
     if (a) {
-        keyboard_events_actor = a->system().registry().get<caf::actor>(keyboard_events);
-        media_cache_actor_    = a->system().registry().get<caf::actor>(image_cache_registry);
+        keyboard_events_actor_ = a->system().registry().get<caf::actor>(keyboard_events);
     }
 
-    return module::Module::message_handler().or_else(caf::message_handler(
-        {[=](::viewport_set_scene_coordinates_atom,
-             const Imath::V2f &topleft,
-             const Imath::V2f &topright,
-             const Imath::V2f &bottomright,
-             const Imath::V2f &bottomleft,
-             const Imath::V2i &scene_size) {
-             float zoom = pixel_zoom();
-             if (set_scene_coordinates(
-                     topleft, topright, bottomright, bottomleft, scene_size)) {
-                 if (zoom != pixel_zoom()) {
-                     event_callback_(ZoomChanged);
-                 }
-                 event_callback_(Redraw);
-             }
-         },
-         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+    return caf::message_handler(
+               {[=](::viewport_set_scene_coordinates_atom,
+                    const Imath::V2f &topleft,
+                    const Imath::V2f &topright,
+                    const Imath::V2f &bottomright,
+                    const Imath::V2f &bottomleft,
+                    const Imath::V2i &scene_size) {
+                    float zoom = pixel_zoom();
+                    if (set_scene_coordinates(
+                            topleft, topright, bottomright, bottomleft, scene_size)) {
+                        if (zoom != pixel_zoom()) {
+                            event_callback_(ZoomChanged);
+                        }
+                        event_callback_(Redraw);
+                    }
+                },
+                [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-         [=](fit_mode_atom) -> FitMode { return fit_mode(); },
+                [=](fit_mode_atom) -> FitMode { return fit_mode(); },
 
-         [=](fit_mode_atom, const FitMode mode) { set_fit_mode(mode); },
+                [=](fit_mode_atom, const FitMode mode) { set_fit_mode(mode); },
 
-         [=](other_viewport_atom, caf::actor other_view) { other_viewport_ = other_view; },
+                [=](other_viewport_atom, caf::actor other_view) {
+                    other_viewport_ = other_view;
+                },
 
-         [=](show_buffer_atom, bool playing) {
-             if (!playing || (playing != playing_)) {
-                 playing_ = playing;
-             }
-             event_callback_(Redraw);
-         },
+                [=](show_buffer_atom, bool playing) {
+                    if (!playing || (playing != playing_)) {
+                        playing_ = playing;
+                    }
+                    event_callback_(Redraw);
+                },
 
-         [=](utility::event_atom,
-             ui::fps_monitor::fps_meter_update_atom,
-             const std::string &fps_expr) {
-             frame_rate_expr_ = fps_expr;
-             event_callback_(FrameRateChanged);
-         },
+                [=](utility::event_atom,
+                    ui::fps_monitor::fps_meter_update_atom,
+                    const std::string &fps_expr) {
+                    frame_rate_expr_ = fps_expr;
+                    event_callback_(FrameRateChanged);
+                },
 
-         [=](utility::serialise_atom) -> utility::JsonStore {
-             utility::JsonStore jsn;
-             jsn["base"] = serialise();
-             return jsn;
-         },
+                [=](utility::serialise_atom) -> utility::JsonStore {
+                    utility::JsonStore jsn;
+                    jsn["base"] = serialise();
+                    return jsn;
+                },
 
-         [=](viewport_pan_atom) -> Imath::V2f { return pan(); },
+                [=](viewport_pan_atom) -> Imath::V2f { return pan(); },
 
-         [=](viewport_pan_atom, const float xpan, const float ypan) {
-             // To use
-             set_pan(xpan, ypan);
-             event_callback_(TranslationChanged);
-             event_callback_(Redraw);
-         },
+                [=](viewport_pan_atom, const float xpan, const float ypan) {
+                    // To use
+                    set_pan(xpan, ypan);
+                    event_callback_(TranslationChanged);
+                    event_callback_(Redraw);
+                },
 
-         [=](viewport_playhead_atom, caf::actor playhead) -> bool {
-             set_playhead(playhead);
-             return true;
-         },
+                [=](viewport_playhead_atom, caf::actor playhead) -> bool {
+                    set_playhead(playhead);
+                    return true;
+                },
 
-         [=](viewport_playhead_atom) -> caf::actor_addr { return playhead_addr_; },
+                [=](utility::event_atom, viewport_playhead_atom, caf::actor playhead) {
+                    set_playhead(playhead);
+                },
 
-         [=](viewport_pixel_zoom_atom, const float zoom) {
-             const FitMode fm = fit_mode();
-             set_pixel_zoom(zoom);
-             event_callback_(ZoomChanged);
-             if (fm != fit_mode()) {
-                 event_callback_(FitModeChanged);
-             }
-         },
+                [=](viewport_playhead_atom) -> caf::actor_addr { return playhead_addr_; },
 
-         [=](viewport_scale_atom) -> float { return pixel_zoom(); },
+                [=](viewport_pixel_zoom_atom, const float zoom) {
+                    const FitMode fm = fit_mode();
+                    set_pixel_zoom(zoom);
+                    event_callback_(ZoomChanged);
+                    if (fm != fit_mode()) {
+                        event_callback_(FitModeChanged);
+                    }
+                },
 
-         [=](viewport_scale_atom, const float scale) {
-             // To use
-             set_scale(scale);
-             event_callback_(ZoomChanged);
-             event_callback_(ScaleChanged);
-             event_callback_(Redraw);
-         },
+                [=](viewport_scale_atom) -> float { return pixel_zoom(); },
 
-         [=](const error &err) mutable {}
+                [=](viewport_scale_atom, const float scale) {
+                    // To use
+                    set_scale(scale);
+                    event_callback_(ZoomChanged);
+                    event_callback_(ScaleChanged);
+                    event_callback_(Redraw);
+                },
 
-        }));
+                [=](const error &err) mutable {}
+
+               })
+        .or_else(module::Module::message_handler());
 }
 
 void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
@@ -906,7 +947,7 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
     spdlog::debug("QMLViewportRenderer::set_playhead");
 
     // if null playhead stop here.
-    if (!playhead || !parent_actor_) {
+    if (!parent_actor_) {
         // set_new_playhead(utility::Uuid());
         return;
     }
@@ -976,6 +1017,13 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
             }
         }
 
+        auto ph_events =
+            a->system().registry().template get<caf::actor>(global_playhead_events_actor);
+        // tell the playhead events actor that the on-screen playhead has changed
+        // (in case the viewport playhead was set directly rather than from
+        // the playhead events actor itself)
+        anon_send(ph_events, viewport::viewport_playhead_atom_v, playhead);
+
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -986,6 +1034,10 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
     if (playhead)
         sys->anon_send(playhead, playhead::jump_atom_v);
     playhead_addr_ = caf::actor_cast<caf::actor_addr>(playhead);
+
+    // trigger stuff in the UI layer if necessary, like connecting the playheadUI
+    // to the new viewport playhead
+    event_callback_(PlayheadChanged);
 }
 
 void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role) {
@@ -1097,7 +1149,28 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
                 utility::JsonStore(mouse_wheel_behaviour_->value()),
                 true);
         }
+    } else if (attr_uuid == hud_toggle_->uuid()) {
+        if (other_viewport_) {
+            anon_send(
+                other_viewport_,
+                xstudio::module::change_attribute_value_atom_v,
+                hud_toggle_->get_role_data<std::string>(module::Attribute::Title),
+                utility::JsonStore(hud_toggle_->value()),
+                true);
+        }
+        for (auto &p : hud_plugin_instances_) {
+            anon_send(p.second, enable_hud_atom_v, hud_toggle_->value());
+        }
     }
+}
+
+void Viewport::update_attrs_from_preferences(const utility::JsonStore &j) {
+
+    Module::update_attrs_from_preferences(j);
+    // TODO: proper preferences handling for the viewport renderer class
+    utility::JsonStore p;
+    p["texture_mode"] = texture_mode_preference_->value();
+    the_renderer_->set_prefs(p);
 }
 
 void Viewport::hotkey_pressed(
@@ -1115,6 +1188,8 @@ void Viewport::hotkey_pressed(
     } else if (hotkey_uuid == reset_hotkey_) {
         if (fit_mode() == FitMode::Free)
             revert_fit_zoom_to_previous();
+    } else if (hotkey_uuid == fit_mode_hotkey_) {
+        revert_fit_zoom_to_previous();
     }
 }
 
@@ -1134,8 +1209,13 @@ void Viewport::update_onscreen_frame_info(const media_reader::ImageBufPtr &frame
     // this should be called by the subclass of this Viewport class just
     // before or after the viewport is drawn or redrawn with the given frame
 
-    if (!frame)
+    if (!frame) {
+        on_screen_frame_buffer_.reset();
+        about_to_go_on_screen_frame_buffer_.reset();
+        on_screen_frame_ = 0;
+        event_callback_(OnScreenFrameChanged);
         return;
+    }
 
     if (about_to_go_on_screen_frame_buffer_ != frame) {
         about_to_go_on_screen_frame_buffer_ = frame;
@@ -1280,6 +1360,39 @@ void Viewport::instance_overlay_plugins(const bool share_plugin_instances) {
             }
         }
 
+        /* HUD plugins are more-or-less the same as viewport overlay plugins, except
+        that they are activated through a single HUD pop-up in the toolbar and the
+        are 'aware' of the screenspace that other HUDs have already occupied */
+        auto hud_plugin_details = request_receive<std::vector<plugin_manager::PluginDetail>>(
+            *sys, pm, utility::detail_atom_v, plugin_manager::PluginType::PT_HEAD_UP_DISPLAY);
+
+        for (const auto &pd : hud_plugin_details) {
+            if (true) { // pd.enabled_) {
+                overlay_actor_ = request_receive<caf::actor>(
+                    *sys,
+                    pm,
+                    plugin_manager::spawn_plugin_atom_v,
+                    pd.uuid_,
+                    utility::JsonStore(),
+                    share_plugin_instances // this is the 'singleton' flag
+                );
+
+                if (share_plugin_instances)
+                    anon_send(overlay_actor_, module::connect_to_ui_atom_v);
+
+                auto funkydunc = request_receive<plugin::ViewportOverlayRendererPtr>(
+                    *sys, overlay_actor_, overlay_render_function_atom_v, is_main_viewer_);
+
+                if (funkydunc) {
+                    the_renderer_->add_overlay_renderer(pd.uuid_, funkydunc);
+                }
+
+                overlay_plugin_instances_[pd.uuid_] = overlay_actor_;
+                hud_plugin_instances_[pd.uuid_]     = overlay_actor_;
+                anon_send(overlay_actor_, enable_hud_atom_v, hud_toggle_->value());
+            }
+        }
+
         display_frames_queue_actor_ =
             sys->spawn<ViewportFrameQueueActor>(overlay_plugin_instances_);
 
@@ -1368,27 +1481,4 @@ void Viewport::set_screen_infos(
         serialNumber);
     if (refresh_rate)
         screen_refresh_period_ = timebase::to_flicks(1.0 / refresh_rate);
-}
-
-void Viewport::update_pixel_picker_info(const PointerEvent &pointer_event) {
-
-    if (on_screen_frame_buffer_) {
-
-        // WIP!
-
-        Imath::V2i image_dims  = on_screen_frame_buffer_->image_size_in_pixels();
-        Imath::V2f pointer_pos = pointer_event.position_in_viewport_coord_sys();
-        // Image is width-fitted to viewport coordinates -1.0 to 1.0:
-        const float image_aspect =
-            image_dims.y / (image_dims.x * on_screen_frame_buffer_->pixel_aspect());
-        Imath::V2i image_coord(
-            int(round(
-                (pointer_pos.x + 1.0f) * 0.5f *
-                on_screen_frame_buffer_->image_size_in_pixels().x)),
-            int(round(
-                (pointer_pos.y + 1.0f / image_aspect) * 0.5f * image_aspect *
-                on_screen_frame_buffer_->image_size_in_pixels().y)));
-
-        auto pixel_info = on_screen_frame_buffer_->pixel_info(image_coord);
-    }
 }

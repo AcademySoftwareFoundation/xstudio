@@ -14,6 +14,7 @@ Item
     property alias check_unsaved_session: check_unsaved_session
 	property alias latest_version: latest_version
 	property alias loop_mode: loop_mode
+    property alias force_trim_slate_frame: force_trim_slate_frame
 	property alias restore_play_state_after_scrub: restore_play_state_after_scrub
     property alias enable_presentation_mode: enable_presentation_mode
     property alias last_auto_save: last_auto_save
@@ -26,6 +27,8 @@ Item
     property alias channel: channel
     property alias exposure: exposure
     property alias velocity: velocity
+    property alias note_category: note_category
+    property alias note_colour: note_colour
     property alias compare: compare
     property alias source: source
     property alias view: view
@@ -46,8 +49,21 @@ Item
     property alias new_media_rate: new_media_rate
     property alias viewport_scrub_sensitivity: viewport_scrub_sensitivity
     property alias default_playhead_compare_mode: default_playhead_compare_mode
+    property alias current_saved_session_folder: current_saved_session_folder
 
     property color accent_color: '#bb7700'
+
+    XsModelProperty {
+        id: note_category
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_category", "pathRole")
+    }
+
+    XsModelProperty {
+        id: note_colour
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_colour", "pathRole")
+    }
 
     XsModelProperty {
         id: velocity
@@ -176,6 +192,12 @@ Item
     }
 
     XsModelProperty {
+        id: force_trim_slate_frame
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/plugin/dneg_media_hook/force_trim_slate_frame", "pathRole")
+    }
+
+    XsModelProperty {
         id: restore_play_state_after_scrub
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/ui/qml/restore_play_state_after_scrub", "pathRole")
@@ -284,6 +306,12 @@ Item
         id: default_playhead_compare_mode
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/ui/qml/default_playhead_compare_mode", "pathRole")
+    }
+
+    XsModelProperty {
+        id: current_saved_session_folder
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/current_saved_session_folder", "pathRole")
     }
 
     Gradient {

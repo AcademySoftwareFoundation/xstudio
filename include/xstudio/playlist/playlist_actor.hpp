@@ -79,7 +79,7 @@ namespace playlist {
         caf::behavior behavior_;
         Playlist base_;
         caf::actor_addr session_;
-        std::map<utility::Uuid, caf::actor> playheads_;
+        utility::UuidActor playhead_;
         caf::actor event_group_, change_event_group_;
         std::map<utility::Uuid, caf::actor> media_;
         std::map<utility::Uuid, caf::actor> container_;

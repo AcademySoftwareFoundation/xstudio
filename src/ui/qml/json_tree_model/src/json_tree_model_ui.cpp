@@ -42,44 +42,38 @@ void JSONTreeModel::setModelData(const nlohmann::json &data) {
     beginResetModel();
     data_ = data;
     build_parent_map();
+
+    if (role_names_.empty())
+        setRoleNames();
+
     endResetModel();
+    emit lengthChanged();
 }
 
 QVariant JSONTreeModel::get(const QModelIndex &item, const QString &role) const {
-    int role_id = -1;
-
-    QHashIterator<int, QByteArray> it(roleNames());
-    if (it.findNext(role.toUtf8())) {
-        role_id = it.key();
-    }
-
-    return data(item, role_id);
+    return data(item, roleId(role));
 }
 
 bool JSONTreeModel::set(const QModelIndex &item, const QVariant &value, const QString &role) {
-    int role_id = -1;
-
-    QHashIterator<int, QByteArray> it(roleNames());
-    if (it.findNext(role.toUtf8())) {
-        role_id = it.key();
-    }
-
-    return setData(item, value, role_id);
+    return setData(item, value, roleId(role));
 }
 
 
 QModelIndex JSONTreeModel::search(
     const QVariant &value, const QString &role, const QModelIndex &parent, const int start) {
+    return search(value, roleId(role), parent, start);
+}
+
+QModelIndex JSONTreeModel::search(
+    const QVariant &value, const int role, const QModelIndex &parent, const int start) {
     auto result = QModelIndex();
 
-    int role_id = -1;
-
-    QHashIterator<int, QByteArray> it(roleNames());
-    if (it.findNext(role.toUtf8())) {
-        role_id = it.key();
-    }
-
-    auto indexes = match(index(start, 0, parent), role_id, value);
+    auto indexes = QAbstractItemModel::match(
+        index(start, 0, parent),
+        role,
+        value,
+        1,
+        Qt::MatchFlags(Qt::MatchWrap | Qt::MatchExactly));
 
     if (not indexes.empty())
         result = indexes[0];
@@ -87,20 +81,93 @@ QModelIndex JSONTreeModel::search(
     return result;
 }
 
+QModelIndexList JSONTreeModel::search(
+    const QVariant &value,
+    const QString &role,
+    const QModelIndex &parent,
+    const int start,
+    const int hits) {
+    return search(value, roleId(role), parent, start, hits);
+}
+
+QModelIndexList JSONTreeModel::search(
+    const QVariant &value,
+    const int role,
+    const QModelIndex &parent,
+    const int start,
+    const int hits) {
+    return QAbstractItemModel::match(
+        index(start, 0, parent),
+        role,
+        value,
+        hits,
+        Qt::MatchFlags(Qt::MatchWrap | Qt::MatchExactly));
+}
+
+
 QModelIndex JSONTreeModel::search_recursive(
-    const QVariant &value, const QString &role, const QModelIndex &parent, const int start) {
+    const QVariant &value, const int role, const QModelIndex &parent, const int start) {
 
     auto result = search(value, role, parent, start);
 
     if (result == QModelIndex()) {
         for (int i = start; i < rowCount(parent); i++) {
-            result = search_recursive(value, role, index(i, 0, parent), 0);
-            if (result != QModelIndex())
-                break;
+            auto chd          = index(i, 0, parent);
+            nlohmann::json &j = *((nlohmann::json *)chd.internalPointer());
+            if (hasChildren(chd)) {
+                result = search_recursive(value, role, chd, 0);
+                if (result != QModelIndex())
+                    break;
+            }
         }
     }
 
     return result;
+}
+
+QModelIndex JSONTreeModel::search_recursive(
+    const QVariant &value, const QString &role, const QModelIndex &parent, const int start) {
+    return search_recursive(value, roleId(role), parent, start);
+}
+
+QModelIndexList JSONTreeModel::search_recursive(
+    const QVariant &value,
+    const int role,
+    const QModelIndex &parent,
+    const int start,
+    const int hits) {
+
+    auto result = QAbstractItemModel::match(
+        index(start, 0, parent),
+        role,
+        value,
+        hits,
+        Qt::MatchFlags(Qt::MatchWrap | Qt::MatchExactly));
+
+    if (hits == -1 or result.size() < hits) {
+        for (int i = start; i < rowCount(parent); i++) {
+            auto chd          = index(i, 0, parent);
+            nlohmann::json &j = *((nlohmann::json *)chd.internalPointer());
+            if (hasChildren(chd)) {
+                auto more_result = search_recursive(
+                    value, role, chd, 0, hits == -1 ? -1 : hits - result.size());
+                result.append(more_result);
+                if (hits != -1 and result.size() >= hits)
+                    break;
+            }
+        }
+    }
+
+    return result;
+}
+
+QModelIndexList JSONTreeModel::search_recursive(
+    const QVariant &value,
+    const QString &role,
+    const QModelIndex &parent,
+    const int start,
+    const int hits) {
+    return search_recursive(value, roleId(role), parent, start, hits);
 }
 
 
@@ -170,14 +237,17 @@ int JSONTreeModel::rowCount(const QModelIndex &parent) const {
 QModelIndex JSONTreeModel::index(int row, int column, const QModelIndex &parent) const {
     auto result = QModelIndex();
 
+    if (row < 0 or column < 0)
+        return result;
+
     if (not parent.isValid()) {
         if (data_.is_array() and row < static_cast<int>(data_.size()))
-            result = createIndex(row, column, (void *)&(data_[row]));
+            result = createIndex(row, column, (void *)&(data_.at(row)));
     } else if (parent.internalPointer()) {
         nlohmann::json &j = *((nlohmann::json *)parent.internalPointer());
         if (j.contains(children_) and j.at(children_).is_array() and
             row < static_cast<int>(j.at(children_).size())) {
-            result = createIndex(row, column, (void *)&(j[children_][row]));
+            result = createIndex(row, column, (void *)&(j.at(children_).at(row)));
         }
     }
 
@@ -189,6 +259,7 @@ void JSONTreeModel::build_parent_map(const nlohmann::json *parent_data, int pare
     if (parent_data == nullptr) {
         root        = true;
         parent_data = &data_;
+        emit jsonChanged();
     }
 
     const nlohmann::json *children = nullptr;
@@ -247,13 +318,13 @@ QVariant JSONTreeModel::data(const QModelIndex &index, int role) const {
             default: {
                 auto id = role - Roles::LASTROLE;
                 if (id >= 0 and id < static_cast<int>(role_names_.size())) {
-                    field = role_names_[id];
+                    field = role_names_.at(id);
                 }
             } break;
             }
 
             if (not field.empty() and j.count(field))
-                result = mapFromValue(j[field]);
+                result = mapFromValue(j.at(field));
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -293,7 +364,7 @@ bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int
                 auto id    = role - Roles::LASTROLE;
                 auto field = std::string();
                 if (id >= 0 and id < static_cast<int>(role_names_.size())) {
-                    field = role_names_[id];
+                    field = role_names_.at(id);
                 }
                 if (j.count(field)) {
                     j[field] = mapFromValue(value);
@@ -323,7 +394,7 @@ bool JSONTreeModel::removeRows(int row, int count, const QModelIndex &parent) {
         if (row >= 0 and parent.isValid() and parent.internalPointer()) {
             nlohmann::json &j = *((nlohmann::json *)parent.internalPointer());
             if (j.contains(children_))
-                children = &(j[children_]);
+                children = &(j.at(children_));
         } else if (row >= 0 and not parent.isValid()) {
             children = &data_;
         }
@@ -341,6 +412,9 @@ bool JSONTreeModel::removeRows(int row, int count, const QModelIndex &parent) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         result = false;
     }
+
+    if (result and parent == QModelIndex())
+        emit lengthChanged();
 
     return result;
 }
@@ -364,7 +438,7 @@ bool JSONTreeModel::moveRows(
         if (sourceParent.isValid() and sourceParent.internalPointer()) {
             nlohmann::json &j = *((nlohmann::json *)sourceParent.internalPointer());
             if (j.contains(children_))
-                src_children = &(j[children_]);
+                src_children = &(j.at(children_));
         } else if (not sourceParent.isValid()) {
             src_children = &data_;
         }
@@ -373,7 +447,7 @@ bool JSONTreeModel::moveRows(
         if (destinationParent.isValid() and destinationParent.internalPointer()) {
             nlohmann::json &j = *((nlohmann::json *)destinationParent.internalPointer());
             if (j.contains(children_))
-                dst_children = &(j[children_]);
+                dst_children = &(j.at(children_));
         } else if (not destinationParent.isValid()) {
             dst_children = &data_;
         }
@@ -399,6 +473,9 @@ bool JSONTreeModel::moveRows(
             src_children->erase(
                 src_children->begin() + moveFirst, src_children->begin() + moveLast + 1);
 
+            if (moveFirst < dest)
+                dest = std::max(0, dest - count);
+
             // insert into dst.
             dst_children->insert(dst_children->begin() + dest, tmp.begin(), tmp.end());
 
@@ -419,7 +496,8 @@ bool JSONTreeModel::moveRows(
     return result;
 }
 
-bool JSONTreeModel::insertRows(int row, int count, const QModelIndex &parent) {
+bool JSONTreeModel::insertRows(
+    int row, int count, const QModelIndex &parent, const nlohmann::json &data) {
     auto result = false;
 
     try {
@@ -428,25 +506,43 @@ bool JSONTreeModel::insertRows(int row, int count, const QModelIndex &parent) {
         if (parent.isValid() and parent.internalPointer()) {
             nlohmann::json &j = *((nlohmann::json *)parent.internalPointer());
             if (j.contains(children_))
-                children = &(j[children_]);
+                children = &(j.at(children_));
         } else if (not parent.isValid()) {
             children = &data_;
         }
 
         if (children and children->is_array() and row >= 0 and
-            row <= static_cast<int>(children->size())) {
+            row < static_cast<int>(children->size())) {
             result = true;
             beginInsertRows(parent, row, row + count - 1);
-            children->insert(children->begin() + row, count, R"({})"_json);
+            children->insert(children->begin() + row, count, data);
             build_parent_map();
             endInsertRows();
+        } else if (children and children->is_array() and row >= 0) {
+            result = true;
+            row    = static_cast<int>(children->size());
+            beginInsertRows(parent, row, row + count - 1);
+            children->insert(children->begin() + row, count, data);
+            build_parent_map();
+            endInsertRows();
+        } else {
+            spdlog::warn("ERM");
         }
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         result = false;
     }
 
+    if (result and parent == QModelIndex())
+        emit lengthChanged();
+
     return result;
+}
+
+
+bool JSONTreeModel::insertRows(int row, int count, const QModelIndex &parent) {
+    return insertRows(row, count, parent, R"({})"_json);
 }
 
 
@@ -467,6 +563,25 @@ QHash<int, QByteArray> JSONTreeModel::roleNames() const {
 }
 
 
+int JSONTreeModel::roleId(const QString &role) const {
+    int role_id = -1;
+
+    QHashIterator<int, QByteArray> it(roleNames());
+    if (it.findNext(role.toUtf8())) {
+        role_id = it.key();
+    }
+    return role_id;
+}
+
+QStringList JSONTreeModel::roles() const {
+    QStringList tmp;
+
+    for (const auto &i : role_names_)
+        tmp.push_back(QStringFromStd(i));
+
+    return tmp;
+}
+
 void JSONTreeModel::setRoleNames(
     const std::vector<std::string> roles, const std::string display_role) {
     display_role_ = std::move(display_role);
@@ -480,5 +595,24 @@ void JSONTreeModel::setRoleNames(
             role_names_.push_back(i);
     }
 }
+
+QModelIndexList JSONTreeModel::match(
+    const QModelIndex &start,
+    const QString &role,
+    const QVariant &value,
+    int hits,
+    Qt::MatchFlags flags) const {
+    return match(start, roleId(role), value, hits, flags);
+}
+
+QModelIndexList JSONTreeModel::match(
+    const QModelIndex &start,
+    const int role,
+    const QVariant &value,
+    int hits,
+    Qt::MatchFlags flags) const {
+    return QAbstractItemModel::match(start, role, value, hits, flags);
+}
+
 
 #include "json_tree_model_ui.moc"

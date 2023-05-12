@@ -32,15 +32,47 @@ bool JsonStore::remove(const std::string &path) {
 // }
 void JsonStore::merge(const nlohmann::json &json, const std::string &path) {
     // merge json at path..
+
+    // EMPTY OBJECTS AND ARRAYS become null when flattened..
+    // and are not reconstructed..
+
     try {
         // need to recurse down json and update at leaf..
         auto p = json_pointer(path);
 
+        std::vector<std::pair<json_pointer, nlohmann::json>> fixes;
+
+        // orig flat
         nlohmann::json result = at(p).flatten();
-        nlohmann::json tmp    = json.flatten();
-        for (auto it = tmp.begin(); it != tmp.end(); ++it)
+        // changes flat
+        nlohmann::json tmp = json.flatten();
+
+        // iterate and capture old value for nulls..
+        for (auto it = result.begin(); it != result.end(); ++it) {
+            if (it.value().is_null() and not at(json_pointer(it.key())).is_null()) {
+                fixes.push_back(
+                    std::make_pair(json_pointer(it.key()), at(json_pointer(it.key()))));
+            }
+        }
+
+        // capture new values that are null..
+        for (auto it = tmp.begin(); it != tmp.end(); ++it) {
+            if (it.value().is_null() and not json.at(json_pointer(it.key())).is_null()) {
+                fixes.push_back(
+                    std::make_pair(json_pointer(it.key()), json.at(json_pointer(it.key()))));
+            }
+        }
+
+        for (auto it = tmp.begin(); it != tmp.end(); ++it) {
             result[it.key()] = it.value();
+        }
         at(p) = result.unflatten();
+
+        // replay null fixes.
+        for (const auto &i : fixes) {
+            at(i.first) = i.second;
+        }
+
     } catch (const nlohmann::json::out_of_range &) {
         set(json, path);
     }

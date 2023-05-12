@@ -79,7 +79,7 @@ void main()
 }
 )";
 
-const char *frag_shader_base = R"(
+const char *frag_shader_base_tex = R"(
 #version 430 core
 #extension GL_ARB_shader_storage_buffer_object : require
 in vec2 texPosition;
@@ -90,25 +90,32 @@ uniform ivec2 image_bounds_min;
 uniform ivec2 image_bounds_max;
 
 uniform bool use_bilinear_filtering;
-uniform bool use_ssbo;
 
 uniform usampler2DRect the_tex;
 uniform ivec2 tex_dims;
 
 ivec2 step_sample(ivec2 tex_coord)
 {
+    int inside = int(tex_coord.x < (tex_dims.x-1));
+    return ivec2(tex_coord.x+1,tex_coord.y)*inside + ivec2(0,tex_coord.y+1)*(1-inside);
+
+    /*
+    // Note: below is another way to do this. I've read that branching on non-uniform
+    // values can be v bad for performance, but not sure if this is really better or 
+    // worse than the a above
     if (tex_coord.x < (tex_dims.x-1))
     {
         return ivec2(tex_coord.x+1,tex_coord.y);
     } else {
         return ivec2(0,tex_coord.y+1);
-    }
+    }*/
+
 }
 
 // This function returns 1 byte of image data packed
 // in an int at the given byte address into the raw image
 // buffer as created by the image reader
-int get_image_data_1byte_tex(int byte_address) {
+int get_image_data_1byte(int byte_address) {
 
     int elem = byte_address&3;
     int newAddress = byte_address >> 2;
@@ -131,7 +138,7 @@ int get_image_data_1byte_tex(int byte_address) {
 // This function returns 4 bytes of image data packed
 // in a uvec4 at the given byte address into the raw image
 // buffer as created by the image reader
-uvec4 get_image_data_4bytes_tex(int byte_address) {
+uvec4 get_image_data_4bytes(int byte_address) {
 
     uvec4 result;
 
@@ -157,9 +164,9 @@ uvec4 get_image_data_4bytes_tex(int byte_address) {
 
 // This function returns 4 bytes of image data packed
 // in a uint
-uint get_image_data_4bytes_packed_tex(int byte_address) {
+uint get_image_data_4bytes_packed(int byte_address) {
 
-    uvec4 bytes_4 = get_image_data_4bytes_tex(byte_address);
+    uvec4 bytes_4 = get_image_data_4bytes(byte_address);
     uint c = bytes_4.x + (bytes_4.y << 8) + (bytes_4.z << 16) + (bytes_4.w << 24);
     return c;
 }
@@ -167,14 +174,14 @@ uint get_image_data_4bytes_packed_tex(int byte_address) {
 // This function returns 2 floats of image data packed
 // in a vec2 at the given byte address into the raw image
 // buffer as created by the image reader
-vec2 get_image_data_2floats_tex(int byte_address) {
-    return unpackHalf2x16(get_image_data_4bytes_packed_tex(byte_address));
+vec2 get_image_data_2floats(int byte_address) {
+    return unpackHalf2x16(get_image_data_4bytes_packed(byte_address));
 }
 
 // This function returns 2 bytes of image data packed
 // in an int at the given byte address into the raw image
 // buffer as created by the image reader
-int get_image_data_2bytes_tex(int byte_address) {
+int get_image_data_2bytes(int byte_address) {
 
     int result;
 
@@ -198,6 +205,110 @@ int get_image_data_2bytes_tex(int byte_address) {
     return result;
 }
 
+float get_image_data_float32(int byte_address) {
+
+    return uintBitsToFloat(get_image_data_4bytes_packed(byte_address));
+
+}
+
+
+// forward declared fetch function - this is provided
+// by image reader plugin in a glsl snippet
+vec4 fetch_rgba_pixel(ivec2 image_coord);
+
+// forward declared colour transform function - this is provided
+// by colour pipeline classes
+vec4 colour_transforms(vec4 rgba);
+
+#define getTexel(p) fetch_rgba_pixel(ivec2(p))
+
+// Returns a rgba pixel at "pos" index, computed with a bilinear filter
+vec4 get_bilinear_filtered_pixel(vec2 pos)
+{
+    vec4 texL = getTexel(pos);
+    vec4 texR = getTexel(pos + vec2(1.0, 0.0));
+    vec4 biL = getTexel(pos + vec2(0.0, 1.0));
+    vec4 biR = getTexel(pos + vec2(1.0, 1.0));
+    vec2 f = fract(pos);
+    vec4 texA = mix(texL, texR, f.x);
+    vec4 texB = mix(biL, biR, f.x);
+    return mix(texA, texB, f.y);
+}
+
+vec4 cubic(float v)
+{
+    vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
+    vec4 s = n * n * n;
+    float x = s.x;
+    float y = s.y - 4.0 * s.x;
+    float z = s.z - 4.0 * s.y + 6.0 * s.x;
+    float w = 6.0 - x - y - z;
+    return vec4(x, y, z, w);
+}
+
+vec4 get_bicubic_filter(vec2 pos)
+{
+    float fx = fract(pos.x);
+    float fy = fract(pos.y);
+    pos.x -= fx;
+    pos.y -= fy;
+
+    vec4 xcubic = cubic(fx);
+    vec4 ycubic = cubic(fy);
+
+    vec4 c = vec4(pos.x - 0.5, pos.x + 1.5, pos.y -
+        0.5, pos.y + 1.5);
+    vec4 s = vec4(xcubic.x + xcubic.y, xcubic.z + xcubic.w, ycubic.x +
+        ycubic.y, ycubic.z + ycubic.w);
+    vec4 offset = c + vec4(xcubic.y, xcubic.w, ycubic.y, ycubic.w) / s;
+
+    vec4 sample0 = getTexel(vec2(offset.x, offset.z));
+    vec4 sample1 = getTexel(vec2(offset.y, offset.z));
+    vec4 sample2 = getTexel(vec2(offset.x, offset.w));
+    vec4 sample3 = getTexel(vec2(offset.y, offset.w));
+
+    float sx = s.x / (s.x + s.y);
+    float sy = s.z / (s.z + s.w);
+
+    return mix(
+        mix(sample3, sample2, sx),
+        mix(sample1, sample0, sx), sy);
+}
+
+void main(void)
+{
+    if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
+    else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,0.0,0.0,1.0);
+    else {
+
+        // For now, disabling bilinear filtering as it is too expensive and slowing refresh badly
+        // for high res formats when the colour transforms are also expensive
+        if(use_bilinear_filtering) {
+            FragColor.rgb = colour_transforms(get_bilinear_filtered_pixel(texPosition - 0.5)).rgb;
+        }
+        else{
+            FragColor.rgb = colour_transforms(
+                fetch_rgba_pixel(
+                    ivec2(texPosition.x, texPosition.y))
+                ).rgb;
+        }
+        FragColor.a = 1.0;
+    }
+}
+)";
+
+const char *frag_shader_base_ssbo = R"(
+#version 430 core
+#extension GL_ARB_shader_storage_buffer_object : require
+in vec2 texPosition;
+out vec4 FragColor;
+//uniform usampler2DRect the_tex;
+uniform ivec2 image_dims;
+uniform ivec2 image_bounds_min;
+uniform ivec2 image_bounds_max;
+
+uniform bool use_bilinear_filtering;
+
 layout (std430, binding = 0) buffer ssboObject {
     uint data[];
 } ssboData;
@@ -205,7 +316,7 @@ layout (std430, binding = 0) buffer ssboObject {
 // This function returns 1 byte of image data packed
 // in an int at the given byte address into the raw image
 // buffer as created by the image reader
-int get_image_data_1byte_ssbo(int byte_address) {
+int get_image_data_1byte(int byte_address) {
 
     int bitshift = (byte_address&3)*8;
     int newAddress = byte_address / 4;
@@ -217,7 +328,7 @@ int get_image_data_1byte_ssbo(int byte_address) {
 // This function returns 2 floats of image data packed
 // in a vec2 at the given byte address into the raw image
 // buffer as created by the image reader
-uint get_image_data_4bytes_packed_ssbo(int byte_address) {
+uint get_image_data_4bytes_packed(int byte_address) {
 
     int bitshift = (byte_address&3)*8;
     int address = byte_address / 4;
@@ -235,9 +346,9 @@ uint get_image_data_4bytes_packed_ssbo(int byte_address) {
 // This function returns 2 floats of image data packed
 // in a vec2 at the given byte address into the raw image
 // buffer as created by the image reader
-vec2 get_image_data_2floats_ssbo(int byte_address) {
+vec2 get_image_data_2floats(int byte_address) {
 
-    uint c = get_image_data_4bytes_packed_ssbo(byte_address);
+    uint c = get_image_data_4bytes_packed(byte_address);
 
     return unpackHalf2x16(c);
 }
@@ -245,11 +356,11 @@ vec2 get_image_data_2floats_ssbo(int byte_address) {
 // This function returns 4 bytes of image data packed
 // in a uvec4 at the given byte address into the raw image
 // buffer as created by the image reader
-uvec4 get_image_data_4bytes_ssbo(int byte_address) {
+uvec4 get_image_data_4bytes(int byte_address) {
 
     uvec4 result;
 
-    uint c = get_image_data_4bytes_packed_ssbo(byte_address);
+    uint c = get_image_data_4bytes_packed(byte_address);
 
     result.x = c & 255;
     result.y = (c >> 8) & 255;
@@ -262,7 +373,7 @@ uvec4 get_image_data_4bytes_ssbo(int byte_address) {
 // This function returns 2 bytes of image data packed
 // in an int at the given byte address into the raw image
 // buffer as created by the image reader
-int get_image_data_2bytes_ssbo(int byte_address) {
+int get_image_data_2bytes(int byte_address) {
 
     int result;
 
@@ -280,32 +391,9 @@ int get_image_data_2bytes_ssbo(int byte_address) {
     return result;
 }
 
-uvec4 get_image_data_4bytes(int byte_address) {
-
-    return use_ssbo ? get_image_data_4bytes_ssbo(byte_address) : get_image_data_4bytes_tex(byte_address);
-
-}
-
 float get_image_data_float32(int byte_address) {
 
-    return uintBitsToFloat(use_ssbo ? get_image_data_4bytes_packed_ssbo(byte_address) : get_image_data_4bytes_packed_tex(byte_address));
-
-}
-
-int get_image_data_1byte(int byte_address) {
-
-    return use_ssbo ? get_image_data_1byte_ssbo(byte_address) : get_image_data_1byte_tex(byte_address);
-
-}
-
-vec2 get_image_data_2floats(int byte_address) {
-
-    return unpackHalf2x16(use_ssbo ? get_image_data_4bytes_packed_ssbo(byte_address) : get_image_data_4bytes_packed_tex(byte_address));
-}
-
-int get_image_data_2bytes(int byte_address) {
-
-    return use_ssbo ? get_image_data_2bytes_ssbo(byte_address) : get_image_data_2bytes_tex(byte_address);
+    return uintBitsToFloat(get_image_data_4bytes_packed(byte_address));
 
 }
 
@@ -476,12 +564,13 @@ GLShaderProgram::GLShaderProgram(
     const std::string &vtx_shader,
     const std::string &colour_transform_shader,
     const std::string &frg_shader,
-    bool do_compile) {
+    const bool use_ssbo,
+    const bool do_compile) {
     vertex_shaders_.push_back(vtx_shader);
     vertex_shaders_.emplace_back(vertex_shader_base);
     fragment_shaders_.push_back(frg_shader);
     fragment_shaders_.push_back(colour_transform_shader);
-    fragment_shaders_.emplace_back(frag_shader_base);
+    fragment_shaders_.emplace_back(use_ssbo ? frag_shader_base_ssbo : frag_shader_base_tex);
 
     try {
         if (do_compile)
@@ -629,10 +718,10 @@ void GLShaderProgram::set_shader_parameters(
 
         if (location == -1) {
 
-            spdlog::debug(
+            /*spdlog::debug(
                 "GLShaderProgram::set_shader_parameter: Request for shader uniform attr \"{}\" "
                 "failed, no such parameter.",
-                it.key());
+                it.key());*/
 
         } else if (it->is_boolean()) {
 

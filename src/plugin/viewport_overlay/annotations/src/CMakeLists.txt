@@ -21,6 +21,7 @@ default_plugin_options(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::module
+		xstudio::plugin_manager
 		xstudio::ui::opengl::viewport
 		Imath::Imath
 )

@@ -20,6 +20,7 @@ import xstudio.qml.viewport 1.0
 import xstudio.qml.playlist 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
+import xstudio.qml.global_store_model 1.0
 
 //------------------------------------------------------------------------------
 // END COMMENT OUT WHEN WORKING INSIDE Qt Creator
@@ -56,6 +57,11 @@ ApplicationWindow {
             visibility = 0
         }
     }
+
+    XsGlobalStoreModel {
+        id: globalStoreModel
+    }
+    property alias globalStoreModel: globalStoreModel
 
     XsWindowStateSaver
     {

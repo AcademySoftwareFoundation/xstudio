@@ -101,14 +101,16 @@ namespace playhead {
         caf::actor fps_moniotor_group_;
         caf::actor viewport_events_group_;
         caf::actor playhead_media_events_group_;
-        std::vector<caf::actor> playheads_;
+        std::vector<caf::actor> sub_playheads_;
         std::vector<caf::actor> source_wrappers_;
         std::vector<caf::actor> source_actors_;
         caf::actor key_playhead_;
         caf::actor audio_output_actor_;
+        caf::actor playhead_events_actor_;
         caf::actor audio_playhead_;
         caf::actor image_cache_;
         caf::actor pre_reader_;
+        caf::actor_addr playlist_selection_addr_;
         utility::Uuid current_media_uuid_;
         utility::Uuid previous_source_uuid_;
         utility::Uuid current_source_uuid_;
@@ -124,6 +126,7 @@ namespace playhead {
         bool updating_source_list_                      = {false};
         bool child_playhead_changed_                    = {false};
         timebase::flicks vid_refresh_sync_phase_adjust_ = timebase::flicks{0};
+        int media_logical_frame_                        = {0};
     };
 } // namespace playhead
 } // namespace xstudio
