@@ -22,6 +22,7 @@ file(GLOB DEPS
       ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/common_api/*.py
       ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/connection/*.py
       ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/gui/*.py
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/plugin/*.py
       ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/sync_api/*.py
       ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/core/*.py
 )

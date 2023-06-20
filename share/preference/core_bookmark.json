@@ -1,6 +1,22 @@
 {
 	"core": {
 		"bookmark":{
+			"note_category": {
+				"path": "/core/bookmark/note_category",
+				"default_value": "default",
+				"value": "default",
+				"description": "Default note category.",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"note_colour": {
+				"path": "/core/bookmark/note_colour",
+				"default_value": "",
+				"value": "",
+				"description": "Default note colour.",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
 			"category": {
 				"path": "/core/bookmark/category",
 				"default_value": [

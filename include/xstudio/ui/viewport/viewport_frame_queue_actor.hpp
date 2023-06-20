@@ -77,7 +77,7 @@ namespace ui {
                 const utility::Uuid &overlay_actor_uuid);
 
             void update_blind_data(
-                const std::vector<media_reader::ImageBufPtr> bufs, const bool wait = false);
+                const std::vector<media_reader::ImageBufPtr> bufs, const bool wait = true);
 
             typedef std::vector<media_reader::ImageBufPtr> OrderedImagesToDraw;
 
@@ -98,7 +98,7 @@ namespace ui {
             timebase::flicks predicted_playhead_position_at_next_video_refresh();
 
             bool playing_          = {false};
-            bool playing_forwards_ = {false};
+            bool playing_forwards_ = {true};
 
             std::map<utility::Uuid, caf::actor> overlay_actors_;
 

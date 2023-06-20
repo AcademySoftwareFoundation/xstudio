@@ -14,6 +14,7 @@ CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qml/module_menu_ui.hpp"
+#include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/module/module.hpp"
 
 namespace xstudio {

@@ -24,4 +24,6 @@ include_directories("${FREETYPE_INCLUDE_DIRS}")
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		freetype
+	PUBLIC
+		GLEW::GLEW
 )

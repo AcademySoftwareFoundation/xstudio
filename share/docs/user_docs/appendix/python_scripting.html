@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Python Scripting Introduction &mdash; xStudio 0.9.0 documentation</title>
+  <title>Python Scripting Introduction &mdash; xStudio 0.10.0 documentation</title>
   
 
   
@@ -61,7 +61,7 @@
             
             
               <div class="version">
-                0.9.0
+                0.10.0
               </div>
             
           
@@ -98,7 +98,8 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Python Scripting Introduction</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#the-communications-port">The Communications Port</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#python-snippets">Python ‘Snippets’</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#python-examples">Python Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#python-plugins">Python Plugins</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#python-scripting-examples">Python Scripting Examples</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="colour_management.html">Colour Management</a></li>
@@ -205,11 +206,28 @@
 <p>API classes and methods include docstrings - query them using <strong>help()</strong> and <strong>dir()</strong>.</p>
 </div>
 </div>
-<div class="section" id="python-examples">
-<h2>Python Examples<a class="headerlink" href="#python-examples" title="Permalink to this headline">¶</a></h2>
-<p><strong>Here’s a really basic example that prints out all the media paths in your session.</strong></p>
+<div class="section" id="python-plugins">
+<h2>Python Plugins<a class="headerlink" href="#python-plugins" title="Permalink to this headline">¶</a></h2>
+<p>xSTUDIO now provides a Python plugin API. The features of this API are still being expanded (Q2 2023) but it is ready to be used for some purposes. For example, it’s possible to create Viewport overlay graphics, add menu items to some of xSTUDIO’s menus that execute callback methods in your plugin. You can create attributes on your python plugin class instance that can be exposed in the QML UI layer to, for example, add buttons to the toolbar or launch fully customised QML interfaces.</p>
+<p>To learn more about the plugin API we reccommend that you look at the examples available in the xSTUDIO source repository. These can be found in the <strong>src/demos/python_plugins</strong> subfolder. Note that the dnSetLoopRange is dependent on metadata that is specific to DNEG’s pipeline but it is nevertheless commented for 3rd party users to refer to.</p>
+<p>To ‘install’ Python plugins you simply need to copy your plugins to an appropriate location and set the ‘XSTUDIO_PYTHON_PLUGIN_PATH’ environment variable to point to this location before running the xstudio binary. Typically at a studio sys-admins would advise on this and set-up appropriate wrapper scripts for xSTUDIO that ensure your environment variables are set. However, it’s also very straightforward for an individual user. The env var should be a colon separated list of file system paths that include the python-importable module folder of your plugin(s).</p>
+<p>For example, let’s say you have downloaded the xSTUDIO source repo to the a folder here /home/$USER/Dev/:</p>
 <div class="literal-block-wrapper docutils container" id="id2">
-<div class="code-block-caption"><span class="caption-text">Print all media paths from current xSTUDIO session</span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
+<div class="code-block-caption"><span class="caption-text">Install the demo plugins and launch xSTUDIO to test them</span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo mkdir -p /usr/local/lib/xstudio/python-plugins
+cp -r /home/<span class="nv">$USER</span>/Dev/xstudio/src/demos/python_plugins/* /usr/local/lib/xstudio/python-plugins/
+<span class="nb">export</span> <span class="nv">XSTUDIO_PYTHON_PLUGIN_PATH</span><span class="o">=</span>/usr/local/lib/xstudio/python-plugins
+xstudio
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="python-scripting-examples">
+<h2>Python Scripting Examples<a class="headerlink" href="#python-scripting-examples" title="Permalink to this headline">¶</a></h2>
+<p>Aside from python ‘plugins’, which are essentially scripts that instance a custom plugin class to handle callbacks and manage certain typical communication with the core app, you also can do many things through straightforward scripts.</p>
+<p><strong>Here’s a really basic example that prints out all the media paths in your session.</strong></p>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text">Print all media paths from current xSTUDIO session</span><a class="headerlink" href="#id3" title="Permalink to this code">¶</a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
 <span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
 
@@ -228,8 +246,8 @@
 </div>
 </div>
 <p><strong>The following example shows how you can start building a playlist, modify media play rate and start playback:</strong></p>
-<div class="literal-block-wrapper docutils container" id="id3">
-<div class="code-block-caption"><span class="caption-text">Adding and playing media basics</span><a class="headerlink" href="#id3" title="Permalink to this code">¶</a></div>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">Adding and playing media basics</span><a class="headerlink" href="#id4" title="Permalink to this code">¶</a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
 <span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">MediaType</span><span class="p">,</span> <span class="n">FrameRate</span>
 
@@ -240,33 +258,36 @@
 <span class="n">video</span> <span class="o">=</span> <span class="s1">&#39;/home/Media/some_quicktime.mov&#39;</span>
 <span class="n">audio</span> <span class="o">=</span> <span class="s1">&#39;/home/Media/some_audio.wav&#39;</span>
 
-<span class="c1"># create a playlist</span>
-<span class="n">playlist</span> <span class="o">=</span> <span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">create_playlist</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;My Playlist2&#39;</span><span class="p">)</span>
+
+<span class="c1"># create a playlist - note the result is a pair, the first element is the</span>
+<span class="c1"># Uuid, the second is the Playlist class instance</span>
+<span class="n">playlist</span> <span class="o">=</span> <span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">create_playlist</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;My Playlist&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
 
 <span class="c1"># make the playlist the &#39;viewed&#39; playlist</span>
-<span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">set_on_screen_source</span><span class="p">(</span><span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">set_on_screen_source</span><span class="p">(</span><span class="n">playlist</span><span class="p">)</span>
 
 <span class="c1"># add a frames based source (eg. jpegs.0001.jpg, jpegs.0002.jpg etc.)</span>
-<span class="n">frames_based_media</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
+<span class="n">frames_based_media</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
 <span class="c1"># set the frame rate for the frames source</span>
 <span class="n">frames_based_media</span><span class="o">.</span><span class="n">media_source</span><span class="p">()</span><span class="o">.</span><span class="n">rate</span> <span class="o">=</span> <span class="n">FrameRate</span><span class="p">(</span><span class="mf">30.0</span><span class="p">)</span>
 
-<span class="c1"># add a combined audio/video</span>
-<span class="n">video_only</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
+<span class="c1"># add a containerised media item</span>
+<span class="n">video_only</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
 
 <span class="c1"># add a combined audio/video</span>
-<span class="n">combined</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media_with_audio</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">audio</span><span class="p">)</span>
+<span class="n">combined</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">add_media_with_audio</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">audio</span><span class="p">)</span>
 
-<span class="c1"># add aan audio only source</span>
-<span class="n">audio_only</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">audio</span><span class="p">)</span>
+<span class="c1"># add an audio only source</span>
+<span class="n">audio_only</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">add_media</span><span class="p">(</span><span class="n">audio</span><span class="p">)</span>
 
-<span class="c1"># create a playhead for the playlist</span>
-<span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">create_playhead</span><span class="p">()</span>
-<span class="n">playhead</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">playheads</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="c1"># get the playlist&#39;s playhead. Each playlist has its own playhead - by making</span>
+<span class="c1"># it the &#39;active&#39; (viewed) playhead below we can start playing media from the</span>
+<span class="c1"># playlist in the viewer.</span>
+<span class="n">playhead</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">playhead</span>
 
 <span class="c1"># get the &#39;playhead_selection&#39; object, which is used to choose</span>
 <span class="c1"># items from a playlist for playing</span>
-<span class="n">plahead_selector</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">playhead_selection</span>
+<span class="n">plahead_selector</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">playhead_selection</span>
 
 <span class="c1"># select all the added media for playing (using their uuids)</span>
 <span class="n">plahead_selector</span><span class="o">.</span><span class="n">set_selection</span><span class="p">(</span>
@@ -277,9 +298,31 @@
         <span class="n">audio_only</span><span class="o">.</span><span class="n">uuid</span>
         <span class="p">])</span>
 
+<span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">set_viewport_playhead</span><span class="p">(</span><span class="n">playhead</span><span class="p">)</span>
+
+<span class="c1"># Some components of xSTUDIO are built with the &#39;Module&#39; base class. These</span>
+<span class="c1"># components have attributes which can be queried and modified through the API.</span>
+
+<span class="c1"># To inspect the attributes you can call the attributes_digest() method thus:</span>
+<span class="c1">#</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Viewport attrs: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">viewport</span><span class="o">.</span><span class="n">attributes_digest</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pad</span><span class="o">=</span><span class="mi">2</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Playhead attrs: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">playhead</span><span class="o">.</span><span class="n">attributes_digest</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pad</span><span class="o">=</span><span class="mi">2</span><span class="p">)))</span>
+
+<span class="c1"># By inspecting the attributes on the playhead, we can see the compare attr</span>
+<span class="c1"># and it&#39;s options ... by setting to String the playhead will string together</span>
+<span class="c1"># the selected media in a (most basic) sequence. Other options are &#39;A/B&#39; or &#39;Off&#39;.</span>
+<span class="n">playhead</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="s2">&quot;Compare&quot;</span><span class="p">,</span> <span class="s2">&quot;String&quot;</span><span class="p">)</span>
+
+<span class="c1"># while we&#39;re at it let&#39;s set the viewport to &#39;Best&#39; fit, so the whole image is</span>
+<span class="c1"># fitted to the viewport area</span>
+<span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">viewport</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="s2">&quot;Fit (F)&quot;</span><span class="p">,</span> <span class="s2">&quot;Best&quot;</span><span class="p">)</span>
 
 <span class="c1"># start playback</span>
 <span class="n">playhead</span><span class="o">.</span><span class="n">playing</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="c1"># We can also interact with the &#39;colour_pipeline&#39; object (the OCIO colour</span>
+<span class="c1"># management plugin), for example</span>
+<span class="n">XSTUDIO</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">colour_pipeline</span><span class="o">.</span><span class="n">set_attribute</span><span class="p">(</span><span class="s2">&quot;Exposure&quot;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -306,7 +349,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2023, DNEG
+        &copy; Copyright 2020, DNeg
 
     </p>
   </div>

@@ -145,7 +145,7 @@ Rectangle {
                 } else if (type == "OnOffToggle") {
                     dynamic_widget = Qt.createQmlObject('import "../base/widgets"; XsToolbarOnOffToggle { anchors.fill: parent}', parent_item)
                 } else {
-                    console.log("WAT TOIPE", type)
+                    console.log("XsToolBar failed to instance widget, unknown type:", type)
                 }
             }
         }

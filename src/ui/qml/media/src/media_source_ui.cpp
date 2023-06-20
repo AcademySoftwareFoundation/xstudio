@@ -22,10 +22,7 @@ using namespace xstudio::utility;
 using namespace xstudio::ui::qml;
 
 MediaSourceUI::MediaSourceUI(QObject *parent)
-    : QMLActor(parent),
-      backend_(),
-      backend_events_(),
-      thumbnail_(QString("/user_data/.tmp/foong3.jpg")) {}
+    : QMLActor(parent), backend_(), backend_events_() {}
 
 void MediaSourceUI::set_backend(caf::actor backend) {
     spdlog::debug("MediaSourceUI set_backend");
@@ -462,5 +459,45 @@ void MediaSourceUI::inspect_metadata(const nlohmann::json &data) {
             pixel_aspect_ = standard_fields["pixel_aspect"].get<float>();
     } else {
         throw std::runtime_error("No standard metadata fields.");
+    }
+}
+
+void MediaSourceUI::switchToStream(const QUuid stream_uuid) {
+
+    if (backend_) {
+        scoped_actor sys{system()};
+        try {
+            const bool changed = request_receive<bool>(
+                *sys,
+                backend_,
+                media::current_media_stream_atom_v,
+                media::MT_IMAGE,
+                UuidFromQUuid(stream_uuid));
+            if (changed) {
+                anon_send(backend_, media::get_media_details_atom_v, as_actor());
+            }
+        } catch (std::exception &e) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
+    }
+}
+
+void MediaSourceUI::switchToStream(const QString stream_id) {
+
+    if (backend_) {
+        scoped_actor sys{system()};
+        try {
+            const bool changed = request_receive<bool>(
+                *sys,
+                backend_,
+                media::current_media_stream_atom_v,
+                media::MT_IMAGE,
+                StdFromQString(stream_id));
+            if (changed) {
+                anon_send(backend_, media::get_media_details_atom_v, as_actor());
+            }
+        } catch (std::exception &e) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
     }
 }

@@ -16,6 +16,7 @@ namespace ui {
             void render_opengl(
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dpixel,
                 const xstudio::media_reader::ImageBufPtr &frame,
                 const bool have_alpha_buffer) override;
 
@@ -58,11 +59,13 @@ namespace ui {
                 const AnnotationRenderDataPtr render_data,
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dpixel,
                 const bool do_erase_strokes_first);
 
             void render_text_handles_to_screen(
                 const Imath::M44f &transform_window_to_viewport_space,
-                const Imath::M44f &transform_viewport_to_image_space);
+                const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dpixel);
 
             void init_overlay_opengl();
             void init_caption_handles_graphics();

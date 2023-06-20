@@ -661,10 +661,13 @@ void TimelineActor::init() {
 
         // this operation isn't relevant ?
         [=](playlist::create_playhead_atom) -> UuidActor {
+            if (playhead_)
+                return playhead_;
             auto uuid  = utility::Uuid::generate();
             auto actor = spawn<playhead::PlayheadActor>(
                 std::string("Timeline Playhead"), caf::actor_cast<caf::actor>(this), uuid);
             link_to(actor);
+            playhead_ = UuidActor(uuid, actor);
 
             anon_send(actor, playhead::playhead_rate_atom_v, base_.rate());
 
@@ -676,7 +679,10 @@ void TimelineActor::init() {
                 playhead::source_atom_v,
                 std::vector<caf::actor>{caf::actor_cast<caf::actor>(this)});
 
-            return UuidActor(uuid, actor);
+            return playhead_;
+        },
+        [=](playlist::get_playhead_atom) {
+            delegate(caf::actor_cast<caf::actor>(this), playlist::create_playhead_atom_v);
         },
         [=](playlist::get_change_event_group_atom) -> caf::actor {
             return change_event_group_;

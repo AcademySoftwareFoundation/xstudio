@@ -14,9 +14,8 @@ MenuBar  {
     implicitHeight: XsStyle.menuBarHeight*opacity
     visible: opacity != 0.0
     background: Rectangle {color: XsStyle.mainBackground}
-    property var viewport: undefined
     property var playerWidget: undefined
-    property var playhead: undefined
+    property var playhead: viewport.playhead
 
     property alias playerWidget: myMenuBar.playerWidget
     property alias playhead: myMenuBar.playhead
@@ -60,7 +59,9 @@ MenuBar  {
         id: media_menu
     }
     XsTimelineMenu {}
-    XsPlaybackMenu {}
+    XsPlaybackMenu {
+        id: playback_menu
+    }
     XsViewerContextMenu {
         is_popout_viewport: viewport.is_popout_viewport
     }

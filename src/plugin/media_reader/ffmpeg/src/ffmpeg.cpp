@@ -27,8 +27,10 @@ using namespace xstudio::utility;
 namespace {
 
 static Uuid s_plugin_uuid("87557f93-55f8-4650-8905-4834f1f4b78d");
-static Uuid ffmpeg_shader_uuid{"1c9259fc-ffee-11ea-87fe-989096adb429"};
-static std::string the_shader = {R"(
+static Uuid ffmpeg_shader_uuid_yuv{"9854e7c0-2e32-4600-aedd-463b2a6de95a"};
+static Uuid ffmpeg_shader_uuid_rgb{"20015805-0b83-426a-bf7e-f6549226bfef"};
+
+static std::string the_shader_yuv = {R"(
 #version 430 core
 uniform ivec2 image_dims;
 uniform ivec2 texture_dims;
@@ -72,31 +74,7 @@ int yuv_tex_lookup_8bit(
     return get_image_data_1byte(address);
 }
 
-vec4 fetch_rgba_pixel_from_rgb24(ivec2 image_coord, bool bgr)
-{
-	int address = image_coord.x*3 + image_coord.y*y_linesize;
-	uvec3 rgb = bgr ? get_image_data_4bytes(address).zyx : get_image_data_4bytes(address).xyz;
-	return vec4(vec3(rgb) * norm_coeff, 1.0);
-}
-
-vec4 fetch_rgba_pixel_from_rgba32(ivec2 image_coord)
-{
-	int address = image_coord.x*4 + image_coord.y*y_linesize;
-	uvec4 rgba = get_image_data_4bytes(address);
-	if (rgb == 3) { // AV_PIX_FMT_ARGB
-		rgba.xyzw = rgba.wxyz;
-	} else if (rgb == 4) { // AV_PIX_FMT_RGBA
-        //nope
-	} else if (rgb == 5) { // AV_PIX_FMT_ABGR
-		rgba.xyzw = rgba.wzyx;
-	} else if (rgb == 6) { // AV_PIX_FMT_BGRA
-		rgba.xyzw = rgba.zyxw;
-	}
-
-	return vec4(rgba) * norm_coeff;
-}
-
-vec4 fetch_rgba_pixel_from_yuv(ivec2 image_coord)
+vec4 fetch_rgba_pixel(ivec2 image_coord)
 {
 	ivec3 yuv;
 	float a = 1.0;
@@ -140,7 +118,57 @@ vec4 fetch_rgba_pixel_from_yuv(ivec2 image_coord)
 	yuv -= yuv_offsets;
 
 	return vec4(vec3(yuv) * yuv_conv * norm_coeff, a); //divide by 1023.0
+}
+)"};
 
+static std::string the_shader_rgb = {R"(
+#version 430 core
+uniform ivec2 image_dims;
+uniform ivec2 texture_dims;
+uniform int rgb;
+uniform int y_linesize;
+uniform int u_linesize;
+uniform int v_linesize;
+uniform int a_linesize;
+uniform int y_plane_bytes_offset;
+uniform int u_plane_bytes_offset;
+uniform int v_plane_bytes_offset;
+uniform int a_plane_bytes_offset;
+uniform bool half_scale_uvy;
+uniform bool half_scale_uvx;
+uniform int bits_per_channel;
+uniform mat3 yuv_conv;
+uniform ivec3 yuv_offsets;
+uniform float norm_coeff;
+
+uvec4 get_image_data_4bytes(int byte_address);
+
+int get_image_data_2bytes(int byte_address);
+
+int get_image_data_1byte(int byte_address);
+
+vec4 fetch_rgba_pixel_from_rgb24(ivec2 image_coord, bool bgr)
+{
+	int address = image_coord.x*3 + image_coord.y*y_linesize;
+	uvec3 rgb = bgr ? get_image_data_4bytes(address).zyx : get_image_data_4bytes(address).xyz;
+	return vec4(vec3(rgb) * norm_coeff, 1.0);
+}
+
+vec4 fetch_rgba_pixel_from_rgba32(ivec2 image_coord)
+{
+	int address = image_coord.x*4 + image_coord.y*y_linesize;
+	uvec4 rgba = get_image_data_4bytes(address);
+	if (rgb == 3) { // AV_PIX_FMT_ARGB
+		rgba.xyzw = rgba.wxyz;
+	} else if (rgb == 4) { // AV_PIX_FMT_RGBA
+        //nope
+	} else if (rgb == 5) { // AV_PIX_FMT_ABGR
+		rgba.xyzw = rgba.wzyx;
+	} else if (rgb == 6) { // AV_PIX_FMT_BGRA
+		rgba.xyzw = rgba.zyxw;
+	}
+
+	return vec4(rgba) * norm_coeff;
 }
 
 vec4 fetch_rgba_pixel_from_rgb_48(ivec2 image_coord)
@@ -187,9 +215,7 @@ vec4 fetch_rgba_pixel_from_gbr_planar(ivec2 image_coord)
 
 vec4 fetch_rgba_pixel(ivec2 image_coord)
 {
-	if (rgb == 0) {
-		return fetch_rgba_pixel_from_yuv(image_coord);
-	} else if (rgb == 9) {
+	if (rgb == 9) {
         return fetch_rgba_pixel_from_rgba_64(image_coord);
      }else if (rgb == 8) {
 		return fetch_rgba_pixel_from_rgb_48(image_coord);
@@ -204,8 +230,10 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 )"};
 
 static ui::viewport::GPUShaderPtr
-    ffmpeg_shader(new ui::viewport::GPUShader(ffmpeg_shader_uuid, the_shader));
+    ffmpeg_shader_yuv(new ui::viewport::GPUShader(ffmpeg_shader_uuid_yuv, the_shader_yuv));
 
+static ui::viewport::GPUShaderPtr
+    ffmpeg_shader_rgb(new ui::viewport::GPUShader(ffmpeg_shader_uuid_rgb, the_shader_rgb));
 
 } // namespace
 
@@ -257,8 +285,12 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
     ImageBufPtr rt;
     decoder->decode_video_frame(mptr.frame_, rt);
 
-    if (rt) {
-        rt->set_shader(ffmpeg_shader);
+    if (rt && !rt->shader_params().is_null()) {
+        if (rt->shader_params().value("rgb", 0) != 0) {
+            rt->set_shader(ffmpeg_shader_rgb);
+        } else {
+            rt->set_shader(ffmpeg_shader_yuv);
+        }
         last_decoded_image_ = rt;
     }
 
@@ -332,10 +364,21 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
             have_video |= p.second->codec_type() == AVMEDIA_TYPE_VIDEO;
             have_audio |= p.second->codec_type() == AVMEDIA_TYPE_AUDIO;
 
+            auto frameRate = t_decoder.frame_rate(p.first);
+
+            // If the stream has a duration of 1 then it is probably frame based.
+            // FFMPEG assigns a default frame rate of 25fps to JPEGs, for example -
+            // If this has happened, we want to ignore this and let xstudio apply
+            // xSTUDIO's default frame rate preference instead.
+            if (t_decoder.duration_frames() == 1 &&
+                frameRate.to_flicks() == timebase::flicks(28224000)) {
+                // setting a null frame rate will make xstudio use its own preference
+                frameRate = utility::FrameRate();
+            }
+
             streams.emplace_back(media::StreamDetail(
                 utility::FrameRateDuration(
-                    static_cast<int>(t_decoder.duration_frames()),
-                    t_decoder.frame_rate(p.first)),
+                    static_cast<int>(t_decoder.duration_frames()), frameRate),
                 fmt::format("stream {}", p.first),
                 (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
                                                               : media::MT_AUDIO),
@@ -408,4 +451,248 @@ FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_si
     } catch (std::exception &e) {
         throw;
     }
+}
+
+#define ALPHA_UNSET -1e6f
+
+PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
+    const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+
+    // This function is close to being a C++ implementation of the the
+    // glsl shader(s) at the top of this file. It allows xstudio to inspect
+    // individual pixel values from the frame buffer.
+    try {
+
+        PixelInfo r(pixel_location);
+        if (buf.shader_params().is_null())
+            return r;
+
+        const int width  = buf.image_size_in_pixels().x;
+        const int height = buf.image_size_in_pixels().y;
+
+        if (pixel_location.x < 0 || pixel_location.x >= width || pixel_location.y < 0 ||
+            pixel_location.y >= height) {
+            return r;
+        }
+
+        const int rgb                  = buf.shader_params().value("rgb", 0);
+        const int y_linesize           = buf.shader_params().value("y_linesize", 0);
+        const int u_linesize           = buf.shader_params().value("u_linesize", 0);
+        const int v_linesize           = buf.shader_params().value("v_linesize", 0);
+        const int a_linesize           = buf.shader_params().value("a_linesize", 0);
+        const int y_plane_bytes_offset = buf.shader_params().value("y_plane_bytes_offset", 0);
+        const int u_plane_bytes_offset = buf.shader_params().value("u_plane_bytes_offset", 0);
+        const int v_plane_bytes_offset = buf.shader_params().value("v_plane_bytes_offset", 0);
+        const int a_plane_bytes_offset = buf.shader_params().value("a_plane_bytes_offset", 0);
+        const int half_scale_uvy       = buf.shader_params().value("half_scale_uvy", 0);
+        const int half_scale_uvx       = buf.shader_params().value("half_scale_uvx", 0);
+        const int bits_per_channel     = buf.shader_params().value("bits_per_channel", 0);
+        const Imath::M33f yuv_conv =
+            buf.shader_params().value("yuv_conv", Imath::M33f()).transposed();
+        const Imath::V3i yuv_offsets = buf.shader_params().value("yuv_offsets", Imath::V3i());
+        const float norm_coeff       = buf.shader_params().value("norm_coeff", 1.0f);
+
+        auto get_image_data_4bytes = [&](const int address) -> std::array<float, 4> {
+            if (address < 0 || address >= buf.size())
+                return std::array<float, 4>({0.0f, 0.0f, 0.0f, 0.0f});
+            std::array<float, 4> r;
+            memcpy(r.data(), (buf.buffer() + address), 4 * sizeof(float));
+            return r;
+        };
+
+        auto get_image_data_2bytes = [&](const int address) -> int {
+            if (address < 0 || address >= buf.size())
+                return 0;
+            int *r = (int *)(buf.buffer() + address);
+            return *r & 65535;
+        };
+
+        auto get_image_data_1byte = [&](const int address) -> int {
+            if (address < 0 || address >= buf.size())
+                return 0;
+            int *r = (int *)(buf.buffer() + address);
+            return *r & 255;
+        };
+
+        auto yuv_tex_lookup_10bit =
+            [&](const Imath::V2i image_coord, int offset, int linestride) -> int {
+            int address = offset + image_coord.x * 2 + image_coord.y * linestride;
+            return get_image_data_2bytes(address);
+        };
+
+        auto yuv_tex_lookup_8bit =
+            [&](const Imath::V2i image_coord, int offset, int linestride) -> int {
+            int address = offset + image_coord.x + image_coord.y * linestride;
+            return get_image_data_1byte(address);
+        };
+
+        auto fetch_rgba_pixel_from_rgb24 = [&](const Imath::V2i image_coord,
+                                               bool bgr) -> Imath::V4f {
+            auto bytes4 = get_image_data_4bytes(image_coord.x * 3 + image_coord.y * y_linesize);
+            Imath::V4f r = bgr ? Imath::V4f(bytes4[2], bytes4[1], bytes4[0], 0.0f)
+                               : Imath::V4f(bytes4[0], bytes4[1], bytes4[2], 0.0f);
+            r *= norm_coeff;
+            r.z = 1.0f;
+            return r;
+        };
+
+        auto fetch_rgba_pixel_from_rgba32 = [&](const Imath::V2i image_coord) -> Imath::V4f {
+            int address = image_coord.x * 4 + image_coord.y * y_linesize;
+            auto bytes4 = get_image_data_4bytes(address);
+            Imath::V4f r;
+            if (rgb == 3) { // AV_PIX_FMT_ARGB
+                r = Imath::V4f(bytes4[3], bytes4[0], bytes4[1], bytes4[2]);
+            } else if (rgb == 4) { // AV_PIX_FMT_RGBA
+                // nope
+            } else if (rgb == 5) { // AV_PIX_FMT_ABGR
+                r = Imath::V4f(bytes4[3], bytes4[2], bytes4[1], bytes4[0]);
+            } else if (rgb == 6) { // AV_PIX_FMT_BGRA
+                r = Imath::V4f(bytes4[0], bytes4[1], bytes4[2], bytes4[3]);
+            }
+
+            return r * norm_coeff;
+        };
+
+        auto fetch_rgba_pixel_from_yuv = [&](const Imath::V2i image_coord) -> Imath::V4f {
+            Imath::V3i yuv;
+            float a = ALPHA_UNSET;
+
+            Imath::V2i uv_coord = Imath::V2i(
+                half_scale_uvx ? image_coord.x >> 1 : image_coord.x,
+                half_scale_uvy ? image_coord.y >> 1 : image_coord.y);
+
+            if (bits_per_channel == 10 || bits_per_channel == 12) {
+
+                yuv = Imath::V3i(
+                    yuv_tex_lookup_10bit(image_coord, y_plane_bytes_offset, y_linesize),
+                    yuv_tex_lookup_10bit(uv_coord, u_plane_bytes_offset, u_linesize),
+                    yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize));
+
+                if (half_scale_uvx && (image_coord.x & 1) == 1) {
+
+                    uv_coord.x = uv_coord.x + 1;
+                    Imath::V3i yuv2(
+                        yuv.x,
+                        yuv_tex_lookup_10bit(uv_coord, u_plane_bytes_offset, u_linesize),
+                        yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize));
+
+                    yuv = (yuv + yuv2) / 2;
+                }
+
+                if (a_linesize != 0) {
+                    a = float(yuv_tex_lookup_10bit(
+                            image_coord, a_plane_bytes_offset, a_linesize)) *
+                        norm_coeff;
+                }
+
+            } else {
+
+                yuv = Imath::V3i(
+                    yuv_tex_lookup_8bit(image_coord, y_plane_bytes_offset, y_linesize),
+                    yuv_tex_lookup_8bit(uv_coord, u_plane_bytes_offset, u_linesize),
+                    yuv_tex_lookup_8bit(uv_coord, v_plane_bytes_offset, v_linesize));
+            }
+
+            // record the code values
+            r.add_code_value_info("Y", yuv.x);
+            r.add_code_value_info("U", yuv.y);
+            r.add_code_value_info("V", yuv.z);
+            if (a != ALPHA_UNSET)
+                r.add_code_value_info("A", a);
+
+            yuv -= yuv_offsets;
+            Imath::V3f yuvf(yuv.x, yuv.y, yuv.z);
+
+            yuvf *= yuv_conv;
+            yuvf *= norm_coeff;
+
+            return Imath::V4f(yuvf.x, yuvf.y, yuvf.z, a); // divide by 1023.0
+        };
+
+        auto fetch_rgba_pixel_from_rgb_48 = [&](const Imath::V2i image_coord) -> Imath::V4f {
+            // 2 bytes per channel, 3 channels per pix
+            int address = image_coord.x * 6 + image_coord.y * y_linesize;
+            Imath::V4f rgba;
+            rgba.x = get_image_data_2bytes(address);
+            rgba.y = get_image_data_2bytes(address + 2);
+            rgba.z = get_image_data_2bytes(address + 4);
+
+            // record the code values
+            r.add_code_value_info("R", rgba.x);
+            r.add_code_value_info("G", rgba.y);
+            r.add_code_value_info("B", rgba.z);
+
+            rgba *= norm_coeff;
+            rgba.w = 0.0f;
+            return rgba;
+        };
+
+        auto fetch_rgba_pixel_from_rgba_64 = [&](const Imath::V2i image_coord) -> Imath::V4f {
+            // 2 bytes per channel, 4 channels per pix
+            int address = image_coord.x * 8 + image_coord.y * y_linesize;
+            Imath::V4f rgba;
+            rgba.x = get_image_data_2bytes(address);
+            rgba.y = get_image_data_2bytes(address + 2);
+            rgba.z = get_image_data_2bytes(address + 4);
+            rgba.w = get_image_data_2bytes(address + 6);
+
+            // record the code values
+            r.add_code_value_info("R", rgba.x);
+            r.add_code_value_info("G", rgba.y);
+            r.add_code_value_info("B", rgba.z);
+            r.add_code_value_info("A", rgba.w);
+
+            return rgba * norm_coeff;
+        };
+
+
+        auto fetch_rgba_pixel_from_gbr_planar =
+            [&](const Imath::V2i image_coord) -> Imath::V4f {
+            // 2 bytes per channel, 3 channels per pix
+            int address = image_coord.x * 2 + image_coord.y * y_linesize;
+
+            Imath::V4f rgba;
+            rgba.x = get_image_data_2bytes(address + v_plane_bytes_offset);
+            rgba.y = get_image_data_2bytes(address + y_plane_bytes_offset);
+            rgba.z = get_image_data_2bytes(address + u_plane_bytes_offset);
+            r.add_code_value_info("R", rgba.x);
+            r.add_code_value_info("G", rgba.y);
+            r.add_code_value_info("B", rgba.z);
+            if (a_linesize != 0) {
+                rgba.w = get_image_data_2bytes(address + a_plane_bytes_offset);
+                r.add_code_value_info("A", rgba.w);
+                return rgba * norm_coeff;
+            } else {
+                rgba *= norm_coeff;
+                rgba.w = ALPHA_UNSET;
+                return rgba;
+            }
+        };
+
+        Imath::V4f rgba_pix;
+        if (rgb == 0) {
+            rgba_pix = fetch_rgba_pixel_from_yuv(pixel_location);
+        } else if (rgb == 9) {
+            rgba_pix = fetch_rgba_pixel_from_rgba_64(pixel_location);
+        } else if (rgb == 8) {
+            rgba_pix = fetch_rgba_pixel_from_rgb_48(pixel_location);
+        } else if (rgb == 7) {
+            rgba_pix = fetch_rgba_pixel_from_gbr_planar(pixel_location);
+        } else if (rgb > 2) {
+            rgba_pix = fetch_rgba_pixel_from_rgba32(pixel_location);
+        } else {
+            rgba_pix = fetch_rgba_pixel_from_rgb24(pixel_location, rgb == 2);
+        }
+        r.add_raw_channel_info("R", rgba_pix.x);
+        r.add_raw_channel_info("G", rgba_pix.y);
+        r.add_raw_channel_info("B", rgba_pix.z);
+        if (rgba_pix.w != ALPHA_UNSET)
+            r.add_raw_channel_info("A", rgba_pix.w);
+        return r;
+
+    } catch (std::exception &e) {
+
+        std::cerr << "E " << e.what() << "\n";
+    }
+    return PixelInfo();
 }

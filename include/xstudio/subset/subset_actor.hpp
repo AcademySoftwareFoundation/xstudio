@@ -43,6 +43,7 @@ namespace subset {
         caf::actor event_group_, change_event_group_;
         Subset base_;
         utility::UuidActorMap actors_;
+        utility::UuidActor playhead_;
     };
 } // namespace subset
 } // namespace xstudio

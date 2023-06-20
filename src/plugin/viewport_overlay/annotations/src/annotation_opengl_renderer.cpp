@@ -231,6 +231,7 @@ static struct AAJitterTable {
 void AnnotationsRenderer::render_opengl(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
+    const float viewport_du_dpixel,
     const xstudio::media_reader::ImageBufPtr &frame,
     const bool have_alpha_buffer) {
 
@@ -247,10 +248,13 @@ void AnnotationsRenderer::render_opengl(
                 p,
                 transform_window_to_viewport_space,
                 transform_viewport_to_image_space,
+                viewport_du_dpixel,
                 !have_alpha_buffer);
         }
         render_text_handles_to_screen(
-            transform_window_to_viewport_space, transform_viewport_to_image_space);
+            transform_window_to_viewport_space,
+            transform_viewport_to_image_space,
+            viewport_du_dpixel);
         return;
     }
     if (current_edited_annotation_render_data_) {
@@ -258,9 +262,12 @@ void AnnotationsRenderer::render_opengl(
             current_edited_annotation_render_data_,
             transform_window_to_viewport_space,
             transform_viewport_to_image_space,
+            viewport_du_dpixel,
             !have_alpha_buffer);
         render_text_handles_to_screen(
-            transform_window_to_viewport_space, transform_viewport_to_image_space);
+            transform_window_to_viewport_space,
+            transform_viewport_to_image_space,
+            viewport_du_dpixel);
     }
 }
 
@@ -268,6 +275,7 @@ void AnnotationsRenderer::render_annotation_to_screen(
     const AnnotationRenderDataPtr render_data,
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
+    const float viewport_du_dpixel,
     const bool do_erase_strokes_first) {
 
     if (!render_data)
@@ -285,33 +293,10 @@ void AnnotationsRenderer::render_annotation_to_screen(
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glBlendEquation(GL_FUNC_ADD);
 
-    // this value tells us how much we are zoomed into the image in the viewport (in
-    // the x dimension). If the image is width-fitted exactly to the viewport, then this
-    // value will be 1.0 (what it means is the coordinates -1.0 to 1.0 are mapped to
-    // the width of the viewport)
-    const float image_zoom_in_viewport = transform_viewport_to_image_space[0][0];
-
-    // this value gives us how much of the parent window is covered by the viewport.
-    // So if the xstudio window is 1000px in width, and the viewport is 500px wide
-    // (with the rest of the UI taking up the remainder) then this value will be 0.5
-    const float viewport_x_size_in_window =
-        transform_window_to_viewport_space[0][0] / transform_window_to_viewport_space[3][3];
-
-
-    // the gl viewport corresponds to the parent window size.
-    std::array<int, 4> gl_viewport;
-    glGetIntegerv(GL_VIEWPORT, gl_viewport.data());
-    const auto viewport_width = (float)gl_viewport[2];
-
-    // this value tells us how much a screen pixel width in the viewport is in the units
-    // of viewport coordinate space
-    const float viewport_du_dx =
-        image_zoom_in_viewport / (viewport_width * viewport_x_size_in_window);
-
     utility::JsonStore shader_params;
     shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
     shader_params["to_canvas"]       = transform_window_to_viewport_space;
-    shader_params["soft_dim"]        = viewport_du_dx * 4.0f;
+    shader_params["soft_dim"]        = viewport_du_dpixel * 4.0f;
 
     shader_->use();
     shader_->set_shader_parameters(shader_params);
@@ -466,7 +451,7 @@ void AnnotationsRenderer::render_annotation_to_screen(
                 transform_window_to_viewport_space,
                 transform_viewport_to_image_space,
                 caption_info.colour,
-                viewport_du_dx,
+                viewport_du_dpixel,
                 caption_info.text_size,
                 caption_info.opacity);
         }
@@ -475,24 +460,14 @@ void AnnotationsRenderer::render_annotation_to_screen(
 
 void AnnotationsRenderer::render_text_handles_to_screen(
     const Imath::M44f &transform_window_to_viewport_space,
-    const Imath::M44f &transform_viewport_to_image_space) {
-
-    const float image_zoom_in_viewport = transform_viewport_to_image_space[0][0];
-    const float viewport_x_size_in_window =
-        transform_window_to_viewport_space[0][0] / transform_window_to_viewport_space[3][3];
-
-    std::array<int, 4> gl_viewport;
-
-    glGetIntegerv(GL_VIEWPORT, gl_viewport.data());
-    const auto viewport_width = (float)gl_viewport[2];
-    const float viewport_du_dx =
-        image_zoom_in_viewport / (viewport_width * viewport_x_size_in_window);
+    const Imath::M44f &transform_viewport_to_image_space,
+    const float viewport_du_dpixel) {
 
     utility::JsonStore shader_params;
 
     shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
     shader_params["to_canvas"]       = transform_window_to_viewport_space;
-    shader_params["du_dx"]           = viewport_du_dx;
+    shader_params["du_dx"]           = viewport_du_dpixel;
     shader_params["box_type"]        = 0;
 
     glDisable(GL_DEPTH_TEST);
@@ -520,7 +495,7 @@ void AnnotationsRenderer::render_text_handles_to_screen(
         glLineWidth(2.0f);
         glDrawArrays(GL_LINE_LOOP, 0, 4);
 
-        const auto handle_size = Annotation::captionHandleSize * viewport_du_dx;
+        const auto handle_size = Annotation::captionHandleSize * viewport_du_dpixel;
 
         // Draw the three
         static const auto hndls = std::vector<Caption::HoverState>(
@@ -542,7 +517,7 @@ void AnnotationsRenderer::render_text_handles_to_screen(
 
         // draw a grey box for each handle
         shader_params2["opacity"] = 0.6f;
-        for (int i = 0; i < hndls.size(); ++i) {
+        for (size_t i = 0; i < hndls.size(); ++i) {
             shader_params2["box_position"] = positions[i];
             shader_params2["box_type"]     = 2;
             text_handles_shader_->set_shader_parameters(shader_params2);
@@ -565,7 +540,7 @@ void AnnotationsRenderer::render_text_handles_to_screen(
         // draw the lines for each handle
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         shader_params2["opacity"] = 1.0f / 16.0f;
-        for (int i = 0; i < hndls.size(); ++i) {
+        for (size_t i = 0; i < hndls.size(); ++i) {
             shader_params2["box_position"] = positions[i] + 0.1f * handle_size;
             shader_params2["box_type"]     = caption_hover_state_ == hndls[i] ? 4 : 3;
             text_handles_shader_->set_shader_parameters(shader_params2);

@@ -6,6 +6,8 @@
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include <ImfChannelList.h>
+#include <ImfHeader.h> // staticInitialize
 
 namespace xstudio {
 namespace media_reader {
@@ -34,6 +36,18 @@ namespace media_reader {
       private:
         static PixelInfo
         exr_buffer_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location);
+
+        void get_channel_names_by_layer(
+            const Imf::Header &header,
+            std::map<std::string, std::vector<std::string>> &channel_names_by_layer) const;
+
+        void stream_ids_from_exr_part(
+            const Imf::Header &header, std::vector<std::string> &stream_ids) const;
+
+        Imf::PixelType pick_exr_channels_from_stream_id(
+            const Imf::Header &header,
+            const std::string &stream_id,
+            std::vector<std::string> &exr_channels_to_load) const;
 
         float max_exr_overscan_percent_;
         int readers_per_source_;

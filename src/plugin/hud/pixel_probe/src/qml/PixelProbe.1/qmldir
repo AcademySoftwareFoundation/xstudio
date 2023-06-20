@@ -1,0 +1,3 @@
+module PixelProbe
+
+PixelProbeOverlay 1.0 PixelProbeOverlay.qml

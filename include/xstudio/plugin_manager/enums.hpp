@@ -11,6 +11,7 @@ namespace plugin_manager {
         PT_COLOUR_MANAGEMENT,
         PT_DATA_SOURCE,
         PT_VIEWPORT_OVERLAY,
+        PT_HEAD_UP_DISPLAY,
         PT_UTILITY,
     } PluginType;
 

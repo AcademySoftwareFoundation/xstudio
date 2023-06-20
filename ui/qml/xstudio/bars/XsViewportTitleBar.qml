@@ -11,8 +11,7 @@ Rectangle {
     height: XsStyle.viewerTitleBarHeight*opacity
     implicitHeight: XsStyle.viewerTitleBarHeight*opacity
 
-    property var source: session.onScreenSource
-    property var playhead: source ? source.playhead : undefined
+    property var playhead: viewport.playhead
     property var currentMedia: playhead ? playhead.media.mediaSource : null
     property var filename: currentMedia ? currentMedia.fileName : ""
     property alias mediaToolsTray: mediaToolsTray

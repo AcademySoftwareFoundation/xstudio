@@ -113,14 +113,16 @@ class GLXWindowViewportActor : public caf::event_based_actor {
         // is able. Accurate syncing with playhead refresh is still TODO for
         // this basic demo.
         while (ctx) {
-            auto n = utility::clock::now();
+            static auto then = utility::clock::now();
             glViewport(0, 0, width, height);
             viewport_renderer->render();
+            auto n = utility::clock::now();
             std::cerr << "Redraw interval / microseconds: "
                       << std::chrono::duration_cast<std::chrono::microseconds>(
-                             utility::clock::now() - n)
+                             utility::clock::now() - then)
                              .count()
                       << "\n";
+            then = n;
             glXSwapBuffers(display, win);
 
             // this is crucial for video refresh sync, the viewport

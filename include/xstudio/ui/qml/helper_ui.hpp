@@ -6,6 +6,7 @@
 #include <semver.hpp>
 
 #include "xstudio/ui/qml/actor_object.hpp"
+#include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
@@ -81,6 +82,45 @@ namespace ui {
             int role_id_{-1};
             QVariant value_;
         };
+
+        class ModelPropertyTree : public JSONTreeModel {
+            Q_OBJECT
+
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+            Q_PROPERTY(int roleId READ roleId NOTIFY roleIdChanged)
+            Q_PROPERTY(QString role READ role WRITE setRole NOTIFY roleChanged)
+
+          public:
+            explicit ModelPropertyTree(QObject *parent = nullptr) : JSONTreeModel(parent) {}
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] int roleId() const { return role_id_; }
+            [[nodiscard]] QString role() const { return role_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+            Q_INVOKABLE void setRole(const QString &role);
+
+          signals:
+            void roleIdChanged();
+            void roleChanged();
+            void indexChanged();
+
+          private slots:
+            void myDataChanged(
+                const QModelIndex &topLeft,
+                const QModelIndex &bottomRight,
+                const QVector<int> &roles = QVector<int>());
+
+          private:
+            bool updateValue();
+            int getRoleId(const QString &role) const;
+
+            QPersistentModelIndex index_;
+            QString role_;
+            int role_id_{-1};
+            QVariant value_;
+        };
+
 
         class ModelPropertyMap : public QObject {
             Q_OBJECT
@@ -220,9 +260,15 @@ namespace ui {
 
         QVariant json_to_qvariant(const nlohmann::json &var);
 
+        QString actorToQString(actor_system &sys, const caf::actor &actor);
+        caf::actor actorFromQString(actor_system &sys, const QString &addr);
+
+        std::string actorToString(actor_system &sys, const caf::actor &actor);
+        caf::actor actorFromString(actor_system &sys, const std::string &addr);
+
         QString getThumbnailURL(
             actor_system &sys,
-            caf::actor actor,
+            const caf::actor &actor,
             const int frame          = 0,
             const bool cache_to_disk = false);
 

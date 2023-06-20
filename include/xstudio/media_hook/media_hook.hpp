@@ -15,6 +15,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/plugin_manager/plugin_factory.hpp"
 #include "xstudio/media/media_actor.hpp"
+#include "xstudio/global_store/global_store.hpp"
 
 namespace xstudio {
 namespace media_hook {
@@ -49,6 +50,7 @@ namespace media_hook {
                 std::tuple<std::string, caf::uri, xstudio::utility::FrameList>>();
         }
 
+        virtual void update_prefs(const utility::JsonStore &full_prefs_dict) {}
 
       protected:
         MediaHook(std::string name) : name_(std::move(name)) {}
@@ -83,10 +85,18 @@ namespace media_hook {
       public:
         MediaHookActor(
             caf::actor_config &cfg, const utility::JsonStore & = utility::JsonStore())
-            : caf::event_based_actor(cfg) {
+            : caf::event_based_actor(cfg), media_hook_() {
 
             spdlog::debug("Created MediaHookActor");
             // print_on_exit(this, "MediaHookActor");
+
+            try {
+                auto prefs = global_store::GlobalStoreHelper(system());
+                utility::JsonStore j;
+                utility::join_broadcast(this, prefs.get_group(j));
+                media_hook_.update_prefs(j);
+            } catch (...) {
+            }
 
             behavior_.assign(
                 [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -149,6 +159,15 @@ namespace media_hook {
                     }
 
                     return media_hook_.modify_metadata(mr, jsn);
+                },
+
+                [=](json_store::update_atom,
+                    const utility::JsonStore & /*change*/,
+                    const std::string & /*path*/,
+                    const utility::JsonStore &full) { media_hook_.update_prefs(full); },
+
+                [=](json_store::update_atom, const utility::JsonStore &j) mutable {
+                    media_hook_.update_prefs(j);
                 });
         }
 

@@ -14,6 +14,7 @@
 				"default_value": "Image Texture",
 				"description": "Viewport Low Level Texture mode - SSBO can give better performance on some systems but not all",
 				"value": "Image Texture",
+				"value_range": ["Image Texture", "SSBO"],
 				"datatype": "string",
 				"context": ["APPLICATION"]
 			},
@@ -31,6 +32,14 @@
 				"description": "Set value to change the scrub pixel step for each frame",
 				"value": 2,
 				"datatype": "int",
+				"context": ["QML_UI"]
+			},
+			"enable_hud": {
+				"path": "/ui/viewport/enable_hud",
+				"default_value": false,
+				"description": "Enables the HUD overlays",
+				"value": false,
+				"datatype": "bool",
 				"context": ["QML_UI"]
 			}
 		}

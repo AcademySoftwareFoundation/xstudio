@@ -92,6 +92,23 @@ XsWindow {
                     }
 
                     DelegateChoice {
+                        roleValue: "IntegerValue";
+                        XsIntAttrSlider {
+                            height: 20
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    DelegateChoice {
+                        roleValue: "ColourAttribute";
+                        XsColourChooser {
+                            height: 20
+                            Layout.fillWidth: true
+                        }
+                    }
+                    
+
+                    DelegateChoice {
                         roleValue: "OnOffToggle";
                         Rectangle {
                             color: "transparent"

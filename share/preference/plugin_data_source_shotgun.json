@@ -3,9 +3,16 @@
         "qml": {
             "shotgun_browser_settings": {
                 "path": "/ui/qml/shotgun_browser_settings",
-                "default_value": {"properties":{}},
+                "default_value": {},
                 "description": "Prefs relating to window position.",
-                "value": {"properties":{}},
+                "value": {
+                    "__ignore__": true,
+                    "x": 100,
+                    "y": 100,
+                    "width": 700,
+                    "height": 400,
+                    "visibility": 0
+                },
                 "datatype": "json",
                 "context": ["QML_UI"]
             }
@@ -14,6 +21,34 @@
 	"plugin": {
 		"data_source": {
 			"shotgun": {
+                "note_publish_settings": {
+                    "path": "/plugin/data_source/shotgun/note_publish_settings",
+                    "default_value": {
+                        "__ignore__": true,
+                        "defaultType": null,
+                        "notifyCreator": true,
+                        "notifyOther": null,
+                        "combine": false,
+                        "addFrame": false,
+                        "addPlaylistName": true,
+                        "addType": false,
+                        "ignoreEmpty": false
+                    },
+                    "description": "Prefs relating to note publishing.",
+                    "value": {
+                        "__ignore__": true,
+                        "defaultType": null,
+                        "notifyCreator": true,
+                        "combine": false,
+                        "addFrame": false,
+                        "addPlaylistName": true,
+                        "addType": false,
+                        "ignoreEmpty": false
+                    },
+                    "datatype": "json",
+                    "context": ["APPLICATION"]
+                },
+
 				"maximum_result_count": {
 					"path": "/plugin/data_source/shotgun/maximum_result_count",
 					"default_value": 1000,
@@ -1732,6 +1767,41 @@
                     "description": "Default context.",
                     "value": "Playlists",
                     "datatype": "string",
+                    "context": ["APPLICATION"]
+                },
+                "pipestep": {
+                    "path": "/plugin/data_source/shotgun/pipestep",
+                    "default_value": [],
+                    "value": [
+                        {"name": "Anim"},
+                        {"name": "Body Track"},
+                        {"name": "Camera Track"},
+                        {"name": "Comp"},
+                        {"name": "Creature"},
+                        {"name": "DMP"},
+                        {"name": "Editorial"},
+                        {"name": "Environ"},
+                        {"name": "Envsetup"},
+                        {"name": "FX"},
+                        {"name": "Groom"},
+                        {"name": "Layout"},
+                        {"name": "Lighting"},
+                        {"name": "Look Dev"},
+                        {"name": "Model"},
+                        {"name": "Muscle"},
+                        {"name": "Prep"},
+                        {"name": "Previs"},
+                        {"name": "Retime Layout"},
+                        {"name": "Rig"},
+                        {"name": "Roto"},
+                        {"name": "Scan"},
+                        {"name": "Skin"},
+                        {"name": "Sweatbox"},
+                        {"name": "TD"},
+                        {"name": "None"}
+                    ],
+                    "description": "Default pipesteps.",
+                    "datatype": "json",
                     "context": ["APPLICATION"]
                 },
 				"authentication": {

@@ -30,6 +30,7 @@ XsWindow { id: shotgunBrowser
     property var productionStatusModel: null
     property var pipelineStatusModel: null
     property var boolModel: null
+    property var reviewLocationModel: null
     property var resultLimitModel: null
     property var orderByModel: null
     property var primaryLocationModel: null
@@ -656,6 +657,7 @@ XsWindow { id: shotgunBrowser
             primaryLocationModel: shotgunBrowser.primaryLocationModel
             orderByModel: shotgunBrowser.orderByModel
             resultLimitModel: shotgunBrowser.resultLimitModel
+            reviewLocationModel: shotgunBrowser.reviewLocationModel
             boolModel: shotgunBrowser.boolModel
             lookbackModel: shotgunBrowser.lookbackModel
             stepModel: shotgunBrowser.stepModel
@@ -694,8 +696,6 @@ XsWindow { id: shotgunBrowser
                 if(currentCategory == "Versions")
                     preset = "shot_filter"
                 else if(currentCategory == "Versions Tree")
-                    preset = "shot_filter"
-                else if(currentCategory == "Shots Tree")
                     preset = "shot_filter"
                 else if(currentCategory == "Playlists")
                     preset = "playlist_filter"
@@ -745,12 +745,13 @@ XsWindow { id: shotgunBrowser
 
             onShowLatestVersion: {
                 currentCategory = "Versions Tree"
-                leftDiv.updatePreset(type, name, id, mode)
+                leftDiv.createOrUpdate(type, name, mode)
             }
 
             onShowVersionHistory: {
+                // console.log("onShowVersionHistory", shot, twigname, pstep, twigtype)
                 currentCategory = "Versions Tree"
-                leftDiv.updateVersionHistory(shot, twigname, pstep, twigtype)
+                leftDiv.updateVersionHistory(shot_seq, is_shot, twigname, pstep, twigtype)
             }
 
             Connections {

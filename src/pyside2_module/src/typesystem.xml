@@ -9,6 +9,6 @@
     <load-typesystem name="typesystem_quickwidgets.xml" generate="no" />
     <object-type name="ThreadedViewportWindow"/>
     <object-type name="PlainViewport"/>
-    <object-type name="QMLViewport"/>
+    <object-type name="PySideQmlViewport"/>
 </typesystem>
 

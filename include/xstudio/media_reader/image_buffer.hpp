@@ -99,7 +99,8 @@ namespace media_reader {
               colour_pipe_data_(o.colour_pipe_data_),
               when_to_display_(o.when_to_display_),
               plugin_blind_data_(o.plugin_blind_data_),
-              tts_(o.tts_) {}
+              tts_(o.tts_),
+              frame_id_(o.frame_id_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
             Base &b            = static_cast<Base &>(*this);
@@ -108,6 +109,7 @@ namespace media_reader {
             when_to_display_   = o.when_to_display_;
             plugin_blind_data_ = o.plugin_blind_data_;
             tts_               = o.tts_;
+            frame_id_          = o.frame_id_;
             return *this;
         }
 
@@ -147,8 +149,12 @@ namespace media_reader {
         [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
         void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
 
+        [[nodiscard]] const media::AVFrameID &frame_id() const { return frame_id_; }
+        void set_frame_id(const media::AVFrameID &id) { frame_id_ = id; }
+
       private:
         timebase::flicks tts_ = timebase::flicks{0};
+        media::AVFrameID frame_id_;
     };
 
 } // namespace media_reader

@@ -5,7 +5,7 @@ Release Notes
 =============
 
 ==============
-v0.9.0 (Alpha)
+v0.10.0 (Alpha)
 ==============
 
 This intial open source version of xSTUDIO should be considered as a 'preview' release as the development team get to grips with maintaining the code base on a public repo. There are still some major features under development so we expect some parts of the code to change and expand considerably. 

@@ -57,6 +57,7 @@ namespace contact_sheet {
         utility::UuidListContainer media_list_;
         utility::FrameRate playhead_rate_;
         playhead::CompareMode compare_mode_ = {playhead::CM_GRID};
+        utility::UuidActor playhead_;
     };
 } // namespace contact_sheet
 } // namespace xstudio

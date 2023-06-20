@@ -21,6 +21,11 @@ using namespace std::chrono_literals;
 
 namespace fs = std::filesystem;
 
+const auto GetShotFromIdJSON   = R"({"shot_id": null, "operation": "GetShotFromId"})"_json;
+const auto ShotgunMetadataPath = std::string("/metadata/shotgun");
+const auto IvyMetadataPath     = std::string("/metadata/ivy");
+
+
 class IvyMediaWorker : public caf::event_based_actor {
   public:
     IvyMediaWorker(caf::actor_config &cfg);
@@ -31,6 +36,22 @@ class IvyMediaWorker : public caf::event_based_actor {
   private:
     inline static const std::string NAME = "IvyMediaWorker";
     caf::behavior make_behavior() override { return behavior_; }
+
+
+    void get_shotgun_metadata(
+        caf::typed_response_promise<bool> rp,
+        const caf::actor &media,
+        const std::string &project,
+        const utility::Uuid &stalk_dnuuid);
+
+    void get_shotgun_version(
+        caf::typed_response_promise<bool> rp,
+        const caf::actor &media,
+        const std::string &project,
+        const utility::Uuid &stalk_dnuuid);
+
+    void get_shotgun_shot(
+        caf::typed_response_promise<bool> rp, const caf::actor &media, const int shot_id);
 
   private:
     caf::behavior behavior_;
@@ -46,6 +67,143 @@ class IvyMediaWorker : public caf::event_based_actor {
 //      "name": "CG_ldev_pipe_lighting_sgco_test_L010_BEAUTY_v004"
 //    }
 //  }
+
+void IvyMediaWorker::get_shotgun_metadata(
+    caf::typed_response_promise<bool> rp,
+    const caf::actor &media,
+    const std::string &project,
+    const utility::Uuid &stalk_dnuuid) {
+
+    get_shotgun_version(rp, media, project, stalk_dnuuid);
+}
+
+void IvyMediaWorker::get_shotgun_version(
+    caf::typed_response_promise<bool> rp,
+    const caf::actor &media,
+    const std::string &project,
+    const utility::Uuid &stalk_dnuuid) {
+
+    auto shotgun_actor = system().registry().template get<caf::actor>("SHOTGUNDATASOURCE");
+
+    if (not shotgun_actor)
+        rp.deliver(false);
+    else {
+        // check it's not already there..
+        request(
+            media,
+            infinite,
+            json_store::get_json_atom_v,
+            utility::Uuid(),
+            ShotgunMetadataPath + "/version")
+            .then(
+                [=](const JsonStore &jsn) mutable {
+                    try {
+                        get_shotgun_shot(
+                            rp,
+                            media,
+                            jsn.at("relationships").at("entity").at("data").value("id", 0));
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        rp.deliver(false);
+                    }
+                },
+                [=](const error &err) mutable {
+                    // get from shotgun..
+                    request(
+                        shotgun_actor,
+                        infinite,
+                        data_source::use_data_atom_v,
+                        project,
+                        stalk_dnuuid)
+                        .then(
+                            [=](const JsonStore &jsn) mutable {
+                                if (jsn.count("payload")) {
+                                    request(
+                                        media,
+                                        infinite,
+                                        json_store::set_json_atom_v,
+                                        utility::Uuid(),
+                                        JsonStore(jsn.at("payload")),
+                                        ShotgunMetadataPath + "/version")
+                                        .then(
+                                            [=](const bool result) mutable {
+                                                try {
+                                                    get_shotgun_shot(
+                                                        rp,
+                                                        media,
+                                                        jsn.at("payload")
+                                                            .at("relationships")
+                                                            .at("entity")
+                                                            .at("data")
+                                                            .value("id", 0));
+                                                } catch (const std::exception &err) {
+                                                    spdlog::warn(
+                                                        "{} {}",
+                                                        __PRETTY_FUNCTION__,
+                                                        err.what());
+                                                    rp.deliver(false);
+                                                }
+                                            },
+                                            [=](const error &err) mutable {
+                                                rp.deliver(false);
+                                            });
+                                } else {
+                                    rp.deliver(false);
+                                }
+                            },
+                            [=](const error &err) mutable {
+                                // get from shotgun..
+                                rp.deliver(false);
+                            });
+                });
+    }
+}
+
+void IvyMediaWorker::get_shotgun_shot(
+    caf::typed_response_promise<bool> rp, const caf::actor &media, const int shot_id) {
+
+    auto shotgun_actor = system().registry().template get<caf::actor>("SHOTGUNDATASOURCE");
+
+    if (not shotgun_actor)
+        rp.deliver(false);
+    else {
+        // check it's not already there..
+        request(
+            media,
+            infinite,
+            json_store::get_json_atom_v,
+            utility::Uuid(),
+            ShotgunMetadataPath + "/shot")
+            .then(
+                [=](const JsonStore &jsn) mutable { rp.deliver(true); },
+                [=](const error &err) mutable {
+                    // get from shotgun..
+                    try {
+                        auto shotreq       = JsonStore(GetShotFromIdJSON);
+                        shotreq["shot_id"] = shot_id;
+
+                        request(shotgun_actor, infinite, get_data_atom_v, shotreq)
+                            .then(
+                                [=](const JsonStore &jsn) mutable {
+                                    anon_send(
+                                        media,
+                                        json_store::set_json_atom_v,
+                                        utility::Uuid(),
+                                        JsonStore(jsn.at("data")),
+                                        ShotgunMetadataPath + "/shot");
+                                    rp.deliver(true);
+                                },
+                                [=](const error &err) mutable {
+                                    rp.deliver(false);
+                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                });
+                    } catch (const std::exception &err) {
+                        rp.deliver(false);
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
+                });
+    }
+}
 
 IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
 
@@ -67,7 +225,7 @@ IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg) : caf::event_based_actor(
                                     jsn.at("name"), uri, media_rate, source_uuid)
                                          : spawn<media::MediaSourceActor>(
                                     jsn.at("name"), uri, frame_list, media_rate, source_uuid);
-            anon_send(source, json_store::set_json_atom_v, jsn, "/metadata/ivy/file");
+            anon_send(source, json_store::set_json_atom_v, jsn, IvyMetadataPath + "/file");
 
             rp.deliver(UuidActor(source_uuid, source));
             return rp;
@@ -146,63 +304,15 @@ IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg) : caf::event_based_actor(
             return rp;
         },
 
-
+        // get shotgun metadata
         [=](data_source::use_data_atom,
             const caf::actor &media,
             const std::string &project,
             const utility::Uuid &stalk_dnuuid,
             const bool /*add_shotgun_data*/) -> result<bool> {
             auto rp = make_response_promise<bool>();
-            auto shotgun_actor =
-                system().registry().template get<caf::actor>("SHOTGUNDATASOURCE");
 
-            if (not shotgun_actor)
-                rp.deliver(false);
-            else {
-                // check it's not already there..
-                request(
-                    media,
-                    infinite,
-                    json_store::get_json_atom_v,
-                    utility::Uuid(),
-                    "/metadata/shotgun/version")
-                    .then(
-                        [=](const JsonStore &jsn) mutable { rp.deliver(true); },
-                        [=](const error &err) mutable {
-                            // get from shotgun..
-                            request(
-                                shotgun_actor,
-                                infinite,
-                                data_source::use_data_atom_v,
-                                project,
-                                stalk_dnuuid)
-                                .then(
-                                    [=](const JsonStore &jsn) mutable {
-                                        if (jsn.count("payload")) {
-                                            request(
-                                                media,
-                                                infinite,
-                                                json_store::set_json_atom_v,
-                                                utility::Uuid(),
-                                                JsonStore(jsn.at("payload")),
-                                                "/metadata/shotgun/version")
-                                                .then(
-                                                    [=](const bool result) mutable {
-                                                        rp.deliver(result);
-                                                    },
-                                                    [=](const error &err) mutable {
-                                                        rp.deliver(false);
-                                                    });
-                                        } else {
-                                            rp.deliver(false);
-                                        }
-                                    },
-                                    [=](const error &err) mutable {
-                                        // get from shotgun..
-                                        rp.deliver(false);
-                                    });
-                        });
-            }
+            get_shotgun_metadata(rp, media, project, stalk_dnuuid);
 
             return rp;
         },
@@ -262,7 +372,7 @@ IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg) : caf::event_based_actor(
                                     json_store::set_json_atom_v,
                                     utility::Uuid(),
                                     jsn,
-                                    "/metadata/ivy/version");
+                                    IvyMetadataPath + "/version");
 
                                 try {
                                     anon_send(
@@ -296,7 +406,7 @@ IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg) : caf::event_based_actor(
                                     json_store::set_json_atom_v,
                                     utility::Uuid(),
                                     jsn,
-                                    "/metadata/ivy/version");
+                                    IvyMetadataPath + "/version");
 
                                 try {
                                     anon_send(
@@ -364,8 +474,7 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
 
     data_source_.set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
 
-    http_ = spawn<http_client::HTTPClientActor>(
-        CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, CPPHTTPLIB_READ_TIMEOUT_SECOND * 2);
+    http_ = spawn<http_client::HTTPClientActor>(CPPHTTPLIB_CONNECTION_TIMEOUT_SECOND, 20, 20);
     link_to(http_);
 
 
@@ -467,7 +576,15 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
                         if (uuid_show.first.is_null())
                             return rp.deliver(UuidActorVector());
 
-                        // delegate..
+                        // get shotgun data.
+                        anon_send(
+                            pool_,
+                            use_data_atom_v,
+                            media,
+                            uuid_show.second,
+                            uuid_show.first,
+                            true);
+                        // delegate.. get sources from ivy
                         rp.delegate(
                             caf::actor_cast<caf::actor>(this),
                             use_data_atom_v,

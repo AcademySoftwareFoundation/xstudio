@@ -45,17 +45,11 @@ GLDoubleBufferedTexture::GLDoubleBufferedTexture() {
     current_ = textures_.front();
 }
 
-void GLDoubleBufferedTexture::set_texture_type(const std::string tex_type_name) {
+void GLDoubleBufferedTexture::set_use_ssbo(const bool using_ssbo) {
 
-    bool was_ssbo = using_ssbo_;
-    if (tex_type_name == "SSBO") {
-        using_ssbo_ = true;
-    } else {
-        using_ssbo_ = false;
-    }
-
-    if (was_ssbo != using_ssbo_) {
+    if (using_ssbo != using_ssbo_) {
         textures_.clear();
+        using_ssbo_ = using_ssbo;
         if (using_ssbo_) {
             textures_.emplace_back(new GLSsboTex());
         } else {
@@ -65,7 +59,7 @@ void GLDoubleBufferedTexture::set_texture_type(const std::string tex_type_name) 
     }
 }
 
-void GLDoubleBufferedTexture::bind(int &tex_index, Imath::V2i &dims, bool &using_ssbo) {
+void GLDoubleBufferedTexture::bind(int &tex_index, Imath::V2i &dims) {
 
     for (auto &t : textures_) {
         if (t->media_key() == active_media_key_) {
@@ -75,7 +69,6 @@ void GLDoubleBufferedTexture::bind(int &tex_index, Imath::V2i &dims, bool &using
             break;
         }
     }
-    using_ssbo = using_ssbo_;
 }
 
 void GLDoubleBufferedTexture::upload_next(

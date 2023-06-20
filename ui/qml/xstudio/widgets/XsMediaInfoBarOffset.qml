@@ -48,7 +48,6 @@ Rectangle {
 
             acceptedButtons: Qt.LeftButton
             hoverEnabled: true
-            focus: true
             cursorShape: containsMouse ? Qt.SizeHorCursor : Qt.ArrowCursor
             onPressed: {
                 dragging = true
@@ -59,6 +58,7 @@ Rectangle {
             onReleased: {
                 dragging = false
                 focus = false
+                sessionWidget.playerWidget.viewport.forceActiveFocus()
             }
             onMouseXChanged: {
                 if (pressed) {
@@ -110,6 +110,7 @@ Rectangle {
             onEditingFinished: {
                 focus = false
                 playhead.sourceOffsetFrames = parseInt(text)
+                sessionWidget.playerWidget.viewport.forceActiveFocus()
             }
         }
     }

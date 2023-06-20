@@ -71,7 +71,7 @@ void BookmarkActor::init() {
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
         if (msg.source == caf::actor_cast<caf::actor>(owner_)) {
-            set_owner(caf::actor());
+            set_owner(caf::actor(), true);
             send_exit(this, caf::exit_reason::user_shutdown);
         }
     });
@@ -407,14 +407,16 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
     }
 }
 
-void BookmarkActor::set_owner(caf::actor owner) {
+void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
 
     // Note, owner is a MediaActor
     if (owner_) {
         demonitor(caf::actor_cast<caf::actor>(owner_));
-        auto src = caf::actor_cast<caf::event_based_actor *>(owner_);
-        if (src)
-            utility::leave_event_group(src, caf::actor_cast<caf::actor>(this));
+        if (not dead) {
+            auto src = caf::actor_cast<caf::event_based_actor *>(owner_);
+            if (src)
+                utility::leave_event_group(src, caf::actor_cast<caf::actor>(this));
+        }
     }
 
     owner_ = caf::actor_cast<caf::actor_addr>(owner);

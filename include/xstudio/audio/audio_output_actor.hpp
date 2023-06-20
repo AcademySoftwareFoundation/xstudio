@@ -67,5 +67,6 @@ class AudioOutputControlActor : public caf::event_based_actor {
     int video_frame_    = {0};
     int retry_on_error_ = {0};
     utility::Uuid uuid_ = {utility::Uuid::generate()};
+    utility::Uuid sub_playhead_uuid_;
 };
 } // namespace xstudio::audio

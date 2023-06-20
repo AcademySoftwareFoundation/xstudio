@@ -4,6 +4,7 @@
 #include <caf/all.hpp>
 
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
+#include "xstudio/ui/qml/helper_ui.hpp"
 
 
 CAF_PUSH_WARNINGS

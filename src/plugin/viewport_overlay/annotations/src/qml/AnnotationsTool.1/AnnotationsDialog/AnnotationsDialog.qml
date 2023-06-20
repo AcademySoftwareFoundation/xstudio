@@ -128,16 +128,17 @@ XsWindow {
     // make a read only binding to the "annotations_tool_active" backend attribute
     property bool annotationToolActive: anno_tool_backend_settings.annotations_tool_active ? anno_tool_backend_settings.annotations_tool_active : false
 
-    // from the backend we have an attr that tells us if we want normal cursor (0), scale cursor (1), hover-move cursor (2), or move cursor(3)
-    /*property int movingScalingText: anno_tool_backend_settings.moving_scaling_text ? anno_tool_backend_settings.moving_scaling_text : 0
-    onActiveCursorChanged: {
-        playerWidget.viewport.setRegularCursor(drawingActive ? activeCursor : Qt.ArrowCursor)
-    }
-    property var activeCursor: movingScalingText == 0 ? Qt.CrossCursor : movingScalingText == 1 ? Qt.SizeAllCursor : movingScalingText == 2 ? Qt.OpenHandCursor : Qt.ClosedHandCursor*/
+    // is the mouse over the handles for moving, scaling or deleting text captions?
+    property int movingScalingText: anno_tool_backend_settings.moving_scaling_text ? anno_tool_backend_settings.moving_scaling_text : 0
+
+    // Are we in an active drawing mode?
     property bool drawingActive: annotationToolActive && currentTool !== "None"
 
-    onDrawingActiveChanged: {
-        playerWidget.viewport.setRegularCursor(drawingActive ? Qt.CrossCursor : Qt.ArrowCursor)
+    // Set the Cursor as required
+    property var activeCursor: drawingActive ? movingScalingText > 1 ? Qt.ArrowCursor : currentTool == "Text" ? Qt.IBeamCursor : Qt.CrossCursor : Qt.ArrowCursor
+
+    onActiveCursorChanged: {
+        playerWidget.viewport.setRegularCursor(activeCursor)
     }
 
     // map the local property for currentToolSize to the backend value ... to modify the tool size, we only change the backend
@@ -697,7 +698,7 @@ XsWindow {
                                 visible: currentTool === "Text"
                                 property real sizeScaleFactor: 80/100
                                 font.pixelSize: currentToolSize *sizeScaleFactor
-                                font.family: textCategories.currentValue
+                                //font.family: textCategories.currentValue
                                 color: currentToolColour
                                 opacity: currentToolOpacity
                                 horizontalAlignment: Text.AlignHCenter

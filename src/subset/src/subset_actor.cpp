@@ -444,15 +444,20 @@ void SubsetActor::init() {
         },
 
         [=](playlist::create_playhead_atom) -> UuidActor {
+            if (playhead_)
+                return playhead_;
             auto uuid  = utility::Uuid::generate();
             auto actor = spawn<playhead::PlayheadActor>(
                 std::string("Subset Playhead"), selection_actor_, uuid);
             link_to(actor);
 
-            // anon_send(actor, playhead::source_atom_v, tactor);
             anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
 
-            return UuidActor(uuid, actor);
+            playhead_ = UuidActor(uuid, actor);
+            return playhead_;
+        },
+        [=](playlist::get_playhead_atom) {
+            delegate(caf::actor_cast<caf::actor>(this), playlist::create_playhead_atom_v);
         },
 
         [=](playlist::get_media_atom) -> std::vector<UuidActor> {

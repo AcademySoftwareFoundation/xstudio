@@ -204,6 +204,8 @@ namespace ui {
             void requestThumbnail(float position_in_clip_duration);
             void cancelThumbnailRequest();
             void setFpsString(const QString &fps);
+            void switchToStream(const QUuid stream_uuid);
+            void switchToStream(const QString stream_id);
 
           private:
             void update_from_detail(const utility::ContainerDetail &detail);

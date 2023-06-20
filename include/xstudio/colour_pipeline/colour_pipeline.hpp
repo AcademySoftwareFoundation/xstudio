@@ -96,6 +96,12 @@ namespace colour_pipeline {
             const std::string &manufacturer,
             const std::string &serialNumber) = 0;
 
+        /* implement this method to extend information about a pixel that is under the
+        mouse pointer. For example, pixel_info might include linear RGB information, but
+        we want to add RGB information after a viewing transform has been applied, say. */
+        virtual void extend_pixel_info(
+            media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) {}
+
         virtual thumbnail::ThumbnailBufferPtr process_thumbnail(
             const media::AVFrameID &media_ptr, const thumbnail::ThumbnailBufferPtr &buf) = 0;
 

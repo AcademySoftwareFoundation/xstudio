@@ -21,6 +21,7 @@
 #include "xstudio/media_metadata/media_metadata_actor.hpp"
 #include "xstudio/media_reader/media_reader_actor.hpp"
 #include "xstudio/module/global_module_events_actor.hpp"
+#include "xstudio/playhead/playhead_global_events_actor.hpp"
 #include "xstudio/plugin_manager/plugin_manager_actor.hpp"
 #include "xstudio/studio/studio_actor.hpp"
 #include "xstudio/scanner/scanner_actor.hpp"
@@ -94,6 +95,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     auto thumbnail       = spawn<thumbnail::ThumbnailManagerActor>();
     auto keyboard_events = spawn<ui::keypress_monitor::KeypressMonitor>();
     auto audio           = spawn<audio::AudioOutputControlActor>();
+    auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto pa              = spawn<embedded_python::EmbeddedPythonActor>("Python");
     auto scanner         = spawn<scanner::ScannerActor>();
 
@@ -114,6 +116,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     link_to(thumbnail);
     link_to(attr_evs);
     link_to(keyboard_events);
+    link_to(phev);
 
     python_enabled_ = false;
     connected_      = false;
@@ -172,6 +175,14 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                     delegate(
                         actor_cast<caf::actor>(this), status_atom_v, StatusType::ST_BUSY, true);
                 }
+            }
+        },
+
+        [=](get_actor_from_registry_atom, std::string actor_name) -> result<caf::actor> {
+            try {
+                return system().registry().template get<caf::actor>(actor_name);
+            } catch (std::exception &e) {
+                return caf::make_error(xstudio_error::error, e.what());
             }
         },
 
@@ -328,10 +339,19 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             return (ui_studio_ ? "XSTUDIO_GUI" : "XSTUDIO");
         },
 
+        [=](colour_pipeline::get_colour_pipeline_atom atom) {
+            // 'colour' is the colour pipeline manager. To get to the
+            // actual colour pipelin actor (OCIO plugin) we delegate to
+            // the manager. Getting to the manager alon is not interesting.
+            delegate(colour, atom);
+        },
+
         [=](get_global_audio_cache_atom) -> caf::actor { return gaca; },
         [=](get_plugin_manager_atom) -> caf::actor { return pm; },
 
         [=](get_global_image_cache_atom) -> caf::actor { return gica; },
+
+        [=](get_global_playhead_events_atom) -> caf::actor { return phev; },
 
         [=](get_global_store_atom) -> caf::actor { return gsa; },
 
@@ -348,6 +368,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             const JsonStore &full) {
             delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
         },
+
 
         [=](json_store::update_atom, const JsonStore &j) mutable {
             try {
@@ -374,6 +395,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
                 auto session_autosave =
                     preference_value<bool>(j, "/core/session/autosave/enabled");
+
                 if (session_autosave != session_autosave_) {
                     anon_send(
                         actor_cast<caf::actor>(this),
@@ -381,107 +403,10 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                         session_autosave);
                 }
 
-                if (connected_ and
-                    (not api_enabled_ or port_ > port_maximum_ or port_ < port_minimum_)) {
-                    connected_ = false;
-                    if (system().has_middleman() and python_enabled_) {
-                        request(pa, infinite, connect_atom_v, 0)
-                            .then(
-                                [=](const bool result) {
-                                    if (result)
-                                        spdlog::debug("Disconnected {}", result);
-                                    else
-                                        spdlog::warn("Disconnected failed {}", result);
-                                },
-                                [=](const error &err) {
-                                    spdlog::warn("Disconnected failed {}.", to_string(err));
-                                });
-                        send(event_group_, api_exit_atom_v);
-
-                        // wait..?
-                        system().middleman().unpublish(actor_cast<actor>(this), port_);
-                        rsm_.remove_session(remote_api_session_name_);
-                        spdlog::info("API disabled on port {}", port_);
-                    }
-                    port_ = -1;
-                }
-
-                if (sync_connected_ and
-                    (not sync_api_enabled_ or sync_port_ > sync_port_maximum_ or
-                     sync_port_ < sync_port_minimum_)) {
-                    sync_connected_ = false;
-                    if (system().has_middleman()) {
-                        system().middleman().unpublish(actor_cast<actor>(this), sync_port_);
-                        rsm_.remove_session(remote_sync_session_name_);
-                        spdlog::info("SYNC API disabled on port {}", sync_port_);
-                    }
-                    sync_port_ = -1;
-                }
-
-                if (not connected_ and api_enabled_) {
-                    port_ = publish_port(port_minimum_, port_maximum_, bind_address_, this);
-                    if (port_ != -1) {
-                        rsm_.remove_session(remote_api_session_name_);
-                        if (remote_api_session_name_.empty())
-                            remote_api_session_name_ = rsm_.create_session_file(port_, false);
-                        else
-                            rsm_.create_session_file(
-                                port_, false, remote_api_session_name_, "localhost", true);
-                        spdlog::info(
-                            "API enabled on {}:{}, session name {}",
-                            bind_address_,
-                            port_,
-                            remote_api_session_name_);
-                        connected_ = true;
-                        if (python_enabled_) {
-                            // request(pa, infinite, connect_atom_v,
-                            // actor_cast<actor>(this)).then(
-                            request(pa, infinite, connect_atom_v, port_)
-                                .then(
-                                    [=](const bool result) {
-                                        if (result)
-                                            spdlog::debug("Connected {}", result);
-                                        else
-                                            spdlog::warn("Connected failed {}", result);
-                                    },
-                                    [=](const error &err) {
-                                        spdlog::warn("Connected failed {}.", to_string(err));
-                                    });
-                        }
-                    } else {
-                        spdlog::warn(
-                            "API failed to open port {}:{}-{}",
-                            bind_address_,
-                            port_minimum_,
-                            port_maximum_);
-                    }
-                }
-
-                if (not sync_connected_ and sync_api_enabled_) {
-                    sync_port_ = publish_port(
-                        sync_port_minimum_, sync_port_maximum_, sync_bind_address_, this);
-                    if (sync_port_ != -1) {
-                        rsm_.remove_session(remote_sync_session_name_);
-                        if (remote_sync_session_name_.empty())
-                            remote_sync_session_name_ =
-                                rsm_.create_session_file(sync_port_, true);
-                        else
-                            rsm_.create_session_file(
-                                sync_port_, true, remote_sync_session_name_, "localhost", true);
-                        spdlog::info(
-                            "SYNC API enabled on {}:{}, session name {}",
-                            sync_bind_address_,
-                            sync_port_,
-                            remote_sync_session_name_);
-                        sync_connected_ = true;
-                    } else {
-                        spdlog::warn(
-                            "SYNC API failed to open  {}:{}-{}",
-                            sync_bind_address_,
-                            sync_port_minimum_,
-                            sync_port_maximum_);
-                    }
-                }
+                disconnect_api(pa);
+                disconnect_sync_api();
+                connect_api(pa);
+                connect_sync_api();
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             }
@@ -489,8 +414,26 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
         [=](last_changed_atom atom, const time_point &stp) { delegate(studio_, atom, stp); },
 
-        [&](remote_session_name_atom, const std::string &session_name) {
-            remote_api_session_name_ = session_name;
+        [=](remote_session_name_atom, const std::string &session_name) {
+            if (not session_name.empty() and session_name != remote_api_session_name_) {
+
+                if (connected_) {
+                    rsm_.remove_session(remote_api_session_name_);
+                    remote_api_session_name_ = session_name;
+                    rsm_.create_session_file(
+                        port_, false, remote_api_session_name_, "localhost", true);
+
+                    spdlog::info(
+                        "API enabled on {}:{}, session name {}",
+                        bind_address_,
+                        port_,
+                        remote_api_session_name_);
+                } else {
+                    disconnect_api(pa, true);
+                    remote_api_session_name_ = session_name;
+                    connect_api(pa);
+                }
+            }
         },
 
         [=](session::session_atom _atom) { delegate(studio_, _atom); },
@@ -516,4 +459,113 @@ void GlobalActor::on_exit() {
         system().middleman().unpublish(actor_cast<actor>(this), sync_port_);
     }
     system().registry().erase(global_registry);
+}
+
+void GlobalActor::connect_api(const caf::actor &embedded_python) {
+    if (not connected_ and api_enabled_) {
+        port_ = publish_port(port_minimum_, port_maximum_, bind_address_, this);
+        if (port_ != -1) {
+            rsm_.remove_session(remote_api_session_name_);
+            if (remote_api_session_name_.empty())
+                remote_api_session_name_ = rsm_.create_session_file(port_, false);
+            else
+                rsm_.create_session_file(
+                    port_, false, remote_api_session_name_, "localhost", true);
+            spdlog::info(
+                "API enabled on {}:{}, session name {}",
+                bind_address_,
+                port_,
+                remote_api_session_name_);
+            connected_ = true;
+            if (python_enabled_) {
+                // request(pa, infinite, connect_atom_v,
+                // actor_cast<actor>(this)).then(
+                request(embedded_python, infinite, connect_atom_v, port_)
+                    .then(
+                        [=](const bool result) {
+                            if (result)
+                                spdlog::debug("Connected {}", result);
+                            else
+                                spdlog::warn("Connected failed {}", result);
+                        },
+                        [=](const error &err) {
+                            spdlog::warn("Connected failed {}.", to_string(err));
+                        });
+            }
+        } else {
+            spdlog::warn(
+                "API failed to open port {}:{}-{}",
+                bind_address_,
+                port_minimum_,
+                port_maximum_);
+        }
+    }
+}
+
+void GlobalActor::connect_sync_api() {
+    if (not sync_connected_ and sync_api_enabled_) {
+        sync_port_ =
+            publish_port(sync_port_minimum_, sync_port_maximum_, sync_bind_address_, this);
+        if (sync_port_ != -1) {
+            rsm_.remove_session(remote_sync_session_name_);
+            if (remote_sync_session_name_.empty())
+                remote_sync_session_name_ = rsm_.create_session_file(sync_port_, true);
+            else
+                rsm_.create_session_file(
+                    sync_port_, true, remote_sync_session_name_, "localhost", true);
+            spdlog::info(
+                "SYNC API enabled on {}:{}, session name {}",
+                sync_bind_address_,
+                sync_port_,
+                remote_sync_session_name_);
+            sync_connected_ = true;
+        } else {
+            spdlog::warn(
+                "SYNC API failed to open  {}:{}-{}",
+                sync_bind_address_,
+                sync_port_minimum_,
+                sync_port_maximum_);
+        }
+    }
+}
+
+void GlobalActor::disconnect_api(const caf::actor &embedded_python, const bool force) {
+    if (connected_ and
+        (force or not api_enabled_ or port_ > port_maximum_ or port_ < port_minimum_)) {
+        connected_ = false;
+        if (system().has_middleman() and python_enabled_) {
+            request(embedded_python, infinite, connect_atom_v, 0)
+                .then(
+                    [=](const bool result) {
+                        if (result)
+                            spdlog::debug("Disconnected {}", result);
+                        else
+                            spdlog::warn("Disconnected failed {}", result);
+                    },
+                    [=](const error &err) {
+                        spdlog::warn("Disconnected failed {}.", to_string(err));
+                    });
+            send(event_group_, api_exit_atom_v);
+
+            // wait..?
+            system().middleman().unpublish(actor_cast<actor>(this), port_);
+            rsm_.remove_session(remote_api_session_name_);
+            spdlog::info("API disabled on port {}", port_);
+        }
+        port_ = -1;
+    }
+}
+
+void GlobalActor::disconnect_sync_api(const bool force) {
+    if (sync_connected_ and
+        (force or not sync_api_enabled_ or sync_port_ > sync_port_maximum_ or
+         sync_port_ < sync_port_minimum_)) {
+        sync_connected_ = false;
+        if (system().has_middleman()) {
+            system().middleman().unpublish(actor_cast<actor>(this), sync_port_);
+            rsm_.remove_session(remote_sync_session_name_);
+            spdlog::info("SYNC API disabled on port {}", sync_port_);
+        }
+        sync_port_ = -1;
+    }
 }

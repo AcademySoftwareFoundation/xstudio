@@ -235,23 +235,6 @@ PlaylistActor::PlaylistActor(
     link_to(selection_actor_);
 
     init();
-
-    if (jsn.find("playheads") != jsn.end()) {
-        for (const auto &[key, value] : jsn["playheads"].items()) {
-
-            utility::Uuid playhead_uuid(key);
-            try {
-
-                auto actor = spawn<playhead::PlayheadActor>(JsonStore(value), selection_actor_);
-                playheads_[playhead_uuid] = actor;
-                monitor(actor);
-                base_.insert_playhead(playhead_uuid);
-
-            } catch (const std::exception &e) {
-                spdlog::error("{}", e.what());
-            }
-        }
-    }
 }
 
 PlaylistActor::PlaylistActor(
@@ -313,6 +296,9 @@ void PlaylistActor::init() {
         link_to(selection_actor_);
     }
 
+    join_broadcast(
+        caf::actor_cast<caf::event_based_actor *>(selection_actor_), playlist_broadcast_);
+
     try {
         auto prefs = GlobalStoreHelper(system());
         JsonStore j;
@@ -327,15 +313,10 @@ void PlaylistActor::init() {
 
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
-        for (auto it = std::begin(playheads_); it != std::end(playheads_); ++it) {
-            if (msg.source == it->second) {
-                base_.remove_playhead(it->first);
-                demonitor(it->second);
-                playheads_.erase(it);
-                send(event_group_, utility::event_atom_v, change_atom_v);
-                base_.send_changed(event_group_, this);
-                break;
-            }
+        if (msg.source == playhead_.actor()) {
+            demonitor(playhead_.actor());
+            send(event_group_, utility::event_atom_v, change_atom_v);
+            base_.send_changed(event_group_, this);
         }
     });
 
@@ -578,6 +559,13 @@ void PlaylistActor::init() {
                                             if (is_in_viewer_)
                                                 open_media_reader(media_actors[0].actor());
                                             rp.deliver(true);
+                                            for (auto i : media_actors) {
+                                                send(
+                                                    playlist_broadcast_,
+                                                    utility::event_atom_v,
+                                                    add_media_atom_v,
+                                                    i);
+                                            }
                                         }
                                     },
                                     [=](error &err) mutable {
@@ -1289,8 +1277,10 @@ void PlaylistActor::init() {
             const utility::Uuid &uuid,
             const utility::Uuid &uuid_before) -> bool {
             bool result = base_.move_media(uuid, uuid_before);
-            if (result)
+            if (result) {
                 base_.send_changed(event_group_, this);
+                send_content_changed_event();
+            }
             return result;
         },
 
@@ -1317,40 +1307,22 @@ void PlaylistActor::init() {
 
         // create a new timeline, attach it to new playhead.
         [=](playlist::create_playhead_atom) -> result<utility::UuidActor> {
-            auto rp = make_response_promise<utility::UuidActor>();
+            if (playhead_)
+                return playhead_;
 
             std::stringstream ss;
-            if (!playheads_.size()) {
-                ss << "Default";
-            } else {
-                ss << std::setw(2) << std::setfill('0') << playheads_.size() + 1;
-            }
-            auto actor = spawn<playhead::PlayheadActor>(ss.str(), selection_actor_);
-
+            ss << base_.name() << " Playhead";
+            auto uuid  = utility::Uuid::generate();
+            auto actor = spawn<playhead::PlayheadActor>(ss.str(), selection_actor_, uuid);
             anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
-
-            request(actor, infinite, uuid_atom_v)
-                .then(
-                    [=](const utility::Uuid &uuid) mutable {
-                        playheads_[uuid] = actor;
-                        monitor(actor);
-                        base_.insert_playhead(uuid);
-                        // send(event_group_, utility::event_atom_v, change_atom_v);
-                        base_.send_changed(event_group_, this);
-                        // send(event_group_, utility::event_atom_v,
-                        // playlist::create_playhead_atom_v);
-                        rp.deliver(utility::UuidActor(uuid, actor));
-                    },
-                    [=](error &err) mutable { rp.deliver(err); });
-
-            return rp;
+            playhead_ = UuidActor(uuid, actor);
+            monitor(actor);
+            base_.send_changed(event_group_, this);
+            return playhead_;
         },
 
-        [=](playlist::get_playheads_atom) -> std::vector<utility::UuidActor> {
-            std::vector<utility::UuidActor> actors;
-            for (const auto &i : base_.playheads())
-                actors.emplace_back(i, playheads_[i]);
-            return actors;
+        [=](playlist::get_playhead_atom) {
+            delegate(caf::actor_cast<caf::actor>(this), playlist::create_playhead_atom_v);
         },
 
         [=](playlist::selection_actor_atom) -> caf::actor { return selection_actor_; },
@@ -1655,8 +1627,8 @@ void PlaylistActor::init() {
                             clients.push_back(i.second);
                         for (const auto &i : container_)
                             clients.push_back(i.second);
-                        for (const auto &i : playheads_)
-                            clients.push_back(i.second);
+                        if (playhead_)
+                            clients.push_back(playhead_);
 
                         if (not clients.empty()) {
 
@@ -1700,9 +1672,8 @@ void PlaylistActor::init() {
 }
 
 void PlaylistActor::on_exit() {
-    // shutdown playheads
-    for (const auto &i : playheads_)
-        send_exit(i.second, caf::exit_reason::user_shutdown);
+    // shutdown playhead
+    send_exit(playhead_.actor(), caf::exit_reason::user_shutdown);
 }
 
 void PlaylistActor::create_container(

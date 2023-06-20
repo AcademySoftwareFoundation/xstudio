@@ -328,6 +328,10 @@ void ModuleMenusModel::add_menu_action_item(const ConstAttributePtr &attr) {
         roles_data[XsMenuRoles::Uuid]        = attr_uuid;
         roles_data[XsMenuRoles::Value]       = QVariant(false);
         roles_data[XsMenuRoles::AttrType]    = "Action";
+        if (attr->has_role_data(Attribute::HotkeyUuid)) {
+            roles_data[XsMenuRoles::HotkeyUuid] =
+                QUuid(attr->get_role_data<std::string>(Attribute::HotkeyUuid).c_str());
+        }
         attributes_data_.push_back(roles_data);
 
         endInsertRows();

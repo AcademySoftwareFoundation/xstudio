@@ -163,6 +163,7 @@ namespace utility {
         operator const caf::actor &() const { return actor_; }
         operator utility::Uuid &() { return uuid_; }
         operator const utility::Uuid &() const { return uuid_; }
+        operator bool() const { return bool(actor_); }
 
         utility::Uuid &uuid() { return uuid_; }
         [[nodiscard]] const utility::Uuid &uuid() const { return uuid_; }

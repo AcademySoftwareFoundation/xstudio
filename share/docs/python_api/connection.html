@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xstudio.connection &mdash; xStudio 0.9.0 documentation</title>
+  <title>xstudio.connection &mdash; xStudio 0.10.0 documentation</title>
   
 
   
@@ -59,7 +59,7 @@
             
             
               <div class="version">
-                0.9.0
+                0.10.0
               </div>
             
           
@@ -151,10 +151,355 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="xstudio-connection">
-<span id="python-connection-api"></span><h1>xstudio.connection<a class="headerlink" href="#xstudio-connection" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="module-xstudio.connection">
+<span id="xstudio-connection"></span><span id="python-connection-api"></span><h1>xstudio.connection<a class="headerlink" href="#module-xstudio.connection" title="Permalink to this headline">¶</a></h1>
+<p>xStudio Connection API.</p>
+<p>Controls xStudio connections.</p>
 <div class="section" id="connection">
 <h2>Connection<a class="headerlink" href="#connection" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.connection.Connection">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.connection.</code><code class="sig-name descname">Connection</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">auto_connect</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">background_processing</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">debug</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">load_python_plugins</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle connection to xstudio.</p>
+<dl class="py method">
+<dt id="xstudio.connection.Connection.add_broadcast_handler">
+<code class="sig-name descname">add_broadcast_handler</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">broadcast</span></em>, <em class="sig-param"><span class="n">sender</span></em>, <em class="sig-param"><span class="n">handler</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.add_broadcast_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.add_broadcast_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add handler for broadcast.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>broadcast (Actor): Handle identifier.
+sender (Actor): Handle identifier.
+handler (func(sender, req_id, event)): Handler function.</p>
+</dd>
+<dt>Returns:</dt><dd><p>handler_id(str): Id for handler.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.add_handler">
+<code class="sig-name descname">add_handler</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">handler</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.add_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.add_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add handler to remote broadcasts.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>remote (Actor): Owner of broadcast actor.
+handler (func(sender, req_id, event)): Handler to install.</p>
+</dd>
+<dt>Returns:</dt><dd><p>handler_id(str): Handler Id.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.api">
+<em class="property">property </em><code class="sig-name descname">api</code><a class="headerlink" href="#xstudio.connection.Connection.api" title="Permalink to this definition">¶</a></dt>
+<dd><p>Access API object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>API(API or SyncAPI): API object or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.api_handler">
+<code class="sig-name descname">api_handler</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">sender</span></em>, <em class="sig-param"><span class="n">req_id</span></em>, <em class="sig-param"><span class="n">event</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.api_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.api_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handler for API exit.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>sender (Actor): Sender of broadcast message.
+req_id (int): Message id.
+event (tuple): Message.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.caf_message_to_tuple">
+<code class="sig-name descname">caf_message_to_tuple</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">caf_message</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.caf_message_to_tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.caf_message_to_tuple" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompose a CAF message object into a tuple of message params.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>caf_message (CafMessage): A message originating in xstudio backend.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.connect_local">
+<code class="sig-name descname">connect_local</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">actor</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.connect_local"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.connect_local" title="Permalink to this definition">¶</a></dt>
+<dd><p>Connect to in-process actor.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>actor (actor): Actor object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.connect_remote">
+<code class="sig-name descname">connect_remote</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">host</span></em>, <em class="sig-param"><span class="n">port</span></em>, <em class="sig-param"><span class="n">sync_mode</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">sync_key_callback</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.connect_remote"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.connect_remote" title="Permalink to this definition">¶</a></dt>
+<dd><p>Connect to xStudio using host/port.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>host (str): Host name / IP.
+port (int): Host port number.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>sync_mode (bool): Sync API.
+sync_key_callback (func): Callback for sync key.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.connect_remote_auto">
+<code class="sig-name descname">connect_remote_auto</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">session</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sync_mode</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">sync_key_callback</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.connect_remote_auto"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.connect_remote_auto" title="Permalink to this definition">¶</a></dt>
+<dd><p>Connect to xStudio using session file.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>session (str): Session name.
+sync_mode (bool): Sync API.
+sync_key_callback (func): Callback for sync key.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.dequeue_messages">
+<code class="sig-name descname">dequeue_messages</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">timeout</span><span class="o">=</span><span class="default_value">10</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.dequeue_messages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.dequeue_messages" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pop waiting messages</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.disconnect">
+<code class="sig-name descname">disconnect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.disconnect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.disconnect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Disconnect from xstudio</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.enable_background_processing">
+<code class="sig-name descname">enable_background_processing</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">state</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.enable_background_processing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.enable_background_processing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enable auto background processing of queue.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>state (bool): set active or not.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.get_broadcast">
+<code class="sig-name descname">get_broadcast</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">remote</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.get_broadcast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.get_broadcast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Request broadcast actor.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>remote (Actor): Target actor.</p>
+</dd>
+<dt>Returns:</dt><dd><p>broadcast(Actor): Broadcast actore for remote.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.get_key_from_stdin">
+<code class="sig-name descname">get_key_from_stdin</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lock</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.get_key_from_stdin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.get_key_from_stdin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Request lock key from user.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>lock (str): Lock name.</p>
+</dd>
+<dt>Returns:</dt><dd><p>user_input(str): String entered by user.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.handle_broadcast">
+<code class="sig-name descname">handle_broadcast</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">event</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.handle_broadcast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.handle_broadcast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle broadcast type events.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>event (Message tuple): The event.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.host">
+<em class="property">property </em><code class="sig-name descname">host</code><a class="headerlink" href="#xstudio.connection.Connection.host" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remote host name.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>host(str): remote host name</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.join_broadcast">
+<code class="sig-name descname">join_broadcast</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">broadcast</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.join_broadcast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.join_broadcast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Join broadcast actor.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>broadcast (Actor): Broadcast actor.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Broadcast joined.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.leave_broadcast">
+<code class="sig-name descname">leave_broadcast</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">broadcast</span></em>, <em class="sig-param"><span class="n">send_leave</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.leave_broadcast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.leave_broadcast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Leave broadcast.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>broadcast (Actor): Millisecs to process for.
+send_leave (bool): Notify actor we’re leaving.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.load_plugin_from_path">
+<code class="sig-name descname">load_plugin_from_path</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">plugin_name</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.load_plugin_from_path"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.load_plugin_from_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load a plugin from given folder</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path (Path): Path to a directory on filesystem</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.load_plugins_in_path">
+<code class="sig-name descname">load_plugins_in_path</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.load_plugins_in_path"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.load_plugins_in_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load plugins found under the given directoy path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path (str): Path to a directory on filesystem</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.load_python_plugins">
+<code class="sig-name descname">load_python_plugins</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.load_python_plugins"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.load_python_plugins" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load plugins found in paths defined by env var
+XSTUDIO_PYTHON_PLUGIN_PATH</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.negotiate">
+<code class="sig-name descname">negotiate</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">sync_mode</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">sync_key_callback</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.negotiate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.negotiate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Negotiate connection, also handles sync lock/key.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>sync_mode (bool): Sync API.
+sync_key_callback (func): Callback for sync key.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.port">
+<em class="property">property </em><code class="sig-name descname">port</code><a class="headerlink" href="#xstudio.connection.Connection.port" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remote host port.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>port(int): remote host port</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.process_events">
+<code class="sig-name descname">process_events</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">timeout</span><span class="o">=</span><span class="default_value">10</span></em>, <em class="sig-param"><span class="n">forever</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.process_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.process_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process pending events.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>timeout (int): Millisecs to process for.
+forever (bool): Don’t return until API shutsdown.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.process_events_forever">
+<code class="sig-name descname">process_events_forever</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">timeout</span><span class="o">=</span><span class="default_value">10</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.process_events_forever"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.process_events_forever" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process pending events forever.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.remote">
+<code class="sig-name descname">remote</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.remote"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.remote" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remote connection object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Connection(object): None if not connected.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.remote_spawn">
+<code class="sig-name descname">remote_spawn</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.remote_spawn"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.remote_spawn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Spawn remote actor</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>args (args): Arguments to send.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.remove_handler">
+<code class="sig-name descname">remove_handler</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">handler_id</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.remove_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.remove_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove event handler.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>handler_id (str): Handle identifier.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(bool): Success.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.request">
+<code class="sig-name descname">request</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message and return promise.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.request_receive">
+<code class="sig-name descname">request_receive</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.request_receive"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.request_receive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message and return response.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.request_receive_timeout">
+<code class="sig-name descname">request_receive_timeout</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">timeout_milli</span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.request_receive_timeout"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.request_receive_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message and return response.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.send">
+<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message, ignore reponse</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>args (args): Arguments to send.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.spawn">
+<code class="sig-name descname">spawn</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.spawn"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.spawn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Spawn remote actor</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>args (args): Arguments to send.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.start_background_processing">
+<code class="sig-name descname">start_background_processing</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.start_background_processing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.start_background_processing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start event processing thread.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.stop_background_processing">
+<code class="sig-name descname">stop_background_processing</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.stop_background_processing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.stop_background_processing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop event processing thread.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.connection.Connection.stop_processing_events">
+<code class="sig-name descname">stop_processing_events</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/connection.html#Connection.stop_processing_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.connection.Connection.stop_processing_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop processing events forever.</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 
@@ -169,7 +514,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2023, DNEG
+        &copy; Copyright 2020, DNeg
 
     </p>
   </div>

@@ -440,3 +440,12 @@ void StandardPlugin::current_viewed_playhead_changed(caf::actor_addr viewed_play
         }
     }
 }
+
+void StandardPlugin::qml_viewport_overlay_code(const std::string &code) {
+    if (!viewport_overlay_qml_code_) {
+        viewport_overlay_qml_code_ = add_qml_code_attribute("OverlayCode", code);
+        viewport_overlay_qml_code_->expose_in_ui_attrs_group("viewport_overlay_plugins");
+    } else {
+        viewport_overlay_qml_code_->set_value(code);
+    }
+}

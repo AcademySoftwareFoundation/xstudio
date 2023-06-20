@@ -24,6 +24,7 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/serialise_headers.hpp"
+#include "xstudio/media_reader/pixel_info.hpp"
 
 using namespace xstudio;
 namespace py = pybind11;
@@ -46,6 +47,7 @@ void py_remote_session_file(py::module_ &);
 void py_playhead(py::module_ &);
 void py_plugin(py::module_ &);
 void py_utility(py::module_ &);
+void py_ui(py::module_ &);
 void py_link(py::module_ &);
 
 PYBIND11_MODULE(__pybind_xstudio, m) {
@@ -88,9 +90,49 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("ST_BUSY", global::StatusType::ST_BUSY)
         .export_values();
 
+    py::enum_<module::Attribute::Role>(m, "AttributeRole")
+        .value("Type", module::Attribute::Role::Type)
+        .value("Enabled", module::Attribute::Role::Enabled)
+        .value("Activated", module::Attribute::Role::Activated)
+        .value("Title", module::Attribute::Role::Title)
+        .value("AbbrTitle", module::Attribute::Role::AbbrTitle)
+        .value("StringChoices", module::Attribute::Role::StringChoices)
+        .value("AbbrStringChoices", module::Attribute::Role::AbbrStringChoices)
+        .value("StringChoicesEnabled", module::Attribute::Role::StringChoicesEnabled)
+        .value("ToolTip", module::Attribute::Role::ToolTip)
+        .value("CustomMessage", module::Attribute::Role::CustomMessage)
+        .value("IntegerMin", module::Attribute::Role::IntegerMin)
+        .value("IntegerMax", module::Attribute::Role::IntegerMax)
+        .value("FloatScrubMin", module::Attribute::Role::FloatScrubMin)
+        .value("FloatScrubMax", module::Attribute::Role::FloatScrubMax)
+        .value("FloatScrubStep", module::Attribute::Role::FloatScrubStep)
+        .value("FloatScrubSensitivity", module::Attribute::Role::FloatScrubSensitivity)
+        .value("FloatDisplayDecimals", module::Attribute::Role::FloatDisplayDecimals)
+        .value("DisabledValue", module::Attribute::Role::DisabledValue)
+        .value("Value", module::Attribute::Role::Value)
+        .value("DefaultValue", module::Attribute::Role::DefaultValue)
+        .value("AbbrValue", module::Attribute::Role::AbbrValue)
+        .value("UuidRole", module::Attribute::Role::UuidRole)
+        .value("Groups", module::Attribute::Role::Groups)
+        .value("MenuPaths", module::Attribute::Role::MenuPaths)
+        .value("ToolbarPosition", module::Attribute::Role::ToolbarPosition)
+        .value("OverrideValue", module::Attribute::Role::OverrideValue)
+        .value("SerializeKey", module::Attribute::Role::SerializeKey)
+        .value("QmlCode", module::Attribute::Role::QmlCode)
+        .value("PreferencePath", module::Attribute::Role::PreferencePath)
+        .value("InitOnlyPreferencePath", module::Attribute::Role::InitOnlyPreferencePath)
+        .value("FontSize", module::Attribute::Role::FontSize)
+        .value("FontFamily", module::Attribute::Role::FontFamily)
+        .value("TextAlignment", module::Attribute::Role::TextAlignment)
+        .value("TextContainerBox", module::Attribute::Role::TextContainerBox)
+        .value("Colour", module::Attribute::Role::Colour)
+        .value("HotkeyUuid", module::Attribute::Role::HotkeyUuid)
+        .export_values();
+
     py_remote_session_file(m);
     py_playhead(m);
     py_plugin(m);
+    py_ui(m);
     py_utility(m);
     py_link(m);
 

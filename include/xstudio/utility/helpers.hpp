@@ -21,9 +21,41 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/caf_error.hpp"
+#include "xstudio/caf_utility/caf_setup.hpp"
 
 namespace xstudio {
 namespace utility {
+
+    /* This class provides a static method for getting a reference to the
+    actor system. The same method takes an actor system ref as an argument.
+    If its the first time the method is called, it copies the ref and stores
+    it. On subsequent calls it ignores the argument and returns the ref that
+    was stored on the first call.
+
+    It's a bit clumsy but so far the only solution for making the xSTUDIO
+    application actor system visible to the python module when the python
+    module is instanced. If the python module is instanced *outside* of an
+    xSTUDIO application (i.e. in an external python interpreter) then it
+    will use the fallback system local to the python module.
+
+    We need this so that actors created by the python module are in the same
+    system as the application (for the embedded interpreter case) - this is
+    the only way to trigger python callbacks in message handler of the
+    embedded python actor.
+    */
+    class ActorSystemSingleton {
+
+      public:
+        static caf::actor_system &actor_system_ref(caf::actor_system &sys);
+
+      private:
+        ActorSystemSingleton(caf::actor_system &provided_sys) : system_ref_(provided_sys) {}
+
+        caf::actor_system &get_system() { return system_ref_.get(); }
+
+        std::reference_wrapper<caf::actor_system> system_ref_;
+    };
+
     const std::array supported_extensions{".AAF",  ".AIFF", ".AVI", ".CIN", ".DPX", ".EXR",
                                           ".GIF",  ".JPEG", ".JPG", ".MKV", ".MOV", ".MPG",
                                           ".MPEG", ".MP3",  ".MP4", ".MXF", ".PNG", ".PPM",
@@ -84,7 +116,7 @@ namespace utility {
     template <typename R, typename... Ts>
     R request_receive_wait(
         caf::blocking_actor &src,
-        caf::actor dest,
+        const caf::actor &dest,
         const caf::timespan &wait_for,
         Ts const &...args) {
         R result{};
@@ -97,7 +129,7 @@ namespace utility {
     }
 
     template <typename R, typename... Ts>
-    R request_receive(caf::blocking_actor &src, caf::actor dest, Ts const &...args) {
+    R request_receive(caf::blocking_actor &src, const caf::actor &dest, Ts const &...args) {
         // spdlog::warn("REQUEST");
         R result{};
         src.request(dest, caf::infinite, args...)
@@ -116,7 +148,7 @@ namespace utility {
 
     template <typename R, typename... Ts>
     R request_receive_high_priority(
-        caf::blocking_actor &src, caf::actor dest, Ts const &...args) {
+        caf::blocking_actor &src, const caf::actor &dest, Ts const &...args) {
         R result{};
         src.request<caf::message_priority::high>(dest, caf::infinite, args...)
             .receive(

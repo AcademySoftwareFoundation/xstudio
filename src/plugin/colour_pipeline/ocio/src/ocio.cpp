@@ -298,6 +298,84 @@ std::string OCIOColourPipeline::fast_display_transform_hash(const media::AVFrame
            display_->value() + view_->value();
 }
 
+void OCIOColourPipeline::extend_pixel_info(
+    media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) {
+
+    try {
+
+        const MediaParams media_param =
+            get_media_params(frame_id.source_uuid_, frame_id.params_);
+
+        std::string lin_name("linear");
+        if (media_param.compute_hash() != last_pixel_probe_source_hash_) {
+            auto proc =
+                make_processor(media_param, true, false, pixel_probe_exposure_transform_);
+            pixel_probe_proc_             = proc->getDefaultCPUProcessor();
+            last_pixel_probe_source_hash_ = media_param.compute_hash();
+
+            try {
+                proc                     = make_to_lin_processor(media_param);
+                pixel_probe_to_lin_proc_ = proc->getDefaultCPUProcessor();
+            } catch (...) {
+                pixel_probe_to_lin_proc_.reset();
+            }
+
+            lin_name = working_space(media_param);
+        }
+
+        if (pixel_probe_proc_) {
+            OCIO::DynamicPropertyRcPtr property =
+                pixel_probe_proc_->getDynamicProperty(OCIO::DYNAMIC_PROPERTY_EXPOSURE);
+            OCIO::DynamicPropertyDoubleRcPtr exposure_prop =
+                OCIO::DynamicPropertyValue::AsDouble(property);
+            exposure_prop->setValue(exposure_->value());
+
+            if (!source_colour_space_->value().empty()) {
+                pixel_info.set_raw_colourspace_name(
+                    std::string("Source (") + source_colour_space_->value() + std::string(")"));
+            }
+        }
+
+
+        if (pixel_probe_proc_ && pixel_info.raw_channels_info().size() >= 3) {
+            float RGB[3];
+            RGB[0] = pixel_info.raw_channels_info()[0].pixel_value;
+            RGB[1] = pixel_info.raw_channels_info()[1].pixel_value;
+            RGB[2] = pixel_info.raw_channels_info()[2].pixel_value;
+            pixel_probe_proc_->applyRGB(RGB);
+            pixel_info.add_display_rgb_info("R", RGB[0]);
+            pixel_info.add_display_rgb_info("G", RGB[1]);
+            pixel_info.add_display_rgb_info("B", RGB[2]);
+
+            if (!source_colour_space_->value().empty()) {
+                pixel_info.set_display_colourspace_name(
+                    std::string("Display (") + view_->value() + std::string("|") +
+                    display_->value() + std::string(")"));
+            }
+        }
+
+        if (pixel_probe_to_lin_proc_ && pixel_info.raw_channels_info().size() >= 3) {
+            float RGB[3];
+            RGB[0] = pixel_info.raw_channels_info()[0].pixel_value;
+            RGB[1] = pixel_info.raw_channels_info()[1].pixel_value;
+            RGB[2] = pixel_info.raw_channels_info()[2].pixel_value;
+            pixel_probe_to_lin_proc_->applyRGB(RGB);
+            pixel_info.add_linear_channel_info(
+                pixel_info.raw_channels_info()[0].channel_name, RGB[0]);
+            pixel_info.add_linear_channel_info(
+                pixel_info.raw_channels_info()[1].channel_name, RGB[1]);
+            pixel_info.add_linear_channel_info(
+                pixel_info.raw_channels_info()[2].channel_name, RGB[2]);
+
+            pixel_info.set_linear_colourspace_name(
+                std::string("Scene Linear (") + lin_name + std::string(")"));
+        }
+
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOColourPipeline: Failed to compute thumbnail: {}", e.what());
+    }
+}
+
 OCIOColourPipeline::MediaParams OCIOColourPipeline::get_media_params(
     const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) const {
     std::scoped_lock lock(media_params_mutex_);
@@ -359,8 +437,8 @@ OCIOColourPipeline::load_ocio_config(const std::string &config_name) const {
     } catch (const std::exception &e) {
         spdlog::warn(
             "OCIOColourPipeline: Failed to load OCIO config {}: {}", config_name, e.what());
-        spdlog::warn("OCIOColourPipeline: Fallback on current config");
-        config = OCIO::GetCurrentConfig();
+        spdlog::warn("OCIOColourPipeline: Fallback on raw config");
+        config = OCIO::Config::CreateRaw();
     }
 
     ocio_config_cache_[config_name] = config;
@@ -465,8 +543,60 @@ OCIO::TransformRcPtr OCIOColourPipeline::identity_transform() const {
     return OCIO::MatrixTransform::Create();
 }
 
+OCIO::ConstProcessorRcPtr
+OCIOColourPipeline::make_to_lin_processor(const MediaParams &media_param) const {
+    const auto &metadata         = media_param.metadata;
+    const auto &ocio_config      = media_param.ocio_config;
+    const auto &ocio_config_name = media_param.ocio_config_name;
+
+    try {
+        // Setup the OCIO context based on incoming metadata
+
+        OCIO::ContextRcPtr context = ocio_config->getCurrentContext()->createEditableCopy();
+        if (metadata.contains("ocio_context")) {
+            if (metadata["ocio_context"].is_object()) {
+                for (auto &item : metadata["ocio_context"].items()) {
+                    context->setStringVar(
+                        item.key().c_str(), std::string(item.value()).c_str());
+                }
+            } else {
+                spdlog::warn(
+                    "OCIOColourPipeline: 'ocio_context' should be a dictionary, got {} instead",
+                    metadata["ocio_context"].dump(2));
+            }
+        }
+
+        // Construct an OCIO processor for the whole colour pipeline
+
+        OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
+
+        if (colour_bypass_->value()) {
+            return ocio_config->getProcessor(identity_transform());
+        }
+
+        group->appendTransform(source_transform(media_param));
+        return ocio_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
+
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOColourPipeline: Failed to construct OCIO processor: {}", e.what());
+        spdlog::warn("OCIOColourPipeline: Defaulting to no-op processor");
+        return ocio_config->getProcessor(identity_transform());
+    }
+}
+
 OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_processor(
     const MediaParams &media_param, bool is_main_viewer, bool is_thumbnail) const {
+    // A bit clumsy perhaps - we only need to get at the exposure/contrast transform
+    // for the pixel inspector so use this method elsewhere
+    OCIO::ExposureContrastTransformRcPtr dummy;
+    return make_processor(media_param, is_main_viewer, is_thumbnail, dummy);
+}
+
+OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_processor(
+    const MediaParams &media_param,
+    bool is_main_viewer,
+    bool is_thumbnail,
+    OCIO::ExposureContrastTransformRcPtr &ect) const {
     const auto &metadata         = media_param.metadata;
     const auto &ocio_config      = media_param.ocio_config;
     const auto &ocio_config_name = media_param.ocio_config_name;
@@ -499,10 +629,11 @@ OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_processor(
         group->appendTransform(source_transform(media_param));
 
         if (!is_thumbnail) {
-            auto ect = OCIO::ExposureContrastTransform::Create();
+            ect = OCIO::ExposureContrastTransform::Create();
             ect->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
             ect->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
             ect->makeExposureDynamic();
+            ect->setExposure(exposure_->value());
 
             group->appendTransform(ect);
         }

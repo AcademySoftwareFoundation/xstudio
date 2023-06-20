@@ -4,13 +4,12 @@
 
 /* forward declaration of this function from tessellation_helpers.cpp */
 using namespace xstudio::ui;
-namespace {
 
 // not sure if this works with different key layouts.
 // Locales is a whole other story, too
-static std::map<int, std::string> key_names = {
-    {8, "backspace"},
-    {9, "tab"},
+std::map<int, std::string> Hotkey::key_names = {
+    {0x01000003, "Backspace"},
+    {0x01000001, "tab"},
     {13, "enter"},
     {16, "ctrl"},
     {17, "alt"},
@@ -45,7 +44,6 @@ static std::map<int, std::string> key_names = {
     {107, "numpad subtract"},
     {109, "numpad decimal point"},
     {110, "numpad divide"}};
-} // namespace
 
 Hotkey::Hotkey(
     const int k,
@@ -64,6 +62,7 @@ Hotkey::Hotkey(
       description_(description),
       context_(context),
       auto_repeat_(auto_repeat) {
+
     if (watcher)
         watchers_.emplace_back(watcher, context);
 }
@@ -143,26 +142,32 @@ void Hotkey::add_watcher(caf::actor_addr watcher) { watchers_.emplace_back(watch
 
 
 std::string Hotkey::hotkey_sequence() const {
+
     std::string r;
     const auto p = key_names.find(key_ & 127);
     if (p != key_names.cend()) {
         r = p->second;
     } else {
-        std::array<char, 2> b{(char)(key_ & 127), 0};
-        r = b.data();
+        const auto p2 = key_names.find(key_);
+        if (p2 != key_names.cend()) {
+            r = p2->second;
+        } else {
+            std::array<char, 2> b{(char)(key_ & 127), 0};
+            r = b.data();
+        }
     }
 
     if ((modifiers_ & ShiftModifier) == ShiftModifier) {
-        r += " + Shift";
-    }
-    if ((modifiers_ & ControlModifier) == ControlModifier) {
-        r += " + Ctrl";
-    }
-    if ((modifiers_ & AltModifier) == AltModifier) {
-        r += " + Alt";
+        r = "Shift+" + r;
     }
     if ((modifiers_ & MetaModifier) == MetaModifier) {
-        r += " + Meta";
+        r = "Meta+" + r;
+    }
+    if ((modifiers_ & AltModifier) == AltModifier) {
+        r = "Alt+" + r;
+    }
+    if ((modifiers_ & ControlModifier) == ControlModifier) {
+        r = "Ctrl+" + r;
     }
     return r;
 }

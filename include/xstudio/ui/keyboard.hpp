@@ -59,6 +59,8 @@ namespace ui {
             const std::string &context,
             const bool auto_repeat);
 
+        static std::map<int, std::string> key_names;
+
       private:
         void notifty_watchers(const std::string &context);
 

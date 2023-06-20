@@ -30,6 +30,7 @@ import xstudio.qml.semver 1.0
 import xstudio.qml.session 1.0
 import xstudio.qml.viewport 1.0
 import xstudio.qml.helpers 1.0
+import xstudio.qml.bookmarks 1.0
 
 //------------------------------------------------------------------------------
 // END COMMENT OUT WHEN WORKING INSIDE Qt Creator
@@ -135,6 +136,19 @@ ApplicationWindow {
         id: second_window_settings
         index: app_window.globalStoreModel.search_recursive("/ui/qml/second_window_settings", "pathRole")
         property alias properties: second_window_settings.values
+    }
+
+    property alias bookmark_categories: bookmark_categories
+
+    XsModelProperty {
+        id: bookmark_categories_value
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/bookmark/category", "pathRole")
+    }
+
+    XsBookmarkCategories {
+        id: bookmark_categories
+        value: bookmark_categories_value.value
     }
 
     Timer {
@@ -244,8 +258,6 @@ ApplicationWindow {
         if (component.status == Component.Ready) {
             popout_window = component.createObject(app_window, {x: 100, y: 100, session: session});
             popout_window.show()
-            popout_window.playerWidget.viewport.setOtherViewport(sessionWidget.playerWidget.viewport)
-            sessionWidget.playerWidget.viewport.setOtherViewport(popout_window.playerWidget.viewport)
         } else {
             // Error Handling
             console.log("Error loading component:", component.errorString());
@@ -276,12 +288,6 @@ ApplicationWindow {
         spawnNewViewer()
     }
 
-    BookmarkDetail {
-        id: bookmark_detail
-        colour: ""
-
-    }
-
     XsButtonDialog {
         id: overwriteDialog
         // parent: sessionWidget
@@ -304,10 +310,49 @@ ApplicationWindow {
         attributesGroupName: "playhead"
     }
 
+    XsBookmarkModel {
+        id: bookmarkModel
+        bookmarkActorAddr: session.bookmarkActorAddr
+    }
+
+
+    // XsModelProperty {
+    //     id: session_name
+    //     role: "nameRole"
+    //     index: app_window.sessionModel.index(0,0)
+    //     onValueChanged: {
+    //         console.log("nameRole", value)
+    //     }
+    // }
+
+    // Connections {
+    //     target: sessionModel
+    //     function onSessionActorAddrChanged() {
+    //         session_name.index = sessionModel.index(0,0)
+    //     }
+    // }
+
+    // XsHotkey {
+    //     sequence: "Alt+e"
+    //     name: "test"
+    //     description: "test"
+    //     onActivated: {
+    //         session_name.value = "Test"
+    //     }
+    // }
+
+    // property alias sessionModel: sessionModel
+
+    // XsSessionModel {
+    //     id: sessionModel
+    //     sessionActorAddr: session.sessionActorAddr
+    // }
+
     Session {
         id: session
+
+        property alias bookmarkModel: bookmarkModel
         property var checked_unsaved_session: false
-        property var bookmark_detail: bookmark_detail
         // so QML can find their QML instances.
         property var object_map: ({})
 
@@ -368,7 +413,8 @@ ApplicationWindow {
 
         function new_recent_path(path) {
             let old = preferences.recent_history.value
-            if(!old.length){
+
+            if(old == undefined || !old.length){
                 old = Array()
             }
 
@@ -566,8 +612,7 @@ ApplicationWindow {
         }
 
         function flag_current_media(flag, text) {
-            var source = selectedSource ? selectedSource : onScreenSource
-            var media = source.playhead.media
+            var media = viewport.playhead.media
             media.flag = flag
             media.flagText = text
         }
@@ -583,14 +628,18 @@ ApplicationWindow {
             )
         }
 
-        function add_note(item, detail=null) {
-            var uuid = session.bookmarks.addBookmark(item)
-            if(detail !== null) {
-                detail.uuid = uuid
-                // detail.start = second
-                // detail.duration = 0
-                session.bookmarks.updateBookmark(detail)
+        function add_note(owner_uuid=null) {
+            let uuid = null
+            if(bookmarkModel.insertRows(bookmarkModel.rowCount(), 1)) {
+                // set owner..
+                let ind = bookmarkModel.index(bookmarkModel.rowCount()-1, 0)
+                bookmarkModel.set(ind, preferences.note_category.value, "categoryRole")
+                bookmarkModel.set(ind, preferences.note_colour.value, "colourRole")
+                if(owner_uuid) {
+                    bookmarkModel.set(ind, owner_uuid, "ownerRole")
+                }
 
+                uuid = bookmarkModel.get(ind,"uuidRole")
             }
             return uuid;
         }
@@ -599,7 +648,7 @@ ApplicationWindow {
             var dialog = XsUtils.openDialog("qrc:/dialogs/XsExportCSV.qml", session)
             dialog.saved.connect(function(path) {
                 Future.promise(
-                    session.bookmarks.exportCSVFuture(path)
+                    bookmarkModel.exportCSVFuture(path)
                 ).then(function(result) {
                     var msg = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
                     msg.title = "Export CSV"
@@ -668,13 +717,14 @@ ApplicationWindow {
         window_name: "main_window"
         is_main_window: true
         focus: true
-        Keys.forwardTo: playerWidget.viewport
+        Keys.forwardTo: viewport
     }
 
     property alias sessionWidget: sessionWidget
 
     property var playerWidget: sessionWidget.playerWidget
     property var hotKeyManager: sessionWidget.playerWidget.shortcuts
+    property var viewport: sessionWidget.playerWidget.viewport
 
     onClosing: {
         semantic_version.store()

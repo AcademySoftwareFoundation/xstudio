@@ -32,7 +32,14 @@ namespace media_reader {
 
         [[nodiscard]] utility::Uuid plugin_uuid() const override;
 
+        [[nodiscard]] ImageBuffer::PixelPickerFunc pixel_picker_func() const override {
+            return &FFMpegMediaReader::ffmpeg_buffer_pixel_picker;
+        }
+
       private:
+        static PixelInfo
+        ffmpeg_buffer_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location);
+
         std::shared_ptr<ffmpeg::FFMpegDecoder> decoder;
         std::shared_ptr<ffmpeg::FFMpegDecoder> audio_decoder;
         std::shared_ptr<ffmpeg::FFMpegDecoder> thumbnail_decoder;

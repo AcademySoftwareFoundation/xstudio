@@ -37,6 +37,7 @@ namespace contact_sheet {
         caf::actor_addr playlist_;
         ContactSheet base_;
         utility::UuidActorMap actors_;
+        utility::UuidActor playhead_;
     };
 } // namespace contact_sheet
 } // namespace xstudio

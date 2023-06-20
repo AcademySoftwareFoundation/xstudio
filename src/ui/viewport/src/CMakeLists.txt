@@ -4,6 +4,7 @@ find_package(OpenEXR)
 find_package(Imath)
 
 set(SOURCES
+	hud_plugin.cpp
 	viewport.cpp
 	viewport_frame_queue_actor.cpp
 	fps_monitor.cpp
@@ -18,6 +19,7 @@ default_options(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::module
+		xstudio::plugin_manager
 		xstudio::utility
 		OpenEXR::OpenEXR
 		Imath::Imath

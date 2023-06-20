@@ -62,7 +62,33 @@ template <typename T> struct adl_serializer<Imath::Matrix44<T>> {
         vv++; // skip count
         for (int i = 0; i < 4; ++i)
             for (int k = 0; k < 4; ++k)
-                p[i][j] = (vv++).value().get<T>();
+                p[i][k] = (vv++).value().get<T>();
+    }
+};
+
+template <typename T> struct adl_serializer<Imath::Matrix33<T>> {
+    static void to_json(json &j, const Imath::Matrix33<T> &p) {
+        j = json{
+            "mat3",
+            1,
+            p[0][0],
+            p[1][0],
+            p[2][0],
+            p[0][1],
+            p[1][1],
+            p[2][1],
+            p[0][2],
+            p[1][2],
+            p[2][2]};
+    }
+
+    static void from_json(const json &j, Imath::Matrix33<T> &p) {
+        auto vv = j.begin();
+        vv++; // skip param type
+        vv++; // skip count
+        for (int i = 0; i < 3; ++i)
+            for (int k = 0; k < 3; ++k)
+                p[i][k] = (vv++).value().get<T>();
     }
 };
 

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <filesystem>
-
+#include <algorithm>
+#include <cctype>
 
 #include <Iex.h>
 #include <IexErrnoExc.h>
 #include <IlmThreadMutex.h>
 #include <Imath/ImathBox.h>
-#include <ImfChannelList.h>
-#include <ImfHeader.h> // staticInitialize
 #include <ImfInputFile.h>
+#include <ImfInputPart.h>
 #include <ImfMultiPartInputFile.h>
 #include <ImfMultiView.h>
 #include <ImfPreviewImage.h>
@@ -84,89 +84,6 @@ bool crop_data_window(
 }
 */
 
-/* Examine the channel data in an EXR input file and map channels in the
-file to RGB(A) channels for display.
-
-We have to do this somewhat heuristically as EXR channel names can be literally
-anything. We want to look for regular channel names like 'r','g','b' or '*.x' '*.y' '*.z'
-
-*/
-Imf::PixelType
-exr_channels_decision(Imf::InputFile &in, std::vector<std::string> &exr_channels_to_load) {
-
-    const Imf::ChannelList channels = in.header().channels();
-    Imf::PixelType pixelType;
-    exr_channels_to_load.clear();
-
-    // At the moment we can handle either all channels are float 16 or all channels
-    // are float 32 - we can't have a mix of channel types
-
-    // fetch the channel names for 16bit float channels
-    for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
-        if (i.channel().type == Imf::PixelType::HALF) {
-            exr_channels_to_load.emplace_back(i.name());
-        }
-    }
-    if (exr_channels_to_load.empty()) {
-        // there were no 16bit float channels - look for float32 instead
-        for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
-            if (i.channel().type == Imf::PixelType::FLOAT) {
-                exr_channels_to_load.emplace_back(i.name());
-            }
-        }
-        pixelType = Imf::PixelType::FLOAT;
-    } else {
-        pixelType = Imf::PixelType::HALF;
-    }
-
-    // if we have 3 channels that include .x, .y and .z in their names we want
-    // to map these to RGB when loading.
-    int score = 0;
-    std::vector<std::string> xyz_tokens({".x", ".y", ".z"});
-    for (const auto &token : xyz_tokens) {
-        for (const auto &c : exr_channels_to_load) {
-            if (c.find(token) != std::string::npos) {
-                score++;
-                break;
-            }
-        }
-    }
-    const bool has_xyz_channels = score == 3;
-
-    if (has_xyz_channels) {
-        std::sort(
-            exr_channels_to_load.begin(),
-            exr_channels_to_load.end(),
-            [](std::string a, std::string b) {
-                // this test ensures channels with short names (e.g. 'R','G', 'B' etc) will
-                // always come first - thus we filter out non-RGB channles (like DI mattes)
-                // in the presense of regular RGB channels
-                if (a.size() != b.size())
-                    return a.size() < b.size();
-                // this test alphabetically orders the channels to ensure X, Y, Z order (if
-                // we have such channel names)
-                return a < b;
-            });
-    } else {
-        std::sort(
-            exr_channels_to_load.begin(),
-            exr_channels_to_load.end(),
-            [](std::string a, std::string b) {
-                // see above ..
-                if (a.size() != b.size())
-                    return a.size() < b.size();
-                // this test reverse alphabetically orders the channels to ensure R, G, B, A
-                // order (if we have such channel names)
-                return a > b;
-            });
-    }
-
-    // now we truncate the list of channels to max 4 channels to load
-    while (exr_channels_to_load.size() > 4)
-        exr_channels_to_load.pop_back();
-
-    return pixelType;
-}
 
 static Uuid openexr_shader_uuid{"1c9259fc-46a5-11ea-87fe-989096adb429"};
 static std::string shader{R"(
@@ -313,15 +230,56 @@ void OpenEXRMediaReader::update_preferences(const utility::JsonStore &prefs) {
 
 ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
     try {
+
         std::string path = uri_to_posix_path(mptr.uri_);
 
         // DebugTimer dd(path);
 
-        Imf::InputFile in(path.c_str());
-
-        // decide which channels we are going to load
+        Imf::MultiPartInputFile input(path.c_str());
+        int parts    = input.parts();
+        int part_idx = -1;
+        Imf::PixelType pix_type;
         std::vector<std::string> exr_channels_to_load;
-        Imf::PixelType pix_type = exr_channels_decision(in, exr_channels_to_load);
+
+        for (int prt = 0; prt < parts; ++prt) {
+            // skip incomplete parts - maybe better error/handling messaging required?
+            if (!input.partComplete(prt))
+                continue;
+            const Imf::Header &part_header = input.header(prt);
+            std::vector<std::string> stream_ids;
+            stream_ids_from_exr_part(part_header, stream_ids);
+            for (const auto &stream_id : stream_ids) {
+                if (stream_id == mptr.stream_id_) {
+                    pix_type = pick_exr_channels_from_stream_id(
+                        part_header, mptr.stream_id_, exr_channels_to_load);
+                    part_idx = prt;
+                }
+            }
+        }
+
+        if (part_idx == -1 && mptr.stream_id_ == "Main" && input.partComplete(0)) {
+            // Older version of exr reader only provided a stream called "Main".
+            // For backwards compatibility map this to the first stream from the
+            // first 'part' (which is what you got with the old reader)
+            const Imf::Header &part_header = input.header(0);
+            std::vector<std::string> stream_ids;
+            stream_ids_from_exr_part(part_header, stream_ids);
+            if (stream_ids.empty()) {
+                std::stringstream ss;
+                ss << "Unable to find readable layer/stream in part 0 for file \"" << path
+                   << "\"\n";
+                throw std::runtime_error(ss.str().c_str());
+            }
+            pix_type = pick_exr_channels_from_stream_id(
+                part_header, stream_ids[0], exr_channels_to_load);
+            part_idx = 0;
+        } else if (part_idx == -1) {
+            std::stringstream ss;
+            ss << "Failed to pick exr channels for file \"" << path << "\"\n";
+            throw std::runtime_error(ss.str().c_str());
+        }
+
+        Imf::InputPart in(input, part_idx);
 
         Imath::Box2i data_window    = in.header().dataWindow();
         Imath::Box2i display_window = in.header().displayWindow();
@@ -357,7 +315,9 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
             Imath::Box2i(
                 data_window.min, Imath::V2i(data_window.max.x + 1, data_window.max.y + 1)));
 
-        buf->params()["path"] = to_string(mptr.uri_);
+        buf->params()["path"]          = to_string(mptr.uri_);
+        buf->params()["channel_names"] = exr_channels_to_load;
+        buf->params()["stream_id"]     = mptr.stream_id_;
 
         if (cropped_data_window) {
             // if we are not loading the whole data window, we need to provide a temporary
@@ -446,26 +406,166 @@ OpenEXRMediaReader::supported(const caf::uri &, const std::array<uint8_t, 16> &s
     return MRC_NO;
 }
 
+void OpenEXRMediaReader::get_channel_names_by_layer(
+    const Imf::Header &header,
+    std::map<std::string, std::vector<std::string>> &channel_names_by_layer) const {
+
+    // prepend the channels layer with the part name
+    const std::string partname = header.hasName() ? header.name() + "." : "";
+    const auto &channels       = header.channels();
+    for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
+        const std::string channel_name = i.name();
+        const size_t dot_pos           = channel_name.find(".");
+        if (dot_pos != std::string::npos && dot_pos) {
+            // channel name has a dot separator - assume prefix is the 'layer' name which
+            // we shall assign as a separate MediaStream
+            std::string layer_name = std::string(channel_name, 0, dot_pos);
+            channel_names_by_layer[partname + layer_name].push_back(channel_name);
+        } else {
+            static std::set<std::string> rgba_names(
+                {"r", "g", "b", "a", "red", "green", "blue", "alpha"});
+            static std::set<std::string> xyz_names({"x", "y", "z", "w"});
+            std::string chan_lower_case = to_lower(channel_name);
+            if (rgba_names.find(chan_lower_case) != rgba_names.end()) {
+                channel_names_by_layer[partname + "RGBA"].push_back(channel_name);
+            } else if (xyz_names.find(chan_lower_case) != xyz_names.end()) {
+                channel_names_by_layer[partname + "XYZ"].push_back(channel_name);
+            } else {
+                channel_names_by_layer[partname + "Other"].push_back(channel_name);
+            }
+        }
+    }
+
+    // we have a part with a name, and only one layer - just use the part name
+    // for this set of channels
+    if (header.hasName() && channel_names_by_layer.size() == 1) {
+        auto chans = channel_names_by_layer.begin()->second;
+        channel_names_by_layer.clear();
+        channel_names_by_layer[header.name()] = chans;
+    }
+}
+
+void OpenEXRMediaReader::stream_ids_from_exr_part(
+    const Imf::Header &header, std::vector<std::string> &stream_ids) const {
+
+    std::map<std::string, std::vector<std::string>> channel_names_by_layer;
+    get_channel_names_by_layer(header, channel_names_by_layer);
+
+    if (channel_names_by_layer.find("RGBA") != channel_names_by_layer.end()) {
+        // make sure RGBA layer is first Stream
+        stream_ids.push_back("RGBA");
+    }
+    if (channel_names_by_layer.find("XYZ") != channel_names_by_layer.end()) {
+        // make sure XYZ layer is first or second Stream
+        stream_ids.push_back("XYZ");
+    }
+    for (const auto &p : channel_names_by_layer) {
+        if (p.first == "RGBA" || p.first == "XYZ")
+            continue;
+        stream_ids.push_back(p.first);
+    }
+}
+
+Imf::PixelType OpenEXRMediaReader::pick_exr_channels_from_stream_id(
+    const Imf::Header &header,
+    const std::string &stream_id,
+    std::vector<std::string> &exr_channels_to_load) const {
+
+    std::map<std::string, std::vector<std::string>> channel_names_by_layer;
+    get_channel_names_by_layer(header, channel_names_by_layer);
+
+    if (channel_names_by_layer.find(stream_id) == channel_names_by_layer.end()) {
+        throw std::runtime_error("Unable to match stream ID with exr part/layer names.");
+    }
+
+    exr_channels_to_load = channel_names_by_layer[stream_id];
+
+    if (exr_channels_to_load.empty()) {
+        throw std::runtime_error("Unable to match stream ID with exr part/layer names.");
+    }
+
+    // try and work out if channels are *.x, *.y etc or just 'x' 'y' 'z' etc.
+    // we want to be careful that we don't match a channel called 'xyz.red' though!
+    int score = 0;
+    static std::vector<std::string> xyz_tokens({".x", ".y", ".z", ".u", ".v"});
+    static std::vector<std::string> xyz_tokens0({"x", "y", "z", "u", "v"});
+    for (const auto &chan : exr_channels_to_load) {
+        const std::string lower_name = to_lower(chan);
+        for (const auto &token : xyz_tokens) {
+            if (lower_name.find(token) != std::string::npos) {
+                score++;
+            }
+        }
+        for (const auto &token : xyz_tokens0) {
+            if (lower_name == token) {
+                score++;
+            }
+        }
+    }
+    const bool is_xyzuv = score >= 2;
+
+    // now we need to sort the channels so that RGBA gets mapped into 0,1,2,3
+    // so we can use reverse alphabetical sorting.
+    // OR channels named like *.x, *.y, *.z will also get mapped to 0,1,2
+    std::sort(
+        exr_channels_to_load.begin(),
+        exr_channels_to_load.end(),
+        [&is_xyzuv](std::string a, std::string b) {
+            if (is_xyzuv) {
+                return a < b;
+            } else {
+                return a > b;
+            }
+        });
+
+
+    // At the moment we can handle either all channels are float 16 or all channels
+    // are float 32 - we can't have a mix of channel types
+
+    const auto &channels = header.channels();
+
+    int p_type_chk = -1;
+    Imf::PixelType pix_type;
+
+    // fetch the channel names for 16bit float channels
+    for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
+        if (std::find(exr_channels_to_load.begin(), exr_channels_to_load.end(), i.name()) !=
+            exr_channels_to_load.end()) {
+            if (p_type_chk == -1) {
+                p_type_chk = (int)i.channel().type;
+                pix_type   = i.channel().type;
+            } else if (pix_type != i.channel().type) {
+                throw std::runtime_error(
+                    "EXR part/layer mixes pixel channel types. This is not supported.");
+            }
+        }
+    }
+    return pix_type;
+}
+
+
 xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) const {
+
     const std::string path(uri_to_posix_path(uri));
     utility::FrameRateDuration frd;
     utility::Timecode tc("00:00:00:00");
+    std::vector<media::StreamDetail> streams;
 
     try {
+
         Imf::MultiPartInputFile input(path.c_str());
         double fr = 0.0;
-        // int parts = input.parts();
+
+        int parts = input.parts();
         // bool fileComplete = true;
 
-        // for (int prt = 0; prt < parts && fileComplete; ++prt)
-        // 	if (!input.partComplete (prt))
-        // 		fileComplete = false;
+        // we use timecode from the primary 'part' only - xSTUDIO doesn't yet handle streams
+        // with different frame rates
         const Imf::Header &h  = input.header(0);
         const auto rate       = h.findTypedAttribute<Imf::RationalAttribute>("framesPerSecond");
         const auto rate_bogus = h.findTypedAttribute<Imf::V2iAttribute>("framesPerSecond");
         const auto timecode   = h.findTypedAttribute<Imf::TimeCodeAttribute>("timeCode");
         const auto timecode_rate = h.findTypedAttribute<Imf::IntAttribute>("timecodeRate");
-
         if (rate)
             fr = static_cast<double>(rate->value());
         else if (rate_bogus and rate_bogus->value().y > 0)
@@ -475,7 +575,6 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
             fr = static_cast<double>(timecode_rate->value());
         else
             fr = 24.0;
-
 
         if (timecode) {
             tc = utility::Timecode(
@@ -490,11 +589,25 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         }
 
         frd.set_rate(utility::FrameRate(1.0 / fr));
+
+        std::vector<std::string> stream_ids;
+        for (int prt = 0; prt < parts; ++prt) {
+            // skip incomplete parts - maybe better error/handling messaging required?
+            if (!input.partComplete(prt))
+                continue;
+            const Imf::Header &part_header = input.header(prt);
+            stream_ids_from_exr_part(part_header, stream_ids);
+        }
+
+        for (const auto &stream_id : stream_ids) {
+            streams.push_back(media::StreamDetail(frd, stream_id));
+        }
+
     } catch (const std::exception &e) {
         throw media_corrupt_error(e.what());
     }
 
-    return xstudio::media::MediaDetail(name(), {media::StreamDetail(frd)}, tc);
+    return xstudio::media::MediaDetail(name(), streams, tc);
 }
 
 thumbnail::ThumbnailBufferPtr
@@ -556,6 +669,25 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
     const Imath::V2i image_bounds_min = buf.image_pixels_bounding_box().min;
     const Imath::V2i image_bounds_max = buf.image_pixels_bounding_box().max;
 
+    std::vector<std::string> channel_names;
+    auto chan_names = buf.params()["channel_names"];
+
+    std::string stream_id = buf.params()["stream_id"];
+
+    PixelInfo r(pixel_location, stream_id);
+    stream_id += ".";
+
+    // strip off the stream_id if it's part of the channel name
+    if (chan_names.is_array()) {
+        for (const auto &i : chan_names) {
+            std::string chan_name = i.get<std::string>();
+            if (chan_name.find(stream_id) == 0) {
+                chan_name = std::string(chan_name, stream_id.size());
+            }
+            channel_names.push_back(chan_name);
+        }
+    }
+
     auto get_image_data_float32 = [&](const int address) -> float {
         if (address < 0 || address >= buf.size())
             return 0.0f;
@@ -569,11 +701,11 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
         return Imath::V2f(v[0], v[1]);
     };
 
-    auto fetch_pixel_32bitfloat = [&](const Imath::V2i image_coord) -> Imath::V4f {
+    auto fetch_pixel_32bitfloat = [&](const Imath::V2i image_coord) {
         if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x)
-            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+            return;
         if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y)
-            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+            return;
 
         int pixel_address_bytes =
             ((image_coord.x - image_bounds_min.x) +
@@ -581,34 +713,30 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
             num_channels * 4;
 
         float R = get_image_data_float32(pixel_address_bytes);
+        r.add_raw_channel_info(channel_names[0], R);
 
         if (num_channels > 2) {
 
             float G = get_image_data_float32(pixel_address_bytes + 4);
+            r.add_raw_channel_info(channel_names[1], G);
             float B = get_image_data_float32(pixel_address_bytes + 8);
-            if (num_channels == 3) {
-                return Imath::V4f(R, G, B, 1.0);
-            } else {
+            r.add_raw_channel_info(channel_names[2], B);
+            if (num_channels == 4) {
                 float A = get_image_data_float32(pixel_address_bytes + 12);
-                return Imath::V4f(R, G, B, A);
+                r.add_raw_channel_info(channel_names[3], A);
             }
         } else if (num_channels == 2) {
             // using Luminance/Alpha layout
             float A = get_image_data_float32(pixel_address_bytes + 4);
-            return Imath::V4f(R, R, R, A);
-        } else if (num_channels == 1) {
-            // 1 channels, assume luminance
-            return Imath::V4f(R, R, R, 1.0);
+            r.add_raw_channel_info(channel_names[1], A);
         }
-
-        return Imath::V4f(0.9, 0.4, 0.0, 1.0);
     };
 
-    auto fetch_pixel_16bitfloat = [&](const Imath::V2i image_coord) -> Imath::V4f {
+    auto fetch_pixel_16bitfloat = [&](const Imath::V2i image_coord) {
         if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x)
-            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+            return;
         if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y)
-            return Imath::V4f(0.0, 0.0, 0.0, 0.0);
+            return;
 
         int pixel_address_bytes =
             ((image_coord.x - image_bounds_min.x) +
@@ -620,28 +748,24 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
         if (num_channels > 2) {
 
             Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes + 4);
-            if (num_channels == 3) {
-                return Imath::V4f(pixRG.x, pixRG.y, pixBA.x, 1.0);
-            } else {
-                return Imath::V4f(pixRG.x, pixRG.y, pixBA.x, pixBA.y);
+            r.add_raw_channel_info(channel_names[0], pixRG.x);
+            r.add_raw_channel_info(channel_names[1], pixRG.y);
+            r.add_raw_channel_info(channel_names[2], pixBA.x);
+            if (num_channels == 4) {
+                r.add_raw_channel_info(channel_names[3], pixBA.y);
             }
         } else if (num_channels == 2) {
-            // 2 channels, assume luminance/alpha
-            return Imath::V4f(pixRG.x, pixRG.x, pixRG.x, pixRG.y);
+            r.add_raw_channel_info(channel_names[0], pixRG.x);
+            r.add_raw_channel_info(channel_names[1], pixRG.y);
         } else if (num_channels == 1) {
             // 1 channels, assume luminance
-            return Imath::V4f(pixRG.x, pixRG.x, pixRG.x, 1.0);
+            r.add_raw_channel_info(channel_names[0], pixRG.x);
         }
-
-        return Imath::V4f(0.9, 0.4, 0.0, 1.0);
     };
 
-    const Imath::V4f rgba_pix = pix_type == 1 ? fetch_pixel_16bitfloat(pixel_location)
-                                              : fetch_pixel_32bitfloat(pixel_location);
-    PixelInfo r(pixel_location);
-    r.add_pixel_channel_info("R", rgba_pix.x);
-    r.add_pixel_channel_info("G", rgba_pix.y);
-    r.add_pixel_channel_info("B", rgba_pix.z);
-    r.add_pixel_channel_info("A", rgba_pix.w);
+    if (pix_type == 1)
+        fetch_pixel_16bitfloat(pixel_location);
+    else
+        fetch_pixel_32bitfloat(pixel_location);
     return r;
 }

@@ -234,19 +234,6 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
             try {
                 return retime_edit_list_.frame_rate_at_frame(logical_frame - frames_offset_);
             } catch (std::exception &e) {
-                caf::scoped_actor sys(system());
-                source_edit_list_ = request_receive<EditList>(
-                    *sys, source_, media::get_edit_list_atom_v, Uuid());
-                if (not(retime_edit_list_ == source_edit_list_)) {
-                    send(event_group_, utility::event_atom_v, utility::change_atom_v);
-                    retime_edit_list_ = source_edit_list_;
-                    try {
-                        return retime_edit_list_.frame_rate_at_frame(
-                            logical_frame - frames_offset_);
-                    } catch (std::exception &e) {
-                        return make_error(xstudio_error::error, e.what());
-                    }
-                }
                 return make_error(xstudio_error::error, e.what());
             }
         },

@@ -35,7 +35,8 @@ namespace ui {
                 Enabled,
                 IsDivider,
                 Uuid,
-                AttrType
+                AttrType,
+                HotkeyUuid
             };
 
             inline static const std::map<int, std::string> role_names = {
@@ -47,7 +48,8 @@ namespace ui {
                 {Enabled, "xs_module_menu_item_enabled"},
                 {IsDivider, "xs_module_menu_item_is_divider"},
                 {Uuid, "xs_module_menu_item_uuid"},
-                {AttrType, "xs_module_menu_item_attr_type"}};
+                {AttrType, "xs_module_menu_item_attr_type"},
+                {HotkeyUuid, "xs_module_menu_hotkey_uuid"}};
 
             Q_PROPERTY(int num_submenus READ num_submenus NOTIFY num_submenusChanged)
             Q_PROPERTY(QString root_menu_name READ rootMenuName WRITE setRootMenuName NOTIFY

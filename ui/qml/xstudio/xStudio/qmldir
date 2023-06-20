@@ -41,11 +41,14 @@ XsCheckbox                  1.0 ../base/widgets/XsCheckbox.qml
 XsCheckboxOld               1.1 ../base/widgets/XsCheckbox.qml
 XsCheckbox                  1.1 ../base/widgets/XsCheckBoxNew.qml
 XsCheckBoxWithComboBox      1.1 ../base/widgets/XsCheckBoxWithComboBox.qml
+XsCheckBoxWithMultiComboBox 1.1 ../base/widgets/XsCheckBoxWithMultiComboBox.qml
 XsCheckBoxWithTextField     1.1 ../base/widgets/XsCheckBoxWithTextField.qml
 XsCloseableTab              1.0 ../base/widgets/XsCloseableTab.qml
 XsCollapsibleLabel          1.0 ../base/widgets/XsCollapsibleLabel.qml
 XsColoredImage              1.0 ../base/widgets/XsColoredImage.qml
+XsColourChooser             1.0 ../base/widgets/XsColourChooser.qml
 XsComboBox                  1.1 ../base/widgets/XsComboBoxNew.qml
+XsComboBoxMultiSelect       1.1 ../base/widgets/XsComboBoxMultiSelect.qml
 XsComboBoxWithText          1.1 ../base/widgets/XsComboBoxWithText.qml
 XsDecoratorWidget           1.0 ../base/widgets/XsDecoratorWidget.qml
 XsExpandButton              1.0 ../base/widgets/XsExpandButton.qml
@@ -55,6 +58,7 @@ XsFramedButton              1.0 ../base/widgets/XsFramedButton.qml
 XsHotkeyView                1.0 ../base/widgets/XsHotkeyView.qml
 XsHSlider                   1.0 ../base/widgets/XsHSlider.qml
 XsHSpacer                   1.0 ../base/widgets/XsHSpacer.qml
+XsIntAttrSlider             1.0 ../base/widgets/XsIntAttrSlider.qml
 XsIntSlider                 1.0 ../base/widgets/XsIntSlider.qml
 XsIntSliderPopupSimple      1.0 ../base/widgets/XsIntSliderPopupSimple.qml
 XsLabel                     1.0 ../base/widgets/XsLabel.qml
@@ -103,7 +107,6 @@ XsSessionChooser            1.0 ../core/XsSessionChooser.qml
 
 XsAboutDialog               1.0 ../dialogs/XsAboutDialog.qml
 XsAddMediaDialog            1.0 ../dialogs/XsAddMediaDialog.qml
-XsBookmarkDialog            1.0 ../dialogs/XsBookmarkDialog.qml
 XsColourCorrectionDialog    1.0 ../dialogs/XsColourCorrectionDialog.qml
 XsDrawingDialog             1.0 ../dialogs/XsDrawingDialog.qml
 XsErrorMessage              1.0 ../dialogs/XsErrorMessage.qml
@@ -186,6 +189,7 @@ XsPaneVisibilityTray        1.0 ../trays/XsPaneVisibilityTray.qml
 XsTransportTray             1.0 ../trays/XsTransportTray.qml
 
 XsForwardWidget             1.0 ../widgets/XsForwardWidget.qml
+XsHudToolbarButton          1.0 ../widgets/XsHudToolbarButton.qml
 XsLoopWidget                1.0 ../widgets/XsLoopWidget.qml
 XsMediaInfoBarItem          1.0 ../widgets/XsMediaInfoBarItem.qml
 XsMediaInfoBarOffset        1.0 ../widgets/XsMediaInfoBarOffset.qml
