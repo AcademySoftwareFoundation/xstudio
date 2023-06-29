@@ -2,7 +2,6 @@ SET(LINK_DEPS
 		${CAF_LIBRARY_core}
 		Qt5::Core
 		xstudio::ui::qml::helper
-		xstudio::ui::qml::json_tree_model
 		xstudio::utility
 )
 
