@@ -5,6 +5,7 @@
 #include "xstudio/ui/opengl/texture.hpp"
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/utility/logging.hpp"
+#include "xstudio/utility/string_helpers.hpp"
 
 using namespace xstudio::ui::opengl;
 
@@ -216,9 +217,7 @@ float get_image_data_float32(int byte_address) {
 // by image reader plugin in a glsl snippet
 vec4 fetch_rgba_pixel(ivec2 image_coord);
 
-// forward declared colour transform function - this is provided
-// by colour pipeline classes
-vec4 colour_transforms(vec4 rgba);
+//INJECT_COLOUR_OPS_FORWARD_DECLARATIONS
 
 #define getTexel(p) fetch_rgba_pixel(ivec2(p))
 
@@ -283,16 +282,17 @@ void main(void)
 
         // For now, disabling bilinear filtering as it is too expensive and slowing refresh badly
         // for high res formats when the colour transforms are also expensive
+        vec4 rgb_frag_value;
         if(use_bilinear_filtering) {
-            FragColor.rgb = colour_transforms(get_bilinear_filtered_pixel(texPosition - 0.5)).rgb;
+            rgb_frag_value = get_bilinear_filtered_pixel(texPosition - 0.5);
         }
         else{
-            FragColor.rgb = colour_transforms(
-                fetch_rgba_pixel(
-                    ivec2(texPosition.x, texPosition.y))
-                ).rgb;
+            rgb_frag_value = fetch_rgba_pixel(ivec2(texPosition.x, texPosition.y));
         }
-        FragColor.a = 1.0;
+
+        //INJECT_COLOUR_OPS_CALL
+
+        FragColor = vec4(rgb_frag_value.rgb, 1.0);
     }
 }
 )";
@@ -403,7 +403,13 @@ vec4 fetch_rgba_pixel(ivec2 image_coord);
 
 // forward declared colour transform function - this is provided
 // by colour pipeline classes
-vec4 colour_transforms(vec4 rgba);
+vec4 linearise_colour_transform(vec4 rgba);
+
+// forward declared colour transform function - this is provided
+// by colour pipeline classes
+vec4 display_colour_transform(vec4 rgba);
+
+//INJECT_COLOUR_OPS_FORWARD_DECLARATIONS
 
 #define getTexel(p) fetch_rgba_pixel(ivec2(p))
 
@@ -468,16 +474,16 @@ void main(void)
 
         // For now, disabling bilinear filtering as it is too expensive and slowing refresh badly
         // for high res formats when the colour transforms are also expensive
+        vec4 rgb_frag_value;
         if(use_bilinear_filtering) {
-            FragColor.rgb = colour_transforms(get_bilinear_filtered_pixel(texPosition - 0.5)).rgb;
+            rgb_frag_value = get_bilinear_filtered_pixel(texPosition - 0.5);
         }
         else{
-            FragColor.rgb = colour_transforms(
-                fetch_rgba_pixel(
-                    ivec2(texPosition.x, texPosition.y))
-                ).rgb;
+            rgb_frag_value = fetch_rgba_pixel(ivec2(texPosition.x, texPosition.y));            
         }
-        FragColor.a = 1.0;
+
+        //INJECT_COLOUR_OPS_CALL
+        FragColor = vec4(rgb_frag_value.rgb, 1.0);
     }
 }
 )";
@@ -508,11 +514,20 @@ GLuint compile_frag_shader(const std::string fragmentSource) {
         // We don't need the shader anymore.
         glDeleteShader(fragmentShader);
 
+        auto sourceLines = xstudio::utility::split(fragmentSource, '\n');
+        std::string source_with_linenumbers;
+        int line_num = 0;
+        for (const auto &line : sourceLines) {
+            std::stringstream ss;
+            ss << line_num++ << ": " << line << "\n";
+            source_with_linenumbers += ss.str();
+        }
+
         // Use the infoLog as you see fit.
         std::stringstream e;
         e << "Fragment shader error:\n\n"
           << infoLog.data() << "\n\nin program: \n\n"
-          << fragmentSource;
+          << source_with_linenumbers;
         throw std::runtime_error(e.str().c_str());
     }
     return fragmentShader;
@@ -561,24 +576,33 @@ GLuint compile_vertex_shader(const std::string vertexSource) {
 } // namespace
 
 GLShaderProgram::GLShaderProgram(
-    const std::string &vtx_shader,
-    const std::string &colour_transform_shader,
-    const std::string &frg_shader,
-    const bool use_ssbo,
-    const bool do_compile) {
-    vertex_shaders_.push_back(vtx_shader);
+    const std::string &vertex_shader,
+    const std::string &pixel_unpack_shader,
+    const std::vector<std::string> &colour_op_shaders,
+    const bool use_ssbo) {
+
+    vertex_shaders_.push_back(vertex_shader);
     vertex_shaders_.emplace_back(vertex_shader_base);
-    fragment_shaders_.push_back(frg_shader);
-    fragment_shaders_.push_back(colour_transform_shader);
-    fragment_shaders_.emplace_back(use_ssbo ? frag_shader_base_ssbo : frag_shader_base_tex);
-
-    try {
-        if (do_compile)
-            compile();
-
-    } catch (std::exception &e) {
-        spdlog::error("shader error: {}", e.what());
+    fragment_shaders_.push_back(use_ssbo ? frag_shader_base_ssbo : frag_shader_base_tex);
+    fragment_shaders_.push_back(pixel_unpack_shader);
+    for (const auto &colour_op_shader : colour_op_shaders) {
+        if (is_colour_op_shader_source(colour_op_shader)) {
+            inject_colour_op_shader(colour_op_shader);
+        } else {
+            fragment_shaders_.push_back(colour_op_shader);
+        }
     }
+
+    std::stringstream ss;
+    for (const auto &frg : fragment_shaders_) {
+        ss << "FRG\n\n" << frg << "\n\n";
+    }
+
+    FILE *f = fopen("/user_data/.tmp/shdrs.txt", "wa");
+    fwrite(ss.str().c_str(), ss.str().size() + 1, 1, f);
+    fclose(f);
+
+    compile();
 }
 
 GLShaderProgram::GLShaderProgram(
@@ -594,6 +618,58 @@ GLShaderProgram::GLShaderProgram(
     } catch (std::exception &e) {
         spdlog::error("shader error: {}", e.what());
     }
+}
+
+bool GLShaderProgram::is_colour_op_shader_source(const std::string &shader_code) const {
+
+    // colour op shaders implement a specific signature function that we can look for.
+    static const std::regex op_func_match(R"(vec4\s*colour_transform_op\s*\(\s*vec4[^\)]+\))");
+    std::smatch m;
+    return std::regex_search(shader_code, m, op_func_match);
+}
+
+void GLShaderProgram::inject_colour_op_shader(const std::string &colour_op_shader) {
+
+    if (!is_colour_op_shader_source(colour_op_shader)) {
+
+        std::stringstream ss;
+        ss << "The following shader does not declare required function with "
+           << "signature : vec4 colour_tranform_op(vec4 rgba)\n\n"
+           << colour_op_shader << "\n";
+        spdlog::error("Colour operation shader error error: {}", ss.str());
+        return;
+    }
+
+    std::stringstream renamed_transform_op;
+    renamed_transform_op << "colour_transform_op" << colour_operation_index_;
+
+    std::stringstream transform_op_fwd_declaration;
+    transform_op_fwd_declaration << "vec4 colour_transform_op" << colour_operation_index_
+                                 << "(vec4 rgba);\n";
+    // search the frag shaders for the injection points for colour op shaders
+    for (auto &frag_shader : fragment_shaders_) {
+
+        const auto k = frag_shader.find("//INJECT_COLOUR_OPS_FORWARD_DECLARATIONS");
+        if (k != std::string::npos) {
+            frag_shader.insert(k, transform_op_fwd_declaration.str());
+
+            const auto j = frag_shader.find("//INJECT_COLOUR_OPS_CALL");
+            if (j != std::string::npos) {
+                std::stringstream transform_op_call;
+                transform_op_call << "\t\trgb_frag_value = " << renamed_transform_op.str()
+                                  << "(rgb_frag_value);\n";
+                frag_shader.insert(j, transform_op_call.str());
+            }
+        }
+    }
+
+    std::string mod_shader = utility::replace_once(
+        colour_op_shader, "colour_transform_op", renamed_transform_op.str());
+
+
+    fragment_shaders_.push_back(mod_shader);
+
+    colour_operation_index_++;
 }
 
 void GLShaderProgram::compile() {
@@ -679,8 +755,7 @@ int GLShaderProgram::get_param_location(const std::string &param_name) {
     return loc;
 }
 
-void GLShaderProgram::set_shader_parameters(
-    const media_reader::ImageBufPtr &image, int is_main_viewer) {
+void GLShaderProgram::set_shader_parameters(const media_reader::ImageBufPtr &image) {
 
     if (image) {
         use();
@@ -696,20 +771,14 @@ void GLShaderProgram::set_shader_parameters(
             location,
             image->image_pixels_bounding_box().min.x,
             image->image_pixels_bounding_box().min.y);
-        set_shader_parameters(image->shader_params(), is_main_viewer);
+        set_shader_parameters(image->shader_params());
     }
 }
 
-void GLShaderProgram::set_shader_parameters(
-    const utility::JsonStore &shader_params, const int is_main_viewer) {
+void GLShaderProgram::set_shader_parameters(const utility::JsonStore &shader_params) {
 
     use();
     auto params = shader_params;
-
-    /*if (is_main_viewer != -1) {
-        int location = get_param_location("main_viewer");
-        if (location != -1) glUniform1i(location, (bool)is_main_viewer);
-    }*/
 
     for (nlohmann::json::const_iterator it = params.begin(); it != params.end(); ++it) {
 

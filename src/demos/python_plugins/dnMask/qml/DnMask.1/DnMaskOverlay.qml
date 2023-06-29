@@ -35,7 +35,7 @@ Rectangle {
 
     // The XsModuleAttributes type provides the means to connect with 
     // attributes that were created on the backend plugin class instance. 
-    // Note that the 'attributesGroupName' property here must line up with
+    // Note that the 'attributesGroupNames' property here must line up with
     // one of the strings passed into the Attributer.expose_in_ui_attrs_group
     // method when the plugin class is initialised. Then, if an attribute is
     // called 'Mask Aspect' for example, it will be available as a property
@@ -44,7 +44,7 @@ Rectangle {
     XsModuleAttributes {
         
         id: mask_settings
-        attributesGroupName: "dnmask_settings"
+        attributesGroupNames: "dnmask_settings"
         onAttrAdded: control.computeMask()
         onValueChanged: control.computeMask()
 
@@ -53,7 +53,7 @@ Rectangle {
     XsModuleAttributes {
         
         id: current_mask_spec
-        attributesGroupName: "dnmask_values"
+        attributesGroupNames: "dnmask_values"
         onAttrAdded: control.computeMask()
         onValueChanged: control.computeMask()
 

@@ -66,7 +66,7 @@ namespace media_reader {
 
         [[nodiscard]] uint64_t sample_rate() const { return sample_rate_; }
         [[nodiscard]] int num_channels() const { return num_channels_; }
-        [[nodiscard]] uint64_t num_samples() const { return num_samples_; }
+        [[nodiscard]] long num_samples() const { return long(num_samples_); }
         [[nodiscard]] audio::SampleFormat sample_format() const { return sample_format_; }
         [[nodiscard]] double duration_seconds() const {
             return sample_rate_ ? double(num_samples_) / double(sample_rate_) : 0.0;

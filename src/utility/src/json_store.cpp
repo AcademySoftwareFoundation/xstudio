@@ -81,3 +81,8 @@ void JsonStore::merge(const nlohmann::json &json, const std::string &path) {
 std::string xstudio::utility::to_string(const xstudio::utility::JsonStore &x) {
     return x.dump();
 }
+
+
+void xstudio::utility::to_json(nlohmann::json &j, const JsonStore &c) { j = c.get(""); }
+
+void xstudio::utility::from_json(const nlohmann::json &j, JsonStore &c) { c = JsonStore(j); }

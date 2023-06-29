@@ -106,7 +106,7 @@ ImageBoundaryHUD::ImageBoundaryHUD(
     add_hud_settings_attribute(width_);
 }
 
-plugin::ViewportOverlayRendererPtr ImageBoundaryHUD::make_overlay_renderer(const bool) {
+plugin::ViewportOverlayRendererPtr ImageBoundaryHUD::make_overlay_renderer(const int) {
     return plugin::ViewportOverlayRendererPtr(new ImageBoundaryRenderer());
 }
 

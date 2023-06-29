@@ -7,6 +7,7 @@
 CAF_PUSH_WARNINGS
 #include <QAbstractItemModel>
 #include <QAbstractProxyModel>
+#include <QSortFilterProxyModel>
 CAF_POP_WARNINGS
 
 #include "xstudio/utility/json_store.hpp"
@@ -27,12 +28,15 @@ class JSONTreeModel : public QAbstractItemModel {
     void lengthChanged();
 
   public:
-    enum Roles { JSONRole = Qt::UserRole + 1, JSONTextRole, LASTROLE };
+    enum Roles { JSONRole = Qt::UserRole + 1, JSONTextRole, JSONPointerRole, LASTROLE };
 
     inline static const std::map<int, std::string> role_names = {
-        {Qt::DisplayRole, "display"}, {JSONRole, "jsonRole"}, {JSONTextRole, "jsonTextRole"}};
+        {Qt::DisplayRole, "display"},
+        {JSONRole, "jsonRole"},
+        {JSONTextRole, "jsonTextRole"},
+        {JSONPointerRole, "jsonPointerRole"}};
 
-    JSONTreeModel(QObject *parent = nullptr) : QAbstractItemModel(parent) {}
+    JSONTreeModel(QObject *parent = nullptr);
 
     [[nodiscard]] int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     [[nodiscard]] int columnCount(const QModelIndex &parent = QModelIndex()) const override {
@@ -59,6 +63,7 @@ class JSONTreeModel : public QAbstractItemModel {
 
     Q_INVOKABLE [[nodiscard]] QStringList roles() const;
     Q_INVOKABLE [[nodiscard]] int roleId(const QString &role) const;
+    Q_INVOKABLE [[nodiscard]] QString roleName(const int id) const;
 
     Q_INVOKABLE bool
     removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
@@ -155,8 +160,25 @@ class JSONTreeModel : public QAbstractItemModel {
     void setRoleNames(
         const std::vector<std::string> roles = {}, const std::string display_role = "display");
 
+
+    nlohmann::json &indexToData(const QModelIndex &index);
+    const nlohmann::json &indexToData(const QModelIndex &index) const;
+
   protected:
-    void build_parent_map(const nlohmann::json *parent_data = nullptr, int parent_row = 0);
+    void build_lookup();
+    void add_pointers(
+        const nlohmann::json &jsn,
+        const std::string &parent = "");
+    quintptr getIndexId(const nlohmann::json::json_pointer &ptr) const;
+    nlohmann::json::json_pointer getIndexPath(const quintptr id) const;
+
+    QModelIndex pointerToIndex(const nlohmann::json::json_pointer &ptr) const;
+
+    void rowsMovePersistent(const QModelIndex &parent, int start, int end,
+        const QModelIndex &dest, int row
+    );
+    void rowsInsertedPersistent(const QModelIndex &parent, int first, int last);
+    void rowsRemovedPersistent(const QModelIndex &parent, int first, int last);
 
   protected:
     nlohmann::json data_;
@@ -164,7 +186,91 @@ class JSONTreeModel : public QAbstractItemModel {
     std::string display_role_;
     std::vector<std::string> role_names_;
 
-    std::map<const nlohmann::json *, std::pair<int, const nlohmann::json *>> parent_map_;
+    mutable std::map<size_t, nlohmann::json::json_pointer> pointer_data_;
 };
+
+class JSONTreeFilterModel : public QSortFilterProxyModel {
+    Q_OBJECT
+
+    Q_PROPERTY(int length READ length NOTIFY lengthChanged)
+    Q_PROPERTY(int count READ length NOTIFY lengthChanged)
+
+    Q_PROPERTY(bool sortAscending READ sortAscending WRITE setSortAscending NOTIFY
+                   sortAscendingChanged)
+    Q_PROPERTY(
+        QString sortRoleName READ sortRoleName WRITE setSortRoleName NOTIFY sortRoleNameChanged)
+
+  public:
+    JSONTreeFilterModel(QObject *parent = nullptr) : QSortFilterProxyModel(parent) {
+        setFilterCaseSensitivity(Qt::CaseInsensitive);
+        setDynamicSortFilter(true);
+        setSortRole(Qt::DisplayRole);
+        sort(0, Qt::DescendingOrder);
+
+        connect(
+            this, &QAbstractListModel::rowsInserted, this, &JSONTreeFilterModel::lengthChanged);
+        connect(
+            this, &QAbstractListModel::modelReset, this, &JSONTreeFilterModel::lengthChanged);
+        connect(
+            this, &QAbstractListModel::rowsRemoved, this, &JSONTreeFilterModel::lengthChanged);
+    }
+
+    Q_INVOKABLE [[nodiscard]] QVariant getRoleFilter(const QString &role = "display") const;
+    Q_INVOKABLE void setRoleFilter(const QVariant &filter, const QString &role = "display");
+
+    Q_INVOKABLE [[nodiscard]] QVariant
+    get(const QModelIndex &item, const QString &role = "display") const;
+
+    [[nodiscard]] int length() const { return rowCount(); }
+
+    [[nodiscard]] bool sortAscending() const { return sortOrder() == Qt::AscendingOrder; }
+
+    [[nodiscard]] QString sortRoleName() const {
+        try {
+            return roleNames().value(sortRole());
+        } catch (...) {
+        }
+
+        return QString();
+    }
+
+    void setSortAscending(const bool ascending = true) {
+        if (ascending != (sortOrder() == Qt::AscendingOrder ? true : false)) {
+            sort(0, ascending ? Qt::AscendingOrder : Qt::DescendingOrder);
+            emit sortAscendingChanged();
+        }
+    }
+
+    [[nodiscard]] int roleId(const QString &role) const {
+        auto role_id = -1;
+
+        QHashIterator<int, QByteArray> it(roleNames());
+        if (it.findNext(role.toUtf8())) {
+            role_id = it.key();
+        }
+        return role_id;
+    }
+
+    void setSortRoleName(const QString &role) {
+        auto role_id = roleId(role);
+        if (role_id != sortRole()) {
+            setSortRole(role_id);
+            emit sortRoleNameChanged();
+        }
+    }
+
+  signals:
+    void lengthChanged();
+    void sortAscendingChanged();
+    void sortRoleNameChanged();
+
+  protected:
+    [[nodiscard]] bool
+    filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+
+  private:
+    std::map<int, QVariant> roleFilterMap_;
+};
+
 
 } // namespace xstudio::ui::qml

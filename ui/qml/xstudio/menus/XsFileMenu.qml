@@ -13,17 +13,17 @@ XsMenu {
     XsMenuItem {
         mytext: qsTr("&New Session")
         shortcut: "Ctrl+N"
-        onTriggered: app_window.session.save_before_new_session()
+        onTriggered: app_window.sessionFunction.saveBeforeNewSession()
     }
     XsMenuItem {
         mytext: qsTr("Open Session...")
           shortcut: "Ctrl+O"
-          onTriggered: app_window.session.save_before_open()
+          onTriggered: app_window.sessionFunction.saveBeforeOpen()
     }
 
     XsMenuItem {
         mytext: qsTr("Import Session...")
-        onTriggered: app_window.session.import_session()
+        onTriggered: app_window.sessionFunction.importSession()
     }
 
     XsMenu {
@@ -32,7 +32,7 @@ XsMenu {
         model: preferences.recent_history.value
         XsMenuItem {
             mytext: modelData
-            onTriggered: app_window.session.save_before_open(modelData)
+            onTriggered: app_window.sessionFunction.saveBeforeOpen(modelData)
         }
       }
     }
@@ -40,23 +40,26 @@ XsMenu {
     XsMenuItem {
         mytext: qsTr("Save Session")
         shortcut: "Ctrl+S"
-        onTriggered: app_window.session.save_session()
+        onTriggered: app_window.sessionFunction.saveSession()
     }
     XsMenuItem {
         mytext: qsTr("Save Session As...")
         shortcut: "Ctrl+Shift+S"
-        onTriggered: app_window.session.save_session_as()
+        onTriggered: app_window.sessionFunction.saveSessionAs()
     }
 
     XsMenuSeparator {}
+
     XsMenuItem {
         mytext: qsTr("Add Media...")
-        onTriggered: XsUtils.openDialogPlaylist("qrc:/dialogs/XsAddMediaDialog.qml").open()
+        onTriggered: sessionFunction.addMedia(app_window.sessionFunction.firstSelected("Playlist"))
     }
+
     XsMenuItem {
         mytext: qsTr("Add Media From Clipboard")
-        onTriggered: app_window.session.add_media_from_clipboard()
+        onTriggered: sessionFunction.addMediaFromClipboard(app_window.sessionFunction.firstSelected("Playlist"))
     }
+
     XsMenuSeparator {}
 
     XsMenu {
@@ -64,14 +67,11 @@ XsMenu {
           fakeDisabled: false
           XsMenuItem {
               mytext: qsTr("Selected Playlists As Session...")
-              onTriggered: {
-                  var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveSelectedSessionDialog.qml")
-                  dialog.open()
-              }
+              onTriggered: app_window.sessionFunction.saveSelectedSessionDialog()
           }
           XsMenuItem {
               mytext: qsTr("Notes As CSV...")
-              onTriggered: app_window.session.export_notes_csv()
+              onTriggered: app_window.sessionFunction.exportNotesCSV()
           }
           XsMenuItem {
               mytext: qsTr("Notes + Drawings...")
@@ -133,7 +133,7 @@ XsMenu {
     XsMenuItem {
         mytext: qsTr("Copy Session Link")
         enabled: true
-        onTriggered: app_window.session.copy_session_link()
+        onTriggered: app_window.sessionFunction.copySessionLink()
     }
     XsMenuItem {
         mytext: qsTr("Refresh All Metadata")

@@ -7,6 +7,8 @@ XsToolbarItem  {
 
     id: scrubber
     display_value: parseFloat(value).toFixed(float_display_decimals)
+    property var min_: float_scrub_min ? float_scrub_min : 0.0
+    property var max_: float_scrub_max ? float_scrub_max : 1.0
     property var float_scrub_step_: float_scrub_step ? float_scrub_step : 0.1
     property var float_scrub_sensitivity_: float_scrub_sensitivity ? float_scrub_sensitivity : 0.1
     fixed_width_font: true
@@ -32,9 +34,11 @@ XsToolbarItem  {
 
         onMouseXChanged: {
             if (pressed) {
-                value = Math.round(
+                var tmp = Math.round(
                     (start_drag_value + (mouseX-start_drag_mouse_x)*scrubber.float_scrub_sensitivity_)/scrubber.float_scrub_step_
                     )*scrubber.float_scrub_step_;
+                tmp = Math.max(Math.min(tmp, max_), min_);
+                value = tmp;
             }
         }
 

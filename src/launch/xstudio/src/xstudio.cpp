@@ -59,32 +59,27 @@ CAF_POP_WARNINGS
 
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/ui/qml/bookmark_model_ui.hpp"     //NOLINT
-#include "xstudio/ui/qml/contact_sheet_ui.hpp"      //NOLINT
 #include "xstudio/ui/qml/embedded_python_ui.hpp"    //NOLINT
 #include "xstudio/ui/qml/event_ui.hpp"              //NOLINT
 #include "xstudio/ui/qml/global_store_model_ui.hpp" //NOLINT
 #include "xstudio/ui/qml/helper_ui.hpp"             //NOLINT
 #include "xstudio/ui/qml/hotkey_ui.hpp"             //NOLINT
 #include "xstudio/ui/qml/log_ui.hpp"                //NOLINT
-#include "xstudio/ui/qml/media_ui.hpp"              //NOLINT
 #include "xstudio/ui/qml/module_menu_ui.hpp"        //NOLINT
 #include "xstudio/ui/qml/module_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/playlist_ui.hpp"           //NOLINT
 #include "xstudio/ui/qml/qml_viewport.hpp"          //NOLINT
 #include "xstudio/ui/qml/session_model_ui.hpp"      //NOLINT
-#include "xstudio/ui/qml/session_ui.hpp"            //NOLINT
 #include "xstudio/ui/qml/shotgun_provider_ui.hpp"
 #include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
-#include "xstudio/ui/qml/subset_ui.hpp" //NOLINT
 #include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
-#include "xstudio/ui/qml/thumbnail_ui.hpp"
-#include "xstudio/ui/qml/timeline_ui.hpp" //NOLINT
 
 #include "QuickFuture"
 
+Q_DECLARE_METATYPE(QUrl)
 Q_DECLARE_METATYPE(QList<QUuid>)
 Q_DECLARE_METATYPE(QFuture<QUuid>)
 Q_DECLARE_METATYPE(QFuture<QList<QUuid>>)
+Q_DECLARE_METATYPE(QFuture<QUrl>)
 
 using namespace std;
 using namespace caf;
@@ -345,10 +340,13 @@ struct Launcher {
                 i >> js;
 
                 if (actions["new_instance"]) {
+                    spdlog::stopwatch sw;
                     auto new_session = self->spawn<session::SessionActor>(
                         js,
                         posix_path_to_uri(
                             static_cast<std::string>(actions["open_session_path"])));
+
+                    spdlog::info("Session loaded in {:.3} seconds.", sw);
                     request_receive<bool>(
                         *self, global_actor, session::session_atom_v, new_session);
                 } else {
@@ -626,21 +624,15 @@ struct Launcher {
         UuidActorVector added_media;
         for (const auto &i : uri_fl) {
             try {
-                if (i.second.empty())
-                    added_media.push_back(request_receive<UuidActor>(
-                        *self,
-                        playlist,
-                        playlist::add_media_atom_v,
-                        uri_to_posix_path(i.first),
-                        i.first));
-                else
-                    added_media.push_back(request_receive<UuidActor>(
-                        *self,
-                        playlist,
-                        playlist::add_media_atom_v,
-                        uri_to_posix_path(i.first),
-                        i.first,
-                        i.second));
+                added_media.push_back(request_receive<UuidActor>(
+                    *self,
+                    playlist,
+                    playlist::add_media_atom_v,
+                    uri_to_posix_path(i.first),
+                    i.first,
+                    i.second,
+                    Uuid()));
+
                 if (remote)
                     spdlog::info("{} sent to running session.", uri_to_posix_path(i.first));
 
@@ -837,11 +829,6 @@ int main(int argc, char **argv) {
                     "xstudio.qml.viewport", 1, 0, "XsHotkeyReference");
 
                 qmlRegisterType<QMLViewport>("xstudio.qml.viewport", 1, 0, "Viewport");
-                qmlRegisterType<PlaylistUI>("xstudio.qml.playlist", 1, 0, "Playlist");
-                qmlRegisterType<MediaUI>("xstudio.qml.media", 1, 0, "Media");
-                qmlRegisterType<ThumbNail>("xstudio.qml.media", 1, 0, "XsThumbNail");
-                qmlRegisterType<MediaSourceUI>("xstudio.qml.media_source", 1, 0, "MediaSource");
-                qmlRegisterType<MediaStreamUI>("xstudio.qml.media_stream", 1, 0, "MediaStream");
 
                 qmlRegisterType<BookmarkCategoryModel>(
                     "xstudio.qml.bookmarks", 1, 0, "XsBookmarkCategories");
@@ -853,15 +840,6 @@ int main(int argc, char **argv) {
                 qmlRegisterType<EmbeddedPythonUI>(
                     "xstudio.qml.embedded_python", 1, 0, "EmbeddedPython");
 
-                qmlRegisterType<SessionUI>("xstudio.qml.session", 1, 0, "Session");
-                qmlRegisterType<ContainerGroupUI>(
-                    "xstudio.qml.session", 1, 0, "ContainerGroupUI");
-                qmlRegisterType<ContainerDividerUI>(
-                    "xstudio.qml.session", 1, 0, "ContainerDividerUI");
-                qmlRegisterType<SubsetUI>("xstudio.qml.subset", 1, 0, "SubsetUI");
-                qmlRegisterType<ContactSheetUI>(
-                    "xstudio.qml.contact_sheet", 1, 0, "ContactSheetUI");
-                qmlRegisterType<TimelineUI>("xstudio.qml.timeline", 1, 0, "TimelineUI");
                 qmlRegisterType<QMLUuid>("xstudio.qml.uuid", 1, 0, "QMLUuid");
                 qmlRegisterType<ClipboardProxy>("xstudio.qml.clipboard", 1, 0, "Clipboard");
 
@@ -881,23 +859,17 @@ int main(int argc, char **argv) {
                     "xstudio.qml.helpers", 1, 0, "XsModelPropertyMap");
                 qmlRegisterType<ModelNestedPropertyMap>(
                     "xstudio.qml.helpers", 1, 0, "XsModelNestedPropertyMap");
+                qmlRegisterType<ModelPropertyTree>(
+                    "xstudio.qml.helpers", 1, 0, "XsModelPropertyTree");
 
                 qmlRegisterType<SessionModel>("xstudio.qml.session", 1, 0, "XsSessionModel");
 
-                qRegisterMetaType<MediaUI *>("MediaUI*");
                 qRegisterMetaType<QQmlPropertyMap *>("QQmlPropertyMap*");
 
+
+                QuickFuture::registerType<QUrl>();
                 QuickFuture::registerType<QUuid>();
                 QuickFuture::registerType<QList<QUuid>>();
-
-                // QuickFuture::registerType<CustomType>([](CustomType value) -> QVariant {
-                //      // Optional converter function.
-                //      QVariantMap res;
-                //      res["field"] = value.field;
-                //      // ....
-                //      return res;
-                // });
-                // QuickFuture::init();
 
                 // Add a CafSystemObject to the application - this is QObject that simply
                 // holds a reference to the actor system so that we can access the system
@@ -906,7 +878,7 @@ int main(int argc, char **argv) {
 
                 const QUrl url(QStringLiteral("qrc:/main.qml"));
                 QQmlApplicationEngine engine;
-                engine.addImageProvider(QLatin1String("thumbnail"), new AsyncThumbnailProvider);
+                engine.addImageProvider(QLatin1String("thumbnail"), new ThumbnailProvider);
                 engine.addImageProvider(QLatin1String("shotgun"), new ShotgunProvider);
                 engine.rootContext()->setContextProperty(
                     "applicationDirPath", QGuiApplication::applicationDirPath());
@@ -916,9 +888,6 @@ int main(int argc, char **argv) {
 
                 auto studio = new StudioUI(system, &app);
                 engine.rootContext()->setContextProperty("studio", studio);
-
-                // qmlRegisterType<StudioUI()>("xstudio.qml.studio", 1, 0, "Studio");
-
 
                 auto logger      = new LogModel(&engine);
                 auto proxylogger = new LogFilterModel(&engine);

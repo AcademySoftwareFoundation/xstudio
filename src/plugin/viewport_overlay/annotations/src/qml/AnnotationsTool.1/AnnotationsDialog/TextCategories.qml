@@ -17,7 +17,7 @@ Item{
 
     XsModuleAttributesModel {
         id: anno_font_options
-        attributesGroupName: "annotations_tool_fonts"
+        attributesGroupNames: "annotations_tool_fonts"
     }
 
     Repeater {

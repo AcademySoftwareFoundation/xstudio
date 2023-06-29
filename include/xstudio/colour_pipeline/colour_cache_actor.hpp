@@ -27,7 +27,7 @@ namespace colour_pipeline {
         inline static const std::string NAME = "GlobalColourCacheActor";
 
         caf::behavior behavior_;
-        utility::TimeCache<std::string, ColourPipelineDataPtr> cache_;
+        utility::TimeCache<std::string, ColourOperationDataPtr> cache_;
     };
 } // namespace colour_pipeline
 } // namespace xstudio

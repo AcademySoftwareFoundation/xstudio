@@ -163,12 +163,6 @@ class ShotgunResponse : public QQuickImageResponse {
                 JobExecutor::run(new ShotgunThumbnailReader(id, requestedSize), pool);
 
             watcher_.setFuture(future);
-
-            // auto runnable = new ShotgunResponseRunnable(id_, requestedSize);
-            // connect(runnable, &ShotgunResponseRunnable::done, this,
-            // &ShotgunResponse::handleDone); connect(runnable,
-            // &ShotgunResponseRunnable::failed, this, &ShotgunResponse::handleFailed);
-            // pool->start(runnable);
         }
     }
     [[nodiscard]] QString errorString() const override { return error_; }

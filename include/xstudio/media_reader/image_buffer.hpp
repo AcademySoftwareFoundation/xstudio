@@ -97,27 +97,30 @@ namespace media_reader {
         ImageBufPtr(const ImageBufPtr &o)
             : Base(static_cast<const Base &>(o)),
               colour_pipe_data_(o.colour_pipe_data_),
+              colour_pipe_uniforms_(o.colour_pipe_uniforms_),
               when_to_display_(o.when_to_display_),
               plugin_blind_data_(o.plugin_blind_data_),
               tts_(o.tts_),
               frame_id_(o.frame_id_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
-            Base &b            = static_cast<Base &>(*this);
-            b                  = static_cast<const Base &>(o);
-            colour_pipe_data_  = o.colour_pipe_data_;
-            when_to_display_   = o.when_to_display_;
-            plugin_blind_data_ = o.plugin_blind_data_;
-            tts_               = o.tts_;
-            frame_id_          = o.frame_id_;
+            Base &b               = static_cast<Base &>(*this);
+            b                     = static_cast<const Base &>(o);
+            colour_pipe_data_     = o.colour_pipe_data_;
+            colour_pipe_uniforms_ = o.colour_pipe_uniforms_;
+            when_to_display_      = o.when_to_display_;
+            plugin_blind_data_    = o.plugin_blind_data_;
+            tts_                  = o.tts_;
+            frame_id_             = o.frame_id_;
             return *this;
         }
 
         ~ImageBufPtr() = default;
 
         bool operator==(const ImageBufPtr &o) const {
-            return this->get() == o.get() && colour_pipe_data_ == o.colour_pipe_data_ &&
-                   tts_ == o.tts_;
+            return this->get() == o.get() &&
+                   colour_pipe_data_->cache_id_ == o.colour_pipe_data_->cache_id_ &&
+                   tts_ == o.tts_ && colour_pipe_uniforms_ == o.colour_pipe_uniforms_;
         }
 
         bool operator<(const ImageBufPtr &o) const { return tts_ < o.tts_; }
@@ -129,6 +132,8 @@ namespace media_reader {
         bool operator>(const timebase::flicks &t) const { return tts_ > t; }
 
         colour_pipeline::ColourPipelineDataPtr colour_pipe_data_;
+        utility::JsonStore colour_pipe_uniforms_;
+
         utility::time_point when_to_display_;
 
         void add_plugin_blind_data(

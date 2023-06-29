@@ -6,6 +6,7 @@
 #include "xstudio/data_source/data_source.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/frame_rate.hpp"
+#include "xstudio/utility/managed_dir.hpp"
 #include "xstudio/module/module.hpp"
 
 using namespace xstudio;
@@ -20,6 +21,9 @@ const auto GetPlaylistValidMediaJSON =
     R"({"playlist_uuid": null, "operation": "MediaCount"})"_json;
 const auto GetPlaylistLinkMediaJSON =
     R"({"playlist_uuid": null, "operation": "LinkMedia"})"_json;
+
+const auto DownloadMediaJSON = R"({"media_uuid": null, "operation": "DownloadMedia"})"_json;
+
 const auto GetVersionIvyUuidJSON =
     R"({"job":null, "ivy_uuid": null, "operation": "VersionFromIvy"})"_json;
 const auto GetShotFromIdJSON = R"({"shot_id": null, "operation": "GetShotFromId"})"_json;
@@ -58,6 +62,7 @@ const auto PublishNoteTemplateJSON = R"(
 const auto PreparePlaylistNotesJSON = R"({
     "operation":"PrepareNotes",
     "playlist_uuid": null,
+    "media_uuids": [],
     "notify_owner": false,
     "notify_group_ids": [],
     "combine": false,
@@ -65,6 +70,7 @@ const auto PreparePlaylistNotesJSON = R"({
     "add_playlist_name": false,
     "add_type": false,
     "anno_requires_note": true,
+    "skip_already_published": false,
     "default_type": null
 })"_json;
 const auto CreatePlaylistNotesJSON =
@@ -157,6 +163,8 @@ class ShotgunDataSource : public DataSource, public module::Module {
     void set_authenticated(const bool value);
     void set_timeout(const int value);
 
+    utility::Uuid session_id_;
+
     module::StringChoiceAttribute *authentication_method_;
     module::StringAttribute *client_id_;
     module::StringAttribute *client_secret_;
@@ -166,7 +174,8 @@ class ShotgunDataSource : public DataSource, public module::Module {
     module::BooleanAttribute *authenticated_;
     module::FloatAttribute *timeout_;
 
-    module::ActionAttribute *notes_action_;
+    module::ActionAttribute *playlist_notes_action_;
+    module::ActionAttribute *selected_notes_action_;
 
     shotgun_client::AuthenticateShotgun get_authentication() const;
 
@@ -226,6 +235,7 @@ template <typename T> class ShotgunDataSourceActor : public caf::event_based_act
     void prepare_playlist_notes(
         caf::typed_response_promise<utility::JsonStore> rp,
         const utility::Uuid &playlist_uuid,
+        const utility::UuidVector &media_uuids  = {},
         const bool notify_owner                 = false,
         const std::vector<int> notify_group_ids = {},
         const bool combine                      = false,
@@ -233,6 +243,7 @@ template <typename T> class ShotgunDataSourceActor : public caf::event_based_act
         const bool add_playlist_name            = false,
         const bool add_type                     = false,
         const bool anno_requires_note           = true,
+        const bool skip_already_pubished        = false,
         const std::string &default_type         = "");
 
     void create_playlist_notes(
@@ -261,6 +272,10 @@ template <typename T> class ShotgunDataSourceActor : public caf::event_based_act
         caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
     void
     link_media(caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
+
+    void download_media(
+        caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
+
     void find_ivy_version(
         caf::typed_response_promise<utility::JsonStore> rp,
         const std::string &uuid,
@@ -288,4 +303,6 @@ template <typename T> class ShotgunDataSourceActor : public caf::event_based_act
     int worker_count_          = {8};
 
     std::map<long, utility::JsonStore> shot_cache_;
+
+    utility::ManagedDir download_cache_;
 };

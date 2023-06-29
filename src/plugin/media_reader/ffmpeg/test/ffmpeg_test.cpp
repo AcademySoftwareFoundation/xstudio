@@ -30,22 +30,22 @@ ACTOR_TEST_MINIMAL()
 // }
 
 
-TEST(FFMPEGLeaker, TEST) {
-    auto path = "/jobs/UAP/IO/london/incoming/2022_06/2022_06_17/client/"
-                "Graded_Media_for_DNEG_Showreel_Aspera_Package/DNE/EP6/106_acc_0120_GRADED.mov";
+// TEST(FFMPEGLeaker, TEST) {
+//    auto path = "/jobs/UAP/IO/london/incoming/2022_06/2022_06_17/client/"
+//                "Graded_Media_for_DNEG_Showreel_Aspera_Package/DNE/EP6/106_acc_0120_GRADED.mov";
 
-    auto decoder = new FFMpegDecoder(path, 44100, VIDEO_STREAM, "stream 0");
+//    auto decoder = new FFMpegDecoder(path, 44100, VIDEO_STREAM, "stream 0");
 
-    ImageBufPtr rt;
+//    ImageBufPtr rt;
 
-    for (auto i = 0; i < 261; i++) {
-        decoder->decode_video_frame(i, rt);
-        rt.reset();
-    }
-    for (auto i = 0; i < 261; i++) {
-        decoder->decode_video_frame(i, rt);
-        rt.reset();
-    }
+//    for (auto i = 0; i < 261; i++) {
+//        decoder->decode_video_frame(i, rt);
+//        rt.reset();
+//    }
+//    for (auto i = 0; i < 261; i++) {
+//        decoder->decode_video_frame(i, rt);
+//        rt.reset();
+//    }
 
-    delete decoder;
-}
+//    delete decoder;
+//}

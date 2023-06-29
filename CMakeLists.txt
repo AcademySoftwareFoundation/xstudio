@@ -154,7 +154,6 @@ if(INSTALL_XSTUDIO)
     add_subdirectory(docs)
   else()
     install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
-    add_subdirectory(share/docs)
   endif ()
 
 endif ()

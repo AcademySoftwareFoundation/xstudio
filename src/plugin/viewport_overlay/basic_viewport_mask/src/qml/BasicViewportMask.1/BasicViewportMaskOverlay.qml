@@ -23,7 +23,7 @@ Rectangle {
     XsModuleAttributes {
 
         id: viewport_mask_settings
-        attributesGroupName: "viewport_mask_settings"
+        attributesGroupNames: "viewport_mask_settings"
         onAttrAdded: control.computeMask()
         onValueChanged: control.computeMask()
     }
@@ -31,7 +31,7 @@ Rectangle {
     XsModuleAttributes {
 
         id: current_toolbar
-        attributesGroupName: "main_toolbar"
+        attributesGroupNames: viewport.name + "_toolbar"
     }
 
     // Properties on the XsModuleAttributes items are created at runtime after
@@ -46,14 +46,14 @@ Rectangle {
     property var mask_name: mask_aspect_ratio.toFixed(2)
     property var show_mask_label: viewport_mask_settings.show_mask_label ? viewport_mask_settings.show_mask_label : false
     property var mask_render_method: viewport_mask_settings.mask_render_method ? viewport_mask_settings.mask_render_method : "OpenGL"
-    property var mask_defined: current_toolbar.mask == "On"
+    property var mask_is_on: viewport_mask_settings.mask == "On"
 
     property var l: 0.0
     property var b: 0.0
     property var r: width
     property var t: height
 
-    visible: mask_render_method == "QML" && mask_defined
+    visible: mask_render_method == "QML" && mask_is_on
 
     function computeMask() {
 

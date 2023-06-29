@@ -1601,7 +1601,7 @@ utility::JsonStore ShotgunDataSourceUI::purgeOldSystem(
 
     utility::JsonStore result = dprefs;
 
-    auto count = 0;
+    size_t count = 0;
 
     for (const auto &i : vprefs) {
         try {
@@ -2668,6 +2668,7 @@ QString ShotgunDataSourceUI::addVersionToPlaylist(
 
 QFuture<QString> ShotgunDataSourceUI::addVersionToPlaylistFuture(
     const QString &version, const QUuid &playlist, const QUuid &before) {
+
     return QtConcurrent::run([=]() {
         if (backend_) {
             try {
@@ -2743,6 +2744,7 @@ QFuture<QString> ShotgunDataSourceUI::updateEntityFuture(
 
 QFuture<QString> ShotgunDataSourceUI::preparePlaylistNotesFuture(
     const QUuid &playlist,
+    const QList<QUuid> &media,
     const bool notify_owner,
     const std::vector<int> notify_group_ids,
     const bool combine,
@@ -2750,21 +2752,27 @@ QFuture<QString> ShotgunDataSourceUI::preparePlaylistNotesFuture(
     const bool add_playlist_name,
     const bool add_type,
     const bool anno_requires_note,
+    const bool skip_already_published,
     const QString &defaultType) {
     return QtConcurrent::run([=]() {
         if (backend_) {
             try {
                 scoped_actor sys{system()};
-                auto req                  = JsonStore(PreparePlaylistNotesJSON);
-                req["playlist_uuid"]      = to_string(UuidFromQUuid(playlist));
-                req["notify_owner"]       = notify_owner;
-                req["notify_group_ids"]   = notify_group_ids;
-                req["combine"]            = combine;
-                req["add_time"]           = add_time;
-                req["add_playlist_name"]  = add_playlist_name;
-                req["add_type"]           = add_type;
-                req["anno_requires_note"] = anno_requires_note;
-                req["default_type"]       = StdFromQString(defaultType);
+                auto req = JsonStore(PreparePlaylistNotesJSON);
+
+                for (const auto &i : media)
+                    req["media_uuids"].push_back(to_string(UuidFromQUuid(i)));
+
+                req["playlist_uuid"]          = to_string(UuidFromQUuid(playlist));
+                req["notify_owner"]           = notify_owner;
+                req["notify_group_ids"]       = notify_group_ids;
+                req["combine"]                = combine;
+                req["add_time"]               = add_time;
+                req["add_playlist_name"]      = add_playlist_name;
+                req["add_type"]               = add_type;
+                req["anno_requires_note"]     = anno_requires_note;
+                req["skip_already_published"] = skip_already_published;
+                req["default_type"]           = StdFromQString(defaultType);
 
                 auto js = request_receive_wait<JsonStore>(
                     *sys, backend_, SHOTGUN_TIMEOUT, data_source::get_data_atom_v, req);
@@ -3131,6 +3139,33 @@ QFuture<QString> ShotgunDataSourceUI::requestFileTransferFuture(
         QProcess::startDetached(program, args, "", &pid);
 
         return result;
+    });
+}
+
+QFuture<QString> ShotgunDataSourceUI::addDownloadToMediaFuture(const QUuid &media) {
+    return QtConcurrent::run([=]() {
+        if (backend_) {
+            try {
+                scoped_actor sys{system()};
+                auto req          = JsonStore(DownloadMediaJSON);
+                req["media_uuid"] = to_string(UuidFromQUuid(media));
+
+                return QStringFromStd(
+                    request_receive_wait<JsonStore>(
+                        *sys, backend_, SHOTGUN_TIMEOUT, data_source::get_data_atom_v, req)
+                        .dump());
+            } catch (const XStudioError &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                auto error                = R"({'error':{})"_json;
+                error["error"]["source"]  = to_string(err.type());
+                error["error"]["message"] = err.what();
+                return QStringFromStd(JsonStore(error).dump());
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                return QStringFromStd(err.what());
+            }
+        }
+        return QString();
     });
 }
 

@@ -7,16 +7,10 @@
 
 #include "xstudio/ui/qml/module_ui.hpp"          //NOLINT
 #include "xstudio/ui/qml/module_menu_ui.hpp"     //NOLINT
-#include "xstudio/ui/qml/contact_sheet_ui.hpp"   //NOLINT
 #include "xstudio/ui/qml/embedded_python_ui.hpp" //NOLINT
 #include "xstudio/ui/qml/helper_ui.hpp"          //NOLINT
-#include "xstudio/ui/qml/media_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/timeline_ui.hpp"        //NOLINT
-#include "xstudio/ui/qml/playlist_ui.hpp"        //NOLINT
 #include "xstudio/ui/qml/bookmark_ui.hpp"        //NOLINT
-#include "xstudio/ui/qml/session_ui.hpp"         //NOLINT
 #include "xstudio/ui/qml/studio_ui.hpp"          //NOLINT
-#include "xstudio/ui/qml/subset_ui.hpp"          //NOLINT
 #include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
 #include "xstudio/ui/qml/qml_viewport.hpp" //NOLINT
 #include "xstudio/ui/mouse.hpp"
@@ -102,7 +96,7 @@ PySideQmlViewport::PySideQmlViewport(QWidget *parent) : QQuickWidget(parent) {
     new CafSystemObject(QCoreApplication::instance(), CafSys::instance()->system());
     const QUrl url(QStringLiteral("qrc:/main_viewport_only.qml"));
 
-    engine()->addImageProvider(QLatin1String("thumbnail"), new AsyncThumbnailProvider);
+    engine()->addImageProvider(QLatin1String("thumbnail"), new ThumbnailProvider);
     engine()->rootContext()->setContextProperty(
         "applicationDirPath", QGuiApplication::applicationDirPath());
 

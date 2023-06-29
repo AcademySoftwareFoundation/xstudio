@@ -6,8 +6,8 @@ SET(LINK_DEPS
 	xstudio::utility
 )
 
-SET(EXTRAMOC
-	"${ROOT_DIR}/include/xstudio/ui/qml/playlist_selection_ui.hpp"
-)
+# SET(EXTRAMOC
+# 	"${ROOT_DIR}/include/xstudio/ui/qml/playlist_selection_ui.hpp"
+# )
 
 create_qml_component(playhead 0.1.0 "${LINK_DEPS}" "${EXTRAMOC}")

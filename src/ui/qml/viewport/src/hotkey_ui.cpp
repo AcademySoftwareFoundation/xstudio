@@ -61,6 +61,7 @@ HotkeysUI::HotkeysUI(QObject *parent) : super(parent) {
 
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
+            [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
             [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {
                 update_hotkeys_model_data(hotkeys);
@@ -150,10 +151,12 @@ void HotkeyUI::init(actor_system &system_) {
 
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
+            [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
             [=](keypress_monitor::hotkey_event_atom,
                 const utility::Uuid &uuid,
-                const bool hotkey_pressed) {
+                const bool hotkey_pressed,
+                const std::string &context) {
                 if (hotkey_uuid_ == uuid && hotkey_pressed) {
                     emit activated();
                 }

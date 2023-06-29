@@ -203,7 +203,6 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
         [=](utility::detail_atom, const PluginType type) -> std::vector<PluginDetail> {
             std::vector<PluginDetail> details;
-
             for (const auto &i : manager_.factories()) {
                 if (i.second.factory()->type() == type)
                     details.emplace_back(PluginDetail(i.second));

@@ -604,17 +604,17 @@ TEST(TimelineActorHistoryTest, Test) {
 
 // EXPECT_EQ(
 //     request_receive<media::AVFrameID>(
-//         *(f.self), timeline1, media::get_media_pointer_atom_v, 0)
+//         *(f.self), timeline1, media::get_media_pointer_atom_v, media::MT_IMAGE, 0)
 //         .frame_,
 //     2);
 // EXPECT_EQ(
 //     request_receive<media::AVFrameID>(
-//         *(f.self), timeline1, media::get_media_pointer_atom_v, 4)
+//         *(f.self), timeline1, media::get_media_pointer_atom_v, media::MT_IMAGE, 4)
 //         .frame_,
 //     6);
 // EXPECT_EQ(
 //     request_receive<media::AVFrameID>(
-//         *(f.self), timeline1, media::get_media_pointer_atom_v, 5)
+//         *(f.self), timeline1, media::get_media_pointer_atom_v, media::MT_IMAGE, 5)
 //         .frame_,
 //     1);
 

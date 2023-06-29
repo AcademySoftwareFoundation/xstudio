@@ -63,8 +63,7 @@ namespace plugin {
             return utility::BlindDataObjectPtr();
         }
 
-        virtual ViewportOverlayRendererPtr
-        make_overlay_renderer(const bool /*is_main_viewer*/) {
+        virtual ViewportOverlayRendererPtr make_overlay_renderer(const int /*viewer_index*/) {
             return ViewportOverlayRendererPtr();
         }
 

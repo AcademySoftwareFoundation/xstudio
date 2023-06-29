@@ -25,25 +25,26 @@
                     "path": "/plugin/data_source/shotgun/note_publish_settings",
                     "default_value": {
                         "__ignore__": true,
-                        "defaultType": null,
+                        "defaultType": "",
                         "notifyCreator": true,
-                        "notifyOther": null,
                         "combine": false,
                         "addFrame": false,
                         "addPlaylistName": true,
                         "addType": false,
-                        "ignoreEmpty": false
+                        "ignoreEmpty": false,
+                        "skipAlreadyPublished": false
                     },
                     "description": "Prefs relating to note publishing.",
                     "value": {
                         "__ignore__": true,
-                        "defaultType": null,
+                        "defaultType": "",
                         "notifyCreator": true,
                         "combine": false,
                         "addFrame": false,
                         "addPlaylistName": true,
                         "addType": false,
-                        "ignoreEmpty": false
+                        "ignoreEmpty": false,
+                        "skipAlreadyPublished": false
                     },
                     "datatype": "json",
                     "context": ["APPLICATION"]
@@ -1778,6 +1779,8 @@
                         {"name": "Camera Track"},
                         {"name": "Comp"},
                         {"name": "Creature"},
+                        {"name": "Creature FX"},
+                        {"name": "Crowd"},
                         {"name": "DMP"},
                         {"name": "Editorial"},
                         {"name": "Environ"},
@@ -1795,6 +1798,7 @@
                         {"name": "Rig"},
                         {"name": "Roto"},
                         {"name": "Scan"},
+                        {"name": "Shot Sculpt"},
                         {"name": "Skin"},
                         {"name": "Sweatbox"},
                         {"name": "TD"},
@@ -1803,6 +1807,24 @@
                     "description": "Default pipesteps.",
                     "datatype": "json",
                     "context": ["APPLICATION"]
+                },
+                "download": {
+                    "size": {
+                        "path": "/plugin/data_source/shotgun/download/size",
+                        "default_value": 5,
+                        "description": "Cache size in GBytes.",
+                        "value": 5,
+                        "datatype": "int",
+                        "context": ["APPLICATION"]
+                    },
+                    "path": {
+                        "path": "/plugin/data_source/shotgun/download/path",
+                        "default_value": "${HOME}/xStudio/shotgun_cache",
+                        "description": "Path to shotgun download cache.",
+                        "value": "${TMPDIR}/${USER}/xStudio/shotgun_cache",
+                        "datatype": "string",
+                        "context": ["APPLICATION"]
+                    }
                 },
 				"authentication": {
 					"refresh_token": {

@@ -16,7 +16,7 @@ Rectangle  {
 
     id: control
 
-    property string title_abbr: title
+    property string title_abbr: title_
     property int gap: 3
     property var attr_activated: activated ? activated : false
     property var title_: title ? title : ""

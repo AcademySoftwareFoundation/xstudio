@@ -256,7 +256,7 @@ utility::BlindDataObjectPtr AnnotationsTool::prepare_render_data(
 }
 
 plugin::ViewportOverlayRendererPtr
-AnnotationsTool::make_overlay_renderer(const bool /*is_main_viewer*/) {
+AnnotationsTool::make_overlay_renderer(const int /*viewer_index*/) {
     renderers_.push_back(new AnnotationsRenderer());
     return plugin::ViewportOverlayRendererPtr(renderers_.back());
 }

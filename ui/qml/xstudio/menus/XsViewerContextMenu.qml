@@ -8,7 +8,7 @@ import xStudio 1.0
 XsMenu {
 
     title: qsTr("Viewer")
-    id: viewer_context_menu_colour_items
+    id: viewer_context_menu
     property bool is_popout_viewport: false
 
     XsMenuItem {
@@ -62,7 +62,7 @@ XsMenu {
     }
 
     XsModuleMenuBuilder {
-        parent_menu: viewer_context_menu_colour_items
+        parent_menu: viewer_context_menu
         root_menu_name: "playback_menu"
         insert_after: bod
     }
@@ -80,8 +80,8 @@ XsMenu {
     XsMenuSeparator { id: fit_sep }
 
     XsModuleMenuBuilder {
-        parent_menu: viewer_context_menu_colour_items
-        root_menu_name: is_popout_viewport ? "popout_viewport_context_menu_items" : "viewport_context_menu_items"
+        parent_menu: viewer_context_menu
+        root_menu_name: viewport.name + "_context_menu_section0" 
         insert_after: fit_sep
     }
 
@@ -96,8 +96,8 @@ XsMenu {
     }
 
     XsModuleMenuBuilder {
-        parent_menu: viewer_context_menu_colour_items
-        root_menu_name: is_popout_viewport ? "popout_viewer_context_menu_colour_channel" : "viewer_context_menu_colour_channel"
+        parent_menu: viewer_context_menu
+        root_menu_name: viewport.name + "_context_menu_section1" 
         insert_after: dummy_sep
     }
 
@@ -112,8 +112,8 @@ XsMenu {
     XsMenuSeparator { id: render_sep}
 
     XsModuleMenuBuilder {
-        parent_menu: viewer_context_menu_colour_items
-        root_menu_name: is_popout_viewport ? "popout_viewer_context_menu_colour_items" : "viewer_context_menu_colour_items"
+        parent_menu: viewer_context_menu
+        root_menu_name: viewport.name + "_context_menu_section2" 
         insert_after: render_sep
     }
 

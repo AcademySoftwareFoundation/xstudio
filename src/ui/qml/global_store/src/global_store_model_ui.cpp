@@ -142,8 +142,8 @@ bool GlobalStoreModel::updateProperty(
             index = search_recursive(
                 QVariant::fromValue(QStringFromStd(path.substr(0, path.find_last_of('/')))),
                 QString("pathRole"));
-            if (index.isValid() and index.internalPointer()) {
-                nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+            if (index.isValid()) {
+                nlohmann::json &j = indexToData(index);
                 if (j["value"] != change) {
                     // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
                     QVector<int> roles({Roles::valueRole});
@@ -152,8 +152,8 @@ bool GlobalStoreModel::updateProperty(
                     emit dataChanged(index, index, roles);
                 }
             }
-        } else if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        } else if (index.isValid()) {
+            nlohmann::json &j = indexToData(index);
             // compare to current preset.
             if (change != j) {
                 QVector<int> roles({});
@@ -215,65 +215,62 @@ QVariant GlobalStoreModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        const auto &j = indexToData(index);
 
-            switch (role) {
-            case JSONTreeModel::Roles::JSONRole:
-                result = QVariantMapFromJson(j);
-                break;
+        switch (role) {
+        case JSONTreeModel::Roles::JSONRole:
+            result = QVariantMapFromJson(j);
+            break;
 
-            case JSONTreeModel::Roles::JSONTextRole:
-                result = QString::fromStdString(j.dump(2));
-                break;
+        case JSONTreeModel::Roles::JSONTextRole:
+            result = QString::fromStdString(j.dump(2));
+            break;
 
-            case Roles::datatypeRole:
-                if (j.count("datatype"))
-                    result = QString::fromStdString(j.at("datatype").get<std::string>());
-                else
-                    result = QString::fromStdString("group");
-                break;
+        case Roles::datatypeRole:
+            if (j.count("datatype"))
+                result = QString::fromStdString(j.at("datatype").get<std::string>());
+            else
+                result = QString::fromStdString("group");
+            break;
 
-            case Roles::pathRole:
-                result = QString::fromStdString(j.at("path").get<std::string>());
-                break;
+        case Roles::pathRole:
+            result = QString::fromStdString(j.at("path").get<std::string>());
+            break;
 
-            case Roles::contextRole: {
-                auto tmp = QStringList();
-                for (const auto &i : j.at("context"))
-                    tmp.append(QStringFromStd(i.get<std::string>()));
-                result = tmp;
-            } break;
+        case Roles::contextRole: {
+            auto tmp = QStringList();
+            for (const auto &i : j.at("context"))
+                tmp.append(QStringFromStd(i.get<std::string>()));
+            result = tmp;
+        } break;
 
-            case Roles::descriptionRole:
-                result = QString::fromStdString(j.at("description").get<std::string>());
-                break;
+        case Roles::descriptionRole:
+            result = QString::fromStdString(j.at("description").get<std::string>());
+            break;
 
-            case Roles::overriddenPathRole:
-                result = QString::fromStdString(j.at("overridden_path").get<std::string>());
-                break;
+        case Roles::overriddenPathRole:
+            result = QString::fromStdString(j.at("overridden_path").get<std::string>());
+            break;
 
-            case Roles::nameRole:
-            case Qt::DisplayRole:
-                result = QString::fromStdString(j.at("path"));
-                break;
+        case Roles::nameRole:
+        case Qt::DisplayRole:
+            result = QString::fromStdString(j.at("path"));
+            break;
 
-            case Roles::valueRole:
-                // spdlog::warn("{}", j.dump(2));
-                result = mapFromValue(j.at("value"));
-                break;
+        case Roles::valueRole:
+            result = mapFromValue(j.at("value"));
+            break;
 
-            case Roles::defaultValueRole:
-                result = mapFromValue(j.at("default_value"));
-                break;
+        case Roles::defaultValueRole:
+            result = mapFromValue(j.at("default_value"));
+            break;
 
-            case Roles::overriddenValueRole:
-                result = mapFromValue(j.at("overridden_value"));
-                break;
+        case Roles::overriddenValueRole:
+            result = mapFromValue(j.at("overridden_value"));
+            break;
 
-            default:
-                break;
-            }
+        default:
+            break;
         }
     } catch (const std::exception &err) {
 
@@ -283,11 +280,7 @@ QVariant GlobalStoreModel::data(const QModelIndex &index, int role) const {
             err.what(),
             role,
             index.row(),
-            index.internalPointer());
-        if (index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            spdlog::warn("{}", j.dump(2));
-        }
+            index.internalId());
     }
 
     return result;
@@ -299,8 +292,8 @@ bool GlobalStoreModel::setData(const QModelIndex &index, const QVariant &value, 
     QVector<int> roles({role});
 
     try {
-        if (role == Roles::valueRole && index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        if (role == Roles::valueRole and index.isValid()) {
+            nlohmann::json &j = indexToData(index);
 
             // test for change ?
             // push to global data model

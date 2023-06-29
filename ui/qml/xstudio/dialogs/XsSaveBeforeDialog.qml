@@ -24,25 +24,29 @@ XsDialogModal {
 
     title: "Save Session"
 
-    function saved_saved() {
-        saved()
-    }
-
     function saveSession() {
-        if(app_window.session.pathNative != "") {
-            if(app_window.session.save_session_path(app_window.session.path) == ""){
-                app_window.session.new_recent_path(app_window.session.path)
-                accept()
-                saved()
-            } else {
-                accept()
-                canceled()
-            }
+        if(app_window.sessionPathNative != "") {
+            app_window.sessionFunction.saveSessionPath(app_window.sessionPath).then(function(result){
+                if (result != "") {
+                    var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
+                    dialog.title = "Save session failed"
+                    dialog.text = result
+                    dialog.show()
+                    cancelled()
+                    reject()
+                } else {
+                    app_window.sessionFunction.newRecentPath(app_window.sessionPath)
+                    app_window.sessionFunction.copySessionLink(false)
+                    saved()
+                    accept()
+                }
+            })
         }
         else {
+            hide()
             var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveSessionDialog.qml")
             dialog.open()
-            dialog.saved.connect(saved_saved)
+            dialog.saved.connect(function() {accept();saved()})
         }
     }
 

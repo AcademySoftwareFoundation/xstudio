@@ -69,7 +69,7 @@ DelegateChoice {
             anchors.fill: parent
             anchors.margins: framePadding
             rows: 2
-            columns: 6
+            columns: 7
 
             XsButton{ id: noteDisplay
                 property bool hasNotes: noteCountRole === undefined || noteCountRole == 0  ? false :true
@@ -184,7 +184,7 @@ DelegateChoice {
 
             Text{ id: nameDisplay
                 text: nameRole || ""
-                Layout.columnSpan: 2
+                Layout.columnSpan: 3
                 Layout.alignment: Qt.AlignLeft
                 Layout.fillWidth: true
                 font.pixelSize: fontSize*1.2
@@ -252,9 +252,11 @@ DelegateChoice {
 
             Text{ id: dateDisplay
                 Layout.alignment: Qt.AlignLeft
-                Layout.fillWidth: true
-                property var dateFormatted: createdDateRole.toUTCString().substr(4,20).split(" ")
-                text: " "+dateFormatted[0]+" "+dateFormatted[1]+" "+dateFormatted[3]
+                Layout.minimumWidth: 68
+                Layout.preferredWidth: 76
+                Layout.maximumWidth: 76
+                property var dateFormatted: createdDateRole.toLocaleString().split(" ")
+                text: typeof dateFormatted !== 'undefined'? dateFormatted[1].substr(0,3)+" "+dateFormatted[2]+" "+dateFormatted[3] : ""
                 font.pixelSize: fontSize
                 font.family: fontFamily
                 color: isMouseHovered? textColorActive: textColorNormal
@@ -262,7 +264,7 @@ DelegateChoice {
                 elide: Text.ElideRight
                 horizontalAlignment: Text.AlignLeft
 
-                ToolTip.text: createdDateRole.toUTCString()
+                ToolTip.text: createdDateRole.toLocaleString()
                 ToolTip.visible: dateToolTip.containsMouse
                 MouseArea {
                     id: dateToolTip
@@ -270,6 +272,12 @@ DelegateChoice {
                     hoverEnabled: true
                     propagateComposedEvents: true
                 }
+            }
+
+            Item{
+                id: emptyDiv
+                Layout.preferredHeight: 1
+                Layout.fillWidth: true
             }
 
             Text{

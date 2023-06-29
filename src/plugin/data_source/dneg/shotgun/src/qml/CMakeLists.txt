@@ -31,7 +31,6 @@ default_options_qt(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::ui::qml::helper
-		xstudio::ui::qml::json_tree_model
 		xstudio::shotgun_client
 		${CAF_LIBRARY_core}
 		Qt5::Core

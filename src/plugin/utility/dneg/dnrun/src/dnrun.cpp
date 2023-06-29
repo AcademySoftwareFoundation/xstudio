@@ -421,7 +421,8 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                                 playlist,
                                                 playlist::add_media_atom_v,
                                                 path,
-                                                uri);
+                                                uri,
+                                                Uuid());
                                         else
                                             new_media = request_receive<UuidActor>(
                                                 *sys,
@@ -429,7 +430,8 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                                 playlist::add_media_atom_v,
                                                 path,
                                                 uri,
-                                                fl);
+                                                fl,
+                                                Uuid());
 
                                         if (!new_media.uuid().is_null()) {
                                             auto selection_actor = request_receive<caf::actor>(

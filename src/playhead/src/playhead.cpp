@@ -52,7 +52,9 @@ void PlayheadBase::add_attributes() {
     compare_mode_->set_role_data(
         module::Attribute::InitOnlyPreferencePath, "/ui/qml/default_playhead_compare_mode");
 
-    source_ = add_string_choice_attribute("Source", "Src", "", {}, {});
+    image_source_ = add_string_choice_attribute("Source", "Src", "", {}, {});
+
+    audio_source_ = add_string_choice_attribute("Audio Source", "Aud Src", "", {}, {});
 
     velocity_ = add_float_attribute("Rate", "Rate", 1.0f, 0.1f, 16.0f, 0.05f);
 
@@ -93,14 +95,27 @@ void PlayheadBase::add_attributes() {
         module::Attribute::PreferencePath, "/ui/viewport/viewport_scrub_sensitivity");
 
     compare_mode_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{"main_toolbar", "popout_toolbar", "playhead"});
+        module::Attribute::Groups, nlohmann::json{"any_toolbar", "playhead"});
     velocity_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{"main_toolbar", "popout_toolbar", "playhead"});
+        module::Attribute::Groups, nlohmann::json{"any_toolbar", "playhead"});
+
+    source_ = add_qml_code_attribute(
+        "Src",
+        R"(
+        import xStudio 1.0
+        XsSourceToolbarButton {
+            anchors.fill: parent
+        }
+    )");
+
     source_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{"main_toolbar", "popout_toolbar", "playhead"});
+        module::Attribute::Groups, nlohmann::json{"any_toolbar", "playhead"});
+
+    image_source_->set_role_data(
+        module::Attribute::Groups, nlohmann::json{"image_source", "playhead"});
+    audio_source_->set_role_data(
+        module::Attribute::Groups, nlohmann::json{"audio_source", "playhead"});
+
     playing_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
     forward_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
     auto_align_mode_->set_role_data(
@@ -155,6 +170,7 @@ JsonStore PlayheadBase::serialise() const {
     jsn["loop_end"]       = loop_end_.count();
     jsn["use_loop_range"] = use_loop_range_;
     jsn["module"]         = Module::serialise();
+
     return jsn;
 }
 

@@ -22,11 +22,11 @@ XsMenu {
     XsMenuSeparator {}
     XsMenuItem {
         mytext: qsTr("Copy Selected File Names")
-        onTriggered: app_window.session.copy_media_file_name()
+        onTriggered: app_window.sessionFunction.copyMediaFileName(true)
     }
     XsMenuItem {
         mytext: qsTr("Copy Selected File Paths")
-        onTriggered: app_window.session.copy_media_file_path()
+        onTriggered: app_window.sessionFunction.copyMediaFilePath(true)
     }
 }
 

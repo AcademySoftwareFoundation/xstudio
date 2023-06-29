@@ -49,8 +49,7 @@ void PlayheadUI::set_backend(caf::actor backend) {
         try {
             request_receive<bool>(
                 *sys, backend_events_, broadcast::leave_broadcast_atom_v, as_actor());
-        } catch (const std::exception &e) {
-            spdlog::warn("A {} {}", __PRETTY_FUNCTION__, e.what());
+        } catch (const std::exception &) {
         }
         self()->demonitor(backend_events_);
         backend_events_ = caf::actor();
@@ -179,9 +178,8 @@ void PlayheadUI::init(actor_system &system_) {
     // });
     scoped_actor sys{system()};
 
-    media_ = new MediaUI(this);
-    media_->initSystem(this);
-    emit mediaChanged();
+    // media_uuid_ = QUuid();
+    // emit mediaUuidChanged(media_uuid_);
 
     self()->set_down_handler([=](down_msg &msg) {
         if (msg.source == backend_) {
@@ -260,9 +258,14 @@ void PlayheadUI::init(actor_system &system_) {
                 }
             },
 
-            [=](utility::event_atom, playhead::media_source_atom, caf::actor media_actor) {
-                media_->set_backend(media_actor);
-                emit mediaChanged();
+            [=](utility::event_atom,
+                playhead::media_source_atom,
+                const UuidActor &media_actor) {
+                auto uuid = QUuidFromUuid(media_actor.uuid());
+                if (media_uuid_ != uuid) {
+                    media_uuid_ = uuid;
+                    emit mediaUuidChanged(media_uuid_);
+                }
             },
 
             [=](utility::event_atom, playhead::play_atom, const bool playing) {
@@ -425,13 +428,20 @@ void PlayheadUI::media_changed() {
 
         auto media_actor = request_receive_wait<caf::actor>(
             *sys, backend_, std::chrono::milliseconds(250), playhead::media_atom_v);
-        media_->set_backend(media_actor);
 
-        emit mediaChanged();
+        auto uuid = request_receive_wait<utility::Uuid>(
+            *sys, media_actor, std::chrono::milliseconds(250), utility::uuid_atom_v);
+
+        auto tmp = QUuidFromUuid(uuid);
+        if (media_uuid_ != tmp) {
+            media_uuid_ = tmp;
+            emit mediaUuidChanged(media_uuid_);
+        }
     } catch (const std::exception &e) {
-        media_->set_backend(caf::actor());
-        emit mediaChanged();
-        // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        if (media_uuid_ != QUuid()) {
+            media_uuid_ = QUuid();
+            emit mediaUuidChanged(media_uuid_);
+        }
     }
 }
 

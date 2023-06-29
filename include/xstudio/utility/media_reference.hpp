@@ -32,6 +32,11 @@ namespace utility {
             const FrameRate &rate = FrameRate(timebase::k_flicks_one_twenty_fourth_of_second));
 
         MediaReference(const JsonStore &jsn);
+
+        MediaReference(const MediaReference &o) = default;
+
+        MediaReference &operator=(const MediaReference &o) = default;
+
         [[nodiscard]] virtual JsonStore serialise() const;
         virtual ~MediaReference() = default;
 

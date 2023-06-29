@@ -211,6 +211,7 @@ void ClipActor::init() {
                 bookmark::bookmark_change_atom_v,
                 bookmark_uuid);
         },
+        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {},
         [=](utility::event_atom,
             media::current_media_source_atom,
             const UuidActor &,
@@ -219,6 +220,9 @@ void ClipActor::init() {
             audio_ptr_cache_.clear();
         },
         [=](utility::event_atom, utility::change_atom) {},
+        [=](utility::event_atom,
+            media::add_media_source_atom,
+            const utility::UuidActorVector &) {},
 
         [=](playlist::get_media_atom) -> UuidActor {
             return UuidActor(base_.media_uuid(), caf::actor_cast<caf::actor>(media_));
@@ -489,7 +493,7 @@ void ClipActor::init() {
 //         int request_frame = logical_frame + base_.start_time().frames();
 //         request(
 //             actor_cast<actor>(media_), infinite, media::get_media_pointer_atom_v,
-//             request_frame) .then(
+//             media::MT_IMAGE, request_frame) .then(
 //                 [=](const media::AVFrameID &mptr) mutable { rp.deliver(mptr); },
 //                 [=](error &err) mutable { rp.deliver(std::move(err)); });
 //     }

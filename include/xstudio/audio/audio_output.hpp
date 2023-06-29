@@ -92,7 +92,7 @@ class AudioOutputControl : public module::Module {
     std::map<utility::time_point, media_reader::AudioBufPtr> sample_data_;
     media_reader::AudioBufPtr current_buf_;
     media_reader::AudioBufPtr previous_buf_;
-    int current_buf_pos_;
+    long current_buf_pos_;
     float playback_velocity_ = {1.0f};
 
     int fade_in_out_ = {NoFade};

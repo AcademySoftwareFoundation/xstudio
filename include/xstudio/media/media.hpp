@@ -299,6 +299,7 @@ namespace media {
             return media_sources_;
         }
         [[nodiscard]] utility::JsonStore serialise() const override;
+        void deserialise(const utility::JsonStore &jsn) override;
         [[nodiscard]] std::string flag() const { return flag_; }
         void set_flag(const std::string &flag) { flag_ = flag; }
         [[nodiscard]] std::string flag_text() const { return flag_text_; }
@@ -327,10 +328,17 @@ namespace media {
 
         [[nodiscard]] utility::JsonStore serialise() const override;
 
-        utility::MediaReference &media_reference() { return ref_; }
-        void set_media_reference(const utility::MediaReference &media_reference) {
-            ref_ = media_reference;
+        // Note - although this function takes a stream uuid, we only have one
+        // media reference shared for all streams. Thus we have to assume that
+        // the frame rate and duration of each stream in a source are the same.
+        // This assumption may not be correct, so leaving the argument here for
+        // future if needed.
+        const utility::MediaReference &
+        media_reference(const utility::Uuid &stream_uuid = utility::Uuid()) const {
+            return ref_;
         }
+
+        void set_media_reference(const utility::MediaReference &ref);
 
         [[nodiscard]] std::string reader() const { return reader_; }
         void set_reader(const std::string &reader) { reader_ = reader; }
@@ -361,6 +369,14 @@ namespace media {
 
         [[nodiscard]] const std::list<utility::Uuid> &streams(const MediaType media_type) const;
 
+        [[nodiscard]] std::pair<std::string, uintmax_t> checksum() const {
+            return std::make_pair(checksum_, size_);
+        }
+        void checksum(const std::pair<std::string, uintmax_t> &checksum) {
+            checksum_ = checksum.first;
+            size_     = checksum.second;
+        }
+
       private:
         utility::MediaReference ref_;
         utility::Uuid current_audio_;
@@ -370,6 +386,8 @@ namespace media {
         std::string reader_;
         std::string error_detail_;
         MediaStatus media_status_{MS_ONLINE};
+        uintmax_t size_{0};
+        std::string checksum_;
     };
 
     class MediaStream : public utility::Container {

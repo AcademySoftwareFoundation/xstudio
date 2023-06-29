@@ -51,6 +51,11 @@ uri_from_file_list(const std::vector<std::string> &paths) {
     return result;
 }
 
+std::vector<UriSequence> uri_from_file(const std::string &path) {
+    return uri_from_file_list(std::vector<std::string>({path}));
+}
+
+
 Entry::Entry(const std::string path) : name_(std::move(path)) {
     std::memset(&stat_, 0, sizeof stat_);
 }
@@ -304,7 +309,7 @@ std::string escape_percentage(const std::string &str) {
 static const std::set<std::string> not_sequence_ext_set{
     ".BZ2", ".bz2", ".MOV", ".mov", ".AVI", ".avi",  ".CINE", ".cine", ".R3D", ".r3d", ".AAF",
     ".aaf", ".MXF", ".mxf", ".WAV", ".wav", ".AIFF", ".aiff", ".HIP",  ".hip", ".MB",  ".mb",
-    ".MA",  ".ma",  ".NK",  ".nk",  ".mv4", ".MP4",  ".mp4",  ".mp3",  ".MP3"};
+    ".MA",  ".ma",  ".NK",  ".nk",  ".mv4", ".MP4",  ".mp4",  ".mp3",  ".MP3", ".WEBM"};
 
 bool default_is_sequence(const Entry &entry) {
     // things that are never sequences..

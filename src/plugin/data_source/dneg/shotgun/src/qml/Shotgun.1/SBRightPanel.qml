@@ -784,27 +784,27 @@ Rectangle{ id: rightDiv
 
                     XsMenuItem {
                         mytext: "To Chennai"; onTriggered: popupMenuAction("Transfer chn")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To London"; onTriggered: popupMenuAction("Transfer lon")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Montreal"; onTriggered: popupMenuAction("Transfer mtl")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Mumbai"; onTriggered: popupMenuAction("Transfer mum")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Sydney"; onTriggered: popupMenuAction("Transfer syd")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Vancouver"; onTriggered: popupMenuAction("Transfer van")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuSeparator {}
                     XsMenuItem {

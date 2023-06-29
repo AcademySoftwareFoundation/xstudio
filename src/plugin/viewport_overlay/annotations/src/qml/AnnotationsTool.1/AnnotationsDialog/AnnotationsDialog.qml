@@ -68,7 +68,7 @@ XsWindow {
 
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupName: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings"
     }
 
 
@@ -1092,14 +1092,14 @@ XsWindow {
             XsModuleAttributes {
                 // this lets us get at the combo_box_options for the 'Display Mode' attr
                 id: annotations_tool_draw_mode_options
-                attributesGroupName: "annotations_tool_draw_mode"
+                attributesGroupNames: "annotations_tool_draw_mode"
                 roleName: "combo_box_options"
             }
 
             XsModuleAttributes {
                 // this lets us get at the value for the 'Display Mode' attr
                 id: annotations_tool_draw_mode
-                attributesGroupName: "annotations_tool_draw_mode"
+                attributesGroupNames: "annotations_tool_draw_mode"
             }
 
             XsComboBox {

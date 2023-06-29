@@ -19,7 +19,7 @@ DelegateChoice {
     Rectangle {
         id: root
         property bool isSelected: selectionModel.isSelected(searchResultsViewModel.index(index, 0))
-        property bool isMouseHovered: mArea.containsMouse || nameDisplayText.hovered || toToolTip.containsMouse ||
+        property bool isMouseHovered: mArea.containsMouse || nameDisplayText.hovered || toToolTip.containsMouse || fromToolTip.containsMouse ||
                                       dateToolTip.containsMouse || bodyToolTip.containsMouse || subjectToolTip.containsMouse
         width: searchResultsView.cellWidth
         height: searchResultsView.cellHeight-itemSpacing
@@ -137,8 +137,8 @@ DelegateChoice {
 
                     Text{ id: dateDisplay
                         Layout.alignment: Qt.AlignRight
-                        property var dateFormatted: createdDateRole.toUTCString().substr(4,20).split(" ")
-                        text: typeof dateFormatted !== 'undefined'? dateFormatted[0]+" "+dateFormatted[1]+" "+dateFormatted[3] : ""
+                        property var dateFormatted: createdDateRole.toLocaleString().split(" ")
+                        text: typeof dateFormatted !== 'undefined'? dateFormatted[1].substr(0,3)+" "+dateFormatted[2]+" "+dateFormatted[3] : ""
                         font.pixelSize: fontSize
                         font.family: fontFamily
                         color: isMouseHovered? textColorActive: textColorNormal
@@ -146,7 +146,7 @@ DelegateChoice {
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignRight
 
-                        ToolTip.text: createdDateRole.toUTCString().substr(0,3)
+                        ToolTip.text: dateFormatted[0].substr(0,dateFormatted[0].length-1) //createdDateRole.toLocaleString().substr(0,3)
                         ToolTip.visible: dateToolTip.containsMouse
                         MouseArea {
                             id: dateToolTip
@@ -170,8 +170,12 @@ DelegateChoice {
 
                     Text{ id: timeDisplay
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        property var dateFormatted: createdDateRole.toUTCString().split(" ")
-                        text: typeof dateFormatted !== 'undefined'? dateFormatted[3]+" "+dateFormatted[5] : ""
+                        property var dateFormatted: createdDateRole.toLocaleString().split(" ")
+                        property var timeFormatted: dateFormatted[4].split(":")
+                        text: typeof timeFormatted !== 'undefined'? 
+                            typeof dateFormatted[6] !== 'undefined'? 
+                                timeFormatted[0]+":"+timeFormatted[1]+" "+dateFormatted[5]+" "+dateFormatted[6] :
+                                timeFormatted[0]+":"+timeFormatted[1]+" "+dateFormatted[5] : ""
                         font.pixelSize: fontSize
                         font.family: fontFamily
                         color: isMouseHovered? textColorActive: textColorNormal

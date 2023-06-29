@@ -24,6 +24,7 @@ CAF_PUSH_WARNINGS
 #include <QQuickItem>
 #include <QQmlPropertyMap>
 #include <QString>
+#include <QItemSelection>
 #include <QUrl>
 #include <QUuid>
 #include <QModelIndex>
@@ -152,7 +153,6 @@ namespace ui {
             virtual void updateValues(const QVector<int> &roles = {});
             int getRoleId(const QString &role) const;
 
-
             QPersistentModelIndex index_;
             QQmlPropertyMap *values_{nullptr};
         };
@@ -169,7 +169,8 @@ namespace ui {
             virtual void updateValues(const QVector<int> &roles = {}) override;
             virtual void valueChanged(const QString &key, const QVariant &value) override;
 
-            QString data_role_ = {"valueRole"};
+            QString data_role_    = {"valueRole"};
+            QString default_role_ = {"defaultValueRole"};
         };
 
         class CafSystemObject : public QObject {
@@ -289,20 +290,54 @@ namespace ui {
                 : QObject(parent), engine_(engine) {}
             ~Helpers() override = default;
 
-            Q_INVOKABLE bool openURL(const QUrl &url) { return QDesktopServices::openUrl(url); }
-            Q_INVOKABLE QString ShowURIS(const QList<QUrl> &urls) {
+            Q_INVOKABLE bool openURL(const QUrl &url) const { return QDesktopServices::openUrl(url); }
+            Q_INVOKABLE QString ShowURIS(const QList<QUrl> &urls) const {
                 std::vector<caf::uri> uris;
                 for (const auto &i : urls)
                     uris.emplace_back(UriFromQUrl(i));
                 return QStringFromStd(utility::filemanager_show_uris(uris));
             }
 
-            Q_INVOKABLE QString getUserName() {
+            Q_INVOKABLE QString getUserName() const {
                 return QStringFromStd(utility::get_user_name());
             }
-            Q_INVOKABLE QString validMediaExtensions() {
+
+            Q_INVOKABLE QString pathFromURL(const QUrl &url) const {
+                return url.path().replace("//", "/");
+            }
+
+            Q_INVOKABLE QPersistentModelIndex makePersistent(const QModelIndex &index) const { return QPersistentModelIndex(index);}
+
+
+            Q_INVOKABLE QString fileFromURL(const QUrl &url) const {
+                static const std::regex as_hash_pad(R"(\{:0(\d+)d\})");
+                auto tmp = utility::uri_to_posix_path(UriFromQUrl(url));
+                tmp      = tmp.substr(tmp.find_last_of("/") + 1);
+                // convert padding spec to #'s
+                // {:04d}
+                try {
+                    tmp = fmt::format(std::regex_replace(tmp, as_hash_pad, R"({:#<$1})"), "");
+                } catch (...) {
+                    tmp = std::regex_replace(tmp, as_hash_pad, "#");
+                }
+
+                return QStringFromStd(tmp);
+            }
+
+            Q_INVOKABLE QString validMediaExtensions() const {
                 std::string result;
                 for (const auto &i : utility::supported_extensions) {
+                    if (not result.empty())
+                        result += " ";
+                    result +=
+                        std::string("*") + i + " " + std::string("*") + utility::to_lower(i);
+                }
+                return QStringFromStd(result);
+            }
+
+            Q_INVOKABLE QString validTimelineExtensions() const {
+                std::string result;
+                for (const auto &i : utility::supported_timeline_extensions) {
                     if (not result.empty())
                         result += " ";
                     result +=
@@ -338,6 +373,21 @@ namespace ui {
             }
             Q_INVOKABLE [[nodiscard]] QString QUuidToQString(const QUuid &uuid) const {
                 return uuid.toString(QUuid::WithoutBraces);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QItemSelection createItemSelection() const {
+                return QItemSelection();
+            }
+            Q_INVOKABLE [[nodiscard]] QItemSelection
+            createItemSelection(const QModelIndex &tl, const QModelIndex &br) const {
+                return QItemSelection(tl, br);
+            }
+            Q_INVOKABLE [[nodiscard]] QItemSelection
+            createItemSelection(const QModelIndexList &l) const {
+                auto s = QItemSelection();
+                for (const auto &i : l)
+                    s.select(i, i);
+                return s;
             }
 
           private:

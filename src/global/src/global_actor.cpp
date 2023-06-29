@@ -275,7 +275,8 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                                                     infinite,
                                                     global_store::save_atom_v,
                                                     posix_path_to_uri(fspath.string()),
-                                                    session_autosave_hash_)
+                                                    session_autosave_hash_,
+                                                    false)
                                                     .then(
                                                         [=](const size_t hash) {
                                                             if (hash !=
@@ -339,7 +340,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             return (ui_studio_ ? "XSTUDIO_GUI" : "XSTUDIO");
         },
 
-        [=](colour_pipeline::get_colour_pipeline_atom atom) {
+        [=](colour_pipeline::colour_pipeline_atom atom) {
             // 'colour' is the colour pipeline manager. To get to the
             // actual colour pipelin actor (OCIO plugin) we delegate to
             // the manager. Getting to the manager alon is not interesting.

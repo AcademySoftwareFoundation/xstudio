@@ -157,7 +157,7 @@ class Media(Container):
         """
         return self.connection.request_receive(self.remote, get_media_pointer_atom(), media_type, logical_frame)[0]
 
-    def add_media_source(self, path, frame_list=FrameList(), frame_rate=FrameRate()):
+    def add_media_source(self, path, frame_list=None, frame_rate=None):
         """Add media source from path
 
         Args:
@@ -168,9 +168,16 @@ class Media(Container):
         Returns:
             media_source(MediaSource): New media source.
         """
+        if frame_rate is None:
+            frame_rate = FrameRate()
 
         if not isinstance(path, URI):
-            (path, frame_list) = parse_posix_path(path)
+            (path, path_frame_list) = parse_posix_path(path)
+            if frame_list is None:
+                frame_list = path_frame_list
+
+        if frame_list is None:
+            frame_list = FrameList()
 
         result = self.connection.request_receive(self.remote, add_media_source_atom(), path, frame_list, frame_rate)[0]
         return MediaSource(self.connection, result.actor, result.uuid)

@@ -221,7 +221,9 @@ void PlayheadSelectionActor::init() {
             }
             return result;
         },
-
+        [=](utility::event_atom, playlist::move_media_atom, const UuidVector &, const Uuid &) {
+        },
+        [=](utility::event_atom, playlist::remove_media_atom, const UuidVector &) {},
         [=](utility::event_atom, playlist::add_media_atom, utility::UuidActor media) {
             if (base_.items().empty()) {
                 select_one();
@@ -232,6 +234,9 @@ void PlayheadSelectionActor::init() {
 }
 
 void PlayheadSelectionActor::select_media(const UuidList &media_uuids) {
+    if (base_.items_vec() == std::vector<Uuid>(media_uuids.begin(), media_uuids.end())) {
+        return;
+    }
 
     if (media_uuids.empty()) {
         for (const auto &i : source_actors_)
@@ -256,7 +261,7 @@ void PlayheadSelectionActor::select_media(const UuidList &media_uuids) {
                         if (not media_uas.count(i))
                             return delayed_anon_send(
                                 caf::actor_cast<caf::actor>(this),
-                                std::chrono::milliseconds(100),
+                                std::chrono::milliseconds(50),
                                 playlist::select_media_atom_v,
                                 media_uuids);
                     }

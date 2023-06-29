@@ -37,7 +37,7 @@ XsTrayButton {
     // connect to the backend module to give access to attributes
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupName: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings"
     }
 
     // make a read only binding to the "annotations_tool_active" backend attribute

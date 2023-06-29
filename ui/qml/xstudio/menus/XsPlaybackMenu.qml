@@ -7,7 +7,6 @@ import xStudio 1.0
 
 XsMenu {
     title: qsTr("Playback")
-    property var source: session.onScreenSource
     property var playhead: sessionWidget.viewport.playhead
     id: playback_menu
 
@@ -94,13 +93,13 @@ XsMenu {
     // XsMenuItem {
     //     mytext: qsTr("Set Bookmark Out")
     //     shortcut: "]"
-    //     onTriggered: session.bookmarks.setNearestOutBookmark(playhead.media.uuid, playhead.second)
+    //     onTriggered: session.bookmarks.setNearestOutBookmark(playhead.mediaUuid, playhead.second)
     // }
     // XsMenuItem {
     //     mytext: qsTr("Loop Bookmark")
     //     shortcut: "}"
     //     onTriggered: {
-    //         let pos = session.bookmarks.getNearestBookmark(playhead.media.uuid, playhead.second)
+    //         let pos = session.bookmarks.getNearestBookmark(playhead.mediaUuid, playhead.second)
     //         if(pos.length) {
     //             playhead.loopStart = pos[0]
     //             playhead.loopEnd = pos[1]

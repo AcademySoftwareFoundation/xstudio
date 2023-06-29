@@ -109,7 +109,7 @@ template <typename T>
 void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     T *&stream,
     media_reader::AudioBufPtr &current_buf,
-    int &current_buf_position,
+    long &current_buf_position,
     long &num_samples_to_copy,
     long &num_samps_pushed,
     const int num_channels,
@@ -141,6 +141,7 @@ AudioOutputControl::AudioOutputControl(const utility::JsonStore &jsn)
 
 
     volume_ = add_float_attribute("volume", "volume", 100.0f, 0.0f, 100.0f, 0.05f);
+    volume_->set_role_data(module::Attribute::PreferencePath, "/core/audio/volume");
 
     // by setting static UUIDs on these module we only create them once in the UI
     volume_->set_role_data(module::Attribute::UuidRole, "d1545257-5540-4f2e-9c90-9012232fedb8");
@@ -149,6 +150,7 @@ AudioOutputControl::AudioOutputControl(const utility::JsonStore &jsn)
     muted_ = add_boolean_attribute("muted", "muted", false);
     muted_->set_role_data(module::Attribute::UuidRole, "59b08f8c-8d86-433e-82f3-ee9c2bc7a27e");
     muted_->set_role_data(module::Attribute::Groups, nlohmann::json{"audio_output"});
+    muted_->set_role_data(module::Attribute::PreferencePath, "/core/audio/muted");
 }
 
 void AudioOutputControl::prepare_samples_for_soundcard(
@@ -166,6 +168,9 @@ void AudioOutputControl::prepare_samples_for_soundcard(
         int16_t *d            = v.data();
         long n                = num_samps_to_push;
         long num_samps_pushed = 0;
+
+        if (muted())
+            return;
 
         while (n > 0) {
 
@@ -215,7 +220,7 @@ void AudioOutputControl::prepare_samples_for_soundcard(
                 num_channels,
                 fade_in_out_);
 
-            if (current_buf_pos_ == current_buf_->num_samples()) {
+            if (current_buf_pos_ == (long)current_buf_->num_samples()) {
                 // current buf is exhausted
                 previous_buf_ = current_buf_;
                 current_buf_.reset();
@@ -224,7 +229,7 @@ void AudioOutputControl::prepare_samples_for_soundcard(
             }
         }
 
-        const float vol       = muted() ? 0.0 : volume();
+        const float vol       = volume();
         static float last_vol = vol;
         if (last_vol != vol) {
             changing_volume_adjust(v, vol / 100.0f, last_vol / 100.0f);
@@ -440,7 +445,7 @@ template <typename T>
 void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     T *&stream,
     media_reader::AudioBufPtr &current_buf,
-    int &current_buf_position,
+    long &current_buf_position,
     long &num_samples_to_copy,
     long &num_samps_pushed,
     const int num_channels,
@@ -456,7 +461,8 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
 
     if (fade_in_out == AudioOutputControl::NoFade) {
 
-        if ((current_buf->num_samples() - current_buf_position) > num_samples_to_copy) {
+        if (((long)current_buf->num_samples() - (long)current_buf_position) >
+            num_samples_to_copy) {
             // remaining samples in current buf exceeds num samples we need to put into the
             // stream
             memcpy(
@@ -472,7 +478,8 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
             memcpy(
                 stream,
                 current_buf->buffer() + current_buf_position * num_channels * sizeof(T),
-                (current_buf->num_samples() - current_buf_position) * num_channels * sizeof(T));
+                ((long)current_buf->num_samples() - current_buf_position) * num_channels *
+                    sizeof(T));
             num_samples_to_copy -= (current_buf->num_samples() - current_buf_position);
             stream += (current_buf->num_samples() - current_buf_position) * num_channels;
             num_samps_pushed += (current_buf->num_samples() - current_buf_position);

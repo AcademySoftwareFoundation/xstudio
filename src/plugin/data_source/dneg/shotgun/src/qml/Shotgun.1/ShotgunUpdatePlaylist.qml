@@ -11,7 +11,6 @@ XsDialogModal {
     id: dialog
     title: "Push Contents To Shotgun"
 
-    property var playlist: null
     property var playlist_uuid: null
     property int validMediaCount: 0
     property int invalidMediaCount: 0

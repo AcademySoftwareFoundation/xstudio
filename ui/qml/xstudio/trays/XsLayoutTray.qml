@@ -25,7 +25,7 @@ RowLayout {
         }
     }
 
-    XsTrayButton {
+    /*XsTrayButton {
 
         Layout.fillHeight: true
         text: "Browse"
@@ -37,7 +37,7 @@ RowLayout {
         onClicked: {        
             sessionWidget.layout_name = "browse_layout"
         }
-    }
+    }*/
 
     XsTrayButton {
 

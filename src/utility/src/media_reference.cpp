@@ -61,8 +61,18 @@ MediaReference::MediaReference(const JsonStore &jsn)
     auto uri = caf::make_uri(jsn.at("uri"));
     if (uri)
         uri_ = *uri;
-    else
-        throw XStudioError("Invalid URI");
+    else {
+        // try and fix bad URI first..
+        // spdlog::warn("orig {}",jsn.at("uri").get<std::string>());
+        // spdlog::warn("decode {}",uri_decode(jsn.at("uri")));
+        // spdlog::warn("encode {}",uri_encode(uri_decode(jsn.at("uri"))));
+
+        uri = caf::make_uri(uri_encode(uri_decode(jsn.at("uri"))));
+        if (uri)
+            uri_ = *uri;
+        else
+            throw XStudioError("Invalid URI " + jsn.at("uri").get<std::string>());
+    }
 
     frame_list_ = jsn.at("frame_list");
     timecode_   = jsn.at("timecode");

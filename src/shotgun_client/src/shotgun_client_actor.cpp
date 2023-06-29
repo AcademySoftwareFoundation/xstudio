@@ -1362,6 +1362,75 @@ void ShotgunClientActor::init() {
             return rp;
         },
 
+        [=](shotgun_attachment_atom,
+            const std::string &entity,
+            const int id,
+            const std::string &property) -> result<std::string> {
+            auto rp = make_response_promise<std::string>();
+
+            request(
+                http_,
+                infinite,
+                http_get_atom_v,
+                base_.scheme_host_port(),
+                std::string(
+                    fmt::format("/api/v1/entity/{}/{}/{}?alt=original", entity, id, property)),
+                base_.get_auth_headers())
+                // base_.get_auth_headers("video/webm"))
+                .then(
+                    [=](const httplib::Response &response) mutable {
+                        if (response.status == 200) {
+                            return rp.deliver(response.body);
+                        }
+
+                        try {
+                            auto jsn = nlohmann::json::parse(response.body);
+                            try {
+                                if (not jsn["errors"][0]["status"].is_null() and
+                                    jsn["errors"][0]["status"].get<int>() == 401) {
+                                    // try and authorise..
+                                    request(
+                                        actor_cast<caf::actor>(this),
+                                        infinite,
+                                        shotgun_acquire_token_atom_v)
+                                        .then(
+                                            [=](const std::
+                                                    pair<std::string, std::string>) mutable {
+                                                rp.delegate(
+                                                    actor_cast<caf::actor>(this),
+                                                    shotgun_attachment_atom_v,
+                                                    entity,
+                                                    id,
+                                                    property);
+                                            },
+                                            [=](error &err) mutable {
+                                                spdlog::warn(
+                                                    "{} {}",
+                                                    __PRETTY_FUNCTION__,
+                                                    to_string(err));
+                                                rp.deliver(std::move(err));
+                                            });
+                                } else {
+                                    // missing thumbnail
+                                    rp.deliver(make_error(sce::response_error, response.body));
+                                }
+                            } catch (const std::exception &err) {
+                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                                rp.deliver(make_error(sce::response_error, err.what()));
+                            }
+                        } catch (const std::exception &err) {
+                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                            rp.deliver(make_error(sce::response_error, err.what()));
+                        }
+                    },
+                    [=](error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(std::move(err));
+                    });
+
+            return rp;
+        },
+
         [=](shotgun_image_atom,
             const std::string &entity,
             const int record_id,

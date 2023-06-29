@@ -28,13 +28,6 @@ vec2 calc_pixel_coordinate(vec2 viewport_coordinate)
 }
 )";
 
-static const std::string colour_transforms = R"(
-vec4 colour_transforms(vec4 rgba_in)
-{
-    return rgba_in;
-}
-)";
-
 } // namespace
 
 using nlohmann::json;
@@ -45,21 +38,16 @@ ColourPipeLutCollection::ColourPipeLutCollection(const ColourPipeLutCollection &
 }
 
 void ColourPipeLutCollection::upload_luts(
-    const std::vector<colour_pipeline::ColourLUTPtr> &luts, const bool is_main_viewer) {
-
-    active_luts_.clear();
+    const std::vector<colour_pipeline::ColourLUTPtr> &luts) {
 
     for (const auto &lut : luts) {
 
-        if (((lut->target_viewer() & ColourLUT::MAIN_VIEWER) && is_main_viewer) ||
-            ((lut->target_viewer() & ColourLUT::POPOUT_VIEWER) && !is_main_viewer)) {
-            if (lut_textures_.find(lut->texture_name_and_desc()) == lut_textures_.end()) {
-                lut_textures_[lut->texture_name_and_desc()].reset(
-                    new GLColourLutTexture(lut->descriptor(), lut->texture_name()));
-            }
-            lut_textures_[lut->texture_name_and_desc()]->upload_texture_data(lut);
-            active_luts_.push_back(lut_textures_[lut->texture_name_and_desc()]);
+        if (lut_textures_.find(lut->texture_name_and_desc()) == lut_textures_.end()) {
+            lut_textures_[lut->texture_name_and_desc()].reset(
+                new GLColourLutTexture(lut->descriptor(), lut->texture_name()));
         }
+        lut_textures_[lut->texture_name_and_desc()]->upload_texture_data(lut);
+        active_luts_.push_back(lut_textures_[lut->texture_name_and_desc()]);
     }
 }
 
@@ -73,10 +61,10 @@ void ColourPipeLutCollection::bind_luts(GLShaderProgramPtr shader, int &tex_idx)
 }
 
 OpenGLViewportRenderer::OpenGLViewportRenderer(
-    const bool is_main_viewer, const bool gl_context_shared)
+    const int viewer_index, const bool gl_context_shared)
     : viewport::ViewportRenderer(),
       gl_context_shared_(gl_context_shared),
-      is_main_viewer_(is_main_viewer) {}
+      viewport_index_(viewer_index) {}
 
 void OpenGLViewportRenderer::upload_image_and_colour_data(
     std::vector<media_reader::ImageBufPtr> next_images) {
@@ -110,19 +98,18 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
     }
 
     if (colour_pipe_data && colour_pipe_data->cache_id_ != latest_colour_pipe_data_cacheid_) {
-        colour_pipe_textures_.upload_luts(colour_pipe_data->luts_, is_main_viewer_);
+        colour_pipe_textures_.clear();
+        for (const auto &op : colour_pipe_data->operations()) {
+            colour_pipe_textures_.upload_luts(op->luts_);
+        }
         latest_colour_pipe_data_cacheid_ = colour_pipe_data->cache_id_;
     }
 
     if (onscreen_frame_ && colour_pipe_data &&
-        activate_shader(
-            onscreen_frame_->shader(),
-            is_main_viewer_ ? colour_pipe_data->main_viewport_shader_
-                            : colour_pipe_data->popout_viewport_shader_)) {
+        activate_shader(onscreen_frame_->shader(), colour_pipe_data->operations())) {
 
-        active_shader_program_->set_shader_parameters(onscreen_frame_, is_main_viewer_);
-
-        active_shader_program_->set_shader_parameters(colour_pipe_data.shader_parameters_);
+        active_shader_program_->set_shader_parameters(onscreen_frame_);
+        active_shader_program_->set_shader_parameters(onscreen_frame_.colour_pipe_uniforms_);
 
     } else {
         active_shader_program_ = no_image_shader_program_;
@@ -405,22 +392,25 @@ void OpenGLViewportRenderer::render(
 }
 
 bool OpenGLViewportRenderer::activate_shader(
-    const viewport::GPUShaderPtr &image_buffer_unpack_shader,
-    const viewport::GPUShaderPtr &colour_pipeline_shader) {
+    const viewport::GPUShaderPtr &virt_image_buffer_unpack_shader,
+    const std::vector<colour_pipeline::ColourOperationDataPtr> &colour_operations) {
 
-    if (!image_buffer_unpack_shader) {
+    if (!virt_image_buffer_unpack_shader ||
+        virt_image_buffer_unpack_shader->graphics_api() != GraphicsAPI::OpenGL) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, "No shader passed with image buffer.");
         return false;
     }
 
-    if (!colour_pipeline_shader) {
-        spdlog::warn(
-            "{} {}", __PRETTY_FUNCTION__, "No shader passed with colour pipeline LUTs.");
-        return false;
+    auto image_buffer_unpack_shader =
+        static_cast<opengl::OpenGLShader const *>(virt_image_buffer_unpack_shader.get());
+    if (!image_buffer_unpack_shader) {
     }
 
-    const auto &ib_sid = image_buffer_unpack_shader->shader_id_;
-    const auto &cp_sid = colour_pipeline_shader->shader_id_;
+    std::string shader_id = to_string(image_buffer_unpack_shader->shader_id());
+
+    for (const auto &op : colour_operations) {
+        shader_id += op->cache_id_;
+    }
 
     const std::string shader_id =
         to_string(ib_sid) + "-" + to_string(cp_sid) + "-" + (use_ssbo_ ? "ssbo" : "tex");
@@ -433,10 +423,21 @@ bool OpenGLViewportRenderer::activate_shader(
 
         try {
 
+            std::vector<std::string> shader_componenets;
+            for (const auto &colour_op : colour_operations) {
+                // sanity check - this should be impossible, though
+                if (colour_op->shader_->graphics_api() != GraphicsAPI::OpenGL) {
+                    throw std::runtime_error(
+                        "Non-OpenGL shader data in colour operation chain!");
+                }
+                auto pr = static_cast<opengl::OpenGLShader const *>(colour_op->shader_.get());
+                shader_componenets.push_back(pr->shader_code());
+            }
+
             programs_[shader_id].reset(new GLShaderProgram(
                 default_vertex_shader,
-                colour_pipeline_shader->shader_code_,
-                image_buffer_unpack_shader->shader_code_,
+                image_buffer_unpack_shader->shader_code(),
+                shader_componenets,
                 use_ssbo_));
 
         } catch (std::exception &e) {

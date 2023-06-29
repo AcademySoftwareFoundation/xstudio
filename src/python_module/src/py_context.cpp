@@ -110,7 +110,7 @@ void py_context::py_join(const py::args &xs) {
 
     if (grp) {
         self_->join(grp);
-        spdlog::warn("{}", self_->joined_groups().size());
+        // spdlog::warn("{}", self_->joined_groups().size());
     }
 }
 

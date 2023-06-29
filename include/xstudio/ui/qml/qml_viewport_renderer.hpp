@@ -24,7 +24,7 @@ namespace ui {
             Q_OBJECT
 
           public:
-            QMLViewportRenderer(QObject *owner, const bool m_is_primary_viewer);
+            QMLViewportRenderer(QObject *owner, const int viewport_index);
             ~QMLViewportRenderer() override = default;
 
             void setWindow(QQuickWindow *window);
@@ -75,6 +75,7 @@ namespace ui {
                 QString manufacturer,
                 QString serialNumber,
                 double refresh_rate);
+            QString name() const { return QStringFromStd(viewport_renderer_->name()); }
 
           public slots:
 
@@ -107,7 +108,7 @@ namespace ui {
             QString fps_expression_;
             bool frame_out_of_range_ = {false};
             QRectF imageBounds_;
-            bool is_primary_viewer_;
+            int viewport_index_;
 
             caf::actor viewport_update_group;
             caf::actor playhead_group_;

@@ -17,6 +17,14 @@
 				"datatype": "string",
 				"context": ["APPLICATION"]
 			},
+			"note_depth": {
+				"path": "/core/bookmark/note_depth",
+				"default_value": 0,
+				"value": 0,
+				"description": "Default note depth.",
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
 			"category": {
 				"path": "/core/bookmark/category",
 				"default_value": [

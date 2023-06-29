@@ -45,8 +45,6 @@ namespace playlist {
             const utility::Uuid &uuid_before,
             caf::typed_response_promise<utility::UuidActor> rp);
 
-        void deliver_media_pointer(
-            const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp);
         void create_container(
             caf::actor actor,
             caf::typed_response_promise<utility::UuidUuidActor> rp,

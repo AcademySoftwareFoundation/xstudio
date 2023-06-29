@@ -32,6 +32,19 @@ void PlayheadGlobalEventsActor::init() {
 
     link_to(event_group_);
 
+    set_down_handler([=](down_msg &msg) {
+        // find in playhead list..
+        if (msg.source == on_screen_playhead_) {
+            demonitor(on_screen_playhead_);
+            on_screen_playhead_ = caf::actor();
+            send(
+                event_group_,
+                utility::event_atom_v,
+                ui::viewport::viewport_playhead_atom_v,
+                on_screen_playhead_);
+        }
+    });
+
     behavior_.assign(
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -65,6 +78,7 @@ void PlayheadGlobalEventsActor::init() {
                     ui::viewport::viewport_playhead_atom_v,
                     playhead);
                 on_screen_playhead_ = playhead;
+                monitor(playhead);
             }
         },
         [=](show_atom, const media_reader::ImageBufPtr &buf) {

@@ -237,6 +237,7 @@ namespace ui {
 
             QString preparePlaylistNotes(
                 const QUuid &playlist,
+                const QList<QUuid> &media,
                 const bool notify_owner                 = false,
                 const std::vector<int> notify_group_ids = {},
                 const bool combine                      = false,
@@ -244,9 +245,11 @@ namespace ui {
                 const bool add_playlist_name            = false,
                 const bool add_type                     = false,
                 const bool anno_requires_note           = true,
+                const bool skip_already_published       = false,
                 const QString &defaultType              = "") {
                 return preparePlaylistNotesFuture(
                            playlist,
+                           media,
                            notify_owner,
                            notify_group_ids,
                            combine,
@@ -254,11 +257,13 @@ namespace ui {
                            add_playlist_name,
                            add_type,
                            anno_requires_note,
+                           skip_already_published,
                            defaultType)
                     .result();
             }
             QFuture<QString> preparePlaylistNotesFuture(
                 const QUuid &playlist,
+                const QList<QUuid> &media,
                 const bool notify_owner                 = false,
                 const std::vector<int> notify_group_ids = {},
                 const bool combine                      = false,
@@ -266,6 +271,7 @@ namespace ui {
                 const bool add_playlist_name            = false,
                 const bool add_type                     = false,
                 const bool anno_requires_note           = true,
+                const bool skip_already_published       = false,
                 const QString &defaultType              = "");
 
             QString pushPlaylistNotes(const QString &notes, const QUuid &playlist) {
@@ -362,6 +368,10 @@ namespace ui {
                 return result;
             }
 
+            QFuture<QString> addDownloadToMediaFuture(const QUuid &uuid);
+            QString addDownloadToMedia(const QUuid &uuid) {
+                return addDownloadToMediaFuture(uuid).result();
+            }
 
           private:
             utility::JsonStore purgeOldSystem(

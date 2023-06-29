@@ -69,7 +69,7 @@ namespace plugin_manager {
         [[nodiscard]] semver::version version() const override { return version_; }
         [[nodiscard]] std::string spawn_widget_ui() override { return ui_widget_string_; }
         [[nodiscard]] std::string spawn_menu_ui() override { return ui_menu_string_; }
-        [[nodiscard]] caf::actor spawn(
+        [[nodiscard]] virtual caf::actor spawn(
             caf::blocking_actor &sys,
             const utility::JsonStore &json = utility::JsonStore()) override {
             return sys.spawn<T>(json);

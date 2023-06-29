@@ -11,27 +11,22 @@ import xstudio.qml.helpers 1.0
 Rectangle {
 
     id: header
-    color: "grey"
+    color: XsStyle.mainBackground
     height: 20
-    z: 1000
+    // z: 1000
     property var item_height: thumb_size*9/16
+    property var thumb_size: min_thumb_size
+    property var selection_indicator_width: 20
+    property var filename_left: thumb_size + selection_indicator_width
+
     property int media_list_idx: 0
     property string row_height_property_name: "pane" + media_list_idx + "_row_height"
-    property alias thumb_size: media_list_thumnail_size.value
-    property var selection_indicator_width: 20
     property var parent_window_name: "main_window"
-    property var filename_left: thumb_size + selection_indicator_width
     property var min_thumb_size: 20
-
-    XsModelProperty {
-        id: media_list_thumnail_size
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/media_list_thumnail_size", "pathRole")
-    }
 
     Rectangle {
 
-        color: "transparent"
+        color: XsStyle.mainBackground
         x: filename_left
         width: parent.width-filename_left
         //x: index ? repeater.itemAt(index-1).x+repeater.itemAt(index-1).width : 0
@@ -69,7 +64,6 @@ Rectangle {
     }
 
     MouseArea {
-
         id: dragArea
         anchors.fill: parent
         hoverEnabled: true

@@ -49,6 +49,7 @@ namespace ui {
                            imageBoundaryInViewportChanged)
             Q_PROPERTY(QSize imageResolution READ imageResolution NOTIFY imageResolutionChanged)
             Q_PROPERTY(bool enableShortcuts READ enableShortcuts NOTIFY enableShortcutsChanged)
+            Q_PROPERTY(QString name READ name NOTIFY nameChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);
@@ -59,6 +60,7 @@ namespace ui {
             QVector2D translate();
             QObject *playhead();
             [[nodiscard]] QStringList colourUnderCursor() const { return colour_under_cursor; }
+            [[nodiscard]] QString name() const;
             [[nodiscard]] int mouseButtons() const { return mouse_buttons; }
             [[nodiscard]] QPoint mouse() const { return mouse_position; }
             [[nodiscard]] int onScreenImageLogicalFrame() const {
@@ -129,6 +131,7 @@ namespace ui {
             void frameOutOfRangeChanged();
             void enableShortcutsChanged();
             void doSnapshot(QString, QString, int, int, bool);
+            void nameChanged();
 
           private:
             void releaseResources() override;
@@ -150,8 +153,8 @@ namespace ui {
             QPoint mouse_position;
             int on_screen_logical_frame_ = {0};
             bool frame_out_of_range_     = {false};
-            bool is_primary_viewport_    = {true};
             bool enable_shortcuts_       = {true};
+            int viewport_index_          = {0};
         };
 
     } // namespace qml

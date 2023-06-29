@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Window 2.15
-import QtQuick.Layouts 1.3
-import QtQuick.Controls 2.15
 // import QtQuick.Controls 1.4
-import QtQuick.Controls.Styles 1.4
-import QtQuick.Dialogs 1.2
-import QtGraphicalEffects 1.12
-import QtQuick.Shapes 1.12
+
 import Qt.labs.platform 1.1
 import Qt.labs.settings 1.0
-import QtQml.Models 2.15
+import QtGraphicalEffects 1.12
 import QtQml 2.15
+import QtQml.Models 2.15
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Controls.Styles 1.4
+import QtQuick.Dialogs 1.3
+import QtQuick.Layouts 1.3
+import QtQuick.Shapes 1.12
+import QtQuick.Window 2.15
 
 import QuickFuture 1.0
 import QuickPromise 1.0
@@ -25,7 +26,7 @@ import xstudio.qml.cursor_pos_provider 1.0
 import xstudio.qml.event 1.0
 import xstudio.qml.global_store_model 1.0
 import xstudio.qml.module 1.0
-import xstudio.qml.playlist 1.0
+// import xstudio.qml.playlist 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.session 1.0
 import xstudio.qml.viewport 1.0
@@ -43,7 +44,7 @@ ApplicationWindow {
     id: app_window
     visible: true
     color: XsStyle.theme == "dark"?"#00000000":"white"
-    title: (session.pathNative ? (session.modified ? session.pathNative + " - modified": session.pathNative) : "xStudio")
+    title: (sessionPathNative ? (app_window.sessionModel.modified ? sessionPathNative + " - modified": sessionPathNative) : "xStudio")
     objectName: "appWidnow"
     minimumWidth: sessionWidget.minimumWidth
     minimumHeight: sessionWidget.minimumHeight
@@ -146,6 +147,14 @@ ApplicationWindow {
         index: app_window.globalStoreModel.search_recursive("/core/bookmark/category", "pathRole")
     }
 
+    property alias mediaFlags: mediaFlags
+
+    XsModelPropertyTree {
+        id: mediaFlags
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/media_flags", "pathRole")
+    }
+
     XsBookmarkCategories {
         id: bookmark_categories
         value: bookmark_categories_value.value
@@ -243,7 +252,7 @@ ApplicationWindow {
         buttonModel: ["Cancel", "Restore"]
         onSelected: {
             if(button_index == 1) {
-                session.load(encodeURIComponent(autosave_path))
+                Future.promise(studio.loadSessionFuture(encodeURIComponent(autosave_path))).then(function(result){})
             }
         }
     }
@@ -256,7 +265,7 @@ ApplicationWindow {
 
         var component = Qt.createComponent("player/XsPlayerWindow.qml");
         if (component.status == Component.Ready) {
-            popout_window = component.createObject(app_window, {x: 100, y: 100, session: session});
+            popout_window = component.createObject(app_window, {x: 100, y: 100, mediaImageSource: mediaImageSource});
             popout_window.show()
         } else {
             // Error Handling
@@ -298,120 +307,834 @@ ApplicationWindow {
 
         onSelected: {
             if(button_index == 1) {
-                session.save_session_path(session.path)
+                sessionFunction.saveSessionPath(sessionPath).then(function(result){
+                    if (result != "") {
+                        var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
+                        dialog.title = "Save session failed"
+                        dialog.text = result
+                        dialog.show()
+                    } else {
+                        sessionFunction.newRecentPath(sessionPath)
+                    }
+                })
             } else if(button_index == 2) {
-                session.save_session_as()
+                sessionFunction.saveSessionAs()
             }
         }
     }
 
     XsModuleAttributes {
         id: playhead_attrs
-        attributesGroupName: "playhead"
+        attributesGroupNames: "playhead"
     }
 
     XsBookmarkModel {
         id: bookmarkModel
-        bookmarkActorAddr: session.bookmarkActorAddr
+        bookmarkActorAddr: sessionModel.bookmarkActorAddr
+    }
+
+    property alias playlistModel: sessionModel.playlists
+
+    property alias sessionModel: sessionModel
+
+    XsSessionModel {
+        id: sessionModel
+        sessionActorAddr: studio.sessionActorAddr
+
+        onPlaylistsChanged: {
+            if(sessionSelectionModel.currentIndex == undefined || !sessionSelectionModel.currentIndex.valid) {
+                let ind = sessionModel.search_recursive("Playlist", "typeRole")
+                if(ind.valid) {
+                    currentSource.index = ind
+                    screenSource.index = ind
+                    sessionSelectionModel.select(ind, ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
+                    sessionSelectionModel.setCurrentIndex(ind, ItemSelectionModel.setCurrentIndex)
+                }
+            }
+        }
+
+        onSessionActorAddrChanged: {
+            currentSource.index = sessionModel.index(-1,-1)
+            screenSource.index = sessionModel.index(-1,-1)
+            mediaImageSource.index = sessionModel.index(-1,-1)
+            sessionSelectionModel.clear()
+        }
+        onModelReset: {
+            sessionPropertyMap.index = sessionModel.index(0,0)
+        }
+    }
+
+    property alias sessionSelectionModel: sessionSelectionModel
+    ItemSelectionModel {
+        id: sessionSelectionModel
+        model: sessionModel
+
+        onCurrentChanged: {
+            currentSource.index = currentIndex
+        }
     }
 
 
-    // XsModelProperty {
-    //     id: session_name
-    //     role: "nameRole"
-    //     index: app_window.sessionModel.index(0,0)
-    //     onValueChanged: {
-    //         console.log("nameRole", value)
-    //     }
-    // }
+    property alias sessionExpandedModel: sessionExpandedModel
+    ItemSelectionModel {
+        id: sessionExpandedModel
+        model: sessionModel
+    }
 
-    // Connections {
-    //     target: sessionModel
-    //     function onSessionActorAddrChanged() {
-    //         session_name.index = sessionModel.index(0,0)
-    //     }
-    // }
+    property var sessionPath: sessionPropertyMap.values.pathRole
+    property var sessionRate: sessionPropertyMap.values.rateFPSRole
+    property var sessionMTime: sessionPropertyMap.values.mtimeRole
+    property var sessionPathNative: sessionPath ? helpers.pathFromURL(sessionPath) : ""
 
-    // XsHotkey {
-    //     sequence: "Alt+e"
-    //     name: "test"
-    //     description: "test"
-    //     onActivated: {
-    //         session_name.value = "Test"
-    //     }
-    // }
+    XsModelPropertyMap {
+        id: sessionPropertyMap
+    }
 
-    // property alias sessionModel: sessionModel
+    XsTimer {
+        id: delayTimer
+    }
 
-    // XsSessionModel {
-    //     id: sessionModel
-    //     sessionActorAddr: session.sessionActorAddr
-    // }
+    property alias currentSource: currentSource
+    XsModelPropertyMap {
+        id: currentSource
+        index: sessionModel.index(-1,-1)
+        property var fullName: values.nameRole ? getFullName() : getFullName()
 
-    Session {
-        id: session
+        onIndexChanged: {
+            // console.log("onIndexChanged", currentSource.index)
+            if(currentSource.index.valid) {
+                if(!screenSource.index.valid)
+                    screenSource.index = currentSource.index
+                mediaSelectionModel.updateSelectionFromBackend(currentSource.index.model.index(1, 0, currentSource.index))
+                // always something selected..
 
-        property alias bookmarkModel: bookmarkModel
+                if(!mediaSelectionModel.selectedIndexes.length) {
+                    // get first item..
+                    let mcind = sessionModel.index(0, 0, currentSource.index)
+                    if(mcind.valid) {
+                        if(sessionModel.rowCount(mcind)) {
+                            mediaSelectionModel.select(sessionModel.index(0,0,mcind), ItemSelectionModel.ClearAndSelect)
+                        } else {
+                            delayTimer.setTimeout(function() {
+                                if(sessionModel.rowCount(mcind)) {
+                                    mediaSelectionModel.select(sessionModel.index(0,0,mcind), ItemSelectionModel.ClearAndSelect)
+                                }
+                            }, 200)
+                        }
+                    }
+                }
+            } else {
+                screenSource.index = currentSource.index
+                mediaSelectionModel.clear();
+            }
+        }
+
+        function getFullName() {
+            let result = ""
+            if(index.valid) {
+                if(values.typeRole == "Playlist") {
+                    result = values.nameRole ? values.nameRole : ""
+                }
+                else {
+                    result = index.model.get(index.parent.parent, "nameRole") + " - " + values.nameRole
+                }
+            }
+            return result
+        }
+    }
+
+    // current MT_IMAGE media source
+    property alias mediaImageSource: mediaImageSource
+    XsModelPropertyMap {
+        id: mediaImageSource
+        index: sessionModel.index(-1,-1)
+
+        property var fileName: {
+            let result = ""
+            if(index.valid && values.pathRole != undefined) {
+                result = helpers.fileFromURL(values.pathRole)
+            }
+            return result
+        }
+
+        property var streams: []
+
+        function buildStreams() {
+            let result = []
+            if(index.valid) {
+                let ind = index.model.index(0, 0, index)
+                if(ind.valid) {
+                    for(let i=0; i<index.model.rowCount(ind); i++) {
+                        let sind = ind.model.index(i, 0, ind)
+                        result.push({"name": index.model.get(sind, "nameRole"), "uuid": index.model.get(sind, "actorUuidRole")})
+                    }
+                }
+            }
+            streams = result
+        }
+
+        onIndexChanged: {
+            // console.log("*****************************mediaImageSource, onIndexChanged", index)
+            if(index.valid) {
+                // we need these populated first..
+                if(index.model.rowCount(index)) {
+                    // stream containers loaded.
+                    let ia = index.model.search_recursive(values.imageActorUuidRole, "actorUuidRole", index.model.index(0,0,index))
+                    let aa = index.model.search_recursive(values.audioActorUuidRole, "actorUuidRole", index.model.index(1,0,index))
+
+                    // console.log("imageStreams", index.model.index(0,0,index), index.model.rowCount(index.model.index(0,0,index)))
+                    // console.log("audioStreams", index.model.index(1,0,index), index.model.rowCount(index.model.index(1,0,index)))
+                    // console.log("imageActorUuidRole", ia, index.model.get(ia, "nameRole"))
+                    // console.log("audioActorUuidRole", aa, index.model.get(aa, "nameRole"))
+                    buildStreams()
+                } else {
+                    callback_timer.setTimeout(function(plindex) { return function() {
+                        // console.log(index.model.rowCount(index))
+                        if(index.model) {
+                            let ia = index.model.search_recursive(values.imageActorUuidRole, "actorUuidRole", index.model.index(0,0,index))
+                            let aa = index.model.search_recursive(values.audioActorUuidRole, "actorUuidRole", index.model.index(1,0,index))
+                            buildStreams()
+                        }
+                    }}( index ), 100);
+                }
+            } else {
+                buildStreams()
+            }
+        }
+    }
+
+    // update current media under playhead.
+    // media can exist in multiple parts of the tree..
+    // make sure we're looking in the right one..
+    function updateMediaUuid(uuid) {
+        // console.log("updateMediaUuid", uuid)
+        let media_idx = app_window.sessionModel.search_recursive(uuid, "actorUuidRole", screenSource.index)
+        if(media_idx.valid) {
+            // get index of active source.
+            let active = media_idx.model.get(media_idx, "imageActorUuidRole")
+            // dummy to populate..
+            media_idx.model.get(media_idx, "audioActorUuidRole")
+
+            if(active != undefined) {
+                let msi = app_window.sessionModel.search_recursive(active, "actorUuidRole", media_idx)
+                if(mediaImageSource.index != msi)
+                    mediaImageSource.index = msi
+
+                let msip = mediaImageSource.index.parent
+                if(mediaSelectionModel.currentIndex != msip) {
+                    mediaSelectionModel.setCurrentIndex(msip, ItemSelectionModel.setCurrentIndex)
+                }
+            }
+            else
+                mediaImageSource.index = app_window.sessionModel.index(-1,-1)
+        } else {
+            mediaImageSource.index = app_window.sessionModel.index(-1,-1)
+        }
+    }
+
+    Connections {
+        target: viewport.playhead
+        function onMediaUuidChanged(uuid) {
+            updateMediaUuid(uuid)
+        }
+    }
+
+
+    property alias screenSource: screenSource
+    XsModelPropertyMap {
+        id: screenSource
+        index: sessionModel.index(-1,-1)
+        onIndexChanged: {
+            sessionModel.setPlayheadTo(index)
+        }
+    }
+        XsTimer {
+          id: m_timer
+        }
+
+    // manages media selection, for current source.
+    property alias mediaSelectionModel: mediaSelectionModel
+    ItemSelectionModel {
+        id: mediaSelectionModel
+        model: sessionModel
+
+        // current follows current playhead media ?
+        onCurrentChanged: {
+            // console.log("mediaSelectionModel onCurrentChanged", current)
+            if(current.valid) {
+                // check playhead...
+                let active = current.model.get(current, "actorUuidRole")
+                // console.log(active, viewport.playhead.mediaUuid)
+                if(active != viewport.playhead.mediaUuid) {
+                    viewport.playhead.jumpToSource(active)
+                }
+                // find media source index..
+                let mind = current.model.search_recursive(current.model.get(current, "imageActorUuidRole"), "actorUuidRole", current)
+                if(mind.valid) {
+                    if(mediaImageSource.index != mind)
+                        mediaImageSource.index = mind
+                } else {
+                    // children not valid wait a little..
+                    m_timer.setTimeout(function(index) { return function() {
+                        let model = index.model
+                        let mind = model.search_recursive(model.get(index, "imageActorUuidRole"), "actorUuidRole", index)
+                        console.log(mind)
+                        if(mind.valid && mediaImageSource.index != mind) {
+                            mediaImageSource.index = mind
+                        }
+
+                    }}( current ), 100);
+
+                }
+            }
+        }
+
+        onSelectionChanged: {
+            // console.log("onSelectionChanged", selectedIndexes)
+            if(currentSource.index.valid && selectedIndexes.length) {
+                model.updateSelection(currentSource.index.model.index(1, 0, currentSource.index), selectedIndexes)
+            }
+        }
+
+        function updateSelectionFromBackend(parent) {
+            // console.log("updateSelectionFromBackend", parent)
+            if(currentSource.index.valid) {
+                let cmodel = currentSource.index.model
+                let pmodel = parent.model
+                let ind = cmodel.index(1, 0, currentSource.index)
+                if(pmodel && ind == parent) {
+                    // get list and update.
+                    let count = cmodel.rowCount(ind)
+                    let indexes = []
+                    for(let i =0; i<count;i++) {
+                        let m_uuid = pmodel.get(pmodel.index(i, 0, parent), "uuidRole")
+                        // actorUUid of media..
+                        indexes.push(
+                            parent.model.search_recursive(
+                                pmodel.get(pmodel.index(i, 0, parent), "uuidRole"),
+                                "actorUuidRole",
+                                cmodel.index(0, 0, currentSource.index)
+                            )
+                        )
+                    }
+
+                    mediaSelectionModel.select(helpers.createItemSelection(indexes), ItemSelectionModel.ClearAndSelect)
+                }
+            }
+        }
+    }
+
+    // need to capture changes to PlayheadSelection model.
+    Connections {
+        target: sessionModel
+        function onRowsRemoved(parent, first, last) {
+            mediaSelectionModel.updateSelectionFromBackend(parent)
+            // check still valid..
+            if(app_window.mediaImageSource.index && !app_window.mediaImageSource.index.valid) {
+                app_window.mediaImageSource.index = sessionModel.index(-1,-1)
+            }
+        }
+        function onRowsInserted(parent, first, last) {
+            mediaSelectionModel.updateSelectionFromBackend(parent)
+        }
+        function onRowsMoved(parent, first, count, target, first) {
+            mediaSelectionModel.updateSelectionFromBackend(parent)
+        }
+
+        function onMediaSourceChanged(media_index, media_source_index, media_type) {
+            if(media_type == 1 && mediaSelectionModel.currentIndex == media_index && mediaImageSource.index != media_source_index) {
+                mediaImageSource.index = media_source_index
+            }
+        }
+    }
+
+    property alias sessionFunction: sessionFunction
+    property alias bookmarkModel: bookmarkModel
+
+    Item {
+        id: sessionFunction
         property var checked_unsaved_session: false
-        // so QML can find their QML instances.
+
         property var object_map: ({})
 
-        onSessionRequest: {
-            var dialog = XsUtils.openDialog("qrc:/dialogs/XsSessionRequestDialog.qml")
-            dialog.path = path
-            dialog.payload = jsn
-            dialog.show()
+        function setScreenSource(index) {
+            screenSource.index = index
         }
 
-        function closeSession() {
-            app_window.session.checked_unsaved_session = true
-            app_window.close()
+        XsTimer {
+          id: callback_timer
         }
 
-        function new_session() {
-            newSession("New Session")
-        }
+        XsStringRequestDialog {
+            id: request_new
+            // y: centerOn ? centerOn.mapToGlobal(0, 25).y : 0
+            keepCentered: false
+            okay_text: ""
+            text: ""
 
-        function add_selected_item(parent, obj, value) {
-            if(obj.selected) {
-                value.push(obj.cuuid)
-                return true
+            property var index: null
+            property string type: ""
+
+            onOkayed: {
+                let new_indexes = index.model.insertRowsSync(
+                    index.model.rowCount(index),
+                    1,
+                    type, text,
+                    index
+                )
+                app_window.sessionExpandedModel.select(index.parent, ItemSelectionModel.Select)
             }
-            return false
         }
 
-        function add_selected_item_uuid(parent, obj, value) {
-            if(obj.selected) {
-                value.push(obj.uuid)
-                return true
-            }
-            return false
-        }
-
-        function flag_selected_items(flag, text) {
-            function toggleFlag(parent, obj, value) {
-                if(obj.selected && obj.flag != value) {
-                    parent.reflagContainer(value, obj.cuuid)
-                    return true
+        XsButtonDialog {
+            id: remove_selected
+            text: "Remove Selected"
+            width: 300
+            buttonModel: ["Cancel", "Remove"]
+            onSelected: {
+                if(button_index == 1) {
+                    // order by reverse row..
+                    let items = []
+                    sessionSelectionModel.selectedIndexes.forEach(function (item, index) {
+                        items.push(item)
+                    })
+                    items = items.sort((a,b) => b.row - a.row )
+                    items.forEach(function (item, index) {
+                        item.model.removeRows(item.row, 1, false, item.parent)
+                    })
                 }
-                return false
             }
-            // multiselect..
-            XsUtils.forAllItems(app_window.session, null, toggleFlag, flag)
         }
 
-        function remove_selected_items() {
-            // N.B. we need to remove tabs that point to items that are about
-            // to be removed, but also change the slection so that a tab that
-            // hasn't been deleted becomes current
-            var to_remove = []
-            var to_remove2 = []
-            XsUtils.forAllItems(session, null, add_selected_item, to_remove2)
-            XsUtils.forAllItems(session, null, add_selected_item_uuid, to_remove)
-            to_remove2.forEach(removeContainer)
+        XsStringRequestDialog {
+            id: request_media_rate
+            input.inputMethodHints: Qt.ImhFormattedNumbersOnly
+            okay_text: "Set Media Rate"
+            onOkayed: sessionFunction.setMediaRate(text)
+            // y: centerOn ? centerOn.mapToGlobal(0, 25).y : 0
+            // centerOn: null
         }
 
-        function new_recent_path(path) {
+        XsStringRequestDialog {
+            id: add_media_to_playlist
+            okay_text: "Copy Media"
+            secondary_okay_text: "Move Media"
+            text: "Untitled Playlist"
+
+            onOkayed: {
+                let selection = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+                let index = app_window.sessionFunction.createPlaylist(text)
+                callback_timer.setTimeout(function(plindex, selection) { return function() {
+                    plindex.model.copyRows(selection, 0, plindex)
+                }}( index, selection ), 100);
+
+            }
+
+            onSecondary_okayed: {
+                let selection = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+                let index = app_window.sessionFunction.createPlaylist(text)
+                callback_timer.setTimeout(function(plindex, selection) { return function() {
+                    plindex.model.moveRows(selection, 0, plindex)
+                }}( index, selection ), 100);
+            }
+
+            // y: playlist_panel.mapToGlobal(0, 25).y
+            // centerOn: playlist_panel
+
+        }
+
+        XsStringRequestDialog {
+            id: add_media_to_subset
+            okay_text: "Add Media"
+            text: "Untitled Subset"
+
+            onOkayed: {
+                // find current playlist
+                let ind = app_window.sessionFunction.firstSelected("Playlist")
+
+                if(ind != null && ind.valid)  {
+                    let media = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+                    let subset = sessionModel.insertRowsSync(
+                        sessionModel.rowCount(sessionModel.index(2,0, ind)),
+                        1,
+                        "Subset", text,
+                        sessionModel.index(2,0, ind)
+                    )[0]
+
+                    callback_timer.setTimeout(function(plindex, mediaind) { return function() {
+                        plindex.model.copyRows(mediaind, 0, plindex)
+                    }}( subset, media ), 100);
+                }
+            }
+        }
+
+        XsStringRequestDialog {
+            id: add_media_to_timeline
+            okay_text: "Add Media"
+            text: "Untitled Timeline"
+
+            onOkayed: {
+                // find current playlist
+                let ind = app_window.sessionFunction.firstSelected("Playlist")
+
+                if(ind != null && ind.valid)  {
+                    let media = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+                    let subset = sessionModel.insertRowsSync(
+                        sessionModel.rowCount(sessionModel.index(2,0, ind)),
+                        1,
+                        "Timeline", text,
+                        sessionModel.index(2,0, ind)
+                    )[0]
+
+                    callback_timer.setTimeout(function(plindex, mediaind) { return function() {
+                        plindex.model.copyRows(mediaind, 0, plindex)
+                    }}( subset, media ), 100);
+                }
+            }
+        }
+
+        XsButtonDialog {
+            id: remove_media
+            // parent: sessionWidget.media_list
+            text: "Remove Selected Media"
+            width: 300
+            buttonModel: ["Cancel", "Remove"]
+            onSelected: {
+                if(button_index == 1) {
+                    sessionFunction.removeSelectedMedia()
+                }
+            }
+        }
+
+        FileDialog {
+            id: media_dialog
+            title: "Select media files"
+            folder: app_window.sessionFunction.defaultMediaFolder() || shortcuts.home
+
+            nameFilters:  [ "Media files ("+helpers.validMediaExtensions()+")", "All files (*)" ]
+            selectExisting: true
+            selectMultiple: true
+
+            property var index: null
+
+            onAccepted: {
+                let uris = ""
+                media_dialog.fileUrls.forEach(function (item, index) {
+                    uris = uris + String(item) +"\n"
+                })
+
+                if(index == null) {
+                    // create new playlist..
+                    index = app_window.sessionFunction.createPlaylist("Add Media")
+                    callback_timer.setTimeout(function(capture) { return function(){
+                        Future.promise(
+                            capture.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": uris}, capture)
+                        ).then(function(quuids){
+                            app_window.sessionFunction.selectNewMedia(index,quuids)
+                        }) }}(index), 100
+                    );
+                }
+                else
+                    Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": uris}, index)).then(
+                        function(quuids){
+                            app_window.sessionFunction.selectNewMedia(index,quuids)
+                        }
+                    )
+
+                app_window.sessionFunction.defaultMediaFolder(folder)
+            }
+        }
+
+        FileDialog {
+            id: relink_media_dialog
+            title: "Relink media files"
+            folder: app_window.sessionFunction.defaultMediaFolder() || shortcuts.home
+
+            selectFolder: true
+            selectExisting: true
+            selectMultiple: false
+
+            onAccepted: {
+                app_window.sessionModel.relinkMedia(mediaSelectionModel.selectedIndexes, relink_media_dialog.fileUrls[0])
+                app_window.sessionFunction.defaultMediaFolder(folder)
+            }
+        }
+
+        FileDialog {
+            id: import_sequence_dialog
+            title: "Select sequence files"
+            folder: app_window.sessionFunction.defaultMediaFolder() || shortcuts.home
+
+            nameFilters:  [ "All files (*)" ]
+            selectExisting: true
+            selectMultiple: true
+
+            property var index: null
+
+            onAccepted: {
+                let uris = ""
+                import_sequence_dialog.fileUrls.forEach(function (item, index) {
+                    uris = uris + String(item) +"\n"
+                })
+
+                if(index == null) {
+                    // create new playlist..
+                    index = app_window.sessionFunction.createPlaylist("Imported Sequence")
+                    callback_timer.setTimeout(function(capture) { return function(){
+                    Future.promise(
+                        capture.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": uris}, capture)
+                    ).then(function(quuids){
+                        // console.log("handleDropFuture finished")
+                    }) }}(index), 100);
+                }
+                else
+                    Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": uris}, index)).then(function(quuids){})
+
+                app_window.sessionFunction.defaultMediaFolder(folder)
+            }
+        }
+
+        function selectNewMedia(index, quuids) {
+            let type = index.model.get(index,"typeRole")
+            // console.log(index, quuids)
+
+            if(quuids.length && ["Playlist", "Subset", "Timeline"].includes(type)) {
+                app_window.sessionFunction.setActivePlaylist(index)
+                callback_timer.setTimeout(function(plindex, new_item) { return function() {
+                    let new_media = plindex.model.search_recursive(new_item, "actorUuidRole", plindex.model.index(0,0,plindex))
+                    if(new_media.valid) {
+                        app_window.sessionFunction.setActiveMedia(new_media)
+                    }
+                }}( index, "{"+helpers.QUuidToQString(quuids[0])+"}" ), 1000);
+            }
+        }
+
+        function createPlaylist(name, sync=true) {
+            if(sync)
+                return sessionModel.insertRowsSync(
+                    sessionModel.rowCount(sessionModel.index(0,0)),
+                    1,
+                    "Playlist", name,
+                    sessionModel.index(0,0)
+                )[0]
+
+            return sessionModel.insertRowsAsync(
+                sessionModel.rowCount(sessionModel.index(0,0)),
+                1,
+                "Playlist", name,
+                sessionModel.index(0,0)
+            )[0]
+        }
+
+        function defaultMediaFolder(path=null) {
+            if(path != null) {
+                preferences.default_media_folder.value = path
+            } else {
+                if(preferences.default_media_folder.value != "") {
+                    return preferences.default_media_folder.value
+                }
+            }
+            return null
+        }
+
+        function defaultSessionFolder() {
+            // pick more recent path..
+            if(preferences.recent_history.value.length) {
+                let p = preferences.recent_history.value[0]
+                return p.substr(0, p.lastIndexOf("/"))
+            }
+
+            return null
+        }
+
+        function jumpToNextSource() {
+            if (!viewport.playhead.jumpToNextSource()) {
+                // get selection..
+                let selind = currentSource.index.model.index(1, 0, currentSource.index)
+                let medind = currentSource.index.model.index(0, 0, currentSource.index)
+                let mcount = medind.model.rowCount(medind)
+                let last_uuid  = medind.model.get(medind.model.index(mcount-1,0,medind), "actorUuidRole")
+                let first_suuid  = selind.model.get(selind.model.index(0,0,selind), "uuidRole")
+
+                if(preferences.cycle_through_playlist.value && last_uuid == first_suuid){
+                    currentSource.index.model.moveSelectionByIndex(selind, -(mcount - 1))
+                } else {
+                    currentSource.index.model.moveSelectionByIndex(selind, 1)
+                }
+            }
+        }
+
+        function jumpToPreviousSource() {
+            if (!viewport.playhead.jumpToPreviousSource()) {
+
+                let selind = currentSource.index.model.index(1, 0, currentSource.index)
+                let medind = currentSource.index.model.index(0, 0, currentSource.index)
+                let mcount = medind.model.rowCount(medind)
+                let first_uuid  = medind.model.get(medind.model.index(0,0,medind), "actorUuidRole")
+                let first_suuid  = selind.model.get(selind.model.index(0,0,selind), "uuidRole")
+
+                if(preferences.cycle_through_playlist.value && first_uuid == first_suuid){
+                    currentSource.index.model.moveSelectionByIndex(selind, mcount - 1)
+                } else {
+                    currentSource.index.model.moveSelectionByIndex(selind, -1)
+                }
+            }
+        }
+
+        function setActivePlaylist(index) {
+            app_window.sessionSelectionModel.select(index, ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
+            app_window.sessionSelectionModel.setCurrentIndex(index, ItemSelectionModel.setCurrentIndex)
+            app_window.screenSource.index = index
+        }
+
+        function setActiveMedia(index, clear=true) {
+            app_window.mediaSelectionModel.setCurrentIndex(index, ItemSelectionModel.setCurrentIndex)
+            if(clear)
+                app_window.mediaSelectionModel.select(index, ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
+            else
+                app_window.mediaSelectionModel.select(index, ItemSelectionModel.Select | ItemSelectionModel.setCurrentIndex)
+        }
+
+
+        function addMedia(index) {
+            media_dialog.index = index
+            media_dialog.open()
+        }
+
+        function addMediaFromClipboard(index) {
+            if(clipboard.text.length) {
+                let ct = ""
+                clipboard.text.split("\n").forEach(function (item, index) {
+                        // replace #'s
+                        // item.replace(/[#]+/, "*")
+                        ct = ct + "file://" + item + "\n"
+                    }
+                )
+                if(index == null) {
+                    // create new playlist..
+                    index = createPlaylist("Clipboard")
+                    // console.log(index, ct)
+                    Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": ct}, index)).then(function(quuids){
+                        app_window.sessionFunction.selectNewMedia(index, quuids)
+                    })
+                }
+                else {
+                    // console.log(index, ct)
+                    Future.promise(index.model.handleDropFuture(Qt.CopyAction, {"text/uri-list": ct}, index)).then(function(quuids){
+                        app_window.sessionFunction.selectNewMedia(index, quuids)
+                    })
+                }
+            }
+        }
+
+        function removeSelected() {
+            remove_selected.open()
+        }
+
+        function newPlaylist(index, text=null) {
+            if(index != null) {
+                request_new.text = "Untitled Playlist"
+                request_new.okay_text = "Add Playlist"
+                request_new.type = "Playlist"
+                // request_new.centerOn = centeron
+                request_new.index = index
+
+                if(text != null)
+                    request_new.text = text
+
+                request_new.open()
+            }
+        }
+
+        function newDivider(index, text=null, centeron=null) {
+            if(index != null) {
+                request_new.text = "Untitled Divider"
+                request_new.okay_text = "Add Divider"
+                request_new.type = "ContainerDivider"
+                request_new.centerOn = centeron
+                request_new.index = index
+
+                if(text != null)
+                    request_new.text = text
+
+                request_new.open()
+            }
+        }
+
+
+        function newSubset(index, text=null, centeron=null) {
+            if(index != null) {
+                request_new.text = "Untitled Subset"
+                request_new.okay_text = "Add Subset"
+                request_new.type = "Subset"
+                request_new.centerOn = centeron
+                request_new.index = index
+
+                if(text != null)
+                    request_new.text = text
+
+                request_new.open()
+            }
+        }
+
+        function newTimeline(index, text=null, centeron=null) {
+            if(index != null) {
+                request_new.text = "Untitled Timeline"
+                request_new.okay_text = "Add Timeline"
+                request_new.type = "Timeline"
+                request_new.centerOn = centeron
+                request_new.index = index
+
+                if(text != null)
+                    request_new.text = text
+
+                request_new.open()
+            }
+        }
+
+        function getPlaylistIndex(index) {
+            if(index && index.valid) {
+                let model = index.model
+                let type = model.get(index, "typeRole")
+                if(type == "Playlist")
+                    return index
+                else if( type == "Subset" )
+                    return index.parent.parent
+                else if( type == "Timeline" )
+                    return index.parent.parent
+            }
+            return null
+        }
+
+        function firstSelected(type) {
+            let model = sessionSelectionModel.model
+            if(sessionSelectionModel.currentIndex) {
+                return getPlaylistIndex(sessionSelectionModel.currentIndex)
+            } else {
+                for(let i =0; i< sessionSelectionModel.selectedIndexes.length; i++) {
+                    let ind = sessionSelectionModel.selectedIndexes[i]
+                    if(ind.model.get(ind,"typeRole") == type)
+                        return ind
+                }
+            }
+
+            return null
+        }
+
+        function mergeSelected() {
+            if(sessionSelectionModel.selectedIndexes.length) {
+                sessionModel.mergeRows(sessionSelectionModel.selectedIndexes)
+            }
+        }
+
+        function flagSelected(flag) {
+            let sindexs = sessionSelectionModel.selectedIndexes
+            for(let i = 0; i< sindexs.length; i++) {
+                sessionModel.set(sindexs[i], flag, "flagRole")
+            }
+        }
+
+        function newRecentPath(path) {
             let old = preferences.recent_history.value
 
             if(old == undefined || !old.length){
@@ -434,218 +1157,13 @@ ApplicationWindow {
             preferences.recent_history.value = old
         }
 
-        function open_session() {
-            var dialog = XsUtils.openDialog("qrc:/dialogs/XsOpenSessionDialog.qml")
-            dialog.open()
-        }
-
-        function save_before_open(path="") {
-            function open_recent_check() {
-                if(path == "") {
-                    open_session()
-                }
-                else {
-                    session.load(path)
-                    new_recent_path(path)
-                }
-            }
-
-            if(modified) {
-                var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveBeforeDialog.qml")
-                dialog.comment = "Save Session Before Opening?"
-                dialog.action_text = "Save And Open"
-                dialog.saved.connect(open_recent_check)
-                dialog.dont_save.connect(open_recent_check)
-                dialog.show()
-            } else {
-                open_recent_check()
-            }
-        }
-
-        function save_before_close() {
-            if(!app_window.session.checked_unsaved_session) {
-                // spawn dialog
-                var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveBeforeDialog.qml")
-                dialog.comment = "Save Session Before Closing?"
-                dialog.action_text = "Save And Close"
-                dialog.saved.connect(app_window.close)
-                dialog.dont_save.connect(closeSession)
-                dialog.show()
-                return false;
-            }
-
-            return true;
-        }
-
-        function save_before_new_session() {
-            if(modified) {
-                var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveBeforeDialog.qml")
-                dialog.title = "New Session"
-                dialog.comment = "This Session has been modified. Would you like to save it??"
-                dialog.action_text = "Save And New Session"
-                dialog.saved.connect(new_session)
-                dialog.dont_save.connect(new_session)
-                dialog.show()
-            } else {
-                new_session()
-            }
-        }
-
-        function import_session() {
+        function importSession() {
             var dialog = XsUtils.openDialog("qrc:/dialogs/XsImportSessionDialog.qml")
             dialog.open()
         }
 
-        function save_session_as() {
-            var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveSessionDialog.qml")
-            dialog.open()
-        }
-
-        function copy_session_link(check_saved=true) {
-            if(check_saved && app_window.session.modified) {
-                save_session()
-            }
-            clipboard.text = preferences.session_link_prefix.value + "xstudio://open_session?path=" + app_window.session.posixPath()
-        }
-
-        function save_session() {
-            if(session.pathNative != "") {
-                if(session.sessionFileMTime.getTime() != helpers.getFileMTime(session.path).getTime()) {
-                    overwriteDialog.open()
-                } else {
-                    session.save_session_path(session.path)
-                }
-            }
-            else {
-                session.save_session_as()
-            }
-        }
-
-
-        function save_session_path(path) {
-            var error_msg = save(path)
-            if (error_msg != "") {
-                var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
-                dialog.title = "Save session failed"
-                dialog.text = error_msg
-                dialog.show()
-            } else {
-                app_window.session.new_recent_path(path)
-            }
-            return error_msg;
-        }
-
-        function save_selected_session(path) {
-            var error_msg = save_selected(path)
-            if (error_msg != "") {
-                var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
-                dialog.title = "Save selected session failed"
-                dialog.text = error_msg
-                dialog.show()
-            } else {
-                app_window.session.new_recent_path(path)
-            }
-        }
-
-
-        function add_media_from_clipboard(source=app_window.session) {
-            // expects paths in clipboard, possibly multiple
-            // can we piggy back on something..
-            if(clipboard.text.length) {
-                let ct = ""
-                clipboard.text.split("\n").forEach(function (item, index) {
-                        ct = ct + "file:" + item + "\n"
-                    }
-                )
-                Future.promise(source.handleDropFuture({"text/uri-list": ct})).then(function(quuids){})
-            }
-        }
-
-        function copy_media_file_name() {
-            var filenames = selectedSource ? selectedSource.selectionFilter.selectedMediaFileNames() : onScreenSource.selectionFilter.selectedMediaFileNames()
-            clipboard.text = filenames.join("\n")
-        }
-
-        function copy_media_to_link() {
-            let source = selectedSource ? selectedSource : onScreenSource
-            var filenames = source.selectionFilter.selectedMediaFilePaths()
-            let prefix = "&"+ encodeURIComponent(source.name)+"_media="
-
-            clipboard.text = preferences.session_link_prefix.value + "xstudio://add_media?compare="+encodeURIComponent(playhead_attrs.compare)+"&playlist=" + encodeURIComponent(source.name) + prefix + filenames.join(prefix)
-        }
-
-        function copy_media_to_cmd() {
-            let source = selectedSource ? selectedSource : onScreenSource
-            var filenames = source.selectionFilter.selectedMediaFilePaths()
-            let prefix = "&"+ encodeURIComponent(source.name)+"_media="
-
-            clipboard.text = "xstudio 'xstudio://add_media?compare="+encodeURIComponent(playhead_attrs.compare)+"&playlist=" + encodeURIComponent(source.name) + prefix + filenames.join(prefix)+"'"
-        }
-
-        function copy_media_file_path() {
-            var filenames = selectedSource ? selectedSource.selectionFilter.selectedMediaFilePaths() : onScreenSource.selectionFilter.selectedMediaFilePaths()
-            clipboard.text = filenames.join("\n")
-        }
-
-        function reveal_selected_sources() {
-            var urls = selectedSource ? selectedSource.selectionFilter.selectedMediaURLs() : onScreenSource.selectionFilter.selectedMediaURLs()
-            helpers.ShowURIS(urls)
-            // console.log(urls)
-        }
-
-        function selectedMediaUuids() {
-            var source = selectedSource ? selectedSource : onScreenSource
-            return source.selectionFilter.selectedMediaUuids
-        }
-
-        function flag_selected_media(flag, text) {
-            var source = selectedSource ? selectedSource : onScreenSource
-            var media = source.selectionFilter.selectedMediaUuids
-            source.mediaList.forEach(
-                (element) => {
-                    if(media.includes(element.uuid)) {
-                        element.flag = flag
-                        element.flagText = text
-                    }
-                }
-            )
-        }
-
-        function flag_current_media(flag, text) {
-            var media = viewport.playhead.media
-            media.flag = flag
-            media.flagText = text
-        }
-
-        function duplicate_selected_media() {
-            var source = selectedSource ? selectedSource : onScreenSource
-            var media = source.selectionFilter.selectedMediaUuids
-            var src_uuid = source.uuid
-            media.forEach(
-                (element) => {
-                    session.copyMedia(src_uuid, [element], true, source.getNextItemUuid(element))
-                }
-            )
-        }
-
-        function add_note(owner_uuid=null) {
-            let uuid = null
-            if(bookmarkModel.insertRows(bookmarkModel.rowCount(), 1)) {
-                // set owner..
-                let ind = bookmarkModel.index(bookmarkModel.rowCount()-1, 0)
-                bookmarkModel.set(ind, preferences.note_category.value, "categoryRole")
-                bookmarkModel.set(ind, preferences.note_colour.value, "colourRole")
-                if(owner_uuid) {
-                    bookmarkModel.set(ind, owner_uuid, "ownerRole")
-                }
-
-                uuid = bookmarkModel.get(ind,"uuidRole")
-            }
-            return uuid;
-        }
-
-        function export_notes_csv() {
-            var dialog = XsUtils.openDialog("qrc:/dialogs/XsExportCSV.qml", session)
+        function exportNotesCSV() {
+            var dialog = XsUtils.openDialog("qrc:/dialogs/XsExportCSV.qml", sessionFunction)
             dialog.saved.connect(function(path) {
                 Future.promise(
                     bookmarkModel.exportCSVFuture(path)
@@ -660,57 +1178,373 @@ ApplicationWindow {
             dialog.open()
         }
 
-        function add_media_to_new_playlist(source=parent) {
-            var media = selectedSource ? selectedSource.selectionFilter.selectedMediaUuids : onScreenSource.selectionFilter.selectedMediaUuids
-            var src_uuid = selectedSource ? selectedSource.uuid : onScreenSource.uuid
-            var dlg = XsUtils.openDialog("qrc:/dialogs/XsNewPlaylistDialog.qml", source)
-            dlg.okay_text = "Copy Media"
-            dlg.secondary_okay_text = "Move Media"
+        function addNote(owner_uuid=null) {
+            let uuid = null
+            if(bookmarkModel.insertRows(bookmarkModel.rowCount(), 1)) {
+                // set owner..
+                let ind = bookmarkModel.index(bookmarkModel.rowCount()-1, 0)
+                uuid = bookmarkModel.get(ind,"uuidRole")
 
-            dlg.created.connect(function(uuid) {session.copyMedia(uuid.asQuuid, media)})
-            dlg.created_secondary.connect(function(uuid) {session.moveMedia(uuid.asQuuid, src_uuid, media)})
-            dlg.open()
+                if(owner_uuid) {
+                    bookmarkModel.set(ind, owner_uuid, "ownerRole")
+                } else {
+                    bookmarkModel.set(ind, viewport.playhead.mediaSecond, "startRole")
+                    bookmarkModel.set(ind, mediaImageSource.fileName, "subjectRole")
+                    bookmarkModel.set(ind, 0, "durationRole")
+                    bookmarkModel.set(ind, viewport.playhead.mediaUuid, "ownerRole")
+                    bookmarkModel.set(ind, preferences.note_category.value, "categoryRole")
+                    bookmarkModel.set(ind, preferences.note_colour.value, "colourRole")
+                }
+            }
+            return uuid;
         }
 
-        function set_selected_media_rate(source=parent) {
-            var source = selectedSource ? selectedSource : onScreenSource
-            var media = source.selectionFilter.selectedMediaUuids
+        function closeSession() {
+            sessionFunction.checked_unsaved_session = true
+            app_window.close()
+        }
 
-            if(media.length) {
-                // get first media object -> source -> rate
-                var dlg = XsUtils.openDialog("qrc:/dialogs/XsSetMediaRateDialog.qml", source)
-                dlg.okay_text = "Set Media Rate"
-                dlg.text = source.findMediaObject(media[0]).mediaSource.fpsString
-                dlg.okayed.connect(
-                    function() {
-                        for(let i=0;i<media.length; i++) {
-                            source.findMediaObject(media[0]).mediaSource.fpsString = dlg.text
+        function revealSelectedSources() {
+            helpers.ShowURIS(copyMediaFileUrl())
+        }
+
+        function newSession() {
+            studio.newSession("New Session")
+        }
+
+        function mediaIndexAfterRemoved(indexes) {
+            let select_row = -1;
+            let to_remove = []
+            let parent = indexes[0].parent;
+
+            for(let i =0; i<indexes.length; ++i)
+                to_remove.push(indexes[i].row)
+
+            to_remove = to_remove.sort(function(a,b){return a-b})
+
+            while(select_row == -1 && to_remove.length) {
+                select_row = to_remove[0] - 1
+                to_remove.shift()
+            }
+
+            return parent.model.index(select_row, 0, parent)
+        }
+
+        function removeSelectedMedia() {
+            let items = XsUtils.cloneArray(mediaSelectionModel.selectedIndexes).sort((a,b) => b.row - a.row )
+
+            setActiveMedia(mediaIndexAfterRemoved(items))
+
+            items.forEach(function (item, index) {
+                item.model.removeRows(item.row, 1, false, item.parent)
+            })
+        }
+
+        function gatherMediaForSelected() {
+            mediaSelectionModel.model.gatherMediaFor(currentSource.index, mediaSelectionModel.selectedIndexes)
+        }
+
+        function relinkSelectedMedia() {
+            relink_media_dialog.open()
+        }
+
+        function decomposeSelectedMedia() {
+            sessionModel.decomposeMedia(mediaSelectionModel.selectedIndexes)
+        }
+
+        function requestRemoveSelectedMedia() {
+            remove_media.open()
+        }
+
+        function saveSessionPath(path) {
+            return Future.promise(sessionModel.saveFuture(path))
+        }
+
+        function saveSelectedSessionDialog() {
+            var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveSelectedSessionDialog.qml")
+            dialog.open()
+        }
+
+
+        function saveSelectedSession(path) {
+            return Future.promise(sessionModel.saveFuture(path, sessionSelectionModel.selectedIndexes))
+        }
+
+        function saveSessionAs() {
+            var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveSessionDialog.qml")
+            dialog.open()
+        }
+
+        function saveSession() {
+            // console.log("saveSession", sessionPath, app_window.sessionPath)
+            if(sessionPath != undefined && sessionPath != "") {
+                if(sessionMTime.getTime() != helpers.getFileMTime(sessionPath).getTime()) {
+                    overwriteDialog.open()
+                } else {
+                    sessionFunction.saveSessionPath(sessionPath).then(function(result){
+                        if (result != "") {
+                            var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
+                            dialog.title = "Save session failed"
+                            dialog.text = result
+                            dialog.show()
+                        } else {
+                            sessionFunction.newRecentPath(sessionPath)
                         }
-                    }
-                )
-                dlg.open()
+                    })
+                }
+            }
+            else {
+                sessionFunction.saveSessionAs()
             }
         }
 
-        function add_media_to_new_subset(source=parent) {
-            var media = selectedSource ? selectedSource.selectionFilter.selectedMediaUuids : onScreenSource.selectionFilter.selectedMediaUuids
-            var dlg = XsUtils.openDialog("qrc:/dialogs/XsNewSubsetDialog.qml", source)
-            dlg.okay_text = "Add Media"
-            dlg.created.connect(function(uuid) {session.copyMedia(uuid.asQuuid, media)})
-            dlg.open()
+        function openSession() {
+            var dialog = XsUtils.openDialog("qrc:/dialogs/XsOpenSessionDialog.qml")
+            dialog.open()
         }
 
-        function add_media_to_new_contact_sheet(source=parent) {
-            var media = selectedSource ? selectedSource.selectionFilter.selectedMediaUuids : onScreenSource.selectionFilter.selectedMediaUuids
-            var dlg = XsUtils.openDialog("qrc:/dialogs/XsNewContactSheetDialog.qml", source)
+        function openRecentCheck(path="") {
+            // console.log("openRecentCheck", path)
+            if(path == "") {
+                sessionFunction.openSession()
+            }
+            else {
+                Future.promise(studio.loadSessionFuture(path)).then(function(result){})
+                sessionFunction.newRecentPath(path)
+            }
+        }
 
-            dlg.okay_text = "Add Media"
-            dlg.created.connect(function(uuid) {session.copyMedia(uuid.asQuuid, media)})
-            dlg.open()
+        function saveBeforeOpen(path="") {
+            // console.log("saveBeforeOpen", path)
+
+            if(app_window.sessionModel.modified) {
+                var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveBeforeDialog.qml")
+                dialog.comment = "Save Session Before Opening?"
+                dialog.action_text = "Save And Open"
+                dialog.saved.connect(function () { openRecentCheck(path)} )
+                dialog.dont_save.connect(function () { openRecentCheck(path)} )
+                dialog.show()
+            } else {
+                openRecentCheck(path)
+            }
+        }
+
+
+        function saveBeforeClose() {
+            if(!app_window.sessionFunction.checked_unsaved_session) {
+                // spawn dialog
+                var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveBeforeDialog.qml")
+                dialog.comment = "Save Session Before Closing?"
+                dialog.action_text = "Save And Close"
+                dialog.saved.connect(app_window.close)
+                dialog.dont_save.connect(closeSession)
+                dialog.show()
+                return false;
+            }
+
+            return true;
+        }
+
+        function saveBeforeNewSession() {
+            if(app_window.sessionModel.modified) {
+                var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveBeforeDialog.qml")
+                dialog.title = "New Session"
+                dialog.comment = "This Session has been modified. Would you like to save it??"
+                dialog.action_text = "Save And New Session"
+                dialog.saved.connect(newSession)
+                dialog.dont_save.connect(newSession)
+                dialog.show()
+            } else {
+                sessionFunction.newSession()
+            }
+        }
+
+        function copySessionLink(check_saved=true) {
+            if(check_saved && app_window.sessionModel.modified) {
+                sessionFunction.saveSession()
+            }
+            clipboard.text = preferences.session_link_prefix.value + "xstudio://open_session?path=" + sessionPath
+        }
+
+
+        function flagSelectedMedia(flag) {
+            let sindexs = mediaSelectionModel.selectedIndexes
+            for(let i = 0; i< sindexs.length; i++) {
+                sessionModel.set(sindexs[i], flag, "flagRole")
+            }
+        }
+
+        function sortAlphabetically() {
+            if(app_window.sessionSelectionModel.currentIndex.valid) {
+                app_window.sessionSelectionModel.currentIndex.model.sortAlphabetically(app_window.sessionSelectionModel.currentIndex)
+            }
+        }
+
+        function selectAllMedia() {
+            let mi = app_window.sessionSelectionModel.currentIndex
+            if(mi.valid){
+                let type = mi.model.get(mi, "typeRole")
+                let smi =  mi.model.index(0, 0, mi.model.index(0, 0, mi))
+
+                let matches = mediaSelectionModel.model.match(smi, "typeRole", "Media", -1)
+                mediaSelectionModel.select(helpers.createItemSelection(matches), ItemSelectionModel.ClearAndSelect)
+            }
+        }
+
+        function deselectAllMedia() {
+            if(screenSource.index == currentSource.index)
+                setActiveMedia(mediaSelectionModel.currentIndex)
+            else
+                setActiveMedia(mediaSelectionModel.selectedIndexes[0])
+        }
+
+        function copyMediaFilePath(set_clipboard=false) {
+            let result = copyMediaFileUrl()
+
+            for(let i =0;i<result.length;i++) {
+                result[i] = helpers.pathFromURL(result[i])
+            }
+
+            if(set_clipboard)
+                clipboard.text = result.join("\n")
+
+            return result
+        }
+
+        function copyMediaFileName(set_clipboard=false) {
+            let result = copyMediaFilePath()
+
+            for(let i =0;i<result.length;i++) {
+                result[i] = result[i].substr(result[i].lastIndexOf("/")+1)
+            }
+
+            if(set_clipboard)
+                clipboard.text = result.join("\n")
+
+            return result
+        }
+
+        function copyMediaFileUrl(set_clipboard=false) {
+            let result = []
+            let sel = mediaSelectionModel.selectedIndexes
+            // path is stored on the current image source.
+
+            for(let i =0;i<sel.length;i++) {
+                let mi = sel[i]
+                let ms = mi.model.search_recursive(mi.model.get(mi, "imageActorUuidRole"), "actorUuidRole", mi)
+                result.push(mi.model.get(ms, "pathRole"))
+            }
+
+            if(set_clipboard)
+                clipboard.text = result.join("\n")
+            return result;
+        }
+
+
+        function duplicateSelectedMedia() {
+            var media = XsUtils.cloneArray(mediaSelectionModel.selectedIndexes)
+            media.forEach(
+                (element) => {
+                    element.model.duplicateRows(element.row, 1, element.parent)
+                }
+            )
+        }
+
+        function copyMediaToLink() {
+            let tmp = app_window.sessionSelectionModel.currentIndex
+            if(tmp.valid) {
+                let name = tmp.model.get(tmp, "nameRole")
+                var filenames = copyMediaFilePath()
+                let prefix = "&"+ encodeURIComponent(name)+"_media="
+
+                clipboard.text = preferences.session_link_prefix.value + "xstudio://add_media?compare="+encodeURIComponent(playhead_attrs.compare)+"&playlist=" + encodeURIComponent(name) + prefix + filenames.join(prefix)
+            }
+        }
+
+        function copyMediaToCmd() {
+            // get plalist name.
+            let tmp = app_window.sessionSelectionModel.currentIndex
+            if(tmp.valid) {
+
+                let name = tmp.model.get(tmp, "nameRole")
+                var filenames = copyMediaFilePath()
+                let prefix = "&"+ encodeURIComponent(name)+"_media="
+
+                clipboard.text = "xstudio 'xstudio://add_media?compare="+encodeURIComponent(playhead_attrs.compare)+"&playlist=" + encodeURIComponent(name) + prefix + filenames.join(prefix)+"'"
+            }
+        }
+
+        function clearMediaFromCache() {
+            Future.promise(sessionModel.clearCacheFuture(mediaSelectionModel.selectedIndexes)).then(function(result){})
+        }
+
+        function setMediaRate(value) {
+            var media = mediaSelectionModel.selectedIndexes
+            media.forEach(
+                (element) => {
+                    let mi = element.model.search_recursive(element.model.get(element, "imageActorUuidRole"), "actorUuidRole", element)
+                    mi.model.set(mi, value, "rateFPSRole")
+                }
+            )
+        }
+
+        function setMediaRateRequest() {
+            var media = mediaSelectionModel.selectedIndexes
+
+            if(media.length) {
+                // get first media object -> source -> rate
+                let mi = media[0]
+                let ms = mi.model.search_recursive(mi.model.get(mi, "imageActorUuidRole"), "actorUuidRole", mi)
+                request_media_rate.text = mi.model.get(ms, "rateFPSRole")
+                request_media_rate.open()
+            }
+        }
+
+        function addMediaToNewPlaylist() {
+            add_media_to_playlist.open()
+        }
+
+        function importSequenceRequest() {
+            import_sequence_dialog.open()
+        }
+
+        function addMediaToNewSubset() {
+            add_media_to_subset.open()
+        }
+
+        function addMediaToNewTimeline() {
+            add_media_to_timeline.open()
         }
     }
 
-    property alias session: session
+    Connections {
+        target: studio
+
+        // function onNewSessionCreated(session_addr) {
+        //     console.log("onNewSession", session_addr)
+        //     session.sessionActorAddr = session_addr
+        // }
+
+        // function onSessionLoaded(session_addr) {
+        //     console.log("onSessionLoaded", session_addr)
+        //     session.sessionActorAddr = session_addr
+        // }
+
+
+        function onSessionRequest(path, jsn) {
+            // console.log("onSessionRequest")
+            var dialog = XsUtils.openDialog("qrc:/dialogs/XsSessionRequestDialog.qml")
+            dialog.path = path
+            dialog.payload = jsn
+            dialog.show()
+        }
+    }
+
+    // Session {
+    //     id: session
+    // }
+
+    // property alias session: session
 
     XsSessionWidget {
         id: sessionWidget
@@ -730,8 +1564,8 @@ ApplicationWindow {
         semantic_version.store()
         // check for dirty session..
 
-        if(app_window.session.modified && preferences.check_unsaved_session.value) {
-            close.accepted = app_window.session.save_before_close()
+        if(app_window.sessionModel.modified && preferences.check_unsaved_session.value) {
+            close.accepted = app_window.sessionFunction.saveBeforeClose()
         }
 
         if(close.accepted) {

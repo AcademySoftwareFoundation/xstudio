@@ -162,18 +162,6 @@ void ContactSheetActor::init() {
             return result<utility::EditList>(utility::EditList());
         },
 
-        [=](media::get_media_pointer_atom,
-            const int logical_frame) -> result<media::AVFrameID> {
-            // get actors attached to our media..
-            if (not base_.empty()) {
-                auto rp = make_response_promise<media::AVFrameID>();
-                deliver_media_pointer(logical_frame, rp);
-                return rp;
-            }
-
-            return result<media::AVFrameID>(make_error(xstudio_error::error, "No media"));
-        },
-
         [=](playhead::playhead_rate_atom) -> FrameRate { return base_.playhead_rate(); },
 
         [=](playhead::playhead_rate_atom, const FrameRate &rate) {
@@ -419,18 +407,23 @@ void ContactSheetActor::init() {
 
         [=](playlist::get_media_uuid_atom) -> UuidVector { return base_.media_vector(); },
 
-        [=](playlist::move_media_atom, const Uuid &uuid, const Uuid &uuid_before) -> bool {
-            bool result = base_.move_media(uuid, uuid_before);
-            if (result) {
-                send(event_group_, utility::event_atom_v, change_atom_v);
-                send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
-                base_.send_changed(event_group_, this);
-            }
-            return result;
+        [=](playlist::move_media_atom atom, const Uuid &uuid, const Uuid &uuid_before) {
+            delegate(
+                actor_cast<caf::actor>(this), atom, utility::UuidVector({uuid}), uuid_before);
+        },
+
+        [=](playlist::move_media_atom atom,
+            const UuidList &media_uuids,
+            const Uuid &uuid_before) {
+            delegate(
+                actor_cast<caf::actor>(this),
+                atom,
+                utility::UuidVector(media_uuids.begin(), media_uuids.end()),
+                uuid_before);
         },
 
         [=](playlist::move_media_atom,
-            const UuidList &media_uuids,
+            const UuidVector &media_uuids,
             const Uuid &uuid_before) -> bool {
             bool result = false;
             for (auto uuid : media_uuids) {
@@ -533,62 +526,6 @@ void ContactSheetActor::init() {
             jsn["base"] = base_.serialise();
             return jsn;
         });
-}
-
-void ContactSheetActor::deliver_media_pointer(
-    const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp) {
-
-    std::vector<caf::actor> actors;
-    for (const auto &i : base_.media())
-        actors.push_back(actors_[i]);
-
-    fan_out_request<policy::select_all>(actors, infinite, media::media_reference_atom_v, Uuid())
-        .then(
-            [=](std::vector<std::pair<Uuid, MediaReference>> refs) mutable {
-                // re-order vector based on playlist order
-                std::vector<std::pair<Uuid, MediaReference>> ordered_refs;
-                for (const auto &i : base_.media()) {
-                    for (const auto &ii : refs) {
-                        const auto &[uuid, ref] = ii;
-                        if (uuid == i) {
-                            ordered_refs.push_back(ii);
-                            break;
-                        }
-                    }
-                }
-
-                // step though list, and find the relevant ref..
-                std::pair<Uuid, MediaReference> m;
-                int frames             = 0;
-                bool exceeded_duration = true;
-
-                for (auto it = std::begin(ordered_refs); it != std::end(ordered_refs); ++it) {
-                    if ((logical_frame - frames) < it->second.duration().frames()) {
-                        m                 = *it;
-                        exceeded_duration = false;
-                        break;
-                    }
-                    frames += it->second.duration().frames();
-                }
-
-                try {
-                    if (exceeded_duration)
-                        throw std::runtime_error("No frames left");
-                    // send request media atom..
-                    request(
-                        actors_[m.first],
-                        infinite,
-                        media::get_media_pointer_atom_v,
-                        logical_frame - frames)
-                        .then(
-                            [=](const media::AVFrameID &mp) mutable { rp.deliver(mp); },
-                            [=](error &err) mutable { rp.deliver(std::move(err)); });
-
-                } catch (const std::exception &e) {
-                    rp.deliver(make_error(xstudio_error::error, e.what()));
-                }
-            },
-            [=](error &err) mutable { rp.deliver(std::move(err)); });
 }
 
 void ContactSheetActor::sort_alphabetically() {

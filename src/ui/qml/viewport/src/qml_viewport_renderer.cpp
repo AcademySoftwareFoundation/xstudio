@@ -13,8 +13,8 @@ using namespace xstudio;
 
 namespace {} // namespace
 
-QMLViewportRenderer::QMLViewportRenderer(QObject *parent, const bool is_primary_viewer)
-    : QMLActor(parent), m_window(nullptr), is_primary_viewer_(is_primary_viewer) {
+QMLViewportRenderer::QMLViewportRenderer(QObject *parent, const int viewport_index)
+    : QMLActor(parent), m_window(nullptr), viewport_index_(viewport_index) {
     init_system();
 }
 
@@ -110,9 +110,9 @@ void QMLViewportRenderer::init_system() {
     viewport_renderer_.reset(new ui::viewport::Viewport(
         jsn,
         as_actor(),
-        is_primary_viewer_,
+        viewport_index_,
         ui::viewport::ViewportRendererPtr(
-            new opengl::OpenGLViewportRenderer(is_primary_viewer_, false))));
+            new opengl::OpenGLViewportRenderer(viewport_index_, false))));
 
     /* Provide a callback so the Viewport can tell this class when some property of the viewport
     has changed and such events can be propagated to other QT components, for example */
@@ -219,7 +219,7 @@ void QMLViewportRenderer::rawKeyDown(const int key, const bool auto_repeat) {
         keypress_monitor_,
         ui::keypress_monitor::key_down_atom_v,
         key,
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"),
+        viewport_renderer_->name(),
         auto_repeat);
 }
 
@@ -228,7 +228,7 @@ void QMLViewportRenderer::keyboardTextEntry(const QString text) {
         keypress_monitor_,
         ui::keypress_monitor::text_entry_atom_v,
         text.toStdString(),
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"));
+        viewport_renderer_->name());
 }
 
 void QMLViewportRenderer::rawKeyUp(const int key) {
@@ -237,14 +237,14 @@ void QMLViewportRenderer::rawKeyUp(const int key) {
         keypress_monitor_,
         ui::keypress_monitor::key_up_atom_v,
         key,
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"));
+        viewport_renderer_->name());
 }
 
 void QMLViewportRenderer::allKeysUp() {
     anon_send(
         keypress_monitor_,
         ui::keypress_monitor::all_keys_up_atom_v,
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"));
+        viewport_renderer_->name());
 }
 
 void QMLViewportRenderer::setScale(const float s) {
@@ -294,7 +294,6 @@ void QMLViewportRenderer::setScreenInfos(
     QString serialNumber,
     double refresh_rate) {
     viewport_renderer_->set_screen_infos(
-        is_primary_viewer_,
         name.toStdString(),
         model.toStdString(),
         manufacturer.toStdString(),

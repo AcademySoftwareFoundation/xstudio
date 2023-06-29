@@ -15,11 +15,12 @@
 #endif
 #include <cpp-httplib/httplib.h>
 
-#include <nlohmann/json.hpp>
 
 #include "xstudio/shotgun_client/enums.hpp"
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/utility/json_store.hpp"
+
+#include <nlohmann/json.hpp>
 
 namespace xstudio {
 namespace shotgun_client {
@@ -1601,6 +1602,7 @@ namespace shotgun_client {
         [[nodiscard]] std::string refresh_token() const { return refresh_token_; }
 
         [[nodiscard]] std::string content_type_json() const { return "application/json"; }
+
         [[nodiscard]] std::string content_type_hash() const {
             return "application/vnd+shotgun.api3_hash+json";
         }
@@ -1639,7 +1641,8 @@ namespace shotgun_client {
         void set_refresh_token(const std::string &refresh_token, const int expires_in);
 
         [[nodiscard]] httplib::Headers get_headers() const;
-        [[nodiscard]] httplib::Headers get_auth_headers() const;
+        [[nodiscard]] httplib::Headers
+        get_auth_headers(const std::string &content_type = "") const;
         [[nodiscard]] httplib::Params
         get_auth_request_params(const std::string &auth_token = "") const;
         [[nodiscard]] httplib::Params get_auth_refresh_params() const;

@@ -58,23 +58,64 @@ struct UiText {
          "Returns to regular RGB colour view mode",
          "RGB"}};
 
-    std::string DISPLAY         = "Display";
-    std::string DISPLAY_SHORT   = "Disp";
-    std::string VIEW            = "View";
-    std::string EXPOSURE        = "Exposure";
-    std::string EXPOSURE_SHORT  = "Exp";
-    std::string CHANNEL         = "Channel";
-    std::string CHANNEL_SHORT   = "Chan";
-    std::string SOURCE_CS       = "Source Colour Space";
-    std::string SOURCE_CS_SHORT = "Source cs";
-    std::string CMS_OFF         = "Bypass Colour Management";
-    std::string CMS_OFF_SHORT   = "CMS OFF";
-    std::string CMS_OFF_ICON    = "--";
+    std::string DISPLAY                 = "Display";
+    std::string DISPLAY_SHORT           = "Disp";
+    std::string VIEW                    = "View";
+    std::string EXPOSURE                = "Exposure";
+    std::string EXPOSURE_SHORT          = "Exp";
+    std::string GAMMA                   = "Gamma";
+    std::string GAMMA_SHORT             = "Gam";
+    std::string ENABLE_GAMMA            = "Gamma Control";
+    std::string ENABLE_GAMMA_SHORT      = "Enbl. Gam.";
+    std::string SATURATION              = "Saturation";
+    std::string SATURATION_SHORT        = "Sat";
+    std::string ENABLE_SATURATION       = "Saturation Control";
+    std::string ENABLE_SATURATION_SHORT = "Enbl. Sat.";
+    std::string CHANNEL                 = "Channel";
+    std::string CHANNEL_SHORT           = "Chan";
+    std::string SOURCE_CS               = "Source Colour Space";
+    std::string SOURCE_CS_SHORT         = "Source cs";
+    std::string CMS_OFF                 = "Bypass Colour Management";
+    std::string CMS_OFF_SHORT           = "CMS OFF";
+    std::string CMS_OFF_ICON            = "--";
+    std::string PREF_VIEW               = "Preferred View";
+    std::string VIEW_MODE               = "Global View Control";
+    std::string GLOBAL_VIEW_SHORT       = "Global View";
+
+
+    std::string DEFAULT_VIEW                   = "Default";
+    std::string AUTOMATIC_VIEW                 = "Automatic";
+    std::vector<std::string> PREF_VIEW_OPTIONS = {
+        DEFAULT_VIEW,
+        AUTOMATIC_VIEW,
+        // New config style
+        "Client",
+        "Client graded",
+        "Client neutral",
+        "Client alt",
+        "Un-tone-mapped",
+        "Raw",
+        // Old config style
+        "Film",
+        "Film primary",
+        "Film neutral",
+        "Film alt",
+        "Linear",
+        "Gamma22",
+        // Common views
+        "DNEG",
+        "Log"};
+
 
     std::string CS_MSG_CMS_SELECT_CLR_TIP =
         "Select colour channel to display. You can also use R,G,B,A,Ctrl+L hotkeys.";
     std::string CS_MSG_CMS_SET_EXP_TIP = "Set viewer Exposure in f-stops. Double click to "
                                          "toggle between last set value and default of 0.0.";
+    std::string CS_MSG_CMS_SET_GAMMA_TIP = "Set viewer Gamma. Double click to "
+                                           "toggle between last set value and default of 1.0.";
+    std::string CS_MSG_CMS_SET_SATURATION_TIP =
+        "Set viewer Saturation. Double click to "
+        "toggle between last set value and default of 1.0.";
 
     std::vector<std::string> MENU_PATH_CHANNEL = {
         "menu_bar|Channel",
@@ -89,9 +130,10 @@ struct UiText {
         "menu_bar|OCIO View",
         "popout_viewer_context_menu_colour_items|OCIO View",
         "viewer_context_menu_colour_items|OCIO View"};
-    std::vector<std::string> MENU_PATH_SOURCE_CS      = {"menu_bar|Source colour space"};
-    std::vector<std::string> MENU_PATH_CMS_OFF        = {"menu_bar"};
-    std::vector<std::string> MENU_PATH_POPOUT_CMS_OFF = {"menu_bar"};
+    std::vector<std::string> MENU_PATH_SOURCE_CS = {"Colour|Source colour space"};
+    std::vector<std::string> MENU_PATH_CMS_OFF   = {"menu_bar"};
+    std::vector<std::string> MENU_PATH_PREF_VIEW = {"Colour|OCIO Preferred View"};
+    std::vector<std::string> MENU_PATH_VIEW_MODE = {"menu_bar"};
 
     std::string DISPLAY_TOOLTIP = "Select the colour profile for your display.  See User "
                                   "Documentation > OCIO for more information.";
@@ -100,6 +142,9 @@ struct UiText {
     std::string SOURCE_CS_TOOLTIP = "Select from available colourspaces. See User "
                                     "Documentation > OCIO for more information.";
     std::string CS_BYPASS_TOOLTIP = "Turn off colour management";
+    std::string PREF_VIEW_TOOLTIP = "Set preferred view";
+    std::string GLOBAL_VIEW_TOOLTIP =
+        "Enable global view to affect every loaded media when changing the OCIO view.";
 
     std::vector<std::string> OCIO_LOAD_ERROR = {"Error could not load OCIO config"};
 };

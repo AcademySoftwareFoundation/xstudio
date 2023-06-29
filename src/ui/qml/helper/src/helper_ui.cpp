@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/caf_helpers.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/media/media.hpp"
 
@@ -33,40 +35,11 @@ caf::actor_system &CafSystemObject::get_actor_system() {
 
 
 std::string xstudio::ui::qml::actorToString(actor_system &sys, const caf::actor &actor) {
-    std::string result;
-
-    try {
-        caf::binary_serializer::container_type buf;
-        caf::binary_serializer bs{sys, buf};
-
-        auto e = bs.apply(caf::actor_cast<caf::actor_addr>(actor));
-        if (not e)
-            throw std::runtime_error(to_string(bs.get_error()));
-
-        result = utility::make_hex_string(std::begin(buf), std::end(buf));
-    } catch (const std::exception &err) {
-        // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
-
-    return result;
+    return xstudio::utility::actor_to_string(sys, actor);
 }
 
 caf::actor xstudio::ui::qml::actorFromString(actor_system &sys, const std::string &str_addr) {
-    caf::actor actor;
-
-    caf::binary_serializer::container_type buf = utility::hex_to_bytes(str_addr);
-    caf::binary_deserializer bd{sys, buf};
-
-    caf::actor_addr addr;
-    auto e = bd.apply(addr);
-
-    if (not e) {
-        spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(bd.get_error()));
-    } else {
-        actor = caf::actor_cast<caf::actor>(addr);
-    }
-
-    return actor;
+    return xstudio::utility::actor_from_string(sys, str_addr);
 }
 
 
@@ -102,10 +75,12 @@ QString xstudio::ui::qml::getThumbnailURL(
             auto colour_pipe_manager =
                 system.registry().get<caf::actor>(colour_pipeline_registry);
             auto colour_pipe = utility::request_receive<caf::actor>(
-                *sys, colour_pipe_manager, colour_pipeline::get_colour_pipeline_atom_v);
+                *sys,
+                colour_pipe_manager,
+                colour_pipeline::get_thumbnail_colour_pipeline_atom_v);
 
             auto mp = utility::request_receive<media::AVFrameID>(
-                *sys, actor, media::get_media_pointer_atom_v, frame);
+                *sys, actor, media::get_media_pointer_atom_v, media::MT_IMAGE, frame);
 
             auto display_transform_hash = utility::request_receive<std::string>(
                 *sys, colour_pipe, colour_pipeline::display_colour_transform_hash_atom_v, mp);

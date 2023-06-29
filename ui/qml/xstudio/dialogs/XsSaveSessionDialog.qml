@@ -7,7 +7,7 @@ import xStudio 1.0
 
 FileDialog {
     title: "Save session"
-    folder: getFolderPath()
+    folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
     defaultSuffix: "xst"
 
     signal saved
@@ -32,12 +32,20 @@ FileDialog {
             path = path + ".xst"
         }
 
-        app_window.session.new_recent_path(path)
-        session.save_session_path(path)
-        app_window.session.copy_session_link(false)
-        saved()
-
-        preferences.current_saved_session_folder.value = path.slice(0, path.lastIndexOf("/") + 1)
+        app_window.sessionFunction.newRecentPath(path)
+        app_window.sessionFunction.saveSessionPath(path).then(function(result){
+            if (result != "") {
+                var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
+                dialog.title = "Save session failed"
+                dialog.text = result
+                dialog.show()
+                cancelled()
+            } else {
+                app_window.sessionFunction.newRecentPath(path)
+                app_window.sessionFunction.copySessionLink(false)
+                saved()
+            }
+        })
     }
 
     onRejected: {

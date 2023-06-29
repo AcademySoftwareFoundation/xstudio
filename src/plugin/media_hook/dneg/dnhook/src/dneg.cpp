@@ -14,9 +14,6 @@
 
 namespace fs = std::filesystem;
 
-namespace OCIO = OCIO_NAMESPACE;
-
-
 using namespace xstudio;
 using namespace xstudio::media_hook;
 using namespace xstudio::utility;
@@ -84,17 +81,34 @@ std::optional<std::string> find_stalk_uuid(const std::string &path) {
 
 class DNegMediaHook : public MediaHook {
   public:
-    DNegMediaHook() : MediaHook("DNeg"), force_trim_slate_frame_(true) {}
+    DNegMediaHook() : MediaHook("DNeg") {
+
+        auto_trim_slate_ = add_boolean_attribute("Auto Trim Slate", "Auto Trim Slate", true);
+
+        auto_trim_slate_->set_preference_path("/plugin/dneg_media_hook/auto_trim_slate");
+        auto_trim_slate_->expose_in_ui_attrs_group("media_hook_settings");
+        auto_trim_slate_->set_tool_tip(
+            "Some DNEG pipeline movies have metadata indicating if there is a slate frame. "
+            "Enable this option to use the metadata to automatically trim the slate.");
+
+        slate_trim_behaviour_ = add_string_choice_attribute(
+            "Default Trim Slate Behaviour",
+            "Trim Slate",
+            "Trim First Frame",
+            {"Trim First Frame", "Don't Trim First Frame"});
+
+        slate_trim_behaviour_->set_tool_tip(
+            "If Auto Trim Slate is disabled or if the movie slate metadata is not found you "
+            "can force the removal of the first movie frame with this option.");
+
+        slate_trim_behaviour_->set_preference_path(
+            "/plugin/dneg_media_hook/default_trim_slate_behaviour");
+        slate_trim_behaviour_->expose_in_ui_attrs_group("media_hook_settings");
+    }
     ~DNegMediaHook() override = default;
 
-    void update_prefs(const utility::JsonStore &full_prefs_dict) override {
-        try {
-            force_trim_slate_frame_ = full_prefs_dict.get<bool>(
-                "/plugin/dneg_media_hook/force_trim_slate_frame/value");
-        } catch (std::exception &e) {
-            spdlog::warn("DNegMediaHook {}", e.what());
-        }
-    }
+    module::StringChoiceAttribute *slate_trim_behaviour_;
+    module::BooleanAttribute *auto_trim_slate_;
 
     std::optional<utility::MediaReference> modify_media_reference(
         const utility::MediaReference &mr, const utility::JsonStore &jsn) override {
@@ -122,33 +136,43 @@ class DNegMediaHook : public MediaHook {
         if (not result.frame_list().start() and result.container()) {
             auto path = to_string(result.uri().path());
 
-            if (ends_with(path, ".dneg.mov")) {
+            if (ends_with(path, ".dneg.mov") or ends_with(path, ".dneg.webm")) {
                 // check metadata..
-                int slate_frames = force_trim_slate_frame_ ? 1 : 0;
+                int slate_frames = -1;
+
 
                 //"comment": "\nsource frame range: 1001-1101\nsource image:
                 // aspect 1.85004516712 crop: l 0.0 r 0.0 b 0.0 t 0.0 slateFrames: 0",
-                try {
-                    auto comment = jsn.at("metadata")
-                                       .at("media")
-                                       .at("@")
-                                       .at("format")
-                                       .at("tags")
-                                       .at("comment")
-                                       .get<std::string>();
+                if (auto_trim_slate_->value()) {
+                    try {
+                        auto comment = jsn.at("metadata")
+                                           .at("media")
+                                           .at("@")
+                                           .at("format")
+                                           .at("tags")
+                                           .at("comment")
+                                           .get<std::string>();
 
-                    std::cerr << "COMMENT " << comment << "\n";
-                    // regex..
-                    static const std::regex slate_match(R"(.*slateFrames: (\d+).*)");
+                        // regex..
+                        static const std::regex slate_match(R"(.*slateFrames: (\d+).*)");
 
-                    std::smatch m;
-                    if (std::regex_search(comment, m, slate_match)) {
-                        slate_frames = std::atoi(m[1].str().c_str());
+                        std::smatch m;
+                        if (std::regex_search(comment, m, slate_match)) {
+                            slate_frames = std::atoi(m[1].str().c_str());
+                        }
 
-                        std::cerr << "MATCHED " << slate_frames << "\n";
+                    } catch (...) {
                     }
+                }
 
-                } catch (...) {
+                if (slate_frames == -1) {
+                    // auto trim slate is disabled OR there was no metadata
+                    // to do the auto trimming
+                    if (slate_trim_behaviour_->value() == "Trim First Frame") {
+                        slate_frames = 1;
+                    } else {
+                        slate_frames = 0;
+                    }
                 }
 
                 while (slate_frames) {
@@ -185,15 +209,10 @@ class DNegMediaHook : public MediaHook {
 
         const caf::uri &uri =
             mr.container() or mr.uris().empty() ? mr.uri() : mr.uris()[0].first;
+
         const std::string path = to_string(uri);
+        auto ppath             = uri_to_posix_path(uri);
 
-        // auto decode_p = decoding_params(path, metadata);
-        auto colour_p                     = colour_params(path, metadata);
-        result["colour_pipeline"]         = colour_p;
-        result["colour_pipeline"]["path"] = path;
-
-        static const std::regex show_shot_regex(
-            R"([\/]+(hosts\/*fs*\/user_data[1-9]{0,1}|jobs)\/([^\/]+)\/([^\/]+))");
 
         // utility::JsonStore j(R"(
         //     {
@@ -208,11 +227,29 @@ class DNegMediaHook : public MediaHook {
         //     }
         // )"_json);
 
-        auto ppath = uri_to_posix_path(uri);
+        // auto decode_p = decoding_params(path, metadata);
+        auto colour_p                     = colour_params(path, metadata);
+        result["colour_pipeline"]         = colour_p;
+        result["colour_pipeline"]["path"] = path;
+
+        static const std::regex show_shot_regex(
+            R"([\/]+(hosts\/*fs*\/user_data[1-9]{0,1}|jobs)\/([^\/]+)\/([^\/]+))");
+        static const std::regex show_shot_alternative_regex(R"(.+-([^-]+)-([^-]+).dneg.webm$)");
+
         std::smatch match;
+
         if (std::regex_search(ppath, match, show_shot_regex)) {
             result["metadata"]["external"]["DNeg"]["show"] = match[2];
             result["metadata"]["external"]["DNeg"]["shot"] = match[3];
+            // if we've got this much we might be able to get the ivy_stalk_uuid..
+            // movies are sometimes stored in a different path outside the stalk dir..
+            auto stalk = find_stalk_uuid(ppath);
+            if (stalk) {
+                result["metadata"]["external"]["DNeg"]["Ivy"]["dnuuid"] = *stalk;
+            }
+        } else if (std::regex_search(ppath, match, show_shot_alternative_regex)) {
+            result["metadata"]["external"]["DNeg"]["show"] = match[1];
+            result["metadata"]["external"]["DNeg"]["shot"] = match[2];
             // if we've got this much we might be able to get the ivy_stalk_uuid..
             // movies are sometimes stored in a different path outside the stalk dir..
             auto stalk = find_stalk_uuid(ppath);
@@ -228,23 +265,34 @@ class DNegMediaHook : public MediaHook {
 
     utility::JsonStore
     colour_params(const std::string &path, const utility::JsonStore &metadata) {
-        utility::JsonStore r;
+        utility::JsonStore r(R"({})"_json);
 
         // OpenColorIO Config and Context variables
         // Unrecognized media will not be colour-managed
-        auto context = utility::JsonStore();
+        auto context = R"({})"_json;
 
         std::smatch match;
+
         static const std::regex show_shot_regex(
             R"(\/(\/hosts\/*fs*\/user_data|jobs)\/([^\/]+)\/([^\/]+))");
+
+        static const std::regex show_shot_alternative_regex(
+            R"(.+-([^-]+)-([^-]+)\.dneg\.webm$)");
+
         if (std::regex_search(path, match, show_shot_regex)) {
-            context["SHOW"]   = match[2];
-            context["SHOT"]   = match[3];
+            context["SHOW"] = match[2];
+            context["SHOT"] = match[3];
+        } else if (std::regex_search(path, match, show_shot_alternative_regex)) {
+            context["SHOW"] = match[1];
+            context["SHOT"] = match[2];
+        }
+
+        if (context.count("SHOW")) {
             r["ocio_context"] = context;
             // TODO: ColSci
             // Need to read the general.dat to get the actual OCIO environment variable
-            r["ocio_config"] =
-                fmt::format("/tools/{}/data/colsci/config.ocio", std::string(match[2]));
+            r["ocio_config"] = fmt::format(
+                "/tools/{}/data/colsci/config.ocio", context["SHOW"].get<std::string>());
 
             // Input colour space detection
             static const std::regex review_regex(".+\\.review[0-9]\\.mov$");
@@ -257,7 +305,9 @@ class DNegMediaHook : public MediaHook {
                 ".png", ".tiff", ".tif", ".jpeg", ".jpg", ".gif"};
 
             // Detect the style of config
-            bool new_style = is_new_ocio_config(r["ocio_config"]);
+            const std::string pipeline_version = color_pipeline_version(context["SHOW"]);
+            bool new_style                     = pipeline_version == "2";
+            r["pipeline_version"]              = pipeline_version;
 
             // Newer configs use a colour space instead of inverting the view for
             // better integration in the UI source colorspace menu.
@@ -271,10 +321,57 @@ class DNegMediaHook : public MediaHook {
                     }
                 };
 
+            std::string media_colorspace = "";
+            std::string media_display    = "";
+            std::string media_view       = "";
+
+            // Extract OCIO metadata from internal and review proxy movies.
+            if (std::regex_match(path, review_regex) ||
+                std::regex_match(path, internal_regex)) {
+                try {
+                    const utility::JsonStore &tags =
+                        metadata.at("metadata").at("media").at("@").at("format").at("tags");
+
+                    media_colorspace = tags.get_or("dneg/ocio_colorspace", std::string(""));
+                    media_display    = tags.get_or("dneg/ocio_display", std::string(""));
+                    media_view       = tags.get_or("dneg/ocio_view", std::string(""));
+                } catch (...) {
+                }
+            }
+
             if (std::regex_match(path, review_regex)) {
-                r["input_colorspace"] = "dneg_proxy_log:log";
+                if (!media_colorspace.empty()) {
+                    r["input_colorspace"] = media_colorspace;
+                } else {
+                    r["input_colorspace"] = "dneg_proxy_log:log";
+                    /*
+                    http://jira/browse/CLR-2006 - This is a fix for LBP where all
+                    review proxy movies are baked with
+                    log_ARRIWideGamut_ARRILogC3 colorspace. Once the show is
+                    switched to CMS1 config the input colorspace will be wrong
+                    and to avoid proxy re processing, we added this check to
+                    change the input cs to log_ARRIWideGamut_ARRILogC3 which is
+                    the old log space that was used on LBP to make review proxy.
+                    */
+                    if (context["SHOW"].get<std::string>() == "LBP") {
+                        r["input_colorspace"] = "log_ARRIWideGamut_ARRILogC3";
+                    }
+                }
             } else if (std::regex_match(path, internal_regex)) {
-                fill_baked_space(r, "Rec709");
+                if (!media_display.empty() && !media_view.empty()) {
+                    r["input_colorspace"] = media_view + "_" + media_display;
+                    /*
+                    http://jira/browse/CLR-2006 - This is a fix for LBP where  all
+                    internal movies are baked with Film_Rec709 colorspace. Once the show is
+                    switched to CMS1 config the input colorspace will be wrong. To avoid
+                    movie re processing, we added this check to change the input cs to
+                    Client_Rec709 which is the old Film_Rec709 cs.
+                    */
+                } else if (context["SHOW"].get<std::string>() == "LBP") {
+                    r["input_colorspace"] = "Client_Rec709";
+                } else {
+                    fill_baked_space(r, "Rec709");
+                }
             } else if (linear_ext.find(ext) != linear_ext.end()) {
                 r["input_colorspace"] = "linear";
             } else if (log_ext.find(ext) != log_ext.end()) {
@@ -301,29 +398,50 @@ class DNegMediaHook : public MediaHook {
         return r;
     }
 
-    bool is_new_ocio_config(const std::string &config_path) {
-        auto p = is_new_config_store_.find(config_path);
-        if (p != is_new_config_store_.end()) {
+    std::string color_pipeline_version(const std::string &show) {
+        auto p = color_version_store_.find(show);
+        if (p != color_version_store_.end()) {
             return p->second;
         }
+
+        std::string version = "1";
+
         try {
-            OCIO::ConstConfigRcPtr config = OCIO::Config::CreateFromFile(config_path.c_str());
-            for (int i = 0; i < config->getNumLooks(); ++i) {
-                if (xstudio::utility::starts_with(config->getLookNameByIndex(i), "drt_")) {
-                    is_new_config_store_[config_path] = true;
-                    return true;
-                }
+            const auto &variables = read_general_dat(show);
+            if (variables.count("DN_COLOR_PIPELINE_VERSION")) {
+                version = variables.at("DN_COLOR_PIPELINE_VERSION");
             }
-            is_new_config_store_[config_path] = false;
-            return false;
         } catch (const std::exception &e) {
-            is_new_config_store_[config_path] = false;
-            return false;
         }
+
+        color_version_store_[show] = version;
+        return version;
     }
 
-    std::map<std::string, bool> is_new_config_store_;
-    bool force_trim_slate_frame_;
+    std::map<std::string, std::string> read_general_dat(const std::string &show) {
+        std::ifstream ifs(fmt::format("/tools/{}/data/general.dat", show));
+        if (!ifs.is_open())
+            return {};
+
+        std::map<std::string, std::string> variables;
+
+        const std::string lines(std::istreambuf_iterator<char>{ifs}, {});
+        for (const auto &line : utility::split(lines, '\n')) {
+            if (line.empty() or utility::starts_with(line, "#"))
+                continue;
+
+            const auto pos = line.find(":");
+            if (pos != std::string::npos) {
+                const auto key   = utility::trim(line.substr(0, pos));
+                const auto value = utility::trim(line.substr(pos + 1));
+                variables[key]   = value;
+            }
+        }
+
+        return variables;
+    }
+
+    std::map<std::string, std::string> color_version_store_;
 };
 
 extern "C" {

@@ -58,6 +58,17 @@ bool UuidListContainer::swap(const Uuid &from, const Uuid &to) {
     return false;
 }
 
+Uuid UuidListContainer::next_uuid(const Uuid &uuid) const {
+    auto result = Uuid();
+
+    auto it = std::find(uuids_.begin(), uuids_.end(), uuid);
+    if (it != std::end(uuids_)) {
+        it++;
+        result = *it;
+    }
+
+    return result;
+}
 
 UuidVector UuidListContainer::uuid_vector() const {
     UuidVector result(uuids_.size());
