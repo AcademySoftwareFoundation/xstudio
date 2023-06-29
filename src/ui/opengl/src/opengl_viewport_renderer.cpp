@@ -412,9 +412,6 @@ bool OpenGLViewportRenderer::activate_shader(
         shader_id += op->cache_id_;
     }
 
-    const std::string shader_id =
-        to_string(ib_sid) + "-" + to_string(cp_sid) + "-" + (use_ssbo_ ? "ssbo" : "tex");
-
     // do we already have this shader compiled?
     if (programs_.find(shader_id) == programs_.end()) {
 

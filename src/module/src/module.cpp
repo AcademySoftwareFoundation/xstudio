@@ -173,14 +173,6 @@ JsonAttribute *Module::add_json_attribute(
     return rt;
 }
 
-JsonAttribute *Module::add_json_attribute(
-    const std::string &title, const std::string &abbr_title, const nlohmann::json &value) {
-    auto *rt(new JsonAttribute(title, abbr_title, value));
-    rt->set_owner(this);
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
-    return rt;
-}
-
 BooleanAttribute *Module::add_boolean_attribute(
     const std::string &title, const std::string &abbr_title, const bool value) {
     auto *rt(new BooleanAttribute(title, abbr_title, value));

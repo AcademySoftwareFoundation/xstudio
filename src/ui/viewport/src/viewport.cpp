@@ -1491,39 +1491,6 @@ void Viewport::instance_overlay_plugins(const bool share_plugin_instances) {
             }
         }
 
-        /* HUD plugins are more-or-less the same as viewport overlay plugins, except
-        that they are activated through a single HUD pop-up in the toolbar and the
-        are 'aware' of the screenspace that other HUDs have already occupied */
-        auto hud_plugin_details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys, pm, utility::detail_atom_v, plugin_manager::PluginType::PT_HEAD_UP_DISPLAY);
-
-        for (const auto &pd : hud_plugin_details) {
-            if (true) { // pd.enabled_) {
-                overlay_actor_ = request_receive<caf::actor>(
-                    *sys,
-                    pm,
-                    plugin_manager::spawn_plugin_atom_v,
-                    pd.uuid_,
-                    utility::JsonStore(),
-                    share_plugin_instances // this is the 'singleton' flag
-                );
-
-                if (share_plugin_instances)
-                    anon_send(overlay_actor_, module::connect_to_ui_atom_v);
-
-                auto funkydunc = request_receive<plugin::ViewportOverlayRendererPtr>(
-                    *sys, overlay_actor_, overlay_render_function_atom_v, is_main_viewer_);
-
-                if (funkydunc) {
-                    the_renderer_->add_overlay_renderer(pd.uuid_, funkydunc);
-                }
-
-                overlay_plugin_instances_[pd.uuid_] = overlay_actor_;
-                hud_plugin_instances_[pd.uuid_]     = overlay_actor_;
-                anon_send(overlay_actor_, enable_hud_atom_v, hud_toggle_->value());
-            }
-        }
-
         display_frames_queue_actor_ =
             sys->spawn<ViewportFrameQueueActor>(overlay_plugin_instances_, viewport_index_);
 

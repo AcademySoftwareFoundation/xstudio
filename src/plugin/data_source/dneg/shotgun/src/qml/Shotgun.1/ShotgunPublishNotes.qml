@@ -92,17 +92,6 @@ XsWindow {
         property alias properties: prefs.values
     }
 
-    property int notify_group_id: notify_group_cb.currentIndex !==-1 && notify_group_cb.checked && notify_group_cb.model ? notify_group_cb.model.get(notify_group_cb.currentIndex, "idRole") : 0
-    // property var notify_group_ids: notify_group_cb.model ? notify_group_cb.checkedIndexes:0 //#TODO
-
-
-
-    XsModelNestedPropertyMap {
-        id: prefs
-        index: app_window.globalStoreModel.search_recursive("/plugin/data_source/shotgun/note_publish_settings", "pathRole")
-        property alias properties: prefs.values
-    }
-
 
     onPlaylist_uuidChanged: {
         // set combo to new value.

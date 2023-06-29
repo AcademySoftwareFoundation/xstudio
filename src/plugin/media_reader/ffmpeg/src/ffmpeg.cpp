@@ -345,18 +345,6 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 frameRate = utility::FrameRate();
             }
 
-            auto frameRate = t_decoder.frame_rate(p.first);
-
-            // If the stream has a duration of 1 then it is probably frame based.
-            // FFMPEG assigns a default frame rate of 25fps to JPEGs, for example -
-            // If this has happened, we want to ignore this and let xstudio apply
-            // xSTUDIO's default frame rate preference instead.
-            if (t_decoder.duration_frames() == 1 &&
-                frameRate.to_flicks() == timebase::flicks(28224000)) {
-                // setting a null frame rate will make xstudio use its own preference
-                frameRate = utility::FrameRate();
-            }
-
             streams.emplace_back(media::StreamDetail(
                 utility::FrameRateDuration(
                     static_cast<int>(t_decoder.duration_frames()), frameRate),
