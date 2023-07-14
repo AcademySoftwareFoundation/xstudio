@@ -13,6 +13,7 @@ Item::Item(const utility::JsonStore &jsn, caf::actor_system *system)
     uuid_addr_.first = jsn.at("uuid");
     item_type_       = jsn.at("type");
     enabled_         = jsn.at("enabled");
+    name_            = jsn.value("name", "");
 
     if (jsn.count("actor_addr"))
         uuid_addr_.second = string_to_actor_addr(jsn.at("actor_addr"));
@@ -65,6 +66,7 @@ utility::JsonStore Item::serialise(const int depth) const {
     jsn["actor_addr"] = actor_addr_to_string(uuid_addr_.second);
     jsn["type"]       = item_type_;
     jsn["enabled"]    = enabled_;
+    jsn["name"]       = name_;
 
     if (has_available_range_)
         jsn["available_range"] = available_range_;
@@ -418,6 +420,8 @@ Item::resolve_time(const utility::FrameRate &time, const media::MediaType mt) co
 
 void Item::set_enabled_direct(const bool &value) { enabled_ = value; }
 
+void Item::set_name_direct(const std::string &value) { name_ = value; }
+
 utility::JsonStore Item::set_enabled(const bool &value) {
     if (enabled_ != value) {
         utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
@@ -426,6 +430,20 @@ utility::JsonStore Item::set_enabled(const bool &value) {
         jsn[0]["undo"]["value"]                         = enabled_;
         jsn[0]["redo"]["value"]                         = value;
         set_enabled_direct(value);
+        return jsn;
+    }
+
+    return utility::JsonStore();
+}
+
+utility::JsonStore Item::set_name(const std::string &value) {
+    if (name_ != value) {
+        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IT_NAME;
+        jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
+        jsn[0]["undo"]["value"]                         = name_;
+        jsn[0]["redo"]["value"]                         = value;
+        set_name_direct(value);
         return jsn;
     }
 
@@ -581,21 +599,34 @@ utility::JsonStore Item::splice(
 
     utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
 
-    auto index1 = std::distance(cbegin(), pos);
-    auto index2 = std::distance(cbegin(), first);
-    auto index3 = std::distance(cbegin(), last);
+    auto pos_index   = std::distance(cbegin(), pos);
+    auto first_index = std::distance(cbegin(), first);
+    auto last_index  = std::distance(cbegin(), last);
+
+    // splice can't insert into range..
+    // move position to end of range.
+    if (pos_index >= first_index and pos_index <= last_index) {
+        pos_index = last_index + 1;
+        pos       = std::next(last, 1);
+    }
 
     jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
 
-    jsn[0]["undo"]["action"] = ItemAction::IT_SPLICE;
-    jsn[0]["undo"]["value1"] = index2;
-    jsn[0]["undo"]["value2"] = index1 - 1;
-    jsn[0]["undo"]["value3"] = index1 + (index3 - index2) - 1;
-
     jsn[0]["redo"]["action"] = ItemAction::IT_SPLICE;
-    jsn[0]["redo"]["value1"] = index1;
-    jsn[0]["redo"]["value2"] = index2;
-    jsn[0]["redo"]["value3"] = index3;
+    jsn[0]["redo"]["dst"]    = pos_index;   // dst
+    jsn[0]["redo"]["first"]  = first_index; // frst
+    jsn[0]["redo"]["last"]   = last_index;  // lst
+
+    if (pos_index > last_index) {
+        pos_index -= (last_index - first_index);
+    }
+
+    jsn[0]["undo"]["action"] = ItemAction::IT_SPLICE;
+    jsn[0]["undo"]["dst"]    = first_index; // dst
+    jsn[0]["undo"]["first"]  = pos_index;
+    jsn[0]["undo"]["last"]   = pos_index + (last_index - first_index);
+
+    // spdlog::warn("{}", jsn.dump(2));
 
     splice_direct(pos, other, first, last);
 
@@ -628,6 +659,9 @@ bool Item::process_event(const utility::JsonStore &event) {
         case IT_ENABLE:
             set_enabled_direct(event.at("value"));
             break;
+        case IT_NAME:
+            set_name_direct(event.at("value"));
+            break;
         case IT_ACTIVE:
             set_active_range_direct(event.at("value"));
             has_active_range_ = event.at("value2");
@@ -648,11 +682,11 @@ bool Item::process_event(const utility::JsonStore &event) {
         } break;
         case IT_SPLICE: {
             auto it1 = begin();
-            std::advance(it1, event.at("value1"));
+            std::advance(it1, event.at("dst"));
             auto it2 = begin();
-            std::advance(it2, event.at("value2"));
+            std::advance(it2, event.at("first"));
             auto it3 = begin();
-            std::advance(it3, event.at("value3"));
+            std::advance(it3, event.at("last"));
             splice_direct(it1, *this, it2, it3);
         } break;
 

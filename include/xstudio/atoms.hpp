@@ -593,6 +593,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, xstudio_plugin_atoms_last_type_id
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, remove_item_atom)
 
     // **************** add new entries here ******************
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_name_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, checksum_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, relink_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, decompose_atom)

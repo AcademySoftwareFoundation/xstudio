@@ -466,6 +466,7 @@ TimelineActor::TimelineActor(
     auto stack = spawn<StackActor>("Stack", suuid);
     anon_send<message_priority::high>(this, insert_item_atom_v, 0, UuidActor(suuid, stack));
     base_.item().set_system(&system());
+    base_.item().set_name(name);
     base_.item().bind_item_event_func([this](const utility::JsonStore &event, Item &item) {
         item_event_callback(event, item);
     });
@@ -574,6 +575,13 @@ void TimelineActor::init() {
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
             }
+            return jsn;
+        },
+
+        [=](item_name_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_name(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
 

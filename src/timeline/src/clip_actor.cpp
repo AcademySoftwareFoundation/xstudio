@@ -35,6 +35,7 @@ ClipActor::ClipActor(
       // playlist_(caf::actor_cast<actor_addr>(playlist)),
       base_(name, uuid, this, media.uuid()) {
     base_.item().set_system(&system());
+    base_.item().set_name(name);
 
     if (media.actor()) {
         media_ = caf::actor_cast<caf::actor_addr>(media.actor());
@@ -99,6 +100,13 @@ void ClipActor::init() {
 
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
+        [=](item_name_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
             return jsn;

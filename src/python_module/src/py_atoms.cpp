@@ -65,7 +65,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::timeline, active_range_atom);
     ADD_ATOM(xstudio::timeline, available_range_atom);
     ADD_ATOM(xstudio::timeline, duration_atom);
-    // ADD_ATOM(xstudio::timeline, start_time_atom);
+    ADD_ATOM(xstudio::timeline, item_name_atom);
     ADD_ATOM(xstudio::timeline, item_atom);
     ADD_ATOM(xstudio::timeline, insert_item_atom);
     ADD_ATOM(xstudio::timeline, remove_item_atom);

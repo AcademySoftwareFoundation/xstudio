@@ -503,6 +503,8 @@ class Connection(object):
             except Exception as e:
                 if str(e) == "Dequeue timeout":
                     raise TimeoutError("Dequeue timeout")
+                else:
+                    raise
 
             if msg is None:
                 raise TimeoutError("Dequeue timeout")

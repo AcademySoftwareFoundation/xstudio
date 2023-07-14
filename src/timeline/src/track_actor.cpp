@@ -141,6 +141,7 @@ TrackActor::TrackActor(
     const utility::Uuid &uuid)
     : caf::event_based_actor(cfg), base_(name, media_type, uuid, this) {
     base_.item().set_system(&system());
+    base_.item().set_name(name);
     base_.item().bind_item_event_func([this](const utility::JsonStore &event, Item &item) {
         item_event_callback(event, item);
     });
@@ -221,6 +222,13 @@ void TrackActor::init() {
         },
 
         [=](item_atom) -> Item { return base_.item(); },
+
+        [=](item_name_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_name(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
 
         [=](item_atom, const bool with_state) -> result<std::pair<JsonStore, Item>> {
             auto rp = make_response_promise<std::pair<JsonStore, Item>>();
@@ -479,12 +487,26 @@ void TrackActor::init() {
             -> result<JsonStore> {
             auto sit = base_.item().children().begin();
             std::advance(sit, src_index);
+
             if (sit == base_.item().children().end())
                 return make_error(xstudio_error::error, "Invalid src index");
-            auto src_uuid = sit->uuid();
 
+            auto src_uuid = sit->uuid();
+            // dst index is the index it should be after the move.
+            // we need to account for the items we're moving..
             auto dit = base_.item().children().begin();
-            std::advance(dit, dst_index);
+
+            if (dst_index == src_index)
+                return make_error(xstudio_error::error, "Invalid Move");
+
+            auto adj_dst = dst_index;
+
+            if (dst_index > src_index)
+                adj_dst += count;
+
+            // spdlog::warn("{} {} {} -> {}", src_index, count, dst_index, adj_dst);
+
+            std::advance(dit, adj_dst);
             auto dst_uuid = utility::Uuid();
             if (dit != base_.item().children().end())
                 dst_uuid = dit->uuid();
@@ -507,7 +529,6 @@ void TrackActor::init() {
             auto dit = base_.item().children().end();
             if (not before_uuid.is_null()) {
                 dit = find_uuid(base_.item().children(), before_uuid);
-                std::advance(dit, 1);
                 if (dit == base_.item().end())
                     return make_error(xstudio_error::error, "Invalid dst uuid");
             }
@@ -515,7 +536,6 @@ void TrackActor::init() {
             if (count) {
                 auto site = sitb;
                 std::advance(site, count);
-
                 auto changes = base_.item().splice(dit, base_.item().children(), sitb, site);
                 auto more    = base_.item().refresh();
                 if (not more.is_null())
@@ -527,7 +547,6 @@ void TrackActor::init() {
 
             return JsonStore();
         },
-
 
         [=](utility::event_atom, utility::change_atom) {
             // update_edit_list_ = true;
