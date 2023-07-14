@@ -69,7 +69,7 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     bool
     setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 
-    Q_INVOKABLE void dump() const { spdlog::warn("{}", data_.dump(2)); }
+    Q_INVOKABLE void dump() const { spdlog::warn("{}", modelData().dump(2)); }
 
     Q_INVOKABLE bool
     removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
@@ -208,6 +208,7 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
 
     Q_INVOKABLE void relinkMedia(const QModelIndexList &indexes, const QUrl &path);
     Q_INVOKABLE void decomposeMedia(const QModelIndexList &indexes);
+    Q_INVOKABLE void rescanMedia(const QModelIndexList &indexes);
 
   signals:
     void bookmarkActorAddrChanged();
@@ -225,21 +226,31 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     static nlohmann::json createEntry(const nlohmann::json &update = R"({})"_json);
 
   protected:
-    QModelIndexList search_recursive_fast(
-        const nlohmann::json &searchValue,
-        const std::string &searchKey,
-        const nlohmann::json::json_pointer &path,
-        const nlohmann::json &root,
-        const int hits) const;
+    QModelIndexList search_recursive_list_base(
+        const QVariant &value,
+        const int role,
+        const QModelIndex &parent,
+        const int start,
+        const int hits,
+        const int depth = -1) override;
+    // QModelIndexList search_recursive_fast(
+    //     const nlohmann::json &searchValue,
+    //     const std::string &searchKey,
+    //     const nlohmann::json::json_pointer &path,
+    //     const nlohmann::json &root,
+    //     const int hits) const;
 
-    QModelIndexList search_recursive_media(
-        const nlohmann::json &searchValue,
-        const std::string &searchKey,
-        const nlohmann::json::json_pointer &path,
-        const nlohmann::json &root,
-        const int hits) const;
+    // QModelIndexList search_recursive_media(
+    //     const nlohmann::json &searchValue,
+    //     const std::string &searchKey,
+    //     const nlohmann::json::json_pointer &path,
+    //     const nlohmann::json &root,
+    //     const int hits) const;
 
   private:
+    bool isChildOf(const QModelIndex &parent, const QModelIndex &child) const;
+    int depthOfChild(const QModelIndex &parent, const QModelIndex &child) const;
+
     QModelIndexList insertRows(
         int row,
         int count,
@@ -251,42 +262,39 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     void receivedDataSlot(
         const QVariant &search_value,
         const int search_role,
-        const QString &search_hint,
+        const QPersistentModelIndex &search_hint,
         const int role,
         const QString &result);
 
     void receivedData(
         const nlohmann::json &search_value,
         const int search_role,
-        const nlohmann::json::json_pointer &search_hint,
+        const QPersistentModelIndex &search_hint,
         const int role,
         const nlohmann::json &result);
 
     void requestData(
         const QVariant &search_value,
         const int search_role,
-        const nlohmann::json::json_pointer &search_hint,
+        const QPersistentModelIndex &search_hint,
         const QModelIndex &index,
         const int role) const;
     void requestData(
         const QVariant &search_value,
         const int search_role,
-        const nlohmann::json::json_pointer &search_hint,
+        const QPersistentModelIndex &search_hint,
         const nlohmann::json &data,
         const int role) const;
 
     caf::actor actorFromIndex(const QModelIndex &index, const bool try_parent = false);
     utility::Uuid actorUuidFromIndex(const QModelIndex &index, const bool try_parent = false);
 
-    void processChildren(
-        const nlohmann::json &result_json,
-        nlohmann::json &index_json,
-        const QModelIndex &index);
+    void processChildren(const nlohmann::json &result_json, const QModelIndex &index);
 
     void forcePopulate(
-        const nlohmann::json &item,
-        const nlohmann::json::json_pointer &search_hint = nlohmann::json::json_pointer());
-    void refreshId(nlohmann::json &ij);
+        const utility::JsonTree &tree,
+        const QPersistentModelIndex &search_hint = QModelIndex());
+    utility::Uuid refreshId(nlohmann::json &ij);
     QModelIndex getPlaylistIndex(const QModelIndex &index) const;
 
     QFuture<QList<QUuid>> handleMediaIdDropFuture(
@@ -297,6 +305,10 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
         const int proposedAction, const utility::JsonStore &drop, const QModelIndex &index);
     QFuture<QList<QUuid>> handleOtherDropFuture(
         const int proposedAction, const utility::JsonStore &drop, const QModelIndex &index);
+
+    void add_uuid_lookup(const utility::Uuid &uuid, const QModelIndex &index);
+    void add_string_lookup(const std::string &str, const QModelIndex &index);
+    void add_lookup(const utility::JsonTree &tree, const QModelIndex &index);
 
   private:
     QString session_actor_addr_;
@@ -310,6 +322,10 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
 
     mutable std::set<std::tuple<QVariant, int, int>> in_flight_requests_;
     QThreadPool *request_handler_;
+
+
+    std::map<utility::Uuid, std::set<QPersistentModelIndex>> uuid_lookup_;
+    std::map<std::string, std::set<QPersistentModelIndex>> string_lookup_;
 };
 
 } // namespace xstudio::ui::qml

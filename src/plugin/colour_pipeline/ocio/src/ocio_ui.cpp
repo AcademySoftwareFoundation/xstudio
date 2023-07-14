@@ -175,7 +175,7 @@ bool OCIOColourPipeline::pointer_event(const ui::PointerEvent &e) {
     // Implementing exposure scrubbing in viewport
     static int x_down;
     static float e_down;
-    static bool dragging = false;
+    static auto dragging = false;
     bool used            = false;
 
     if (e.type() == ui::Signature::EventType::ButtonDown &&
@@ -185,15 +185,15 @@ bool OCIOColourPipeline::pointer_event(const ui::PointerEvent &e) {
         dragging = true;
         used     = true;
     } else if (dragging && e.buttons() == ui::Signature::Left) {
-        const float sensitivity =
+        const auto sensitivity =
             active_attr->get_role_data<float>(module::Attribute::FloatScrubSensitivity);
-        const float step = active_attr->get_role_data<float>(module::Attribute::FloatScrubStep);
-        const float min  = active_attr->get_role_data<float>(module::Attribute::FloatScrubMin);
-        const float max  = active_attr->get_role_data<float>(module::Attribute::FloatScrubMax);
+        const auto step = active_attr->get_role_data<float>(module::Attribute::FloatScrubStep);
+        const auto min  = active_attr->get_role_data<float>(module::Attribute::FloatScrubMin);
+        const auto max  = active_attr->get_role_data<float>(module::Attribute::FloatScrubMax);
 
-        float val = 0.0f;
-        val       = round((e_down + (e.x() - x_down) * sensitivity) / step) * step;
-        val       = std::max(std::min(val, max), min);
+        auto val = 0.0f;
+        val      = round((e_down + (e.x() - x_down) * sensitivity) / step) * step;
+        val      = std::max(std::min(val, max), min);
         active_attr->set_value(val);
         used = true;
     } else if (
@@ -204,8 +204,8 @@ bool OCIOColourPipeline::pointer_event(const ui::PointerEvent &e) {
     }
 
     if (e.type() == ui::Signature::EventType::DoubleClick) {
-        static float last_value = 0.0f;
-        const float def = active_attr->get_role_data<float>(module::Attribute::DefaultValue);
+        static auto last_value = 0.0f;
+        const auto def = active_attr->get_role_data<float>(module::Attribute::DefaultValue);
 
         if (active_attr->value() == def) {
             active_attr->set_value(last_value);
@@ -293,9 +293,9 @@ void OCIOColourPipeline::connect_to_viewport(
 
         add_multichoice_attr_to_menu(preferred_view_, "Colour", "OCIO Preferred View");
 
-        add_boolean_attr_to_menu(enable_saturation_, "Colour|Gamma/Sat Controls");
+        add_boolean_attr_to_menu(enable_saturation_, "panels_menu|Toolbar");
 
-        add_boolean_attr_to_menu(enable_gamma_, "Colour|Gamma/Sat Controls");
+        add_boolean_attr_to_menu(enable_gamma_, "panels_menu|Toolbar");
 
     } else if (viewport_index == 1) {
 

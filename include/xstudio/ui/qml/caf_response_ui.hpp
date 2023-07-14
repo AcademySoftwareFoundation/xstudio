@@ -19,13 +19,13 @@ class CafResponse : public QObject {
 
   signals:
     //  Search value, search role,  search hint, set role, set value
-    void received(QVariant, int, QString, int, QString);
+    void received(QVariant, int, QPersistentModelIndex, int, QString);
 
   public:
     CafResponse(
-        const QVariant &search_value,
+        const QVariant search_value,
         const int search_role,
-        const nlohmann::json::json_pointer &search_hint,
+        const QPersistentModelIndex search_hint,
         const nlohmann::json &data,
         int role,
         const std::string &role_name,
@@ -38,7 +38,7 @@ class CafResponse : public QObject {
 
     const QVariant search_value_;
     const int search_role_;
-    const nlohmann::json::json_pointer search_hint_;
+    const QPersistentModelIndex search_hint_;
     const int role_;
 };
 

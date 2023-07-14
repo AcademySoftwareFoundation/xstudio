@@ -75,7 +75,9 @@ namespace ui {
                 QString manufacturer,
                 QString serialNumber,
                 double refresh_rate);
-            QString name() const { return QStringFromStd(viewport_renderer_->name()); }
+            [[nodiscard]] QString name() const {
+                return QStringFromStd(viewport_renderer_->name());
+            }
 
           public slots:
 
@@ -96,6 +98,7 @@ namespace ui {
             void translateChanged(QVector2D);
             void onScreenFrameChanged(int);
             void outOfRange(bool);
+            void noAlphaChannelChanged(bool);
             void doRedraw();
             void doSnapshot(QString, QString, int, int, bool);
 

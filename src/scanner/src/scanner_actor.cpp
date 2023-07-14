@@ -73,7 +73,7 @@ uintmax_t get_file_size(const std::string &path) {
 }
 
 std::string get_checksum(const std::string &path) {
-    unsigned char hash[MD5_DIGEST_LENGTH];
+    std::array<unsigned char, MD5_DIGEST_LENGTH> hash;
 
     // read first and last 1k..
     std::string buf(2048, ' ');
@@ -94,17 +94,30 @@ std::string get_checksum(const std::string &path) {
     MD5_CTX md5;
     MD5_Init(&md5);
     MD5_Update(&md5, buf.c_str(), buf.size());
-    MD5_Final(hash, &md5);
+    MD5_Final(hash.data(), &md5);
 
     std::stringstream ss;
 
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
+    for (unsigned char i : hash) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(i);
     }
 
     return ss.str();
 }
 
+MediaReference rescan_media_reference(MediaReference mr) {
+    // only deal with frames..
+    if (not mr.container()) {
+        // get dir..
+        auto fl = FrameList(mr.uri());
+        if (fl != mr.frame_list()) {
+            mr.set_frame_list(fl);
+            mr.set_timecode_from_frames();
+        }
+    }
+
+    return mr;
+}
 
 } // namespace
 
@@ -137,6 +150,16 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
             if (size)
                 checksum = get_checksum(path);
             return std::make_pair(checksum, size);
+        },
+
+        [=](media::rescan_atom, const MediaReference &mr) -> result<MediaReference> {
+            auto rp = make_response_promise<MediaReference>();
+            try {
+                rp.deliver(rescan_media_reference(mr));
+            } catch (const std::exception &err) {
+                rp.deliver(make_error(xstudio_error::error, err.what()));
+            }
+            return rp;
         },
 
         [=](media::relink_atom,
@@ -215,6 +238,8 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
         },
+
+        [=](media::rescan_atom atom, const MediaReference &mr) { delegate(helper, atom, mr); },
 
         [=](media::checksum_atom atom, const MediaReference &mr) {
             delegate(helper, atom, mr);

@@ -45,7 +45,7 @@ ApplicationWindow {
     visible: true
     color: XsStyle.theme == "dark"?"#00000000":"white"
     title: (sessionPathNative ? (app_window.sessionModel.modified ? sessionPathNative + " - modified": sessionPathNative) : "xStudio")
-    objectName: "appWidnow"
+    objectName: "appWindow"
     minimumWidth: sessionWidget.minimumWidth
     minimumHeight: sessionWidget.minimumHeight
     property color highlightColor: XsStyle.highlightColor
@@ -507,8 +507,8 @@ ApplicationWindow {
     // media can exist in multiple parts of the tree..
     // make sure we're looking in the right one..
     function updateMediaUuid(uuid) {
-        // console.log("updateMediaUuid", uuid)
-        let media_idx = app_window.sessionModel.search_recursive(uuid, "actorUuidRole", screenSource.index)
+        let media_idx = app_window.sessionModel.search(uuid, "actorUuidRole", app_window.sessionModel.index(0,0,screenSource.index), 0)
+
         if(media_idx.valid) {
             // get index of active source.
             let active = media_idx.model.get(media_idx, "imageActorUuidRole")
@@ -516,7 +516,7 @@ ApplicationWindow {
             media_idx.model.get(media_idx, "audioActorUuidRole")
 
             if(active != undefined) {
-                let msi = app_window.sessionModel.search_recursive(active, "actorUuidRole", media_idx)
+                let msi = app_window.sessionModel.search_recursive(active, "actorUuidRole", app_window.sessionModel.index(0, 0, media_idx))
                 if(mediaImageSource.index != msi)
                     mediaImageSource.index = msi
 
@@ -560,7 +560,6 @@ ApplicationWindow {
 
         // current follows current playhead media ?
         onCurrentChanged: {
-            // console.log("mediaSelectionModel onCurrentChanged", current)
             if(current.valid) {
                 // check playhead...
                 let active = current.model.get(current, "actorUuidRole")
@@ -1250,6 +1249,10 @@ ApplicationWindow {
 
         function decomposeSelectedMedia() {
             sessionModel.decomposeMedia(mediaSelectionModel.selectedIndexes)
+        }
+
+        function rescanSelectedMedia() {
+            sessionModel.rescanMedia(mediaSelectionModel.selectedIndexes)
         }
 
         function requestRemoveSelectedMedia() {

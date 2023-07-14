@@ -108,6 +108,12 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
         this,
         SIGNAL(imageBoundaryInViewportChanged()));
 
+    connect(
+        renderer_actor,
+        SIGNAL(noAlphaChannelChanged(bool)),
+        this,
+        SLOT(setNoAlphaChannel(bool)));
+
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
 
@@ -221,6 +227,9 @@ void QMLViewport::sync() {
             Qt::DirectConnection);
         connected_ = true;
     }
+
+    if (!window() || !renderer_actor)
+        return;
 
     // Tell the renderer the viewport coordinates. These are the 4 corners of the viewport
     // within the overall GL viewport,
@@ -495,6 +504,13 @@ void QMLViewport::setFrameOutOfRange(bool frame_out_of_range) {
     if (frame_out_of_range != frame_out_of_range_) {
         frame_out_of_range_ = frame_out_of_range;
         emit frameOutOfRangeChanged();
+    }
+}
+
+void QMLViewport::setNoAlphaChannel(bool no_alpha_channel) {
+    if (no_alpha_channel != no_alpha_channel_) {
+        no_alpha_channel_ = no_alpha_channel;
+        emit noAlphaChannelChanged();
     }
 }
 

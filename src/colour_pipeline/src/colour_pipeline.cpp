@@ -164,7 +164,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
 
             // No cached data, so we need to get the workers to do generate the
             // data
-            caf::actor worker = worker_pool_ ? worker_pool_ : self();
+            auto worker = worker_pool_ ? worker_pool_ : self();
 
             request(worker, infinite, get_colour_pipe_data_atom_v, media_ptr, "to_linear_op")
                 .then(
@@ -489,7 +489,7 @@ void ColourPipeline::finalise_colour_pipeline_data(
     ColourOperationDataPtr &linearise_data,
     ColourOperationDataPtr &to_display_data) {
 
-    ColourPipelineData *data = new ColourPipelineData;
+    auto *data = new ColourPipelineData;
     ColourPipelineDataPtr result;
     result.reset(data);
     linearise_data->order_index_  = std::numeric_limits<float>::lowest();

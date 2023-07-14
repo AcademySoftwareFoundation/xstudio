@@ -25,52 +25,47 @@ namespace colour_pipeline {
         int ysize_;
         int zsize_;
 
-        static LUTDescriptor Create1DLUT(
+        static LUTDescriptor Create1DLUT( // NOLINT
             int size,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, ONE_D, ch, it, size, 1, 1};
         }
 
-        static LUTDescriptor Create2DLUT(
+        static LUTDescriptor Create2DLUT( // NOLINT
             int width,
             int height,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, TWO_D, ch, it, width, height, 1};
         }
 
-        static LUTDescriptor Create2DRectLUT(
+        static LUTDescriptor Create2DRectLUT( // NOLINT
             int width,
             int height,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, RECT_TWO_D, ch, it, width, height, 1};
         }
 
-        static LUTDescriptor Create3DLUT(
+        static LUTDescriptor Create3DLUT( // NOLINT
             int size,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, THREE_D, ch, it, size, size, size};
         }
 
-        static LUTDescriptor Create3DLUT(
+        static LUTDescriptor Create3DLUT( // NOLINT
             int width,
             int height,
             int depth,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, THREE_D, ch, it, width, height, depth};
         }
 

@@ -568,13 +568,15 @@ QObject *ShotgunDataSourceUI::playlistModel(const int project_id) {
     return playlists_map_[project_id];
 }
 
+//  unused ?
 QString ShotgunDataSourceUI::getShotSequence(const int project_id, const QString &shot) {
     QString result;
 
     if (sequences_map_.count(project_id)) {
         // get data..
         const auto &data = sequences_map_[project_id]->modelData();
-        auto needle      = StdFromQString(shot);
+
+        auto needle = StdFromQString(shot);
 
         for (const auto &i : data) {
             try {
@@ -1702,7 +1704,9 @@ Q_INVOKABLE void ShotgunDataSourceUI::resetPreset(const QString &qpreset, const 
         // update and add
         // update globals ?
         // and presets..
-        JsonStore data(model->modelData());
+        JsonStore data(model->modelData().at("queries"));
+
+        // massage format..
         for (const auto &i : defval) {
             auto name = i.at("name").get<std::string>();
             // find name in current..
@@ -1969,7 +1973,8 @@ utility::JsonStore ShotgunDataSourceUI::getPresetData(const std::string &preset)
     if (PresetModelLookup.count(preset))
         return qvariant_cast<ShotgunTreeModel *>(
                    preset_models_->value(QStringFromStd(PresetModelLookup.at(preset))))
-            ->modelData();
+            ->modelData()
+            .at("queries");
 
     return utility::JsonStore();
 }
@@ -1986,7 +1991,8 @@ void ShotgunDataSourceUI::flushPreset(const std::string &preset) {
         prefs.set_value(
             qvariant_cast<ShotgunTreeModel *>(
                 preset_models_->value(QStringFromStd(PresetModelLookup.at(preset))))
-                ->modelData(),
+                ->modelData()
+                .at("queries"),
             "/plugin/data_source/shotgun/" + PresetPreferenceLookup.at(preset));
     }
 }

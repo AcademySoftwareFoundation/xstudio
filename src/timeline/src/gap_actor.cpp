@@ -14,7 +14,7 @@ using namespace xstudio::timeline;
 using namespace caf;
 
 GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn)
-    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])) {
+    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
     base_.item().set_system(&system());
 
@@ -22,7 +22,7 @@ GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn)
 }
 
 GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
-    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])) {
+    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
     base_.item().set_system(&system());
 

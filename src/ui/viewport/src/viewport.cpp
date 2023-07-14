@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 #include <caf/all.hpp>
 
 #include <chrono>
@@ -734,8 +733,7 @@ void Viewport::set_fit_mode(const FitMode md) {
     event_callback_(Redraw);
 }
 
-void Viewport::set_mirror_mode(const MirrorMode md)
-{
+void Viewport::set_mirror_mode(const MirrorMode md) {
     state_.mirror_mode_ = md;
     update_matrix();
     event_callback_(MirrorModeChanged);
@@ -840,13 +838,13 @@ void Viewport::update_matrix() {
         Imath::V3f(1.0f / state_.scale_, 1.0f / state_.scale_, 1.0f / state_.scale_));
 
     float scale_factor_x = 1.0f;
-    if(state_.mirror_mode_ == MirrorMode::Flop || state_.mirror_mode_ == MirrorMode::Both)
+    if (state_.mirror_mode_ == MirrorMode::Flop || state_.mirror_mode_ == MirrorMode::Both)
         scale_factor_x = -scale_factor_x;
 
     float scale_factor_y = state_.size_.y / state_.size_.x;
-    if(state_.mirror_mode_ == MirrorMode::Flip || state_.mirror_mode_ == MirrorMode::Both)
+    if (state_.mirror_mode_ == MirrorMode::Flip || state_.mirror_mode_ == MirrorMode::Both)
         scale_factor_y = -scale_factor_y;
-    
+
     projection_matrix_.scale(Imath::V3f(scale_factor_x, scale_factor_y, 1.0f));
     projection_matrix_.scale(Imath::V3f(1.0f, -1.0f, 1.0f));
 
@@ -1323,6 +1321,12 @@ void Viewport::update_onscreen_frame_info(const media_reader::ImageBufPtr &frame
     } else if (frame_out_of_range_) {
         frame_out_of_range_ = false;
         event_callback_(OutOfRangeChanged);
+    }
+
+    if (frame->has_alpha() == no_alpha_channel_) {
+
+        no_alpha_channel_ = !frame->has_alpha();
+        event_callback_(NoAlphaChannelChanged);
     }
 }
 

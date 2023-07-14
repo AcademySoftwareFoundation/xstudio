@@ -255,7 +255,7 @@ void ViewportFrameQueueActor::queue_image_buffer_for_drawing(
 
     auto &frames_queued_for_display = frames_to_draw_per_playhead_[playhead_id];
 
-    OrderedImagesToDraw::iterator p = frames_queued_for_display.begin();
+    auto p = frames_queued_for_display.begin();
     while (p != frames_queued_for_display.end()) {
         // there can only be one image in the display queue for a given
         // timeline timestamp. Remove images already in the queue so the
@@ -465,14 +465,13 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
         // we need the playhead to estimate what its position will be when we next swap an image
         // onto the screen. We then use this to pick which of the frames that we've been sent to
         // show we actually show.
-        timebase::flicks estimate_playhead_position_at_next_redraw =
-            request_receive_wait<timebase::flicks>(
-                *sys,
-                playhead_,
-                std::chrono::milliseconds(100),
-                playhead::position_atom_v,
-                next_video_refresh_tp,
-                video_refresh_period);
+        auto estimate_playhead_position_at_next_redraw = request_receive_wait<timebase::flicks>(
+            *sys,
+            playhead_,
+            std::chrono::milliseconds(100),
+            playhead::position_atom_v,
+            next_video_refresh_tp,
+            video_refresh_period);
 
         if (!playing_)
             return estimate_playhead_position_at_next_redraw;

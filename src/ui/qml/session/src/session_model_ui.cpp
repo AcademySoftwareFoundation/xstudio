@@ -19,6 +19,42 @@ using namespace xstudio;
 using namespace xstudio::utility;
 using namespace xstudio::ui::qml;
 
+void SessionModel::add_uuid_lookup(const utility::Uuid &uuid, const QModelIndex &index) {
+    if (not uuid.is_null()) {
+        if (not uuid_lookup_.count(uuid))
+            uuid_lookup_[uuid] = std::set<QPersistentModelIndex>();
+        uuid_lookup_[uuid].insert(index);
+    }
+}
+
+void SessionModel::add_string_lookup(const std::string &str, const QModelIndex &index) {
+    if (not str.empty()) {
+        if (not string_lookup_.count(str))
+            string_lookup_[str] = std::set<QPersistentModelIndex>();
+        string_lookup_[str].insert(index);
+    }
+}
+
+void SessionModel::add_lookup(const utility::JsonTree &tree, const QModelIndex &index) {
+
+    // add actorUuidLookup
+    if (tree.data().count("id") and not tree.data().at("id").is_null())
+        add_uuid_lookup(tree.data().at("id").get<Uuid>(), index);
+    if (tree.data().count("actor_uuid") and not tree.data().at("actor_uuid").is_null())
+        add_uuid_lookup(tree.data().at("actor_uuid").get<Uuid>(), index);
+    if (tree.data().count("container_uuid") and not tree.data().at("container_uuid").is_null())
+        add_uuid_lookup(tree.data().at("container_uuid").get<Uuid>(), index);
+    if (tree.data().count("actor") and not tree.data().at("actor").is_null())
+        add_string_lookup(tree.data().at("actor").get<std::string>(), index);
+
+    auto ind = 0;
+    for (const auto &i : tree) {
+        add_lookup(i, SessionModel::index(ind, 0, index));
+        ind++;
+    }
+}
+
+
 caf::actor SessionModel::actorFromIndex(const QModelIndex &index, const bool try_parent) {
     auto result = caf::actor();
 
@@ -75,9 +111,11 @@ SessionModel::actorUuidFromIndex(const QModelIndex &index, const bool try_parent
 
 
 void SessionModel::forcePopulate(
-    const nlohmann::json &item, const nlohmann::json::json_pointer &search_hint) {
-    if (item.count("group_actor") and not item.at("group_actor").is_null()) {
-        auto grp = actorFromString(system(), item.at("group_actor").get<std::string>());
+    const utility::JsonTree &tree, const QPersistentModelIndex &search_hint) {
+    auto tjson = tree.data();
+
+    if (tjson.count("group_actor") and not tjson.at("group_actor").is_null()) {
+        auto grp = actorFromString(system(), tjson.at("group_actor").get<std::string>());
         if (grp) {
             anon_send(grp, broadcast::join_broadcast_atom_v, as_actor());
             // spdlog::error("join grp {} {} {}",
@@ -89,42 +127,42 @@ void SessionModel::forcePopulate(
         }
 
     } else if (
-        item.count("actor") and not item.at("actor").is_null() and
-        item.at("group_actor").is_null()) {
+        tjson.count("actor") and not tjson.at("actor").is_null() and
+        tjson.at("group_actor").is_null()) {
         // spdlog::info("request group {}", i);
         requestData(
-            QVariant::fromValue(QUuidFromUuid(item.at("id"))),
+            QVariant::fromValue(QUuidFromUuid(tjson.at("id"))),
             Roles::idRole,
             search_hint,
-            item,
+            tjson,
             Roles::groupActorRole);
     }
 
-    const auto type = item.count("type") ? item.at("type").get<std::string>() : std::string();
+    const auto type = tjson.count("type") ? tjson.at("type").get<std::string>() : std::string();
 
     // spdlog::warn("{} {}", type, item.dump(2));
     // if subset or playlist, trigger auto population of children
     if (type == "Playlist" or type == "Subset" or type == "Timeline") {
         try {
             requestData(
-                QVariant::fromValue(QUuidFromUuid(item.at("children").at(0).at("id"))),
+                QVariant::fromValue(QUuidFromUuid(tree.child(0)->data().at("id"))),
                 Roles::idRole,
                 search_hint,
-                item.at("children").at(0),
+                tree.child(0)->data(),
                 Roles::childrenRole);
             requestData(
-                QVariant::fromValue(QUuidFromUuid(item.at("children").at(1).at("id"))),
+                QVariant::fromValue(QUuidFromUuid(tree.child(1)->data().at("id"))),
                 Roles::idRole,
                 search_hint,
-                item.at("children").at(1),
+                tree.child(1)->data(),
                 Roles::childrenRole);
 
             if (type == "Playlist")
                 requestData(
-                    QVariant::fromValue(QUuidFromUuid(item.at("children").at(2).at("id"))),
+                    QVariant::fromValue(QUuidFromUuid(tree.child(2)->data().at("id"))),
                     Roles::idRole,
                     search_hint,
-                    item.at("children").at(2),
+                    tree.child(2)->data(),
                     Roles::childrenRole);
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -132,22 +170,30 @@ void SessionModel::forcePopulate(
     }
 }
 
-void SessionModel::refreshId(nlohmann::json &ij) {
-    if (ij.count("id"))
-        ij["id"] = Uuid::generate();
+utility::Uuid SessionModel::refreshId(nlohmann::json &ij) {
+    utility::Uuid result;
+
+    if (ij.count("id")) {
+        result.generate_in_place();
+        ij["id"] = result;
+    }
+
+    return result;
 }
 
-void SessionModel::processChildren(
-    const nlohmann::json &rj, nlohmann::json &ij, const QModelIndex &index) {
+void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &parent_index) {
     QVector<int> roles({Roles::childrenRole});
     auto changed = false;
     START_SLOW_WATCHER()
 
-    // spdlog::info("current {}", data_.dump(2));
-    // spdlog::info("new {}", rj.dump(2));
-    // spdlog::info("old {}", ij.dump(2));
-    // spdlog::info("target {}", indexToData(index).dump(2));
-    const auto type = ij.count("type") ? ij.at("type").get<std::string>() : std::string();
+    auto ptree = indexToTree(parent_index);
+
+    const auto type = ptree->data().count("type") ? ptree->data().at("type").get<std::string>()
+                                                  : std::string();
+
+    // spdlog::warn("processChildren {} {} {}", type, ptree->data().dump(2), rj.dump(2));
+    // spdlog::warn("processChildren {}", tree_to_json( *ptree,"children").dump(2));
+    // spdlog::warn("processChildren {}", rj.dump(2));
 
     try {
         if (type == "Session" or type == "Container List" or type == "Media" or
@@ -164,29 +210,9 @@ void SessionModel::processChildren(
             if (rjc.is_null())
                 rjc = R"([])"_json;
 
-            // init local children if null
-            if (ij.at("children").is_null()) {
-                ij["children"] = R"([])"_json;
-
-                // // special handling for nested..
-                // if (type == "Session" or type == "Container List") {
-                //     if(rj.at(0).count("container_uuid")) {
-                //         ij["container_uuid"] = rj.at(0).at("container_uuid");
-                //         roles.append(containerUuidRole);
-                //     }
-
-                //     ij["flag"] = rj.at(0).at("flag");
-                //     roles.append(flagRole);
-                // }
-                // changed = true;
-            }
-
-            // point to children of index we're updating
-            auto &ijc = ij["children"];
-
-            // compare children, append / insert / remove..
-            // spdlog::info("processChildren {} new {} old {}",
-            // type.get<std::string>(), rjc.size(), ijc.size());
+            // flag we now have valid children..
+            if (ptree->data().at("children").is_null())
+                ptree->data()["children"] = R"([])"_json;
 
             // set up comparison key
             auto compare_key = "";
@@ -205,11 +231,10 @@ void SessionModel::processChildren(
             // remove delete entries
             // build lookup.
             std::set<Uuid> rju;
-            for (size_t i = 0; i < rjc.size(); i++) {
-                if (rjc.at(i).count(compare_key))
-                    rju.insert(rjc.at(i).at(compare_key).get<Uuid>());
+            for (auto &i : rjc) {
+                if (i.count(compare_key))
+                    rju.insert(i.at(compare_key).get<Uuid>());
             }
-
 
             bool removal_done = false;
             while (not removal_done) {
@@ -218,15 +243,17 @@ void SessionModel::processChildren(
                 size_t start_index = 0;
                 size_t count       = 0;
 
-                for (size_t i = 0; i < ijc.size(); i++) {
-                    if (ijc.at(i).count(compare_key) and not ijc.at(i).count("placeholder") and
-                        not rju.count(ijc.at(i).at(compare_key))) {
+                for (size_t i = 0; i < ptree->size(); i++) {
+                    auto cjson = ptree->child(i)->data();
+
+                    if (cjson.count(compare_key) and not cjson.count("placeholder") and
+                        not rju.count(cjson.at(compare_key))) {
 
                         if (start_index + count == i) {
                             count++;
                         } else if (count) {
                             // non sequential, remove previous.
-                            JSONTreeModel::removeRows(start_index, count, index);
+                            JSONTreeModel::removeRows(start_index, count, parent_index);
                             count        = 0;
                             removal_done = false;
                             changed      = true;
@@ -241,7 +268,7 @@ void SessionModel::processChildren(
 
                 // chaser
                 if (count) {
-                    JSONTreeModel::removeRows(start_index, count, index);
+                    JSONTreeModel::removeRows(start_index, count, parent_index);
                     removal_done = false;
                     changed      = true;
                 }
@@ -249,9 +276,10 @@ void SessionModel::processChildren(
 
             // build uuid/index map for old.
             std::map<Uuid, size_t> iju;
-            for (size_t i = 0; i < ijc.size(); i++) {
-                if (ijc.at(i).count(compare_key) and not ijc.at(i).count("placeholder"))
-                    iju[ijc.at(i).at(compare_key).get<Uuid>()] = i;
+            for (size_t i = 0; i < ptree->size(); i++) {
+                auto cjson = ptree->child(i)->data();
+                if (cjson.count(compare_key) and not cjson.count("placeholder"))
+                    iju[cjson.at(compare_key).get<Uuid>()] = i;
             }
 
 
@@ -264,65 +292,91 @@ void SessionModel::processChildren(
             for (size_t i = 0; i < rjc.size(); i++) {
 
                 // APPEND NEW ENTRIES
-                if (i >= ijc.size()) {
+                if (i >= ptree->size()) {
                     // if appending we can process them all in one hit..
-                    // spdlog::warn("append {} {}",
-                    // mapFromValue(index.data(JSONPointerRole)).dump(), i);
-                    auto start = ijc.size();
+                    auto start = ptree->size();
 
-                    beginInsertRows(index, i, rjc.size() - 1);
+                    beginInsertRows(parent_index, i, rjc.size() - 1);
                     for (; i < rjc.size(); i++) {
-                        ijc.push_back(rjc.at(i));
-                        refreshId(ijc.back());
+
+                        auto new_child =
+                            ptree->insert(ptree->end(), json_to_tree(rjc.at(i), "children"));
+                        refreshId(new_child->data());
+
+                        add_lookup(*new_child, index(i, 0, parent_index));
                     }
                     endInsertRows();
 
-                    emit dataChanged(
-                        SessionModel::index(start, 0, index),
-                        SessionModel::index(ijc.size() - 1, 0, index),
-                        QVector<int>());
+                    try {
+                        emit dataChanged(
+                            SessionModel::index(start, 0, parent_index),
+                            SessionModel::index(ptree->size() - 1, 0, parent_index),
+                            QVector<int>());
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} reorder {}", __PRETTY_FUNCTION__, err.what());
+                    }
 
-                    auto hint = getIndexPath(index.internalId());
-                    for (auto ii = start; ii < ijc.size(); ++ii)
-                        forcePopulate(ijc[ii], hint);
+                    // FIX ME ***************************************************
+                    for (auto ii = start; ii < ptree->size(); ++ii)
+                        forcePopulate(*(ptree->child(ii)), parent_index);
 
                     changed = true;
                     break;
                 } else {
-                    if (ijc.at(i).count("placeholder") or not ijc.at(i).count(compare_key)) {
+                    auto cjson = ptree->child(i)->data();
+                    if (cjson.count("placeholder") or not cjson.count(compare_key)) {
                         // OVERWRITE PLACE HOLDER
-                        ijc.at(i) = rjc.at(i);
-                        refreshId(ijc.at(i));
 
-                        forcePopulate(ijc.at(i), getIndexPath(index.internalId()));
+                        // we can't erase..
+                        // or we'd invalidate the index..
+                        // auto oldpos = ptree->erase(ptree->child(i));
+                        auto childit    = ptree->child(i);
+                        auto new_item   = json_to_tree(rjc.at(i), "children");
+                        childit->data() = new_item.data();
+                        childit->clear();
+                        childit->splice(childit->end(), new_item.base());
+                        refreshId(childit->data());
 
-                        // force updated of replace child.
-                        emit dataChanged(
-                            SessionModel::index(i, 0, index),
-                            SessionModel::index(i, 0, index),
-                            QVector<int>());
+                        add_lookup(*childit, index(i, 0, parent_index));
+
+                        // FIX ME ***************************************************
+                        forcePopulate(*childit, parent_index);
+
+                        try {
+                            auto changed_index = SessionModel::index(i, 0, parent_index);
+                            emit dataChanged(changed_index, changed_index, QVector<int>());
+                        } catch (const std::exception &err) {
+                            spdlog::warn("{} reorder {}", __PRETTY_FUNCTION__, err.what());
+                        }
 
                         changed = true;
                     } else if (
-                        ijc.at(i).count(compare_key) and rjc.at(i).count(compare_key) and
-                        ijc.at(i).at(compare_key) == rjc.at(i).at(compare_key)) {
                         // skip..
-                        // spdlog::warn("skip {}", i);
+                        cjson.count(compare_key) and rjc.at(i).count(compare_key) and
+                        cjson.at(compare_key) == rjc.at(i).at(compare_key)) {
+
                     } else if (not iju.count(rjc.at(i).at(compare_key))) {
                         // insert
-                        // spdlog::warn("insert {}", i);
-                        beginInsertRows(index, i, i);
-                        ijc.insert(ijc.begin() + i, rjc.at(i));
+                        beginInsertRows(parent_index, i, i);
+                        auto new_child =
+                            ptree->insert(ptree->child(i), json_to_tree(rjc.at(i), "children"));
+                        refreshId(new_child->data());
+
+                        add_lookup(*new_child, index(i, 0, parent_index));
+
                         endInsertRows();
 
-                        refreshId(ijc.at(i));
+                        try {
+                            emit dataChanged(
+                                SessionModel::index(i, 0, parent_index),
+                                SessionModel::index(i, 0, parent_index),
+                                QVector<int>());
+                        } catch (const std::exception &err) {
+                            spdlog::warn("{} reorder {}", __PRETTY_FUNCTION__, err.what());
+                        }
 
-                        emit dataChanged(
-                            SessionModel::index(i, 0, index),
-                            SessionModel::index(i, 0, index),
-                            QVector<int>());
-
-                        forcePopulate(ijc.at(i), getIndexPath(index.internalId()));
+                        // FIX ME ***************************************************
+                        forcePopulate(*new_child, parent_index);
 
                         changed = true;
                     } else {
@@ -333,7 +387,6 @@ void SessionModel::processChildren(
 
             // handle reordering
             // all rows exist but in wrong order..
-
             try {
                 auto ordered = false;
                 while (not ordered) {
@@ -341,26 +394,36 @@ void SessionModel::processChildren(
                     for (size_t i = 0; i < rjc.size(); i++) {
                         // spdlog::warn("{} {}",i,rjc.at(i).at("name").dump());
 
-                        if (ijc.at(i).count(compare_key) and rjc.at(i).count(compare_key) and
-                            ijc.at(i).at(compare_key) != rjc.at(i).at(compare_key)) {
+                        auto cjson = ptree->child(i)->data();
+
+                        if (cjson.count(compare_key) and rjc.at(i).count(compare_key) and
+                            cjson.at(compare_key) != rjc.at(i).at(compare_key)) {
                             ordered = false;
                             // find actual index of model row
                             // spdlog::warn("{} -> {}", iju[rjc.at(i).at(compare_key)], i);
                             JSONTreeModel::moveRows(
-                                index, iju[rjc.at(i).at(compare_key)], 1, index, i);
+                                parent_index,
+                                iju[rjc.at(i).at(compare_key)],
+                                1,
+                                parent_index,
+                                i);
                             // for update of item, as listview seems to get confused..
 
-                            emit dataChanged(
-                                SessionModel::index(i, 0, index),
-                                SessionModel::index(i, 0, index),
-                                QVector<int>());
+                            try {
+                                emit dataChanged(
+                                    SessionModel::index(i, 0, parent_index),
+                                    SessionModel::index(i, 0, parent_index),
+                                    QVector<int>());
+                            } catch (const std::exception &err) {
+                                spdlog::warn("{} reorder {}", __PRETTY_FUNCTION__, err.what());
+                            }
 
                             // rebuild iju
                             iju.clear();
-                            for (size_t i = 0; i < ijc.size(); i++) {
-                                if (ijc.at(i).count(compare_key) and
-                                    not ijc.at(i).count("placeholder"))
-                                    iju[ijc.at(i).at(compare_key).get<Uuid>()] = i;
+                            for (size_t i = 0; i < ptree->size(); i++) {
+                                auto cjson = ptree->child(i)->data();
+                                if (cjson.count(compare_key) and not cjson.count("placeholder"))
+                                    iju[cjson.at(compare_key).get<Uuid>()] = i;
                             }
                             break;
                         }
@@ -374,144 +437,28 @@ void SessionModel::processChildren(
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        spdlog::warn("{}", ij.dump(2));
+        spdlog::warn("{}", ptree->data().dump(2));
         spdlog::warn("{}", rj.dump(2));
     }
 
-    // spdlog::warn("{}", data_.dump(2));
 
     if (changed) {
         // update totals.
-        if (type == "Media List" and ij.at("children").is_array()) {
-            // spdlog::warn("mediaCountRole {}", ij.at("children").size());
-            setData(
-                index.parent(), QVariant::fromValue(ij.at("children").size()), mediaCountRole);
+        if (type == "Media List" and ptree->data().at("children").is_array()) {
+            // spdlog::warn("mediaCountRole {}", ptree->size());
+            setData(parent_index.parent(), QVariant::fromValue(ptree->size()), mediaCountRole);
         }
 
-        emit dataChanged(index, index, roles);
+        emit dataChanged(parent_index, parent_index, roles);
     }
+
     CHECK_SLOW_WATCHER_FAST()
-}
-
-// optimised for finding the media index..
-
-QModelIndexList SessionModel::search_recursive_media(
-    const nlohmann::json &searchValue,
-    const std::string &searchKey,
-    const nlohmann::json::json_pointer &path,
-    const nlohmann::json &root,
-    const int hits) const {
-
-    QModelIndexList results;
-    START_SLOW_WATCHER()
-
-    if (root.value(searchKey, nlohmann::json()) == searchValue)
-        results.push_back(pointerToIndex(path));
-
-    // if we find a result in a child, don't scan siblings.
-    // we only get duplicates at the playlist level.
-    // only multi scan at playlist level.
-
-    // don't scan media children
-    if (root.value("type", "") == "Media")
-        return results;
-
-    // recurse..
-    if (hits == -1 or results.size() < hits) {
-        const nlohmann::json *children = nullptr;
-
-        if (root.is_array())
-            children = &root;
-        else if (root.contains(children_) and root.at(children_).is_array()) {
-            children = &root.at(children_);
-        }
-
-        if (children) {
-            auto row = 0;
-            for (const auto &i : *children) {
-                // no media here..
-                if (i.value("type", "") == "Container List" or
-                    i.value("type", "") == "PlayheadSelection")
-                    continue;
-
-                auto more_result = search_recursive_fast(
-                    searchValue,
-                    searchKey,
-                    path / children_ / std::to_string(row),
-                    i,
-                    hits == -1 ? -1 : hits - results.size());
-                row++;
-
-                results.append(more_result);
-                if (hits != -1 and results.size() >= hits)
-                    break;
-
-                if (not results.empty() and root.value("type", "") == "Session")
-                    break;
-            }
-        }
-    }
-    CHECK_SLOW_WATCHER()
-
-    return results;
-}
-
-
-QModelIndexList SessionModel::search_recursive_fast(
-    const nlohmann::json &searchValue,
-    const std::string &searchKey,
-    const nlohmann::json::json_pointer &path,
-    const nlohmann::json &root,
-    const int hits) const {
-    QModelIndexList results;
-    START_SLOW_WATCHER()
-
-    if (root.value(searchKey, nlohmann::json()) == searchValue)
-        results.push_back(pointerToIndex(path));
-
-    // if we find a result in a child, don't scan siblings.
-    // we only get duplicates at the playlist level.
-    // only multi scan at playlist level.
-
-    // recurse..
-    if (hits == -1 or results.size() < hits) {
-        const nlohmann::json *children = nullptr;
-
-        if (root.is_array())
-            children = &root;
-        else if (root.contains(children_) and root.at(children_).is_array()) {
-            children = &root.at(children_);
-        }
-
-        if (children) {
-            auto row = 0;
-            for (const auto &i : *children) {
-                auto more_result = search_recursive_fast(
-                    searchValue,
-                    searchKey,
-                    path / children_ / std::to_string(row),
-                    i,
-                    hits == -1 ? -1 : hits - results.size());
-                row++;
-
-                results.append(more_result);
-                if (hits != -1 and results.size() >= hits)
-                    break;
-
-                if (not results.empty() and root.value("type", "") == "Session")
-                    break;
-            }
-        }
-    }
-    CHECK_SLOW_WATCHER()
-
-    return results;
 }
 
 void SessionModel::receivedDataSlot(
     const QVariant &search_value,
     const int search_role,
-    const QString &search_hint,
+    const QPersistentModelIndex &search_hint,
     const int role,
     const QString &result) {
 
@@ -519,7 +466,7 @@ void SessionModel::receivedDataSlot(
         receivedData(
             mapFromValue(search_value),
             search_role,
-            nlohmann::json::json_pointer(StdFromQString(search_hint)),
+            search_hint,
             role,
             json::parse(StdFromQString(result)));
     } catch (const std::exception &err) {
@@ -535,7 +482,7 @@ void SessionModel::receivedDataSlot(
 void SessionModel::receivedData(
     const nlohmann::json &search_value,
     const int search_role,
-    const nlohmann::json::json_pointer &search_hint,
+    const QPersistentModelIndex &search_hint,
     const int role,
     const nlohmann::json &result) {
 
@@ -545,21 +492,22 @@ void SessionModel::receivedData(
         // because media can be shared, this is inefficient..
         auto hits = (search_role == actorUuidRole or search_role == actorRole) ? -1 : 1;
 
-        // auto indexes = search_recursive(
-        //     search_value, search_role, QModelIndex(), 0, hits);
+        QVariant sv;
+        if (search_role == Roles::actorRole) {
+            sv = QVariant::fromValue(QStringFromStd(search_value.get<std::string>()));
+        } else {
+            sv = QVariant::fromValue(QUuidFromUuid(search_value.get<Uuid>()));
+        }
 
-        std::map<int, std::string> role_to_search(
-            {{Roles::actorUuidRole, "actor_uuid"},
-             {Roles::actorRole, "actor"},
-             {Roles::containerUuidRole, "container_uuid"},
-             {Roles::idRole, "id"}});
+        auto search_index = QModelIndex();
+        auto search_start = 0;
 
-        auto hint = search_hint;
-        if (hint == nlohmann::json::json_pointer() or not data_.contains(hint))
-            hint = nlohmann::json::json_pointer("/0");
+        if (search_hint.isValid()) {
+            search_index = search_hint.parent();
+            search_start = search_index.row();
+        }
 
-        auto indexes = search_recursive_fast(
-            search_value, role_to_search[search_role], hint, data_.at(hint), hits);
+        auto indexes = search_recursive_list(sv, search_role, search_index, search_start, hits);
 
         std::map<int, std::string> role_to_key({
             {Roles::pathRole, "path"},
@@ -623,7 +571,7 @@ void SessionModel::receivedData(
                     break;
 
                 case Roles::childrenRole:
-                    processChildren(result, j, index);
+                    processChildren(result, index);
                     break;
                 }
             }
@@ -641,7 +589,7 @@ void SessionModel::receivedData(
 void SessionModel::requestData(
     const QVariant &search_value,
     const int search_role,
-    const nlohmann::json::json_pointer &search_hint,
+    const QPersistentModelIndex &search_hint,
     const QModelIndex &index,
     const int role) const {
     // dispatch call to backend to retrieve missing data.
@@ -657,7 +605,7 @@ void SessionModel::requestData(
 void SessionModel::requestData(
     const QVariant &search_value,
     const int search_role,
-    const nlohmann::json::json_pointer &search_hint,
+    const QPersistentModelIndex &search_hint,
     const nlohmann::json &data,
     const int role) const {
     // dispatch call to backend to retrieve missing data.

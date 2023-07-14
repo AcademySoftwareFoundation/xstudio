@@ -82,6 +82,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         // helper for dealing with URI's
         [=](data_source::use_data_atom,
             const JsonStore &jsn,
+            const FrameRate &media_rate,
             const bool drop) -> result<UuidActorVector> {
             // send to resident enabled datasource plugins
             auto actors = std::vector<caf::actor>();
@@ -98,7 +99,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             auto rp = make_response_promise<UuidActorVector>();
 
             fan_out_request<policy::select_all>(
-                actors, infinite, data_source::use_data_atom_v, jsn, true)
+                actors, infinite, data_source::use_data_atom_v, jsn, media_rate, true)
                 .then(
                     [=](const std::vector<UuidActorVector> results) mutable {
                         for (const auto &i : results) {
@@ -116,11 +117,16 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         [=](data_source::use_data_atom,
             const caf::uri &uri,
             const caf::actor &session,
-            const caf::actor &playlist) -> result<UuidActorVector> {
+            const caf::actor &playlist,
+            const FrameRate &media_rate) -> result<UuidActorVector> {
             auto rp = make_response_promise<UuidActorVector>();
 
             request(
-                caf::actor_cast<caf::actor>(this), infinite, data_source::use_data_atom_v, uri)
+                caf::actor_cast<caf::actor>(this),
+                infinite,
+                data_source::use_data_atom_v,
+                uri,
+                media_rate)
                 .then(
                     [=](const UuidActorVector &results) mutable {
                         // uri can contain playlist or media currently.
@@ -161,7 +167,9 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         },
 
         // helper for dealing with URI's
-        [=](data_source::use_data_atom, const caf::uri &uri) -> result<UuidActorVector> {
+        [=](data_source::use_data_atom,
+            const caf::uri &uri,
+            const FrameRate &media_rate) -> result<UuidActorVector> {
             // send to resident enabled datasource plugins
             auto actors = std::vector<caf::actor>();
 
@@ -177,7 +185,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             auto rp = make_response_promise<UuidActorVector>();
 
             fan_out_request<policy::select_all>(
-                actors, infinite, data_source::use_data_atom_v, uri)
+                actors, infinite, data_source::use_data_atom_v, uri, media_rate)
                 .then(
                     [=](const std::vector<UuidActorVector> results) mutable {
                         for (const auto &i : results) {

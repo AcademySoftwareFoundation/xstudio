@@ -509,7 +509,7 @@ Item {
 
             if(parent == app_window.sessionModel.index(0, 0)) {
                 connection_delay_timer.setTimeout(function(){
-                    let playlists = app_window.sessionModel.search("Playlist", "typeRole", app_window.sessionModel.index(0, 0), 0, -1)
+                    let playlists = app_window.sessionModel.search_list("Playlist", "typeRole", app_window.sessionModel.index(0, 0), 0, -1, 1)
                     playlists.forEach(
                         function (item, index) {
                             processPlaylist(item)

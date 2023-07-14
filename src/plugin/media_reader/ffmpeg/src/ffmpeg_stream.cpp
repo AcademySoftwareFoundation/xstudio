@@ -410,6 +410,20 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
             image_buffer->set_duration_seconds(1.0 / double(fpsNum_));
     }
 
+    // determine if image has alpha - if planar, look for 'a_linesize' != 0.
+    // Otherwise check for interleaved RGB pix formats that have an alpha
+    int rgb_format_code = jsn.value("rgb", 0);
+    int alpha_line_size = jsn.value("a_linesize", 0);
+
+    if (rgb_format_code == 8 || rgb_format_code == 1 || rgb_format_code == 2) {
+        image_buffer->set_has_alpha(false);
+    } else if (rgb_format_code == 9 || (rgb_format_code > 2 && rgb_format_code < 7)) {
+        image_buffer->set_has_alpha(true);
+    } else {
+        // rgb == 7 (RGB(A) planar) or rgb == 0 (i.e. YUV(A))
+        image_buffer->set_has_alpha(alpha_line_size != 0);
+    }
+
     image_buffer->set_decoder_frame_number(current_frame());
 
     return image_buffer;
@@ -669,12 +683,12 @@ size_t FFMpegStream::resample_audio(
     AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer) {
 
     // N.B. this method is based loosely on the audio resampling in ffplay.c in ffmpeg source
-    const int target_channel_layout = av_get_default_channel_layout(2);
+    const int64_t target_channel_layout = av_get_default_channel_layout(2);
 
     av_samples_get_buffer_size(
         nullptr, frame->channels, frame->nb_samples, (AVSampleFormat)frame->format, 1);
 
-    const int dec_channel_layout =
+    const int64_t dec_channel_layout =
         (frame->channel_layout &&
          frame->channels == av_get_channel_layout_nb_channels(frame->channel_layout))
             ? frame->channel_layout

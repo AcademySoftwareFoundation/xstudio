@@ -239,7 +239,7 @@ void PlayheadActor::init() {
             // scrubbing, we need to re-request the frame until the reader
             // finally responds and we do this with using the 'jump' atom
             // in a loop between sub-playhead and parent playhead like this:
-            caf::actor sub_playhead = caf::actor_cast<caf::actor>(sub_playhead_addr);
+            auto sub_playhead = caf::actor_cast<caf::actor>(sub_playhead_addr);
             for (const auto &i : sub_playheads_) {
                 if (i == sub_playhead) {
                     anon_send(
@@ -2077,7 +2077,7 @@ void PlayheadActor::update_source_multichoice(
                                         std::sort(source_names.begin(), source_names.end());
 
                                         if (source_names.empty()) {
-                                            source_names.push_back(
+                                            source_names.emplace_back(
                                                 mt == media::MT_IMAGE ? "No Video"
                                                                       : "No Audio");
                                         }

@@ -490,8 +490,10 @@ ShotgunButton {}
         auth_method_names,
         auth_method_names);
 
-    playlist_notes_action_ = add_action_attribute("playlist_notes_to_shotgun", "playlist_notes_to_shotgun");
-    selected_notes_action_ = add_action_attribute("selected_notes_to_shotgun", "selected_notes_to_shotgun");
+    playlist_notes_action_ =
+        add_action_attribute("playlist_notes_to_shotgun", "playlist_notes_to_shotgun");
+    selected_notes_action_ =
+        add_action_attribute("selected_notes_to_shotgun", "selected_notes_to_shotgun");
 
     client_id_     = add_string_attribute("client_id", "client_id", "");
     client_secret_ = add_string_attribute("client_secret", "client_secret", "");
@@ -508,7 +510,8 @@ ShotgunButton {}
     // by setting static UUIDs on these module we only create them once in the UI
     playlist_notes_action_->set_role_data(
         module::Attribute::UuidRole, "92c780be-d0bc-462a-b09f-643e8986e2a1");
-    playlist_notes_action_->set_role_data(module::Attribute::Title, "Publish Playlist Notes...");
+    playlist_notes_action_->set_role_data(
+        module::Attribute::Title, "Publish Playlist Notes...");
     playlist_notes_action_->set_role_data(
         module::Attribute::Groups, nlohmann::json{"shotgun_datasource_menu"});
     playlist_notes_action_->set_role_data(
@@ -516,7 +519,8 @@ ShotgunButton {}
 
     selected_notes_action_->set_role_data(
         module::Attribute::UuidRole, "7583a4d0-35d8-4f00-bc32-ae8c2bddc30a");
-    selected_notes_action_->set_role_data(module::Attribute::Title, "Publish Selected Notes...");
+    selected_notes_action_->set_role_data(
+        module::Attribute::Title, "Publish Selected Notes...");
     selected_notes_action_->set_role_data(
         module::Attribute::Groups, nlohmann::json{"shotgun_datasource_menu"});
     selected_notes_action_->set_role_data(
@@ -677,9 +681,8 @@ ShotgunDataSourceActor<T>::ShotgunDataSourceActor(
             -> result<UuidActorVector> { return UuidActorVector(); },
 
         // no drop support..
-        [=](data_source::use_data_atom, const JsonStore &, const bool) -> UuidActorVector {
-            return UuidActorVector();
-        },
+        [=](data_source::use_data_atom, const JsonStore &, const FrameRate &, const bool)
+            -> UuidActorVector { return UuidActorVector(); },
 
         [=](data_source::use_data_atom,
             const std::string &project,
@@ -1886,13 +1889,14 @@ void ShotgunDataSourceActor<T>::download_media(
 
         // spdlog::warn("{}", media_metadata.dump(2));
 
-        auto name = media_metadata.at("attributes").at("code").get<std::string>();
-        auto job  = media_metadata.at("attributes").at("sg_project_name").get<std::string>();
+        auto name = media_metadata.at("attributes").at("code").template get<std::string>();
+        auto job =
+            media_metadata.at("attributes").at("sg_project_name").template get<std::string>();
         auto shot = media_metadata.at("relationships")
                         .at("entity")
                         .at("data")
                         .at("name")
-                        .get<std::string>();
+                        .template get<std::string>();
         auto filepath = download_cache_.target_string() + "/" + name + "-" + job + "-" + shot +
                         ".dneg.webm";
 
@@ -1926,7 +1930,7 @@ void ShotgunDataSourceActor<T>::download_media(
                 infinite,
                 shotgun_attachment_atom_v,
                 "version",
-                media_metadata.at("id").get<int>(),
+                media_metadata.at("id").template get<int>(),
                 "sg_uploaded_movie_webm")
                 .then(
                     [=](const std::string &data) mutable {
@@ -2236,8 +2240,8 @@ void ShotgunDataSourceActor<T>::prepare_playlist_notes(
             auto sgpl = request_receive<JsonStore>(
                 *sys, playlist, json_store::get_json_atom_v, ShotgunMetadataPath + "/playlist");
 
-            playlist_name = sgpl.at("attributes").at("code").get<std::string>();
-            playlist_id   = sgpl.at("id").get<int>();
+            playlist_name = sgpl.at("attributes").at("code").template get<std::string>();
+            playlist_id   = sgpl.at("id").template get<int>();
 
         } catch (const std::exception &err) {
             spdlog::info("No shotgun playlist information");
@@ -3334,7 +3338,8 @@ void ShotgunDataSourceActor<T>::do_add_media_sources_from_ivy(
         ivy_media_task_data->sg_data_.at("attributes").at("sg_project_name").get<std::string>(),
         utility::Uuid(ivy_media_task_data->sg_data_.at("attributes")
                           .at("sg_ivy_dnuuid")
-                          .get<std::string>()))
+                          .get<std::string>()),
+        ivy_media_task_data->media_rate_)
         .then(
             [=](const utility::UuidActorVector &sources) {
                 // we want to make sure the 'MediaDetail' has been fetched on the

@@ -1165,6 +1165,37 @@ void MediaSourceActor::init() {
             return base_.checksum(checksum);
         },
 
+        [=](media::rescan_atom atom) -> result<MediaReference> {
+            auto rp = make_response_promise<MediaReference>();
+
+            auto scanner = system().registry().template get<caf::actor>(scanner_registry);
+            if (scanner) {
+                request(scanner, infinite, atom, base_.media_reference())
+                    .then(
+                        [=](const MediaReference &mr) mutable {
+                            if (mr != base_.media_reference()) {
+                                request(
+                                    caf::actor_cast<caf::actor>(this),
+                                    infinite,
+                                    media_reference_atom_v,
+                                    mr)
+                                    .then(
+                                        [=](const bool) mutable {
+                                            anon_send(this, invalidate_cache_atom_v);
+                                            rp.deliver(base_.media_reference());
+                                        },
+                                        [=](const error &err) mutable { rp.deliver(err); });
+                            } else
+                                rp.deliver(base_.media_reference());
+                        },
+                        [=](const error &err) mutable { rp.deliver(err); });
+            } else {
+                rp.deliver(base_.media_reference());
+            }
+
+            return rp;
+        },
+
         [=](utility::parent_atom) -> caf::actor { return actor_cast<actor>(parent_); },
 
         [=](utility::parent_atom, const UuidActor &parent) {

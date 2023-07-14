@@ -34,6 +34,7 @@ namespace ui {
 
             Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
             Q_PROPERTY(bool frameOutOfRange READ frameOutOfRange NOTIFY frameOutOfRangeChanged)
+            Q_PROPERTY(bool noAlphaChannel READ noAlphaChannel NOTIFY noAlphaChannelChanged)
             Q_PROPERTY(QString fpsExpression READ fpsExpression NOTIFY fpsExpressionChanged)
             Q_PROPERTY(float scale READ scale WRITE setScale NOTIFY scaleChanged)
             Q_PROPERTY(
@@ -67,6 +68,7 @@ namespace ui {
                 return on_screen_logical_frame_;
             }
             [[nodiscard]] bool frameOutOfRange() const { return frame_out_of_range_; }
+            [[nodiscard]] bool noAlphaChannel() const { return no_alpha_channel_; }
             [[nodiscard]] bool enableShortcuts() const { return enable_shortcuts_; }
             void setPlayhead(caf::actor playhead);
 
@@ -99,6 +101,7 @@ namespace ui {
             void setOnScreenImageLogicalFrame(const int frame_num);
             QRectF imageBoundaryInViewport();
             void setFrameOutOfRange(bool frame_out_of_range);
+            void setNoAlphaChannel(bool no_alpha_channel);
             QString renderImageToFile(
                 const QUrl filePath,
                 const int format,
@@ -129,6 +132,7 @@ namespace ui {
             void imageBoundaryInViewportChanged();
             void imageResolutionChanged();
             void frameOutOfRangeChanged();
+            void noAlphaChannelChanged();
             void enableShortcutsChanged();
             void doSnapshot(QString, QString, int, int, bool);
             void nameChanged();
@@ -153,6 +157,7 @@ namespace ui {
             QPoint mouse_position;
             int on_screen_logical_frame_ = {0};
             bool frame_out_of_range_     = {false};
+            bool no_alpha_channel_       = {false};
             bool enable_shortcuts_       = {true};
             int viewport_index_          = {0};
         };

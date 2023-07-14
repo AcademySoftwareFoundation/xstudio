@@ -315,7 +315,7 @@ void GLXWindowViewportActor::create_glx_window() {
 
     XInitThreads();
 
-    display = XOpenDisplay(NULL);
+    display = XOpenDisplay(nullptr);
 
     if (!display) {
         printf("Failed to open X display\n");

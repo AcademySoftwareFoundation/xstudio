@@ -29,7 +29,7 @@ const auto SHOW_REGEX = std::regex(R"(^(?:/jobs|/hosts/[^/]+/user_data\d*)/([A-Z
 
 class IvyMediaWorker : public caf::event_based_actor {
   public:
-    IvyMediaWorker(caf::actor_config &cfg, const caf::actor &ivyactor);
+    IvyMediaWorker(caf::actor_config &cfg, caf::actor ivyactor);
     ~IvyMediaWorker() override = default;
 
     const char *name() const override { return NAME.c_str(); }
@@ -70,6 +70,7 @@ class IvyMediaWorker : public caf::event_based_actor {
     void add_sources_to_media(
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const JsonStore &jsn,
+        const FrameRate &media_rate,
         const std::vector<std::pair<std::string, UuidActor>> &sources);
 
   private:
@@ -88,8 +89,8 @@ class IvyMediaWorker : public caf::event_based_actor {
 //    }
 //  }
 
-IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg, const caf::actor &ivyactor)
-    : caf::event_based_actor(cfg), ivy_actor_(ivyactor) {
+IvyMediaWorker::IvyMediaWorker(caf::actor_config &cfg, caf::actor ivyactor)
+    : caf::event_based_actor(cfg), ivy_actor_(std::move(ivyactor)) {
 
     behavior_.assign(
         // frames
@@ -273,7 +274,7 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
                             true);
                         // delegate.. get sources from ivy
                         ivy_load_version_sources(
-                            rp, uuid_show.second, uuid_show.first, FrameRate());
+                            rp, uuid_show.second, uuid_show.first, media_rate);
                     },
                     [=](const error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -286,9 +287,10 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
         // drop event, return list of media actors.
         [=](data_source::use_data_atom,
             const JsonStore &jsn,
+            const FrameRate &media_rate,
             const bool) -> result<UuidActorVector> {
             auto rp = make_response_promise<UuidActorVector>();
-            handle_drop(rp, jsn);
+            handle_drop(rp, jsn, media_rate);
             return rp;
         },
 
@@ -296,18 +298,11 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
         [=](use_data_atom,
             const std::string &show,
             const utility::Uuid &stem_uuid,
+            const FrameRate &media_rate,
             const bool pointless) -> result<UuidActorVector> {
             // get pipequery data.
             auto rp = make_response_promise<UuidActorVector>();
-            ivy_load_audio_sources(rp, show, stem_uuid, utility::UuidActorVector());
-            return rp;
-        },
-
-        [=](use_data_atom,
-            const std::string &show,
-            const utility::Uuid &dnuuid) -> result<UuidActorVector> {
-            auto rp = make_response_promise<UuidActorVector>();
-            ivy_load_version_sources(rp, show, dnuuid, FrameRate());
+            ivy_load_audio_sources(rp, show, stem_uuid, media_rate, utility::UuidActorVector());
             return rp;
         },
 
@@ -323,13 +318,15 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
         },
 
         // handle ivy URI
-        [=](use_data_atom, const caf::uri &uri) -> result<UuidActorVector> {
+        [=](use_data_atom,
+            const caf::uri &uri,
+            const FrameRate &media_rate) -> result<UuidActorVector> {
             if (uri.scheme() != "ivy")
                 return UuidActorVector();
 
             if (to_string(uri.authority()) == "load") {
                 auto rp = make_response_promise<UuidActorVector>();
-                ivy_load(rp, uri);
+                ivy_load(rp, uri, media_rate);
                 return rp;
             } else {
                 spdlog::warn(
@@ -358,6 +355,7 @@ httplib::Headers IvyDataSource::get_headers() const {
 void IvyMediaWorker::add_sources_to_media(
     caf::typed_response_promise<utility::UuidActorVector> rp,
     const JsonStore &jsn,
+    const FrameRate &media_rate,
     const std::vector<std::pair<std::string, UuidActor>> &sources) {
     // it's a beauty !
     std::vector<std::pair<std::string, std::vector<std::pair<std::string, UuidActor>>>>
@@ -441,6 +439,7 @@ void IvyMediaWorker::add_sources_to_media(
             use_data_atom_v,
             jsn.at("show").get<std::string>(),
             jsn.at("scope").at("id").get<Uuid>(),
+            media_rate,
             true)
             .then(
                 [=](const UuidActorVector &uas) {
@@ -522,13 +521,13 @@ void IvyMediaWorker::add_media(
                         sources->emplace_back(std::make_pair(i.at("name"), ua));
                     (*count)--;
                     if (not(*count))
-                        add_sources_to_media(rp, jsn, *sources);
+                        add_sources_to_media(rp, jsn, media_rate, *sources);
                 },
                 [=](error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     (*count)--;
                     if (not(*count))
-                        add_sources_to_media(rp, jsn, *sources);
+                        add_sources_to_media(rp, jsn, media_rate, *sources);
                 });
     }
 }
@@ -745,17 +744,19 @@ void IvyMediaWorker::get_shotgun_shot(
 
 template <typename T>
 void IvyDataSourceActor<T>::ivy_load(
-    caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri) {
+    caf::typed_response_promise<utility::UuidActorVector> rp,
+    const caf::uri &uri,
+    const utility::FrameRate &media_rate) {
 
     auto query = uri.query();
 
     if (query.count("type") and query["type"] == "Version" and query.count("show") and
         query.count("ids")) {
-        ivy_load_version(rp, uri);
+        ivy_load_version(rp, uri, media_rate);
     } else if (
         query.count("type") and query["type"] == "File" and query.count("show") and
         query.count("ids")) {
-        ivy_load_file(rp, uri);
+        ivy_load_file(rp, uri, media_rate);
     } else {
         spdlog::warn("Invalid Ivy action {}, requires type, id", to_string(uri));
         rp.deliver(utility::UuidActorVector());
@@ -853,14 +854,14 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
 
                                             // rp.deliver(*results);
                                             ivy_load_audio_sources(
-                                                rp, show, scope_uuid, *results);
+                                                rp, show, scope_uuid, media_rate, *results);
                                         }
                                     },
                                     [=](error &err) mutable {
                                         (*count)--;
                                         if (not(*count)) {
                                             ivy_load_audio_sources(
-                                                rp, show, scope_uuid, *results);
+                                                rp, show, scope_uuid, media_rate, *results);
                                             // rp.deliver(*results);
                                         }
                                         spdlog::warn(
@@ -884,14 +885,13 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
 
 template <typename T>
 void IvyDataSourceActor<T>::ivy_load_version(
-    caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri) {
+    caf::typed_response_promise<utility::UuidActorVector> rp,
+    const caf::uri &uri,
+    const utility::FrameRate &media_rate) {
 
-    // should come from session rate as the fallback ?
-
-    auto media_rate = FrameRate();
-    auto query      = uri.query();
-    auto ids  = std::string("\"") + join_as_string(split(query["ids"], '|'), "\",\"") + "\"";
-    auto show = query["show"];
+    auto query = uri.query();
+    auto ids   = std::string("\"") + join_as_string(split(query["ids"], '|'), "\",\"") + "\"";
+    auto show  = query["show"];
     auto httpquery = std::string(fmt::format(
         R"({{
             versions_by_id(show: "{}", ids: [{}]){{
@@ -974,10 +974,10 @@ void IvyDataSourceActor<T>::ivy_load_version(
 
 template <typename T>
 void IvyDataSourceActor<T>::ivy_load_file(
-    caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri) {
-    // hardwired to 24fps, as we can't know where we're being added to.
-    auto media_rate = FrameRate();
-    // this code probably needs to move at some point.
+    caf::typed_response_promise<utility::UuidActorVector> rp,
+    const caf::uri &uri,
+    const utility::FrameRate &media_rate) {
+
     auto query = uri.query();
     auto ids   = std::string("\"") + join_as_string(split(query["ids"], '|'), "\",\"") + "\"";
     auto show  = query["show"];
@@ -1078,7 +1078,9 @@ void IvyDataSourceActor<T>::ivy_load_file(
 
 template <typename T>
 void IvyDataSourceActor<T>::handle_drop(
-    caf::typed_response_promise<UuidActorVector> rp, const JsonStore &jsn) {
+    caf::typed_response_promise<UuidActorVector> rp,
+    const JsonStore &jsn,
+    const utility::FrameRate &media_rate) {
 
     auto uris = std::vector<caf::uri>();
 
@@ -1142,7 +1144,7 @@ void IvyDataSourceActor<T>::handle_drop(
         auto media = std::make_shared<UuidActorVector>();
 
         for (const auto &i : uris) {
-            request(caf::actor_cast<caf::actor>(this), infinite, use_data_atom_v, i)
+            request(caf::actor_cast<caf::actor>(this), infinite, use_data_atom_v, i, media_rate)
                 .then(
                     [=](const UuidActorVector &uav) mutable {
                         (*count)--;
@@ -1314,9 +1316,10 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
     caf::typed_response_promise<utility::UuidActorVector> rp,
     const std::string &show,
     const utility::Uuid &stem_dnuuid,
+    const utility::FrameRate &media_rate,
     const utility::UuidActorVector &extend) {
-    auto media_rate = FrameRate();
-    auto httpquery  = std::string(fmt::format(
+
+    auto httpquery = std::string(fmt::format(
         R"({{
   latest_versions(
     mode: VERSION_NUMBER

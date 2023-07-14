@@ -27,7 +27,7 @@ namespace media_hook {
 
       public:
         [[nodiscard]] std::string name() const { return name_; }
-        virtual ~MediaHook() = default;
+        ~MediaHook() override = default;
 
         virtual utility::JsonStore
         modify_metadata(const utility::MediaReference &, const utility::JsonStore &) {
@@ -197,7 +197,7 @@ namespace media_hook {
             m.lock();
             auto p = main_instances.find(hook_type_id);
             if (p != main_instances.end()) {
-                caf::actor main_instance = caf::actor_cast<caf::actor>(p->second);
+                auto main_instance = caf::actor_cast<caf::actor>(p->second);
                 if (main_instance) {
                     anon_send(
                         main_instance,

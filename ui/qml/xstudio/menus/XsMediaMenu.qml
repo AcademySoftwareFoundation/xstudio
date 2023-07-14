@@ -172,6 +172,11 @@ XsMenu {
             enabled: true
             onTriggered: app_window.sessionFunction.decomposeSelectedMedia()
         }
+        XsMenuItem {
+            mytext: qsTr("Rescan Selected Media")
+            enabled: true
+            onTriggered: app_window.sessionFunction.rescanSelectedMedia()
+        }
     }
 
     // XsMenuItem {

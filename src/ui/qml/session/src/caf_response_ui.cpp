@@ -21,8 +21,11 @@ using namespace xstudio::ui::qml;
 
 class CafRequest : public ControllableJob<QMap<int, QString>> {
   public:
-    CafRequest(const nlohmann::json &json, const int role, const std::string &role_name)
-        : ControllableJob(), json_(json), role_(role), role_name_(role_name) {}
+    CafRequest(const nlohmann::json json, const int role, const std::string role_name)
+        : ControllableJob(),
+          json_(std::move(json)),
+          role_(role),
+          role_name_(std::move(role_name)) {}
 
     QMap<int, QString> run(JobControl &cjc) override {
 
@@ -442,16 +445,16 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
 };
 
 CafResponse::CafResponse(
-    const QVariant &search_value,
+    const QVariant search_value,
     const int search_role,
-    const nlohmann::json::json_pointer &search_hint,
+    const QPersistentModelIndex search_hint,
     const nlohmann::json &data,
     const int role,
     const std::string &role_name,
     QThreadPool *pool)
-    : search_value_(search_value),
+    : search_value_(std::move(search_value)),
       search_role_(search_role),
-      search_hint_(search_hint),
+      search_hint_(std::move(search_hint)),
       role_(role) {
 
     // create a future..
@@ -477,12 +480,7 @@ void CafResponse::handleFinished() {
 
         QMap<int, QString>::const_iterator i = result.constBegin();
         while (i != result.constEnd()) {
-            emit received(
-                search_value_,
-                search_role_,
-                QStringFromStd(search_hint_.to_string()),
-                i.key(),
-                i.value());
+            emit received(search_value_, search_role_, search_hint_, i.key(), i.value());
             ++i;
         }
 

@@ -29,12 +29,14 @@ StandardPlugin::StandardPlugin(
 
         // fetch the current viewed playhead from the viewport so we can 'listen' to it
         // for position changes, current media changes etc.
-        auto viewport = system().registry().template get<caf::actor>(main_viewport_registry);
-        if (viewport) {
-            request(viewport, infinite, ui::viewport::viewport_playhead_atom_v)
+        auto playhead_events_actor =
+            system().registry().template get<caf::actor>(global_playhead_events_actor);
+        if (playhead_events_actor) {
+            request(playhead_events_actor, infinite, ui::viewport::viewport_playhead_atom_v)
                 .then(
-                    [=](caf::actor_addr playhead_addr) {
-                        current_viewed_playhead_changed(playhead_addr);
+                    [=](caf::actor playhead) {
+                        current_viewed_playhead_changed(
+                            caf::actor_cast<caf::actor_addr>(playhead));
                     },
                     [=](error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));

@@ -18,10 +18,6 @@ Item {
     property var topLevelWindow
     property bool shortcutsWithDigits: true
 
-    function toggleViewportChannel(chan_idx) {
-        //colourPipeline.channel != chan_idx ? colourPipeline.channel = chan_idx : colourPipeline.channel = 0
-    }
-
     function play_faster(forwards) {
         if (!playhead.playing) {
             playhead.forward = forwards

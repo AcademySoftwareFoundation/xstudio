@@ -216,6 +216,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, media_status_atom);
     ADD_ATOM(xstudio::media, get_stream_detail_atom);
     ADD_ATOM(xstudio::media, invalidate_cache_atom);
+    ADD_ATOM(xstudio::media, rescan_atom);
     ADD_ATOM(xstudio::media, media_reference_atom);
     ADD_ATOM(xstudio::media, source_offset_frames_atom);
     ADD_ATOM(xstudio::global_store, autosave_atom);

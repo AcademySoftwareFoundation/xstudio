@@ -38,5 +38,48 @@ TEST(TreeTest, Test) {
     EXPECT_EQ(t.total_size(), 2);
 
     // check parent set.
+    EXPECT_EQ(t.parent(), nullptr);
+    EXPECT_EQ(t.front().parent(), &t);
     EXPECT_EQ(t.begin()->begin()->parent(), &(*(t.begin())));
+}
+
+TEST(TreeTest, Test2) {
+    auto j = R"({"hello":"world"})"_json;
+    auto t = json_to_tree(j, "children");
+
+    EXPECT_TRUE(t.empty());
+    EXPECT_EQ(t.data().at("hello"), "world");
+    EXPECT_EQ(tree_to_json(t, "children").dump(), j.dump());
+
+
+    j = R"({"hello":"world", "children": null})"_json;
+    t = json_to_tree(j, "children");
+    EXPECT_TRUE(t.empty());
+    EXPECT_EQ(t.data().at("hello"), "world");
+    EXPECT_EQ(tree_to_json(t, "children").dump(), j.dump());
+
+    j = R"({"hello":"world", "children": [{"goodbye": "cruel world"}]})"_json;
+    auto j2 =
+        R"({"hello":"world", "children": [{"bunny":"ears","goodbye": "cruel world"}]})"_json;
+    t = json_to_tree(j, "children");
+    EXPECT_FALSE(t.empty());
+    EXPECT_EQ(t.data().at("hello"), "world");
+    EXPECT_EQ(t.begin()->data().at("goodbye"), "cruel world");
+    EXPECT_EQ(tree_to_json(t, "children").dump(), j.dump());
+
+    t.begin()->data()["bunny"] = "ears";
+    EXPECT_EQ(tree_to_json(t, "children").dump(), j2.dump());
+
+    auto tt = t;
+
+    EXPECT_EQ(tree_to_json(tt, "children").dump(), j2.dump());
+
+
+    EXPECT_EQ(tree_to_pointer(tt, "children").to_string(), "");
+    EXPECT_EQ(tree_to_pointer(tt.front(), "children").to_string(), "/children/0");
+
+    EXPECT_EQ(pointer_to_tree(tt, "children", tree_to_pointer(tt, "children")), &tt);
+    EXPECT_EQ(
+        pointer_to_tree(tt, "children", tree_to_pointer(tt.front(), "children")),
+        &(tt.front()));
 }

@@ -2,9 +2,9 @@ project(xstudio VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 set(SOURCES
 	xstudio.cpp
+	../../../../ui/qml/reskin/qml_reskin.qrc
 	../../../../ui/qml/xstudio/qml.qrc
 )
-
 
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)

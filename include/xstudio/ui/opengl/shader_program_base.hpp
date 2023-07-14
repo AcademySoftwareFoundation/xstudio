@@ -53,7 +53,7 @@ namespace ui {
             GLuint program_ = {0};
 
           private:
-            bool is_colour_op_shader_source(const std::string &shader_code) const;
+            [[nodiscard]] bool is_colour_op_shader_source(const std::string &shader_code) const;
 
             void inject_colour_ops(
                 const std::vector<std::string> &colour_operations_shaders,

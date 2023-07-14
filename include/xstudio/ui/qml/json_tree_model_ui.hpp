@@ -11,6 +11,7 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/utility/json_store.hpp"
+#include "xstudio/utility/tree.hpp"
 
 namespace xstudio::ui::qml {
 
@@ -93,14 +94,14 @@ class JSONTreeModel : public QAbstractItemModel {
         const QModelIndex &parent = QModelIndex(),
         const int start           = 0);
 
-    Q_INVOKABLE QModelIndexList search(
+    Q_INVOKABLE QModelIndexList search_list(
         const QVariant &value,
         const int role,
         const QModelIndex &parent,
         const int start,
         const int hits);
 
-    Q_INVOKABLE QModelIndexList search(
+    Q_INVOKABLE QModelIndexList search_list(
         const QVariant &value,
         const QString &role,
         const QModelIndex &parent,
@@ -111,82 +112,65 @@ class JSONTreeModel : public QAbstractItemModel {
         const QVariant &value,
         const QString &role       = "display",
         const QModelIndex &parent = QModelIndex(),
-        const int start           = 0);
+        const int start           = 0,
+        const int depth           = -1);
 
     Q_INVOKABLE QModelIndex search_recursive(
         const QVariant &value,
         const int role,
         const QModelIndex &parent = QModelIndex(),
-        const int start           = 0);
+        const int start           = 0,
+        const int depth           = -1);
 
-    Q_INVOKABLE QModelIndexList search_recursive(
+    Q_INVOKABLE QModelIndexList search_recursive_list(
         const QVariant &value,
         const int role,
         const QModelIndex &parent,
         const int start,
-        const int hits);
+        const int hits,
+        const int depth = -1);
 
-    Q_INVOKABLE QModelIndexList search_recursive(
+    Q_INVOKABLE QModelIndexList search_recursive_list(
         const QVariant &value,
         const QString &role,
         const QModelIndex &parent,
         const int start,
-        const int hits);
+        const int hits,
+        const int depth = -1);
 
-    Q_INVOKABLE QModelIndexList match(
-        const QModelIndex &start,
-        const int role,
-        const QVariant &value,
-        const int hits = 1,
-        Qt::MatchFlags flags =
-            Qt::MatchFlags(Qt::MatchStartsWith | Qt::MatchWrap)) const override;
-
-    Q_INVOKABLE QModelIndexList match(
-        const QModelIndex &start,
-        const QString &role,
-        const QVariant &value,
-        int hits             = 1,
-        Qt::MatchFlags flags = Qt::MatchFlags(Qt::MatchStartsWith | Qt::MatchWrap)) const;
-
-
-    const nlohmann::json &modelData() const { return data_; }
+    [[nodiscard]] nlohmann::json modelData() const;
     void setModelData(const nlohmann::json &data);
 
-    const nlohmann::json::json_pointer &childrenJsonPointer() const { return children_; }
-    void setChildrenJsonPointer(const std::string &value) {
-        children_ = nlohmann::json::json_pointer(value);
-    }
+
+    const std::string &children() const { return children_; }
+    void setChildren(const std::string &value) { children_ = value; }
+
+    void setRoleNames(const nlohmann::json &data);
 
     void setRoleNames(
         const std::vector<std::string> roles = {}, const std::string display_role = "display");
 
-
     nlohmann::json &indexToData(const QModelIndex &index);
     const nlohmann::json &indexToData(const QModelIndex &index) const;
+    nlohmann::json indexToFullData(const QModelIndex &index) const;
+
+    utility::JsonTree *indexToTree(const QModelIndex &index) const;
+    nlohmann::json::json_pointer getIndexPath(const QModelIndex &index = QModelIndex()) const;
+    QModelIndex getPathIndex(const nlohmann::json::json_pointer &path);
 
   protected:
-    void build_lookup();
-    void add_pointers(
-        const nlohmann::json &jsn,
-        const std::string &parent = "");
-    quintptr getIndexId(const nlohmann::json::json_pointer &ptr) const;
-    nlohmann::json::json_pointer getIndexPath(const quintptr id) const;
+    virtual QModelIndexList search_recursive_list_base(
+        const QVariant &value,
+        const int role,
+        const QModelIndex &parent,
+        const int start,
+        const int hits,
+        const int depth = -1);
 
-    QModelIndex pointerToIndex(const nlohmann::json::json_pointer &ptr) const;
-
-    void rowsMovePersistent(const QModelIndex &parent, int start, int end,
-        const QModelIndex &dest, int row
-    );
-    void rowsInsertedPersistent(const QModelIndex &parent, int first, int last);
-    void rowsRemovedPersistent(const QModelIndex &parent, int first, int last);
-
-  protected:
-    nlohmann::json data_;
-    nlohmann::json::json_pointer children_{"/children"};
+    std::string children_{"children"};
     std::string display_role_;
     std::vector<std::string> role_names_;
-
-    mutable std::map<size_t, nlohmann::json::json_pointer> pointer_data_;
+    utility::JsonTree data_;
 };
 
 class JSONTreeFilterModel : public QSortFilterProxyModel {

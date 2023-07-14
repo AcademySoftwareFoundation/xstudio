@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom
+from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom, rescan_atom
 from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid
 from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI
 from xstudio.core import set_json_atom, JsonStore
@@ -88,6 +88,14 @@ class Media(Container):
             result(bool): Flushed ?
         """
         return self.connection.request_receive(self.remote, invalidate_cache_atom())[0]
+
+    def rescan(self):
+        """Rescan media item.
+
+        Returns:
+            result(MediaReference): New ref ?
+        """
+        return self.connection.request_receive(self.remote, rescan_atom())[0]
 
     @property
     def metadata(self):

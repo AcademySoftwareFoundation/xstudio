@@ -65,6 +65,7 @@ CAF_POP_WARNINGS
 #include "xstudio/ui/qml/helper_ui.hpp"             //NOLINT
 #include "xstudio/ui/qml/hotkey_ui.hpp"             //NOLINT
 #include "xstudio/ui/qml/log_ui.hpp"                //NOLINT
+#include "xstudio/ui/qml/model_data_ui.hpp"         //NOLINT
 #include "xstudio/ui/qml/module_menu_ui.hpp"        //NOLINT
 #include "xstudio/ui/qml/module_ui.hpp"             //NOLINT
 #include "xstudio/ui/qml/qml_viewport.hpp"          //NOLINT
@@ -178,6 +179,8 @@ struct CLIArguments {
         misc, "PATH", "Write session log to file", {"log-file"}};
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
+    args::Flag reskin = {
+        misc, "reskin", "Launch with the new user interface (under construction)", {"reskin"}};
     args::Flag share_opengl_contexts = {
         misc,
         "share-gl-context",
@@ -222,6 +225,7 @@ struct Launcher {
         actions["debug"]                 = cli_args.debug.Matched();
         actions["player"]                = cli_args.player.Matched();
         actions["disable_vsync"]         = cli_args.disable_vsync.Matched();
+        actions["reskin"]                = cli_args.reskin.Matched();
         actions["share_opengl_contexts"] = cli_args.share_opengl_contexts.Matched();
         actions["compare"] = static_cast<std::string>(args::get(cli_args.compare));
 
@@ -556,13 +560,21 @@ struct Launcher {
         std::vector<std::pair<caf::uri, FrameList>> uri_fl;
         std::vector<std::string> files;
 
+        auto media_rate =
+            request_receive<FrameRate>(*self, session, session::media_rate_atom_v);
+
         for (const auto &p : media) {
             if (utility::check_plugin_uri_request(p)) {
                 // send to plugin manager..
                 auto uri = caf::make_uri(p);
                 if (uri)
                     self->anon_send(
-                        plugin_manager, data_source::use_data_atom_v, *uri, session, playlist);
+                        plugin_manager,
+                        data_source::use_data_atom_v,
+                        *uri,
+                        session,
+                        playlist,
+                        media_rate);
                 else {
                     spdlog::warn("Invalid URI {}", p);
                 }
@@ -793,7 +805,7 @@ int main(int argc, char **argv) {
             } else {
                 system.await_actors_before_shutdown(true);
 
-                // QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+                QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
                 // QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
                 // QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
                 // QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
@@ -864,6 +876,14 @@ int main(int argc, char **argv) {
 
                 qmlRegisterType<SessionModel>("xstudio.qml.session", 1, 0, "XsSessionModel");
 
+                qmlRegisterType<MenusModelData>("xstudio.qml.models", 1, 0, "XsMenusModel");
+                qmlRegisterType<ReskinPanelsModel>(
+                    "xstudio.qml.models", 1, 0, "XsReskinPanelsLayoutModel");
+
+                qmlRegisterType<ViewsModelData>("xstudio.qml.models", 1, 0, "XsViewsModel");
+
+                qmlRegisterType<MenuModelItem>("xstudio.qml.models", 1, 0, "XsMenuModelItem");
+
                 qRegisterMetaType<QQmlPropertyMap *>("QQmlPropertyMap*");
 
 
@@ -876,7 +896,10 @@ int main(int argc, char **argv) {
                 // in Qt main loop
                 new CafSystemObject(&app, system);
 
-                const QUrl url(QStringLiteral("qrc:/main.qml"));
+                const QUrl url(
+                    l.actions["reskin"] ? QStringLiteral("qrc:/main_reskin.qml")
+                                        : QStringLiteral("qrc:/main.qml"));
+
                 QQmlApplicationEngine engine;
                 engine.addImageProvider(QLatin1String("thumbnail"), new ThumbnailProvider);
                 engine.addImageProvider(QLatin1String("shotgun"), new ShotgunProvider);

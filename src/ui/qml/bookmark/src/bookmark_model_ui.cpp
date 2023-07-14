@@ -18,7 +18,7 @@ using namespace xstudio::ui::qml;
 // using namespace xstudio::global_store;
 
 BookmarkCategoryModel::BookmarkCategoryModel(QObject *parent) : JSONTreeModel(parent) {
-    setRoleNames({"textRole", "valueRole", "colourRole"});
+    setRoleNames(std::vector<std::string>({"textRole", "valueRole", "colourRole"}));
 }
 
 void BookmarkCategoryModel::setValue(const QVariant &value) {
@@ -38,7 +38,7 @@ QVariant BookmarkCategoryModel::data(const QModelIndex &index, int role) const {
 
         switch (role) {
         case JSONTreeModel::Roles::JSONRole:
-            result = QVariantMapFromJson(j);
+            result = QVariantMapFromJson((indexToFullData(index)));
             break;
 
         case Roles::valueRole:
@@ -152,7 +152,7 @@ void BookmarkFilterModel::setCurrentMedia(const QVariant &value) {
 BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(
+    setRoleNames(std::vector<std::string>(
         {"enabledRole",
          "focusRole",
          "frameRole",
@@ -176,7 +176,7 @@ BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
          "objectRole",
          "startRole",
          "durationRole",
-         "durationFrameRole"});
+         "durationFrameRole"}));
 }
 
 // don't optimise yet.
@@ -238,7 +238,9 @@ void BookmarkModel::init(caf::actor_system &_system) {
                         auto detail = getDetail(ua.actor());
                         // compare detail, log changed roles..
                         auto jsn = createJsonFromDetail(detail);
-                        data_[ind.row()].update(jsn);
+
+                        auto node = indexToTree(ind);
+                        node->data().update(jsn);
 
                         auto change = getRoleChanges(bookmarks_.at(ua.uuid()), detail);
                         // if(not change.isEmpty()) {
@@ -352,6 +354,8 @@ BookmarkModel::createJsonFromDetail(const bookmark::BookmarkDetail &detail) cons
     auto result = R"({"uuid": null, "thumbnailURL": "qrc:///feather_icons/film.svg"})"_json;
 
     result["uuid"] = detail.uuid_;
+    // spdlog::warn("{} {} {}", bool(detail.owner_) , to_string((*(detail.owner_)).actor()),
+    // bool(detail.logical_start_frame_) );
 
     if (detail.owner_ and (*(detail.owner_)).actor() and detail.logical_start_frame_) {
         result["thumbnailURL"] = StdFromQString(getThumbnailURL(
@@ -574,7 +578,7 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
     QVector<int> roles({role});
 
     try {
-        nlohmann::json &j = indexToData(index);
+        const nlohmann::json &j = indexToData(index);
         if (j.count("uuid")) {
             auto &detail = bookmarks_.at(Uuid(j.at("uuid")));
             bookmark::BookmarkDetail bm;

@@ -82,6 +82,8 @@ namespace ui {
             Q_INVOKABLE QObject *playlistModel(const int project_id);
 
             Q_INVOKABLE QString getShotgunUserName();
+
+            //  unused ?
             Q_INVOKABLE QString getShotSequence(const int project_id, const QString &shot);
 
             [[nodiscard]] bool connected() const { return connected_; }

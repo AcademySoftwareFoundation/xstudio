@@ -289,10 +289,20 @@ class DNegMediaHook : public MediaHook {
 
         if (context.count("SHOW")) {
             r["ocio_context"] = context;
-            // TODO: ColSci
-            // Need to read the general.dat to get the actual OCIO environment variable
-            r["ocio_config"] = fmt::format(
-                "/tools/{}/data/colsci/config.ocio", context["SHOW"].get<std::string>());
+
+            // Detect OCIO config path
+            const std::string default_config =
+                fmt::format("/tools/{}/data/colsci/config.ocio", context["SHOW"]);
+            const std::string ocio_config =
+                get_showvar_or(context["SHOW"], "OCIO", default_config);
+            r["ocio_config"] = ocio_config;
+
+            // Detect the pipeline version of config
+            const std::string pipeline_version =
+                get_showvar_or(context["SHOW"], "DN_COLOR_PIPELINE_VERSION", "1");
+            r["pipeline_version"] = pipeline_version;
+
+            bool is_cms1_config = pipeline_version == "2";
 
             // Input colour space detection
             static const std::regex review_regex(".+\\.review[0-9]\\.mov$");
@@ -304,16 +314,11 @@ class DNegMediaHook : public MediaHook {
             static const std::set<std::string> stills_ext{
                 ".png", ".tiff", ".tif", ".jpeg", ".jpg", ".gif"};
 
-            // Detect the style of config
-            const std::string pipeline_version = color_pipeline_version(context["SHOW"]);
-            bool new_style                     = pipeline_version == "2";
-            r["pipeline_version"]              = pipeline_version;
-
             // Newer configs use a colour space instead of inverting the view for
             // better integration in the UI source colorspace menu.
             auto fill_baked_space =
-                [new_style](utility::JsonStore &r, const std::string &display) {
-                    if (new_style) {
+                [is_cms1_config](utility::JsonStore &r, const std::string &display) {
+                    if (is_cms1_config) {
                         r["input_colorspace"] = std::string("DNEG_") + display;
                     } else {
                         r["input_display"] = display;
@@ -339,35 +344,33 @@ class DNegMediaHook : public MediaHook {
                 }
             }
 
-            if (std::regex_match(path, review_regex)) {
-                if (!media_colorspace.empty()) {
-                    r["input_colorspace"] = media_colorspace;
-                } else {
-                    r["input_colorspace"] = "dneg_proxy_log:log";
-                    /*
-                    http://jira/browse/CLR-2006 - This is a fix for LBP where all
-                    review proxy movies are baked with
-                    log_ARRIWideGamut_ARRILogC3 colorspace. Once the show is
-                    switched to CMS1 config the input colorspace will be wrong
-                    and to avoid proxy re processing, we added this check to
-                    change the input cs to log_ARRIWideGamut_ARRILogC3 which is
-                    the old log space that was used on LBP to make review proxy.
-                    */
-                    if (context["SHOW"].get<std::string>() == "LBP") {
-                        r["input_colorspace"] = "log_ARRIWideGamut_ARRILogC3";
-                    }
+            if (!media_colorspace.empty()) {
+                r["input_colorspace"] = media_colorspace;
+            } else if (!media_display.empty() && !media_view.empty()) {
+                r["input_colorspace"] = media_view + "_" + media_display;
+            } else if (std::regex_match(path, review_regex)) {
+                r["input_colorspace"] = "dneg_proxy_log:log";
+                /*
+                http://jira/browse/CLR-2006 - This is a fix for LBP where all
+                review proxy movies are baked with
+                log_ARRIWideGamut_ARRILogC3 colorspace. Once the show is
+                switched to CMS1 config the input colorspace will be wrong
+                and to avoid proxy re processing, we added this check to
+                change the input cs to log_ARRIWideGamut_ARRILogC3 which is
+                the old log space that was used on LBP to make review proxy.
+                */
+                if (context["SHOW"] == "LBP" && is_cms1_config) {
+                    r["input_colorspace"] = "log_ARRIWideGamut_ARRILogC3";
                 }
             } else if (std::regex_match(path, internal_regex)) {
-                if (!media_display.empty() && !media_view.empty()) {
-                    r["input_colorspace"] = media_view + "_" + media_display;
-                    /*
-                    http://jira/browse/CLR-2006 - This is a fix for LBP where  all
-                    internal movies are baked with Film_Rec709 colorspace. Once the show is
-                    switched to CMS1 config the input colorspace will be wrong. To avoid
-                    movie re processing, we added this check to change the input cs to
-                    Client_Rec709 which is the old Film_Rec709 cs.
-                    */
-                } else if (context["SHOW"].get<std::string>() == "LBP") {
+                /*
+                http://jira/browse/CLR-2006 - This is a fix for LBP where  all
+                internal movies are baked with Film_Rec709 colorspace. Once the show is
+                switched to CMS1 config the input colorspace will be wrong. To avoid
+                movie re processing, we added this check to change the input cs to
+                Client_Rec709 which is the old Film_Rec709 cs.
+                */
+                if (context["SHOW"] == "LBP" && is_cms1_config) {
                     r["input_colorspace"] = "Client_Rec709";
                 } else {
                     fill_baked_space(r, "Rec709");
@@ -382,66 +385,98 @@ class DNegMediaHook : public MediaHook {
                 fill_baked_space(r, "Rec709");
             }
 
+            // Detect automatic view assignment
+            if (path.find("/edit_ref/") != std::string::npos) {
+                r["automatic_view"] = is_cms1_config ? "Client" : "Film";
+            } else if (path.find("/ASSET/") != std::string::npos) {
+                r["automatic_view"] = "DNEG";
+            } else if (
+                path.find("/out/") != std::string::npos ||
+                path.find("/ELEMENT/") != std::string::npos) {
+                r["automatic_view"] = is_cms1_config ? "Client graded" : "Film primary";
+            } else {
+                r["automatic_view"] = is_cms1_config ? "Client" : "Film";
+            }
+
+            // Detect override to active displays and views
+            const std::string active_displays =
+                get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_DISPLAYS", "");
+            if (!active_displays.empty()) {
+                r["active_displays"] = active_displays;
+            }
+
+            const std::string active_views =
+                get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_VIEWS", "");
+            if (!active_views.empty()) {
+                r["active_views"] = active_views;
+            }
+
+            // Detect grading CDLs slots to upgrade as GradingPrimary
             auto dynamic_cdl       = utility::JsonStore();
-            dynamic_cdl["primary"] = new_style ? "$GRD_PRIMARY" : "GRD_primary";
-            dynamic_cdl["neutral"] = new_style ? "$GRD_NEUTRAL" : "GRD_neutral";
+            dynamic_cdl["primary"] = is_cms1_config ? "$GRD_PRIMARY" : "GRD_primary";
+            dynamic_cdl["neutral"] = is_cms1_config ? "$GRD_NEUTRAL" : "GRD_neutral";
             r["dynamic_cdl"]       = dynamic_cdl;
+
+            // Enable DNEG display detection rules
+            r["viewing_rules"] = true;
+
         } else {
             r["ocio_config"] = "__raw__";
         }
 
-        // DNEG specific colour plugin behaviour
-        // TODO: ColSci
-        // Disable when not building DNEG version
-        r["viewing_rules"] = true;
-
         return r;
     }
 
-    std::string color_pipeline_version(const std::string &show) {
-        auto p = color_version_store_.find(show);
-        if (p != color_version_store_.end()) {
-            return p->second;
+    std::string get_showvar_or(
+        const std::string &show, const std::string &variable, const std::string &default_val) {
+
+        const auto &variables = read_general_dat_cached(show);
+        if (variables.count(variable)) {
+            return variables.at(variable);
         }
 
-        std::string version = "1";
+        return default_val;
+    }
 
-        try {
-            const auto &variables = read_general_dat(show);
-            if (variables.count("DN_COLOR_PIPELINE_VERSION")) {
-                version = variables.at("DN_COLOR_PIPELINE_VERSION");
-            }
-        } catch (const std::exception &e) {
+    std::map<std::string, std::string> read_general_dat_cached(const std::string &show) {
+
+        auto p = show_variables_store_.find(show);
+        if (p == show_variables_store_.end()) {
+            show_variables_store_[show] = read_general_dat(show);
         }
 
-        color_version_store_[show] = version;
-        return version;
+        return show_variables_store_[show];
     }
 
     std::map<std::string, std::string> read_general_dat(const std::string &show) {
-        std::ifstream ifs(fmt::format("/tools/{}/data/general.dat", show));
-        if (!ifs.is_open())
-            return {};
 
         std::map<std::string, std::string> variables;
 
-        const std::string lines(std::istreambuf_iterator<char>{ifs}, {});
-        for (const auto &line : utility::split(lines, '\n')) {
-            if (line.empty() or utility::starts_with(line, "#"))
-                continue;
+        try {
+            std::ifstream ifs(fmt::format("/tools/{}/data/general.dat", show));
+            if (!ifs.is_open())
+                return {};
 
-            const auto pos = line.find(":");
-            if (pos != std::string::npos) {
-                const auto key   = utility::trim(line.substr(0, pos));
-                const auto value = utility::trim(line.substr(pos + 1));
-                variables[key]   = value;
+            const std::string lines(std::istreambuf_iterator<char>{ifs}, {});
+            for (const auto &line : utility::split(lines, '\n')) {
+                if (line.empty() or utility::starts_with(line, "#"))
+                    continue;
+
+                const auto pos = line.find(":");
+                if (pos != std::string::npos) {
+                    const auto key   = utility::trim(line.substr(0, pos));
+                    const auto value = utility::trim(line.substr(pos + 1));
+                    variables[key]   = value;
+                }
             }
+        } catch (const std::exception &e) {
+            // pass
         }
 
         return variables;
     }
 
-    std::map<std::string, std::string> color_version_store_;
+    std::map<std::string, std::map<std::string, std::string>> show_variables_store_;
 };
 
 extern "C" {

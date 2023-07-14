@@ -16,7 +16,7 @@ namespace {
 class HudData : public utility::BlindDataObject {
   public:
     HudData(const utility::JsonStore &j) : hud_params_(j) {}
-    ~HudData() = default;
+    ~HudData() override = default;
 
     const utility::JsonStore hud_params_;
 };

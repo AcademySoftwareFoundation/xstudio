@@ -33,7 +33,7 @@ namespace ui {
             enum Roles { idRole = JSONTreeModel::Roles::LASTROLE, nameRole, typeRole };
 
             ShotgunSequenceModel(QObject *parent = nullptr) : JSONTreeModel(parent) {
-                setRoleNames({"idRole", "nameRole", "typeRole"});
+                setRoleNames(std::vector<std::string>({"idRole", "nameRole", "typeRole"}));
             }
             [[nodiscard]] QVariant
             data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -69,8 +69,8 @@ namespace ui {
             };
 
             ShotgunTreeModel(QObject *parent = nullptr) : JSONTreeModel(parent) {
-                setChildrenJsonPointer("/queries");
-                setRoleNames(
+                setChildren("queries");
+                setRoleNames(std::vector<std::string>(
                     {"argRole",
                      "detailRole",
                      "enabledRole",
@@ -81,7 +81,7 @@ namespace ui {
                      "queriesRole",
                      "liveLinkRole",
                      "termRole",
-                     "typeRole"});
+                     "typeRole"}));
                 connect(
                     this,
                     &QAbstractListModel::rowsInserted,
@@ -169,8 +169,7 @@ namespace ui {
             utility::JsonStore applyLiveLinkValue(
                 const utility::JsonStore &query, const utility::JsonStore &livelink);
 
-            virtual void
-            updateLiveLink(const int row, const QModelIndex &parent = QModelIndex());
+            virtual void updateLiveLink(const QModelIndex &index);
 
             void setSequenceMap(const QMap<int, ShotgunListModel *> *map) {
                 sequence_map_ = map;

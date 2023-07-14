@@ -287,6 +287,7 @@ int64_t FFMpegDecoder::decode_next_frame() {
 
 xstudio::utility::Timecode FFMpegDecoder::first_frame_timecode() {
     if (!timecode_stream_) {
+
         // try and sniff from metadata, possibly unreliable
         // dump tags..
         if (av_format_ctx_) {
@@ -295,9 +296,16 @@ xstudio::utility::Timecode FFMpegDecoder::first_frame_timecode() {
                 while (
                     (tag = av_dict_get(
                          av_format_ctx_->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
-                    if (std::string(tag->key) == "TIMECODE")
-                        return xstudio::utility::Timecode(
-                            tag->value, (frame_rate().to_fps() ? frame_rate().to_fps() : 24.0));
+                    if (utility::to_lower(std::string(tag->key)) == "timecode") {
+                        // invalid timecode string will cause an exception, which
+                        // we will silently skip
+                        try {
+                            return xstudio::utility::Timecode(
+                                tag->value,
+                                (frame_rate().to_fps() ? frame_rate().to_fps() : 24.0));
+                        } catch (...) {
+                        }
+                    }
                 }
             }
 
@@ -307,10 +315,15 @@ xstudio::utility::Timecode FFMpegDecoder::first_frame_timecode() {
                     AVDictionaryEntry *tag = nullptr;
                     while (
                         (tag = av_dict_get(i.second->tags(), "", tag, AV_DICT_IGNORE_SUFFIX))) {
-                        if (std::string(tag->key) == "TIMECODE")
-                            return xstudio::utility::Timecode(
-                                tag->value,
-                                (frame_rate().to_fps() ? frame_rate().to_fps() : 24.0));
+
+                        if (utility::to_lower(std::string(tag->key)) == "timecode") {
+                            try {
+                                return xstudio::utility::Timecode(
+                                    tag->value,
+                                    (frame_rate().to_fps() ? frame_rate().to_fps() : 24.0));
+                            } catch (...) {
+                            }
+                        }
                     }
                 }
             }

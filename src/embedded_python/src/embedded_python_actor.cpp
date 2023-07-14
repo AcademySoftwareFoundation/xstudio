@@ -83,17 +83,17 @@ void send_output(
 
 class PyObjectRef {
   public:
-    PyObjectRef(PyObject *o) : o(o) {
-        if (!o) {
+    PyObjectRef(PyObject *obj) : obj_(obj) {
+        if (!obj_) {
             throw std::runtime_error("Python error");
         }
     }
 
-    ~PyObjectRef() { Py_XDECREF(o); }
+    ~PyObjectRef() { Py_XDECREF(obj_); }
 
-    PyObject *o = nullptr;
+    PyObject *obj_ = nullptr;
 
-    operator PyObject *() const { return o; }
+    operator PyObject *() const { return obj_; }
 };
 
 
@@ -234,9 +234,9 @@ void EmbeddedPythonActor::act() {
                     auto p_to_json_string =
                         PyObjectRef(PyObject_GetAttrString(p_timeline, "to_json_string"));
                     auto p_json_string =
-                        PyObjectRef(PyObject_CallObject(p_to_json_string, NULL));
+                        PyObjectRef(PyObject_CallObject(p_to_json_string, nullptr));
 
-                    return PyUnicode_AsUTF8AndSize(p_json_string, NULL);
+                    return PyUnicode_AsUTF8AndSize(p_json_string, nullptr);
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();

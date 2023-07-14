@@ -27,7 +27,14 @@ This is the documentation for xStudio builtin OpenColorIO plugin.
       "input_colorspace": "scene_linear:linear",
       "input_display": "Rec709",
       "input_view": "Film",
-      "working_colorspace": "linear",
+      // View that should be used when the preferred view mode is set
+      // to automatic, this allows per-media view assignment.
+      "automatic_view": "Film",
+      // Custom active displays and views, comma or colon separated
+      // list. Note that the OCIO_ACTIVE_DISPLAYS and _VIEWS will
+      // always take precedence as per OCIO implementation.
+      "active_displays": "sRGB:Rec709",
+      "active_views": "Film",
 
       // DNEG specifics
       //

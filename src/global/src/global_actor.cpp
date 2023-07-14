@@ -27,6 +27,7 @@
 #include "xstudio/scanner/scanner_actor.hpp"
 #include "xstudio/sync/sync_actor.hpp"
 #include "xstudio/thumbnail/thumbnail_manager_actor.hpp"
+#include "xstudio/ui/model_data/model_data_actor.hpp"
 #include "xstudio/ui/viewport/keypress_monitor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -98,6 +99,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto pa              = spawn<embedded_python::EmbeddedPythonActor>("Python");
     auto scanner         = spawn<scanner::ScannerActor>();
+    auto ui_models       = spawn<ui::model_data::GlobalUIModelData>();
 
     link_to(colour);
     link_to(sga);
@@ -117,6 +119,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     link_to(attr_evs);
     link_to(keyboard_events);
     link_to(phev);
+    link_to(ui_models);
 
     python_enabled_ = false;
     connected_      = false;

@@ -35,7 +35,7 @@ Rectangle {
     id: app_window
     visible: true
     color: "#00000000"
-    objectName: "appWidnow"
+    objectName: "appWindow"
     // override default palette
 
     property var preFullScreenVis: [app_window.x, app_window.y, app_window.width, app_window.height]

@@ -46,6 +46,7 @@ const std::string studio_registry{"STUDIO"};
 const std::string sync_gateway_manager_registry{"SYNCGATEMAN"};
 const std::string sync_gateway_registry{"SYNCGATE"};
 const std::string thumbnail_manager_registry{"THUMBNAIL"};
+const std::string global_ui_model_data_registry{"GLOBALUIMODELDATA"};
 
 namespace bookmark {
     class AnnotationBase;
@@ -595,6 +596,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, xstudio_plugin_atoms_last_type_id
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, checksum_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, relink_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, decompose_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, rescan_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_session_atoms)
 
@@ -735,6 +737,14 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms, xstudio_playback_atoms_last_type_id+10
     // **************** add new entries here ******************
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, enable_hud_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, hotkey_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, register_model_data_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, model_data_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, set_node_data_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, insert_rows_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, remove_rows_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, remove_node_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, menu_node_activated_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, insert_or_update_menu_node_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_ui_atoms)
 

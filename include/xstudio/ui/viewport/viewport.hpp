@@ -168,6 +168,7 @@ namespace ui {
                 return frame_rate_expr_;
             }
             [[nodiscard]] bool frame_out_of_range() const { return frame_out_of_range_; }
+            [[nodiscard]] bool no_alpha_channel() const { return no_alpha_channel_; }
             [[nodiscard]] int on_screen_frame() const { return on_screen_frame_; }
             [[nodiscard]] bool playing() const { return playing_; }
             [[nodiscard]] const std::string &pixel_info_string() const {
@@ -237,6 +238,7 @@ namespace ui {
                 MirrorModeChanged,
                 FrameRateChanged,
                 OutOfRangeChanged,
+                NoAlphaChannelChanged,
                 OnScreenFrameChanged,
                 ExposureChanged,
                 TranslationChanged,
@@ -294,10 +296,10 @@ namespace ui {
                 Imath::V2f size_                 = {};
                 Imath::V2i raw_pointer_position_ = {};
                 Imath::V4f pointer_position_;
-                FitMode fit_mode_    = {Height};
+                FitMode fit_mode_       = {Height};
                 MirrorMode mirror_mode_ = {Off};
-                float image_aspect_  = {16.0f / 9.0f};
-                float fit_mode_zoom_ = {1.0};
+                float image_aspect_     = {16.0f / 9.0f};
+                float fit_mode_zoom_    = {1.0};
             } state_, interact_start_state_;
 
             struct FitModeStat {
@@ -325,6 +327,7 @@ namespace ui {
             std::map<Signature, PointerInteractFunc> pointer_event_handlers_;
 
             bool frame_out_of_range_ = {false};
+            bool no_alpha_channel_   = {false};
             int on_screen_frame_;
             std::string frame_rate_expr_   = {"--/--"};
             std::string pixel_info_string_ = {"--"};

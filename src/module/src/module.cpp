@@ -103,15 +103,16 @@ void Module::link_to_module(
 
             scoped_actor sys{self()->home_system()};
             // send state of all attrs to 'other_module' so it can update its copies as required
-            for (auto p = attributes_.begin(); p != attributes_.end(); ++p) {
-                if (link_all_attrs || linked_attrs_.find((*p)->uuid()) != linked_attrs_.end()) {
+            for (auto &attribute : attributes_) {
+                if (link_all_attrs ||
+                    linked_attrs_.find(attribute->uuid()) != linked_attrs_.end()) {
                     try {
                         utility::request_receive<bool>(
                             *sys,
                             other_module,
                             change_attribute_value_atom_v,
-                            (*p)->get_role_data<std::string>(Attribute::Title),
-                            utility::JsonStore((*p)->role_data_as_json(Attribute::Value)),
+                            attribute->get_role_data<std::string>(Attribute::Title),
+                            utility::JsonStore(attribute->role_data_as_json(Attribute::Value)),
                             true);
                     } catch (std::exception &e) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -807,7 +808,7 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
         return;
     }
 
-    caf::actor_addr my_adress = caf::actor_cast<caf::actor_addr>(self());
+    auto my_adress = caf::actor_cast<caf::actor_addr>(self());
     if (linked_attrs_.find(attr_uuid) != linked_attrs_.end()) {
         for (auto &linked_module_addr : partially_linked_modules_) {
 
@@ -821,8 +822,8 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
             if (!linked_module)
                 continue;
             module::Attribute *attr = get_attribute(attr_uuid);
-            std::string attr_name = attr->get_role_data<std::string>(module::Attribute::Title);
-            auto attr_role_data   = attr->role_data_as_json(role_id);
+            auto attr_name      = attr->get_role_data<std::string>(module::Attribute::Title);
+            auto attr_role_data = attr->role_data_as_json(role_id);
             anon_send(
                 linked_module,
                 module::change_attribute_value_atom_v,
@@ -840,7 +841,7 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
         if (!linked_module)
             continue;
         module::Attribute *attr = get_attribute(attr_uuid);
-        std::string attr_name   = attr->get_role_data<std::string>(module::Attribute::Title);
+        auto attr_name          = attr->get_role_data<std::string>(module::Attribute::Title);
         auto attr_role_data     = attr->role_data_as_json(role_id);
         anon_send(
             linked_module,

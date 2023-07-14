@@ -58,11 +58,7 @@ void SessionModel::init(caf::actor_system &_system) {
                     // spdlog::info("event_atom name_atom {} {} {}", name, to_string(src),
                     // src_str); search from index..
                     receivedData(
-                        json(src_str),
-                        actorRole,
-                        nlohmann::json::json_pointer(),
-                        mediaStatusRole,
-                        json(status));
+                        json(src_str), actorRole, QModelIndex(), mediaStatusRole, json(status));
                 } catch (...) {
                 }
             },
@@ -76,12 +72,7 @@ void SessionModel::init(caf::actor_system &_system) {
                 auto src_str = actorToString(system(), src);
                 // spdlog::info("event_atom name_atom {} {} {}", name, to_string(src), src_str);
                 // search from index..
-                receivedData(
-                    json(src_str),
-                    actorRole,
-                    nlohmann::json::json_pointer(),
-                    nameRole,
-                    json(name));
+                receivedData(json(src_str), actorRole, QModelIndex(), nameRole, json(name));
             },
 
             [=](utility::event_atom,
@@ -95,11 +86,12 @@ void SessionModel::init(caf::actor_system &_system) {
                     auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
                     auto src_str = actorToString(system(), src);
 
-                    auto hint = nlohmann::json::json_pointer("/0");
-                    // we know we're looking for media, and roughtly where it'll be in the
-                    // tree...
-                    auto indexes = search_recursive_media(
-                        nlohmann::json(src_str), "actor", hint, data_.at(hint), 1);
+                    auto indexes = search_recursive_list(
+                        QVariant::fromValue(QStringFromStd(src_str)),
+                        actorRole,
+                        QModelIndex(),
+                        0,
+                        1);
 
                     if (not indexes.empty() and indexes[0].isValid()) {
                         const nlohmann::json &j = indexToData(indexes[0]);
@@ -107,7 +99,7 @@ void SessionModel::init(caf::actor_system &_system) {
                         requestData(
                             QVariant::fromValue(QStringFromStd(src_str)),
                             actorRole,
-                            getIndexPath(getPlaylistIndex(indexes[0]).internalId()),
+                            getPlaylistIndex(indexes[0]),
                             j,
                             childrenRole);
                     } else {
@@ -141,7 +133,7 @@ void SessionModel::init(caf::actor_system &_system) {
                             requestData(
                                 QVariant::fromValue(QUuidFromUuid(jj.at("id"))),
                                 idRole,
-                                getIndexPath(index.internalId()),
+                                index,
                                 index,
                                 childrenRole);
                         }
@@ -179,7 +171,7 @@ void SessionModel::init(caf::actor_system &_system) {
                                 requestData(
                                     QVariant::fromValue(QUuidFromUuid(jj.at("id"))),
                                     idRole,
-                                    getIndexPath(index.internalId()),
+                                    index,
                                     jj,
                                     childrenRole);
                             }
@@ -217,7 +209,7 @@ void SessionModel::init(caf::actor_system &_system) {
                                 requestData(
                                     QVariant::fromValue(QUuidFromUuid(jj.at("id"))),
                                     idRole,
-                                    getIndexPath(index.internalId()),
+                                    index,
                                     index,
                                     childrenRole);
                             }
@@ -225,7 +217,7 @@ void SessionModel::init(caf::actor_system &_system) {
                             requestData(
                                 QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                                 idRole,
-                                getIndexPath(index.internalId()),
+                                index,
                                 index,
                                 childrenRole);
                         }
@@ -250,7 +242,7 @@ void SessionModel::init(caf::actor_system &_system) {
                     requestData(
                         QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                         idRole,
-                        getIndexPath(index.internalId()),
+                        index,
                         index,
                         pathRole);
                 } catch (const std::exception &err) {
@@ -374,11 +366,7 @@ void SessionModel::init(caf::actor_system &_system) {
                 const std::string &value) {
                 // spdlog::info("reflag_container_atom {} {}", to_string(uuid), value);
                 receivedData(
-                    json(uuid),
-                    containerUuidRole,
-                    nlohmann::json::json_pointer(),
-                    flagRole,
-                    json(value));
+                    json(uuid), containerUuidRole, QModelIndex(), flagRole, json(value));
             },
 
             [=](utility::event_atom,
@@ -388,12 +376,7 @@ void SessionModel::init(caf::actor_system &_system) {
                 // spdlog::info("reflag_container_atom {}", to_string(uuid));
 
                 const auto [flag, text] = value;
-                receivedData(
-                    json(uuid),
-                    actorUuidRole,
-                    nlohmann::json::json_pointer(),
-                    flagRole,
-                    json(flag));
+                receivedData(json(uuid), actorUuidRole, QModelIndex(), flagRole, json(flag));
             },
 
             [=](utility::event_atom,
@@ -424,35 +407,32 @@ void SessionModel::init(caf::actor_system &_system) {
                     QVariant::fromValue(QStringFromStd(actorToString(system(), ua.actor())));
                 auto media_actor_variant = QVariant::fromValue(QStringFromStd(src_str));
 
+                auto media_indexes = search_recursive_list(
+                    QVariant::fromValue(QStringFromStd(src_str)),
+                    actorRole,
+                    QModelIndex(),
+                    0,
+                    -1);
 
-                // we know we're looking for media, and roughtly where it'll be in the tree...
-                auto hint          = nlohmann::json::json_pointer("/0");
-                auto media_indexes = search_recursive_media(
-                    nlohmann::json(src_str), "actor", hint, data_.at(hint), -1);
                 auto media_index = QModelIndex();
                 if (not media_indexes.empty())
                     media_index = media_indexes[0];
 
-                // auto media_index =
-                //     search_recursive(media_actor_variant, actorRole, QModelIndex(), 0);
-
-
                 if (media_index.isValid()) {
                     auto plindex = getPlaylistIndex(media_index);
-                    auto plhint  = getIndexPath(plindex.internalId());
                     // trigger model update.
                     if (mt == media::MediaType::MT_IMAGE) {
                         receivedData(
                             json(src_str),
                             actorRole,
-                            plhint,
+                            plindex,
                             imageActorUuidRole,
                             json(ua.uuid()));
                     } else {
                         receivedData(
                             json(src_str),
                             actorRole,
-                            plhint,
+                            plindex,
                             audioActorUuidRole,
                             json(ua.uuid()));
                     }
@@ -462,7 +442,7 @@ void SessionModel::init(caf::actor_system &_system) {
                         requestData(
                             media_actor_variant,
                             actorRole,
-                            plhint,
+                            plindex,
                             media_index,
                             mediaStatusRole);
 
@@ -473,8 +453,6 @@ void SessionModel::init(caf::actor_system &_system) {
 
                         // for each instance of this media emit a source change event.
                         for (const auto &i : media_indexes) {
-                            // search_recursive(media_actor_variant, actorRole, plindex, 0, -1))
-                            // {
                             if (i.isValid()) {
                                 auto media_source_index =
                                     search(media_source_variant, actorRole, i);
@@ -541,11 +519,7 @@ void SessionModel::init(caf::actor_system &_system) {
                 // update model..
                 // spdlog::info("rename_container_atom {} {}", to_string(uuid), name);
                 receivedData(
-                    json(uuid),
-                    containerUuidRole,
-                    nlohmann::json::json_pointer(),
-                    nameRole,
-                    json(name));
+                    json(uuid), containerUuidRole, QModelIndex(), nameRole, json(name));
             },
 
             [=](utility::event_atom, session::add_playlist_atom, const UuidActor &ua) {
@@ -568,7 +542,7 @@ void SessionModel::init(caf::actor_system &_system) {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             childrenRole);
                     } catch (const std::exception &err) {
@@ -592,12 +566,7 @@ void SessionModel::init(caf::actor_system &_system) {
                     if (index.isValid()) {
                         try {
                             const nlohmann::json &j = indexToData(index);
-                            receivedData(
-                                j.at("id"),
-                                idRole,
-                                getIndexPath(index.internalId()),
-                                rateFPSRole,
-                                json(rate));
+                            receivedData(j.at("id"), idRole, index, rateFPSRole, json(rate));
                         } catch (const std::exception &err) {
                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                         }
@@ -632,7 +601,7 @@ void SessionModel::init(caf::actor_system &_system) {
                             requestData(
                                 QVariant::fromValue(QUuidFromUuid(jj.at("id"))),
                                 idRole,
-                                getIndexPath(index.internalId()),
+                                index,
                                 index,
                                 childrenRole);
                         }
@@ -664,7 +633,7 @@ void SessionModel::init(caf::actor_system &_system) {
                             requestData(
                                 QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                                 idRole,
-                                getIndexPath(index.internalId()),
+                                index,
                                 index,
                                 childrenRole);
                         }
@@ -697,7 +666,7 @@ void SessionModel::init(caf::actor_system &_system) {
                             requestData(
                                 QVariant::fromValue(QUuidFromUuid(media_id)),
                                 idRole,
-                                getIndexPath(index.internalId()),
+                                index,
                                 j.at("children").at(0),
                                 childrenRole);
                         }
@@ -775,7 +744,7 @@ void SessionModel::init(caf::actor_system &_system) {
                                     requestData(
                                         QVariant::fromValue(QUuidFromUuid(jj.at("id"))),
                                         idRole,
-                                        getIndexPath(index.internalId()),
+                                        index,
                                         index,
                                         childrenRole);
                                 }
@@ -816,7 +785,7 @@ void SessionModel::init(caf::actor_system &_system) {
                                     requestData(
                                         QVariant::fromValue(QUuidFromUuid(jj.at("id"))),
                                         idRole,
-                                        getIndexPath(index.internalId()),
+                                        index,
                                         index,
                                         childrenRole);
                                 }

@@ -256,7 +256,7 @@ void HotkeyReferenceUI::setHotkeyUuid(const QUuid &uuid) {
                 utility::get_event_group_atom_v,
                 keypress_monitor::hotkey_event_atom_v);
 
-            const Hotkey hk = request_receive<Hotkey>(
+            const auto hk = request_receive<Hotkey>(
                 *sys,
                 keyboard_manager,
                 ui::keypress_monitor::hotkey_atom_v,

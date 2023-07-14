@@ -20,6 +20,7 @@ Viewport {
     id: viewport
     objectName: "viewport"
     property bool is_popout_viewport: false
+    property bool viewing_alpha_channel: false
 
     XsOutOfRangeOverlay {
         visible: viewport.frameOutOfRange
@@ -30,6 +31,23 @@ Viewport {
     XsErrorFrameOverlay {
         anchors.fill: parent
         imageBox: imageBoundaryInViewport
+    }
+
+    XsErrorFrameOverlay {
+        visible: viewport.noAlphaChannel && viewing_alpha_channel
+        frame_error_message: "No alpha channel available"
+        anchors.fill: parent
+        imageBox: imageBoundaryInViewport
+    }
+
+    XsModuleAttributes {
+        id: colour_settings
+        attributesGroupNames: "colour_pipe_attributes"
+        onValueChanged: {
+            if(key == "channel") {
+                viewport.viewing_alpha_channel = value == "Alpha"
+            }
+        }
     }
 
     XsViewportBlankCard {

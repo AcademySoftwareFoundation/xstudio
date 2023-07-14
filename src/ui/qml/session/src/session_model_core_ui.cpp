@@ -24,7 +24,7 @@ SessionModel::SessionModel(QObject *parent) : super(parent) {
     tag_manager_ = new TagManagerUI(this);
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames({
+    setRoleNames(std::vector<std::string>({
         {"actorRole"},         {"actorUuidRole"},   {"audioActorUuidRole"},
         {"bitDepthRole"},      {"busyRole"},        {"childrenRole"},
         {"containerUuidRole"}, {"flagRole"},        {"formatRole"},
@@ -33,16 +33,144 @@ SessionModel::SessionModel(QObject *parent) : super(parent) {
         {"nameRole"},          {"pathRole"},        {"pixelAspectRole"},
         {"placeHolderRole"},   {"rateFPSRole"},     {"resolutionRole"},
         {"thumbnailURLRole"},  {"typeRole"},        {"uuidRole"},
-    });
+    }));
 
     request_handler_ = new QThreadPool(this);
 }
 
 
+QModelIndexList SessionModel::search_recursive_list_base(
+    const QVariant &value,
+    const int role,
+    const QModelIndex &parent,
+    const int start,
+    const int hits,
+    const int depth) {
+
+    QModelIndexList results;
+
+    if (role == idRole or role == actorUuidRole or role == containerUuidRole) {
+        auto uuid = UuidFromQUuid(value.toUuid());
+        if (uuid.is_null()) {
+            return QModelIndexList();
+        }
+
+        if (role == idRole or role == actorUuidRole) {
+            auto it = uuid_lookup_.find(uuid);
+            if (it != std::end(uuid_lookup_)) {
+                for (auto iit = std::begin(it->second); iit != std::end(it->second);) {
+                    if (iit->isValid()) {
+                        results.push_back(*iit);
+                        iit++;
+                    } else {
+                        iit = it->second.erase(iit);
+                    }
+                }
+            } else {
+                results = JSONTreeModel::search_recursive_list_base(
+                    value, role, parent, start, hits, depth);
+                for (const auto &i : results) {
+                    add_uuid_lookup(uuid, i);
+                }
+            }
+        }
+    } else if (role == actorRole) {
+        auto str = StdFromQString(value.toString());
+
+        if (str.empty())
+            return QModelIndexList();
+
+        auto it = string_lookup_.find(str);
+        if (it != std::end(string_lookup_)) {
+            for (auto iit = std::begin(it->second); iit != std::end(it->second);) {
+                if (iit->isValid()) {
+                    results.push_back(*iit);
+                    iit++;
+                } else {
+                    iit = it->second.erase(iit);
+                }
+            }
+        } else {
+            //  back populate..
+            results = JSONTreeModel::search_recursive_list_base(
+                value, role, parent, start, hits, depth);
+            for (const auto &i : results) {
+                add_string_lookup(str, i);
+            }
+        }
+    } else {
+        // spdlog::error("No lookup {}", StdFromQString(roleName(role)));
+    }
+
+    if (results.empty())
+        results =
+            JSONTreeModel::search_recursive_list_base(value, role, parent, start, hits, depth);
+    else {
+        // make sure results exist under parent..
+        if (parent.isValid()) {
+            for (auto it = results.begin(); it != results.end();) {
+                if (not isChildOf(parent, *it)) {
+                    it = results.erase(it);
+                } else
+                    it++;
+            }
+        }
+
+        if (depth != -1) {
+            for (auto it = results.begin(); it != results.end();) {
+                if (depthOfChild(parent, *it) > depth) {
+                    it = results.erase(it);
+                } else
+                    it++;
+            }
+        }
+    }
+
+    return results;
+}
+
+int SessionModel::depthOfChild(const QModelIndex &parent, const QModelIndex &child) const {
+    auto depth = 0;
+
+    auto p = child.parent();
+    while (p.isValid()) {
+        if (p == parent)
+            return depth;
+        p = p.parent();
+        depth++;
+    }
+
+    if (not parent.isValid())
+        return depth;
+
+    return -1;
+}
+
+
+bool SessionModel::isChildOf(const QModelIndex &parent, const QModelIndex &child) const {
+    auto result = false;
+
+    auto p = child;
+    while (p.isValid()) {
+        if (p == parent) {
+            result = true;
+            break;
+        }
+        p = p.parent();
+    }
+
+    return result;
+}
+
 QVariant SessionModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     START_SLOW_WATCHER()
+
+    // spdlog::warn("SessionModel::data {} {}", index.row(), StdFromQString(roleName(role)));
+
+    // spdlog::warn("SessionModel::data {} {} {}", index.row(), indexToData(index).dump(2),
+    // StdFromQString(roleName(role)));
 
     try {
         if (index.isValid()) {
@@ -82,7 +210,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     } else {
@@ -99,7 +227,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     } else {
@@ -114,7 +242,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
                             actorUuidRole,
-                            getIndexPath(getPlaylistIndex(index).internalId()),
+                            getPlaylistIndex(index),
                             index,
                             role);
                     } else {
@@ -129,7 +257,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
                             actorUuidRole,
-                            getIndexPath(getPlaylistIndex(index).internalId()),
+                            getPlaylistIndex(index),
                             index,
                             role);
                     } else {
@@ -144,7 +272,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
                             actorUuidRole,
-                            getIndexPath(getPlaylistIndex(index).internalId()),
+                            getPlaylistIndex(index),
                             index,
                             role);
                     } else {
@@ -159,7 +287,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
                             actorUuidRole,
-                            getIndexPath(getPlaylistIndex(index).internalId()),
+                            getPlaylistIndex(index),
                             index,
                             role);
                     } else {
@@ -183,7 +311,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
                             actorUuidRole,
-                            getIndexPath(getPlaylistIndex(index).internalId()),
+                            getPlaylistIndex(index),
                             index,
                             role);
                     else
@@ -198,7 +326,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     else
@@ -212,7 +340,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     else
@@ -226,7 +354,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     else
@@ -240,7 +368,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     else
@@ -254,7 +382,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     else {
@@ -274,7 +402,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     else {
@@ -296,7 +424,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     } else
@@ -312,7 +440,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     else
@@ -327,7 +455,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                         requestData(
                             QVariant::fromValue(QUuidFromUuid(j.at("id"))),
                             idRole,
-                            getIndexPath(index.internalId()),
+                            index,
                             index,
                             role);
                     } else
@@ -341,13 +469,12 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
         }
     } catch (const std::exception &err) {
         spdlog::warn(
-            "{} {} {} {} {} {}",
+            "{} {} {} {} {}",
             __PRETTY_FUNCTION__,
             err.what(),
             role,
             StdFromQString(roleName(role)),
-            index.row(),
-            index.internalId());
+            index.row());
     }
 
     CHECK_SLOW_WATCHER()
@@ -396,19 +523,22 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
             case containerUuidRole:
                 if (j.count("container_uuid") and j.at("container_uuid") != value) {
                     j["container_uuid"] = value;
-                    result              = true;
+                    add_lookup(*indexToTree(index), index);
+                    result = true;
                 }
                 break;
             case actorUuidRole:
                 if (j.count("actor_uuid") and j.at("actor_uuid") != value) {
                     j["actor_uuid"] = value;
-                    result          = true;
+                    add_lookup(*indexToTree(index), index);
+                    result = true;
                 }
                 break;
             case actorRole:
                 if (j.count("actor") and j.at("actor") != value) {
                     j["actor"] = value;
-                    result     = true;
+                    add_lookup(*indexToTree(index), index);
+                    result = true;
                 }
                 break;
 

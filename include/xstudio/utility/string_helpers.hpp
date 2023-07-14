@@ -13,7 +13,7 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
-#include <stdarg.h>
+#include <cstdarg>
 
 namespace xstudio {
 namespace utility {

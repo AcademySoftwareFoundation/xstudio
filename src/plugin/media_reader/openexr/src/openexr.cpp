@@ -310,6 +310,11 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         ImageBufPtr buf(new ImageBuffer(openexr_shader_uuid, jsn));
         buf->allocate(buf_size);
         buf->set_pixel_aspect(in.header().pixelAspectRatio());
+
+        // 4th channel is always put into 'alpha' channel as per shader code
+        // above
+        buf->set_has_alpha(exr_channels_to_load.size() > 3);
+
         buf->set_shader(openexr_shader);
         buf->set_image_dimensions(
             display_window.size(),
@@ -454,11 +459,11 @@ void OpenEXRMediaReader::stream_ids_from_exr_part(
 
     if (channel_names_by_layer.find("RGBA") != channel_names_by_layer.end()) {
         // make sure RGBA layer is first Stream
-        stream_ids.push_back("RGBA");
+        stream_ids.emplace_back("RGBA");
     }
     if (channel_names_by_layer.find("XYZ") != channel_names_by_layer.end()) {
         // make sure XYZ layer is first or second Stream
-        stream_ids.push_back("XYZ");
+        stream_ids.emplace_back("XYZ");
     }
     for (const auto &p : channel_names_by_layer) {
         if (p.first == "RGBA" || p.first == "XYZ")
@@ -602,7 +607,7 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         }
 
         for (const auto &stream_id : stream_ids) {
-            streams.push_back(media::StreamDetail(frd, stream_id));
+            streams.emplace_back(media::StreamDetail(frd, stream_id));
         }
 
     } catch (const std::exception &e) {

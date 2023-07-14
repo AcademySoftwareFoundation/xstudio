@@ -396,13 +396,18 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                 if (utility::check_plugin_uri_request(path)) {
                                     // send to plugin manager..
                                     auto uri = caf::make_uri(path);
+
+                                    auto media_rate = request_receive<FrameRate>(
+                                        *sys, session, session::media_rate_atom_v);
+
                                     if (uri)
                                         anon_send(
                                             pm,
                                             data_source::use_data_atom_v,
                                             *uri,
                                             session,
-                                            playlist);
+                                            playlist,
+                                            media_rate);
                                     else {
                                         spdlog::warn(
                                             "{} Invalid URI {}", __PRETTY_FUNCTION__, path);

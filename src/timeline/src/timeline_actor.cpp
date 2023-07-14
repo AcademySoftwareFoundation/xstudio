@@ -32,10 +32,10 @@ using namespace caf;
 
 caf::actor
 TimelineActor::deserialise(const utility::JsonStore &value, const bool replace_item) {
-    auto key   = utility::Uuid(value["base"]["item"]["uuid"]);
+    auto key   = utility::Uuid(value.at("base").at("item").at("uuid"));
     auto actor = caf::actor();
 
-    if (value["base"]["container"]["type"] == "Stack") {
+    if (value.at("base").at("container").at("type") == "Stack") {
         auto item = Item();
         actor     = spawn<StackActor>(static_cast<utility::JsonStore>(value), item);
         add_item(UuidActor(key, actor));
@@ -51,19 +51,19 @@ TimelineActor::deserialise(const utility::JsonStore &value, const bool replace_i
 // trigger actor creation
 void TimelineActor::item_event_callback(const utility::JsonStore &event, Item &item) {
 
-    switch (static_cast<ItemAction>(event["action"])) {
+    switch (static_cast<ItemAction>(event.at("action"))) {
     case IT_INSERT: {
-        auto cuuid = utility::Uuid(event["item"]["uuid"]);
+        auto cuuid = utility::Uuid(event.at("item").at("uuid"));
         // spdlog::warn("{} {} {} {}", find_uuid(base_.item().children(), cuuid) !=
         // base_.item().cend(), actors_.count(cuuid), not event["blind"].is_null(),
         // event.dump(2)); needs to be child..
         auto child_item_it = find_uuid(base_.item().children(), cuuid);
         if (child_item_it != base_.item().cend() and not actors_.count(cuuid) and
-            not event["blind"].is_null()) {
+            not event.at("blind").is_null()) {
             // our child
             // spdlog::warn("RECREATE MATCH");
 
-            auto actor = deserialise(utility::JsonStore(event["blind"]), false);
+            auto actor = deserialise(utility::JsonStore(event.at("blind")), false);
             add_item(UuidActor(cuuid, actor));
             // spdlog::warn("{}",to_string(caf::actor_cast<caf::actor_addr>(actor)));
             // spdlog::warn("{}",to_string(caf::actor_cast<caf::actor_addr>(child_item_it->actor())));
@@ -73,13 +73,17 @@ void TimelineActor::item_event_callback(const utility::JsonStore &event, Item &i
 
             // item actor_addr will be wrong.. in ancestors
             // send special update..
-            // send(event_group_, event_atom_v, item_atom_v,
-            // child_item_it->make_actor_addr_update(), true);
+            send(
+                event_group_,
+                event_atom_v,
+                item_atom_v,
+                child_item_it->make_actor_addr_update(),
+                true);
         }
     } break;
 
     case IT_REMOVE: {
-        auto cuuid = utility::Uuid(event["item_uuid"]);
+        auto cuuid = utility::Uuid(event.at("item_uuid"));
         // child destroyed
         if (actors_.count(cuuid)) {
             // spdlog::warn("destroy
@@ -104,67 +108,87 @@ void TimelineActor::item_event_callback(const utility::JsonStore &event, Item &i
 namespace otio = opentimelineio::OPENTIMELINEIO_VERSION;
 
 
-    // std::vector<Retainer<Composable>> const& children() const noexcept
-    // {
-    //     return _children;
-    // }
+// std::vector<Retainer<Composable>> const& children() const noexcept
+// {
+//     return _children;
+// }
 
 
-void process_item(const std::vector<otio::SerializableObject::Retainer<otio::Composable>> &items,
- blocking_actor *self, caf::actor &parent, const std::map<std::string, UuidActor> &media_lookup) {
+void process_item(
+    const std::vector<otio::SerializableObject::Retainer<otio::Composable>> &items,
+    blocking_actor *self,
+    caf::actor &parent,
+    const std::map<std::string, UuidActor> &media_lookup) {
     // let the fun begin..
-    for(auto i: items) {
-        if(auto ii = dynamic_cast<otio::Track *>(&(*i))) {
+    for (auto i : items) {
+        if (auto ii = dynamic_cast<otio::Track *>(&(*i))) {
             // spdlog::warn("Track");
-            if(ii->kind() == otio::Track::Kind::video) {
+            if (ii->kind() == otio::Track::Kind::video) {
                 // spdlog::warn("Video Track");
 
                 auto uuid = Uuid::generate();
-                auto actor = self->spawn<TrackActor>(ii->name(), media::MediaType::MT_IMAGE, uuid);
+                auto actor =
+                    self->spawn<TrackActor>(ii->name(), media::MediaType::MT_IMAGE, uuid);
                 auto source_range = ii->source_range();
-                if(source_range)
-                    anon_send(actor, active_range_atom_v,
-                        FrameRange(
-                            FrameRateDuration(source_range->duration().value(), FrameRate(source_range->duration().rate()))
-                        )
-                    );
+                if (source_range)
+                    self->request(
+                            actor,
+                            infinite,
+                            active_range_atom_v,
+                            FrameRange(FrameRateDuration(
+                                static_cast<int>(source_range->duration().value()),
+                                source_range->duration().rate())))
+                        .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-                anon_send(parent, insert_item_atom_v, -1, UuidActor(uuid, actor));
+                self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+                    .receive([=](const JsonStore &) {}, [=](const error &err) {});
+
                 process_item(ii->children(), self, actor, media_lookup);
-            } else if(ii->kind() == otio::Track::Kind::audio) {
+            } else if (ii->kind() == otio::Track::Kind::audio) {
                 // spdlog::warn("Audio Track");
                 auto uuid = Uuid::generate();
-                auto actor = self->spawn<TrackActor>(ii->name(), media::MediaType::MT_AUDIO, uuid);
+                auto actor =
+                    self->spawn<TrackActor>(ii->name(), media::MediaType::MT_AUDIO, uuid);
                 auto source_range = ii->source_range();
-                if(source_range)
-                    anon_send(actor, active_range_atom_v,
-                        FrameRange(
-                            FrameRateDuration(source_range->duration().value(), FrameRate(source_range->duration().rate()))
-                        )
-                    );
 
-                anon_send(parent, insert_item_atom_v, -1, UuidActor(uuid, actor));
+                if (source_range)
+                    self->request(
+                            actor,
+                            infinite,
+                            active_range_atom_v,
+                            FrameRange(FrameRateDuration(
+                                static_cast<int>(source_range->duration().value()),
+                                source_range->duration().rate())))
+                        .receive([=](const JsonStore &) {}, [=](const error &err) {});
+
+                self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+                    .receive([=](const JsonStore &) {}, [=](const error &err) {});
+
                 process_item(ii->children(), self, actor, media_lookup);
             }
-        } else if(auto ii = dynamic_cast<otio::Gap *>(&(*i))) {
-            // spdlog::warn("Gap");
+        } else if (auto ii = dynamic_cast<otio::Gap *>(&(*i))) {
 
-            auto uuid = Uuid::generate();
+            auto uuid  = Uuid::generate();
             auto actor = self->spawn<GapActor>(ii->name(), utility::FrameRateDuration(), uuid);
             auto source_range = ii->source_range();
 
-            if(source_range)
-                anon_send(actor, active_range_atom_v,
-                    FrameRange(
-                        FrameRateDuration(source_range->duration().value(), FrameRate(source_range->duration().rate()))
-                    )
-                );
+            if (source_range)
+                self->request(
+                        actor,
+                        infinite,
+                        active_range_atom_v,
+                        FrameRange(FrameRateDuration(
+                            static_cast<int>(source_range->duration().value()),
+                            source_range->duration().rate())))
+                    .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-            anon_send(parent, insert_item_atom_v, -1, UuidActor(uuid, actor));
-        } else if(auto ii = dynamic_cast<otio::Clip *>(&(*i))) {
+            self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+                .receive([=](const JsonStore &) {}, [=](const error &err) {});
+
+        } else if (auto ii = dynamic_cast<otio::Clip *>(&(*i))) {
             // spdlog::warn("Clip");
             // what does it contain ?
-            auto uuid = Uuid::generate();
+            auto uuid  = Uuid::generate();
             auto actor = caf::actor();
 
             const auto active_key = ii->active_media_reference_key();
@@ -182,41 +206,59 @@ void process_item(const std::vector<otio::SerializableObject::Retainer<otio::Com
             } else {
                 actor = self->spawn<ClipActor>(media_lookup.at(active_path), ii->name(), uuid);
 
-                anon_send(actor, available_range_atom_v,
-                    FrameRange(
-                        FrameRateDuration(ii->available_range().start_time().value(), FrameRate(ii->available_range().start_time().rate())),
-                        FrameRateDuration(ii->available_range().duration().value(), FrameRate(ii->available_range().duration().rate()))
-                    )
-                );
+                self->request(
+                        actor,
+                        infinite,
+                        available_range_atom_v,
+                        FrameRange(
+                            FrameRateDuration(
+                                static_cast<int>(ii->available_range().start_time().value()),
+                                ii->available_range().start_time().rate()),
+                            FrameRateDuration(
+                                static_cast<int>(ii->available_range().duration().value()),
+                                ii->available_range().duration().rate())))
+                    .receive([=](const JsonStore &) {}, [=](const error &err) {});
             }
 
             auto source_range = ii->source_range();
-            if(source_range) {
-                anon_send(actor, active_range_atom_v,
-                    FrameRange(
-                        FrameRateDuration(source_range->start_time().value(), FrameRate(source_range->start_time().rate())),
-                        FrameRateDuration(source_range->duration().value(), FrameRate(source_range->duration().rate()))
-                    )
-                );
+            if (source_range) {
+                self->request(
+                        actor,
+                        infinite,
+                        active_range_atom_v,
+                        FrameRange(
+                            FrameRateDuration(
+                                static_cast<int>(source_range->start_time().value()),
+                                source_range->start_time().rate()),
+                            FrameRateDuration(
+                                static_cast<int>(source_range->duration().value()),
+                                source_range->duration().rate())))
+                    .receive([=](const JsonStore &) {}, [=](const error &err) {});
             }
 
-            anon_send(parent, insert_item_atom_v, -1, UuidActor(uuid, actor));
+            self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+                .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-        } else if(auto ii = dynamic_cast<otio::Stack *>(&(*i))) {
+        } else if (auto ii = dynamic_cast<otio::Stack *>(&(*i))) {
             // spdlog::warn("Stack");
 
-            auto uuid = Uuid::generate();
-            auto actor = self->spawn<StackActor>(ii->name(), uuid);
+            auto uuid         = Uuid::generate();
+            auto actor        = self->spawn<StackActor>(ii->name(), uuid);
             auto source_range = ii->source_range();
 
-            if(source_range)
-                anon_send(actor, active_range_atom_v,
-                    FrameRange(
-                        FrameRateDuration(source_range->duration().value(), FrameRate(source_range->duration().rate()))
-                    )
-                );
+            if (source_range)
+                self->request(
+                        actor,
+                        infinite,
+                        active_range_atom_v,
+                        FrameRange(FrameRateDuration(
+                            static_cast<int>(source_range->duration().value()),
+                            source_range->duration().rate())))
+                    .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-            anon_send(parent, insert_item_atom_v, -1, UuidActor(uuid, actor));
+            self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+                .receive([=](const JsonStore &) {}, [=](const error &err) {});
+
             process_item(ii->children(), self, parent, media_lookup);
         }
     }
@@ -343,9 +385,7 @@ void timeline_importer(
 
     self->request(dst.actor(), infinite, history::history_atom_v)
         .receive(
-            [&](const UuidActor &ua) mutable {
-                history_actor = ua.actor();
-            },
+            [&](const UuidActor &ua) mutable { history_actor = ua.actor(); },
             [=](error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); });
 
     // disable history whilst populating
@@ -359,24 +399,22 @@ void timeline_importer(
     std::vector<otio::SerializableObject::Retainer<otio::Composable>> tracks;
 
     auto vtracks = timeline->video_tracks();
-    for(auto it = vtracks.rbegin(); it != vtracks.rend(); ++it)
+    for (auto it = vtracks.rbegin(); it != vtracks.rend(); ++it)
         tracks.emplace_back(otio::SerializableObject::Retainer<otio::Composable>(*it));
 
     auto atracks = timeline->audio_tracks();
-    for(auto it = atracks.begin(); it != atracks.end(); ++it)
-        tracks.emplace_back(otio::SerializableObject::Retainer<otio::Composable>(*it));
+    for (auto &atrack : atracks)
+        tracks.emplace_back(otio::SerializableObject::Retainer<otio::Composable>(atrack));
 
     // get timeline stack..
     auto stack_actor = caf::actor();
 
     self->request(dst.actor(), infinite, item_atom_v, 0)
         .receive(
-            [&](const Item &item) mutable {
-                stack_actor = item.actor();
-            },
+            [&](const Item &item) mutable { stack_actor = item.actor(); },
             [=](error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); });
 
-    if(stack_actor){
+    if (stack_actor) {
         process_item(tracks, self, stack_actor, target_url_map);
     }
 
@@ -492,7 +530,7 @@ void TimelineActor::init() {
                     if (not more.is_null())
                         jsn.insert(jsn.begin(), more.begin(), more.end());
 
-                    // send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                    send(event_group_, event_atom_v, item_atom_v, jsn, false);
                 }
                 break;
             }
@@ -533,7 +571,7 @@ void TimelineActor::init() {
         [=](active_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_active_range(fr);
             if (not jsn.is_null()) {
-                // send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
             }
             return jsn;
@@ -542,7 +580,7 @@ void TimelineActor::init() {
         [=](available_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_available_range(fr);
             if (not jsn.is_null()) {
-                // send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
             }
             return jsn;
@@ -553,7 +591,7 @@ void TimelineActor::init() {
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
             if (not jsn.is_null()) {
-                // send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
             }
             return jsn;
@@ -580,7 +618,7 @@ void TimelineActor::init() {
                 content_changed_ = true;
                 delayed_send(
                     this,
-                    std::chrono::milliseconds(250),
+                    std::chrono::milliseconds(50),
                     utility::event_atom_v,
                     change_atom_v,
                     true);
@@ -602,7 +640,7 @@ void TimelineActor::init() {
                 auto more = base_.item().refresh();
                 if (not more.is_null()) {
                     more.insert(more.begin(), update.begin(), update.end());
-                    // send(event_group_, event_atom_v, item_atom_v, more, hidden);
+                    send(event_group_, event_atom_v, item_atom_v, more, hidden);
                     if (not hidden)
                         anon_send(history_, history::log_atom_v, sysclock::now(), more);
 
@@ -611,7 +649,7 @@ void TimelineActor::init() {
                 }
             }
 
-            // send(event_group_, event_atom_v, item_atom_v, update, hidden);
+            send(event_group_, event_atom_v, item_atom_v, update, hidden);
             if (not hidden)
                 anon_send(history_, history::log_atom_v, sysclock::now(), update);
             send(this, utility::event_atom_v, change_atom_v);
@@ -753,7 +791,7 @@ void TimelineActor::init() {
                             changes.insert(changes.begin(), more.begin(), more.end());
 
                         // broadcast change. (may need to be finer grained)
-                        // send(event_group_, event_atom_v, item_atom_v, changes, false);
+                        send(event_group_, event_atom_v, item_atom_v, changes, false);
                         anon_send(history_, history::log_atom_v, sysclock::now(), changes);
                         send(this, utility::event_atom_v, change_atom_v);
 
@@ -771,7 +809,7 @@ void TimelineActor::init() {
             auto rp = make_response_promise<JsonStore>();
             // get item..
             request(ua.actor(), infinite, item_atom_v)
-                .then(
+                .await(
                     [=](const Item &item) mutable {
                         rp.delegate(
                             caf::actor_cast<caf::actor>(this),
@@ -821,7 +859,7 @@ void TimelineActor::init() {
                         if (not more.is_null())
                             changes.insert(changes.begin(), more.begin(), more.end());
 
-                        // send(event_group_, event_atom_v, item_atom_v, changes, false);
+                        send(event_group_, event_atom_v, item_atom_v, changes, false);
                         anon_send(history_, history::log_atom_v, sysclock::now(), changes);
                         send(this, utility::event_atom_v, change_atom_v);
                         rp.deliver(true);

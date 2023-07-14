@@ -24,9 +24,9 @@ QVariant SessionModel::playlists() const {
     auto data = R"([])"_json;
     try {
         auto value = R"({"text": null, "uuid":null})"_json;
-        for (const auto &i : data_.at(0).at("children")) {
-            value["text"] = i.at("name");
-            value["uuid"] = i.at("actor_uuid");
+        for (const auto &i : data_) {
+            value["text"] = i.data().at("name");
+            value["uuid"] = i.data().at("actor_uuid");
             data.push_back(value);
         }
     } catch (...) {
@@ -59,6 +59,22 @@ Q_INVOKABLE void SessionModel::decomposeMedia(const QModelIndexList &indexes) {
                     anon_send(
                         actor,
                         media::decompose_atom_v,
+                        UuidFromQUuid(i.data(actorUuidRole).toUuid()));
+            }
+        }
+    }
+}
+
+Q_INVOKABLE void SessionModel::rescanMedia(const QModelIndexList &indexes) {
+    for (const auto &i : indexes) {
+        if (i.isValid() and i.data(typeRole).toString() == QString("Media")) {
+            auto plindex = getPlaylistIndex(i);
+            if (plindex.isValid()) {
+                auto actor = actorFromQString(system(), plindex.data(actorRole).toString());
+                if (actor)
+                    anon_send(
+                        actor,
+                        media::rescan_atom_v,
                         UuidFromQUuid(i.data(actorUuidRole).toUuid()));
             }
         }
@@ -105,9 +121,9 @@ void SessionModel::setSessionActorAddr(const QString &addr) {
 
             setModified(false, true);
 
-            auto data = R"([])"_json;
+            auto data = R"({"children":[]})"_json;
 
-            data.push_back(createEntry(R"({
+            data["children"].push_back(createEntry(R"({
                 "type": "Session",
                 "path": null,
                 "mtime": null,
@@ -122,8 +138,8 @@ void SessionModel::setSessionActorAddr(const QString &addr) {
             session_actor_addr_ = addr;
             emit sessionActorAddrChanged();
 
-            session_actor_   = actorFromQString(system(), addr);
-            data[0]["actor"] = StdFromQString(addr);
+            session_actor_               = actorFromQString(system(), addr);
+            data["children"][0]["actor"] = StdFromQString(addr);
 
             try {
                 auto actor =
@@ -134,6 +150,10 @@ void SessionModel::setSessionActorAddr(const QString &addr) {
             } catch (const std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
             }
+
+            // clear lookup..
+            uuid_lookup_.clear();
+            string_lookup_.clear();
 
             setModelData(data);
             emit playlistsChanged();
@@ -151,24 +171,24 @@ void SessionModel::setSessionActorAddr(const QString &addr) {
             // join bookmark events
             if (session_actor_) {
                 requestData(
-                    QVariant::fromValue(QUuidFromUuid(data_[0].at("id"))),
+                    QVariant::fromValue(QUuidFromUuid(data_.front().data().at("id"))),
                     idRole,
-                    nlohmann::json::json_pointer("/0"),
-                    data_[0],
+                    QModelIndex(),
+                    data_.front().data(),
                     pathRole);
 
                 requestData(
-                    QVariant::fromValue(QUuidFromUuid(data_[0].at("id"))),
+                    QVariant::fromValue(QUuidFromUuid(data_.front().data().at("id"))),
                     idRole,
-                    nlohmann::json::json_pointer("/0"),
-                    data_[0],
+                    QModelIndex(),
+                    data_.front().data(),
                     groupActorRole);
 
                 requestData(
-                    QVariant::fromValue(QUuidFromUuid(data_[0].at("id"))),
+                    QVariant::fromValue(QUuidFromUuid(data_.front().data().at("id"))),
                     idRole,
-                    nlohmann::json::json_pointer("/0"),
-                    data_[0],
+                    QModelIndex(),
+                    data_.front().data(),
                     childrenRole);
 
                 try {
@@ -722,8 +742,11 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
 
 
             try {
+                auto media_rate = request_receive<FrameRate>(
+                    *sys, session_actor_, session::media_rate_atom_v);
+
                 auto plugin_media_tmp = request_receive<UuidActorVector>(
-                    *sys, pm, data_source::use_data_atom_v, JsonStore(jdrop), true);
+                    *sys, pm, data_source::use_data_atom_v, JsonStore(jdrop), media_rate, true);
                 if (not plugin_media_tmp.empty()) {
                     // we've got a collection of actors..
                     // lets assume they are media... (WARNING this may not be the
@@ -843,14 +866,15 @@ QFuture<QUrl> SessionModel::getThumbnailURLFuture(const QModelIndex &index, cons
                     scoped_actor sys{system()};
 
                     // get mediasource stream detail.
-                    auto actor  = actorFromString(system(), j.at("actor"));
-                    auto detail = request_receive<media::StreamDetail>(
-                        *sys, actor, media::get_stream_detail_atom_v, media::MT_IMAGE);
+                    auto actor = actorFromString(system(), j.at("actor"));
 
-                    if (detail.duration_.rate().to_seconds() != 0.0) {
-                        auto middle_frame    = (detail.duration_.frames() - 1) / 2;
-                        auto requested_frame = static_cast<int>(
-                            static_cast<float>(detail.duration_.frames() - 1) * frame);
+                    auto ref = request_receive<utility::MediaReference>(
+                        *sys, actor, media::media_reference_atom_v);
+
+                    if (ref.frame_count()) {
+                        auto middle_frame = (ref.frame_count() - 1) / 2;
+                        auto requested_frame =
+                            static_cast<int>(static_cast<float>(ref.frame_count() - 1) * frame);
                         thumburl = getThumbnailURL(
                             system(),
                             actor,
@@ -880,11 +904,11 @@ QFuture<QUrl> SessionModel::getThumbnailURLFuture(const QModelIndex &index, cons
                     // get mediasource stream detail.
                     auto actor = actorFromString(system(), j.at("actor"));
 
-                    auto detail = request_receive<media::StreamDetail>(
-                        *sys, actor, media::get_stream_detail_atom_v, media::MT_IMAGE);
+                    auto ref = request_receive<utility::MediaReference>(
+                        *sys, actor, media::media_reference_atom_v);
 
-                    if (detail.duration_.rate().to_seconds() != 0.0) {
-                        auto middle_frame = (detail.duration_.frames() - 1) / 2;
+                    if (ref.frame_count() != 0.0) {
+                        auto middle_frame = (ref.frame_count() - 1) / 2;
 
                         thumburl = getThumbnailURL(
                             system(), actor, frame == -1 ? middle_frame : frame, frame == -1);

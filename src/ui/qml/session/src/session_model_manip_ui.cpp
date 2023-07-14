@@ -36,13 +36,21 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
                     j.at("type") == "Timeline") {
                     auto pactor = actorFromIndex(index.parent(), true);
                     if (pactor) {
-                        // spdlog::warn("Send remove {} {}", j.at("type").get<std::string>(),
-                        // j["container_uuid"].get<std::string>());
-                        anon_send(
-                            pactor,
-                            playlist::remove_container_atom_v,
-                            j.at("container_uuid").get<Uuid>(),
-                            deep);
+                        if (j.at("type") == "ContainerDivider" and pactor == session_actor_) {
+                            anon_send(
+                                pactor,
+                                playlist::remove_container_atom_v,
+                                j.at("container_uuid").get<Uuid>());
+                        } else {
+                            // spdlog::warn("Send remove {} {}",
+                            // j.at("type").get<std::string>(),
+                            // j["container_uuid"].get<std::string>());
+                            anon_send(
+                                pactor,
+                                playlist::remove_container_atom_v,
+                                j.at("container_uuid").get<Uuid>(),
+                                deep);
+                        }
                         can_delete = true;
                     }
                 } else if (j.at("type") == "Playlist") {

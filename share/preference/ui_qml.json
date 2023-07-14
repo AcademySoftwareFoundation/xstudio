@@ -455,6 +455,89 @@
 				"value": "",
 				"datatype": "string",
 				"context": ["QML_UI"]
+			},
+			"reskin_windows_and_panels_model": {
+				"path": "/ui/qml/reskin_windows_and_panels_model",
+				"default_value": "{}",
+				"description": "Windows layouts",
+				"value": {
+				"children": [
+					{
+						"window_name": "main_window",
+						"width": 800,
+						"height": 800,
+						"position_x": 100,
+						"position_y": 100,
+						"children": [
+							{
+								"split": "heightwise", 
+								"fractional_position": 0.0,
+								"fractional_size": 1.0,
+								"children": [
+									{
+										"split": "widthwise", 
+										"fractional_position": 0.0,
+										"fractional_size": 0.7,
+										"children": [
+											{
+												"panel_source_qml": "../views/timeline/XsTimeline.qml",
+												"fractional_position": 0.0,
+												"fractional_size": 0.5
+											},
+											{
+												"panel_source_qml": "../views/playlists/XsPlaylists.qml",
+												"fractional_position": 0.5,
+												"fractional_size": 0.5
+											}
+										]
+									},
+									{
+										"panel_source_qml": "../views/media/XsMedialist.qml",
+										"fractional_position": 0.7,
+										"fractional_size": 0.3
+									}
+								]
+							}
+						]
+					},
+					{
+						"window_name": "second_window",
+						"children": [
+							{
+								"split": "heightwise", 
+								"fractional_position": 0.0,
+								"fractional_size": 1.0,
+								"children": [
+									{
+										"split": "widthwise", 
+										"fractional_position": 0.0,
+										"fractional_size": 0.7,
+										"children": [
+											{
+												"panel_source_qml": "../views/timeline/XsTimeline.qml",
+												"fractional_position": 0.0,
+												"fractional_size": 0.5
+											},
+											{
+												"panel_source_qml": "../views/playlists/XsPlaylists.qml",
+												"fractional_position": 0.5,
+												"fractional_size": 0.5
+											}
+										]
+									},
+									{
+										"panel_source_qml": "../views/media/XsMedialist.qml",
+										"fractional_position": 0.7,
+										"fractional_size": 0.3
+									}
+								]
+							}
+						]
+					}
+
+				]},
+				"datatype": "json",
+				"context": ["QML_UI"]
 			}
 		}
 	}

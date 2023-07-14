@@ -50,7 +50,7 @@ void JsonStore::merge(const nlohmann::json &json, const std::string &path) {
         // iterate and capture old value for nulls..
         for (auto it = result.begin(); it != result.end(); ++it) {
             if (it.value().is_null() and not at(json_pointer(it.key())).is_null()) {
-                fixes.push_back(
+                fixes.emplace_back(
                     std::make_pair(json_pointer(it.key()), at(json_pointer(it.key()))));
             }
         }
@@ -58,7 +58,7 @@ void JsonStore::merge(const nlohmann::json &json, const std::string &path) {
         // capture new values that are null..
         for (auto it = tmp.begin(); it != tmp.end(); ++it) {
             if (it.value().is_null() and not json.at(json_pointer(it.key())).is_null()) {
-                fixes.push_back(
+                fixes.emplace_back(
                     std::make_pair(json_pointer(it.key()), json.at(json_pointer(it.key()))));
             }
         }

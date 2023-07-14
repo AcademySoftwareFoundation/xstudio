@@ -11,14 +11,14 @@ Caption::Caption(
     const utility::ColourTriplet colour,
     const float opacity,
     const Justification justification,
-    const std::string &font_name)
+    const std::string font_name)
     : position_(position),
       wrap_width_(wrap_width),
       font_size_(font_size),
       colour_(colour),
       opacity_(opacity),
       justification_(justification),
-      font_name_(font_name) {}
+      font_name_(std::move(font_name)) {}
 
 void Caption::modify_text(const std::string &t, std::string::const_iterator &cursor) {
     if (t.size() != 1) {

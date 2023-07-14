@@ -58,6 +58,9 @@ namespace media_reader {
         [[nodiscard]] int decoder_frame_number() const { return frame_num_; }
         void set_decoder_frame_number(const int f) { frame_num_ = f; }
 
+        [[nodiscard]] bool has_alpha() const { return has_alpha_; }
+        void set_has_alpha(const bool b) { has_alpha_ = b; }
+
         typedef std::function<PixelInfo(
             const ImageBuffer &buf, const Imath::V2i &pixel_location)>
             PixelPickerFunc;
@@ -82,6 +85,7 @@ namespace media_reader {
         int frame_num_         = -1;
         ui::viewport::GPUShaderPtr shader_;
         PixelPickerFunc pixel_picker_;
+        bool has_alpha_ = false;
     };
 
     /* Extending std::shared_ptr<ImageBuffer> by adding a pointer to colour pipe

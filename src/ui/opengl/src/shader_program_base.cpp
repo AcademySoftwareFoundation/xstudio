@@ -102,7 +102,7 @@ ivec2 step_sample(ivec2 tex_coord)
 
     /*
     // Note: below is another way to do this. I've read that branching on non-uniform
-    // values can be v bad for performance, but not sure if this is really better or 
+    // values can be v bad for performance, but not sure if this is really better or
     // worse than the a above
     if (tex_coord.x < (tex_dims.x-1))
     {
@@ -479,7 +479,7 @@ void main(void)
             rgb_frag_value = get_bilinear_filtered_pixel(texPosition - 0.5);
         }
         else{
-            rgb_frag_value = fetch_rgba_pixel(ivec2(texPosition.x, texPosition.y));            
+            rgb_frag_value = fetch_rgba_pixel(ivec2(texPosition.x, texPosition.y));
         }
 
         //INJECT_COLOUR_OPS_CALL
@@ -583,7 +583,7 @@ GLShaderProgram::GLShaderProgram(
 
     vertex_shaders_.push_back(vertex_shader);
     vertex_shaders_.emplace_back(vertex_shader_base);
-    fragment_shaders_.push_back(use_ssbo ? frag_shader_base_ssbo : frag_shader_base_tex);
+    fragment_shaders_.emplace_back(use_ssbo ? frag_shader_base_ssbo : frag_shader_base_tex);
     fragment_shaders_.push_back(pixel_unpack_shader);
     for (const auto &colour_op_shader : colour_op_shaders) {
         if (is_colour_op_shader_source(colour_op_shader)) {
@@ -592,15 +592,6 @@ GLShaderProgram::GLShaderProgram(
             fragment_shaders_.push_back(colour_op_shader);
         }
     }
-
-    std::stringstream ss;
-    for (const auto &frg : fragment_shaders_) {
-        ss << "FRG\n\n" << frg << "\n\n";
-    }
-
-    FILE *f = fopen("/user_data/.tmp/shdrs.txt", "wa");
-    fwrite(ss.str().c_str(), ss.str().size() + 1, 1, f);
-    fclose(f);
 
     compile();
 }

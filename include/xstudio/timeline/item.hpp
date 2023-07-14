@@ -197,11 +197,7 @@ namespace timeline {
         void undo(const utility::JsonStore &event);
         void redo(const utility::JsonStore &event);
 
-        void bind_item_event_func(ItemEventFunc fn) {
-            item_event_callback_ = [fn](auto &&PH1, auto &&PH2) {
-                return fn(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));
-            };
-        }
+        void bind_item_event_func(ItemEventFunc fn, const bool recursive = false);
 
         [[nodiscard]] utility::JsonStore make_actor_addr_update() const;
 
@@ -235,6 +231,7 @@ namespace timeline {
         // not sure if this is safe..
         caf::actor_system *the_system_{nullptr};
         ItemEventFunc item_event_callback_{nullptr};
+        bool recursive_bind_{false};
     };
 
     inline Items::const_iterator find_item(const Items &items, const utility::Uuid &uuid) {
@@ -303,5 +300,34 @@ namespace timeline {
         }
         return duration;
     }
+
+    inline std::string to_string(const ItemType it) {
+        std::string str;
+        switch (it) {
+        case IT_NONE:
+            str = "None";
+            break;
+        case IT_GAP:
+            str = "Gap";
+            break;
+        case IT_CLIP:
+            str = "Clip";
+            break;
+        case IT_AUDIO_TRACK:
+            str = "Audio Track";
+            break;
+        case IT_VIDEO_TRACK:
+            str = "Video Track";
+            break;
+        case IT_STACK:
+            str = "Stack";
+            break;
+        case IT_TIMELINE:
+            str = "Timeline";
+            break;
+        }
+        return str;
+    }
+
 } // namespace timeline
 } // namespace xstudio

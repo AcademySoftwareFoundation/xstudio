@@ -6,7 +6,7 @@ using namespace xstudio::utility;
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 // #include "spdlog/async.h"
-#include <signal.h>
+#include <csignal>
 
 void xstudio::utility::start_logger(
     const spdlog::level::level_enum lvl, const std::string &logfile) {

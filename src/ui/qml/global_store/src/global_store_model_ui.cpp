@@ -13,7 +13,7 @@ using namespace xstudio::ui::qml;
 GlobalStoreModel::GlobalStoreModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(
+    setRoleNames(std::vector<std::string>(
         {"nameRole",
          "pathRole",
          "datatypeRole",
@@ -22,7 +22,7 @@ GlobalStoreModel::GlobalStoreModel(QObject *parent) : super(parent) {
          "descriptionRole",
          "defaultValueRole",
          "overriddenValueRole",
-         "overriddenPathRole"});
+         "overriddenPathRole"}));
 }
 
 
@@ -43,7 +43,12 @@ void GlobalStoreModel::init(caf::actor_system &_system) {
         utility::request_receive<bool>(
             *sys, gsh_group, broadcast::join_broadcast_atom_v, as_actor());
 
-        setModelData(storeToTree(tmp));
+        auto tree        = R"({})"_json;
+        tree["children"] = storeToTree(tmp);
+
+        // spdlog::warn("{}", tree.dump(2));
+
+        setModelData(tree);
 
         // connect up auto save.
         {
@@ -80,7 +85,9 @@ void GlobalStoreModel::init(caf::actor_system &_system) {
                 const utility::JsonStore &) { updateProperty(path, change); },
 
             [=](json_store::update_atom, const utility::JsonStore &json) {
-                setModelData(storeToTree(json));
+                auto tree        = R"({})"_json;
+                tree["children"] = storeToTree(json);
+                setModelData(tree);
             },
 
             [=](utility::event_atom, global_store::autosave_atom, bool enabled) {

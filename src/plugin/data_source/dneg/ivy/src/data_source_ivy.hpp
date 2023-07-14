@@ -66,14 +66,20 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
     void on_exit() override;
 
   private:
-    void
-    ivy_load(caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri);
+    void ivy_load(
+        caf::typed_response_promise<utility::UuidActorVector> rp,
+        const caf::uri &uri,
+        const utility::FrameRate &media_rate);
 
     void ivy_load_version(
-        caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri);
+        caf::typed_response_promise<utility::UuidActorVector> rp,
+        const caf::uri &uri,
+        const utility::FrameRate &media_rate);
 
     void ivy_load_file(
-        caf::typed_response_promise<utility::UuidActorVector> rp, const caf::uri &uri);
+        caf::typed_response_promise<utility::UuidActorVector> rp,
+        const caf::uri &uri,
+        const utility::FrameRate &media_rate);
 
     void ivy_load_version_sources(
         caf::typed_response_promise<utility::UuidActorVector> rp,
@@ -85,6 +91,7 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const std::string &show,
         const utility::Uuid &stem_dnuuid,
+        const utility::FrameRate &media_rate,
         const utility::UuidActorVector &extend = utility::UuidActorVector());
 
     void get_show_stalk_uuid(
@@ -93,7 +100,8 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
 
     void handle_drop(
         caf::typed_response_promise<utility::UuidActorVector> rp,
-        const utility::JsonStore &jsn);
+        const utility::JsonStore &jsn,
+        const utility::FrameRate &media_rate);
 
     caf::behavior behavior_;
     T data_source_;

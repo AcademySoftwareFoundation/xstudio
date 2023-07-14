@@ -96,7 +96,7 @@ namespace module {
             }
         }
 
-        template <typename T> bool __set(const T &v) {
+        template <typename T> bool __set(const T &v) { // NOLINT
             if (data_.has_value() && typeid(v) != data_.type()) {
                 spdlog::warn(
                     "{} Attempt to set AttributeData with type {} with data of type {} and "

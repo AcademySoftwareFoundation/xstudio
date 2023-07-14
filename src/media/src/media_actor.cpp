@@ -164,6 +164,21 @@ void MediaActor::init() {
                 bookmark_uuid);
         },
 
+        [=](rescan_atom atom) -> result<MediaReference> {
+            if (base_.empty())
+                return make_error(xstudio_error::error, "No MediaSources");
+
+            auto rp = make_response_promise<MediaReference>();
+
+            try {
+                rp.delegate(media_sources_.at(base_.current()), atom);
+            } catch (const std::exception &err) {
+                rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+            }
+
+            return rp;
+        },
+
         [=](decompose_atom) -> result<UuidActorVector> {
             if (media_sources_.empty())
                 return make_error(xstudio_error::error, "No MediaSources");

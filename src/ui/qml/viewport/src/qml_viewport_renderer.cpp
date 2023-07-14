@@ -122,7 +122,7 @@ void QMLViewportRenderer::init_system() {
     viewport_renderer_->set_change_callback(callback);
 
     // update PlayheadUI object owned by the 'QMLViewport'
-    QMLViewport *vp = dynamic_cast<QMLViewport *>(parent());
+    auto *vp = dynamic_cast<QMLViewport *>(parent());
     if (vp) {
         vp->setPlayhead(viewport_renderer_->playhead());
     }
@@ -280,10 +280,12 @@ void QMLViewportRenderer::receive_change_notification(Viewport::ChangeCallbackId
         emit translateChanged(
             QVector2D(viewport_renderer_->pan().x, viewport_renderer_->pan().y));
     } else if (id == Viewport::ChangeCallbackId::PlayheadChanged) {
-        QMLViewport *vp = dynamic_cast<QMLViewport *>(parent());
+        auto *vp = dynamic_cast<QMLViewport *>(parent());
         if (vp) {
             vp->setPlayhead(viewport_renderer_->playhead());
         }
+    } else if (id == Viewport::ChangeCallbackId::NoAlphaChannelChanged) {
+        emit noAlphaChannelChanged(viewport_renderer_->no_alpha_channel());
     }
 }
 

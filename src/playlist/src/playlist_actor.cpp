@@ -345,6 +345,11 @@ void PlaylistActor::init() {
 
         [=](broadcast::join_broadcast_atom) -> caf::actor { return playlist_broadcast_; },
 
+        [=](utility::event_atom,
+            timeline::item_atom,
+            const utility::JsonStore &update,
+            const bool hidden) {},
+
         [=](add_media_atom,
             const std::string &name,
             const caf::uri &uri,
@@ -1575,6 +1580,15 @@ void PlaylistActor::init() {
             }
 
             return false;
+        },
+
+        [=](media::rescan_atom atom,
+            const utility::Uuid &media_uuid) -> result<MediaReference> {
+            if (not media_.count(media_uuid))
+                return make_error(xstudio_error::error, "Invalid Uuid.");
+            auto rp = make_response_promise<MediaReference>();
+            rp.delegate(media_.at(media_uuid), atom);
+            return rp;
         },
 
         [=](media::decompose_atom, const utility::Uuid &media_uuid) -> result<UuidActorVector> {

@@ -134,6 +134,15 @@ std::string OCIOColourPipeline::linear_to_display_op_hash(
         const MediaParams media_param = get_media_params(source_uuid, colour_params);
         auto main_proc                = make_display_processor(media_param, false);
         result_id += main_proc->getCacheID();
+        {
+            // Here we make sure the cacheID string depends on any grading primaries data
+            // that may have been picked up for the source (if we are applying the primary
+            // grade).
+            const MediaParams media_param = get_media_params(source_uuid, colour_params);
+            std::stringstream ss;
+            ss << media_param.primary;
+            result_id += ss.str();
+        }
 
     } catch (const std::exception &e) {
         spdlog::warn("OCIOColourPipeline: Failed to compute display hash: {}", e.what());
@@ -227,7 +236,8 @@ ColourOperationDataPtr OCIOColourPipeline::linear_to_display_op_data(
         auto desc         = std::make_shared<ShaderDescriptor>();
         desc->shader_desc = display_shader;
         desc->params      = get_media_params(source_uuid, colour_params);
-        data->user_data_  = desc;
+
+        data->user_data_ = desc;
 
     } catch (const std::exception &e) {
         spdlog::warn("OCIOColourPipeline: Failed to setup display shader: {}", e.what());
@@ -450,30 +460,49 @@ void OCIOColourPipeline::extend_pixel_info(
     }
 }
 
+void OCIOColourPipeline::init_media_params(MediaParams &media_param) const {
+
+    const auto &metadata = media_param.metadata;
+
+    const std::string config_name = metadata.get_or("ocio_config", std::string(""));
+
+    media_param.ocio_config      = load_ocio_config(config_name);
+    media_param.ocio_config_name = config_name;
+    media_param.output_view      = preferred_ocio_view(media_param, preferred_view_->value());
+
+    if (metadata.contains("active_displays")) {
+        const std::string displays = metadata.get_or("active_displays", std::string(""));
+
+        auto config = media_param.ocio_config->createEditableCopy();
+        config->setActiveDisplays(displays.c_str());
+        media_param.ocio_config = config;
+    }
+    if (metadata.contains("active_views")) {
+        const std::string views = metadata.get_or("active_views", std::string(""));
+
+        auto config = media_param.ocio_config->createEditableCopy();
+        config->setActiveViews(views.c_str());
+        media_param.ocio_config = config;
+    }
+}
+
 OCIOColourPipeline::MediaParams OCIOColourPipeline::get_media_params(
     const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) const {
 
     // Create an entry if empty and initialize the OCIO config.
     if (media_params_.find(source_uuid) == media_params_.end()) {
-        const std::string new_config_name =
-            colour_params.get_or("ocio_config", std::string(""));
         MediaParams media_param;
-        media_param.source_uuid      = source_uuid;
-        media_param.metadata         = colour_params;
-        media_param.ocio_config      = load_ocio_config(new_config_name);
-        media_param.ocio_config_name = new_config_name;
-        media_param.output_view    = preferred_ocio_view(media_param, preferred_view_->value());
+        media_param.source_uuid = source_uuid;
+        media_param.metadata    = colour_params;
+        init_media_params(media_param);
         media_params_[source_uuid] = media_param;
     }
     // Update and reload OCIO config if source metadata have changed.
     else {
         MediaParams &media_param = media_params_[source_uuid];
         if (not colour_params.is_null() and media_param.metadata != colour_params) {
-            const std::string new_config_name =
-                colour_params.get_or("ocio_config", std::string(""));
-            media_param.metadata         = colour_params;
-            media_param.ocio_config      = load_ocio_config(new_config_name);
-            media_param.ocio_config_name = new_config_name;
+            media_param.metadata = colour_params;
+            init_media_params(media_param);
         }
     }
 
@@ -485,42 +514,19 @@ void OCIOColourPipeline::set_media_params(
     media_params_[source_uuid] = new_media_param;
 }
 
-std::string OCIOColourPipeline::automatic_ocio_view(const MediaParams &media_param) const {
-    const std::string filepath = media_param.metadata.get_or("path", std::string(""));
-    const std::string version =
-        media_param.metadata.get_or("pipeline_version", std::string("1"));
-    const bool new_style = version == "2";
-
-    // Check if the file is an edit ref type
-    if (filepath.find("/edit_ref/") != std::string::npos) {
-        return new_style ? "Client" : "Film";
-    }
-    // Check if the files is going to be used for build and lookdev reviews
-    else if (filepath.find("/ASSET/") != std::string::npos) {
-        return "DNEG";
-    }
-    // Check if the files is going to be used for comp reviews
-    else if (
-        filepath.find("/out/") != std::string::npos ||
-        filepath.find("/ELEMENT/") != std::string::npos) {
-        return new_style ? "Client graded" : "Film primary";
-    } else {
-        return new_style ? "Client" : "Film";
-    }
-}
-
 std::string OCIOColourPipeline::preferred_ocio_view(
     const MediaParams &media_param, const std::string &ocio_view) const {
 
     // Get the default display from OCIO config
     const OCIO::ConstConfigRcPtr ocio_config = media_param.ocio_config;
     const std::string default_display        = ocio_config->getDefaultDisplay();
+    const std::string default_view = ocio_config->getDefaultView(default_display.c_str());
 
     std::string preferred_view;
     if (ocio_view == ui_text_.DEFAULT_VIEW) {
-        preferred_view = ocio_config->getDefaultView(default_display.c_str());
+        preferred_view = default_view;
     } else if (ocio_view == ui_text_.AUTOMATIC_VIEW) {
-        preferred_view = automatic_ocio_view(media_param);
+        preferred_view = media_param.metadata.get_or("automatic_view", default_view);
     } else {
         preferred_view = ocio_view;
     }

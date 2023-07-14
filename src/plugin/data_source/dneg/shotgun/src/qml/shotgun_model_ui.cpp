@@ -135,7 +135,7 @@ QVariant ShotgunSequenceModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     try {
-        const auto &j = indexToData(index);
+        const auto &j = indexToFullData(index);
 
         switch (role) {
         case JSONTreeModel::Roles::JSONRole:
@@ -956,11 +956,13 @@ void ShotgunTreeModel::populate(const utility::JsonStore &data) {
 void ShotgunTreeModel::checkForActiveLiveLink() {
     try {
         bool active = false;
-        if (not data_.is_null() and active_preset_ != -1 and
-            active_preset_ < static_cast<int>(data_.size())) {
-            const auto &i = data_.at(active_preset_);
-            for (const auto &j : i.at(children_)) {
-                if (j.value("enabled", false) and j.value("livelink", false)) {
+        if (active_preset_ != -1 and active_preset_ < static_cast<int>(data_.size())) {
+
+            auto active_node = data_.begin();
+            std::advance(active_node, active_preset_);
+
+            for (const auto &j : *active_node) {
+                if (j.data().value("enabled", false) and j.data().value("livelink", false)) {
                     active = true;
                     break;
                 }
@@ -980,12 +982,13 @@ void ShotgunTreeModel::checkForActiveFilter() {
 
     try {
         bool active = false;
-        if (not data_.is_null() and active_preset_ != -1 and
-            active_preset_ < static_cast<int>(data_.size())) {
-            const auto &i = data_.at(active_preset_);
+        if (active_preset_ != -1 and active_preset_ < static_cast<int>(data_.size())) {
 
-            for (const auto &j : i.at(children_)) {
-                if (j.at("enabled")) {
+            auto active_node = data_.begin();
+            std::advance(active_node, active_preset_);
+
+            for (const auto &j : *active_node) {
+                if (j.data().at("enabled")) {
                     active = true;
                     break;
                 }
@@ -1046,12 +1049,24 @@ void ShotgunTreeModel::setType(const int row, const QString &type) {
 
 void ShotgunTreeModel::clearLiveLinks() {
     try {
-        for (size_t i = 0; i < data_.size(); i++) {
-            for (size_t j = 0; j < data_.at(i).at(children_).size(); j++) {
-                if (data_.at(i).at(children_).at(j).value("livelink", false))
-                    set(j, "", "argRole", index(i, 0, QModelIndex()));
+        auto i_ind = 0;
+        for (const auto &i : data_) {
+            auto j_ind = 0;
+            for (const auto &j : i) {
+                if (j.data().value("livelink", false)) {
+                    set(j_ind, "", "argRole", index(i_ind, 0, QModelIndex()));
+                }
+                j_ind++;
             }
+            i_ind++;
         }
+
+        // for (size_t i = 0; i < data_.size(); i++) {
+        //     for (size_t j = 0; j < data_.at(i).at(children_).size(); j++) {
+        //         if (data_.at(i).at(children_).at(j).value("livelink", false))
+        //             set(j, "", "argRole", index(i, 0, QModelIndex()));
+        //     }
+        // }
     } catch (...) {
     }
 }
@@ -1144,11 +1159,11 @@ QVariant ShotgunTreeModel::data(const QModelIndex &index, int role) const {
 
         switch (role) {
         case JSONTreeModel::Roles::JSONRole:
-            result = QVariantMapFromJson(j);
+            result = QVariantMapFromJson(indexToFullData(index));
             break;
 
         case JSONTreeModel::Roles::JSONTextRole:
-            result = QString::fromStdString(j.dump(2));
+            result = QString::fromStdString(indexToFullData(index).dump(2));
             break;
 
         case Roles::enabledRole:
@@ -1239,22 +1254,36 @@ bool ShotgunTreeModel::setData(const QModelIndex &index, const QVariant &value, 
         result            = true;
         switch (role) {
 
-        case JSONTreeModel::Roles::JSONRole:
+        case JSONTreeModel::Roles::JSONRole: {
+            // more involved..
+            nlohmann::json jval;
+
             if (std::string(value.typeName()) == "QJSValue") {
-                j = nlohmann::json::parse(
+                jval = nlohmann::json::parse(
                     QJsonDocument::fromVariant(value.value<QJSValue>().toVariant())
                         .toJson(QJsonDocument::Compact)
                         .constData());
             } else {
-                j = nlohmann::json::parse(QJsonDocument::fromVariant(value)
-                                              .toJson(QJsonDocument::Compact)
-                                              .constData());
+                jval = nlohmann::json::parse(QJsonDocument::fromVariant(value)
+                                                 .toJson(QJsonDocument::Compact)
+                                                 .constData());
             }
+
+            // we now need to update / replace the TreeNode..
+            auto new_node = json_to_tree(jval, "queries");
+            auto old_node = indexToTree(index);
+            // remove old children
+            old_node->clear();
+            // replace data..
+            old_node->data() = new_node.data();
+            // copy children
+            old_node->splice(old_node->end(), new_node.base());
+
             refreshLiveLinks();
             checkForActiveFilter();
             checkForActiveLiveLink();
             roles.clear();
-            break;
+        } break;
 
         case Roles::enabledRole:
             j["enabled"] = value.toBool();
@@ -1265,7 +1294,7 @@ bool ShotgunTreeModel::setData(const QModelIndex &index, const QVariant &value, 
         case Roles::liveLinkRole:
             j["livelink"] = value.toBool();
             if (value.toBool())
-                updateLiveLink(index.row(), index.parent());
+                updateLiveLink(index);
 
             checkForActiveLiveLink();
             break;
@@ -1352,14 +1381,16 @@ void ShotgunTreeModel::updateLiveLinks(const utility::JsonStore &data) {
 
 void ShotgunTreeModel::refreshLiveLinks() {
     try {
-        if (not data_.is_null()) {
-            for (size_t i = 0; i < data_.size(); i++) {
-                for (size_t j = 0; j < data_.at(i).at(children_).size(); j++) {
-                    if (data_.at(i).at(children_).at(j).value("livelink", false)) {
-                        updateLiveLink(j, index(i, 0, QModelIndex()));
-                    }
+        auto i_ind = 0;
+        for (const auto &i : data_) {
+            auto j_ind = 0;
+            for (const auto &j : i) {
+                if (j.data().value("livelink", false)) {
+                    updateLiveLink(index(j_ind, 0, index(i_ind, 0, QModelIndex())));
                 }
+                j_ind++;
             }
+            i_ind++;
         }
     } catch (...) {
     }
@@ -1533,12 +1564,17 @@ void ShotgunTreeModel::setActivePreset(const int row) {
         emit activePresetChanged();
         if (active_preset_ >= 0) {
             try {
-                const auto primary_term = data_.at(active_preset_).at(children_).at(0);
-                if (primary_term.at("term") == "Shot" and
-                    primary_term.value("livelink", false) and
-                    active_seq_shot_ != QStringFromStd(primary_term.at("value"))) {
-                    active_seq_shot_ = QStringFromStd(primary_term.at("value"));
-                    emit activeSeqShotChanged();
+                if (active_preset_ < static_cast<int>(data_.size())) {
+                    auto row = data_.begin();
+                    std::advance(row, active_preset_);
+                    if (not row->empty()) {
+                        auto jsn = row->front().data();
+                        if (jsn.at("term") == "Shot" and jsn.value("livelink", false) and
+                            active_seq_shot_ != QStringFromStd(jsn.at("value"))) {
+                            active_seq_shot_ = QStringFromStd(jsn.at("value"));
+                            emit activeSeqShotChanged();
+                        }
+                    }
                 }
             } catch (...) {
             }
@@ -1546,20 +1582,21 @@ void ShotgunTreeModel::setActivePreset(const int row) {
     }
 }
 
-void ShotgunTreeModel::updateLiveLink(const int row, const QModelIndex &parent) {
+void ShotgunTreeModel::updateLiveLink(const QModelIndex &index) {
     // spdlog::warn("updateLiveLink {}", live_link_data_.dump(2));
     try {
-        auto value = data_.at(parent.row()).at(children_).at(row).at("value");
-        auto result =
-            applyLiveLinkValue(data_.at(parent.row()).at(children_).at(row), live_link_data_);
+        auto jsn   = indexToData(index);
+        auto value = jsn.at("value");
+
+        auto result = applyLiveLinkValue(jsn, live_link_data_);
+
         if (result != value) {
-            set(row,
+            set(index.row(),
                 QVariant::fromValue(QStringFromStd(result)),
                 QStringFromStd("argRole"),
-                parent);
+                index.parent());
 
-            if (parent.row() == active_preset_ &&
-                data_.at(parent.row()).at(children_).at(row).at("term") == "Shot") {
+            if (index.parent().row() == active_preset_ && jsn.at("term") == "Shot") {
 
                 if (active_seq_shot_ != QStringFromStd(result)) {
                     active_seq_shot_ = QStringFromStd(result);
@@ -1568,7 +1605,10 @@ void ShotgunTreeModel::updateLiveLink(const int row, const QModelIndex &parent) 
             }
         }
     } catch (...) {
-        set(row, QVariant::fromValue(QString("")), QStringFromStd("argRole"), parent);
+        set(index.row(),
+            QVariant::fromValue(QString("")),
+            QStringFromStd("argRole"),
+            index.parent());
     }
 }
 

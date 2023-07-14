@@ -123,6 +123,8 @@ class OCIOColourPipeline : public ColourPipeline {
     }
 
   private:
+    void init_media_params(MediaParams &media_param) const;
+
     MediaParams get_media_params(
         const utility::Uuid &source_uuid,
         const utility::JsonStore &colour_params = utility::JsonStore()) const;
@@ -131,8 +133,6 @@ class OCIOColourPipeline : public ColourPipeline {
     set_media_params(const utility::Uuid &source_uuid, const MediaParams &media_param) const;
 
     // OCIO logic
-
-    std::string automatic_ocio_view(const MediaParams &media_param) const;
 
     std::string
     preferred_ocio_view(const MediaParams &media_param, const std::string &view) const;
