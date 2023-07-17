@@ -29,13 +29,10 @@ class JSONTreeModel : public QAbstractItemModel {
     void lengthChanged();
 
   public:
-    enum Roles { JSONRole = Qt::UserRole + 1, JSONTextRole, JSONPointerRole, LASTROLE };
+    enum Roles { JSONRole = Qt::UserRole + 1, JSONTextRole, LASTROLE };
 
     inline static const std::map<int, std::string> role_names = {
-        {Qt::DisplayRole, "display"},
-        {JSONRole, "jsonRole"},
-        {JSONTextRole, "jsonTextRole"},
-        {JSONPointerRole, "jsonPointerRole"}};
+        {Qt::DisplayRole, "display"}, {JSONRole, "jsonRole"}, {JSONTextRole, "jsonTextRole"}};
 
     JSONTreeModel(QObject *parent = nullptr);
 

@@ -327,7 +327,6 @@
 		<file>base/widgets/XsComboBoxNew.qml</file>
 		<file>base/widgets/XsComboBoxMultiSelect.qml</file>
 		<file>base/widgets/XsComboBoxNew.qml</file>
-		<file>base/widgets/XsComboBoxMultiSelect.qml</file>
 		<file>base/widgets/XsComboBoxWithText.qml</file>
 		<file>base/widgets/XsDecoratorWidget.qml</file>
 		<file>base/widgets/XsExpandButton.qml</file>

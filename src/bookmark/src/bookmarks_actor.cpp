@@ -195,9 +195,7 @@ void BookmarksActor::init() {
 
                             rp.deliver(jsn);
                         },
-                        [=](error &err) mutable {
-                         rp.deliver(std::move(err));
-                        });
+                        [=](error &err) mutable { rp.deliver(std::move(err)); });
             } else {
                 JsonStore jsn;
                 jsn["base"]   = base_.serialise();

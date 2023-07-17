@@ -253,7 +253,6 @@ XsWindow {
                         }
                         hideMenu()
                     }
-                    hideMenu()
                 }
                 Layout.fillWidth: true
                 Layout.minimumHeight: itemHeight*2

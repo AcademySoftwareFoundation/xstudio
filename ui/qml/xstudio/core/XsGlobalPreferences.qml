@@ -14,7 +14,6 @@ Item
     property alias check_unsaved_session: check_unsaved_session
 	property alias latest_version: latest_version
 	property alias loop_mode: loop_mode
-    property alias force_trim_slate_frame: force_trim_slate_frame
 	property alias restore_play_state_after_scrub: restore_play_state_after_scrub
     property alias enable_presentation_mode: enable_presentation_mode
     property alias last_auto_save: last_auto_save
@@ -182,12 +181,6 @@ Item
         id: check_unsaved_session
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/ui/qml/check_unsaved_session", "pathRole")
-    }
-
-    XsModelProperty {
-        id: force_trim_slate_frame
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/plugin/dneg_media_hook/force_trim_slate_frame", "pathRole")
     }
 
     XsModelProperty {

@@ -17,13 +17,6 @@ FileDialog {
     selectExisting: false
     selectMultiple: false
 
-    function getFolderPath() {
-        if(preferences.current_saved_session_folder.value != "")
-            return preferences.current_saved_session_folder.value
-
-        return session.pathNative ? XsUtils.stem(session.path.toString()).replace("localhost","") : shortcuts.home
-    }
-
     onAccepted: {
         // check for extension.
         var path = fileUrl.toString()

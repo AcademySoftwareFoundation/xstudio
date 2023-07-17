@@ -213,7 +213,7 @@ Item {
         onActivated: sessionWidget.toggleNotes()
     }
 
-    /*XsHotkey {
+    XsHotkey {
         context: shortcuts.context
         sequence: "Shift+p"
         name: "Create New Playlist"

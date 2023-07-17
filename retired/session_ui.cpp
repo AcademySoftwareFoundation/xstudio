@@ -372,9 +372,6 @@ void SessionUI::set_backend(caf::actor backend) {
             *sys, dummy_playlist_, infinite, playlist::create_playhead_atom_v);
 
         anon_send(playhead.actor(), module::connect_to_ui_atom_v);
-        auto ph_events =
-            system().registry().template get<caf::actor>(global_playhead_events_actor);
-        anon_send(ph_events, viewport::viewport_playhead_atom_v, playhead.actor());
     }
     emit backendChanged();
 }

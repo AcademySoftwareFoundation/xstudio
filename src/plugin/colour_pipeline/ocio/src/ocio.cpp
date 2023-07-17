@@ -814,7 +814,7 @@ OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_display_processor(
         OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
 
         if (!is_thumbnail) {
-            ect = OCIO::ExposureContrastTransform::Create();
+            auto ect = OCIO::ExposureContrastTransform::Create();
             ect->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
             ect->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
             ect->makeExposureDynamic();
