@@ -4,17 +4,16 @@ import QtQuick.Controls 2.14
 import QtQuick.Controls.Styles 1.4
 import QtQml.Models 2.14
 import Qt.labs.qmlmodels 1.0
+import QtQuick.Layouts 1.15
 
 import xStudioReskin 1.0
 
-Rectangle{
+Item{
 
     id: panel
 
-    // width: parent.width
-    // height: parent.height
-    color: XsStyleSheet.panelBgColor
     anchors.fill: parent
+    // height: parent.height
 
 
     property color bgColorPressed: palette.highlight 
@@ -32,256 +31,171 @@ Rectangle{
     // property var textElide: textDiv.elide
     // property alias textDiv: textDiv
 
-    Rectangle{
-        id: titleBar
-        color: XsStyleSheet.panelTitleBarColor
-        width: parent.width
-        height: XsStyleSheet.widgetStdHeight
+    Item{id: actionDiv
+        width: parent.width; 
+        height: 28+(8*2)
 
-        /*XsText{
-            text: "Files"
-            anchors.left: parent.left
-            anchors.leftMargin: 4
-            horizontalAlignment: Text.AlignLeft
-        }*/
+        RowLayout{
+            x: 8
+            spacing: 1
+            width: parent.width-(x*2)
+            height: XsStyleSheet.widgetStdHeight+4
+            anchors.verticalCenter: parent.verticalCenter
+            
+            XsPrimaryButton{ id: addBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                Layout.alignment: Qt.AlignLeft
+                imgSrc: "qrc:/assets/icons/new/add.svg"
+            }
+            XsPrimaryButton{ id: searchBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/assets/icons/new/search_w500.svg"
+            }
+            XsPrimaryButton{ id: deleteBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/assets/icons/new/delete_w500.svg"
+            }
+            Text{
+                Layout.fillWidth: true
+                Layout.preferredHeight: parent.height
+                text: "Media Library"
+                color: textColorNormal
+                // Layout.alignment: Qt.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+            }
+            XsPrimaryButton{ id: listViewBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/assets/icons/new/view_w500.svg"
+            }
+            XsPrimaryButton{ id: gridViewBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/assets/icons/new/view_grid_w500.svg"
+            }
+            XsPrimaryButton{ id: moreBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                Layout.alignment: Qt.AlignRight
+                imgSrc: "qrc:/assets/icons/new/more_vert_500.svg"
+            }
+
+        }
         
-        XsSecondaryButton{ id: infoBtn
-            width: 16
-            height: 16
-            imgSrc: "qrc:/assets/icons/new/error.svg"
-            anchors.right: parent.right
-            anchors.rightMargin: 4
-            anchors.verticalCenter: parent.verticalCenter
-        }
-
-        XsSecondaryButton{
-            width: 16
-            height: 16
-            imgSrc: "qrc:/assets/icons/new/filter_none.svg"
-            anchors.right: infoBtn.left
-            anchors.rightMargin: 4
-            anchors.verticalCenter: parent.verticalCenter
-        }
-
     }
     
-    ListModel{
-        id: dataModel
-        ListElement{type: "divider"; title: "Library"}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "divider"; title: "Library"}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "divider"; title: "Library"}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "divider"; title: "Library"}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "divider"; title: "Library"}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "divider"; title: "Library"}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "divider"; title: "Library"}
-        ListElement{type: "content"; title: ""}
-        ListElement{type: "content"; title: ""}
-    }
-
-    ListView {
-        id: playlist
-
-        y: titleBar.height
-        spacing: 0
-        width: contentWidth
-        height: contentHeight
-        contentHeight: contentItem.childrenRect.height
-        contentWidth: contentItem.childrenRect.width
-        orientation: ListView.Vertical
-        snapMode: ListView.SnapToItem
-
-        model:  dataModel
-        // delegate: Rectangle{
-        //     width: panel.width
-        //     height: XsStyleSheet.widgetStdHeight
-        //     color: XsStyleSheet.accentColor
-        //     opacity: index%2==0?0.2:0.7
-        // }
-
-        delegate: Item{
-            width: panel.width
+    Rectangle{ id: mediaListDiv
+        x: 8
+        y: actionDiv.height+4
+        width: panel.width-(8*2)
+        height: panel.height-y-(4*2)
+        color: XsStyleSheet.panelBgColor
+    
+        Rectangle{ id: titleBar
+            color: XsStyleSheet.panelTitleBarColor
+            width: parent.width
             height: XsStyleSheet.widgetStdHeight
-
-            Button {
-                id: dividerDiv
-                text: title
-                width: parent.width; height: parent.height
-                visible: type=="divider"
-            
-                font.pixelSize: textSize
-                font.family: textFont
-                hoverEnabled: true
-                opacity: enabled ? 1.0 : 0.33
-            
-                contentItem:
-                Item{
-                    anchors.fill: parent
-
-                    Rectangle{ id: leftLine; height: 1; color: "#474747"; anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left; anchors.leftMargin: isSubDivider? 8:4 //XsStyleSheet.menuPadding
-                        anchors.right: textDiv.left; anchors.rightMargin: 8
-                    }
-                    Rectangle{ id: rightLine; height: 1; color: "#474747"; anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: textDiv.right; anchors.leftMargin: 8
-                        anchors.right: parent.right; anchors.rightMargin: 4
-                    }
-                    Text {
-                        id: textDiv
-                        text: dividerDiv.text+"-"+index
-                        font: dividerDiv.font
-                        color: hintColor 
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        topPadding: 2
-                        bottomPadding: 2
-                        
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        elide: Text.ElideRight
-                        // width: parent.width
-                        height: parent.height
-            
-                        // XsToolTip{
-                        //     text: dividerDiv.text
-                        //     visible: dividerDiv.hovered && parent.truncated
-                        //     width: metricsDiv.width == 0? 0 : dividerDiv.width
-                        // }
-                    }
-                }
-            
-                background:
-                Rectangle {
-                    id: bgDiv
-                    implicitWidth: 100
-                    implicitHeight: 40
-                    border.color: dividerDiv.down || dividerDiv.hovered ? borderColorHovered: borderColorNormal
-                    border.width: borderWidth
-                    color: dividerDiv.down? bgColorPressed : forcedBgColorNormal
-                    
-                    Rectangle {
-                        id: bgFocusDiv
-                        implicitWidth: parent.width+borderWidth
-                        implicitHeight: parent.height+borderWidth
-                        visible: dividerDiv.activeFocus
-                        color: "transparent"
-                        opacity: 0.33
-                        border.color: borderColorHovered
-                        border.width: borderWidth
-                        anchors.centerIn: parent
-                    }
-                }
-            
-                onPressed: focus = true
-                onReleased: focus = false
-            
+    
+            Text{
+            text: "Files"
+                anchors.left: parent.left
+                anchors.leftMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignLeft
+                color: textColorNormal
             }
-            Button {
-                id: contentDiv
-                text: title
-                width: parent.width; height: parent.height
-                visible: type=="content"
             
-                font.pixelSize: textSize
-                font.family: textFont
-                hoverEnabled: true
-                opacity: enabled ? 1.0 : 0.33
-            
-                contentItem:
-                Item{
-                    anchors.fill: parent
+            XsSecondaryButton{ id: infoBtn
+                width: 16
+                height: 16
+                imgSrc: "qrc:/assets/icons/new/error.svg"
+                anchors.right: parent.right
+                anchors.rightMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+            }
+    
+            XsSecondaryButton{
+                width: 16
+                height: 16
+                imgSrc: "qrc:/assets/icons/new/filter_none.svg"
+                anchors.right: infoBtn.left
+                anchors.rightMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+            }
+    
+        }
+        
+        ListModel{
+            id: dataModel
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:""}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:""}
+            ListElement{_type: "content"; _title: "Library"; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Library"; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Library"; _thumbnail:""}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:""}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:""}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Library"; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:""}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:""}
+            ListElement{_type: "content"; _title: "Media"  ; _thumbnail:"qrc:/assets/images/sample.png"}
+            ListElement{_type: "content"; _title: "Library"; _thumbnail:"qrc:/assets/images/sample.png"}
+        }
+    
+        ListView { id: mediaList
+    
+            y: titleBar.height
+            clip: true
+            spacing: 0
+            width: contentWidth
+            height: contentHeight<parent.height-y? contentHeight : parent.height-y
+            contentHeight: contentItem.childrenRect.height
+            contentWidth: contentItem.childrenRect.width
+            orientation: ListView.Vertical
+            snapMode: ListView.SnapToItem
+    
+            model: chooserModel //dataModel
 
-                   
-                    Text {
-                        id: textDiv2
-                        text: contentDiv.text+"-"+index
-                        font: contentDiv.font
-                        color: textColorNormal 
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        topPadding: 2
-                        bottomPadding: 2
-                        leftPadding: 8
-                        
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        elide: Text.ElideRight
-                        // width: parent.width
-                        height: parent.height
+            // delegate: Item{
+            //     width: mediaListDiv.width
+            //     height: XsStyleSheet.widgetStdHeight
+
+            //     XsMediaItemDelegate{
+            //     }
+            // }
             
-                        // XsToolTip{
-                        //     text: contentDiv.text
-                        //     visible: contentDiv.hovered && parent.truncated
-                        //     width: metricsDiv.width == 0? 0 : contentDiv.width
-                        // }
-                    }
-                }
-            
-                background:
-                Rectangle {
-                    id: bgDiv2
-                    implicitWidth: 100
-                    implicitHeight: 40
-                    border.color: contentDiv.down || contentDiv.hovered ? borderColorHovered: borderColorNormal
-                    border.width: borderWidth
-                    color: contentDiv.down? bgColorPressed : forcedBgColorNormal
-                    
-                    Rectangle {
-                        id: bgFocusDiv2
-                        implicitWidth: parent.width+borderWidth
-                        implicitHeight: parent.height+borderWidth
-                        visible: contentDiv.activeFocus
-                        color: "transparent"
-                        opacity: 0.33
-                        border.color: borderColorHovered
-                        border.width: borderWidth
-                        anchors.centerIn: parent
-                    }
-                }
-            
-                onPressed: focus = true
-                onReleased: focus = false
-            
+        }
+
+        DelegateModel { 
+            id: chooserModel    
+            rootIndex: 0
+
+            model: dataModel
+            delegate: chooser 
+        }
+
+        DelegateChooser {
+            id: chooser
+            role: "_type"
+
+            DelegateChoice {
+                roleValue: "content";
+
+                XsMediaItemDelegate{ 
+                    width: mediaListDiv.width
+                    height: XsStyleSheet.widgetStdHeight
+                } 
+
             }
         }
 
-       
-
-        // model: DelegateModel {           
-        //     model: dataModel
-        //     rootIndex: 0
-        
-        //     delegate: DelegateChooser {
-        //         role: "menu_item_type"
-    
-        //         DelegateChoice {
-        //             roleValue: "medialist"
-
-        //             // XsMenuItemNew { 
-        //             //     // again, we pass in the model to the menu item and
-        //             //     // step one level deeper into the tree by useing row=index
-        //             //     menu_model: the_popup.menu_model
-        //             //     menu_model_index: the_popup.menu_model.index(
-        //             //         index, // row = child index
-        //             //         0, // column = 0 (always, we don't use columns)
-        //             //         the_popup.menu_model_index // the parent index into the model
-        //             //     )
-        //             // }
-        //         }
-
-        //     }
-        // }
-
     }
-
-
+    
 }

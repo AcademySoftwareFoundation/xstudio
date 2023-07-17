@@ -340,7 +340,7 @@ struct Launcher {
         if (actions["open_session"]) {
             try {
                 JsonStore js;
-                std::ifstream i(actions["open_session_path"]);
+                std::ifstream i(actions["open_session_path"].get<std::string>());
                 i >> js;
 
                 if (actions["new_instance"]) {

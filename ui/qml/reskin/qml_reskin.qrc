@@ -15,6 +15,7 @@
 	    <file>layout_framework/XsPanelsMenuButton.qml</file>
 
 	    <file>views/media/XsMedialist.qml</file>
+		<file>views/media/delegates/XsMediaItemDelegate.qml</file>
 
 	    <file>views/playlists/XsPlaylists.qml</file>
 	    <file>views/playlists/delegates/XsPlaylistItemDelegate.qml</file>
@@ -37,6 +38,10 @@
 	    <file>widgets/menus/XsMenuMultiChoice.qml</file>
 	    <file>widgets/menus/XsMenuItemToggle.qml</file>
 
+	    <file>widgets/prototypes/new/XsImage.qml</file>
+	    <file>widgets/prototypes/new/XsText.qml</file>
+		<file>widgets/prototypes/new/XsToolTip.qml</file>
+
 	    <file>assets/icons/menu.svg</file>
 	    <file>assets/icons/play.svg</file>
 	    <file>assets/icons/plus.svg</file>
@@ -58,6 +63,17 @@
 	    <file>assets/icons/new/skip_previous.svg</file>
 	    <file>assets/icons/new/menu.svg</file>
 	    <file>assets/icons/new/more_vert_500.svg</file>
+	    <file>assets/icons/new/error.svg</file>
+	    <file>assets/icons/new/filter_none.svg</file>
+	    <file>assets/icons/new/search_w500.svg</file>
+	    <file>assets/icons/new/delete_w500.svg</file>
+	    <file>assets/icons/new/view_w500.svg</file>
+	    <file>assets/icons/new/view_grid_w500.svg</file>
+	    <file>assets/icons/new/draft.svg</file>
+	    <file>assets/icons/new/more_horiz.svg</file>
+	    <file>assets/icons/new/arrow_drop_down.svg</file>
+
+	    <file>assets/images/sample.png</file>
 
 	</qresource>
 

@@ -22,11 +22,14 @@ Popup {
     property var menu_model
     property var menu_model_index
 
+    property color bgColorNormal: "#1AFFFFFF"
+    property color forcedBgColorNormal: "#EE444444" //bgColorNormal
+
     background: Rectangle{
         implicitWidth: 100
         implicitHeight: 200
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#33FFFFFF" }
+            GradientStop { position: 0.0; color: forcedBgColorNormal==bgColorNormal?"#33FFFFFF":"#EE222222"}
             GradientStop { position: 1.0; color: forcedBgColorNormal }
         }
     }

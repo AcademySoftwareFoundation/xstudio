@@ -1185,8 +1185,10 @@ void MediaSourceActor::init() {
                                             rp.deliver(base_.media_reference());
                                         },
                                         [=](const error &err) mutable { rp.deliver(err); });
-                            } else
+                            } else {
+                                anon_send(this, invalidate_cache_atom_v);
                                 rp.deliver(base_.media_reference());
+                            }
                         },
                         [=](const error &err) mutable { rp.deliver(err); });
             } else {

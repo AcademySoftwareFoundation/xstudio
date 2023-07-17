@@ -7,9 +7,15 @@ import xStudioReskin 1.0
 
 Button {
     id: dividerDiv
-    text: title
-    width: parent.width; height: parent.height
-    visible: type=="divider"
+    text: _title
+    width: parent.width; 
+    height: parent.height
+
+    property color hintColor: XsStyleSheet.hintColor
+    property color dividerColor: XsStyleSheet.menuBarColor
+    property real btnPadding: XsStyleSheet.menuPadding
+    // isSubDivider //#TODO
+
 
     font.pixelSize: textSize
     font.family: textFont
@@ -20,13 +26,14 @@ Button {
     Item{
         anchors.fill: parent
 
-        Rectangle{ id: leftLine; height: 1; color: "#474747"; anchors.verticalCenter: parent.verticalCenter
-            anchors.left: parent.left; anchors.leftMargin: isSubDivider? 8:4 //XsStyleSheet.menuPadding
+        Rectangle{ id: leftLine; height: 1; color: dividerColor; anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left; anchors.leftMargin: isSubDivider? 48:24
             anchors.right: textDiv.left; anchors.rightMargin: 8
         }
-        Rectangle{ id: rightLine; height: 1; color: "#474747"; anchors.verticalCenter: parent.verticalCenter
+        
+        Rectangle{ id: rightLine; height: 1; color: dividerColor; anchors.verticalCenter: parent.verticalCenter
             anchors.left: textDiv.right; anchors.leftMargin: 8
-            anchors.right: parent.right; anchors.rightMargin: 4
+            anchors.right: moreBtn.visible? moreBtn.left : parent.right; anchors.rightMargin: 4
         }
         Text {
             id: textDiv
@@ -48,6 +55,17 @@ Button {
             //     visible: dividerDiv.hovered && parent.truncated
             //     width: metricsDiv.width == 0? 0 : dividerDiv.width
             // }
+        }
+
+        XsSecondaryButton{ id: moreBtn
+            visible: dividerDiv.hovered
+            width: 16
+            height: 16
+            imgSrc: "qrc:/assets/icons/new/more_horiz.svg"
+            anchors.right: parent.right
+            anchors.rightMargin: 4
+            anchors.verticalCenter: parent.verticalCenter
+            imgOverlayColor: hintColor
         }
     }
 

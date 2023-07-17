@@ -14,6 +14,7 @@ QtObject {
     property color hintColor: "#959595"
     property color errorColor: "#EB3941"
 
+    property color panelTitleBarColor: "#666666"
     property color panelTabColor: "#1F1F1F"
     property color panelBgColor: "#333333"
     property color baseColor: "#414141"

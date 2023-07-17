@@ -8,7 +8,7 @@ import xStudioReskin 1.0
 
 Button {
     id: contentDiv
-    text: isMissing? "This playlist no longer exists" : _title
+    text: isMissing? "This media no longer exists" : _title
     width: parent.width; 
     height: parent.height
 
@@ -17,7 +17,7 @@ Button {
     property color forcedBgColorNormal: bgColorNormal
     property color hintColor: XsStyleSheet.hintColor
     property color errorColor: XsStyleSheet.errorColor
-    property var itemCount: 2 //_count
+    property var itemNumber: 2
     property bool isSelected: false
     property bool isMissing: false
     
@@ -28,6 +28,7 @@ Button {
 
     contentItem:
     Item{
+
         anchors.fill: parent
 
         RowLayout{
@@ -37,16 +38,33 @@ Button {
             height: XsStyleSheet.widgetStdHeight
             anchors.verticalCenter: parent.verticalCenter
             
-            XsSecondaryButton{ id: subsetBtn
-                Layout.preferredWidth: 16
+            Rectangle{ id: flagIndicator
+                Layout.preferredWidth: 4
                 Layout.preferredHeight: 16
-                imgSrc: "qrc:/assets/icons/new/arrow_drop_down.svg"
+                color: index%2!=0?"yellow":"blue"
             }
-            XsImage{
-                Layout.preferredWidth: 16
+            XsText{ id: countDiv
+                text: itemNumber
+                color: hintColor
+                Layout.preferredWidth: countDiv.textWidth<16? 16: countDiv.textWidth
                 Layout.preferredHeight: 16
-                source: isMissing? "qrc:/assets/icons/new/error.svg" : "qrc:/assets/icons/new/draft.svg"
-                imgOverlayColor: isMissing? errorColor : hintColor
+            }
+            Rectangle{
+                Layout.preferredWidth: 48+ border.width*2
+                Layout.preferredHeight: 16+  border.width*2
+                color: "transparent"
+                border.width: 1
+                border.color:isSelected? borderColorHovered : "transparent"
+                
+                XsImage{
+                    width: 48
+                    height: 16
+                    anchors.centerIn: parent
+                    fillMode: isMissing ? Image.PreserveAspectFit : Image.Stretch
+                    source: isMissing? "qrc:/assets/icons/new/error.svg" : _thumbnail// "qrc:/assets/icons/new/check_box_unchecked.svg"
+                    imgOverlayColor: isMissing? errorColor : "transparent"
+                }
+                
             }
             Text {
                 id: textDiv
@@ -69,41 +87,6 @@ Button {
                     text: contentDiv.text
                     visible: contentDiv.hovered && parent.truncated
                     width: metricsDiv.width == 0? 0 : contentDiv.width
-                }
-            }
-            Item{
-                Layout.preferredWidth: addBtn.visible? 16: countDiv.textWidth
-                Layout.preferredHeight: 16
-
-                XsText{ id: countDiv
-                    text: itemCount
-                    anchors.centerIn: parent
-                    visible: !addBtn.visible
-                    color: hintColor
-                }
-                XsSecondaryButton{ id: addBtn
-                    anchors.fill: parent
-                    imgSrc: "qrc:/assets/icons/new/add.svg"
-                    visible: contentDiv.hovered
-                    imgOverlayColor: hintColor
-                }
-            }
-            
-            Item{
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
-
-                XsImage{ id: errorIndicator
-                    anchors.fill: parent
-                    source: "qrc:/assets/icons/new/error.svg"
-                    visible: !moreBtn.visible && index%2==0
-                    imgOverlayColor: hintColor
-                }
-                XsSecondaryButton{ id: moreBtn
-                    anchors.fill: parent
-                    imgSrc: "qrc:/assets/icons/new/more_horiz.svg"
-                    visible: contentDiv.hovered
-                    imgOverlayColor: hintColor
                 }
             }
         }

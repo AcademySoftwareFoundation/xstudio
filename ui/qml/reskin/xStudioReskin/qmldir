@@ -8,7 +8,8 @@ XsViewContainer           1.0 ../layout_framework/XsViewContainer.qml
 XsPanelsMenuButton        1.0 ../layout_framework/XsPanelsMenuButton.qml
 
 XsMedialist               1.0 ../views/media/XsMedialist.qml
-
+XsMediaItemDelegate       1.0 ../views/media/delegates/XsMediaItemDelegate.qml
+ 
 XsPlaylistsView           1.0 ../views/playlists/XsPlaylists.qml
 XsPlaylistItemDelegate    1.0 ../views/playlists/delegates/XsPlaylistItemDelegate.qml
 XsPlaylistDividerDelegate 1.0 ../views/playlists/delegates/XsPlaylistDividerDelegate.qml
@@ -29,5 +30,9 @@ XsMenuItemNew             1.0 ../widgets/menus/XsMenuItem.qml
 XsMenuChoice              1.0 ../widgets/menus/XsMenuChoice.qml
 XsMenuMultiChoice         1.0 ../widgets/menus/XsMenuMultiChoice.qml
 XsMenuItemToggle          1.0 ../widgets/menus/XsMenuItemToggle.qml
+
+XsImage                   1.0 ../widgets/prototypes/new/XsImage.qml
+XsText                    1.0 ../widgets/prototypes/new/XsText.qml
+XsToolTip                 1.0 ../widgets/prototypes/new/XsToolTip.qml
 
 singleton XsStyleSheet    1.0 ../xStudioReskin/XsStyleSheet.qml

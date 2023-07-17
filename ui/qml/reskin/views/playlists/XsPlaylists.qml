@@ -4,6 +4,7 @@ import QtQuick.Controls 2.14
 import QtQuick.Controls.Styles 1.4
 import QtQml.Models 2.14
 import Qt.labs.qmlmodels 1.0
+import QtQuick.Layouts 1.15
 
 import xStudioReskin 1.0
 
@@ -12,8 +13,6 @@ Item{
     id: panel
 
     anchors.fill: parent
-    // height: parent.height
-
 
     property color bgColorPressed: palette.highlight 
     property color bgColorNormal: "transparent"
@@ -27,60 +26,45 @@ Item{
     property var textFont: XsStyleSheet.fontFamily
     property color textColorNormal: palette.text
     property color hintColor: XsStyleSheet.hintColor
-    // property var textElide: textDiv.elide
-    // property alias textDiv: textDiv
 
     Item{id: actionDiv
         width: parent.width; 
         height: 28+(8*2)
-
-        // Rectangle{anchors.fill: parent; color: "red"}
         
-        XsPrimaryButton{ id: addPlaylistBtn
-            width: 40
-            height: 28
-            anchors.left: parent.left
-            anchors.leftMargin: 8
+        RowLayout{
+            x: 8
+            spacing: 8
+            width: parent.width-(x*2)
+            height: XsStyleSheet.widgetStdHeight+4
             anchors.verticalCenter: parent.verticalCenter
-            imgSrc: "qrc:/assets/icons/new/add.svg"
-        }
-        XsSearchBar{
-            width: parent.width - morePlaylistBtn.width - addPlaylistBtn.width - (8*4)
-            height: 28
-            anchors.left: addPlaylistBtn.right
-            anchors.leftMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            placeholderText: activeFocus?"":"Search playlists..."
-        }
-        XsPrimaryButton{ id: morePlaylistBtn
-            width: 40
-            height: 28
-            anchors.right: parent.right
-            anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            imgSrc: "qrc:/assets/icons/new/more_vert_500.svg"
-        }
 
-        // XsPlaylistPanel{
-        //     x: 8
-        //     y: actionDiv.height+4
-        //     width: widget.width-(8*2)
-        //     height: widget.height-y-(4*2)
-        // }
+            XsPrimaryButton{ id: addPlaylistBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/assets/icons/new/add.svg"
+            }
+            XsSearchBar{
+                Layout.fillWidth: true
+                Layout.preferredHeight: parent.height
+                placeholderText: activeFocus?"":"Search playlists..."
+            }
+            XsPrimaryButton{ id: morePlaylistBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/assets/icons/new/more_vert_500.svg"
+            }
+        }
+        
     }
     
-    Rectangle{
-
+    Rectangle{ id: playlistDiv
         x: 8
         y: actionDiv.height+4
         width: panel.width-(8*2)
         height: panel.height-y-(4*2)
-
         color: XsStyleSheet.panelBgColor
 
-    
-        Rectangle{
-            id: titleBar
+        Rectangle{ id: titleBar
             color: XsStyleSheet.panelTitleBarColor
             width: parent.width
             height: XsStyleSheet.widgetStdHeight
@@ -89,7 +73,9 @@ Item{
                 text: "Playlist"
                 anchors.left: parent.left
                 anchors.leftMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
                 horizontalAlignment: Text.AlignLeft
+                color: textColorNormal
             }
             
             XsSecondaryButton{ id: infoBtn
@@ -114,58 +100,71 @@ Item{
         
         ListModel{
             id: dataModel
-            ListElement{type: "divider"; title: "Playlist"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "divider"; title: "Playlist"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "divider"; title: "Playlist"}
-            ListElement{type: "content"; title: "Item"}
-            ListElement{type: "divider"; title: "Playlist"}
-            ListElement{type: "content"; title: "Item"}
+            ListElement{_type: "divider"; _count:"23"; _title: "Playlist"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item1Item2Item3Item4Item5Item6Item7"; count:5}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "divider"; _count:"23"; _title: "Playlist"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "divider"; _count:"23"; _title: "Playlist"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
+            ListElement{_type: "divider"; _count:"23"; _title: "Playlist"}
+            ListElement{_type: "content"; _count:"23"; _title: "Item"}
         }
     
-        ListView {
-            id: playlist
+        ListView { id: playlist
     
             y: titleBar.height
+            clip: true
             spacing: 0
             width: contentWidth
-            height: contentHeight
+            height: contentHeight<parent.height-y? contentHeight : parent.height-y
             contentHeight: contentItem.childrenRect.height
             contentWidth: contentItem.childrenRect.width
             orientation: ListView.Vertical
             snapMode: ListView.SnapToItem
-    
-            model:  dataModel
-            // delegate: Rectangle{
-            //     width: panel.width
-            //     height: XsStyleSheet.widgetStdHeight
-            //     color: XsStyleSheet.accentColor
-            //     opacity: index%2==0?0.2:0.7
-            // }
-    
-            delegate: Item{
-                width: panel.width
-                height: XsStyleSheet.widgetStdHeight
-    
-                XsPlaylistDividerDelegate{
-                    visible: type=="divider"
-                }
-                XsPlaylistItemDelegate{
-                    visible: type=="content"
-                }
-                
+            model: chooserModel
+        }
+
+        DelegateModel { 
+            id: chooserModel    
+            rootIndex: 0
+
+            model: dataModel
+            delegate: chooser 
+        }
+
+        DelegateChooser {
+            id: chooser
+            role: "_type"
+
+            DelegateChoice {
+                roleValue: "divider";
+
+                XsPlaylistDividerDelegate{ 
+                    width: playlistDiv.width
+                    height: XsStyleSheet.widgetStdHeight
+                } 
             }
-    
-           
-    
-    
+            DelegateChoice {
+                roleValue: "content";
+
+                XsPlaylistItemDelegate{
+                    width: playlistDiv.width
+                    height: XsStyleSheet.widgetStdHeight
+                }
+            }
+            
         }
 
     }

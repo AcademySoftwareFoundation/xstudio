@@ -8,9 +8,11 @@ import xStudioReskin 1.0
 TabView{
     id: widget
 
+    property var defaultTab: defaultTab
     signal menuClicked()
 
     XsTab{
+        id: defaultTab
         title: "Tab-0"
     }
 
