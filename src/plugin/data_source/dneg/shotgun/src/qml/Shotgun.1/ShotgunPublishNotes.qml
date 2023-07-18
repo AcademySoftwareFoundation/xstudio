@@ -17,15 +17,15 @@ import xStudio 1.1
 XsWindow {
     id: publishNotesDialog
 
-    title: "Publish Notes"
+    title: publishSelected ? "Published Selected Media Notes" : "Publish Playlist Notes"
 
     width: minimumWidth
     minimumWidth: 400
     // maximumWidth: app_window.width
 
     height: minimumHeight
-    minimumHeight: 530
-    maximumHeight: 550
+    minimumHeight: 550
+    maximumHeight: 570
 
     centerOnOpen: true
 
@@ -53,18 +53,38 @@ XsWindow {
     property var data_source: null
     property var publish_func: null
 
+    property bool publishSelected: false
+
     property alias notify_owner: notify_owner_cb.checked
     property alias combine: combine_cb.checked
     property alias add_time: add_time_cb.checked
     property alias add_playlist_name: add_name_cb.checked
     property alias add_type: add_type_cb.checked
     property alias ignore_with_only_drawing: ignore_with_only_drawing_cb.checked
-    property string default_type: overrideType.checked ? overrideType.defaultType : ""
+    property alias skip_already_published: skip_already_published_cb.checked
+    property string default_type: prefs.values.defaultType !== undefined  ? prefs.values.defaultType : ""
 
     property int notify_group_id: notify_group_cb.currentIndex !==-1 && notify_group_cb.checked && notify_group_cb.model ? notify_group_cb.model.get(notify_group_cb.currentIndex, "idRole") : 0
     // property var notify_group_ids: notify_group_cb.model ? notify_group_cb.checkedIndexes:0 //#TODO
 
-
+    Connections {
+        target: app_window.mediaSelectionModel
+        function onSelectionChanged(selected,deselected) {
+            if(publishNotesDialog.visible) {
+                let updated = false
+                for(let i =0; i<playlists.length; i++) {
+                    if(playlists[i].text == app_window.currentSource.values.nameRole && i != playlist_cb.currentIndex) {
+                        playlist_cb.currentIndex = i
+                        updatePublish()
+                        updated = true
+                        break
+                    }
+                }
+                if(!updated)
+                   updatePublish()
+            }
+        }
+    }
 
     XsModelNestedPropertyMap {
         id: prefs
@@ -106,10 +126,28 @@ XsWindow {
         return result
     }
 
+    function getSelectedMediaUuids() {
+        let media_uuids = []
+
+        if(publishSelected) {
+            let media = app_window.mediaSelectionModel.selectedIndexes
+            let model = app_window.mediaSelectionModel.model
+
+            for(let i=0; i<media.length; i++) {
+                media_uuids.push(media[i].model.get(media[i], "actorUuidRole"))
+            }
+        } else {
+            // console.log(playlists[playlist_cb.currentIndex].uuid)
+        }
+
+        return media_uuids
+    }
+
     function updatePublish() {
         if(playlist_uuid) {
             publishNotesDialog.payload = data_source.preparePlaylistNotes(
                 playlist_uuid,
+                getSelectedMediaUuids(),
                 notify_owner,
                 getNotifyGroups(),
                 combine,
@@ -117,6 +155,7 @@ XsWindow {
                 add_playlist_name,
                 add_type,
                 ignore_with_only_drawing,
+                skip_already_published,
                 default_type
             )
         }
@@ -126,11 +165,10 @@ XsWindow {
 
     function publishNotes() {
 
-        // onAccepted: push_playlist_note_promise(data_source, payload, playlist, playlist_uuid, error)
-
         if(playlist_uuid) {
             let tmp = data_source.preparePlaylistNotes(
                 playlist_uuid,
+                getSelectedMediaUuids(),
                 notify_owner,
                 getNotifyGroups(),
                 combine,
@@ -138,6 +176,7 @@ XsWindow {
                 add_playlist_name,
                 add_type,
                 ignore_with_only_drawing,
+                skip_already_published,
                 default_type
             )
 
@@ -204,12 +243,16 @@ XsWindow {
                 model: publishNotesDialog.playlists
                 editable: true
                 textRole: "text"
+
                 onCurrentIndexChanged: {
-                    if(publishNotesDialog.visible && playlist_uuid != model[currentIndex].uuid) {
-                        playlist_uuid = model[currentIndex].uuid
-                        updatePublish()
+                    if(currentIndex != -1) {
+                        let muuid  = model[currentIndex].uuid
+                        if(publishNotesDialog.visible && playlist_uuid != muuid) {
+                            playlist_uuid = muuid
+                            updatePublish()
+                        }
+                        hideMenu()
                     }
-                    hideMenu()
                 }
                 Layout.fillWidth: true
                 Layout.minimumHeight: itemHeight*2
@@ -229,33 +272,28 @@ XsWindow {
                 Layout.minimumHeight: itemHeight
                 Layout.maximumHeight: itemHeight
 
-                property string defaultType: prefs.values.defaultType == undefined  ? "Default" : prefs.values.defaultType
                 editable: true
-                text: "Default Type: "
+                text: "Rename All Note Types: "
                 model: app_window.bookmark_categories
                 textRole: "textRole"
-                currentIndex: model.search(defaultType).row
-
+                currentIndex: model.search(prefs.values.defaultType).row
                 font.family: XsStyle.controlTitleFontFamily
                 font.hintingPreference: Font.PreferNoHinting
                 onCurrentIndexChanged: {
-                    defaultType = model.get(model.index(currentIndex,0), "valueRole")
-                    prefs.values.defaultType = defaultType
+                    prefs.values.defaultType = model.get(model.index(currentIndex,0), "valueRole")
                     hideMenu()
                 }
 
                 onCheckedChanged: {
                     if(checked) {
-                        prefs.values.defaultType = defaultType
+                        prefs.values.defaultType = model.get(model.index(currentIndex,0), "valueRole")
                     } else {
-                        prefs.values.defaultType = null
+                        prefs.values.defaultType = ""
                     }
 
                 }
 
-                checked: {
-                    prefs.values.defaultType !== undefined
-                }
+                checked: default_type != ""
             }
 
             Item {
@@ -361,6 +399,19 @@ XsWindow {
                 onCheckedChanged: {
                     updatePublish()
                     prefs.values.ignoreEmpty = checked
+                }
+                Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
+                Layout.minimumHeight: itemHeight
+                Layout.maximumHeight: itemHeight
+            }
+
+            XsCheckbox{
+                id: skip_already_published_cb
+                checked: prefs.values.skipAlreadyPublished
+                text: "Skip notes already published"
+                onCheckedChanged: {
+                    updatePublish()
+                    prefs.values.skipAlreadyPublished = checked
                 }
                 Layout.minimumWidth: textItem.contentWidth + indicatorItem.width
                 Layout.minimumHeight: itemHeight

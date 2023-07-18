@@ -3,23 +3,38 @@
 
 #include <caf/all.hpp>
 
-namespace xstudio {
-namespace scanner {
-    class ScannerActor : public caf::event_based_actor {
-      public:
-        ScannerActor(caf::actor_config &cfg);
+namespace xstudio::scanner {
+class ScanHelperActor : public caf::event_based_actor {
+  public:
+    ScanHelperActor(caf::actor_config &cfg);
 
-        ~ScannerActor() override = default;
+    ~ScanHelperActor() override = default;
 
-        caf::behavior make_behavior() override { return behavior_; }
+    caf::behavior make_behavior() override { return behavior_; }
 
-        void on_exit() override;
-        const char *name() const override { return NAME.c_str(); }
+    const char *name() const override { return NAME.c_str(); }
 
-      private:
-        inline static const std::string NAME = "ScannerActor";
-        caf::behavior behavior_;
-    };
+  private:
+    inline static const std::string NAME = "ScanHelperActor";
+    caf::behavior behavior_;
 
-} // namespace scanner
-} // namespace xstudio
+    std::map<caf::uri, std::pair<std::string, uintmax_t>> cache_;
+};
+
+class ScannerActor : public caf::event_based_actor {
+  public:
+    ScannerActor(caf::actor_config &cfg);
+
+    ~ScannerActor() override = default;
+
+    caf::behavior make_behavior() override { return behavior_; }
+
+    void on_exit() override;
+    const char *name() const override { return NAME.c_str(); }
+
+  private:
+    inline static const std::string NAME = "ScannerActor";
+    caf::behavior behavior_;
+};
+
+} // namespace xstudio::scanner

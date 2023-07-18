@@ -63,7 +63,7 @@ namespace ui {
             utility::BlindDataObjectPtr prepare_render_data(
                 const media_reader::ImageBufPtr &, const bool /*offscreen*/) const override;
 
-            plugin::ViewportOverlayRendererPtr make_overlay_renderer(const bool) override {
+            plugin::ViewportOverlayRendererPtr make_overlay_renderer(const int) override {
                 return plugin::ViewportOverlayRendererPtr(new BasicMaskRenderer());
             }
 

@@ -24,7 +24,9 @@ namespace ui {
         class ViewportFrameQueueActor : public caf::event_based_actor {
           public:
             ViewportFrameQueueActor(
-                caf::actor_config &cfg, std::map<utility::Uuid, caf::actor> overlay_actors);
+                caf::actor_config &cfg,
+                std::map<utility::Uuid, caf::actor> overlay_actors,
+                const int viewport_index);
 
           private:
             caf::behavior make_behavior() override { return behavior_; }
@@ -102,6 +104,8 @@ namespace ui {
 
             std::map<utility::Uuid, caf::actor> overlay_actors_;
 
+            caf::actor colour_pipeline_;
+
             std::map<utility::Uuid, OrderedImagesToDraw> frames_to_draw_per_playhead_;
 
             struct ViewportRefreshData {
@@ -111,6 +115,8 @@ namespace ui {
             } video_refresh_data_;
 
             timebase::flicks playhead_vid_sync_phase_adjust_ = timebase::k_flicks_zero_seconds;
+
+            const int viewport_index_;
         };
 
     } // namespace viewport

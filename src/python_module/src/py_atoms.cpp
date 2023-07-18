@@ -65,7 +65,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::timeline, active_range_atom);
     ADD_ATOM(xstudio::timeline, available_range_atom);
     ADD_ATOM(xstudio::timeline, duration_atom);
-    // ADD_ATOM(xstudio::timeline, start_time_atom);
+    ADD_ATOM(xstudio::timeline, item_name_atom);
     ADD_ATOM(xstudio::timeline, item_atom);
     ADD_ATOM(xstudio::timeline, insert_item_atom);
     ADD_ATOM(xstudio::timeline, remove_item_atom);
@@ -155,7 +155,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media_cache, retrieve_atom);
     ADD_ATOM(xstudio::media_cache, size_atom);
     ADD_ATOM(xstudio::media_cache, store_atom);
-    ADD_ATOM(xstudio::colour_pipeline, get_colour_pipeline_atom);
+    ADD_ATOM(xstudio::colour_pipeline, colour_pipeline_atom);
     ADD_ATOM(xstudio::colour_pipeline, get_colour_pipe_data_atom);
     ADD_ATOM(xstudio::colour_pipeline, get_colour_pipe_params_atom);
 
@@ -206,7 +206,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, current_media_source_atom);
     ADD_ATOM(xstudio::media, current_media_stream_atom);
     ADD_ATOM(xstudio::media, get_edit_list_atom);
-    ADD_ATOM(xstudio::media, get_media_details_atom);
+    ADD_ATOM(xstudio::media, get_media_details_atom); // DEPRECATED
     ADD_ATOM(xstudio::media, get_media_pointer_atom);
     ADD_ATOM(xstudio::media, get_media_pointers_atom);
     ADD_ATOM(xstudio::media, get_media_source_atom);
@@ -216,6 +216,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, media_status_atom);
     ADD_ATOM(xstudio::media, get_stream_detail_atom);
     ADD_ATOM(xstudio::media, invalidate_cache_atom);
+    ADD_ATOM(xstudio::media, rescan_atom);
     ADD_ATOM(xstudio::media, media_reference_atom);
     ADD_ATOM(xstudio::media, source_offset_frames_atom);
     ADD_ATOM(xstudio::global_store, autosave_atom);
@@ -250,7 +251,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::playhead, actual_playback_rate_atom);
     ADD_ATOM(xstudio::playhead, buffer_atom);
     ADD_ATOM(xstudio::playhead, child_playheads_deleted_atom);
-    ADD_ATOM(xstudio::playhead, colour_pipeline_atom);
     ADD_ATOM(xstudio::playhead, compare_mode_atom);
     ADD_ATOM(xstudio::playhead, duration_flicks_atom);
     ADD_ATOM(xstudio::playhead, duration_frames_atom);

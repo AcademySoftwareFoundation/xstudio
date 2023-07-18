@@ -23,6 +23,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include <chrono>
+#include "xstudio/ui/opengl/shader_program_base.hpp"
 
 #include "openexr.hpp"
 #include "simple_exr_sampler.hpp"
@@ -199,7 +200,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
 }
 
 static ui::viewport::GPUShaderPtr
-    openexr_shader(new ui::viewport::GPUShader(openexr_shader_uuid, shader));
+    openexr_shader(new ui::opengl::OpenGLShader(openexr_shader_uuid, shader));
 } // namespace
 
 OpenEXRMediaReader::OpenEXRMediaReader(const utility::JsonStore &prefs)
@@ -309,6 +310,11 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         ImageBufPtr buf(new ImageBuffer(openexr_shader_uuid, jsn));
         buf->allocate(buf_size);
         buf->set_pixel_aspect(in.header().pixelAspectRatio());
+
+        // 4th channel is always put into 'alpha' channel as per shader code
+        // above
+        buf->set_has_alpha(exr_channels_to_load.size() > 3);
+
         buf->set_shader(openexr_shader);
         buf->set_image_dimensions(
             display_window.size(),
@@ -453,11 +459,11 @@ void OpenEXRMediaReader::stream_ids_from_exr_part(
 
     if (channel_names_by_layer.find("RGBA") != channel_names_by_layer.end()) {
         // make sure RGBA layer is first Stream
-        stream_ids.push_back("RGBA");
+        stream_ids.emplace_back("RGBA");
     }
     if (channel_names_by_layer.find("XYZ") != channel_names_by_layer.end()) {
         // make sure XYZ layer is first or second Stream
-        stream_ids.push_back("XYZ");
+        stream_ids.emplace_back("XYZ");
     }
     for (const auto &p : channel_names_by_layer) {
         if (p.first == "RGBA" || p.first == "XYZ")
@@ -573,7 +579,8 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
                  static_cast<double>(rate_bogus->value().y);
         else if (timecode_rate)
             fr = static_cast<double>(timecode_rate->value());
-        else
+
+        if (fr == 0.0)
             fr = 24.0;
 
         if (timecode) {
@@ -600,7 +607,7 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         }
 
         for (const auto &stream_id : stream_ids) {
-            streams.push_back(media::StreamDetail(frd, stream_id));
+            streams.emplace_back(media::StreamDetail(frd, stream_id));
         }
 
     } catch (const std::exception &e) {
@@ -689,13 +696,13 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
     }
 
     auto get_image_data_float32 = [&](const int address) -> float {
-        if (address < 0 || address >= buf.size())
+        if (address < 0 || address >= (int)buf.size())
             return 0.0f;
         return *((float *)(buf.buffer() + address));
     };
 
     auto get_image_data_2xhalf_float = [&](const int address) -> Imath::V2f {
-        if (address < 0 || address >= buf.size())
+        if (address < 0 || address >= (int)buf.size())
             return Imath::V2f(0.0f, 0.0f);
         half *v = (half *)(buf.buffer() + address);
         return Imath::V2f(v[0], v[1]);

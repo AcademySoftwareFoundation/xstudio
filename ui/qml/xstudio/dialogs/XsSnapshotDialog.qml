@@ -9,12 +9,12 @@ import xStudio 1.1
 
 XsDialog {
 
-    property var source: session.onScreenSource
     property var playhead: sessionWidget.viewport.playhead
     property var playerWidget: sessionWidget.playerWidget
-    property var currentMedia: playhead ? playhead.media.mediaSource: null
-    property var resolution: currentMedia ? currentMedia.resolution: ""
-    property var pixelAspect: currentMedia ? currentMedia.pixelAspect : 1.0
+
+    property var resolution: app_window.mediaImageSource.values.resolutionRole ? app_window.mediaImageSource.values.resolutionRole : ""
+    property var pixelAspect:  app_window.mediaImageSource.values.aspectRole ? app_window.mediaImageSource.values.aspectRole : 1.0
+
     property var viewerWidth: playerWidget.viewport.width
     property var viewerHeight: playerWidget.viewport.height
 
@@ -105,8 +105,9 @@ XsDialog {
                 defaultSuffix: suffixes[formatIdx]
                 selectedNameFilter: nameFilters[formatIdx]
                 onAccepted: {
+                    var fixedfileUrl = fileUrl.toString().includes("." + suffixes[formatIdx]) ? fileUrl : (fileUrl + "." + suffixes[formatIdx])
                     var ret = playerWidget.viewport.renderImageToFile(
-                        fileUrl,
+                        fixedfileUrl,
                         formatIdx,
                         slider.value,
                         widthInput.text,

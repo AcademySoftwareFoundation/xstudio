@@ -1,0 +1,80 @@
+<RCC>
+	<qresource prefix="/feather_icons">
+	</qresource>
+	<qresource prefix="/">
+	    <file>main_reskin.qml</file>
+	    <file>xStudioReskin/qmldir</file>
+	    <file>xStudioReskin/XsStyleSheet.qml</file>
+
+	    <file>windows/XsSessionWindow.qml</file>
+
+	    <file>layout_framework/XsPanelDivider.qml</file>
+	    <file>layout_framework/XsPanelSplitter.qml</file>
+	    <file>layout_framework/XsTestWindow.qml</file>
+	    <file>layout_framework/XsViewContainer.qml</file>
+	    <file>layout_framework/XsPanelsMenuButton.qml</file>
+
+	    <file>views/media/XsMedialist.qml</file>
+		<file>views/media/delegates/XsMediaItemDelegate.qml</file>
+
+	    <file>views/playlists/XsPlaylists.qml</file>
+	    <file>views/playlists/delegates/XsPlaylistItemDelegate.qml</file>
+	    <file>views/playlists/delegates/XsPlaylistDividerDelegate.qml</file>
+
+	    <file>views/timeline/XsTimeline.qml</file>
+
+	    <file>views/viewport/XsViewport.qml</file>
+
+	    <file>widgets/bars_and_tabs/XsSearchBar.qml</file>
+
+	    <file>widgets/buttons/XsPrimaryButton.qml</file>
+	    <file>widgets/buttons/XsSecondaryButton.qml</file>
+
+	    <file>widgets/menus/XsMainMenuBar.qml</file>
+	    <file>widgets/menus/XsMenu.qml</file>
+	    <file>widgets/menus/XsMenuDivider.qml</file>		
+	    <file>widgets/menus/XsMenuItem.qml</file>
+	    <file>widgets/menus/XsMenuChoice.qml</file>
+	    <file>widgets/menus/XsMenuMultiChoice.qml</file>
+	    <file>widgets/menus/XsMenuItemToggle.qml</file>
+
+	    <file>widgets/prototypes/new/XsImage.qml</file>
+	    <file>widgets/prototypes/new/XsText.qml</file>
+		<file>widgets/prototypes/new/XsToolTip.qml</file>
+
+	    <file>assets/icons/menu.svg</file>
+	    <file>assets/icons/play.svg</file>
+	    <file>assets/icons/plus.svg</file>
+	    <file>assets/icons/circle.svg</file>
+	    <file>assets/icons/search.svg</file>
+	    <file>assets/icons/x.svg</file>
+
+	    <file>assets/icons/new/add.svg</file>
+	    <file>assets/icons/new/chevron_right.svg</file>
+	    <file>assets/icons/new/close.svg</file>
+	    <file>assets/icons/new/fast_forward.svg</file>
+	    <file>assets/icons/new/play_arrow.svg</file>
+	    <file>assets/icons/new/radio_button_checked.svg</file>
+	    <file>assets/icons/new/radio_button_unchecked.svg</file>
+	    <file>assets/icons/new/check_box_checked.svg</file>
+	    <file>assets/icons/new/check_box_unchecked.svg</file>
+	    <file>assets/icons/new/search.svg</file>
+	    <file>assets/icons/new/skip_next.svg</file>
+	    <file>assets/icons/new/skip_previous.svg</file>
+	    <file>assets/icons/new/menu.svg</file>
+	    <file>assets/icons/new/more_vert_500.svg</file>
+	    <file>assets/icons/new/error.svg</file>
+	    <file>assets/icons/new/filter_none.svg</file>
+	    <file>assets/icons/new/search_w500.svg</file>
+	    <file>assets/icons/new/delete_w500.svg</file>
+	    <file>assets/icons/new/view_w500.svg</file>
+	    <file>assets/icons/new/view_grid_w500.svg</file>
+	    <file>assets/icons/new/draft.svg</file>
+	    <file>assets/icons/new/more_horiz.svg</file>
+	    <file>assets/icons/new/arrow_drop_down.svg</file>
+
+	    <file>assets/images/sample.png</file>
+
+	</qresource>
+
+</RCC>

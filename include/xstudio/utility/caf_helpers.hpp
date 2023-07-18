@@ -2,8 +2,6 @@
 #pragma once
 
 // required for ACTOR_TEST_SETUP
-#include <caf/all.hpp>
-
 namespace xstudio {
 namespace utility {
 

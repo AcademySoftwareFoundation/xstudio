@@ -11,7 +11,6 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/helper_ui.hpp"
-#include "xstudio/ui/qml/media_ui.hpp"
 #include "xstudio/ui/keyboard.hpp"
 #include "xstudio/utility/frame_time.hpp"
 

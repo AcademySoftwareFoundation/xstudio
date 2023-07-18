@@ -3,6 +3,7 @@ import QtQuick 2.12
 import QtQuick.Controls 2.14
 import QtGraphicalEffects 1.12
 import QtQuick.Layouts 1.3
+import Qt.labs.qmlmodels 1.0
 
 import xStudio 1.1
 import xstudio.qml.module 1.0
@@ -87,17 +88,108 @@ XsDialogModal {
             }
 
 
-            XsLabel {
-                text: "Force Trim Slate Frames"
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+            XsModuleAttributesModel {
+                id: media_hooks_attrs
+                attributesGroupNames: "media_hook_settings"
             }
-            XsCheckboxOld {
-                checked: preferences.force_trim_slate_frame.value
-                onTriggered: {
-                    preferences.force_trim_slate_frame.value = !preferences.force_trim_slate_frame.value
+
+            property int num_rows_so_far: 5
+
+            Repeater {
+
+                model: media_hooks_attrs
+    
+                XsLabel {
+                    text: title
+                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                    Layout.column: 0
+                    Layout.row: index+5
                 }
             }
 
+
+            Repeater {
+
+                model: media_hooks_attrs
+
+                delegate: chooser
+
+                DelegateChooser {
+                    id: chooser
+                    role: "type"
+
+                    DelegateChoice {
+                        roleValue: "FloatScrubber";
+                        XsFloatAttrSlider {
+                            height: 20
+                            Layout.column: 1
+                            Layout.row: index+5       
+                        }
+                    }
+
+                    DelegateChoice {
+                        roleValue: "IntegerValue";
+                        XsIntAttrSlider {
+                            height: 20
+                            Layout.column: 1
+                            Layout.row: index+5
+                        }
+                    }
+
+                    DelegateChoice {
+                        roleValue: "ColourAttribute";
+                        XsColourChooser {
+                            height: 20
+                            Layout.column: 1
+                            Layout.row: index+5        
+                        }
+                    }
+                    
+
+                    DelegateChoice {
+                        roleValue: "OnOffToggle";
+                        Rectangle {
+                            color: "transparent"
+                            height: 20
+                            Layout.column: 1
+                            Layout.row: index+5       
+                            XsBoolAttrCheckBox {
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.topMargin: 2
+                                anchors.bottomMargin: 2
+                                tooltip_text: tooltip ? tooltip : ""
+                            }
+                        }
+                    }
+
+                    DelegateChoice {
+                        roleValue: "ComboBox";
+                        Rectangle {
+                            height: 20
+                            color: "transparent"
+                            Layout.column: 1
+                            Layout.row: index+5       
+                            implicitWidth: 200    
+                            XsComboBox {
+                                model: combo_box_options
+                                anchors.fill: parent
+                                property var value_: value ? value : null                                
+                                onValue_Changed: {
+                                    currentIndex = indexOfValue(value_)
+                                }
+                                Component.onCompleted: currentIndex = indexOfValue(value_)
+                                onCurrentValueChanged: {
+                                    value = currentValue;
+                                }
+                                tooltip_text: tooltip ? tooltip : ""
+                            }
+                        }
+                    }
+
+                }
+            }
 
             XsLabel {
                 text: "Pause Playback After Scrubbing"
@@ -128,7 +220,7 @@ XsDialogModal {
 
             XsModuleAttributesModel {
                 id: vp_mouse_wheel_behaviour_attr
-                attributesGroupName: "viewport_mouse_wheel_behaviour_attr"
+                attributesGroupNames: "viewport_mouse_wheel_behaviour_attr"
             }
 
             Repeater {
@@ -279,13 +371,13 @@ XsDialogModal {
 
                     anchors.fill: parent
                     id: offsetInput
-                    text: "" + app_window.session.mediaRate
+                    text: "" + app_window.sessionRate
                     width: font.pixelSize*2
                     color: enabled ? XsStyle.controlColor : XsStyle.controlColorDisabled
                     selectByMouse: true
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
-                    property var rate: app_window.session.mediaRate
+                    property var rate: app_window.sessionRate
                     onRateChanged: {
                         text = "" + Number.parseFloat(rate).toFixed(3)
                         text.replace(/\.0+$/,'')
@@ -298,7 +390,7 @@ XsDialogModal {
                     onEditingFinished: {
                         let new_rate = parseFloat(text)
                         focus = false
-                        app_window.session.mediaRate = new_rate
+                        app_window.sessionRate = text
                         preferences.new_media_rate.value = new_rate
                     }
                 }
@@ -374,7 +466,6 @@ XsDialogModal {
                     selectByMouse: true
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
-                    property var rate: app_window.session.mediaRate
 
                     font {
                         family: XsStyle.fontFamily
@@ -394,7 +485,7 @@ XsDialogModal {
 
             XsModuleAttributesModel {
                 id: vp_pixel_filtering_attr
-                attributesGroupName: "viewport_pixel_filter"
+                attributesGroupNames: "viewport_pixel_filter"
             }
 
             Repeater {
@@ -427,7 +518,7 @@ XsDialogModal {
 
             XsModuleAttributesModel {
                 id: vp_ptex_mode_attr
-                attributesGroupName: "viewport_texture_mode"
+                attributesGroupNames: "viewport_texture_mode"
             }
 
             Repeater {

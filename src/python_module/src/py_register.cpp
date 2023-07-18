@@ -403,6 +403,7 @@ void register_item_class(py::module &m, const std::string &name) {
         .def("transparent", &timeline::Item::transparent)
 
         .def("rate", &timeline::Item::rate)
+        .def("name", &timeline::Item::name)
 
         .def("active_range", &timeline::Item::active_range)
         .def("active_duration", &timeline::Item::active_duration)

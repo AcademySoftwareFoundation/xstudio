@@ -10,28 +10,29 @@ using namespace xstudio::utility;
 
 Item::Item(const utility::JsonStore &jsn, caf::actor_system *system)
     : Items(), the_system_(system) {
-    uuid_addr_.first = jsn["uuid"];
-    item_type_       = jsn["type"];
-    enabled_         = jsn["enabled"];
+    uuid_addr_.first = jsn.at("uuid");
+    item_type_       = jsn.at("type");
+    enabled_         = jsn.at("enabled");
+    name_            = jsn.value("name", "");
 
     if (jsn.count("actor_addr"))
-        uuid_addr_.second = string_to_actor_addr(jsn["actor_addr"]);
+        uuid_addr_.second = string_to_actor_addr(jsn.at("actor_addr"));
 
-    if (jsn["active_range"].is_null())
+    if (jsn.at("active_range").is_null())
         active_range_ = {};
     else {
         has_active_range_ = true;
-        active_range_     = jsn["active_range"];
+        active_range_     = jsn.at("active_range");
     }
 
-    if (jsn["available_range"].is_null())
+    if (jsn.at("available_range").is_null())
         available_range_ = {};
     else {
         has_available_range_ = true;
-        available_range_     = jsn["available_range"];
+        available_range_     = jsn.at("available_range");
     }
 
-    for (const auto &i : jsn["children"]) {
+    for (const auto &i : jsn.at("children")) {
         emplace_back(Item(utility::JsonStore(i), the_system_));
     }
 }
@@ -65,6 +66,7 @@ utility::JsonStore Item::serialise(const int depth) const {
     jsn["actor_addr"] = actor_addr_to_string(uuid_addr_.second);
     jsn["type"]       = item_type_;
     jsn["enabled"]    = enabled_;
+    jsn["name"]       = name_;
 
     if (has_available_range_)
         jsn["available_range"] = available_range_;
@@ -418,6 +420,8 @@ Item::resolve_time(const utility::FrameRate &time, const media::MediaType mt) co
 
 void Item::set_enabled_direct(const bool &value) { enabled_ = value; }
 
+void Item::set_name_direct(const std::string &value) { name_ = value; }
+
 utility::JsonStore Item::set_enabled(const bool &value) {
     if (enabled_ != value) {
         utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
@@ -426,6 +430,20 @@ utility::JsonStore Item::set_enabled(const bool &value) {
         jsn[0]["undo"]["value"]                         = enabled_;
         jsn[0]["redo"]["value"]                         = value;
         set_enabled_direct(value);
+        return jsn;
+    }
+
+    return utility::JsonStore();
+}
+
+utility::JsonStore Item::set_name(const std::string &value) {
+    if (name_ != value) {
+        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IT_NAME;
+        jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
+        jsn[0]["undo"]["value"]                         = name_;
+        jsn[0]["redo"]["value"]                         = value;
+        set_name_direct(value);
         return jsn;
     }
 
@@ -517,6 +535,8 @@ utility::JsonStore Item::set_available_range(const utility::FrameRange &value) {
 Items::iterator Item::insert_direct(Items::iterator position, const Item &val) {
     auto it = Items::insert(position, val);
     it->set_system(the_system_);
+    if (recursive_bind_ and item_event_callback_)
+        it->bind_item_event_func(item_event_callback_, recursive_bind_);
     return it;
 }
 
@@ -579,21 +599,34 @@ utility::JsonStore Item::splice(
 
     utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
 
-    auto index1 = std::distance(cbegin(), pos);
-    auto index2 = std::distance(cbegin(), first);
-    auto index3 = std::distance(cbegin(), last);
+    auto pos_index   = std::distance(cbegin(), pos);
+    auto first_index = std::distance(cbegin(), first);
+    auto last_index  = std::distance(cbegin(), last);
+
+    // splice can't insert into range..
+    // move position to end of range.
+    if (pos_index >= first_index and pos_index <= last_index) {
+        pos_index = last_index + 1;
+        pos       = std::next(last, 1);
+    }
 
     jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
 
-    jsn[0]["undo"]["action"] = ItemAction::IT_SPLICE;
-    jsn[0]["undo"]["value1"] = index2;
-    jsn[0]["undo"]["value2"] = index1 - 1;
-    jsn[0]["undo"]["value3"] = index1 + (index3 - index2) - 1;
-
     jsn[0]["redo"]["action"] = ItemAction::IT_SPLICE;
-    jsn[0]["redo"]["value1"] = index1;
-    jsn[0]["redo"]["value2"] = index2;
-    jsn[0]["redo"]["value3"] = index3;
+    jsn[0]["redo"]["dst"]    = pos_index;   // dst
+    jsn[0]["redo"]["first"]  = first_index; // frst
+    jsn[0]["redo"]["last"]   = last_index;  // lst
+
+    if (pos_index > last_index) {
+        pos_index -= (last_index - first_index);
+    }
+
+    jsn[0]["undo"]["action"] = ItemAction::IT_SPLICE;
+    jsn[0]["undo"]["dst"]    = first_index; // dst
+    jsn[0]["undo"]["first"]  = pos_index;
+    jsn[0]["undo"]["last"]   = pos_index + (last_index - first_index);
+
+    // spdlog::warn("{}", jsn.dump(2));
 
     splice_direct(pos, other, first, last);
 
@@ -604,61 +637,64 @@ utility::JsonStore Item::splice(
 bool Item::update(const utility::JsonStore &event) {
     bool changed = false;
     for (const auto &i : event)
-        changed |= process_event(i["redo"]);
+        changed |= process_event(i.at("redo"));
     return changed;
 }
 
 void Item::undo(const utility::JsonStore &event) {
     for (const auto &i : event)
-        process_event(i["undo"]);
+        process_event(i.at("undo"));
 }
 
 void Item::redo(const utility::JsonStore &event) {
     for (const auto &i : event)
-        process_event(i["redo"]);
+        process_event(i.at("redo"));
 }
 
 bool Item::process_event(const utility::JsonStore &event) {
     // spdlog::warn("{} {} {}", event["uuid"], to_string(uuid_addr_.first), event["uuid"] ==
     // uuid_addr_.first);
-    if (event["uuid"] == uuid_addr_.first) {
-        switch (static_cast<ItemAction>(event["action"])) {
+    if (event.at("uuid") == uuid_addr_.first) {
+        switch (static_cast<ItemAction>(event.at("action"))) {
         case IT_ENABLE:
-            set_enabled_direct(event["value"]);
+            set_enabled_direct(event.at("value"));
+            break;
+        case IT_NAME:
+            set_name_direct(event.at("value"));
             break;
         case IT_ACTIVE:
-            set_active_range_direct(event["value"]);
-            has_active_range_ = event["value2"];
+            set_active_range_direct(event.at("value"));
+            has_active_range_ = event.at("value2");
             break;
         case IT_AVAIL:
-            set_available_range_direct(event["value"]);
-            has_available_range_ = event["value2"];
+            set_available_range_direct(event.at("value"));
+            has_available_range_ = event.at("value2");
             break;
         case IT_INSERT: {
             auto it = begin();
-            std::advance(it, event["index"]);
-            insert_direct(it, Item(JsonStore(event["item"]), the_system_));
+            std::advance(it, event.at("index"));
+            insert_direct(it, Item(JsonStore(event.at("item")), the_system_));
         } break;
         case IT_REMOVE: {
             auto it = begin();
-            std::advance(it, event["index"]);
+            std::advance(it, event.at("index"));
             erase_direct(it);
         } break;
         case IT_SPLICE: {
             auto it1 = begin();
-            std::advance(it1, event["value1"]);
+            std::advance(it1, event.at("dst"));
             auto it2 = begin();
-            std::advance(it2, event["value2"]);
+            std::advance(it2, event.at("first"));
             auto it3 = begin();
-            std::advance(it3, event["value3"]);
+            std::advance(it3, event.at("last"));
             splice_direct(it1, *this, it2, it3);
         } break;
 
         case IT_ADDR:
-            if (event["value"].is_null())
+            if (event.at("value").is_null())
                 set_actor_addr_direct(caf::actor_addr());
             else
-                set_actor_addr_direct(string_to_actor_addr(event["value"]));
+                set_actor_addr_direct(string_to_actor_addr(event.at("value")));
             break;
         case IA_NONE:
         default:
@@ -676,4 +712,16 @@ bool Item::process_event(const utility::JsonStore &event) {
         return false;
     }
     return true;
+}
+
+void Item::bind_item_event_func(ItemEventFunc fn, const bool recursive) {
+    recursive_bind_      = recursive;
+    item_event_callback_ = [fn](auto &&PH1, auto &&PH2) {
+        return fn(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));
+    };
+
+    if (recursive_bind_) {
+        for (auto &i : *this)
+            i.bind_item_event_func(fn, recursive_bind_);
+    }
 }

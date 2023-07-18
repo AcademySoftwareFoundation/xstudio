@@ -28,6 +28,12 @@ T.ComboBox { id: widget
     property alias popupOptions: popupOptions
     property bool downArrowVisible: true
 
+    property string tooltip_text: ""
+
+    ToolTip.delay: 500
+    ToolTip.visible: hovered && tooltip_text != ""
+    ToolTip.text: tooltip_text
+
     onHoveredChanged: {
         downArrow.requestPaint()
     }

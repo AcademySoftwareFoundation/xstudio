@@ -39,13 +39,13 @@ namespace playhead {
         void play();
 
         caf::behavior make_behavior() override {
-            return PlayheadBase::message_handler().or_else(behavior_);
+            return behavior_.or_else(PlayheadBase::message_handler());
         }
 
         void clear_all_precache_requests(caf::typed_response_promise<bool> rp);
         void clear_child_playheads();
         caf::actor make_child_playhead(caf::actor source);
-        caf::actor make_audio_child_playhead(caf::actor source);
+        void make_audio_child_playhead(const int source_index);
         void rebuild();
         void connect_to_playlist_selection_actor(caf::actor playlist_selection);
         void new_source_list(const std::vector<caf::actor> &sl);
@@ -74,28 +74,28 @@ namespace playhead {
         void move_playhead_to_last_viewed_frame_of_current_source();
         void
         move_playhead_to_last_viewed_frame_of_given_source(const utility::Uuid &source_uuid);
-        void current_media_changed(caf::actor media_actor);
-        void get_colour_pipeline();
+        void current_media_changed(caf::actor media_actor, const bool force = false);
+        void update_source_multichoice(
+            module::StringChoiceAttribute *attr, const media::MediaType mt);
         void
         restart_readahead_cacheing(const bool all_child_playheads, const bool force = false);
-        void switch_media_source(const std::string new_source_name);
+        void switch_media_source(const std::string new_source_name, const media::MediaType mt);
         bool has_selection_changed();
         int previous_selected_sources_count_ = {-1};
 
         void manage_playback_video_refresh_sync(
             const utility::time_point &when_video_framebuffer_was_swapped_to_screen,
             const timebase::flicks video_refresh_rate_hint,
-            const bool main_viewer);
+            const int viewer_index);
 
       protected:
         void attribute_changed(const utility::Uuid &attr_uuid, const int /*role*/) override;
         void connected_to_ui_changed() override;
         void check_if_loop_range_makes_sense();
 
-        caf::behavior behavior_;
+        caf::message_handler behavior_;
         caf::actor playlist_selection_;
         caf::actor empty_clip_;
-        caf::actor colour_pipeline_;
         caf::actor broadcast_;
         caf::actor event_group_;
         caf::actor fps_moniotor_group_;
@@ -108,6 +108,7 @@ namespace playhead {
         caf::actor audio_output_actor_;
         caf::actor playhead_events_actor_;
         caf::actor audio_playhead_;
+        caf::actor audio_playhead_retimer_;
         caf::actor image_cache_;
         caf::actor pre_reader_;
         caf::actor_addr playlist_selection_addr_;

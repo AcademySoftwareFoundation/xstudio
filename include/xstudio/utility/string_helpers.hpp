@@ -13,6 +13,7 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+#include <cstdarg>
 
 namespace xstudio {
 namespace utility {
@@ -243,6 +244,15 @@ namespace utility {
             subject.replace(pos, search.length(), replace);
             pos += replace.length();
         }
+    }
+
+    inline std::string str_sprintf(const char *format, ...) {
+        va_list va;
+        va_start(va, format);
+        std::vector<char> buf(strlen(format) + 4096);
+        snprintf(buf.data(), buf.size(), format, va);
+        va_end(va);
+        return std::string(buf.data());
     }
 
     inline std::string snake_case(const std::string &src) {

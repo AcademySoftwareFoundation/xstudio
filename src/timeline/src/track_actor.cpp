@@ -24,9 +24,11 @@ using namespace xstudio::timeline;
 using namespace caf;
 
 caf::actor TrackActor::deserialise(const utility::JsonStore &value, const bool replace_item) {
-    auto key   = utility::Uuid(value["base"]["item"]["uuid"]);
+    auto key   = utility::Uuid(value.at("base").at("item").at("uuid"));
     auto actor = caf::actor();
-    if (value["base"]["container"]["type"] == "Clip") {
+    auto type  = value.at("base").at("container").at("type").get<std::string>();
+
+    if (type == "Clip") {
         auto item = Item();
         actor     = spawn<ClipActor>(static_cast<utility::JsonStore>(value), item);
         add_item(UuidActor(key, actor));
@@ -34,7 +36,7 @@ caf::actor TrackActor::deserialise(const utility::JsonStore &value, const bool r
             auto itemit = find_uuid(base_.item().children(), key);
             (*itemit)   = item;
         }
-    } else if (value["base"]["container"]["type"] == "Gap") {
+    } else if (type == "Gap") {
         auto item = Item();
         actor     = spawn<GapActor>(static_cast<utility::JsonStore>(value), item);
         add_item(UuidActor(key, actor));
@@ -42,7 +44,7 @@ caf::actor TrackActor::deserialise(const utility::JsonStore &value, const bool r
             auto itemit = find_uuid(base_.item().children(), key);
             (*itemit)   = item;
         }
-    } else if (value["base"]["container"]["type"] == "Stack") {
+    } else if (type == "Stack") {
         auto item = Item();
         actor     = spawn<StackActor>(static_cast<utility::JsonStore>(value), item);
         add_item(UuidActor(key, actor));
@@ -57,19 +59,19 @@ caf::actor TrackActor::deserialise(const utility::JsonStore &value, const bool r
 // trigger actor creation
 void TrackActor::item_event_callback(const utility::JsonStore &event, Item &item) {
 
-    switch (static_cast<ItemAction>(event["action"])) {
+    switch (static_cast<ItemAction>(event.at("action"))) {
     case IT_INSERT: {
-        auto cuuid = utility::Uuid(event["item"]["uuid"]);
+        auto cuuid = utility::Uuid(event.at("item").at("uuid"));
         // spdlog::warn("{} {} {} {}", find_uuid(base_.item().children(), cuuid) !=
         // base_.item().cend(), actors_.count(cuuid), not event["blind"].is_null(),
         // event.dump(2)); needs to be child..
         auto child_item_it = find_uuid(base_.item().children(), cuuid);
         if (child_item_it != base_.item().cend() and not actors_.count(cuuid) and
-            not event["blind"].is_null()) {
+            not event.at("blind").is_null()) {
             // our child
             // spdlog::warn("RECREATE MATCH");
 
-            auto actor = deserialise(utility::JsonStore(event["blind"]), false);
+            auto actor = deserialise(utility::JsonStore(event.at("blind")), false);
             add_item(UuidActor(cuuid, actor));
             // spdlog::warn("{}",to_string(caf::actor_cast<caf::actor_addr>(actor)));
             // spdlog::warn("{}",to_string(caf::actor_cast<caf::actor_addr>(child_item_it->actor())));
@@ -89,7 +91,7 @@ void TrackActor::item_event_callback(const utility::JsonStore &event, Item &item
     } break;
 
     case IT_REMOVE: {
-        auto cuuid = utility::Uuid(event["item_uuid"]);
+        auto cuuid = utility::Uuid(event.at("item_uuid"));
         // child destroyed
         if (actors_.count(cuuid)) {
             // spdlog::warn("destroy
@@ -112,10 +114,10 @@ void TrackActor::item_event_callback(const utility::JsonStore &event, Item &item
 }
 
 TrackActor::TrackActor(caf::actor_config &cfg, const utility::JsonStore &jsn, Item &pitem)
-    : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"])) {
+    : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
 
-    for (const auto &[key, value] : jsn["actors"].items()) {
+    for (const auto &[key, value] : jsn.at("actors").items()) {
         try {
             deserialise(value, true);
         } catch (const std::exception &e) {
@@ -139,6 +141,7 @@ TrackActor::TrackActor(
     const utility::Uuid &uuid)
     : caf::event_based_actor(cfg), base_(name, media_type, uuid, this) {
     base_.item().set_system(&system());
+    base_.item().set_name(name);
     base_.item().bind_item_event_func([this](const utility::JsonStore &event, Item &item) {
         item_event_callback(event, item);
     });
@@ -219,6 +222,13 @@ void TrackActor::init() {
         },
 
         [=](item_atom) -> Item { return base_.item(); },
+
+        [=](item_name_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_name(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
 
         [=](item_atom, const bool with_state) -> result<std::pair<JsonStore, Item>> {
             auto rp = make_response_promise<std::pair<JsonStore, Item>>();
@@ -369,7 +379,7 @@ void TrackActor::init() {
             auto rp = make_response_promise<JsonStore>();
             // get item..
             request(ua.actor(), infinite, item_atom_v)
-                .then(
+                .await(
                     [=](const Item &item) mutable {
                         rp.delegate(
                             caf::actor_cast<caf::actor>(this),
@@ -477,12 +487,26 @@ void TrackActor::init() {
             -> result<JsonStore> {
             auto sit = base_.item().children().begin();
             std::advance(sit, src_index);
+
             if (sit == base_.item().children().end())
                 return make_error(xstudio_error::error, "Invalid src index");
-            auto src_uuid = sit->uuid();
 
+            auto src_uuid = sit->uuid();
+            // dst index is the index it should be after the move.
+            // we need to account for the items we're moving..
             auto dit = base_.item().children().begin();
-            std::advance(dit, dst_index);
+
+            if (dst_index == src_index)
+                return make_error(xstudio_error::error, "Invalid Move");
+
+            auto adj_dst = dst_index;
+
+            if (dst_index > src_index)
+                adj_dst += count;
+
+            // spdlog::warn("{} {} {} -> {}", src_index, count, dst_index, adj_dst);
+
+            std::advance(dit, adj_dst);
             auto dst_uuid = utility::Uuid();
             if (dit != base_.item().children().end())
                 dst_uuid = dit->uuid();
@@ -505,7 +529,6 @@ void TrackActor::init() {
             auto dit = base_.item().children().end();
             if (not before_uuid.is_null()) {
                 dit = find_uuid(base_.item().children(), before_uuid);
-                std::advance(dit, 1);
                 if (dit == base_.item().end())
                     return make_error(xstudio_error::error, "Invalid dst uuid");
             }
@@ -513,7 +536,6 @@ void TrackActor::init() {
             if (count) {
                 auto site = sitb;
                 std::advance(site, count);
-
                 auto changes = base_.item().splice(dit, base_.item().children(), sitb, site);
                 auto more    = base_.item().refresh();
                 if (not more.is_null())
@@ -525,7 +547,6 @@ void TrackActor::init() {
 
             return JsonStore();
         },
-
 
         [=](utility::event_atom, utility::change_atom) {
             // update_edit_list_ = true;

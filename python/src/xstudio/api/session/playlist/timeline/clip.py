@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import enable_atom, item_atom, active_range_atom, available_range_atom, get_media_atom
+from xstudio.core import enable_atom, item_atom, active_range_atom, available_range_atom, get_media_atom, item_name_atom
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media import Media
 
@@ -41,6 +41,24 @@ class Clip(Container):
             return None
 
         return Media(self.connection, m.actor, m.uuid)
+
+    @property
+    def item_name(self):
+        """Get name.
+
+        Returns:
+            name(str): Name.
+        """
+        return self.item.name()
+
+    @item_name.setter
+    def item_name(self, x):
+        """Set name.
+
+        Args:
+            name(str): Set name.
+        """
+        self.connection.request_receive(self.remote, item_name_atom(), x)
 
     @property
     def enabled(self):

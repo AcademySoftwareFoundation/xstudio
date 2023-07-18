@@ -2,6 +2,7 @@
 #pragma once
 
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/ui/viewport/enums.hpp"
 #include <memory>
 #include <string>
 
@@ -9,11 +10,19 @@ namespace xstudio {
 namespace ui {
     namespace viewport {
 
-        struct GPUShader {
-            GPUShader(utility::Uuid id, std::string code)
-                : shader_id_(id), shader_code_(std::move(code)) {}
+        /* Virtual base class for shader data. Subclass for OpenGL, Metal,
+        Vulkan, DirectX etc. */
+
+        class GPUShader {
+          public:
+            GPUShader(utility::Uuid id, GraphicsAPI api) : shader_id_(id), graphics_api_(api) {}
+
+            [[nodiscard]] const utility::Uuid shader_id() const { return shader_id_; }
+            [[nodiscard]] GraphicsAPI graphics_api() const { return graphics_api_; }
+
+          private:
             utility::Uuid shader_id_;
-            const std::string shader_code_;
+            const GraphicsAPI graphics_api_;
         };
 
         typedef std::shared_ptr<const GPUShader> GPUShaderPtr;

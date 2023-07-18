@@ -35,7 +35,7 @@ Rectangle {
     id: app_window
     visible: true
     color: "#00000000"
-    objectName: "appWidnow"
+    objectName: "appWindow"
     // override default palette
 
     property var preFullScreenVis: [app_window.x, app_window.y, app_window.width, app_window.height]
@@ -292,14 +292,6 @@ Rectangle {
             dlg.open()
         }
 
-        function add_media_to_new_contact_sheet(source=parent) {
-            var media = selectedSource ? selectedSource.selectionFilter.selectedMediaUuids : onScreenSource.selectionFilter.selectedMediaUuids
-            var dlg = XsUtils.openDialog("qrc:/dialogs/XsNewContactSheetDialog.qml", source)
-
-            dlg.okay_text = "Add Media"
-            dlg.created.connect(function(uuid) {session.copyMedia(uuid.asQuuid, media)})
-            dlg.open()
-        }
     }
 
     property alias session: session

@@ -189,7 +189,7 @@ XsToolbarItem  {
         XsModuleAttributesDialog {
             id: settings_dialog
             title: "Viewport Mask Settings"
-            attributesGroupName: "viewport_mask_settings"
+            attributesGroupNames: "viewport_mask_settings"
         }
     
         

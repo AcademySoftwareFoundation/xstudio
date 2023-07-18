@@ -16,16 +16,18 @@
 #include "xstudio/plugin_manager/plugin_factory.hpp"
 #include "xstudio/media/media_actor.hpp"
 #include "xstudio/global_store/global_store.hpp"
+#include "xstudio/module/module.hpp"
 
 namespace xstudio {
 namespace media_hook {
 
     using namespace caf;
 
-    class MediaHook {
+    class MediaHook : public module::Module {
+
       public:
         [[nodiscard]] std::string name() const { return name_; }
-        virtual ~MediaHook() = default;
+        ~MediaHook() override = default;
 
         virtual utility::JsonStore
         modify_metadata(const utility::MediaReference &, const utility::JsonStore &) {
@@ -53,7 +55,7 @@ namespace media_hook {
         virtual void update_prefs(const utility::JsonStore &full_prefs_dict) {}
 
       protected:
-        MediaHook(std::string name) : name_(std::move(name)) {}
+        MediaHook(std::string name) : module::Module(name), name_(std::move(name)) {}
         std::string default_path() const { return "/metadata/external/" + name_; }
 
       private:
@@ -97,6 +99,10 @@ namespace media_hook {
                 media_hook_.update_prefs(j);
             } catch (...) {
             }
+
+            media_hook_.set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
+
+            link_hook_to_other_instances();
 
             behavior_.assign(
                 [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -171,7 +177,46 @@ namespace media_hook {
                 });
         }
 
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::behavior make_behavior() override {
+            return media_hook_.message_handler().or_else(behavior_);
+        }
+
+        void link_hook_to_other_instances() {
+
+            // this is a bit of hack for now. Multiple 'worker' media hook actors are
+            // created by the GlobalMediaHookActor - we only want one instance
+            // to connect to the UI. The other instances should be cloned and
+            // driven by changes made to the instance that is connected to the
+            // UI. Otherwise any attributes that the media hook plugin creates
+            // and exposes in the UI will appear multiple times (due to multiple
+            // worker instances).
+
+            const std::string hook_type_id = typeid(T).name();
+            static std::mutex m;
+            static std::map<std::string, caf::actor_addr> main_instances;
+            m.lock();
+            auto p = main_instances.find(hook_type_id);
+            if (p != main_instances.end()) {
+                auto main_instance = caf::actor_cast<caf::actor>(p->second);
+                if (main_instance) {
+                    anon_send(
+                        main_instance,
+                        module::link_module_atom_v,
+                        actor_cast<caf::actor>(this),
+                        true,
+                        false,
+                        true);
+                }
+            } else {
+                main_instances[hook_type_id] = actor_cast<caf::actor_addr>(this);
+                delayed_anon_send(
+                    actor_cast<caf::actor>(this),
+                    std::chrono::milliseconds(250),
+                    module::connect_to_ui_atom_v);
+            }
+            m.unlock();
+        }
+
 
       private:
         caf::behavior behavior_;

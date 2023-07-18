@@ -23,6 +23,11 @@ void ModelProperty::setIndex(const QModelIndex &index) {
         setRole(role_);
         if (updateValue())
             emit valueChanged();
+    } else {
+        index_ = QPersistentModelIndex(index);
+        emit indexChanged();
+        if (updateValue())
+            emit valueChanged();
     }
 }
 
@@ -78,7 +83,8 @@ int ModelProperty::getRoleId(const QString &role) const {
 }
 
 void ModelProperty::setValue(const QVariant &value) {
-    if (value != value_ and index_.isValid() and index_.model()) {
+    if (value != value_ and index_.isValid() and index_.model() and
+        index_.data(role_id_) != value) {
         // this maybe be bad!
         const_cast<QAbstractItemModel *>(index_.model())->setData(index_, value, role_id_);
     }
@@ -127,7 +133,18 @@ void ModelPropertyMap::setIndex(const QModelIndex &index) {
 
             if (model_change)
                 emit valuesChanged();
+        } else {
+            index_ = QPersistentModelIndex(index);
+            updateValues();
+            emit indexChanged();
+            emit valuesChanged();
         }
+    } else if (not index.isValid()) {
+        // force update as will auto become invalid
+        index_ = QPersistentModelIndex(index);
+        updateValues();
+        emit indexChanged();
+        emit valuesChanged();
     }
 }
 
@@ -147,6 +164,11 @@ void ModelPropertyMap::updateValues(const QVector<int> &roles) {
             }
             ++i;
         }
+    } else {
+        // clear values.
+        for (const auto &i : values_->keys()) {
+            values_->setProperty(StdFromQString(i).c_str(), QVariant());
+        }
     }
 }
 
@@ -165,9 +187,10 @@ void ModelPropertyMap::valueChanged(const QString &key, const QVariant &value) {
     // mapFromValue(value).dump(2), values_->value(key) != value); if (values_->value(key) !=
     // value) { propate to backend. find id..
     auto id = getRoleId(key);
-    if (id != -1 and index_.isValid() and index_.model()) {
+    if (id != -1 and index_.isValid() and index_.model() and index_.data(id) != value) {
         // spdlog::warn(
-        //     "update model {} {}", StdFromQString(key), mapFromValue(value).dump(2));
+        //     "ModelPropertyMap update model {} {}", StdFromQString(key),
+        //     mapFromValue(value).dump(2));
         const_cast<QAbstractItemModel *>(index_.model())->setData(index_, value, id);
     }
     // }
@@ -193,13 +216,14 @@ void ModelNestedPropertyMap::valueChanged(const QString &key, const QVariant &va
 
     if (index_.isValid()) {
         if (id != -1) {
-            const_cast<QAbstractItemModel *>(index_.model())->setData(index_, value, id);
+            if (index_.data(id) != value)
+                const_cast<QAbstractItemModel *>(index_.model())->setData(index_, value, id);
         } else {
             id          = getRoleId(data_role_);
             auto jvalue = mapFromValue(index_.data(id));
             auto skey   = StdFromQString(key);
             auto svalue = mapFromValue(value);
-            if (jvalue.is_object() and jvalue.count(skey) and svalue != jvalue.at(skey)) {
+            if (jvalue.is_object() and (not jvalue.count(skey) or svalue != jvalue.at(skey))) {
                 jvalue[skey] = svalue;
                 const_cast<QAbstractItemModel *>(index_.model())
                     ->setData(index_, mapFromValue(jvalue), id);
@@ -213,15 +237,36 @@ void ModelNestedPropertyMap::updateValues(const QVector<int> &roles) {
     // populate QMLPropertyMap from value.
     if (index_.isValid()) {
         auto jvalue = mapFromValue(index_.data(getRoleId(data_role_)));
+
+        std::set<std::string> mapped;
+
         if (jvalue.is_object()) {
             for (const auto &[k, v] : jvalue.items()) {
                 auto qk = QStringFromStd(k);
                 auto qv = mapFromValue(v);
 
+                mapped.insert(k);
+
                 if (values_->contains(qk) and qv != (*values_)[qk])
                     values_->setProperty(k.c_str(), qv);
                 else
                     values_->insert(qk, qv);
+            }
+        }
+
+        // add any missing defaults
+        auto dvalue = mapFromValue(index_.data(getRoleId(default_role_)));
+        if (dvalue.is_object()) {
+            for (const auto &[k, v] : dvalue.items()) {
+                auto qk = QStringFromStd(k);
+                auto qv = mapFromValue(v);
+
+                if (not mapped.count(k)) {
+                    if (values_->contains(qk) and qv != (*values_)[qk])
+                        values_->setProperty(k.c_str(), qv);
+                    else
+                        values_->insert(qk, qv);
+                }
             }
         }
     }
@@ -287,6 +332,9 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
         case QMetaType::Int:
             result = value.toInt();
             break;
+        case QMetaType::ULong:
+            result = value.toULongLong();
+            break;
         case QMetaType::QUrl:
             result = to_string(UriFromQUrl(value.toUrl()));
             break;
@@ -333,7 +381,11 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
         } break;
 
         default:
-            spdlog::warn("3 Unsupported datatype {} {}", value.typeName(), value.userType());
+            if (value.typeName())
+                spdlog::warn(
+                    "3 Unsupported datatype {} {}", value.typeName(), value.userType());
+            else
+                spdlog::warn("3 Unsupported datatype '' {}", value.userType());
             break;
         }
     }

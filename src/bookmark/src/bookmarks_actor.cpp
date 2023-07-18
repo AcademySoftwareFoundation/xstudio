@@ -168,8 +168,17 @@ void BookmarksActor::init() {
         },
 
         [=](utility::serialise_atom) -> result<JsonStore> {
-            auto rp      = make_response_promise<JsonStore>();
-            auto clients = map_value_to_vec(bookmarks_);
+            auto rp = make_response_promise<JsonStore>();
+
+            auto clients = std::vector<caf::actor>();
+
+            // check for dead bookmarks
+            for (const auto &i : bookmarks_) {
+                if (not i.second)
+                    bookmarks_.erase(i.first);
+                else
+                    clients.push_back(i.second);
+            }
 
             if (not clients.empty()) {
                 fan_out_request<policy::select_all>(clients, infinite, serialise_atom_v)
@@ -178,10 +187,11 @@ void BookmarksActor::init() {
                             JsonStore jsn;
                             jsn["base"]   = base_.serialise();
                             jsn["actors"] = {};
-                            for (const auto &j : json)
-                                jsn["actors"]
-                                   [static_cast<std::string>(j["base"]["container"]["uuid"])] =
-                                       j;
+                            for (const auto &j : json) {
+                                if (not j.is_null())
+                                    jsn["actors"][static_cast<std::string>(
+                                        j["base"]["container"]["uuid"])] = j;
+                            }
 
                             rp.deliver(jsn);
                         },

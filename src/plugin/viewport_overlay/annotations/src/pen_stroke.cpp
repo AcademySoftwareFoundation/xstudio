@@ -53,7 +53,7 @@ PenStroke::PenStroke(
 PenStroke::PenStroke(const float thickness)
     : thickness_(thickness),
       colour_(1.0f, 1.0f, 1.0f),
-      opacity_(1.0f),
+      // opacity_(1.0f),
       is_erase_stroke_(true) {}
 
 void PenStroke::add_point(const Imath::V2f &pt) {

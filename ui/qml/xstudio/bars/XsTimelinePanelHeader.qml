@@ -12,7 +12,6 @@ Rectangle {
     color: "transparent"
     property bool expanded: true
     anchors.fill: parent
-    property var source: session.selectedSource ? session.selectedSource : session.onScreenSource
 
     Label {
         anchors.leftMargin: 7
@@ -30,7 +29,7 @@ Rectangle {
     Label {
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
-        text: source ? source.fullName : ""
+        text: app_window.currentSource.fullName
         color: XsStyle.controlColor
         font.pixelSize: XsStyle.sessionBarFontSize
         font.family: XsStyle.controlTitleFontFamily
@@ -43,7 +42,7 @@ Rectangle {
         anchors.rightMargin: 7
         anchors.verticalCenter: parent.verticalCenter
         anchors.right: parent.right
-        text: source ? source.mediaModel.length : ""
+        text: app_window.currentSource.mediaCount != undefined  ? app_window.currentSource.mediaCount : 0
         color: XsStyle.controlColor
         font.pixelSize: XsStyle.sessionBarFontSize
         font.family: XsStyle.controlTitleFontFamily

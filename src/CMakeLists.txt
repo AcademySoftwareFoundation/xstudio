@@ -18,11 +18,6 @@ if(INSTALL_XSTUDIO)
 	add_src_and_test(http_client)
 	add_src_and_test(launch/xstudio)
 	add_src_and_test(history)
-
-	if(BUILD_GLX_DEMO)
-		add_src_and_test(demos/glx_minimal_demo) # WIP bare bones, no QT player window
-	endif(BUILD_GLX_DEMO)
-
 	add_src_and_test(media)
 	add_src_and_test(media_cache)
 	add_src_and_test(media_hook)
@@ -32,6 +27,7 @@ if(INSTALL_XSTUDIO)
 	add_src_and_test(playhead)
 	add_src_and_test(playlist)
 	add_src_and_test(plugin/colour_pipeline)
+	add_src_and_test(plugin/colour_op)
 	add_src_and_test(plugin/data_source)
 	add_src_and_test(plugin/hud)
 	add_src_and_test(plugin/media_hook)
@@ -49,6 +45,15 @@ if(INSTALL_XSTUDIO)
 	add_src_and_test(tag)
 	add_src_and_test(thumbnail)
 	add_src_and_test(ui)
+
+	if(BUILD_GLX_DEMO)
+		add_src_and_test(demos/glx_minimal_demo) # WIP bare bones, no QT player window
+	endif(BUILD_GLX_DEMO)
+
+	if(BUILD_GRADING_DEMO)
+		add_src_and_test(demos/colour_op_plugins/source_grading_demo)
+	endif(BUILD_GRADING_DEMO)	
+
 endif ()
 
 add_src_and_test(broadcast)

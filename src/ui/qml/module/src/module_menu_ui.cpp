@@ -186,10 +186,14 @@ void ModuleMenusModel::add_multi_choice_menu_item(const ConstAttributePtr &attr)
 
         std::vector<bool> enabled(string_choices.size(), true);
         if (attr->has_role_data(Attribute::StringChoicesEnabled)) {
-            auto string_choices_enabled_data =
-                attr->get_role_data<std::vector<bool>>(Attribute::StringChoicesEnabled);
-            if (string_choices_enabled_data.size() == enabled.size()) {
-                enabled = string_choices_enabled_data;
+            try {
+                auto string_choices_enabled_data =
+                    attr->get_role_data<std::vector<bool>>(Attribute::StringChoicesEnabled);
+                if (string_choices_enabled_data.size() == enabled.size()) {
+                    enabled = string_choices_enabled_data;
+                }
+            } catch (...) {
+                // if the enabled vector is empty it won't cast to vect<bool>
             }
         }
 

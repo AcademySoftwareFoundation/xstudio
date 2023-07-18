@@ -135,12 +135,13 @@ OffscreenViewport::OffscreenViewport(QObject *parent) : super(parent) {
     // to our companion actor's 'behaviour' to create a fully functioning
     // viewport that can receive caf messages including framebuffers and also
     // to render the viewport into our GLContext
+    static int offscreen_idx = -1;
     utility::JsonStore jsn;
     jsn["base"] = utility::JsonStore();
     viewport_renderer_.reset(new ui::viewport::Viewport(
         jsn,
         as_actor(),
-        true,
+        offscreen_idx--,
         ui::viewport::ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false))));
 
     // Here we set-up the caf message handler for this class by combining the
@@ -404,7 +405,7 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
             0,
             GL_DEPTH_COMPONENT,
             GL_UNSIGNED_BYTE,
-            NULL);
+            nullptr);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);

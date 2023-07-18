@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import Uuid, actor, UuidActor, ItemType
-from xstudio.core import item_atom, insert_item_atom, enable_atom, remove_item_atom, erase_item_atom
+from xstudio.core import item_atom, insert_item_atom, enable_atom, remove_item_atom, erase_item_atom, item_name_atom, move_item_atom
 from xstudio.core import active_range_atom, available_range_atom
 from xstudio.api.session.container import Container
 from xstudio.api.session.playlist.timeline import create_item_container
@@ -49,6 +49,24 @@ class Stack(Container):
         """
         self.connection.request_receive(self.remote, enable_atom(), x)
 
+    @property
+    def item_name(self):
+        """Get name.
+
+        Returns:
+            name(str): Name.
+        """
+        return self.item.name()
+
+    @item_name.setter
+    def item_name(self, x):
+        """Set name.
+
+        Args:
+            name(str): Set name.
+        """
+        self.connection.request_receive(self.remote, item_name_atom(), x)
+
     def __len__(self):
         """Get size.
 
@@ -95,18 +113,18 @@ class Stack(Container):
         """
         return self.connection.request_receive(self.remote, erase_item_atom(), index)[0]
 
-    def move_children(self, start, end, dest):
+    def move_children(self, start, count, dest):
         """Move child items
 
         Args:
             start(int): Index of first item
-            end(int): Index of last item
+            count(int): Count items
             dest(int): Destination index (-1 for append)
 
         Returns:
             success(bool): Items moved
         """
-        return self.connection.request_receive(self.remote, move_item_atom(), start, end, dest)[0]
+        return self.connection.request_receive(self.remote, move_item_atom(), start, count, dest)[0]
 
 
     @property

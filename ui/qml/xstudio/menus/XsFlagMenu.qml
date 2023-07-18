@@ -158,8 +158,8 @@ XsMenu {
     Repeater {
         model: colours_model
         XsMenuItem {
-            mytext: modelData ? modelData.name : name
-            iconbg: hexToRGBA(modelData ? modelData.colour : colour, 1.0)
+            mytext: name
+            iconbg: hexToRGBA(colour, 1.0)
             mycheckable: mytext != "Remove Flag"
             actiongroup: actgrp
         }

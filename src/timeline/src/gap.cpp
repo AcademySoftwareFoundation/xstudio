@@ -21,8 +21,8 @@ Gap::Gap(
           utility::FrameRange(FrameRateDuration(0, duration.rate()), duration)) {}
 
 Gap::Gap(const utility::JsonStore &jsn)
-    : Container(static_cast<utility::JsonStore>(jsn["container"])),
-      item_(static_cast<utility::JsonStore>(jsn["item"])) {}
+    : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
+      item_(static_cast<utility::JsonStore>(jsn.at("item"))) {}
 
 utility::JsonStore Gap::serialise() const {
     utility::JsonStore jsn;

@@ -27,6 +27,22 @@
                 "datatype": "bool",
                 "context": ["APPLICATION"]
             },
+			"volume": {
+				"path": "/core/audio/volume",
+				"default_value": 50,
+				"description": "XPlayer audio volume.",
+				"value": 50,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"muted": {
+				"path": "/core/audio/muted",
+				"default_value": false,
+				"description": "XPlayer audio mute status.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
 			"pulse_audio_prefs": {
                 "sample_rate": {
                     "path": "/core/audio/pulse_audio_prefs/sample_rate",

@@ -337,7 +337,11 @@ void PixelProbeHUD::get_colour_pipeline_actor() {
     auto colour_pipe_manager = system().registry().get<caf::actor>(colour_pipeline_registry);
     caf::scoped_actor sys(system());
     colour_pipeline_ = utility::request_receive<caf::actor>(
-        *sys, colour_pipe_manager, xstudio::colour_pipeline::get_colour_pipeline_atom_v);
+        *sys,
+        colour_pipe_manager,
+        xstudio::colour_pipeline::colour_pipeline_atom_v,
+        "viewport0");
+    link_to(colour_pipeline_);
 }
 
 void PixelProbeHUD::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {

@@ -84,7 +84,7 @@ MenuBar  {
         id: colour_menu_toplevel
         XsModuleMenuBuilder {
             parent_menu: colour_menu_toplevel
-            root_menu_name: "menu_bar"
+            root_menu_name: "Colour"
         }
     }
 

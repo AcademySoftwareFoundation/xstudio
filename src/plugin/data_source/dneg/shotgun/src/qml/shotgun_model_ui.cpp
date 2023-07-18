@@ -135,63 +135,50 @@ QVariant ShotgunSequenceModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        const auto &j = indexToFullData(index);
 
-            switch (role) {
-            case JSONTreeModel::Roles::JSONRole:
-                result = QVariantMapFromJson(j);
-                break;
+        switch (role) {
+        case JSONTreeModel::Roles::JSONRole:
+            result = QVariantMapFromJson(j);
+            break;
 
-            case JSONTreeModel::Roles::JSONTextRole:
-                result = QString::fromStdString(j.dump(2));
-                break;
+        case JSONTreeModel::Roles::JSONTextRole:
+            result = QString::fromStdString(j.dump(2));
+            break;
 
-            case Roles::idRole:
-                try {
-                    if (j.at("id").is_number())
-                        result = j.at("id").get<int>();
-                    else
-                        result = QString::fromStdString(j.at("id").get<std::string>());
-                } catch (...) {
-                }
-                break;
-
-            case Roles::typeRole:
-                try {
-                    result = QString::fromStdString(j.at("type").get<std::string>());
-                } catch (...) {
-                }
-                break;
-
-            case Roles::nameRole:
-            case Qt::DisplayRole:
-                try {
-                    if (j.count("name"))
-                        result = QString::fromStdString(j.at("name"));
-                    else if (j.count("attributes"))
-                        result = QString::fromStdString(j.at("attributes").at("code"));
-                } catch (...) {
-                }
-                break;
-
-            default:
-                break;
+        case Roles::idRole:
+            try {
+                if (j.at("id").is_number())
+                    result = j.at("id").get<int>();
+                else
+                    result = QString::fromStdString(j.at("id").get<std::string>());
+            } catch (...) {
             }
+            break;
+
+        case Roles::typeRole:
+            try {
+                result = QString::fromStdString(j.at("type").get<std::string>());
+            } catch (...) {
+            }
+            break;
+
+        case Roles::nameRole:
+        case Qt::DisplayRole:
+            try {
+                if (j.count("name"))
+                    result = QString::fromStdString(j.at("name"));
+                else if (j.count("attributes"))
+                    result = QString::fromStdString(j.at("attributes").at("code"));
+            } catch (...) {
+            }
+            break;
+
+        default:
+            break;
         }
     } catch (const std::exception &err) {
-
-        spdlog::warn(
-            "{} {} {} {} {}",
-            __PRETTY_FUNCTION__,
-            err.what(),
-            role,
-            index.row(),
-            index.internalPointer());
-        if (index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            spdlog::warn("{}", j.dump(2));
-        }
+        spdlog::warn("{} {} {} {}", __PRETTY_FUNCTION__, err.what(), role, index.row());
     }
 
     return result;
@@ -969,11 +956,13 @@ void ShotgunTreeModel::populate(const utility::JsonStore &data) {
 void ShotgunTreeModel::checkForActiveLiveLink() {
     try {
         bool active = false;
-        if (not data_.is_null() and active_preset_ != -1 and
-            active_preset_ < static_cast<int>(data_.size())) {
-            const auto &i = data_.at(active_preset_);
-            for (const auto &j : i.at(children_)) {
-                if (j.value("enabled", false) and j.value("livelink", false)) {
+        if (active_preset_ != -1 and active_preset_ < static_cast<int>(data_.size())) {
+
+            auto active_node = data_.begin();
+            std::advance(active_node, active_preset_);
+
+            for (const auto &j : *active_node) {
+                if (j.data().value("enabled", false) and j.data().value("livelink", false)) {
                     active = true;
                     break;
                 }
@@ -993,12 +982,13 @@ void ShotgunTreeModel::checkForActiveFilter() {
 
     try {
         bool active = false;
-        if (not data_.is_null() and active_preset_ != -1 and
-            active_preset_ < static_cast<int>(data_.size())) {
-            const auto &i = data_.at(active_preset_);
+        if (active_preset_ != -1 and active_preset_ < static_cast<int>(data_.size())) {
 
-            for (const auto &j : i.at(children_)) {
-                if (j.at("enabled")) {
+            auto active_node = data_.begin();
+            std::advance(active_node, active_preset_);
+
+            for (const auto &j : *active_node) {
+                if (j.data().at("enabled")) {
                     active = true;
                     break;
                 }
@@ -1059,12 +1049,24 @@ void ShotgunTreeModel::setType(const int row, const QString &type) {
 
 void ShotgunTreeModel::clearLiveLinks() {
     try {
-        for (size_t i = 0; i < data_.size(); i++) {
-            for (size_t j = 0; j < data_.at(i).at(children_).size(); j++) {
-                if (data_.at(i).at(children_).at(j).value("livelink", false))
-                    set(j, "", "argRole", index(i, 0, QModelIndex()));
+        auto i_ind = 0;
+        for (const auto &i : data_) {
+            auto j_ind = 0;
+            for (const auto &j : i) {
+                if (j.data().value("livelink", false)) {
+                    set(j_ind, "", "argRole", index(i_ind, 0, QModelIndex()));
+                }
+                j_ind++;
             }
+            i_ind++;
         }
+
+        // for (size_t i = 0; i < data_.size(); i++) {
+        //     for (size_t j = 0; j < data_.at(i).at(children_).size(); j++) {
+        //         if (data_.at(i).at(children_).at(j).value("livelink", false))
+        //             set(j, "", "argRole", index(i, 0, QModelIndex()));
+        //     }
+        // }
     } catch (...) {
     }
 }
@@ -1153,80 +1155,78 @@ QVariant ShotgunTreeModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        const auto &j = indexToData(index);
 
-            switch (role) {
-            case JSONTreeModel::Roles::JSONRole:
-                result = QVariantMapFromJson(j);
-                break;
+        switch (role) {
+        case JSONTreeModel::Roles::JSONRole:
+            result = QVariantMapFromJson(indexToFullData(index));
+            break;
 
-            case JSONTreeModel::Roles::JSONTextRole:
-                result = QString::fromStdString(j.dump(2));
-                break;
+        case JSONTreeModel::Roles::JSONTextRole:
+            result = QString::fromStdString(indexToFullData(index).dump(2));
+            break;
 
-            case Roles::enabledRole:
-                result = j.at("enabled").get<bool>();
-                break;
+        case Roles::enabledRole:
+            result = j.at("enabled").get<bool>();
+            break;
 
-            case Roles::termRole:
-                result = QString::fromStdString(j.at("term"));
-                break;
+        case Roles::termRole:
+            result = QString::fromStdString(j.at("term"));
+            break;
 
-            case Roles::liveLinkRole:
-                try {
-                    result = j.at("livelink").get<bool>();
-                } catch (...) {
-                }
-                break;
-
-            case Roles::negationRole:
-                try {
-                    result = j.at("negated").get<bool>();
-                } catch (...) {
-                }
-                break;
-
-            case Roles::argRole:
-                result = QString::fromStdString(j.at("value"));
-                break;
-
-            case Roles::detailRole:
-                if (j.count("detail"))
-                    result = QVariantMapFromJson(j.at("detail"));
-                break;
-
-            case Roles::idRole:
-                try {
-                    if (j.at("id").is_number())
-                        result = j.at("id").get<int>();
-                    else
-                        result = QString::fromStdString(j.at("id").get<std::string>());
-                } catch (...) {
-                }
-                break;
-
-            case Roles::nameRole:
-            case Qt::DisplayRole:
-                result = QString::fromStdString(j.at("name"));
-                break;
-
-            case Roles::typeRole:
-                result = QString::fromStdString(j.value("type", "user"));
-                break;
-
-            case Roles::expandedRole:
-                result = j.at("expanded").get<bool>();
-                break;
-
-            case Roles::queriesRole:
-                // return index..
-                result = index;
-                break;
-
-            default:
-                break;
+        case Roles::liveLinkRole:
+            try {
+                result = j.at("livelink").get<bool>();
+            } catch (...) {
             }
+            break;
+
+        case Roles::negationRole:
+            try {
+                result = j.at("negated").get<bool>();
+            } catch (...) {
+            }
+            break;
+
+        case Roles::argRole:
+            result = QString::fromStdString(j.at("value"));
+            break;
+
+        case Roles::detailRole:
+            if (j.count("detail"))
+                result = QVariantMapFromJson(j.at("detail"));
+            break;
+
+        case Roles::idRole:
+            try {
+                if (j.at("id").is_number())
+                    result = j.at("id").get<int>();
+                else
+                    result = QString::fromStdString(j.at("id").get<std::string>());
+            } catch (...) {
+            }
+            break;
+
+        case Roles::nameRole:
+        case Qt::DisplayRole:
+            result = QString::fromStdString(j.at("name"));
+            break;
+
+        case Roles::typeRole:
+            result = QString::fromStdString(j.value("type", "user"));
+            break;
+
+        case Roles::expandedRole:
+            result = j.at("expanded").get<bool>();
+            break;
+
+        case Roles::queriesRole:
+            // return index..
+            result = index;
+            break;
+
+        default:
+            break;
         }
     } catch (const std::exception &err) {
 
@@ -1236,11 +1236,7 @@ QVariant ShotgunTreeModel::data(const QModelIndex &index, int role) const {
             err.what(),
             role,
             index.row(),
-            index.internalPointer());
-        if (index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            spdlog::warn("{}", j.dump(2));
-        }
+            index.internalId());
     }
 
     return result;
@@ -1254,97 +1250,108 @@ bool ShotgunTreeModel::setData(const QModelIndex &index, const QVariant &value, 
     QVector<int> roles({role});
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            result            = true;
-            switch (role) {
+        nlohmann::json &j = indexToData(index);
+        result            = true;
+        switch (role) {
 
-            case JSONTreeModel::Roles::JSONRole:
-                if (std::string(value.typeName()) == "QJSValue") {
-                    j = nlohmann::json::parse(
-                        QJsonDocument::fromVariant(value.value<QJSValue>().toVariant())
-                            .toJson(QJsonDocument::Compact)
-                            .constData());
-                } else {
-                    j = nlohmann::json::parse(QJsonDocument::fromVariant(value)
-                                                  .toJson(QJsonDocument::Compact)
-                                                  .constData());
-                }
-                build_parent_map();
-                refreshLiveLinks();
-                checkForActiveFilter();
-                checkForActiveLiveLink();
-                roles.clear();
-                break;
+        case JSONTreeModel::Roles::JSONRole: {
+            // more involved..
+            nlohmann::json jval;
 
-            case Roles::enabledRole:
-                j["enabled"] = value.toBool();
-                checkForActiveFilter();
-                checkForActiveLiveLink();
-                break;
-
-            case Roles::liveLinkRole:
-                j["livelink"] = value.toBool();
-                if (value.toBool())
-                    updateLiveLink(index.row(), index.parent());
-
-                checkForActiveLiveLink();
-                break;
-
-            case Roles::negationRole:
-                j["negated"] = value.toBool();
-                break;
-
-            case Roles::idRole:
-                if (value.type() == QVariant::String) {
-                    j["id"] = value.toByteArray();
-                } else {
-                    j["id"] = value.toInt();
-                }
-                break;
-
-            case Roles::termRole:
-                if (j.value("livelink", false) or j.value("dynamic", false))
-                    sync_change = false;
-                j["term"] = value.toByteArray();
-                checkForActiveLiveLink();
-                break;
-
-            case Roles::argRole:
-                if (j.value("livelink", false) or j.value("dynamic", false))
-                    sync_change = false;
-
-                j["value"] = value.toByteArray();
-                checkForActiveLiveLink();
-                break;
-
-            case Roles::detailRole:
-                if (value.isNull())
-                    j["detail"] = nullptr;
-                else
-                    j["detail"] = nlohmann::json::parse(
-                        QJsonDocument::fromVariant(value.value<QJSValue>().toVariant())
-                            .toJson(QJsonDocument::Compact)
-                            .constData());
-                break;
-
-            case Roles::nameRole:
-                j["name"] = value.toByteArray();
-                break;
-
-            case Roles::typeRole:
-                j["type"] = value.toByteArray();
-                break;
-
-            case Roles::expandedRole:
-                sync_change   = false;
-                j["expanded"] = value.toBool();
-                break;
-
-            default:
-                result = false;
-                break;
+            if (std::string(value.typeName()) == "QJSValue") {
+                jval = nlohmann::json::parse(
+                    QJsonDocument::fromVariant(value.value<QJSValue>().toVariant())
+                        .toJson(QJsonDocument::Compact)
+                        .constData());
+            } else {
+                jval = nlohmann::json::parse(QJsonDocument::fromVariant(value)
+                                                 .toJson(QJsonDocument::Compact)
+                                                 .constData());
             }
+
+            // we now need to update / replace the TreeNode..
+            auto new_node = json_to_tree(jval, "queries");
+            auto old_node = indexToTree(index);
+            // remove old children
+            old_node->clear();
+            // replace data..
+            old_node->data() = new_node.data();
+            // copy children
+            old_node->splice(old_node->end(), new_node.base());
+
+            refreshLiveLinks();
+            checkForActiveFilter();
+            checkForActiveLiveLink();
+            roles.clear();
+        } break;
+
+        case Roles::enabledRole:
+            j["enabled"] = value.toBool();
+            checkForActiveFilter();
+            checkForActiveLiveLink();
+            break;
+
+        case Roles::liveLinkRole:
+            j["livelink"] = value.toBool();
+            if (value.toBool())
+                updateLiveLink(index);
+
+            checkForActiveLiveLink();
+            break;
+
+        case Roles::negationRole:
+            j["negated"] = value.toBool();
+            break;
+
+        case Roles::idRole:
+            if (value.type() == QVariant::String) {
+                j["id"] = value.toByteArray();
+            } else {
+                j["id"] = value.toInt();
+            }
+            break;
+
+        case Roles::termRole:
+            if (j.value("livelink", false) or j.value("dynamic", false))
+                sync_change = false;
+            j["term"] = value.toByteArray();
+            checkForActiveLiveLink();
+            break;
+
+        case Roles::argRole:
+            if (j.value("livelink", false) or j.value("dynamic", false))
+                sync_change = false;
+
+            j["value"] = value.toByteArray();
+            checkForActiveLiveLink();
+            break;
+
+        case Roles::detailRole:
+            if (value.isNull())
+                j["detail"] = nullptr;
+            else
+                j["detail"] = nlohmann::json::parse(
+                    QJsonDocument::fromVariant(value.value<QJSValue>().toVariant())
+                        .toJson(QJsonDocument::Compact)
+                        .constData());
+            break;
+
+        case Roles::nameRole:
+            j["name"] = value.toByteArray();
+            break;
+
+        case Roles::typeRole:
+            j["type"] = value.toByteArray();
+            break;
+
+        case Roles::expandedRole:
+            sync_change   = false;
+            j["expanded"] = value.toBool();
+            break;
+
+        default:
+            result = false;
+            break;
         }
     } catch (const std::exception &err) {
         spdlog::warn(
@@ -1374,14 +1381,16 @@ void ShotgunTreeModel::updateLiveLinks(const utility::JsonStore &data) {
 
 void ShotgunTreeModel::refreshLiveLinks() {
     try {
-        if (not data_.is_null()) {
-            for (size_t i = 0; i < data_.size(); i++) {
-                for (size_t j = 0; j < data_.at(i).at(children_).size(); j++) {
-                    if (data_.at(i).at(children_).at(j).value("livelink", false)) {
-                        updateLiveLink(j, index(i, 0, QModelIndex()));
-                    }
+        auto i_ind = 0;
+        for (const auto &i : data_) {
+            auto j_ind = 0;
+            for (const auto &j : i) {
+                if (j.data().value("livelink", false)) {
+                    updateLiveLink(index(j_ind, 0, index(i_ind, 0, QModelIndex())));
                 }
+                j_ind++;
             }
+            i_ind++;
         }
     } catch (...) {
     }
@@ -1555,12 +1564,17 @@ void ShotgunTreeModel::setActivePreset(const int row) {
         emit activePresetChanged();
         if (active_preset_ >= 0) {
             try {
-                const auto primary_term = data_.at(active_preset_).at(children_).at(0);
-                if (primary_term.at("term") == "Shot" and
-                    primary_term.value("livelink", false) and
-                    active_seq_shot_ != QStringFromStd(primary_term.at("value"))) {
-                    active_seq_shot_ = QStringFromStd(primary_term.at("value"));
-                    emit activeSeqShotChanged();
+                if (active_preset_ < static_cast<int>(data_.size())) {
+                    auto row = data_.begin();
+                    std::advance(row, active_preset_);
+                    if (not row->empty()) {
+                        auto jsn = row->front().data();
+                        if (jsn.at("term") == "Shot" and jsn.value("livelink", false) and
+                            active_seq_shot_ != QStringFromStd(jsn.at("value"))) {
+                            active_seq_shot_ = QStringFromStd(jsn.at("value"));
+                            emit activeSeqShotChanged();
+                        }
+                    }
                 }
             } catch (...) {
             }
@@ -1568,20 +1582,21 @@ void ShotgunTreeModel::setActivePreset(const int row) {
     }
 }
 
-void ShotgunTreeModel::updateLiveLink(const int row, const QModelIndex &parent) {
+void ShotgunTreeModel::updateLiveLink(const QModelIndex &index) {
     // spdlog::warn("updateLiveLink {}", live_link_data_.dump(2));
     try {
-        auto value = data_.at(parent.row()).at(children_).at(row).at("value");
-        auto result =
-            applyLiveLinkValue(data_.at(parent.row()).at(children_).at(row), live_link_data_);
+        auto jsn   = indexToData(index);
+        auto value = jsn.at("value");
+
+        auto result = applyLiveLinkValue(jsn, live_link_data_);
+
         if (result != value) {
-            set(row,
+            set(index.row(),
                 QVariant::fromValue(QStringFromStd(result)),
                 QStringFromStd("argRole"),
-                parent);
+                index.parent());
 
-            if (parent.row() == active_preset_ &&
-                data_.at(parent.row()).at(children_).at(row).at("term") == "Shot") {
+            if (index.parent().row() == active_preset_ && jsn.at("term") == "Shot") {
 
                 if (active_seq_shot_ != QStringFromStd(result)) {
                     active_seq_shot_ = QStringFromStd(result);
@@ -1590,7 +1605,10 @@ void ShotgunTreeModel::updateLiveLink(const int row, const QModelIndex &parent) 
             }
         }
     } catch (...) {
-        set(row, QVariant::fromValue(QString("")), QStringFromStd("argRole"), parent);
+        set(index.row(),
+            QVariant::fromValue(QString("")),
+            QStringFromStd("argRole"),
+            index.parent());
     }
 }
 

@@ -67,9 +67,9 @@ class Playlist(Container):
             path = URI("file:///" + path)
 
         if not isinstance(media_rate, FrameRate):
-            result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse)[0]
+            result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse, Uuid())[0]
         else:
-            result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse, media_rate)[0]
+            result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse, media_rate, Uuid())[0]
 
         return [Media(self.connection, i.actor, i.uuid) for i in result]
 
@@ -86,14 +86,14 @@ class Playlist(Container):
             media(Media): Media.
         """
         if isinstance(image_path, URI):
-            result = self.connection.request_receive(self.remote, add_media_atom(), image_path, False)[0][0]
+            result = self.connection.request_receive(self.remote, add_media_atom(), image_path, False, Uuid())[0][0]
         else:
             ppp = parse_posix_path(image_path)
 
             if not str(ppp[1]):
-                result = self.connection.request_receive(self.remote, add_media_atom(), image_path, ppp[0])[0]
+                result = self.connection.request_receive(self.remote, add_media_atom(), image_path, ppp[0], Uuid())[0]
             else:
-                result = self.connection.request_receive(self.remote, add_media_atom(), image_path, ppp[0], ppp[1])[0]
+                result = self.connection.request_receive(self.remote, add_media_atom(), image_path, ppp[0], ppp[1], Uuid())[0]
 
         media = Media(self.connection, result.actor, result.uuid)
         audiosource = media.add_media_source(audio_path)
@@ -107,7 +107,7 @@ class Playlist(Container):
 
         return media
 
-    def add_media(self, path):
+    def add_media(self, path, frame_list=None):
         """Add media from path.
 
         Args:
@@ -117,14 +117,16 @@ class Playlist(Container):
             media(Media): Media.
         """
         if isinstance(path, URI):
-            result = self.connection.request_receive(self.remote, add_media_atom(), path, False)[0][0]
+            result = self.connection.request_receive(self.remote, add_media_atom(), path, False, Uuid())[0][0]
         else:
             ppp = parse_posix_path(path)
 
-            if not str(ppp[1]):
-                result = self.connection.request_receive(self.remote, add_media_atom(), path, ppp[0])[0]
+            if not str(ppp[1]) and frame_list is None:
+                result = self.connection.request_receive(self.remote, add_media_atom(), path, ppp[0], Uuid())[0]
             else:
-                result = self.connection.request_receive(self.remote, add_media_atom(), path, ppp[0], ppp[1])[0]
+                result = self.connection.request_receive(
+                    self.remote, add_media_atom(), path, ppp[0], ppp[1] if frame_list is None else frame_list, Uuid()
+                )[0]
 
         return Media(self.connection, result.actor, result.uuid)
 

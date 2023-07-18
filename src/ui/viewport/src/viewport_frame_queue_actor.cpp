@@ -8,10 +8,15 @@
 
 using namespace xstudio::ui::viewport;
 using namespace xstudio::utility;
+using namespace xstudio;
 
 ViewportFrameQueueActor::ViewportFrameQueueActor(
-    caf::actor_config &cfg, std::map<utility::Uuid, caf::actor> overlay_actors)
-    : caf::event_based_actor(cfg), overlay_actors_(std::move(overlay_actors)) {
+    caf::actor_config &cfg,
+    std::map<utility::Uuid, caf::actor> overlay_actors,
+    const int viewport_index)
+    : caf::event_based_actor(cfg),
+      overlay_actors_(std::move(overlay_actors)),
+      viewport_index_(viewport_index) {
 
     set_default_handler(caf::drop);
 
@@ -20,6 +25,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         if (msg.source == playhead_) {
             demonitor(playhead_);
             playhead_ = caf::actor();
+            frames_to_draw_per_playhead_.clear();
         }
     });
 
@@ -96,14 +102,39 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             const utility::Uuid &playhead_uuid,
             const utility::time_point &tp) { current_playhead_ = playhead_uuid; },
 
+        [=](playhead::colour_pipeline_lookahead_atom,
+            const media::AVFrameIDsAndTimePoints &frame_ids_for_colour_mgmnt_lookeahead) {
+            // For each media source that is within the lookahead read region, during playback,
+            // we are given a single AVFrameID. The AVFrameID carries all of the colour
+            // management metadata for the given source needed by the colour management plugin
+            // ('colour_pipeline_' to set-up LUTs and other variables for displaying frames from
+            // the source on-screen in the desired colourspace etc. Here, we get the
+            // colour_pipeline_ to compute all the data it needs for these frames, even though
+            // they aren't going to immediately be on screen. This should give enough time to do
+            // slow work and prevent stuttering that would otherwise happen while we wait for
+            // colour pipe to do its thing at draw time. We assume that the colour_pipeline_ has
+            // an effective local cacheing system so when we do actually need that data
+            // immediately at draw time it will be available immediately.
+            if (colour_pipeline_ && viewport_index_ >= 0) {
+                anon_send(
+                    colour_pipeline_,
+                    colour_pipeline::get_colour_pipe_data_atom_v,
+                    frame_ids_for_colour_mgmnt_lookeahead);
+            }
+        },
+
         [=](playhead::play_atom, const bool playing) { playing_ = playing; },
 
         [=](playhead::play_forward_atom, const bool forward) { playing_forwards_ = forward; },
 
+        [=](colour_pipeline::colour_pipeline_atom, caf::actor colour_pipeline) {
+            colour_pipeline_ = colour_pipeline;
+        },
+
         [=](ui::fps_monitor::framebuffer_swapped_atom,
             const utility::time_point &message_send_tp,
             const timebase::flicks video_refresh_rate_hint,
-            const bool main_viewer) {
+            const int viewport_index) {
             // this incoming message originates from the video layer and 'message_send_tp'
             // should be, as accurately as possible, the actual time that the framebuffer was
             // swapped to the screen.
@@ -159,6 +190,20 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             return rp;
         },
 
+        [=](utility::event_atom,
+            playhead::media_source_atom,
+            caf::actor media_actor,
+            const utility::Uuid &media_uuid) {
+            if (colour_pipeline_) {
+                anon_send(
+                    colour_pipeline_,
+                    utility::event_atom_v,
+                    playhead::media_source_atom_v,
+                    media_actor,
+                    media_uuid);
+            }
+        },
+
         [=](const error &err) mutable { aout(this) << err << std::endl; });
 }
 
@@ -210,7 +255,7 @@ void ViewportFrameQueueActor::queue_image_buffer_for_drawing(
 
     auto &frames_queued_for_display = frames_to_draw_per_playhead_[playhead_id];
 
-    OrderedImagesToDraw::iterator p = frames_queued_for_display.begin();
+    auto p = frames_queued_for_display.begin();
     while (p != frames_queued_for_display.end()) {
         // there can only be one image in the display queue for a given
         // timeline timestamp. Remove images already in the queue so the
@@ -420,14 +465,13 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
         // we need the playhead to estimate what its position will be when we next swap an image
         // onto the screen. We then use this to pick which of the frames that we've been sent to
         // show we actually show.
-        timebase::flicks estimate_playhead_position_at_next_redraw =
-            request_receive_wait<timebase::flicks>(
-                *sys,
-                playhead_,
-                std::chrono::milliseconds(100),
-                playhead::position_atom_v,
-                next_video_refresh_tp,
-                video_refresh_period);
+        auto estimate_playhead_position_at_next_redraw = request_receive_wait<timebase::flicks>(
+            *sys,
+            playhead_,
+            std::chrono::milliseconds(100),
+            playhead::position_atom_v,
+            next_video_refresh_tp,
+            video_refresh_period);
 
         if (!playing_)
             return estimate_playhead_position_at_next_redraw;

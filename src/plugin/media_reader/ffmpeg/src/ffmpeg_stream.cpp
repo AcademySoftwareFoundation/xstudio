@@ -392,7 +392,7 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
     image_buffer->set_shader_params(jsn);
 
     image_buffer->set_display_timestamp_seconds(
-        double(stream_start_time() + frame->pts) * double(avc_stream_->time_base.num) /
+        double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
 
     AVRational aspect = av_guess_sample_aspect_ratio(format_context_, avc_stream_, frame);
@@ -408,6 +408,20 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
             image_buffer->set_duration_seconds(double(fpsDen_) / double(fpsNum_));
         else
             image_buffer->set_duration_seconds(1.0 / double(fpsNum_));
+    }
+
+    // determine if image has alpha - if planar, look for 'a_linesize' != 0.
+    // Otherwise check for interleaved RGB pix formats that have an alpha
+    int rgb_format_code = jsn.value("rgb", 0);
+    int alpha_line_size = jsn.value("a_linesize", 0);
+
+    if (rgb_format_code == 8 || rgb_format_code == 1 || rgb_format_code == 2) {
+        image_buffer->set_has_alpha(false);
+    } else if (rgb_format_code == 9 || (rgb_format_code > 2 && rgb_format_code < 7)) {
+        image_buffer->set_has_alpha(true);
+    } else {
+        // rgb == 7 (RGB(A) planar) or rgb == 0 (i.e. YUV(A))
+        image_buffer->set_has_alpha(alpha_line_size != 0);
     }
 
     image_buffer->set_decoder_frame_number(current_frame());
@@ -522,12 +536,9 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     target_sample_rate_    = audio_buffer->sample_rate();
     target_audio_channels_ = audio_buffer->num_channels();
 
-
-    if (!audio_buffer->display_timestamp_seconds_is_set()) {
-        audio_buffer->set_display_timestamp_seconds(
-            double(stream_start_time() + frame->pts) * double(avc_stream_->time_base.num) /
-            double(avc_stream_->time_base.den));
-    }
+    audio_buffer->set_display_timestamp_seconds(
+        double(frame->pts) * double(avc_stream_->time_base.num) /
+        double(avc_stream_->time_base.den));
 
     resample_audio(frame, audio_buffer, -1);
 
@@ -613,11 +624,14 @@ FFMpegStream::FFMpegStream(
 
     // Set the fps if it has been set correctly in the stream
     if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
-        fpsNum_ = avc_stream_->avg_frame_rate.num;
-        fpsDen_ = avc_stream_->avg_frame_rate.den;
+        fpsNum_     = avc_stream_->avg_frame_rate.num;
+        fpsDen_     = avc_stream_->avg_frame_rate.den;
+        frame_rate_ = xstudio::utility::FrameRate(
+            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
     } else {
-        fpsNum_ = 0;
-        fpsDen_ = 0;
+        fpsNum_     = 0;
+        fpsDen_     = 0;
+        frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
     }
 }
 
@@ -636,6 +650,8 @@ FFMpegStream::~FFMpegStream() {
         sws_freeContext(sws_context_);
 }
 
+void FFMpegStream::set_virtual_frame_rate(const utility::FrameRate &vfr) { frame_rate_ = vfr; }
+
 int64_t FFMpegStream::current_frame() {
 
     // no frame!
@@ -648,13 +664,10 @@ int64_t FFMpegStream::current_frame() {
     current_frame_ = 0;
     if (fpsNum_) {
         current_frame_ = int(floor(
-            double(
-                (frame->best_effort_timestamp - stream_start_time()) *
-                avc_stream_->time_base.num * fpsNum_) /
+            double((frame->best_effort_timestamp) * avc_stream_->time_base.num * fpsNum_) /
             double(avc_stream_->time_base.den * fpsDen_)));
     } else {
-        current_frame_ = ((frame->best_effort_timestamp - stream_start_time()) *
-                          avc_stream_->time_base.num) /
+        current_frame_ = ((frame->best_effort_timestamp) * avc_stream_->time_base.num) /
                          (avc_stream_->time_base.den);
     }
 
@@ -662,38 +675,20 @@ int64_t FFMpegStream::current_frame() {
 }
 
 int64_t FFMpegStream::frame_to_pts(int frame) const {
-    uint64_t pts = 0;
-    if (fpsNum_) {
-        pts = stream_start_time() + (int64_t(frame) * fpsDen_ * avc_stream_->time_base.den) /
-                                        (int64_t(fpsNum_) * avc_stream_->time_base.num);
-    } else {
-        pts = stream_start_time() +
-              (int64_t(frame) * avc_stream_->time_base.den) / (avc_stream_->time_base.num);
-    }
-    return pts;
-}
 
-xstudio::utility::FrameRate FFMpegStream::frame_rate() const {
-    // frame rate in frames per second
-    xstudio::utility::FrameRate r;
-    if (fpsDen_ && fpsNum_)
-        r = xstudio::utility::FrameRate(
-            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
-    else
-        r = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
-    return r;
+    return seconds_to_pts(double(frame) * frame_rate().to_seconds());
 }
 
 size_t FFMpegStream::resample_audio(
     AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer) {
 
     // N.B. this method is based loosely on the audio resampling in ffplay.c in ffmpeg source
-    const int target_channel_layout = av_get_default_channel_layout(2);
+    const int64_t target_channel_layout = av_get_default_channel_layout(2);
 
     av_samples_get_buffer_size(
         nullptr, frame->channels, frame->nb_samples, (AVSampleFormat)frame->format, 1);
 
-    const int dec_channel_layout =
+    const int64_t dec_channel_layout =
         (frame->channel_layout &&
          frame->channels == av_get_channel_layout_nb_channels(frame->channel_layout))
             ? frame->channel_layout
@@ -786,10 +781,12 @@ int64_t FFMpegStream::receive_frame() {
 
     // for single frame video source, check if the frame has already been
     // decoded
-    if (duration_frames() == 1 && !nothing_decoded_yet_)
+    if (duration_frames() == 1 && !nothing_decoded_yet_) {
         return AVERROR_EOF;
+    }
 
     av_frame_unref(frame);
+
     int rt = avcodec_receive_frame(codec_context_, frame);
 
     // we have decoded a frame, increment the frame counter
@@ -819,6 +816,36 @@ int FFMpegStream::send_packet(AVPacket *avc_packet_) {
 }
 
 void FFMpegStream::flush_buffers() { avcodec_flush_buffers(codec_context_); }
+
+double FFMpegStream::duration_seconds() const {
+
+    if (avc_stream_->time_base.num &&
+        avc_stream_->duration != std::numeric_limits<int64_t>::lowest()) {
+
+        return double(avc_stream_->duration * avc_stream_->time_base.num) /
+               double(avc_stream_->time_base.den);
+
+    } else {
+        // stream duration is not known. Applying some rules based on trial and
+        // error investigation.
+        if (format_context_->duration > 0 &&
+            avc_stream_->duration == std::numeric_limits<int64_t>::lowest()) {
+            // I've found that on MKV/VP8 (webm) sources, if duration is set on the
+            // AVFormatContext it is stated in microseconds (AV_TIME_BASE), not in the timebase
+            // of the AVStream. Undocumented behaviour in ffmpeg, of course.
+            return double(format_context_->duration) * 0.000001;
+        } else if (avc_stream_->nb_frames > 0 && avc_stream_->avg_frame_rate.num) {
+            // maybe we know the number of frames and frame rate
+            return double(avc_stream_->nb_frames * avc_stream_->avg_frame_rate.den) /
+                   double(avc_stream_->avg_frame_rate.num);
+        } else if (avc_stream_->time_base.num) {
+            // single frame source
+            return double(avc_stream_->time_base.num) / double(avc_stream_->time_base.den);
+        }
+    }
+    // fallback, assume single frame source
+    return frame_rate().to_seconds();
+}
 
 int FFMpegStream::duration_frames() const {
 

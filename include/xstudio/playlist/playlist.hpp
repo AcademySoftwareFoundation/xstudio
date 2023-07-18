@@ -69,6 +69,9 @@ namespace playlist {
             const utility::Uuid &uuid, const utility::Uuid &uuid_before = utility::Uuid()) {
             return media_list_.move(uuid, uuid_before);
         }
+        utility::Uuid next_media(const utility::Uuid &uuid) {
+            return media_list_.next_uuid(uuid);
+        }
 
         [[nodiscard]] utility::FrameRate media_rate() const { return media_rate_; }
         void set_media_rate(const utility::FrameRate &rate) { media_rate_ = rate; }

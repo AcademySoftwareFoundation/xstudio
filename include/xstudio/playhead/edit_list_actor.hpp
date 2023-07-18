@@ -18,7 +18,8 @@ namespace playhead {
         EditListActor(
             caf::actor_config &cfg,
             const std::string &name,
-            const std::vector<caf::actor> &media_clip_list);
+            const std::vector<caf::actor> &media_clip_list,
+            const media::MediaType mt);
         ~EditListActor() override = default;
 
         const char *name() const override { return NAME.c_str(); }

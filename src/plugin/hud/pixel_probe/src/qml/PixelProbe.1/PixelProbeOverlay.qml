@@ -19,7 +19,7 @@ Rectangle {
     XsModuleAttributes {
 
         id: pixel_info_attributes
-        attributesGroupName: "pixel_info_attributes"
+        attributesGroupNames: "pixel_info_attributes"
     }
 
     Rectangle {

@@ -154,7 +154,7 @@ XsToolbarItem  {
         // in the backend.
         XsOrderedModuleAttributesModel {
             id: hud_element_toggles
-            attributesGroupName: "hud_element_toggles"
+            attributesGroupNames: "hud_element_toggles"
         }
 
         ColumnLayout {
@@ -262,7 +262,7 @@ XsToolbarItem  {
                             XsModuleAttributesDialog {
                                 id: hud_item_settings_dialog
                                 title: hud_plugin_name + " HUD Settings"
-                                attributesGroupName: hud_plugin_name + " Settings"
+                                attributesGroupNames: hud_plugin_name + " Settings"
                             }
             
                             onClicked: {

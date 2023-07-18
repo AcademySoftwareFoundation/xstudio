@@ -17,10 +17,8 @@ import QtQml 2.14
 // BEGIN COMMENT OUT WHEN WORKING INSIDE Qt Creator
 //------------------------------------------------------------------------------
 import xstudio.qml.viewport 1.0
-import xstudio.qml.playlist 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
-import xstudio.qml.session 1.0
 import xstudio.qml.uuid 1.0
 import xstudio.qml.module 1.0
 import xstudio.qml.helpers 1.0
@@ -78,16 +76,6 @@ Rectangle {
     function normalScreen() {
         parent_win.normalScreen()
     }
-
-    QMLUuid {
-        id: null_uuid
-    }
-
-    function switchSource(source) {
-        session.switchOnScreenSource(source.uuid)
-    }
-
-    XsTimer {id: myTimer}  // this timer has a setTimeout function.
 
     function toggleControlsVisible() {
 
@@ -156,12 +144,7 @@ Rectangle {
 
     property alias viewport: viewport
     property alias viewportTitleBar: viewportTitleBar
-    property var playlist: session.onScreenSource
     property var playhead: viewport.playhead
-    property var selectionFilter: playlist ? playlist.selectionFilter : undefined
-    property var previousPlayhead: undefined
-    property var auto_played: false
-    //property alias shortcuts: shortcuts
 
     ColumnLayout {
         spacing: 0

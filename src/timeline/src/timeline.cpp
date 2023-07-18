@@ -15,14 +15,16 @@ Timeline::Timeline(const std::string &name, const utility::Uuid &_uuid, const ca
           utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor))) {}
 
 Timeline::Timeline(const JsonStore &jsn)
-    : Container(static_cast<utility::JsonStore>(jsn["container"])),
-      item_(static_cast<utility::JsonStore>(jsn["item"])) {}
+    : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
+      item_(static_cast<utility::JsonStore>(jsn.at("item"))),
+      media_list_(static_cast<utility::JsonStore>(jsn.at("media"))) {}
 
 JsonStore Timeline::serialise() const {
     JsonStore jsn;
 
     jsn["container"] = Container::serialise();
     jsn["item"]      = item_.serialise(1);
+    jsn["media"]     = media_list_.serialise();
 
     return jsn;
 }

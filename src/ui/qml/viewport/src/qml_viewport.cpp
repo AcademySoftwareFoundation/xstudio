@@ -70,11 +70,9 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
     playhead_->init(CafSystemObject::get_actor_system());
 
     connect(this, &QQuickItem::windowChanged, this, &QMLViewport::handleWindowChanged);
-    static bool primary  = true;
-    is_primary_viewport_ = primary;
-    renderer_actor =
-        new QMLViewportRenderer(static_cast<QObject *>(this), is_primary_viewport_);
-    primary = false;
+    static int index = 0;
+    viewport_index_  = index++;
+    renderer_actor   = new QMLViewportRenderer(static_cast<QObject *>(this), viewport_index_);
     connect(renderer_actor, SIGNAL(zoomChanged(float)), this, SIGNAL(zoomChanged(float)));
     connect(
         renderer_actor,
@@ -109,6 +107,12 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
         SIGNAL(scaleChanged(float)),
         this,
         SIGNAL(imageBoundaryInViewportChanged()));
+
+    connect(
+        renderer_actor,
+        SIGNAL(noAlphaChannelChanged(bool)),
+        this,
+        SLOT(setNoAlphaChannel(bool)));
 
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
@@ -189,7 +193,7 @@ QMLViewport::makePointerEvent(Signature::EventType t, QMouseEvent *event, int fo
         width(),  // FIXME should be width, but this function appears to never be called.
         height(), // FIXME should be height
         qtModifierToOurs(event->modifiers()) + force_modifiers,
-        is_primary_viewport_ ? "primary_viewport" : "secondary_viewport");
+        fmt::format("viewport{0}", viewport_index_));
     p.w_ = utility::clock::now();
     return p;
 }
@@ -205,7 +209,7 @@ PointerEvent QMLViewport::makePointerEvent(
         w,
         h,
         modifiers,
-        is_primary_viewport_ ? "primary_viewport" : "secondary_viewport");
+        fmt::format("viewport{0}", viewport_index_));
 }
 
 static QOpenGLContext *__aa = nullptr;
@@ -223,6 +227,9 @@ void QMLViewport::sync() {
             Qt::DirectConnection);
         connected_ = true;
     }
+
+    if (!window() || !renderer_actor)
+        return;
 
     // Tell the renderer the viewport coordinates. These are the 4 corners of the viewport
     // within the overall GL viewport,
@@ -444,7 +451,7 @@ void QMLViewport::wheelEvent(QWheelEvent *event) {
         width(),  // FIXME should be width, but this function appears to never be called.
         height(), // FIXME should be height
         qtModifierToOurs(event->modifiers()),
-        is_primary_viewport_ ? "primary_viewport" : "secondary_viewport",
+        fmt::format("viewport{0}", viewport_index_),
         std::make_pair(event->angleDelta().rx(), event->angleDelta().ry()),
         std::make_pair(event->pixelDelta().rx(), event->pixelDelta().ry()));
 
@@ -497,6 +504,13 @@ void QMLViewport::setFrameOutOfRange(bool frame_out_of_range) {
     if (frame_out_of_range != frame_out_of_range_) {
         frame_out_of_range_ = frame_out_of_range;
         emit frameOutOfRangeChanged();
+    }
+}
+
+void QMLViewport::setNoAlphaChannel(bool no_alpha_channel) {
+    if (no_alpha_channel != no_alpha_channel_) {
+        no_alpha_channel_ = no_alpha_channel;
+        emit noAlphaChannelChanged();
     }
 }
 
@@ -587,3 +601,5 @@ void QMLViewport::setRegularCursor(const Qt::CursorShape cname) {
     cursor_ = QCursor(cname);
     this->setCursor(cursor_);
 }
+
+QString QMLViewport::name() const { return renderer_actor->name(); }

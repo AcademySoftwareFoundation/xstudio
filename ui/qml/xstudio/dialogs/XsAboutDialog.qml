@@ -86,7 +86,7 @@ Jason Brown, Richard Jenns and Katherine Roberts<BR>
                 }
 
                 Text {
-                    text:"Documentation is available here:<BR><style>a:link { color:'+XsStyle.highlightColor+'; }</style><a href='"+session.userDocsUrl()+"'>Documentation</a>"
+                    text:"Documentation is available here:<BR><style>a:link { color:'+XsStyle.highlightColor+'; }</style><a href='"+studio.userDocsUrl()+"'>Documentation</a>"
                     textFormat: Text.RichText
                     font.family: XsStyle.fontFamily
                     font.pixelSize: XsStyle.menuFontSize

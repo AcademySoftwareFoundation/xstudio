@@ -258,13 +258,14 @@ std::string::const_iterator AlphaBitmapFont::viewport_position_to_cursor(
 
     if (line < 0)
         return text.end(); // viewport_position is beyond y min of the text bounding box
-    if (line > wrap_points.size())
+    if (line > (int)wrap_points.size())
         return text.end(); // viewport_position is beyond y max of the text bounding box
 
     // which character in the text corresponds to the start of the line that was clicked in?
     std::string::const_iterator c =
         line && wrap_points.size() ? wrap_points[line - 1] : text.begin();
-    auto line_end = line < wrap_points.size() ? wrap_points.begin() + line : wrap_points.end();
+    auto line_end =
+        line < (int)wrap_points.size() ? wrap_points.begin() + line : wrap_points.end();
 
     while (c != text.end()) {
 

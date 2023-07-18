@@ -7,6 +7,7 @@
 #include <pybind11/stl.h>
 #include <tuple>
 
+#include <opentimelineio/timeline.h>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -22,7 +23,9 @@ using namespace xstudio::embedded_python;
 using namespace nlohmann;
 using namespace caf;
 using namespace pybind11::literals;
-namespace py = pybind11;
+
+namespace py   = pybind11;
+namespace otio = opentimelineio::OPENTIMELINEIO_VERSION;
 
 #pragma GCC visibility push(hidden)
 class PyStdErrOutStreamRedirect {
@@ -77,6 +80,22 @@ void send_output(
             std::make_tuple(stdo, stde));
     }
 }
+
+class PyObjectRef {
+  public:
+    PyObjectRef(PyObject *obj) : obj_(obj) {
+        if (!obj_) {
+            throw std::runtime_error("Python error");
+        }
+    }
+
+    ~PyObjectRef() { Py_XDECREF(obj_); }
+
+    PyObject *obj_ = nullptr;
+
+    operator PyObject *() const { return obj_; }
+};
+
 
 #pragma GCC visibility pop
 
@@ -177,6 +196,72 @@ void EmbeddedPythonActor::act() {
             CAF_SET_LOGGER_SYS(&system());
 
             return result;
+        },
+
+        // import otio file return as otio xml string.
+        // if already native format should be quick..
+        [=](session::import_atom, const caf::uri &path) -> result<std::string> {
+            if (not base_.enabled())
+                return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+            std::string error;
+
+            try {
+                PyStdErrOutStreamRedirect out{};
+                try {
+                    otio::ErrorStatus error_status;
+
+                    auto p_module =
+                        PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
+                    // Read the timeline into Python.
+                    auto p_read_from_file =
+                        PyObjectRef(PyObject_GetAttrString(p_module, "read_from_file"));
+                    auto p_read_from_file_args = PyObjectRef(PyTuple_New(1));
+
+
+                    const std::string file_name_normalized = uri_to_posix_path(path);
+                    auto p_read_from_file_arg              = PyUnicode_FromStringAndSize(
+                        file_name_normalized.c_str(), file_name_normalized.size());
+                    if (!p_read_from_file_arg) {
+                        throw std::runtime_error("cannot create arg");
+                    }
+                    PyTuple_SetItem(p_read_from_file_args, 0, p_read_from_file_arg);
+                    auto p_timeline = PyObjectRef(
+                        PyObject_CallObject(p_read_from_file, p_read_from_file_args));
+
+                    // Convert the Python timeline into a string and use that to create a C++
+                    // timeline.
+                    auto p_to_json_string =
+                        PyObjectRef(PyObject_GetAttrString(p_timeline, "to_json_string"));
+                    auto p_json_string =
+                        PyObjectRef(PyObject_CallObject(p_to_json_string, nullptr));
+
+                    return PyUnicode_AsUTF8AndSize(p_json_string, nullptr);
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    auto py_stderr =
+                        py::module::import("sys").attr("stderr").cast<py::object>();
+                    py::print(error, "file"_a = py_stderr);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    error = err.what();
+                }
+
+                // send_output(this, event_group_, out, uuid);
+            } catch (py::error_already_set &err) {
+                err.restore();
+                error          = err.what();
+                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
+                py::print(error, "file"_a = py_stderr);
+                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                error = err.what();
+            }
+
+            return make_error(xstudio_error::error, error);
         },
 
         [=](python_create_session_atom, const bool interactive) -> result<utility::Uuid> {

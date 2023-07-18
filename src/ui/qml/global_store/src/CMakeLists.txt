@@ -3,7 +3,6 @@ SET(LINK_DEPS
 	Qt5::Core
 	xstudio::global_store
 	xstudio::ui::qml::helper
-	xstudio::ui::qml::json_tree_model
 )
 
 SET(EXTRAMOC

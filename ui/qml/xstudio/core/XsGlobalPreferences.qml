@@ -14,7 +14,6 @@ Item
     property alias check_unsaved_session: check_unsaved_session
 	property alias latest_version: latest_version
 	property alias loop_mode: loop_mode
-    property alias force_trim_slate_frame: force_trim_slate_frame
 	property alias restore_play_state_after_scrub: restore_play_state_after_scrub
     property alias enable_presentation_mode: enable_presentation_mode
     property alias last_auto_save: last_auto_save
@@ -28,13 +27,12 @@ Item
     property alias exposure: exposure
     property alias velocity: velocity
     property alias note_category: note_category
+    property alias note_depth: note_depth
     property alias note_colour: note_colour
     property alias compare: compare
     property alias source: source
     property alias view: view
     property alias display: display
-    property alias volume: volume
-    property alias mute: mute
     property alias python_history: python_history
     property alias recent_history: recent_history
     property alias session_link_prefix: session_link_prefix
@@ -49,7 +47,7 @@ Item
     property alias new_media_rate: new_media_rate
     property alias viewport_scrub_sensitivity: viewport_scrub_sensitivity
     property alias default_playhead_compare_mode: default_playhead_compare_mode
-    property alias current_saved_session_folder: current_saved_session_folder
+    property alias default_media_folder: default_media_folder
 
     property color accent_color: '#bb7700'
 
@@ -57,6 +55,12 @@ Item
         id: note_category
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_category", "pathRole")
+    }
+
+    XsModelProperty {
+        id: note_depth
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_depth", "pathRole")
     }
 
     XsModelProperty {
@@ -99,18 +103,6 @@ Item
         id: xplayer_window
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/ui/qml/xplayer_window", "pathRole")
-    }
-
-    XsModelProperty {
-        id: volume
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/volume", "pathRole")
-    }
-
-    XsModelProperty {
-        id: mute
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/audio_mute", "pathRole")
     }
 
     XsModelProperty {
@@ -189,12 +181,6 @@ Item
         id: check_unsaved_session
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/ui/qml/check_unsaved_session", "pathRole")
-    }
-
-    XsModelProperty {
-        id: force_trim_slate_frame
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/plugin/dneg_media_hook/force_trim_slate_frame", "pathRole")
     }
 
     XsModelProperty {
@@ -309,9 +295,9 @@ Item
     }
 
     XsModelProperty {
-        id: current_saved_session_folder
+        id: default_media_folder
         role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/current_saved_session_folder", "pathRole")
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/default_media_folder", "pathRole")
     }
 
     Gradient {

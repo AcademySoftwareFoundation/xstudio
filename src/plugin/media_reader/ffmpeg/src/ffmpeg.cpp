@@ -11,6 +11,7 @@
 #include "xstudio/media/media.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/ui/opengl/shader_program_base.hpp"
 
 #include "ffmpeg.hpp"
 #include "ffmpeg_decoder.hpp"
@@ -230,10 +231,10 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 )"};
 
 static ui::viewport::GPUShaderPtr
-    ffmpeg_shader_yuv(new ui::viewport::GPUShader(ffmpeg_shader_uuid_yuv, the_shader_yuv));
+    ffmpeg_shader_yuv(new ui::opengl::OpenGLShader(ffmpeg_shader_uuid_yuv, the_shader_yuv));
 
 static ui::viewport::GPUShaderPtr
-    ffmpeg_shader_rgb(new ui::viewport::GPUShader(ffmpeg_shader_uuid_rgb, the_shader_rgb));
+    ffmpeg_shader_rgb(new ui::opengl::OpenGLShader(ffmpeg_shader_uuid_rgb, the_shader_rgb));
 
 } // namespace
 
@@ -278,8 +279,7 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
     }
 
     if (!decoder || decoder->path() != path) {
-        decoder.reset(
-            new FFMpegDecoder(path, soundcard_sample_rate_, VIDEO_STREAM, mptr.stream_id_));
+        decoder.reset(new FFMpegDecoder(path, soundcard_sample_rate_, mptr.stream_id_));
     }
 
     ImageBufPtr rt;
@@ -304,41 +304,15 @@ AudioBufPtr FFMpegMediaReader::audio(const media::AVFrameID &mptr) {
         std::string path = uri_to_posix_path(mptr.uri_);
 
         if (!audio_decoder || audio_decoder->path() != path) {
-            audio_decoder.reset(new FFMpegDecoder(
-                path, soundcard_sample_rate_, AUDIO_STREAM, mptr.stream_id_, mptr.rate_));
+            audio_decoder.reset(
+                new FFMpegDecoder(path, soundcard_sample_rate_, mptr.stream_id_));
         }
 
         AudioBufPtr rt;
-
-        ImageBufPtr virtual_vid_frame;
-
-        // xstudio stores a frame of audio samples for every video frame for any
-        // given source (if the source has no video it is assigned a 'virtual' video
-        // frame rate to maintain this approach). However, audio frames generally
-        // do not have the same duration as video frames, so there is always some
-        // offset between when the video frame is shown and when the audio samples
-        // associated with that frame should sound.
-
-        // For example, it's common for ffmpeg to return audio in blocks of
-        // 1024 samples and it does so out of sync with delivery of video farmes
-        // The FFMpegDecoder will approximately match each block to the video
-        // frame using the display timestamp, it also concatenates blocks where
-        // necessary as you will often find the blocks coming from ffmpeg at a
-        // higher frequency than video frames.
-
-        audio_decoder->decode_video_frame(mptr.frame_, virtual_vid_frame);
-
-        if (virtual_vid_frame->audio_) {
-            rt                = virtual_vid_frame->audio_;
-            const float delta = rt->display_timestamp_seconds() -
-                                virtual_vid_frame->display_timestamp_seconds();
-            rt->set_time_delta_to_video_frame(
-                std::chrono::microseconds((int)round(delta * 1000000.0)));
-        } else {
+        audio_decoder->decode_audio_frame(mptr.frame_, rt);
+        if (!rt) {
             rt.reset(new AudioBuffer());
         }
-
-        // if (rt) rt->set_shader_id(ffmpeg_shader_uuid);
 
         return rt;
 
@@ -355,14 +329,9 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
     // N.B. MediaDetail needs frame duration, so invert frame rate
     std::vector<media::StreamDetail> streams;
 
-    bool have_video = false;
-    bool have_audio = false;
-
     for (auto &p : t_decoder.streams()) {
         if (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ||
             p.second->codec_type() == AVMEDIA_TYPE_AUDIO) {
-            have_video |= p.second->codec_type() == AVMEDIA_TYPE_VIDEO;
-            have_audio |= p.second->codec_type() == AVMEDIA_TYPE_AUDIO;
 
             auto frameRate = t_decoder.frame_rate(p.first);
 
@@ -383,27 +352,6 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
                                                               : media::MT_AUDIO),
                 "{0}@{1}/{2}"));
-        }
-    }
-
-    if (!have_video && have_audio) {
-        // this file is audio only. As an interim 'hack' to allow straightforward
-        // compatibility with our (currently) inherently video frame based timeline, we add
-        // a fake video stream running at 24 fps. In the ffmpeg decoder class, when
-        // it is asked for a video frame it creates an empty one with the appropriate
-        // pts for the frame number and then attaches decoded audio samples to
-        // it in the same way we do with sources that have both audio and video
-        for (auto &p : t_decoder.streams()) {
-            if (p.second->codec_type() == AVMEDIA_TYPE_AUDIO) {
-
-                streams.emplace_back(media::StreamDetail(
-                    utility::FrameRateDuration(
-                        static_cast<int>(t_decoder.duration_frames()),
-                        t_decoder.frame_rate(p.first)),
-                    fmt::format("stream {}", p.first),
-                    media::MT_IMAGE,
-                    "{0}@{1}/{2}"));
-            }
         }
     }
 
@@ -434,7 +382,7 @@ FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_si
         // DebugTimer d(path, mptr.frame_);
         if (!thumbnail_decoder || thumbnail_decoder->path() != path) {
             thumbnail_decoder.reset(
-                new FFMpegDecoder(path, soundcard_sample_rate_, VIDEO_STREAM));
+                new FFMpegDecoder(path, soundcard_sample_rate_, mptr.stream_id_));
         }
 
         std::shared_ptr<thumbnail::ThumbnailBuffer> rt =
@@ -493,7 +441,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         const float norm_coeff       = buf.shader_params().value("norm_coeff", 1.0f);
 
         auto get_image_data_4bytes = [&](const int address) -> std::array<float, 4> {
-            if (address < 0 || address >= buf.size())
+            if (address < 0 || address >= (int)buf.size())
                 return std::array<float, 4>({0.0f, 0.0f, 0.0f, 0.0f});
             std::array<float, 4> r;
             memcpy(r.data(), (buf.buffer() + address), 4 * sizeof(float));
@@ -501,14 +449,14 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         };
 
         auto get_image_data_2bytes = [&](const int address) -> int {
-            if (address < 0 || address >= buf.size())
+            if (address < 0 || address >= (int)buf.size())
                 return 0;
             int *r = (int *)(buf.buffer() + address);
             return *r & 65535;
         };
 
         auto get_image_data_1byte = [&](const int address) -> int {
-            if (address < 0 || address >= buf.size())
+            if (address < 0 || address >= (int)buf.size())
                 return 0;
             int *r = (int *)(buf.buffer() + address);
             return *r & 255;

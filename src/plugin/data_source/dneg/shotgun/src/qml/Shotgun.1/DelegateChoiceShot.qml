@@ -350,8 +350,8 @@ DelegateChoice {
 
             Text{ id: dateDisplay
                 Layout.alignment: Qt.AlignLeft
-                property var dateFormatted: createdDateRole.toUTCString().substr(4,20).split(" ")
-                text: " "+dateFormatted[0]+" "+dateFormatted[1]+" "+dateFormatted[3]
+                property var dateFormatted: createdDateRole.toLocaleString().split(" ") 
+                text: typeof dateFormatted !== 'undefined'? dateFormatted[1].substr(0,3)+" "+dateFormatted[2]+" "+dateFormatted[3] : ""
                 font.pixelSize: fontSize
                 font.family: fontFamily
                 color: isMouseHovered? textColorActive: textColorNormal
@@ -363,7 +363,7 @@ DelegateChoice {
                 Layout.preferredWidth: 74
                 Layout.maximumWidth: 74
 
-                ToolTip.text: createdDateRole.toUTCString()
+                ToolTip.text: createdDateRole.toLocaleString()
                 ToolTip.visible: dateToolTip.containsMouse //&& truncated
                 MouseArea {
                     id: dateToolTip
@@ -371,7 +371,11 @@ DelegateChoice {
                     hoverEnabled: true
                     propagateComposedEvents: true
                 }
+                
             }
+            // Component.onCompleted: {
+            //     console.log("############# locale", createdDateRole.toLocaleString(Qt.locale(),{dateSty;e:"medium"}))
+            // }
 
             Text{ id: frameDisplay
                 text: frameRangeRole ? frameRangeRole : ""

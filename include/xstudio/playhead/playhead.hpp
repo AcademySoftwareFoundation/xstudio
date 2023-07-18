@@ -141,7 +141,9 @@ namespace playhead {
 
         module::FloatAttribute *velocity_;
         module::StringChoiceAttribute *compare_mode_;
-        module::StringChoiceAttribute *source_;
+        module::QmlCodeAttribute *source_;
+        module::StringChoiceAttribute *image_source_;
+        module::StringChoiceAttribute *audio_source_;
         module::FloatAttribute *velocity_multiplier_;
         module::BooleanAttribute *playing_;
         module::BooleanAttribute *forward_;

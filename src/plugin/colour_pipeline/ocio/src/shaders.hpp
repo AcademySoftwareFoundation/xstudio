@@ -4,16 +4,23 @@
 #include <string>
 
 struct ShaderTemplates {
-    static constexpr auto OCIO = R"(
+    static constexpr auto OCIO_display = R"(
 #version 420 core
 
 uniform int show_chan;
+uniform float saturation;
 
 //OCIODisplay
 
-vec4 colour_transforms(vec4 rgba)
+vec4 colour_transform_op(vec4 rgba)
 {
     rgba = OCIODisplay(rgba);
+
+    if (saturation != 1.0) {
+        vec3 luma_weights = { 0.2126f, 0.7152f, 0.0722f };
+        float luma = dot(rgba.rgb, luma_weights);
+        rgba.rgb = luma + saturation * (rgba.rgb - luma);
+    }
 
     if (show_chan == 1) {
         rgba = vec4(rgba.r);
@@ -24,10 +31,22 @@ vec4 colour_transforms(vec4 rgba)
     } else if (show_chan == 4) {
         rgba = vec4(rgba.a);
     } else if (show_chan == 5) {
-        rgba = vec4((rgba.r*0.29 + rgba.g*0.59 + rgba.b*0.12));
+        vec3 luma_weights = { 0.2126f, 0.7152f, 0.0722f };
+        rgba = vec4(dot(rgba.rgb, luma_weights));
     }
 
     return rgba;
+}
+    )";
+
+    static constexpr auto OCIO_linearise = R"(
+#version 420 core
+
+//OCIOLinearise
+
+vec4 colour_transform_op(vec4 rgba)
+{
+    return OCIOLinearise(rgba);
 }
     )";
 };

@@ -18,7 +18,7 @@ using namespace xstudio::ui::qml;
 // using namespace xstudio::global_store;
 
 BookmarkCategoryModel::BookmarkCategoryModel(QObject *parent) : JSONTreeModel(parent) {
-    setRoleNames({"textRole", "valueRole", "colourRole"});
+    setRoleNames(std::vector<std::string>({"textRole", "valueRole", "colourRole"}));
 }
 
 void BookmarkCategoryModel::setValue(const QVariant &value) {
@@ -34,31 +34,29 @@ QVariant BookmarkCategoryModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        const auto &j = indexToData(index);
 
-            switch (role) {
-            case JSONTreeModel::Roles::JSONRole:
-                result = QVariantMapFromJson(j);
-                break;
+        switch (role) {
+        case JSONTreeModel::Roles::JSONRole:
+            result = QVariantMapFromJson((indexToFullData(index)));
+            break;
 
-            case Roles::valueRole:
+        case Roles::valueRole:
+            result = QString::fromStdString(j.at("value"));
+            break;
+
+        case Qt::DisplayRole:
+        case Roles::textRole:
+            if (j.count("text"))
+                result = QString::fromStdString(j.at("text"));
+            else
                 result = QString::fromStdString(j.at("value"));
-                break;
+            break;
 
-            case Qt::DisplayRole:
-            case Roles::textRole:
-                if (j.count("text"))
-                    result = QString::fromStdString(j.at("text"));
-                else
-                    result = QString::fromStdString(j.at("value"));
-                break;
-
-            case Roles::colourRole:
-                if (j.count("colour"))
-                    result = QString::fromStdString(j.at("colour"));
-                break;
-            }
+        case Roles::colourRole:
+            if (j.count("colour"))
+                result = QString::fromStdString(j.at("colour"));
+            break;
         }
     } catch (const std::exception &err) {
         spdlog::warn(
@@ -67,11 +65,7 @@ QVariant BookmarkCategoryModel::data(const QModelIndex &index, int role) const {
             err.what(),
             role,
             index.row(),
-            index.internalPointer());
-        if (index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            spdlog::warn("{}", j.dump(2));
-        }
+            index.internalId());
     }
 
     return result;
@@ -89,12 +83,16 @@ bool BookmarkFilterModel::filterAcceptsRow(
     QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
     auto owner        = sourceModel()->data(index, BookmarkModel::Roles::ownerRole).toString();
 
+    if (StdFromQString(index.data(BookmarkModel::Roles::startTimecodeRole).toString()) ==
+        "--:--:--:--")
+        return false;
+
     switch (depth_) {
+    case 2:
     case 1:
         result = media_order_.contains(owner);
         break;
-    case 2:
-        break;
+
     case 0:
     default:
         result = (current_media_.toString() == owner);
@@ -154,7 +152,7 @@ void BookmarkFilterModel::setCurrentMedia(const QVariant &value) {
 BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(
+    setRoleNames(std::vector<std::string>(
         {"enabledRole",
          "focusRole",
          "frameRole",
@@ -178,7 +176,7 @@ BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
          "objectRole",
          "startRole",
          "durationRole",
-         "durationFrameRole"});
+         "durationFrameRole"}));
 }
 
 // don't optimise yet.
@@ -240,7 +238,9 @@ void BookmarkModel::init(caf::actor_system &_system) {
                         auto detail = getDetail(ua.actor());
                         // compare detail, log changed roles..
                         auto jsn = createJsonFromDetail(detail);
-                        data_[ind.row()].update(jsn);
+
+                        auto node = indexToTree(ind);
+                        node->data().update(jsn);
 
                         auto change = getRoleChanges(bookmarks_.at(ua.uuid()), detail);
                         // if(not change.isEmpty()) {
@@ -354,6 +354,8 @@ BookmarkModel::createJsonFromDetail(const bookmark::BookmarkDetail &detail) cons
     auto result = R"({"uuid": null, "thumbnailURL": "qrc:///feather_icons/film.svg"})"_json;
 
     result["uuid"] = detail.uuid_;
+    // spdlog::warn("{} {} {}", bool(detail.owner_) , to_string((*(detail.owner_)).actor()),
+    // bool(detail.logical_start_frame_) );
 
     if (detail.owner_ and (*(detail.owner_)).actor() and detail.logical_start_frame_) {
         result["thumbnailURL"] = StdFromQString(getThumbnailURL(
@@ -420,144 +422,141 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            if (j.count("uuid")) {
-                const auto &detail = bookmarks_.at(Uuid(j.at("uuid")));
+        const auto &j = indexToData(index);
+        if (j.count("uuid")) {
+            const auto &detail = bookmarks_.at(Uuid(j.at("uuid")));
 
-                switch (role) {
-                case objectRole:
-                    // result = QVariant::fromValue(dynamic_cast<QObject
-                    // *>(data_[index.row()]));
-                    break;
+            switch (role) {
+            case objectRole:
+                // result = QVariant::fromValue(dynamic_cast<QObject
+                // *>(data_[index.row()]));
+                break;
 
-                case startRole:
-                    result = QVariant::fromValue(timebase::to_seconds(*(detail.start_)));
-                    break;
+            case startRole:
+                result = QVariant::fromValue(timebase::to_seconds(*(detail.start_)));
+                break;
 
-                case durationRole:
-                    result = QVariant::fromValue(timebase::to_seconds(*(detail.duration_)));
-                    break;
+            case durationRole:
+                result = QVariant::fromValue(timebase::to_seconds(*(detail.duration_)));
+                break;
 
-                case durationFrameRole:
-                    if (detail.media_reference_) {
-                        result = QVariant::fromValue(
-                            *(detail.duration_) / detail.media_reference_->rate());
-                    }
-                    break;
-
-                case uuidRole:
-                    result = QVariant::fromValue(QUuidFromUuid(detail.uuid_));
-                    break;
-
-                case enabledRole:
-                    result = QVariant::fromValue(*(detail.enabled_));
-                    break;
-                case focusRole:
-                    result = QVariant::fromValue(*(detail.has_focus_));
-                    break;
-                case frameRole:
-                    result = QVariant::fromValue(*(detail.logical_start_frame_) + 1);
-                    break;
-
-                case startTimecodeRole:
-                    result = QVariant::fromValue(QStringFromStd(detail.start_timecode()));
-                    break;
-
-                case frameFromTimecodeRole:
-                    result = QVariant::fromValue(detail.start_timecode_tc().total_frames());
-                    break;
-
-                case startFrameRole:
-                    if (detail.media_reference_) {
-                        auto fc =
-                            (*(detail.media_reference_))
-                                .duration()
-                                .frame(max(*(detail.start_), timebase::k_flicks_zero_seconds));
-                        // turn into timecode..
-                        result = QVariant::fromValue(fc);
-                    } else
-                        result = 0;
-                    break;
-
-                case endTimecodeRole:
-                    result = QVariant::fromValue(QStringFromStd(detail.end_timecode()));
-                    break;
-
-                case endFrameRole:
-
-                    if (detail.media_reference_) {
-                        auto fs =
-                            (*(detail.media_reference_))
-                                .duration()
-                                .frame(max(*(detail.start_), timebase::k_flicks_zero_seconds));
-                        auto fd =
-                            (*(detail.media_reference_)).duration().frame(*(detail.duration_));
-
-                        if (*(detail.duration_) == timebase::k_flicks_max) {
-                            fd =
-                                (*(detail.media_reference_))
-                                    .duration()
-                                    .frame(
-                                        (*(detail.media_reference_)).duration().duration() -
-                                        max(*(detail.start_), timebase::k_flicks_zero_seconds));
-                        }
-
-                        result = QVariant::fromValue(fs + fd);
-                    } else
-                        result = QVariant::fromValue(0);
-                    break;
-
-                case durationTimecodeRole:
-                    result = QVariant::fromValue(QStringFromStd(detail.duration_timecode()));
-                    break;
-
-                case hasNoteRole:
-                    result = QVariant::fromValue(*(detail.has_note_));
-                    break;
-                case noteRole:
-                    if (detail.note_)
-                        result = QVariant::fromValue(QStringFromStd(*(detail.note_)));
-                    break;
-                case authorRole:
-                    if (detail.author_)
-                        result = QVariant::fromValue(QStringFromStd(*(detail.author_)));
-                    break;
-                case subjectRole:
-                    if (detail.subject_)
-                        result = QVariant::fromValue(QStringFromStd(*(detail.subject_)));
-                    break;
-                case categoryRole:
-                    if (detail.category_)
-                        result = QVariant::fromValue(QStringFromStd(*(detail.category_)));
-                    break;
-                case colourRole:
-                    if (detail.colour_)
-                        result = QVariant::fromValue(QStringFromStd(*(detail.colour_)));
-                    break;
-                case createdRole:
-                    if (detail.created_) {
-                        result = QVariant::fromValue(QLocale::system().toString(
-                            QDateTime::fromSecsSinceEpoch(
-                                std::chrono::duration_cast<std::chrono::seconds>(
-                                    (*(detail.created_)).time_since_epoch())
-                                    .count()),
-                            QLocale::ShortFormat));
-                    } else {
-                        result = QVariant::fromValue(QLocale::system().toString(
-                            QDateTime::currentDateTime(), QLocale::ShortFormat));
-                    }
-                    break;
-                case hasAnnotationRole:
-                    result = QVariant::fromValue(*(detail.has_annotation_));
-                    break;
-                case thumbnailRole:
-                    result = QVariant::fromValue(QStringFromStd(j.at("thumbnailURL")));
-                    break;
-                case ownerRole:
-                    result = QVariant::fromValue(QUuidFromUuid((*(detail.owner_)).uuid()));
-                    break;
+            case durationFrameRole:
+                if (detail.media_reference_) {
+                    result = QVariant::fromValue(
+                        *(detail.duration_) / detail.media_reference_->rate());
                 }
+                break;
+
+            case uuidRole:
+                result = QVariant::fromValue(QUuidFromUuid(detail.uuid_));
+                break;
+
+            case enabledRole:
+                result = QVariant::fromValue(*(detail.enabled_));
+                break;
+            case focusRole:
+                result = QVariant::fromValue(*(detail.has_focus_));
+                break;
+            case frameRole:
+                result = QVariant::fromValue(*(detail.logical_start_frame_) + 1);
+                break;
+
+            case startTimecodeRole:
+                result = QVariant::fromValue(QStringFromStd(detail.start_timecode()));
+                break;
+
+            case frameFromTimecodeRole:
+                result = QVariant::fromValue(detail.start_timecode_tc().total_frames());
+                break;
+
+            case startFrameRole:
+                if (detail.media_reference_) {
+                    auto fc =
+                        (*(detail.media_reference_))
+                            .duration()
+                            .frame(max(*(detail.start_), timebase::k_flicks_zero_seconds));
+                    // turn into timecode..
+                    result = QVariant::fromValue(fc);
+                } else
+                    result = 0;
+                break;
+
+            case endTimecodeRole:
+                result = QVariant::fromValue(QStringFromStd(detail.end_timecode()));
+                break;
+
+            case endFrameRole:
+
+                if (detail.media_reference_) {
+                    auto fs =
+                        (*(detail.media_reference_))
+                            .duration()
+                            .frame(max(*(detail.start_), timebase::k_flicks_zero_seconds));
+                    auto fd =
+                        (*(detail.media_reference_)).duration().frame(*(detail.duration_));
+
+                    if (*(detail.duration_) == timebase::k_flicks_max) {
+                        fd = (*(detail.media_reference_))
+                                 .duration()
+                                 .frame(
+                                     (*(detail.media_reference_)).duration().duration() -
+                                     max(*(detail.start_), timebase::k_flicks_zero_seconds));
+                    }
+
+                    result = QVariant::fromValue(fs + fd);
+                } else
+                    result = QVariant::fromValue(0);
+                break;
+
+            case durationTimecodeRole:
+                result = QVariant::fromValue(QStringFromStd(detail.duration_timecode()));
+                break;
+
+            case hasNoteRole:
+                result = QVariant::fromValue(*(detail.has_note_));
+                break;
+            case noteRole:
+                if (detail.note_)
+                    result = QVariant::fromValue(QStringFromStd(*(detail.note_)));
+                break;
+            case authorRole:
+                if (detail.author_)
+                    result = QVariant::fromValue(QStringFromStd(*(detail.author_)));
+                break;
+            case subjectRole:
+                if (detail.subject_)
+                    result = QVariant::fromValue(QStringFromStd(*(detail.subject_)));
+                break;
+            case categoryRole:
+                if (detail.category_)
+                    result = QVariant::fromValue(QStringFromStd(*(detail.category_)));
+                break;
+            case colourRole:
+                if (detail.colour_)
+                    result = QVariant::fromValue(QStringFromStd(*(detail.colour_)));
+                break;
+            case createdRole:
+                if (detail.created_) {
+                    result = QVariant::fromValue(QLocale::system().toString(
+                        QDateTime::fromSecsSinceEpoch(
+                            std::chrono::duration_cast<std::chrono::seconds>(
+                                (*(detail.created_)).time_since_epoch())
+                                .count()),
+                        QLocale::ShortFormat));
+                } else {
+                    result = QVariant::fromValue(QLocale::system().toString(
+                        QDateTime::currentDateTime(), QLocale::ShortFormat));
+                }
+                break;
+            case hasAnnotationRole:
+                result = QVariant::fromValue(*(detail.has_annotation_));
+                break;
+            case thumbnailRole:
+                result = QVariant::fromValue(QStringFromStd(j.at("thumbnailURL")));
+                break;
+            case ownerRole:
+                result = QVariant::fromValue(QUuidFromUuid((*(detail.owner_)).uuid()));
+                break;
             }
         }
     } catch (const std::exception &err) {
@@ -568,11 +567,7 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
             err.what(),
             role,
             index.row(),
-            index.internalPointer());
-        if (index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            spdlog::warn("{}", j.dump(2));
-        }
+            index.internalId());
     }
 
     return result;
@@ -583,153 +578,150 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
     QVector<int> roles({role});
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            if (j.count("uuid")) {
-                const auto &detail = bookmarks_.at(Uuid(j.at("uuid")));
-                bookmark::BookmarkDetail bm;
-                bm.uuid_ = detail.uuid_;
+        const nlohmann::json &j = indexToData(index);
+        if (j.count("uuid")) {
+            auto &detail = bookmarks_.at(Uuid(j.at("uuid")));
+            bookmark::BookmarkDetail bm;
+            bm.uuid_ = detail.uuid_;
 
-                switch (role) {
+            switch (role) {
 
-                case startFrameRole:
-                    if (detail.media_reference_) {
-                        bm.start_ = value.toInt() * (*(detail.media_reference_)).rate();
-                        // adjust endFrame via duration
-                        if (*(detail.duration_) != timebase::k_flicks_max) {
-                            auto new_dur =
-                                *(detail.duration_) + (*(detail.start_) - *(bm.start_));
-                            bm.duration_ = max(new_dur, timebase::k_flicks_zero_seconds);
-                        }
-
-                        if (bm.start_ != detail.start_) {
-                            sendDetail(bm);
-                            result = true;
-                        }
+            case startFrameRole:
+                if (detail.media_reference_) {
+                    bm.start_ = value.toInt() * (*(detail.media_reference_)).rate();
+                    // adjust endFrame via duration
+                    if (*(detail.duration_) != timebase::k_flicks_max) {
+                        auto new_dur = *(detail.duration_) + (*(detail.start_) - *(bm.start_));
+                        bm.duration_ = max(new_dur, timebase::k_flicks_zero_seconds);
                     }
-                    break;
 
-                case endFrameRole:
-                    if (detail.media_reference_) {
-                        auto new_end = value.toInt() * (*(detail.media_reference_)).rate();
-
-                        if (new_end < *(detail.start_)) {
-                            bm.start_    = new_end;
-                            bm.duration_ = timebase::k_flicks_zero_seconds;
-                        } else if (*(detail.start_) == timebase::k_flicks_low) {
-                            bm.duration_ = new_end;
-                        } else {
-                            bm.duration_ = (new_end - *(detail.start_));
-                        }
-
-                        if (bm.duration_ != detail.duration_) {
-                            sendDetail(bm);
-                            result = true;
-                        }
-                    }
-                    break;
-
-                case subjectRole: {
-                    auto str = StdFromQString(value.toString());
-                    if (not detail.subject_ or (*detail.subject_) != str) {
-                        bm.subject_ = str;
+                    if (bm.start_ != detail.start_) {
                         sendDetail(bm);
                         result = true;
                     }
-                } break;
+                }
+                break;
 
-                case noteRole: {
-                    auto str = StdFromQString(value.toString());
-                    if (not detail.note_ or (*detail.note_) != str) {
-                        bm.note_ = str;
+            case endFrameRole:
+                if (detail.media_reference_) {
+                    auto new_end = value.toInt() * (*(detail.media_reference_)).rate();
+
+                    if (new_end < *(detail.start_)) {
+                        bm.start_    = new_end;
+                        bm.duration_ = timebase::k_flicks_zero_seconds;
+                    } else if (*(detail.start_) == timebase::k_flicks_low) {
+                        bm.duration_ = new_end;
+                    } else {
+                        bm.duration_ = (new_end - *(detail.start_));
+                    }
+
+                    if (bm.duration_ != detail.duration_) {
                         sendDetail(bm);
                         result = true;
                     }
-                } break;
+                }
+                break;
 
-                case authorRole: {
-                    auto str = StdFromQString(value.toString());
-                    if (not detail.author_ or (*detail.author_) != str) {
-                        bm.author_ = str;
-                        sendDetail(bm);
-                        result = true;
-                    }
-                } break;
+            case subjectRole: {
+                auto str = StdFromQString(value.toString());
+                if (not detail.subject_ or (*detail.subject_) != str) {
+                    detail.subject_ = bm.subject_ = str;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
 
-                case categoryRole: {
-                    auto str = StdFromQString(value.toString());
-                    if (not detail.category_ or (*detail.category_) != str) {
-                        bm.category_ = str;
-                        sendDetail(bm);
-                        result = true;
-                    }
-                } break;
+            case noteRole: {
+                auto str = StdFromQString(value.toString());
+                if (not detail.note_ or (*detail.note_) != str) {
+                    detail.note_ = bm.note_ = str;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
 
-                case colourRole: {
-                    auto str = StdFromQString(value.toString());
-                    if (not detail.colour_ or (*detail.colour_) != str) {
-                        bm.colour_ = str;
-                        sendDetail(bm);
-                        result = true;
-                    }
-                } break;
+            case authorRole: {
+                auto str = StdFromQString(value.toString());
+                if (not detail.author_ or (*detail.author_) != str) {
+                    detail.author_ = bm.author_ = str;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
 
-                case createdRole: {
-                    auto datetime =
-                        QLocale::system().toDateTime(value.toString(), QLocale::ShortFormat);
-                    auto created =
-                        utility::sys_time_point(milliseconds(datetime.toMSecsSinceEpoch()));
-                    if (not detail.created_ or (*detail.created_) != created) {
-                        bm.created_ = created;
-                        sendDetail(bm);
-                        result = true;
-                    }
-                } break;
+            case categoryRole: {
+                auto str = StdFromQString(value.toString());
+                if (not detail.category_ or (*detail.category_) != str) {
+                    detail.category_ = bm.category_ = str;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
 
-                case ownerRole: {
-                    auto str = UuidFromQUuid(value.toUuid());
-                    if (not detail.owner_ or (*detail.owner_).uuid() != str) {
-                        bm.owner_ = UuidActor(str, caf::actor());
-                        sendDetail(bm);
-                        result = true;
-                    }
-                } break;
+            case colourRole: {
+                auto str = StdFromQString(value.toString());
+                if (not detail.colour_ or (*detail.colour_) != str) {
+                    detail.colour_ = bm.colour_ = str;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
 
-                case startRole: {
-                    timebase::flicks val = timebase::to_flicks(value.toDouble());
-                    if (not detail.start_ or (*detail.start_) != val) {
-                        bm.start_ = val;
-                        sendDetail(bm);
-                        result = true;
-                    }
-                } break;
+            case createdRole: {
+                auto datetime =
+                    QLocale::system().toDateTime(value.toString(), QLocale::ShortFormat);
+                auto created =
+                    utility::sys_time_point(milliseconds(datetime.toMSecsSinceEpoch()));
+                if (not detail.created_ or (*detail.created_) != created) {
+                    detail.created_ = bm.created_ = created;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
 
-                case durationRole: {
-                    timebase::flicks val = timebase::to_flicks(value.toDouble());
+            case ownerRole: {
+                auto str = UuidFromQUuid(value.toUuid());
+                if (not detail.owner_ or (*detail.owner_).uuid() != str) {
+                    detail.owner_ = bm.owner_ = UuidActor(str, caf::actor());
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
+
+            case startRole: {
+                timebase::flicks val = timebase::to_flicks(value.toDouble());
+                if (not detail.start_ or (*detail.start_) != val) {
+                    detail.start_ = bm.start_ = val;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
+
+            case durationRole: {
+                timebase::flicks val = timebase::to_flicks(value.toDouble());
+                if (not detail.duration_ or (*detail.duration_) != val) {
+                    detail.duration_ = bm.duration_ = val;
+                    sendDetail(bm);
+                    result = true;
+                }
+            } break;
+
+            case durationFrameRole: {
+                if (detail.media_reference_) {
+                    auto duration        = (*(detail.media_reference_)).rate() * value.toInt();
+                    timebase::flicks val = std::min(
+                        duration,
+                        ((*(detail.media_reference_)).duration().duration() -
+                         (*(detail.start_))) -
+                            (*(detail.media_reference_)).rate());
+
                     if (not detail.duration_ or (*detail.duration_) != val) {
                         bm.duration_ = val;
                         sendDetail(bm);
                         result = true;
                     }
-                } break;
-
-                case durationFrameRole: {
-                    if (detail.media_reference_) {
-                        auto duration = (*(detail.media_reference_)).rate() * value.toInt();
-                        timebase::flicks val = std::min(
-                            duration,
-                            ((*(detail.media_reference_)).duration().duration() -
-                             (*(detail.start_))) -
-                                (*(detail.media_reference_)).rate());
-
-                        if (not detail.duration_ or (*detail.duration_) != val) {
-                            bm.duration_ = val;
-                            sendDetail(bm);
-                            result = true;
-                        }
-                    }
-                } break;
                 }
+            } break;
             }
         }
     } catch (const std::exception &err) {

@@ -31,7 +31,7 @@ namespace plugin {
             const xstudio::media_reader::ImageBufPtr &frame,
             const bool have_alpha_buffer){};
 
-        virtual RenderPass preferred_render_pass() const { return AfterImage; }
+        [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
     };
 
     typedef std::shared_ptr<ViewportOverlayRenderer> ViewportOverlayRendererPtr;
@@ -63,8 +63,7 @@ namespace plugin {
             return utility::BlindDataObjectPtr();
         }
 
-        virtual ViewportOverlayRendererPtr
-        make_overlay_renderer(const bool /*is_main_viewer*/) {
+        virtual ViewportOverlayRendererPtr make_overlay_renderer(const int /*viewer_index*/) {
             return ViewportOverlayRendererPtr();
         }
 

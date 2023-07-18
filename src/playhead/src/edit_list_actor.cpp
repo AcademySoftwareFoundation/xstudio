@@ -17,7 +17,8 @@ using namespace caf;
 EditListActor::EditListActor(
     caf::actor_config &cfg,
     const std::string &name,
-    const std::vector<caf::actor> &ordered_media_sources)
+    const std::vector<caf::actor> &ordered_media_sources,
+    const media::MediaType mt)
     : caf::event_based_actor(cfg), source_actors_(ordered_media_sources), frames_offset_(0) {
 
     spdlog::debug("Created EditListActor {}", name);
@@ -31,12 +32,33 @@ EditListActor::EditListActor(
     caf::scoped_actor sys(system());
     for (auto media_source : ordered_media_sources) {
 
+        // we try and get the edit list for the desired media type ... however, if
+        // we can't provide one (say we want MT_IMAGE and the media_source only
+        // provides MT_AUDIO sources) we retry and continue. This means that the
+        // playhead can 'play' a source that has no video and audio only - the audio
+        // only source will provide empty video frames so playback can still happen.
         try {
             auto edl = request_receive<EditList>(
-                *sys, media_source, media::get_edit_list_atom_v, Uuid());
+                *sys, media_source, media::get_edit_list_atom_v, mt, Uuid());
+            edit_list_.extend(edl);
+        } catch (...) {
+            try {
+                auto edl = request_receive<EditList>(
+                    *sys,
+                    media_source,
+                    media::get_edit_list_atom_v,
+                    mt == media::MT_AUDIO ? media::MT_IMAGE : media::MT_AUDIO,
+                    Uuid());
+                edit_list_.extend(edl);
+            } catch (...) {
+            }
+        }
+
+        try {
+
             auto uuid =
                 request_receive<utility::Uuid>(*sys, media_source, utility::uuid_atom_v);
-            edit_list_.extend(edl);
+
             source_actors_per_uuid_[uuid] = media_source;
             join_event_group(this, media_source);
         } catch (std::exception &e) {
@@ -48,7 +70,12 @@ EditListActor::EditListActor(
             // send(event_group_, utility::event_atom_v, utility::change_atom_v);
         },
 
-        [=](utility::event_atom, utility::change_atom) {},
+        [=](utility::event_atom,
+            media::add_media_source_atom,
+            const utility::UuidActorVector &uav) {
+            send(event_group_, utility::event_atom_v, media::add_media_source_atom_v, uav);
+        },
+
         [=](utility::event_atom, utility::last_changed_atom, const time_point &) {
             send(event_group_, utility::event_atom_v, utility::change_atom_v);
         },
@@ -71,6 +98,8 @@ EditListActor::EditListActor(
             const media::MediaType) {
             send(event_group_, utility::event_atom_v, utility::change_atom_v);
         },
+
+        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {},
 
         [=](const error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); },
 
@@ -289,6 +318,7 @@ void EditListActor::recursive_deliver_all_media_pointers(
         // every frame that's been added to result, so it time_point is already
         // where we need it
         (*result)[clip_start_time_point].reset();
+
         rp.deliver(*result);
         return;
     }

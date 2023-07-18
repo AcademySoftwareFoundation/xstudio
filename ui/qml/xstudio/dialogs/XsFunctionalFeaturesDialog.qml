@@ -41,7 +41,7 @@ XsDialogModal {
             xhr.send();
             // feature_text = features.value + Qt.application.version
         } else {
-            let t = helpers.readFile(session.releaseDocsUrl())
+            let t = helpers.readFile(studio.releaseDocsUrl())
             const regex1 = /^[^@]+<div class="section" id="release-notes">/im;
             t = t.replace(regex1, '');
 

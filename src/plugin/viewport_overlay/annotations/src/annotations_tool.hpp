@@ -37,7 +37,7 @@ namespace ui {
                 const media_reader::ImageBufPtr &, const bool /*offscreen*/) const override;
 
             plugin::ViewportOverlayRendererPtr
-            make_overlay_renderer(const bool is_main_viewer) override;
+            make_overlay_renderer(const int viewer_index) override;
 
             std::shared_ptr<bookmark::AnnotationBase>
             build_annotation(const utility::JsonStore &anno_data) override;

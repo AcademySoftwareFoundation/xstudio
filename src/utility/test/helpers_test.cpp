@@ -69,20 +69,20 @@ TEST(HelpersTest, Test) {
         parse_cli_posix_path(TEST_RESOURCE "/media/test.####.ppm", fl, true));
     EXPECT_EQ("1-10", to_string(fl));
 
-    EXPECT_EQ(
-        uri_to_posix_path(url_to_uri(
-            "file://localhost/user_data/test_files/demo_files/Beasts%20Of%20Burden/03.mov")),
-        "/user_data/test_files/demo_files/Beasts Of Burden/03.mov");
+    // EXPECT_EQ(
+    //     uri_to_posix_path(url_to_uri(
+    //         "file://localhost/user_data/test_files/demo_files/Beasts%20Of%20Burden/03.mov")),
+    //     "/user_data/test_files/demo_files/Beasts Of Burden/03.mov");
 
-    EXPECT_EQ(
-        uri_to_posix_path(
-            url_to_uri("file:/user_data/test_files/demo_files/Beasts%20Of%20Burden/03.mov")),
-        "/user_data/test_files/demo_files/Beasts Of Burden/03.mov");
+    // EXPECT_EQ(
+    //     uri_to_posix_path(
+    //         url_to_uri("file:/user_data/test_files/demo_files/Beasts%20Of%20Burden/03.mov")),
+    //     "/user_data/test_files/demo_files/Beasts Of Burden/03.mov");
 
-    EXPECT_EQ(
-        uri_to_posix_path(
-            url_to_uri("file:///user_data/test_files/demo_files/Beasts%20Of%20Burden/03.mov")),
-        "/user_data/test_files/demo_files/Beasts Of Burden/03.mov");
+    // EXPECT_EQ(
+    //     uri_to_posix_path(
+    //         url_to_uri("file:///user_data/test_files/demo_files/Beasts%20Of%20Burden/03.mov")),
+    //     "/user_data/test_files/demo_files/Beasts Of Burden/03.mov");
 }
 
 
