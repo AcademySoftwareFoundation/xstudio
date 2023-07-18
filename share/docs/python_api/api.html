@@ -904,7 +904,7 @@ name(str): New name.</p>
 
 <dl class="py method">
 <dt id="xstudio.api.session.media.Media.add_media_source">
-<code class="sig-name descname">add_media_source</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">frame_list=&lt;xstudio.core.__pybind_xstudio.FrameList object&gt;</em>, <em class="sig-param">frame_rate=&lt;xstudio.core.__pybind_xstudio.FrameRate object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.add_media_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.add_media_source" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">add_media_source</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">frame_list</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">frame_rate</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.add_media_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.add_media_source" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add media source from path</p>
 <dl class="simple">
 <dt>Args:</dt><dd><p>path(URI | str): File path
@@ -1029,6 +1029,16 @@ flag_string(str): New flag text.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt id="xstudio.api.session.media.Media.rescan">
+<code class="sig-name descname">rescan</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.rescan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.rescan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rescan media item.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>result(MediaReference): New ref ?</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt id="xstudio.api.session.media.Media.set_media_source">
 <code class="sig-name descname">set_media_source</code><span class="sig-paren">(</span><em class="sig-param">source</em>, <em class="sig-param">media_type=&lt;MediaType.MT_IMAGE: 1&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.set_media_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.set_media_source" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set current media source.</p>
@@ -1133,6 +1143,16 @@ path(str): JSON Pointer</p>
 </dd></dl>
 
 <dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.invalidate_cache">
+<code class="sig-name descname">invalidate_cache</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource.invalidate_cache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource.invalidate_cache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush media item from cache.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>result(bool): Flushed ?</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt id="xstudio.api.session.media.MediaSource.media_reference">
 <em class="property">property </em><code class="sig-name descname">media_reference</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.media_reference" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get media reference.</p>
@@ -1168,6 +1188,16 @@ path(str): JSON Pointer</p>
 <dd><p>Get media reference rate.</p>
 <dl class="simple">
 <dt>Returns:</dt><dd><p>rate(FrameRate): Current media reference rate.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.rescan">
+<code class="sig-name descname">rescan</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource.rescan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource.rescan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rescan media item.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>result(MediaReference): New Reference</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1293,6 +1323,20 @@ path(str): JSON Pointer</p>
 <dt id="xstudio.api.session.playlist.Timeline">
 <em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.playlist.</code><code class="sig-name descname">Timeline</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline" title="Permalink to this definition">¶</a></dt>
 <dd><p>Timeline object.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.add_media">
+<code class="sig-name descname">add_media</code><span class="sig-paren">(</span><em class="sig-param">media</em>, <em class="sig-param">before_uuid=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.add_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.add_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add media to subset.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>media(Media/Uuid/Actor): Media reference.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>before_uuid(Uuid/Container): Insert media before this uuid.</p>
+</dd>
+<dt>Returns:</dt><dd><p>media(Media): Media object.</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt id="xstudio.api.session.playlist.Timeline.audio_tracks">
 <em class="property">property </em><code class="sig-name descname">audio_tracks</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.audio_tracks" title="Permalink to this definition">¶</a></dt>
@@ -1425,6 +1469,16 @@ path(str): JSON Pointer</p>
 <dd><p>Get item.</p>
 <dl class="simple">
 <dt>Returns:</dt><dd><p>item(Item): Item for timeline.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.item_name">
+<em class="property">property </em><code class="sig-name descname">item_name</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.item_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get name.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>name(str): Name.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1693,7 +1747,7 @@ path(str): JSON Pointer</p>
 <dd><p>Playlist object.</p>
 <dl class="py method">
 <dt id="xstudio.api.session.playlist.Playlist.add_media">
-<code class="sig-name descname">add_media</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.add_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.add_media" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">add_media</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">frame_list</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.add_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.add_media" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add media from path.</p>
 <dl class="simple">
 <dt>Args:</dt><dd><p>path(str/URI): path to collect media from.</p>

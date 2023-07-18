@@ -1,0 +1,336 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>xstudio.api.session.playhead.playhead_selection &mdash; xStudio 0.10.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+        <script src="../../../../../_static/jquery.js"></script>
+        <script src="../../../../../_static/underscore.js"></script>
+        <script src="../../../../../_static/doctools.js"></script>
+        <script src="../../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.10.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../../../index.html">Module code</a> &raquo;</li>
+        
+          <li><a href="../../../api.html">xstudio.api</a> &raquo;</li>
+        
+      <li>xstudio.api.session.playhead.playhead_selection</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for xstudio.api.session.playhead.playhead_selection</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">monitored_atom</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">MT_IMAGE</span><span class="p">,</span> <span class="n">MT_AUDIO</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">move_atom</span><span class="p">,</span> <span class="n">remove_atom</span><span class="p">,</span> <span class="n">actor</span><span class="p">,</span> <span class="n">select_all_media_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">select_media_atom</span>
+
+<span class="kn">from</span> <span class="nn">xstudio.api.session</span> <span class="kn">import</span> <span class="n">Container</span>
+
+<div class="viewcode-block" id="PlayheadSelection"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection">[docs]</a><span class="k">class</span> <span class="nc">PlayheadSelection</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Playhead selection object, what the playhead plays.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create PlayheadSelection object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            connection(Connection): Connection object</span>
+<span class="sd">            remote(actor): Remote actor object</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            uuid(Uuid): Uuid of remote actor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">Container</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">monitored</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Current monitored Playhead selection.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            monitored(PlayheadSelection): PlayheadSelection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">monitored_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">PlayheadSelection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@monitored</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">monitored</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set current monitored Playhead selection.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            monitored(PlayheadSelection): PlayheadSelection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">monitored_atom</span><span class="p">(),</span> <span class="n">i</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">selected_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get selected media objects.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            clips(list[Media]): Current media items in order.</span>
+<span class="sd">         &quot;&quot;&quot;</span>
+        <span class="n">clips</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_selected_sources_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+            <span class="n">clips</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Media</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">clips</span>
+
+<div class="viewcode-block" id="PlayheadSelection.set_selection"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.set_selection">[docs]</a>    <span class="k">def</span> <span class="nf">set_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_uuids</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Select the media items</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            list(uuid): Items to select.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): Selection set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">select_media_atom</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">media_uuid</span> <span class="ow">in</span> <span class="n">media_uuids</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">select_media_atom</span><span class="p">(),</span> <span class="n">media_uuid</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MT_IMAGE</span><span class="p">):</span>
+
+        <span class="c1"># NEEDS FIXING!</span>
+        <span class="c1">#</span>
+        <span class="c1"># if not isinstance(media, actor):</span>
+        <span class="c1">#   media = media.remote</span>
+
+        <span class="c1"># if isinstance(before_uuid, SelectionClip):</span>
+        <span class="c1">#     before_uuid = before_uuid.source</span>
+
+        <span class="c1"># if not isinstance(before_uuid, Uuid):</span>
+        <span class="c1">#     before_uuid = before_uuid.uuid</span>
+
+        <span class="c1"># self.connection.send(self.remote, insert_atom(), media_type, media, before_uuid)</span>
+        <span class="c1"># result = self.connection.dequeue_message()</span>
+        <span class="c1"># return SelectionClip(self.connection, result[0][0], result[0][1])</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="PlayheadSelection.move"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.move">[docs]</a>    <span class="k">def</span> <span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_move</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+        <span class="sd">&quot;&quot;&quot;Move clip.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            to_move(uuid,Container): Item to move.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            before(Uuid): move before this.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): Reordered.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">to_move</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">to_move</span> <span class="o">=</span> <span class="n">to_move</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">move_atom</span><span class="p">(),</span> <span class="n">to_move</span><span class="p">,</span> <span class="n">before</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="PlayheadSelection.remove"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove clip.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            to_remove(Uuid,Container): Item to remove.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): Reordered.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">to_remove</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">to_remove</span> <span class="o">=</span> <span class="n">to_remove</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="c1"># got uuids..</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">remove_atom</span><span class="p">(),</span> <span class="n">to_remove</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">dequeue_message</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="PlayheadSelection.select_all"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.select_all">[docs]</a>    <span class="k">def</span> <span class="nf">select_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Select all media in playlist.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            to_remove(Uuid,Container): Item to remove.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">select_all_media_atom</span><span class="p">())</span></div></div>
+                
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, DNeg
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
