@@ -356,7 +356,6 @@ void PlaylistActor::init() {
             const FrameList &frame_list,
             const utility::FrameRate &rate,
             const utility::UuidActor &uuid_before) {
-
             const auto uuid = Uuid::generate();
             std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
@@ -390,7 +389,6 @@ void PlaylistActor::init() {
             const std::string &name,
             const caf::uri &uri,
             const utility::Uuid &uuid_before) {
-
             delegate(
                 actor_cast<caf::actor>(this),
                 add_media_atom_v,

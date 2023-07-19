@@ -1069,7 +1069,8 @@ void SessionModel::setCurrentPlaylist(const QModelIndex &index) {
             nlohmann::json &j = indexToData(index);
             auto actor        = actorFromString(system(), j.at("actor"));
             auto type         = j.at("type").get<std::string>();
-            if (session_actor_ and actor and (type == "Subset" or type == "Playlist" or type == "Timeline")) {
+            if (session_actor_ and actor and
+                (type == "Subset" or type == "Playlist" or type == "Timeline")) {
                 scoped_actor sys{system()};
                 anon_send(session_actor_, session::current_playlist_atom_v, actor);
             }
