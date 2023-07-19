@@ -369,7 +369,7 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                             if (!playlist) {
 
                                 playlist = request_receive<caf::actor>(
-                                    *sys, session, session::get_playlist_atom_v, "Ivy Media");
+                                    *sys, session, session::get_playlist_atom_v, "DNRun Playlist");
                             }
 
                             // third, make a new 'Ivy Media' playlist

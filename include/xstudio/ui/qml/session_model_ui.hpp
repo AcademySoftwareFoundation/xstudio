@@ -205,6 +205,7 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_INVOKABLE void sortAlphabetically(const QModelIndex &index);
 
     Q_INVOKABLE void setPlayheadTo(const QModelIndex &index);
+    Q_INVOKABLE void setCurrentPlaylist(const QModelIndex &index);
 
     Q_INVOKABLE void relinkMedia(const QModelIndexList &indexes, const QUrl &path);
     Q_INVOKABLE void decomposeMedia(const QModelIndexList &indexes);

@@ -931,7 +931,7 @@ void IvyDataSourceActor<T>::ivy_load_version(
                         for (const auto &i : jsn.at("data").at("versions_by_id")) {
                             auto payload = JsonStore(i);
 
-                            spdlog::warn("ivy_load_version {}", payload.dump(2));
+                            // spdlog::warn("ivy_load_version {}", payload.dump(2));
 
                             payload["show"] = show;
 
