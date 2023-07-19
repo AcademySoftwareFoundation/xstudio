@@ -371,6 +371,7 @@ ApplicationWindow {
 
         onCurrentChanged: {
             currentSource.index = currentIndex
+            sessionModel.setCurrentPlaylist(currentSource.index)
         }
     }
 
@@ -508,15 +509,16 @@ ApplicationWindow {
     // make sure we're looking in the right one..
     function updateMediaUuid(uuid) {
         let media_idx = app_window.sessionModel.search(uuid, "actorUuidRole", app_window.sessionModel.index(0,0,screenSource.index), 0)
-
         if(media_idx.valid) {
             // get index of active source.
             let active = media_idx.model.get(media_idx, "imageActorUuidRole")
+
             // dummy to populate..
             media_idx.model.get(media_idx, "audioActorUuidRole")
 
             if(active != undefined) {
-                let msi = app_window.sessionModel.search_recursive(active, "actorUuidRole", app_window.sessionModel.index(0, 0, media_idx))
+                let msi = app_window.sessionModel.search(active, "actorUuidRole", media_idx)
+
                 if(mediaImageSource.index != msi)
                     mediaImageSource.index = msi
 
@@ -1384,14 +1386,9 @@ ApplicationWindow {
         }
 
         function selectAllMedia() {
-            let mi = app_window.sessionSelectionModel.currentIndex
-            if(mi.valid){
-                let type = mi.model.get(mi, "typeRole")
-                let smi =  mi.model.index(0, 0, mi.model.index(0, 0, mi))
-
-                let matches = mediaSelectionModel.model.match(smi, "typeRole", "Media", -1)
-                mediaSelectionModel.select(helpers.createItemSelection(matches), ItemSelectionModel.ClearAndSelect)
-            }
+            let media_parent = currentSource.index.model.index(0, 0, currentSource.index)
+            let matches = mediaSelectionModel.model.search_list("Media", "typeRole", media_parent, 0, -1)
+            mediaSelectionModel.select(helpers.createItemSelection(matches), ItemSelectionModel.ClearAndSelect)
         }
 
         function deselectAllMedia() {
