@@ -757,7 +757,12 @@ ShotgunDataSourceActor<T>::ShotgunDataSourceActor(
 
         // do we need the UI to have spun up before we can issue calls to shotgun...
         // erm...
-        [=](use_data_atom, const caf::uri &uri) -> result<UuidActorVector> {
+        [=](use_data_atom atom, const caf::uri &uri) {
+            delegate(actor_cast<caf::actor>(this), atom, uri, FrameRate());
+        },
+        [=](use_data_atom,
+            const caf::uri &uri,
+            const FrameRate &media_rate) -> result<UuidActorVector> {
             // check protocol == shotgun..
             if (uri.scheme() != "shotgun")
                 return UuidActorVector();

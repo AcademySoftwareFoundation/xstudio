@@ -24,7 +24,7 @@ QVariant SessionModel::playlists() const {
     auto data = R"([])"_json;
     try {
         auto value = R"({"text": null, "uuid":null})"_json;
-        for (const auto &i : data_) {
+        for (const auto &i : *(data_.child(0))) {
             value["text"] = i.data().at("name");
             value["uuid"] = i.data().at("actor_uuid");
             data.push_back(value);
