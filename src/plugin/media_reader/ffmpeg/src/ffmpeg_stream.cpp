@@ -7,7 +7,9 @@
 #include "ffmpeg_stream.hpp"
 #include "xstudio/media/media_error.hpp"
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 using namespace xstudio::media_reader::ffmpeg;
 using namespace xstudio::media_reader;

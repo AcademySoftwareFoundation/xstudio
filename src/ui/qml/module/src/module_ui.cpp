@@ -261,29 +261,31 @@ void ModuleAttrsModel::add_attributes_from_backend(
             }
         }
 
-        beginInsertRows(
-            QModelIndex(),
-            attributes_data_.size(),
-            static_cast<int>(attributes_data_.size() + new_attrs.size()) - 1);
+        if (!new_attrs.empty()) {
+            beginInsertRows(
+                QModelIndex(),
+                attributes_data_.size(),
+                static_cast<int>(attributes_data_.size() + new_attrs.size()) - 1);
 
-        for (const auto &attr : new_attrs) {
+            for (const auto &attr : new_attrs) {
 
-            QMap<int, QVariant> attr_qt_data;
-            const nlohmann::json json = attr->as_json();
+                QMap<int, QVariant> attr_qt_data;
+                const nlohmann::json json = attr->as_json();
 
-            for (auto p = json.begin(); p != json.end(); ++p) {
-                const int role = Attribute::role_index(p.key());
-                if (role == Attribute::UuidRole) {
-                    attr_qt_data[role] = QUuidFromUuid(p.value().get<utility::Uuid>());
-                } else {
-                    attr_qt_data[role] = json_to_qvariant(p.value());
+                for (auto p = json.begin(); p != json.end(); ++p) {
+                    const int role = Attribute::role_index(p.key());
+                    if (role == Attribute::UuidRole) {
+                        attr_qt_data[role] = QUuidFromUuid(p.value().get<utility::Uuid>());
+                    } else {
+                        attr_qt_data[role] = json_to_qvariant(p.value());
+                    }
                 }
+                attributes_data_.push_back(attr_qt_data);
             }
-            attributes_data_.push_back(attr_qt_data);
-        }
 
-        endInsertRows();
-        emit rowCountChanged();
+            endInsertRows();
+            emit rowCountChanged();
+        }
     }
 }
 

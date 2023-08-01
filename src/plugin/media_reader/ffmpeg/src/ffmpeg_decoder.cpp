@@ -5,7 +5,9 @@
 #include "ffmpeg_decoder.hpp"
 #include "xstudio/media/media_error.hpp"
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 #define MIN_SEEK_FORWARD_FRAMES 16
 

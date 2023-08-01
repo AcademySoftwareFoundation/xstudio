@@ -66,6 +66,6 @@ ApplicationWindow {
         }
     }
 
-    flags: (asDialog ? Qt.Dialog : asWindow ? Qt.WindowSystemMenuHint : Qt.Tool) |(frameLess ? Qt.FramelessWindowHint : 0) | (onTop ? Qt.WindowStaysOnTopHint : 0)
+    flags: (asDialog ? Qt.Dialog : asWindow ? Qt.WindowSystemMenuHint : Qt.SubWindow) |(frameLess ? Qt.FramelessWindowHint : 0) | (onTop ? Qt.WindowStaysOnTopHint : 0)
     color: "#222"
 }

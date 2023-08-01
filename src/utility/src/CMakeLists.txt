@@ -4,7 +4,6 @@ SET(LINK_DEPS
 	nlohmann_json::nlohmann_json
 	reproc++
 	spdlog::spdlog
-	stdc++fs
 	uuid
 )
 
@@ -14,14 +13,24 @@ SET(STATIC_LINK_DEPS
 	nlohmann_json::nlohmann_json
 	reproc++
 	spdlog::spdlog
-	stdc++fs
 	uuid
 )
+
+if(UNIX AND NOT APPLE)
+    list(APPEND LINK_DEPS stdc++fs)
+	list(APPEND STATIC_LINK_DEPS stdc++fs)
+endif()
 
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
 find_package(nlohmann_json REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_search_module(UUID REQUIRED uuid)
+find_package(reproc++ REQUIRED)
+
+if(WIN32)
+	# Not Required
+elseif(UNIX AND NOT APPLE)
+	find_package(PkgConfig REQUIRED)
+	pkg_search_module(UUID REQUIRED uuid)
+endif()
 
 create_component_static(utility 0.1.0 "${LINK_DEPS}" "${STATIC_LINK_DEPS}")

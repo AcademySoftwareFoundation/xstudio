@@ -10,3 +10,4 @@ python/src/xstudio.egg-info/
 python/test/xstudio.log
 docs/conf.py
 python/src/xstudio/version.py
+.vs/

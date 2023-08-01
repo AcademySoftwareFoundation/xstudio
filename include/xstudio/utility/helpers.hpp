@@ -273,25 +273,57 @@ namespace utility {
         return path;
     }
 
-    inline std::string remote_session_path() {
-        auto root        = get_env("HOME");
-        std::string path = (root ? (*root) + "/.config/DNEG/xstudio/sessions" : "");
-        return path;
+inline std::string remote_session_path() {
+    const char* root;
+#ifdef _WIN32
+    root = std::getenv("USERPROFILE");
+#else
+    root = std::getenv("HOME");
+#endif
+    std::filesystem::path path;
+    if (root)
+    {
+        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "sessions";
     }
 
-    inline std::string preference_path(const std::string &append_path = "") {
-        auto root = get_env("HOME");
-        std::string path =
-            (root ? (*root) + "/.config/DNEG/xstudio/preferences/" + append_path : "");
-        return path;
+    return path.string();
+}
+
+inline std::string preference_path(const std::string &append_path = "") {
+    const char *root;
+#ifdef _WIN32
+    root = std::getenv("USERPROFILE");
+#else
+    root          = std::getenv("HOME");
+#endif
+    std::filesystem::path path;
+    if (root) {
+        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "preferences";
+        if (!append_path.empty()) {
+            path /= append_path;
+        }
     }
 
-    inline std::string snippets_path(const std::string &append_path = "") {
-        auto root = get_env("HOME");
-        std::string path =
-            (root ? (*root) + "/.config/DNEG/xstudio/snippets/" + append_path : "");
-        return path;
+    return path.string();
+}
+
+inline std::string snippets_path(const std::string &append_path = "") {
+    const char *root;
+#ifdef _WIN32
+    root = std::getenv("USERPROFILE");
+#else
+    root          = std::getenv("HOME");
+#endif
+    std::filesystem::path path;
+    if (root) {
+        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "snippets";
+        if (!append_path.empty()) {
+            path /= append_path;
+        }
     }
+
+    return path.string();
+}
 
     inline std::string preference_path_context(const std::string &context) {
         return preference_path(to_lower(context) + ".json");
@@ -325,7 +357,11 @@ namespace utility {
 
     inline bool is_file_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));
+#ifdef _WIN32
+        std::string ext = to_upper(p.extension().string()); // Convert path extension to string
+#else
         std::string ext = to_upper(p.extension());
+#endif
         for (const auto &i : supported_extensions)
             if (i == ext)
                 return true;
@@ -334,7 +370,11 @@ namespace utility {
 
     inline bool is_timeline_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));
+#ifdef _WIN32
+        std::string ext = to_upper_path(p.extension());
+#else
         std::string ext = to_upper(p.extension());
+#endif
         for (const auto &i : supported_timeline_extensions)
             if (i == ext)
                 return true;

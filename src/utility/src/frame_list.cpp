@@ -261,14 +261,23 @@ xstudio::utility::frame_groups_from_sequence_spec(const caf::uri &from_path) {
         std::string path = uri_to_posix_path(from_path);
         const std::regex spec_re("\\{[^}]+\\}");
         const std::regex path_re("^" + std::regex_replace(path, spec_re, "([0-9-]+)") + "$");
+#ifdef _WIN32
+        std::smatch m;
+#else
         std::cmatch m;
+#endif
         std::set<int> frames;
 
         for (const auto &entry : fs::directory_iterator(fs::path(path).parent_path())) {
             if (not fs::is_regular_file(entry.status())) {
                 continue;
             }
-            if (std::regex_match(entry.path().c_str(), m, path_re)) {
+#ifdef _WIN32
+            auto entryPath = entry.path().string(); // Convert to std::string
+#else
+	        auto entryPath = entry.path().c_str();
+#endif
+            if (std::regex_match(entryPath, m, path_re)) {
                 int frame = std::atoi(m[1].str().c_str());
                 if (fmt::format(path, frame) == entry.path()) {
                     frames.insert(frame);

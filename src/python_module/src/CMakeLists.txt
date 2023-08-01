@@ -1,9 +1,14 @@
 project(__pybind_xstudio VERSION 0.1.0 LANGUAGES CXX)
 
-find_package(pybind11 REQUIRED)
+find_package(pybind11 CONFIG REQUIRED)
+find_package(caf CONFIG REQUIRED)
 find_package(Python COMPONENTS Interpreter)
 
 set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
+
+if(WIN32)
+  add_compile_options("/bigobj")
+endif()
 
 add_library(
 	${PROJECT_NAME}

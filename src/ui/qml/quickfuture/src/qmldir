@@ -1,1 +1,1 @@
-../../../../../extern/quickfuture/src/qmldir
+include "../../../../../extern/quickfuture/src/qmldir"

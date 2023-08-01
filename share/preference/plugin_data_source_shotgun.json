@@ -1819,7 +1819,7 @@
                     },
                     "path": {
                         "path": "/plugin/data_source/shotgun/download/path",
-                        "default_value": "${HOME}/xStudio/shotgun_cache",
+                        "default_value": "${USERPROFILE}/xStudio/shotgun_cache",
                         "description": "Path to shotgun download cache.",
                         "value": "${TMPDIR}/${USER}/xStudio/shotgun_cache",
                         "datatype": "string",

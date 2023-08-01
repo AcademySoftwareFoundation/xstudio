@@ -3,7 +3,9 @@ SET(LINK_DEPS
 	Qt5::Core
 	Qt5::Test
 	xstudio::ui::qml::helper
+	xstudio::ui::qml::tag
 	xstudio::utility
+	xstudio::session
 )
 
 SET(EXTRAMOC

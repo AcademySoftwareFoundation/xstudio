@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
+#undef RGB
 
 namespace xstudio {
 namespace media_reader {

@@ -14,9 +14,9 @@
 			"disk_cache": {
 				"path": {
 					"path": "/core/thumbnail/disk_cache/path",
-					"default_value": "${HOME}/xStudio/thumbnails",
+					"default_value": "${USERPROFILE}/xStudio/thumbnails",
 					"description": "Path to thumbnail cache.",
-					"value": "${HOME}/xStudio/thumbnails",
+					"value": "${USERPROFILE}/xStudio/thumbnails",
 					"datatype": "string",
 					"context": ["APPLICATION"]
 				},

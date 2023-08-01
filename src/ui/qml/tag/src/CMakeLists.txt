@@ -2,6 +2,7 @@ SET(LINK_DEPS
 	${CAF_LIBRARY_core}
 	Qt5::Core
 	xstudio::ui::qml::helper
+	xstudio::global_store
 )
 
 SET(EXTRAMOC

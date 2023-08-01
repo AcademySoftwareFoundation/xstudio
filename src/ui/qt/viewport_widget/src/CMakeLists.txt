@@ -35,4 +35,7 @@ target_link_libraries(${PROJECT_NAME}
 		Qt5::Qml
 		Qt5::Quick
 		xstudio::ui::opengl::viewport
+		xstudio::ui::viewport
+		xstudio::thumbnail
+		xstudio::ui::qml::helper
 )

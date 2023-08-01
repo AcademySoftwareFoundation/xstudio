@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <algorithm>
+#include <nlohmann/json.hpp>
 
 #include "xstudio/timeline/item.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -654,65 +655,65 @@ void Item::redo(const utility::JsonStore &event) {
 bool Item::process_event(const utility::JsonStore &event) {
     // spdlog::warn("{} {} {}", event["uuid"], to_string(uuid_addr_.first), event["uuid"] ==
     // uuid_addr_.first);
-    if (event.at("uuid") == uuid_addr_.first) {
+    if (event.at("uuid") == nlohmann::json(uuid_addr_.first)) {
         switch (static_cast<ItemAction>(event.at("action"))) {
         case IT_ENABLE:
             set_enabled_direct(event.at("value"));
             break;
         case IT_NAME:
             set_name_direct(event.at("value"));
-            break;
-        case IT_ACTIVE:
+                    break;
+                case IT_ACTIVE:
             set_active_range_direct(event.at("value"));
             has_active_range_ = event.at("value2");
-            break;
-        case IT_AVAIL:
+                    break;
+                case IT_AVAIL:
             set_available_range_direct(event.at("value"));
             has_available_range_ = event.at("value2");
-            break;
-        case IT_INSERT: {
-            auto it = begin();
-            std::advance(it, event.at("index"));
+                    break;
+                case IT_INSERT: {
+                    auto it = begin();
+            std::advance(it, static_cast<int>(event["index"]));
             insert_direct(it, Item(JsonStore(event.at("item")), the_system_));
-        } break;
-        case IT_REMOVE: {
-            auto it = begin();
-            std::advance(it, event.at("index"));
-            erase_direct(it);
-        } break;
-        case IT_SPLICE: {
-            auto it1 = begin();
-            std::advance(it1, event.at("dst"));
-            auto it2 = begin();
-            std::advance(it2, event.at("first"));
-            auto it3 = begin();
-            std::advance(it3, event.at("last"));
-            splice_direct(it1, *this, it2, it3);
-        } break;
+                } break;
+                case IT_REMOVE: {
+                    auto it = begin();
+            std::advance(it, static_cast<int>(event["index"]));
+                    erase_direct(it);
+                } break;
+                case IT_SPLICE: {
+                    auto it1 = begin();
+            std::advance(it1, static_cast<int>(event["value1"]));
+                    auto it2 = begin();
+            std::advance(it2, static_cast<int>(event["value2"]));
+                    auto it3 = begin();
+            std::advance(it3, static_cast<int>(event["value3"]));
+                    splice_direct(it1, *this, it2, it3);
+                } break;
 
-        case IT_ADDR:
+                case IT_ADDR:
             if (event.at("value").is_null())
-                set_actor_addr_direct(caf::actor_addr());
-            else
+                        set_actor_addr_direct(caf::actor_addr());
+                    else
                 set_actor_addr_direct(string_to_actor_addr(event.at("value")));
-            break;
-        case IA_NONE:
-        default:
-            break;
-        }
-        if (item_event_callback_)
-            item_event_callback_(event, *this);
-    } else {
+                    break;
+                case IA_NONE:
+                default:
+                    break;
+                }
+                if (item_event_callback_)
+                    item_event_callback_(event, *this);
+            } else {
         // child ?
         for (auto &i : *this) {
             if (i.process_event(event))
                 return true;
-        }
+            }
 
-        return false;
-    }
+            return false;
+        }
     return true;
-}
+    }
 
 void Item::bind_item_event_func(ItemEventFunc fn, const bool recursive) {
     recursive_bind_      = recursive;

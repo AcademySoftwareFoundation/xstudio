@@ -14,6 +14,7 @@ option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
 option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
 option(BUILD_RESKIN "Build xstudio reskin binary" ON)
+option(USE_VCPKG "Use Vcpkg for package management" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
@@ -30,7 +31,9 @@ if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "
 endif()
 
 set(CXXOPTS_BUILD_TESTS OFF CACHE BOOL "Enable or disable cxxopts' tests")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always")
+endif()
 
 if (${OPTIMIZE_FOR_NATIVE})
   include(CheckCXXCompilerFlag)
@@ -50,18 +53,26 @@ if (NOT ${GCC_MARCH_OVERRIDE} STREQUAL "")
   endif()
 endif()
 
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU") 
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
+endif()
 
 set(TEST_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/test_resource")
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-set(CMAKE_CXX_STANDARD 17)
+if(WIN32)
+  set(CMAKE_CXX_STANDARD 20)
+else()
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_LINK_DEPENDS_NO_SHARED true)
 
-set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+endif()
 set(CMAKE_HAVE_THREADS_LIBRARY 1)
 set(CMAKE_USE_WIN32_THREADS_INIT 0)
 set(CMAKE_USE_PTHREADS_INIT 1)
@@ -123,7 +134,46 @@ if(ENABLE_CLANG_TIDY)
 
 endif()
 
-find_package(nlohmann_json REQUIRED)
+if(WIN32)
+    set(USE_VCPKG ON)
+    ADD_DEFINITIONS(-DNOMINMAX)
+endif()
+
+# Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
+if(USE_VCPKG)
+  set(CMAKE_CXX_STANDARD 20)
+  add_compile_options(/permissive-)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
+  set(VCPKG_INTEGRATION ON)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+  # Set Python in VCPKG
+  set(Python_EXECUTABLE "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/python.exe")  
+  # Install pip and sphinx
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m ensurepip --upgrade
+    RESULT_VARIABLE ENSUREPIP_RESULT
+  )
+  if(ENSUREPIP_RESULT)
+    message(FATAL_ERROR "Failed to ensurepip.")
+  else()
+    execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install sphinx breathe sphinx-rtd-theme
+      RESULT_VARIABLE PIP_RESULT
+    )
+    if(PIP_RESULT)
+      message(FATAL_ERROR "Failed to install Sphinx using pip.")
+    endif()
+  endif()
+  # append vcpkg packages
+  list(APPEND CMAKE_PREFIX_PATH "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows")
+  # enable UUID System Generator 
+  add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
+  # build quickpromise
+  add_subdirectory("extern/quickpromise")
+  add_subdirectory("extern/quickfuture")
+endif()
+
+find_package(nlohmann_json CONFIG REQUIRED)
 include(CTest)
 
 if(ENABLE_CLANG_FORMAT)
@@ -159,4 +209,6 @@ if(INSTALL_XSTUDIO)
 
 endif ()
 
-add_subdirectory("extern/reproc")
+if(UNIX)
+  add_subdirectory("extern/reproc")
+endif()

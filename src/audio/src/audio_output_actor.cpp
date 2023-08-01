@@ -14,10 +14,11 @@
 // include for system (soundcard) audio output
 #ifdef __linux__
 #include "linux_audio_output_device.hpp"
-#elif __APPLE__
-// TO DO
-#elif _WIN32
-// TO DO
+#endif
+#ifdef _WIN32
+#ifdef WINDOWS_AUDIO
+#include "windows_audio_output_device.hpp"
+#endif
 #endif
 
 
@@ -63,12 +64,28 @@ AudioOutputDeviceActor::AudioOutputDeviceActor(
             if (!is_playing) {
                 // this stops the loop pushing samples to the soundcard
                 playing_ = false;
+#ifdef _WIN32
+#ifdef WINDOWS_AUDIO
                 output_device_->disconnect_from_soundcard();
+#endif
+#endif
+#ifdef __linux__
+                output_device_->disconnect_from_soundcard();
+#endif
             } else if (is_playing && !playing_) {
                 // start loop
                 playing_ = true;
+#ifdef _WIN32
+#ifdef WINDOWS_AUDIO              
                 output_device_->connect_to_soundcard();
                 anon_send(actor_cast<caf::actor>(this), push_samples_atom_v);
+#endif
+#endif
+#ifdef __linux__
+                output_device_->connect_to_soundcard();
+                anon_send(actor_cast<caf::actor>(this), push_samples_atom_v);
+#endif
+
             }
         },
         [=](push_samples_atom) {
@@ -114,10 +131,11 @@ void AudioOutputDeviceActor::open_output_device(const utility::JsonStore &prefs)
     try {
 #ifdef __linux__
         output_device_ = std::make_unique<LinuxAudioOutputDevice>(prefs);
-#elif __APPLE__
-        // TO DO
-#elif _WIN32
-        // TO DO
+#endif
+#ifdef _WIN32
+#ifdef WINDOWS_AUDIO
+        output_device_ = std::make_unique<WindowsAudioOutputDevice>(prefs);
+#endif
 #endif
     } catch (std::exception &e) {
         spdlog::debug(

@@ -5,7 +5,9 @@
 
 #include <Iex.h>
 #include <IexErrnoExc.h>
+#ifdef __linux__
 #include <IlmThreadMutex.h>
+#endif
 #include <Imath/ImathBox.h>
 #include <ImfInputFile.h>
 #include <ImfInputPart.h>

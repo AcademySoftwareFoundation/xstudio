@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#ifdef _WIN32
+using pid_t = int; // Use Int type as pyconfig.h
+#endif
+
 #include <filesystem>
 
 #include <list>
 #include <optional>
 #include <string>
+#ifdef __linux__
 #include <sys/types.h>
 #include <unistd.h>
+#endif
 
 namespace xstudio {
 namespace utility {

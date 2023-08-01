@@ -126,7 +126,7 @@ namespace ui {
     class PointerEvent;
     struct Signature;
     namespace viewport {
-        struct GPUShader;
+        class GPUShader;
         typedef std::shared_ptr<const GPUShader> GPUShaderPtr;
     } // namespace viewport
 

@@ -8,9 +8,11 @@ set(SOURCES
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 add_library(xstudio::global ALIAS ${PROJECT_NAME})
 default_options(${PROJECT_NAME})
+if(UNIX)
 target_compile_options(${PROJECT_NAME}
 	PRIVATE -fvisibility=hidden
 )
+endif()
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
@@ -36,9 +38,12 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::utility
 		caf::core
 		caf::io
-		asound
 	PRIVATE
 		pybind11::embed
 )
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(${PROJECT_NAME} PRIVATE asound)  # Link against asound on Linux
+endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)

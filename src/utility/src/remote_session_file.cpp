@@ -20,7 +20,11 @@ RemoteSessionFile::RemoteSessionFile(const std::string &file_path) {
     // build entry..
     fs::path p(file_path);
     // parse path..
+#ifdef _WIN32
+    path_ = p.parent_path().string();
+#else
     path_ = p.parent_path();
+#endif
 
     auto file_name = p.filename().string();
     std::smatch match;
@@ -146,7 +150,11 @@ void RemoteSessionManager::scan() {
     for (const auto &entry : fs::directory_iterator(path_)) {
         if (fs::is_regular_file(entry.status())) {
             try {
+#ifdef _WIN32
+                sessions_.emplace_back(RemoteSessionFile(entry.path().string()));
+#else
                 sessions_.emplace_back(RemoteSessionFile(entry.path()));
+#endif
             } catch (const std::exception &err) {
                 spdlog::debug("{} {}", __PRETTY_FUNCTION__, err.what());
             }

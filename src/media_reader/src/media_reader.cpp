@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // #include <filesystem>
+#ifdef __linux__
 #include <dlfcn.h>
+#endif
 #include <filesystem>
 
 #include <fstream>

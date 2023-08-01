@@ -5,7 +5,9 @@
 #include <map>
 #include <mutex>
 #include <regex>
+#ifdef __linux__
 #include <sys/time.h>
+#endif
 
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/media/media.hpp"

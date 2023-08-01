@@ -38,7 +38,7 @@ namespace shotgun_client {
         IS_NOT,
         LESS_THAN,
         GREATER_THAN,
-        IN,
+        IN_OPERATOR,
         NOT_IN,
         BETWEEN,
         NOT_BETWEEN,
@@ -70,7 +70,7 @@ namespace shotgun_client {
         {ConditionalOperator::IS_NOT, "is_not"},
         {ConditionalOperator::LESS_THAN, "less_than"},
         {ConditionalOperator::GREATER_THAN, "greater_than"},
-        {ConditionalOperator::IN, "in"},
+        {ConditionalOperator::IN_OPERATOR, "in"},
         {ConditionalOperator::NOT_IN, "not_in"},
         {ConditionalOperator::BETWEEN, "between"},
         {ConditionalOperator::NOT_BETWEEN, "not_between"},
@@ -431,7 +431,7 @@ namespace shotgun_client {
         }
 
         Field &in(const std::vector<T> value) {
-            condition_ = ConditionalOperator::IN;
+            condition_ = ConditionalOperator::IN_OPERATOR;
             value_     = std::move(value);
             null_      = false;
             return *this;
@@ -704,7 +704,7 @@ namespace shotgun_client {
         }
 
         Field &in(const std::vector<int32_t> value) {
-            condition_ = ConditionalOperator::IN;
+            condition_ = ConditionalOperator::IN_OPERATOR;
             value_     = std::move(value);
             null_      = false;
             return *this;

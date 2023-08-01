@@ -444,9 +444,18 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
 
     if (changed) {
         // update totals.
-        if (type == "Media List" and ptree->data().at("children").is_array()) {
-            // spdlog::warn("mediaCountRole {}", ptree->size());
-            setData(parent_index.parent(), QVariant::fromValue(ptree->size()), mediaCountRole);
+        auto children = ptree->data().at("children");
+        if (type == "Media List") {
+            if (children.is_array()) {
+
+                setData(
+                    parent_index.parent(),
+                    QVariant::fromValue(unsigned long(children.size())),
+                    mediaCountRole);
+
+            } else {
+                setData(parent_index.parent(), QVariant::fromValue(0), mediaCountRole);
+            }
         }
 
         emit dataChanged(parent_index, parent_index, roles);
@@ -849,7 +858,6 @@ nlohmann::json SessionModel::createEntry(const nlohmann::json &update) {
     return result;
 }
 
-
 void SessionModel::moveSelectionByIndex(const QModelIndex &index, const int offset) {
     try {
         if (index.isValid()) {
@@ -873,7 +881,7 @@ void SessionModel::updateSelection(const QModelIndex &index, const QModelIndexLi
             nlohmann::json &j = indexToData(index);
             // spdlog::warn("{}", j.dump(2));
 
-            if (j.at("type") == "PlayheadSelection") {
+	    if (j.at("type") == "PlayheadSelection") {
                 auto actor = actorFromString(system(), j.at("actor"));
                 if (actor) {
                     UuidList uv;

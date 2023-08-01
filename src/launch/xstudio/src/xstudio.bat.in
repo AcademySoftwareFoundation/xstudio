@@ -1,0 +1,26 @@
+@echo off
+
+setlocal
+
+rem Disable QML_IMPORT_TRACE (equivalent to export QML_IMPORT_TRACE=0 in bash)
+set QML_IMPORT_TRACE=0
+
+rem Check if XSTUDIO_ROOT environment variable is set
+if "%XSTUDIO_ROOT%"=="" (
+  rem Use bob world path if available
+  if not "%BOB_WORLD_SLOT_dneg_xstudio%"=="" (
+    set "XSTUDIO_ROOT=%BOB_WORLD_SLOT_dneg_xstudio%\share\xstudio"
+    set "LD_LIBRARY_PATH=%XSTUDIO_ROOT%\lib;%LD_LIBRARY_PATH%"
+  ) else (
+    set "XSTUDIO_ROOT=%CMAKE_INSTALL_PREFIX%\share\xstudio"
+    set "LD_LIBRARY_PATH=%XSTUDIO_ROOT%\lib;%LD_LIBRARY_PATH%"
+  )
+)
+
+rem Run xstudio_desktop_integration command
+call xstudio_desktop_integration
+
+rem Run xstudio.bin with command line arguments
+call xstudio.exe %*
+
+endlocal
