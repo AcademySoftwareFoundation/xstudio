@@ -11,6 +11,7 @@ import QuickFuture 1.0
 import QuickPromise 1.0
 
 import xStudio 1.1
+import xstudio.qml.helpers 1.0
 
 Rectangle {
     id: panel
@@ -132,14 +133,33 @@ Rectangle {
             }
 
             if("xstudio/media-ids" in data) {
-                media_move_copy_dialog.data = data
+                let before = null
+                let internal_copy = false
 
                 if(previousItem) {
-                    media_move_copy_dialog.index = previousItem.modelIndex()
-                } else {
-                    media_move_copy_dialog.index = null
+                    before = previousItem.modelIndex()
                 }
-                media_move_copy_dialog.open()
+
+                // does media exist in our parent.
+                if(before) {
+                    let mi = app_window.sessionModel.search_recursive(
+                        helpers.QVariantFromUuidString(data["xstudio/media-ids"].split("\n")[0]), "idRole"
+                    )
+
+                    if(app_window.sessionModel.getPlaylistIndex(before) == app_window.sessionModel.getPlaylistIndex(mi)) {
+                        internal_copy = true
+                    }
+                }
+
+                if(internal_copy) {
+                    Future.promise(
+                        app_window.sessionModel.handleDropFuture(Qt.CopyAction, data, before)
+                    ).then(function(quuids){})
+                } else {
+                    media_move_copy_dialog.data = data
+                    media_move_copy_dialog.index = before
+                    media_move_copy_dialog.open()
+                }
 
             } else {
                 if(previousItem) {

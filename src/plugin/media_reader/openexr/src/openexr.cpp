@@ -580,22 +580,23 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         else if (timecode_rate)
             fr = static_cast<double>(timecode_rate->value());
 
-        if (fr == 0.0)
-            fr = 24.0;
-
         if (timecode) {
+            // note if frame rate is no known from metadata we use 24pfs
+            // as a default
             tc = utility::Timecode(
                 timecode->value().hours(),
                 timecode->value().minutes(),
                 timecode->value().seconds(),
                 timecode->value().frame(),
-                fr,
+                fr == 0.0 ? 24.0 : fr,
                 timecode->value().dropFrame());
         } else if (rate) {
             tc = utility::Timecode("00:00:00:00", fr);
         }
 
-        frd.set_rate(utility::FrameRate(1.0 / fr));
+        // if frame rate is not known, return null frame rate so xSTUDIO will
+        // apply its global frame rate
+        frd.set_rate(fr == 0.0 ? utility::FrameRate() : utility::FrameRate(1.0 / fr));
 
         std::vector<std::string> stream_ids;
         for (int prt = 0; prt < parts; ++prt) {

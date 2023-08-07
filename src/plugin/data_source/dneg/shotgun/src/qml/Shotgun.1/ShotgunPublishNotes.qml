@@ -181,9 +181,7 @@ XsWindow {
             )
 
             publishNotesDialog.payload = tmp
-            // console.log(tmp)
             publish_func(tmp, playlist_uuid)
-        // onAccepted: push_playlist_note_promise(data_source, payload, playlist, playlist_uuid, error)
         }
     }
 

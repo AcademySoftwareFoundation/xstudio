@@ -46,6 +46,39 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
         },
 
+        // helper for dealing with URI's
+        [=](data_source::use_data_atom,
+            const caf::uri &uri,
+            const FrameRate &media_rate) -> result<UuidActorVector> {
+            // send to resident enabled datasource plugins
+            auto actors = std::vector<caf::actor>();
+
+            for (const auto &i : manager_.factories()) {
+                if (i.second.factory()->type() == PluginType::PT_DATA_SOURCE and
+                    resident_.count(i.first))
+                    actors.push_back(resident_[i.first]);
+            }
+
+            if (actors.empty())
+                return UuidActorVector();
+
+            auto rp = make_response_promise<UuidActorVector>();
+
+            fan_out_request<policy::select_all>(
+                actors, infinite, data_source::use_data_atom_v, uri, media_rate)
+                .then(
+                    [=](const std::vector<UuidActorVector> results) mutable {
+                        for (const auto &i : results) {
+                            if (not i.empty())
+                                return rp.deliver(i);
+                        }
+                        rp.deliver(UuidActorVector());
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
         // helper for dealing with Media sources back population's
         [=](data_source::use_data_atom,
             const caf::actor &media,
@@ -162,39 +195,6 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                     [=](error &err) mutable { rp.deliver(std::move(err)); }
 
                 );
-
-            return rp;
-        },
-
-        // helper for dealing with URI's
-        [=](data_source::use_data_atom,
-            const caf::uri &uri,
-            const FrameRate &media_rate) -> result<UuidActorVector> {
-            // send to resident enabled datasource plugins
-            auto actors = std::vector<caf::actor>();
-
-            for (const auto &i : manager_.factories()) {
-                if (i.second.factory()->type() == PluginType::PT_DATA_SOURCE and
-                    resident_.count(i.first))
-                    actors.push_back(resident_[i.first]);
-            }
-
-            if (actors.empty())
-                return UuidActorVector();
-
-            auto rp = make_response_promise<UuidActorVector>();
-
-            fan_out_request<policy::select_all>(
-                actors, infinite, data_source::use_data_atom_v, uri, media_rate)
-                .then(
-                    [=](const std::vector<UuidActorVector> results) mutable {
-                        for (const auto &i : results) {
-                            if (not i.empty())
-                                return rp.deliver(i);
-                        }
-                        rp.deliver(UuidActorVector());
-                    },
-                    [=](error &err) mutable { rp.deliver(std::move(err)); });
 
             return rp;
         },

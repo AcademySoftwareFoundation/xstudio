@@ -28,7 +28,7 @@
     wget https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.tar.gz
     tar -xf v3.11.2.tar.gz
     mkdir json-3.11.2/build
-    cd json-3.7.3/build
+    cd json-3.11.2/build
     cmake .. -DJSON_BuildTests=Off
     make -j $JOBS
     sudo make  install

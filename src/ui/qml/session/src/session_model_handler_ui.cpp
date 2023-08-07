@@ -643,7 +643,39 @@ void SessionModel::init(caf::actor_system &_system) {
                 }
             },
 
-            [=](utility::event_atom, media::add_media_stream_atom, const UuidActor &) {},
+
+            // NEVER TRIGGERS ? NOT TESTED !
+            [=](utility::event_atom, media::add_media_stream_atom, const UuidActor &) {
+                // spdlog::warn("media::add_media_stream_atom");
+                try {
+                    auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
+                    auto src_str = actorToString(system(), src);
+
+                    auto indexes = search_recursive_list(
+                        QVariant::fromValue(QStringFromStd(src_str)),
+                        actorRole,
+                        QModelIndex(),
+                        0,
+                        1);
+
+                    if (not indexes.empty() and indexes[0].isValid()) {
+                        const nlohmann::json &j = indexToData(indexes[0]);
+
+                        // spdlog::warn("media::add_media_stream_atom REQUEST");
+
+                        requestData(
+                            QVariant::fromValue(QStringFromStd(src_str)),
+                            actorRole,
+                            getPlaylistIndex(indexes[0]),
+                            j,
+                            childrenRole);
+                    } else {
+                        spdlog::warn("FAIELD");
+                    }
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            },
 
             [=](utility::event_atom,
                 playlist::move_media_atom,
@@ -656,18 +688,22 @@ void SessionModel::init(caf::actor_system &_system) {
                     auto index = search_recursive(
                         QVariant::fromValue(QStringFromStd(src_str)), actorRole);
 
-                    spdlog::info("utility::event_atom, utility::move_media_atom {}", src_str);
+                    // spdlog::info("utility::event_atom, utility::move_media_atom {}",
+                    // src_str);
 
                     // trigger update of model..
                     if (index.isValid()) {
                         const nlohmann::json &j = indexToData(index);
+                        // spdlog::warn("{}", j.dump(2));
                         if (j.at("type") == "Subset" or j.at("type") == "Timeline") {
-                            auto media_id = j.at("children").at(0).at("id");
+                            const auto tree = *(indexToTree(index)->child(0));
+                            auto media_id   = tree.data().at("id");
+
                             requestData(
                                 QVariant::fromValue(QUuidFromUuid(media_id)),
                                 idRole,
                                 index,
-                                j.at("children").at(0),
+                                tree.data(),
                                 childrenRole);
                         }
                     }
