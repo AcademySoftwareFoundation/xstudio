@@ -992,16 +992,15 @@ Item {
             let inds = app_window.sessionSelectionModel.selectedIndexes
             inds.forEach(
                 function (item, index) {
-                    let type = item.model.get(item, "typeRole")
-                    if(type == "Playlist") {
-                        // get playlist name
-                        let uuid = item.model.get(item, "actorUuidRole")
+                    // find playlist..
+                    let plind = app_window.sessionModel.getPlaylistIndex(item)
+                    // get playlist name
+                    let uuid = item.model.get(plind, "actorUuidRole")
 
-                        push_notes_dialog.publishSelected = selected_media
-                        push_notes_dialog.playlist_uuid = uuid
-                        push_notes_dialog.updatePublish()
-                        push_notes_dialog.show()
-                    }
+                    push_notes_dialog.publishSelected = selected_media
+                    push_notes_dialog.playlist_uuid = uuid
+                    push_notes_dialog.updatePublish()
+                    push_notes_dialog.show()
                 }
             )
         }

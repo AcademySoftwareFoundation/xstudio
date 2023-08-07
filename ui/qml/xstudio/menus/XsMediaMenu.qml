@@ -116,6 +116,9 @@ XsMenu {
         fakeDisabled: false
         Repeater {
             model: app_window.mediaImageSource.streams
+            onItemAdded: stream_menu.insertItem(index, item)
+            onItemRemoved: stream_menu.removeItem(item)
+
             XsMenuItem {
                 mytext: modelData.name
                 enabled: true

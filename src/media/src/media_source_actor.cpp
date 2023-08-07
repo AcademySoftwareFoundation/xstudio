@@ -129,7 +129,8 @@ MediaSourceActor::MediaSourceActor(
     base_.set_media_reference(mr);
 
 
-    anon_send(actor_cast<actor>(this), acquire_media_detail_atom_v, media_reference.rate());
+    // special case , when duplicating, as that'll suppy streams.
+    // anon_send(actor_cast<actor>(this), acquire_media_detail_atom_v, media_reference.rate());
 
     init();
 }

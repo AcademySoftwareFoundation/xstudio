@@ -194,6 +194,14 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
     // spdlog::warn("processChildren {} {} {}", type, ptree->data().dump(2), rj.dump(2));
     // spdlog::warn("processChildren {}", tree_to_json( *ptree,"children").dump(2));
     // spdlog::warn("processChildren {}", rj.dump(2));
+    if (type == "MediaSource" and rj.at(0).at("children").empty() and
+        rj.at(1).at("children").empty()) {
+        // spdlog::warn("RETRY {}", rj.dump(2));
+        // force retry
+        emit dataChanged(parent_index, parent_index, roles);
+        return;
+    }
+
 
     try {
         if (type == "Session" or type == "Container List" or type == "Media" or
