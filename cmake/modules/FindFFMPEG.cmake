@@ -58,6 +58,11 @@ Note that only components requested with `COMPONENTS` or `OPTIONAL_COMPONENTS`
 are guaranteed to set these variables or provide targets.
 #]==]
 
+if (UNIX AND NOT APPLE)
+  set(LINUX TRUE)
+  find_package(PkgConfig)
+endif ()
+
 function (_ffmpeg_find component headername)
   find_path("FFMPEG_${component}_INCLUDE_DIR"
     NAMES
@@ -119,8 +124,44 @@ function (_ffmpeg_find component headername)
         add_library("FFMPEG::${component}" UNKNOWN IMPORTED)
         set_target_properties("FFMPEG::${component}" PROPERTIES
           IMPORTED_LOCATION "${FFMPEG_${component}_LIBRARY}"
-          INTERFACE_INCLUDE_DIRECTORIES "${FFMPEG_${component}_INCLUDE_DIR}"
-          IMPORTED_LINK_INTERFACE_LIBRARIES "${_deps_link}")
+          INTERFACE_INCLUDE_DIRECTORIES "${FFMPEG_${component}_INCLUDE_DIR}")
+
+        if (LINUX)
+          # Check if the found component is a static library.
+          get_filename_component(_ffmpeg_${component}_ext
+            "${FFMPEG_${component}_LIBRARY}" EXT)
+          string(COMPARE EQUAL
+            "${_ffmpeg_${component}_ext}"
+            ".a"
+            _ffmpeg_${component}_static)
+
+          if (_ffmpeg_${component}_static)
+            # This is necessary to link against static ffmpeg libraries.
+            # See https://www.ffmpeg.org/platform.html#Advanced-linking-configuration
+            set_target_properties("FFMPEG::${component}" PROPERTIES
+              INTERFACE_LINK_OPTIONS "-Wl,-Bsymbolic")
+
+            if (PKG_CONFIG_FOUND)
+              # Use `pkg-config` to find transitive dependencies of the ffmpeg
+              # libraries, to facilitate proper static linking with codec-
+              # specific libraries.
+              pkg_search_module("_ffmpeg_${component}_pkgconfig"
+                "${CMAKE_STATIC_LIBRARY_PREFIX}${component}")
+
+              if (${_ffmpeg_${component}_pkgconfig_FOUND})
+                set_target_properties("FFMPEG::${component}" PROPERTIES
+                  INTERFACE_LINK_DIRECTORIES "${_ffmpeg_${component}_pkgconfig_LIBRARY_DIRS}")
+
+                foreach (_ffmpeg_${component}_dep IN LISTS _ffmpeg_${component}_pkgconfig_LIBRARIES)
+                  list(APPEND _deps_link "${_ffmpeg_${component}_dep}")
+                endforeach ()
+                list(REMOVE_DUPLICATES _deps_link)
+              endif ()
+            endif ()
+          endif ()
+        endif ()
+        set_target_properties("FFMPEG::${component}" PROPERTIES
+          INTERFACE_LINK_LIBRARIES "${_deps_link}")
       endif ()
       set("FFMPEG_${component}_FOUND" 1
         PARENT_SCOPE)
