@@ -1,7 +1,7 @@
 project(media_reader_ffmpeg VERSION 0.1.0 LANGUAGES CXX)
 
 find_package(FFMPEG REQUIRED COMPONENTS avcodec avformat swscale avutil)
-
+find_package(GLEW REQUIRED)
 
 set(SOURCES
 	ffmpeg_stream.cpp
@@ -22,6 +22,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE -Wfatal-errors)
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::media_reader
+		GLEW::GLEW
 		FFMPEG::avcodec
 		FFMPEG::avformat
 		FFMPEG::swscale
