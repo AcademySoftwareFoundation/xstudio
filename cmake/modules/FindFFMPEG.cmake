@@ -166,11 +166,23 @@ function (_ffmpeg_find component headername)
       set("FFMPEG_${component}_FOUND" 1
         PARENT_SCOPE)
 
+      string(TOUPPER "${component}" component_upper)
+
+      # Check for `version_major.h`
+      set(version_major "")
+      set(version_major_header_path "${FFMPEG_${component}_INCLUDE_DIR}/lib${component}/version_major.h")
+      if (EXISTS "${version_major_header_path}")
+        file(STRINGS "${version_major_header_path}" version_major
+          REGEX "#define  *LIB${component_upper}_VERSION_MAJOR ")
+      endif ()
+
+      # Check for `version.h`
       set(version_header_path "${FFMPEG_${component}_INCLUDE_DIR}/lib${component}/version.h")
       if (EXISTS "${version_header_path}")
-        string(TOUPPER "${component}" component_upper)
         file(STRINGS "${version_header_path}" version
           REGEX "#define  *LIB${component_upper}_VERSION_(MAJOR|MINOR|MICRO) ")
+
+        set(version "${version_major} ${version}")
         string(REGEX REPLACE ".*_MAJOR *\([0-9]*\).*" "\\1" major "${version}")
         string(REGEX REPLACE ".*_MINOR *\([0-9]*\).*" "\\1" minor "${version}")
         string(REGEX REPLACE ".*_MICRO *\([0-9]*\).*" "\\1" micro "${version}")
