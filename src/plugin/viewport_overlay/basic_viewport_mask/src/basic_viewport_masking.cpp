@@ -205,7 +205,7 @@ BasicViewportMasking::BasicViewportMasking(
     : plugin::StandardPlugin(cfg, "BasicViewportMasking", init_settings) {
     // The function Attribute::expose_in_ui_attrs_group allows you to declare
     // a XsModuleAttributes or XsModuleAttributesModel item in QML code - by
-    // setting the 'attributesGroupName' attrubte on these items to match the
+    // setting the 'attributesGroupNames' attrubte on these items to match the
     // group name that we set here, we get a connection between QML and this
     // class that allows us to update QML when the backend attribute (owned by
     // this class) changes or vice/versa.
@@ -261,7 +261,7 @@ BasicViewportMasking::BasicViewportMasking(
         std::vector<std::string>({"QML", "OpenGL"}));
     mask_render_method_->expose_in_ui_attrs_group("viewport_mask_settings");
 
-    // The 'main_toolbar' and 'popout_toolbar' attribute groups are referenced
+    // The 'any_toolbar' attribute group is referenced
     // by the xStudio toolbar - for every attribute in these groups, a toolbar
     // widget is added to control that attribute. Only certain attribute types
     // are supported in this way, however: StringChoice, Float and Boolean.
@@ -271,8 +271,8 @@ BasicViewportMasking::BasicViewportMasking(
         add_string_choice_attribute("Mask", "Mk", "Off", {"Off", "On"}, {"Off", "On"});
     mask_selection_->set_tool_tip("Toggles the mask on / off, use the settings to customize "
                                   "the mask. You can use the M hotkey to toggle on / off");
-    mask_selection_->expose_in_ui_attrs_group("main_toolbar");
-    mask_selection_->expose_in_ui_attrs_group("popout_toolbar");
+    mask_selection_->expose_in_ui_attrs_group("any_toolbar");
+    mask_selection_->expose_in_ui_attrs_group("viewport_mask_settings");
 
     // here we set custom QML code to implement a custom widget that is inserted
     // into the viewer toolbox. In this case, we have extended the widget for

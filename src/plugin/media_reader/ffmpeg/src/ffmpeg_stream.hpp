@@ -4,6 +4,7 @@
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/logging.hpp"
+#include "xstudio/utility/frame_rate.hpp"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -73,7 +74,10 @@ namespace media_reader {
 
             int64_t current_frame();
             int64_t frame_to_pts(int frame) const;
-            utility::FrameRate frame_rate() const;
+
+            void set_virtual_frame_rate(const utility::FrameRate &vfr);
+
+            const utility::FrameRate &frame_rate() const { return frame_rate_; }
 
             ImageBufPtr get_ffmpeg_frame_as_xstudio_image();
 
@@ -107,22 +111,17 @@ namespace media_reader {
                 return is_drop_frame_timecode_;
             }
 
-            [[nodiscard]] double duration_seconds() const {
-                const int64_t dur =
-                    avc_stream_->duration == std::numeric_limits<int64_t>::lowest()
-                        ? 1
-                        : avc_stream_->duration;
-                return double(dur * avc_stream_->time_base.num) /
-                       double(avc_stream_->time_base.den);
-            }
+            [[nodiscard]] double duration_seconds() const;
+
+            [[nodiscard]] AVDictionary *tags() { return avc_stream_->metadata; }
 
             [[nodiscard]] int64_t seconds_to_pts(const double secs) const {
-                return stream_start_time() +
-                       (!avc_stream_->time_base.num
-                            ? 0
-                            : int64_t(
-                                  secs * double(avc_stream_->time_base.den) /
-                                  double(avc_stream_->time_base.num)));
+                return (
+                    !avc_stream_->time_base.num
+                        ? 0
+                        : int64_t(
+                              secs * double(avc_stream_->time_base.den) /
+                              double(avc_stream_->time_base.num)));
             }
 
             void set_current_frame_unknown() { current_frame_ = CURRENT_FRAME_UNKNOWN; }
@@ -161,6 +160,8 @@ namespace media_reader {
             int src_audio_sample_rate_           = {0};
             int src_audio_channel_layout_        = {0};
             SwrContext *audio_resampler_ctx_     = {0};
+
+            utility::FrameRate frame_rate_;
         };
     } // namespace ffmpeg
 } // namespace media_reader

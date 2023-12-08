@@ -43,6 +43,8 @@ namespace module {
                 to_any_to_json<int>([](int x) -> nlohmann::json { return nlohmann::json(x); }),
                 to_any_to_json<float>(
                     [](float x) -> nlohmann::json { return nlohmann::json(x); }),
+                to_any_to_json<double>(
+                    [](double x) -> nlohmann::json { return nlohmann::json(x); }),
                 to_any_to_json<bool>(
                     [](bool x) -> nlohmann::json { return nlohmann::json(x); }),
                 to_any_to_json<utility::Uuid>(
@@ -82,23 +84,120 @@ namespace module {
         template <typename T> AttributeData(const T &d) : data_(d) {}
 
         template <typename T> [[nodiscard]] const T get() const {
-            return std::any_cast<T>(data_);
+            try {
+                return std::any_cast<T>(data_);
+            } catch (std::exception &e) {
+                spdlog::warn(
+                    "{} Attempt to get AttributeData with type {} as type {}",
+                    __PRETTY_FUNCTION__,
+                    data_.type().name(),
+                    typeid(T).name());
+                throw;
+            }
         }
 
-        template <typename T> bool set(const T &v) {
+        template <typename T> bool __set(const T &v) { // NOLINT
             if (data_.has_value() && typeid(v) != data_.type()) {
                 spdlog::warn(
                     "{} Attempt to set AttributeData with type {} with data of type {} and "
-                    "value",
+                    "value {}",
                     __PRETTY_FUNCTION__,
                     data_.type().name(),
-                    typeid(v).name());
+                    typeid(v).name(),
+                    to_json().dump());
                 return false;
             } else if ((data_.has_value() && get<T>() != v) || !data_.has_value()) {
                 data_ = v;
                 return true;
             }
             return false;
+        }
+
+        template <typename T> bool set(const T &v) { return __set(v); }
+
+        bool set(const std::string &data) {
+            if (typeid(utility::Uuid) == data_.type()) {
+                return set(utility::Uuid(data));
+            } else {
+                return __set(data);
+            }
+        }
+
+        bool set(const utility::JsonStore &data) {
+            return set(static_cast<const nlohmann::json &>(data));
+        }
+
+        bool set(const nlohmann::json &data) {
+
+            bool rt = false;
+            if (data.is_string()) {
+
+                if (typeid(utility::Uuid) == data_.type()) {
+                    rt = set(utility::Uuid(data.get<std::string>()));
+                } else {
+                    rt = set(data.get<std::string>());
+                }
+
+            } else if (
+                data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
+                data.begin().value().get<std::string>() == "vec3") {
+
+                rt = set(data.get<Imath::V3f>());
+
+            } else if (
+                data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
+                data.begin().value().get<std::string>() == "colour") {
+
+                rt = set(data.get<utility::ColourTriplet>());
+
+            } else if (data.is_array() && data.size() && data.begin().value().is_string()) {
+
+                std::vector<std::string> v;
+                for (auto p = data.begin(); p != data.end(); p++) {
+                    if (p.value().is_string()) {
+                        v.push_back(p.value().get<std::string>());
+                    }
+                }
+                rt = set(v);
+
+            } else if (data.is_array() && data.size() && data.begin().value().is_boolean()) {
+
+                std::vector<bool> v;
+                for (auto p = data.begin(); p != data.end(); p++) {
+                    if (p.value().is_boolean()) {
+                        v.push_back(p.value().get<bool>());
+                    }
+                }
+                rt = set(v);
+
+            } else if (
+                data.is_array() && data.size() && data.begin().value().is_number_float()) {
+
+                std::vector<float> v;
+                for (auto p = data.begin(); p != data.end(); p++) {
+                    if (p.value().is_number_float()) {
+                        v.push_back(p.value().get<float>());
+                    }
+                }
+                rt = set(v);
+
+            } else if (data.is_boolean()) {
+                rt = set(data.get<bool>());
+            } else if (data.is_number_integer()) {
+                rt = set(data.get<int>());
+            } else if (data.is_number_float()) {
+                rt = set(data.get<float>());
+            } else if (
+                data_.type() == typeid(nlohmann::json) && get<nlohmann::json>() != data) {
+                data_ = data;
+                rt    = true;
+            } else if (!data_.has_value()) {
+                data_ = data;
+                rt    = true;
+            } else if (data.is_null()) {
+                rt = true;
+            }
+            return rt;
         }
 
         // not pretty, must be a better way of letting an int set a float and vice versa
@@ -148,8 +247,6 @@ namespace module {
             data_ = v;
             return true;
         }
-
-        bool set(const nlohmann::json &data);
 
         template <typename T> AttributeData &operator=(const T &v) {
             set(v);

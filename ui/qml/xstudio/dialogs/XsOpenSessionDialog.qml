@@ -1,19 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick.Dialogs 1.0
 
+import QuickFuture 1.0
+import QuickPromise 1.0
+
 import xStudio 1.0
 
 FileDialog {
-    title: "Open session"
-    folder: session.pathNative ? XsUtils.stem(session.path.toString()).replace("localhost","") : shortcuts.home
+    title: "Open Session"
+    folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
     defaultSuffix: "xst"
 
     nameFilters:  ["Xstudio (*.xst)"]
     selectExisting: true
     selectMultiple: false
     onAccepted: {
-        session.load(fileUrl)
-        app_window.session.new_recent_path(fileUrl)
+        Future.promise(studio.loadSessionFuture(fileUrl)).then(
+            function(result){
+                // console.log(result)
+            }
+        )
+        app_window.sessionFunction.newRecentPath(fileUrl)
+        app_window.sessionFunction.defaultSessionFolder(path.slice(0, path.lastIndexOf("/") + 1))
     }
     onRejected: {
     }

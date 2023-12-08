@@ -223,6 +223,11 @@ namespace utility {
         */
         [[nodiscard]] size_t size() const { return uuids_.size(); }
 
+        /*!
+          \return next uuid size.
+        */
+        [[nodiscard]] utility::Uuid next_uuid(const utility::Uuid &uuid) const;
+
         /*! Insert new uuid
             \param uuid Uuid to insert
             \param uuid_before Insert before this Uuid

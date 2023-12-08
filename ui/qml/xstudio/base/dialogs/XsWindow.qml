@@ -45,25 +45,22 @@ ApplicationWindow {
                 control.requestActivate()
                 if(keepCentered || centerOnOpen) {
                     centerOnOpen = false
-                    if(typeof centerOn !== "undefined") {
+                    if(centerOn) {
                         let xx = centerOn.x
                         if(typeof centerOn.mapToGlobal !== "undefined"){
                             xx = centerOn.mapToGlobal(0, 0).x
                         }
+                        x = Math.max(xx, xx + (centerOn.width/2) - (width / 2))
 
-                        x = Math.max(xx, (xx + (centerOn.width/2)) - (width / 2))
-                    }
-                    x = (Screen.width / 2) - (width / 2)
-
-                    if(typeof centerOn !== "undefined") {
                         let yy = centerOn.y
                         if(typeof centerOn.mapToGlobal !== "undefined"){
                             yy = centerOn.mapToGlobal(0, 0).y
                         }
-
-                        y = Math.max(yy, (yy + (centerOn.height/2)) - (height / 2))
+                        y = Math.max(yy, yy + (centerOn.height/2) - (height / 2))
+                    } else {
+                        x = (Screen.width / 2) - (width / 2)
+                        y = (Screen.height / 2) - (height / 2)
                     }
-                    y = (Screen.height / 2) - (height / 2)
                 }
             }
         }

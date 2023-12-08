@@ -1,0 +1,531 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>xstudio.api.session.session &mdash; xStudio 0.10.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.10.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../../index.html">Module code</a> &raquo;</li>
+        
+          <li><a href="../../api.html">xstudio.api</a> &raquo;</li>
+        
+      <li>xstudio.api.session.session</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for xstudio.api.session.session</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_playlists_atom</span><span class="p">,</span> <span class="n">get_playlist_atom</span><span class="p">,</span> <span class="n">add_playlist_atom</span><span class="p">,</span> <span class="n">move_container_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_container_atom</span><span class="p">,</span> <span class="n">create_group_atom</span><span class="p">,</span> <span class="n">remove_container_atom</span><span class="p">,</span> <span class="n">path_atom</span><span class="p">,</span> <span class="n">get_media_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">rename_container_atom</span><span class="p">,</span> <span class="n">create_divider_atom</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">,</span> <span class="n">playhead_rate_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">reflag_container_atom</span><span class="p">,</span> <span class="n">merge_playlist_atom</span><span class="p">,</span> <span class="n">copy_container_to_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_bookmark_atom</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">,</span> <span class="n">current_playlist_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">URI</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">UuidVec</span>
+
+<span class="kn">from</span> <span class="nn">xstudio.api.session.container</span> <span class="kn">import</span> <span class="n">Container</span><span class="p">,</span> <span class="n">PlaylistTree</span><span class="p">,</span> <span class="n">PlaylistItem</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session.playlist</span> <span class="kn">import</span> <span class="n">Playlist</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session.media.media</span> <span class="kn">import</span> <span class="n">Media</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session.bookmark</span> <span class="kn">import</span> <span class="n">Bookmarks</span>
+
+<div class="viewcode-block" id="Session"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session">[docs]</a><span class="k">class</span> <span class="nc">Session</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Session object.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create Session object.</span>
+
+<span class="sd">        Derived from Container.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            connection(Connection): Connection object</span>
+<span class="sd">            remote(object): Remote actor object</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            uuid(Uuid): Uuid of remote actor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Container</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get session file path.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            path(str): Session path.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">path_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get new media rate.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            media_rate(core.FrameRate): Media rate to use for rateless media.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">bookmarks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get bookmarks.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Bookmarks(): Session bookmarks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Bookmarks</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_bookmark_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">Uuid</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="nd">@media_rate</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set media_rate.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            media_rate(core.FrameRate): Set media_rate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get playhead rate.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            playhead_rate(core.FrameRate): Rate for new playheads.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">playhead_rate_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@playhead_rate</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set playhead_rate.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            playhead_rate(core.FrameRate): Set playhead_rate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">playhead_rate_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">playlists</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get playlists.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            playlists(list[Playlist]): Playlists.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_playlists_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="Session.create_playlist"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.create_playlist">[docs]</a>    <span class="k">def</span> <span class="nf">create_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Playlist&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create new playlist.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            name(str): Name of new playlist</span>
+<span class="sd">            before(Uuid): Insert before this item.</span>
+<span class="sd">            into(bool): Insert into this container (not used).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            playlist(Uuid,Playlist): Returns container Uuid and Playlist</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">add_playlist_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Session.merge_playlist"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.merge_playlist">[docs]</a>    <span class="k">def</span> <span class="nf">merge_playlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playlists</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Combined Playlist&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create new playlist.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            playlists(list): Playlists to merge</span>
+<span class="sd">            name(str): Name of new playlist</span>
+<span class="sd">            before(Uuid): Insert before this item.</span>
+<span class="sd">            into(bool): Insert into this container (not used).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            playlist(Uuid,Playlist): Returns container Uuid and Playlist</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">uuids</span> <span class="o">=</span> <span class="n">UuidVec</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">playlists</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span>
+            <span class="n">uuids</span><span class="o">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">merge_playlist_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">uuids</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Playlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span></div>
+
+        <span class="c1"># return (result[0], Playlist(self.connection, result[1][1], result[1][0]))</span>
+
+<div class="viewcode-block" id="Session.create_divider"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.create_divider">[docs]</a>    <span class="k">def</span> <span class="nf">create_divider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Divider&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create new divider.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            name(str): Name of new divider</span>
+<span class="sd">            before(Uuid): Insert before this item.</span>
+<span class="sd">            into(bool): Insert into this container (not used).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            divider(PlaylistTree): Returns container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="n">uuid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">create_divider_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_container_atom</span><span class="p">(),</span> <span class="n">uuid</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Session.move_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.move_container">[docs]</a>    <span class="k">def</span> <span class="nf">move_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Move container in tree.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            src(Container/Uuid): Item to move.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            before(Uuid): Insert before this item.</span>
+<span class="sd">            into(bool): Insert into this container (not used).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): Returns result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">uuid</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">move_container_atom</span><span class="p">(),</span> <span class="n">src</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Session.remove_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.remove_container">[docs]</a>    <span class="k">def</span> <span class="nf">remove_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove container from tree.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            src(Container/Uuid): Item to remove.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): Returns result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">remove_container_atom</span><span class="p">(),</span> <span class="n">src</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Session.get_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.get_container">[docs]</a>    <span class="k">def</span> <span class="nf">get_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get container from tree.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            src(Item/Uuid): Item to find.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Container(PlaylistTree): Returns result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_container_atom</span><span class="p">(),</span> <span class="n">src</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Session.set_on_screen_source"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.set_on_screen_source">[docs]</a>    <span class="k">def</span> <span class="nf">set_on_screen_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the onscreen source.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            src(Container): Playlist, Subset, ContactSheet, Timeline</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span>
+            <span class="n">current_playlist_atom</span><span class="p">(),</span>
+            <span class="n">src</span><span class="o">.</span><span class="n">uuid_actor</span><span class="p">()</span><span class="o">.</span><span class="n">actor</span>
+            <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">playlist_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get container tree.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tree(PlaylistTree): Returns result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_container_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Session.create_group"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.create_group">[docs]</a>    <span class="k">def</span> <span class="nf">create_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Group&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+        <span class="sd">&quot;&quot;&quot;Create new group.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            name(str): Name of new group</span>
+<span class="sd">            before(Uuid): Insert before this item.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            group(PlaylistTree): Returns container.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">create_group_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">PlaylistTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Session.rename_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.rename_container">[docs]</a>    <span class="k">def</span> <span class="nf">rename_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Rename container in tree.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name(str): New name.</span>
+<span class="sd">            container(Container/Uuid): Item to rename.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): Returns result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">container</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">rename_container_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">container</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Session.reflag_container"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.reflag_container">[docs]</a>    <span class="k">def</span> <span class="nf">reflag_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reflag container in tree.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            flag(str): New flag.</span>
+<span class="sd">            container(Container/Uuid): Item to reflag.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): Returns result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">container</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">reflag_container_atom</span><span class="p">(),</span> <span class="n">flag</span><span class="p">,</span> <span class="n">container</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Session.copy_containers_to"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.copy_containers_to">[docs]</a>    <span class="k">def</span> <span class="nf">copy_containers_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playlist</span><span class="p">,</span> <span class="n">containers</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create copy containers to playlist.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            playlist(Uuid/Playlist): Destination playlist.</span>
+<span class="sd">            containers(list): Containers to copy</span>
+<span class="sd">            before(Uuid): Insert before this item.</span>
+<span class="sd">            into(bool): Insert into this container (not used).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            uuids(list[Uuid]): Returns list of new container uuids.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">uuids</span> <span class="o">=</span> <span class="n">UuidVec</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">containers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span>
+            <span class="n">uuids</span><span class="o">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">playlist</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
+            <span class="n">playlist</span> <span class="o">=</span> <span class="n">playlist</span><span class="o">.</span><span class="n">uuid</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">copy_container_to_atom</span><span class="p">(),</span> <span class="n">playlist</span><span class="p">,</span> <span class="n">uuids</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Session.get_media"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.get_media">[docs]</a>    <span class="k">def</span> <span class="nf">get_media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return all media over all playlists</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            media(list[Media]): List of media objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_media_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">Media</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Session.save"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save session</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int(hash]): Hash of saved session</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Session.save_as"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.session.Session.save_as">[docs]</a>    <span class="k">def</span> <span class="nf">save_as</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save session to path</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str/uri): Path to save to.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int(hash]): Hash of saved session</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">URI</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">URI</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">(),</span> <span class="n">path</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, DNeg
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

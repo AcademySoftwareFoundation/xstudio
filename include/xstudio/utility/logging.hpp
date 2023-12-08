@@ -15,6 +15,8 @@
 
 #define CHECK_SLOW_WATCHER() CHECK_SLOW_WATCHER_EXACT(1.0, 0.5, 0.1)
 
+#define CHECK_SLOW_WATCHER_FAST() CHECK_SLOW_WATCHER_EXACT(0.1, 0.05, 0.025)
+
 #define CHECK_SLOW_WATCHER_EXACT(a, b, c)                                                      \
     if (_sw.elapsed().count() > a)                                                             \
         spdlog::critical("{}@{} Sec: {:.3f}", __PRETTY_FUNCTION__, __LINE__, _sw);             \
@@ -31,6 +33,8 @@
 #define START_SLOW_WATCHER()                                                                   \
     {}
 #define CHECK_SLOW_WATCHER()                                                                   \
+    {}
+#define CHECK_SLOW_WATCHER_FAST()                                                              \
     {}
 #define CHECK_SLOW_WATCHER_EXACT(a, b, c)                                                      \
     {}

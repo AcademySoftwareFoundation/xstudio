@@ -6,24 +6,24 @@ XsMenu {
 
     XsMenuItem {
         mytext: qsTr("Create Selected Shotgun Playlists...")
-        onTriggered: session.object_map["ShotgunRoot"].create_playlist()
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].create_playlist()
     }
 
     XsMenuItem {
         mytext: qsTr("Update Selected Shotgun Playlists")
-        onTriggered: session.object_map["ShotgunRoot"].update_playlist()
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].update_playlist()
     }
 
     XsMenuItem {
         mytext: qsTr("Refresh Selected Shotgun Playlists")
-        onTriggered: session.object_map["ShotgunRoot"].refresh_playlist()
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].refresh_playlist()
     }
 
     XsMenuSeparator {}
 
     XsMenuItem {
         mytext: qsTr("Authentication...")
-        onTriggered: session.object_map["ShotgunRoot"].do_authentication()
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].do_authentication()
     }
     // XsMenuItem {
     //     mytext: qsTr("Preferences...")

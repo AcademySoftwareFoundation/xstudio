@@ -572,7 +572,7 @@ caf::actor GlobalMediaReaderActor::get_reader(
 
     try {
         scoped_actor sys{system()};
-        spdlog::stopwatch sw;
+        // spdlog::stopwatch sw;
         reader = request_receive<caf::actor>(*sys, pool_, get_reader_atom_v, _uri, hint);
         if (reader)
             reader = add_reader(reader, key);

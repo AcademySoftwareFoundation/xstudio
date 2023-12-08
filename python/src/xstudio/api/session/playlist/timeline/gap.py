@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import Uuid, actor, item_atom, enable_atom, active_range_atom, available_range_atom
+from xstudio.core import Uuid, actor, item_atom, enable_atom, active_range_atom, available_range_atom, item_name_atom
 from xstudio.api.session.container import Container
 
 class Gap(Container):
@@ -45,6 +45,24 @@ class Gap(Container):
             state(bool): Set enabled state.
         """
         self.connection.request_receive(self.remote, enable_atom(), x)
+
+    @property
+    def item_name(self):
+        """Get name.
+
+        Returns:
+            name(str): Name.
+        """
+        return self.item.name()
+
+    @item_name.setter
+    def item_name(self, x):
+        """Set name.
+
+        Args:
+            name(str): Set name.
+        """
+        self.connection.request_receive(self.remote, item_name_atom(), x)
 
     @property
     def children(self):

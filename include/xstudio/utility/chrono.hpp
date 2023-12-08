@@ -62,9 +62,15 @@ struct adl_serializer<std::chrono::time_point<Clock, Duration>> {
         j["unit"] = "microseconds";
     }
     static void from_json(const json &j, std::chrono::time_point<Clock, Duration> &p) {
-        std::chrono::time_point<Clock, Duration> tp(
-            std::chrono::microseconds(j["since_epoch"].get<int64_t>()));
-        p = tp;
+        if (j.at("unit") == "microseconds") {
+            std::chrono::time_point<Clock, Duration> tp(
+                std::chrono::microseconds(j["since_epoch"].get<int64_t>()));
+            p = tp;
+        } else if (j.at("unit") == "milliseconds") {
+            std::chrono::time_point<Clock, Duration> tp(
+                std::chrono::milliseconds(j["since_epoch"].get<int64_t>()));
+            p = tp;
+        }
     }
 };
 } // namespace nlohmann

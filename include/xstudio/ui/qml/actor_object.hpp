@@ -123,7 +123,7 @@ class actor_object : public Base {
         return actor_cast<actor>(companion_);
     }
 
-    actor_companion *self() const {
+    [[nodiscard]] actor_companion *self() const {
         using bptr = abstract_actor *;  // base pointer
         using dptr = actor_companion *; // derived pointer
         return companion_ ? static_cast<dptr>(actor_cast<bptr>(companion_)) : nullptr;

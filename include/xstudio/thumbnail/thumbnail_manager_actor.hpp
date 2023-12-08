@@ -10,50 +10,48 @@
 #include "xstudio/thumbnail/thumbnail.hpp"
 
 
-namespace xstudio {
-namespace thumbnail {
-    class ThumbnailManagerActor : public caf::event_based_actor {
-      public:
-        ThumbnailManagerActor(caf::actor_config &cfg);
+namespace xstudio::thumbnail {
+class ThumbnailManagerActor : public caf::event_based_actor {
+  public:
+    ThumbnailManagerActor(caf::actor_config &cfg);
 
-        ~ThumbnailManagerActor() override = default;
+    ~ThumbnailManagerActor() override = default;
 
-        caf::behavior make_behavior() override { return behavior_; }
+    caf::behavior make_behavior() override { return behavior_; }
 
-        void on_exit() override;
-        const char *name() const override { return NAME.c_str(); }
+    void on_exit() override;
+    const char *name() const override { return NAME.c_str(); }
 
-      private:
-        void request_buffer(
-            caf::typed_response_promise<ThumbnailBufferPtr> rp,
-            const media::AVFrameID &mptr,
-            const size_t thumb_size,
-            const size_t hash,
-            const bool cache_to_disk,
-            const utility::Uuid &job_uuid);
+  private:
+    void request_buffer(
+        caf::typed_response_promise<ThumbnailBufferPtr> rp,
+        const media::AVFrameID &mptr,
+        const size_t thumb_size,
+        const size_t hash,
+        const bool cache_to_disk,
+        const utility::Uuid &job_uuid);
 
-        void request_buffer(
-            caf::typed_response_promise<ThumbnailBufferPtr> rp,
-            const std::string &key,
-            const size_t thumb_size);
+    void request_buffer(
+        caf::typed_response_promise<ThumbnailBufferPtr> rp,
+        const std::string &key,
+        const size_t thumb_size);
 
-        void process_queue();
+    void process_queue();
 
-        inline static const std::string NAME = "ThumbnailManagerActor";
-        caf::behavior behavior_;
+    inline static const std::string NAME = "ThumbnailManagerActor";
+    caf::behavior behavior_;
 
-        caf::actor mem_cache_;
-        caf::actor dsk_cache_;
+    caf::actor mem_cache_;
+    caf::actor dsk_cache_;
 
-        std::deque<std::tuple<
-            caf::typed_response_promise<ThumbnailBufferPtr>,
-            media::AVFrameID,
-            size_t,
-            size_t,
-            bool,
-            utility::Uuid>>
-            request_queue_;
-    };
+    std::deque<std::tuple<
+        caf::typed_response_promise<ThumbnailBufferPtr>,
+        media::AVFrameID,
+        size_t,
+        size_t,
+        bool,
+        utility::Uuid>>
+        request_queue_;
+};
 
-} // namespace thumbnail
-} // namespace xstudio
+} // namespace xstudio::thumbnail

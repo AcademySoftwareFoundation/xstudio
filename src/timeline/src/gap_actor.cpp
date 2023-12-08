@@ -14,7 +14,7 @@ using namespace xstudio::timeline;
 using namespace caf;
 
 GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn)
-    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])) {
+    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
     base_.item().set_system(&system());
 
@@ -22,7 +22,7 @@ GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn)
 }
 
 GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
-    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])) {
+    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
     base_.item().set_system(&system());
 
@@ -38,6 +38,7 @@ GapActor::GapActor(
     : caf::event_based_actor(cfg), base_(name, duration, uuid, this) {
 
     base_.item().set_system(&system());
+    base_.item().set_name(name);
     init();
 }
 
@@ -59,6 +60,13 @@ void GapActor::init() {
         base_.make_get_type_handler(),
         make_get_event_group_handler(event_group_),
         base_.make_get_detail_handler(this, event_group_),
+        [=](item_name_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_name(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
 
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);

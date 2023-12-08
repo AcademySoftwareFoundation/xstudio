@@ -3,6 +3,8 @@ import QtQuick 2.12
 import QtQuick.Layouts 1.3
 import QtQuick.Controls 2.5
 import QtGraphicalEffects 1.12
+import QtQml.Models 2.15
+import xstudio.qml.helpers 1.0
 
 import xStudio 1.0
 
@@ -12,8 +14,6 @@ Rectangle {
     color: "transparent"
     property bool expanded: true
     anchors.fill: parent
-    property var source: session.selectedSource
-    // property var source: session.selectedSource ? session.selectedSource : session.onScreenSource
 
     Label {
         anchors.leftMargin: 7
@@ -31,7 +31,7 @@ Rectangle {
     Label {
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
-        text: source ? source.fullName : ""
+        text: app_window.currentSource.fullName
         color: XsStyle.controlColor
         font.pixelSize: XsStyle.sessionBarFontSize
         font.family: XsStyle.controlTitleFontFamily
@@ -44,7 +44,7 @@ Rectangle {
         anchors.rightMargin: 7
         anchors.verticalCenter: parent.verticalCenter
         anchors.right: parent.right
-        text: source ? source.mediaModel.length : ""
+        text: app_window.currentSource.values.mediaCountRole ? app_window.currentSource.values.mediaCountRole : 0
         color: XsStyle.controlColor
         font.pixelSize: XsStyle.sessionBarFontSize
         font.family: XsStyle.controlTitleFontFamily

@@ -17,7 +17,7 @@ Rectangle {
 
     XsModuleAttributes {
         id: viewport_error_frame
-        attributesGroupName: "viewport_frame_error_message"
+        attributesGroupNames: "viewport_frame_error_message"
     }
 
     Text {

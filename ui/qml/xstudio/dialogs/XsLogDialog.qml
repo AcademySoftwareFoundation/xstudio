@@ -270,7 +270,7 @@ XsWindow {
                     id: saveFileDialog
                     title: "Save logs"
 
-                    folder: session.pathNative ? XsUtils.stem(session.path.toString()).replace("localhost","") : shortcuts.home
+                    folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
 
                     selectExisting: false
                     selectMultiple: false

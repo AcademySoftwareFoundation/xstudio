@@ -153,10 +153,7 @@ void AnnotationSerialiser_1_pt_0::_deserialise(Annotation *anno, const nlohmann:
     if (data.contains("captions") && data["captions"].is_array()) {
 
         const auto &d = data["captions"];
-        for (auto it = d.begin(); it != d.end(); it++) {
-
-            const auto &o = *it;
-
+        for (const auto &o : d) {
             try {
                 auto capt = std::make_shared<Caption>(
                     o["position"].get<Imath::V2f>(),

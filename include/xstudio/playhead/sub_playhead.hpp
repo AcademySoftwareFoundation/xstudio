@@ -23,7 +23,6 @@ namespace playhead {
             const std::string &name,
             caf::actor source,
             caf::actor parent,
-            caf::actor colour_pipeline,
             const timebase::flicks loop_in_point_,
             const timebase::flicks loop_out_point_,
             const utility::TimeSourceMode time_source_mode_,
@@ -69,6 +68,9 @@ namespace playhead {
         void make_static_precache_request(
             caf::typed_response_promise<bool> &rp, const bool start_precache);
 
+        void make_prefetch_requests_for_colour_pipeline(
+            const media::AVFrameIDsAndTimePoints &lookahead_frames);
+
         void receive_image_from_cache(
             media_reader::ImageBufPtr image_buffer,
             const media::AVFrameID mptr,
@@ -112,7 +114,6 @@ namespace playhead {
         caf::actor source_;
         caf::actor parent_;
         caf::actor event_group_;
-        caf::actor colour_pipeline_;
         caf::actor current_media_actor_;
 
         utility::Uuid current_media_source_uuid_;

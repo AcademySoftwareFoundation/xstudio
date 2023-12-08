@@ -73,7 +73,7 @@ namespace ui {
          *
          * returns: bounding box
          */
-        Imath::Box2f precompute_text_rendering_vertex_layout(
+        [[nodiscard]] Imath::Box2f precompute_text_rendering_vertex_layout(
             std::vector<float> &result,
             const std::string &text,
             const Imath::V2f position,
@@ -86,7 +86,7 @@ namespace ui {
          * @brief Given a position in the viewport, does it correspond to a character
          * in some text
          */
-        std::string::const_iterator viewport_position_to_cursor(
+        [[nodiscard]] std::string::const_iterator viewport_position_to_cursor(
             const Imath::V2f viewport_position,
             const std::string &text,
             const Imath::V2f position,
@@ -99,7 +99,7 @@ namespace ui {
          * @brief For given cursor position in 'text', move it up or down in the
          * wrapped text box.
          */
-        std::string::const_iterator cursor_up_or_down(
+        [[nodiscard]] std::string::const_iterator cursor_up_or_down(
             const std::string::const_iterator current_cursor_pos,
             const bool cursor_up,
             const std::string &text,

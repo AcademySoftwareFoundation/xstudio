@@ -82,7 +82,8 @@ namespace session {
             caf::typed_response_promise<size_t> &rp,
             const utility::JsonStore &js,
             const caf::uri &path,
-            const size_t hash = 0);
+            const bool update_path = true,
+            const size_t hash      = 0);
 
         void associate_bookmarks(caf::typed_response_promise<int> &rp);
 

@@ -17,6 +17,38 @@
 					"value": "log",
 					"datatype": "string",
 					"context": ["APPLICATION"]
+				},
+				"user_preferred_view": {
+					"path": "/plugin/colour_pipeline/ocio/user_preferred_view",
+					"default_value": "Default",
+					"description": "User preferred ocio view.",
+					"value": "Default",
+					"datatype": "string",
+					"context": ["APPLICATION"]
+				},
+				"user_view_mode": {
+					"path": "/plugin/colour_pipeline/ocio/user_view_mode",
+					"default_value": true,
+					"description": "User view mode (global if true, per media otherwise).",
+					"value": true,
+					"datatype": "bool",
+					"context": ["APPLICATION"]
+				},
+				"enable_gamma": {
+					"path": "/plugin/colour_pipeline/ocio/enable_gamma",
+					"default_value": true,
+					"description": "Enable the gamma control in the viewport toolbar.",
+					"value": false,
+					"datatype": "bool",
+					"context": ["APPLICATION"]
+				},
+				"enable_saturation": {
+					"path": "/plugin/colour_pipeline/ocio/enable_saturation",
+					"default_value": true,
+					"description": "Enable the saturation control in the viewport toolbar.",
+					"value": false,
+					"datatype": "bool",
+					"context": ["APPLICATION"]
 				}
 			}
 		}

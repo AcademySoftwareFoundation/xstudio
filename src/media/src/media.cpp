@@ -38,10 +38,6 @@ void Media::add_media_source(const Uuid &uuid, const Uuid &before_uuid) {
     if (not uuid.is_null()) {
         media_sources_.insert(
             std::find(media_sources_.begin(), media_sources_.end(), before_uuid), uuid);
-        if (current_image_source_.is_null())
-            current_image_source_ = uuid;
-        if (current_audio_source_.is_null())
-            current_audio_source_ = uuid;
     }
 }
 
@@ -67,9 +63,6 @@ bool Media::set_current(const Uuid &uuid, const MediaType mt) {
         std::end(media_sources_)) {
         if (mt == MediaType::MT_IMAGE) {
             current_image_source_ = uuid;
-            if (current_audio_source_.is_null()) {
-                current_audio_source_ = uuid;
-            }
         } else {
             current_audio_source_ = uuid;
         }
@@ -77,6 +70,25 @@ bool Media::set_current(const Uuid &uuid, const MediaType mt) {
     }
     return false;
 }
+
+void Media::deserialise(const utility::JsonStore &jsn) {
+    Container::deserialise(jsn.at("container"));
+    media_sources_.clear();
+
+    flag_      = jsn.value("flag", "#00000000");
+    flag_text_ = jsn.value("flag_text", "");
+
+    for (const auto &i : jsn.at("sub_media")) {
+        media_sources_.push_back(i);
+    }
+
+    set_current(jsn.at("current"));
+
+    if (jsn.find("current_audio") != jsn.end()) {
+        set_current(jsn.at("current_audio"), MediaType::MT_AUDIO);
+    }
+}
+
 
 JsonStore Media::serialise() const {
     JsonStore jsn;

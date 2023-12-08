@@ -274,26 +274,8 @@ namespace utility {
         return f.object(x).fields(f.field("jsn", get_jsn, set_jsn));
     }
 
-
-    // Creates a guard that executes `f` as soon as it goes out of scope.
-    // template <class Inspector>
-    // typename std::enable_if<Inspector::reads_state,
-    //                         typename Inspector::result_type>::type
-    // inspect(Inspector& f, JsonStore& x) {
-    //   return f(meta::type_name("JsonStore"), x.dump());
-    // }
-
-    // template <class Inspector>
-    // typename std::enable_if<Inspector::writes_state,
-    //                         typename Inspector::result_type>::type
-    // inspect(Inspector& f, JsonStore& x) {
-    //   std::string a;
-    //   // write back to x at scope exit
-    //   auto g = make_scope_guard([&] {
-    //     x.set(nlohmann::json::parse(a));
-    //   });
-    //   return f(meta::type_name("JsonStore"), a);
-    // }
+    void to_json(nlohmann::json &j, const JsonStore &c);
+    void from_json(const nlohmann::json &j, JsonStore &c);
 
     /**
      *  @brief Serialize JSON.
@@ -324,7 +306,5 @@ namespace utility {
         }
         return merged;
     }
-
-
 } // namespace utility
 } // namespace xstudio

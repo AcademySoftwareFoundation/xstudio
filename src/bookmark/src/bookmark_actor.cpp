@@ -278,8 +278,8 @@ void BookmarkActor::init() {
                 // screen on a frame where a note (bookmark) exists but there is as-yet no
                 // annotation we want to add the new drawings to the note. The annotation tool
                 // needs to know the uuid of the on-screen note to do this.
-                return std::shared_ptr<bookmark::AnnotationBase>(
-                    new bookmark::AnnotationBase(utility::JsonStore(), base_.uuid()));
+                return std::make_shared<bookmark::AnnotationBase>(
+                    utility::JsonStore(), base_.uuid());
             }
             return base_.annotation_;
         },

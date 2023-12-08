@@ -20,6 +20,7 @@ Viewport {
     id: viewport
     objectName: "viewport"
     property bool is_popout_viewport: false
+    property bool viewing_alpha_channel: false
 
     XsOutOfRangeOverlay {
         visible: viewport.frameOutOfRange
@@ -32,28 +33,45 @@ Viewport {
         imageBox: imageBoundaryInViewport
     }
 
+    XsErrorFrameOverlay {
+        visible: viewport.noAlphaChannel && viewing_alpha_channel
+        frame_error_message: "No alpha channel available"
+        anchors.fill: parent
+        imageBox: imageBoundaryInViewport
+    }
+
+    XsModuleAttributes {
+        id: colour_settings
+        attributesGroupNames: "colour_pipe_attributes"
+        onValueChanged: {
+            if(key == "channel") {
+                viewport.viewing_alpha_channel = value == "Alpha"
+            }
+        }
+    }
+
     XsViewportBlankCard {
 
         id: blank_viewport_card
         anchors.fill: parent
-        visible: playhead.media.mediaSource == undefined
+        visible: playhead.mediaUuid == "{00000000-0000-0000-0000-000000000000}"
     }
 
     DropArea {
         anchors.fill: parent
+        keys: [
+            "text/uri-list",
+            "xstudio/media-ids",
+            "application/x-dneg-ivy-entities-v1"
+        ]
 
-        onEntered: {
-            if(drag.hasUrls || drag.hasText) {
-                drag.acceptProposedAction()
-            }
-        }
         onDropped: {
            if(drop.hasUrls) {
                 for(var i=0; i < drop.urls.length; i++) {
                     if(drop.urls[i].toLowerCase().endsWith('.xst')) {
-                        session.loadUrl(drop.urls[i])
-                        app_window.session.new_recent_path(drop.urls[i])
-                        return
+                        Future.promise(studio.loadSessionRequestFuture(drop.urls[i])).then(function(result){})
+                        app_window.sessionFunction.newRecentPath(drop.urls[i])
+                        return;
                     }
                 }
             }
@@ -64,15 +82,19 @@ Viewport {
                 data[drop.keys[i]] = drop.getDataAsString(drop.keys[i])
             }
 
-            if(session.selectedSource) {
-                Future.promise(session.selectedSource.handleDropFuture(data)).then(
+            if(app_window.currentSource.index && app_window.currentSource.index.valid) {
+                Future.promise(app_window.sessionModel.handleDropFuture(drop.proposedAction, data, app_window.currentSource.index)).then(
                     function(quuids){
-                        playhead.jumpToSource(quuids[0])
-                        selectionFilter.newSelection([quuids[0]])
+                        // if(viewport.playhead)
+                        //     viewport.playhead.jumpToSource(quuids[0])
+                        // session.selectedSource.selectionFilter.newSelection([quuids[0]])
                     }
                 )
             } else {
-                Future.promise(session.handleDropFuture(data)).then(function(quuids){})
+                // no playlist etc.
+                Future.promise(
+                    app_window.sessionModel.handleDropFuture(drop.proposedAction, data)
+                ).then(function(quuids){})
             }
         }
     }
@@ -96,7 +118,7 @@ Viewport {
 
     XsModuleAttributes {
         id: zoom_and_pane_attrs
-        attributesGroupName: "viewport_zoom_and_pan_modes"
+        attributesGroupNames: "viewport_zoom_and_pan_modes"
 
         onValueChanged: {
             if(zoom_and_pane_attrs.zoom_z) viewport.setOverrideCursor("://cursors/magnifier_cursor.svg", true)
@@ -104,44 +126,6 @@ Viewport {
             else viewport.setOverrideCursor("", false);
         }
 
-    }
-    XsModuleAttributes {
-        id: viewport_attrs
-        attributesGroupName: "viewport_attributes"
-
-        onAttrAdded: {
-            if (attr_name == "fit") fit = fit_mode_pref.value
-        }
-
-        onValueChanged: {
-            if (key == "fit" && fit != "Off") fit_mode_pref.value = value
-        }
-    }
-
-    XsModuleAttributes {
-        id: popout_viewport_attrs
-        attributesGroupName: "popout_viewport_attributes"
-
-        onAttrAdded: {
-            if (attr_name == "fit") fit = popout_fit_mode_pref.value
-        }
-
-        onValueChanged: {
-            if (key == "fit" && fit != "Off") popout_fit_mode_pref.value = value
-        }
-    }
-
-    function resetViewport() {
-
-        if (viewport_attrs.fit) viewport_attrs.fit = fit_mode_pref.value
-        if (popout_viewport_attrs.fit) popout_viewport_attrs.fit = popout_fit_mode_pref.value
-        //fitMode = fit_mode_pref.properties.value
-        /*if (colourPipeline.exposure != 0.0) {
-            colourPipeline.previousSetExposure = colourPipeline.exposure
-            colourPipeline.exposure = 0.0
-
-        }*/
-        playhead.velocity = 1.0
     }
 
     onMouseButtonsChanged: {
@@ -158,42 +142,42 @@ Viewport {
 
         XsModuleAttributesModel {
             id: viewport_overlays
-            attributesGroupName: "viewport_overlay_plugins"
+            attributesGroupNames: "viewport_overlay_plugins"
         }
 
         XsModuleAttributesModel {
             id: hud_elements_bottom_left
-            attributesGroupName: "hud_elements_bottom_left"
+            attributesGroupNames: "hud_elements_bottom_left"
         }
 
         XsModuleAttributesModel {
             id: hud_elements_bottom_center
-            attributesGroupName: "hud_elements_bottom_center"
+            attributesGroupNames: "hud_elements_bottom_center"
         }
 
         XsModuleAttributesModel {
             id: hud_elements_bottom_right
-            attributesGroupName: "hud_elements_bottom_right"
+            attributesGroupNames: "hud_elements_bottom_right"
         }
 
         XsModuleAttributesModel {
             id: hud_elements_top_left
-            attributesGroupName: "hud_elements_top_left"
+            attributesGroupNames: "hud_elements_top_left"
         }
 
         XsModuleAttributesModel {
             id: hud_elements_top_center
-            attributesGroupName: "hud_elements_top_center"
+            attributesGroupNames: "hud_elements_top_center"
         }
 
         XsModuleAttributesModel {
             id: hud_elements_top_right
-            attributesGroupName: "hud_elements_top_right"
+            attributesGroupNames: "hud_elements_top_right"
         }
 
         XsModuleAttributes {
             id: hud_toggle
-            attributesGroupName: "hud_toggle"
+            attributesGroupNames: "hud_toggle"
         }
 
         visible: hud_toggle.hud ? hud_toggle.hud : false
@@ -283,7 +267,7 @@ Viewport {
                 }
             }
         }
-            
+
         Column {
 
             anchors.top: parent.top

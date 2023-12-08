@@ -34,12 +34,12 @@ XsMenu {
     XsMenuItem {
         mytext: qsTr("User Documentation")
         shortcut: "F1"
-        onTriggered: openDoc(session.userDocsUrl())
+        onTriggered: openDoc(studio.userDocsUrl())
     }
 
     XsMenuItem {
         mytext: qsTr("Hot Keys")
-        onTriggered: openDoc(session.hotKeyDocsUrl())
+        onTriggered: openDoc(studio.hotKeyDocsUrl())
     }
 
     XsMenuItem {
@@ -51,7 +51,7 @@ XsMenu {
 
     XsMenuItem {
         mytext: qsTr("Python/C++ API Documentation")
-        onTriggered: openDoc(session.apiDocsUrl())
+        onTriggered: openDoc(studio.apiDocsUrl())
     }
 
     XsMenuSeparator { }

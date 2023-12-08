@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import session_atom, join_broadcast_atom
-from xstudio.core import get_colour_pipeline_atom, get_actor_from_registry_atom
+from xstudio.core import colour_pipeline_atom, get_actor_from_registry_atom
 from xstudio.core import viewport_playhead_atom
 from xstudio.api.session import Session, Container
 from xstudio.api.module import ModuleBase
@@ -33,7 +33,7 @@ class App(Container):
 
         Returns:
             colour_pipeline(ModuleBase): Colour Pipeline object."""
-        return ModuleBase(self.connection, self.connection.request_receive(self.connection.remote(), get_colour_pipeline_atom())[0])
+        return ModuleBase(self.connection, self.connection.request_receive(self.connection.remote(), colour_pipeline_atom())[0])
 
     @property
     def viewport(self):

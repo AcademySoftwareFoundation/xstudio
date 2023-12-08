@@ -369,7 +369,10 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                             if (!playlist) {
 
                                 playlist = request_receive<caf::actor>(
-                                    *sys, session, session::get_playlist_atom_v, "Ivy Media");
+                                    *sys,
+                                    session,
+                                    session::get_playlist_atom_v,
+                                    "DNRun Playlist");
                             }
 
                             // third, make a new 'Ivy Media' playlist
@@ -396,13 +399,18 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                 if (utility::check_plugin_uri_request(path)) {
                                     // send to plugin manager..
                                     auto uri = caf::make_uri(path);
+
+                                    auto media_rate = request_receive<FrameRate>(
+                                        *sys, session, session::media_rate_atom_v);
+
                                     if (uri)
                                         anon_send(
                                             pm,
                                             data_source::use_data_atom_v,
                                             *uri,
                                             session,
-                                            playlist);
+                                            playlist,
+                                            media_rate);
                                     else {
                                         spdlog::warn(
                                             "{} Invalid URI {}", __PRETTY_FUNCTION__, path);
@@ -421,7 +429,8 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                                 playlist,
                                                 playlist::add_media_atom_v,
                                                 path,
-                                                uri);
+                                                uri,
+                                                Uuid());
                                         else
                                             new_media = request_receive<UuidActor>(
                                                 *sys,
@@ -429,7 +438,8 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                                 playlist::add_media_atom_v,
                                                 path,
                                                 uri,
-                                                fl);
+                                                fl,
+                                                Uuid());
 
                                         if (!new_media.uuid().is_null()) {
                                             auto selection_actor = request_receive<caf::actor>(

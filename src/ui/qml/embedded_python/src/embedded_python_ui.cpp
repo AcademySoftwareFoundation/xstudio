@@ -63,7 +63,8 @@ void EmbeddedPythonUI::set_backend(caf::actor backend) {
         JsonStore j;
         prefs.get_group(j);
 
-        auto paths = global_store::preference_value<JsonStore>(j, "/core/python/snippets/path");
+        auto paths = global_store::preference_value<JsonStore>(
+            j, "/ui/qml/reskin_windows_and_panels_model");
         // process app/user..
 
         JsonStore snippets;
@@ -242,7 +243,7 @@ void EmbeddedPythonUI::init(actor_system &system_) {
 
 void EmbeddedPythonUI::addSnippet(SnippetUI *snippet) {
     //  check for existing menu.
-    auto menu_name      = snippet->menuName();
+    auto menu_name      = snippet->menuModelName();
     SnippetMenuUI *menu = nullptr;
 
     for (auto &i : snippet_menus_) {

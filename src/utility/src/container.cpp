@@ -27,6 +27,22 @@ Container::Container(const JsonStore &jsn) : Container(jsn["name"], jsn["type"],
         file_version_ = semver::from_string(static_cast<std::string>(jsn["file_version"]));
 }
 
+void Container::deserialise(const utility::JsonStore &jsn) {
+    name_    = jsn.at("name");
+    type_    = jsn.at("type");
+    uuid_    = jsn.at("uuid");
+    version_ = semver::from_string(PROJECT_VERSION);
+
+    if (jsn.count("version"))
+        version_ = semver::from_string(jsn.at("version").get<std::string>());
+
+    if (jsn.count("file_version"))
+        file_version_ = semver::from_string(jsn.at("file_version").get<std::string>());
+
+    last_changed_ = utility::clock::now();
+}
+
+
 JsonStore Container::serialise() const {
     utility::JsonStore jsn;
     jsn["name"]         = name_;
@@ -47,6 +63,7 @@ JsonStore PlaylistItem::serialise() const {
     jsn["type"] = type_;
     jsn["flag"] = flag_;
     jsn["uuid"] = uuid_;
+
     return jsn;
 }
 

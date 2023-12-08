@@ -201,8 +201,9 @@ ListView{
                         padding: 0
                         onClicked: {
                             enabledRole = !enabledRole
-                            if(isLoaded)
+                            if(isLoaded) {
                                 executeQuery()
+                            }
                         }
                     }
 
@@ -224,8 +225,9 @@ ListView{
                         clip: true
                         onClicked: {
                             negationRole = !negationRole
-                            if(isLoaded)
+                            if(isLoaded) {
                                 executeQuery()
+                            }
                         }
                     }
 
@@ -266,8 +268,9 @@ ListView{
                                 termRole = currentText
                                 if(valueBox.count<50) valueBox.popupOptions.open()
 
-                                if(isLoaded)
+                                if(isLoaded) {
                                     executeQuery()
+                                }
                             }
                         }
                     }
@@ -306,6 +309,8 @@ ListView{
                         bgColorEditable: isEnabled && liveLink.isActive? Qt.darker(palette.highlight, 2) : "light grey"
 
                         onArgroleChanged: {
+                            // console.log("onArgroleChanged")
+
                             //special handling..
                             if((model == dummyModel || model == sourceModel) && argrole != ""){
                                 if(find(argrole) === -1) {
@@ -313,6 +318,7 @@ ListView{
                                     model.append({nameRole: tmp})
                                 }
                             }
+
                             if(currentIndex != find(argrole)) {
                                 // could be login...
                                 // dirty hack..
@@ -323,6 +329,9 @@ ListView{
                                     argrole = data_source.getShotgunUserName()
                                     currentIndex = find(argrole)
                                 }
+                                doUpdate()
+                            } else if(currentIndex == 0) {
+                                // model reset can cause confusion..
                                 doUpdate()
                             }
                         }
@@ -527,8 +536,9 @@ ListView{
                             snapshot()
                             queryTreeModel.remove(index)
                             snapshot()
-                            if(isLoaded)
+                            if(isLoaded) {
                                 executeQuery()
+                            }
                         }
                     }
                 }
@@ -611,8 +621,9 @@ ListView{
 
                         currentIndex = 0
                         // update query on change.
-                        if(isLoaded && value != "")
+                        if(isLoaded && value != "") {
                             executeQuery()
+                        }
                     }
                 }
             }

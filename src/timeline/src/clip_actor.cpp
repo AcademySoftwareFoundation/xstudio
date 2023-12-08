@@ -18,7 +18,7 @@ using namespace xstudio::timeline;
 using namespace caf;
 
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
-    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])) {
+    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
     base_.item().set_system(&system());
 
@@ -35,6 +35,7 @@ ClipActor::ClipActor(
       // playlist_(caf::actor_cast<actor_addr>(playlist)),
       base_(name, uuid, this, media.uuid()) {
     base_.item().set_system(&system());
+    base_.item().set_name(name);
 
     if (media.actor()) {
         media_ = caf::actor_cast<caf::actor_addr>(media.actor());
@@ -99,6 +100,13 @@ void ClipActor::init() {
 
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
+        [=](item_name_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
             return jsn;
@@ -211,6 +219,7 @@ void ClipActor::init() {
                 bookmark::bookmark_change_atom_v,
                 bookmark_uuid);
         },
+        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {},
         [=](utility::event_atom,
             media::current_media_source_atom,
             const UuidActor &,
@@ -219,6 +228,9 @@ void ClipActor::init() {
             audio_ptr_cache_.clear();
         },
         [=](utility::event_atom, utility::change_atom) {},
+        [=](utility::event_atom,
+            media::add_media_source_atom,
+            const utility::UuidActorVector &) {},
 
         [=](playlist::get_media_atom) -> UuidActor {
             return UuidActor(base_.media_uuid(), caf::actor_cast<caf::actor>(media_));
@@ -489,7 +501,7 @@ void ClipActor::init() {
 //         int request_frame = logical_frame + base_.start_time().frames();
 //         request(
 //             actor_cast<actor>(media_), infinite, media::get_media_pointer_atom_v,
-//             request_frame) .then(
+//             media::MT_IMAGE, request_frame) .then(
 //                 [=](const media::AVFrameID &mptr) mutable { rp.deliver(mptr); },
 //                 [=](error &err) mutable { rp.deliver(std::move(err)); });
 //     }

@@ -250,7 +250,7 @@ void Annotation::update_render_data() {
     if (!no_fonts()) {
         for (const auto &caption : captions_) {
 
-            render_data_.caption_info_.push_back(AnnotationRenderData::CaptionInfo());
+            render_data_.caption_info_.emplace_back(AnnotationRenderData::CaptionInfo());
 
             render_data_.caption_info_.back().bounding_box =
                 font(caption)->precompute_text_rendering_vertex_layout(

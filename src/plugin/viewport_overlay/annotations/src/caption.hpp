@@ -27,7 +27,7 @@ namespace ui {
                 const utility::ColourTriplet colour,
                 const float opacity,
                 const Justification justification,
-                const std::string &font_name);
+                const std::string font_name);
             Caption()                 = default;
             Caption(const Caption &o) = default;
 

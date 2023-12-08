@@ -61,7 +61,7 @@ GlobalModuleAttrEventsActor::GlobalModuleAttrEventsActor(caf::actor_config &cfg)
         },
 
         [=](request_full_attributes_description_atom,
-            const std::string &attrs_group_name,
+            const std::vector<std::string> &attrs_group_names,
             const utility::Uuid &requester_uuid) {
             // N.B. some actors that are also a Module are Qt mixin actors ... such actors
             // cannot have message handlers that return a response. So instead, to request the
@@ -71,7 +71,7 @@ GlobalModuleAttrEventsActor::GlobalModuleAttrEventsActor(caf::actor_config &cfg)
             send(
                 module_ui_events_group_,
                 request_full_attributes_description_atom_v,
-                attrs_group_name,
+                attrs_group_names,
                 requester_uuid);
         },
 

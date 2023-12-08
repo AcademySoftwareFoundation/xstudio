@@ -16,7 +16,7 @@ namespace {
 class HudData : public utility::BlindDataObject {
   public:
     HudData(const utility::JsonStore &j) : hud_params_(j) {}
-    ~HudData() = default;
+    ~HudData() override = default;
 
     const utility::JsonStore hud_params_;
 };
@@ -110,7 +110,7 @@ EXRDataWindowHUD::EXRDataWindowHUD(
     add_hud_settings_attribute(width_);
 }
 
-plugin::ViewportOverlayRendererPtr EXRDataWindowHUD::make_overlay_renderer(const bool) {
+plugin::ViewportOverlayRendererPtr EXRDataWindowHUD::make_overlay_renderer(const int) {
     return plugin::ViewportOverlayRendererPtr(new EXRDataWindowRenderer());
 }
 

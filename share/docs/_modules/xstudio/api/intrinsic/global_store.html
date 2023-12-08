@@ -1,0 +1,385 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>xstudio.api.intrinsic.global_store &mdash; xStudio 0.10.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.10.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../../index.html">Module code</a> &raquo;</li>
+        
+          <li><a href="../../api.html">xstudio.api</a> &raquo;</li>
+        
+      <li>xstudio.api.intrinsic.global_store</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for xstudio.api.intrinsic.global_store</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">autosave_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary.json_store</span> <span class="kn">import</span> <span class="n">JsonStorePy</span>
+
+<div class="viewcode-block" id="GlobalStore"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore">[docs]</a><span class="k">class</span> <span class="nc">GlobalStore</span><span class="p">(</span><span class="n">JsonStorePy</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Access global state dictionary&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create GlobalStore object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            connection(Connection): Connection object</span>
+<span class="sd">            remote(actor): Remote actor object</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            uuid(Uuid): Uuid of remote actor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">JsonStorePy</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">autosave</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get autosave.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            autosave(bool): Autosave enabled.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">autosave_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@autosave</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">autosave</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enabled</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set autosave.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            enabled(bool): Set autosave mode.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">autosave_atom</span><span class="p">(),</span> <span class="n">enabled</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GlobalStore.save"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save context.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            context(str): Context to save.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            success(bool): State saved.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">save_atom</span><span class="p">(),</span> <span class="n">context</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="GlobalStore.value"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.value">[docs]</a>    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get value from store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(JSON): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/value&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.default_value"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.default_value">[docs]</a>    <span class="k">def</span> <span class="nf">default_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get default value from store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to default value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(JSON): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/default_value&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.datatype"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.datatype">[docs]</a>    <span class="k">def</span> <span class="nf">datatype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get datatype from store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to datatype.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(str): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/datatype&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.description"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.description">[docs]</a>    <span class="k">def</span> <span class="nf">description</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get description from store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to description.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(str): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/description&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.context"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.context">[docs]</a>    <span class="k">def</span> <span class="nf">context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get context from store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to context.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(JSON): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/context&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.maximum"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.maximum">[docs]</a>    <span class="k">def</span> <span class="nf">maximum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get maximum from store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to maximum.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(numeric): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/maximum&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.minimum"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.minimum">[docs]</a>    <span class="k">def</span> <span class="nf">minimum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get minimum from store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to minimum.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(numeric): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/minimum&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GlobalStore.set_value"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.set_value">[docs]</a>    <span class="k">def</span> <span class="nf">set_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set value in store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to value.</span>
+<span class="sd">            value(JSON): value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(bool): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/value&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.set_maximum"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.set_maximum">[docs]</a>    <span class="k">def</span> <span class="nf">set_maximum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set maximum in store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to value.</span>
+<span class="sd">            value(numeric): value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(bool): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/maximum&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.set_minimum"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.set_minimum">[docs]</a>    <span class="k">def</span> <span class="nf">set_minimum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set minimum in store</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): path to value.</span>
+<span class="sd">            value(numeric): value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(bool): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/minimum&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.get_preferences"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.get_preferences">[docs]</a>    <span class="k">def</span> <span class="nf">get_preferences</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get preferences from store</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            context(str): context.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(JSON): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">context</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">.</span><span class="n">get_preferences</span><span class="p">(</span><span class="n">context</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalStore.get_values"><a class="viewcode-back" href="../../../../python_api/api.html#xstudio.api.intrinsic.GlobalStore.get_values">[docs]</a>    <span class="k">def</span> <span class="nf">get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get values from store</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            context(str): context.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(JSON): result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">context</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span><span class="n">context</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, DNeg
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

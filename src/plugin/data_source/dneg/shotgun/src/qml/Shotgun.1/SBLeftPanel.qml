@@ -353,6 +353,7 @@ Rectangle{ id: leftDiv
     }
 
     function executeQueryReal() {
+        // console.log("executeQueryReal")
         if(currentCategory) {
             let query = buildQuery()
             if(query !== null) {

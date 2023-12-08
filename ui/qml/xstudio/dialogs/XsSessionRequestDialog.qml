@@ -4,6 +4,9 @@ import QtQuick.Controls 2.14
 import QtGraphicalEffects 1.12
 import QtQuick.Layouts 1.3
 
+import QuickFuture 1.0
+import QuickPromise 1.0
+
 import xStudio 1.0
 
 XsDialogModal {
@@ -20,13 +23,13 @@ XsDialogModal {
     title: "Replace Current Session?"
 
     function replaceSession() {
-        session.load(path, payload)
-        app_window.session.new_recent_path(path)
+        Future.promise(studio.loadSessionFuture(path, payload)).then(function(result){})
+        app_window.sessionFunction.newRecentPath(path)
+        close()
     }
 
     function replaceSessionTest() {
-        // session.newSession("Untitled Session")
-        if(session.modified) {
+        if(app_window.sessionModel.modified) {
             var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveSessionDialog.qml")
             dialog.saved.connect(replaceSession)
             dialog.cancelled.connect(replaceSession)
@@ -37,8 +40,9 @@ XsDialogModal {
     }
 
     function importSession() {
-        session.import(path, payload)
-        app_window.session.new_recent_path(path)
+        Future.promise(app_window.sessionModel.importFuture(path, payload)).then(function(result){})
+        app_window.sessionFunction.newRecentPath(path)
+        close()
     }
 
     ColumnLayout {
@@ -94,10 +98,7 @@ XsDialogModal {
                 Layout.fillHeight: true
 
                 // enabled: false
-                onClicked: {
-                    importSession()
-                    close()
-                }
+                onClicked: importSession()
             }
             XsHSpacer{}
             XsRoundButton {
@@ -110,10 +111,7 @@ XsDialogModal {
                 Layout.fillHeight: true
                 Layout.bottomMargin: 10
 
-                onClicked:{
-                    replaceSessionTest()
-                    close()
-                }
+                onClicked: replaceSessionTest()
             }
         }
     }

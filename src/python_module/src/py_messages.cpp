@@ -149,5 +149,10 @@ void py_config::add_messages() {
 
     add_message_type<xstudio::utility::FrameRange>(
         "FrameRange", "xstudio::utility::FrameRange", &register_frame_range_class);
+
+    add_message_type<std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>>(
+        "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
+        "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
+        nullptr);
 }
 } // namespace caf::python

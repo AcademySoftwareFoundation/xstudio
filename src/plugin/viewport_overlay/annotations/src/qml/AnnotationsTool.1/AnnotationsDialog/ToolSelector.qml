@@ -21,7 +21,7 @@ Item{
 
     XsModuleAttributesModel {
         id: annotations_tool_types
-        attributesGroupName: "annotations_tool_types"
+        attributesGroupNames: "annotations_tool_types"
     }
 
     property var toolImages: [

@@ -30,7 +30,7 @@ Item{
 
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupName: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings"
     }
 
     // make a local binding to the backend attribute

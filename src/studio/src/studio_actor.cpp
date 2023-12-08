@@ -94,7 +94,7 @@ void StudioActor::init() {
 
             JsonStore jsn;
             jsn["base"]    = base_.serialise();
-            jsn["session"] = NULL;
+            jsn["session"] = nullptr;
             return result<JsonStore>(jsn);
         });
 }

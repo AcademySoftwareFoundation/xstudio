@@ -127,7 +127,7 @@ void AudioOutputDeviceActor::open_output_device(const utility::JsonStore &prefs)
 
 
 AudioOutputControlActor::AudioOutputControlActor(caf::actor_config &cfg, const std::string name)
-    : caf::event_based_actor(cfg), base_(), name_(name) {
+    : caf::event_based_actor(cfg), name_(name) {
     init();
 }
 
@@ -140,8 +140,7 @@ void AudioOutputControlActor::init() {
 
     audio_output_device_ = spawn<AudioOutputDeviceActor>(actor_cast<caf::actor_addr>(this));
     link_to(audio_output_device_);
-
-    base_.set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
+    set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -154,7 +153,7 @@ void AudioOutputControlActor::init() {
             std::vector<int16_t> samples;
             try {
 
-                base_.prepare_samples_for_soundcard(
+                prepare_samples_for_soundcard(
                     samples, num_samps_to_push, microseconds_delay, num_channels, sample_rate);
 
             } catch (std::exception &e) {
@@ -165,7 +164,7 @@ void AudioOutputControlActor::init() {
         },
         [=](playhead::play_atom, const bool is_playing) {
             if (!is_playing) {
-                base_.clear_queued_samples();
+                clear_queued_samples();
             }
             anon_send(audio_output_device_, playhead::play_atom_v, is_playing);
         },
@@ -176,19 +175,21 @@ void AudioOutputControlActor::init() {
             const bool forwards,
             const float velocity) {
             if (!playing) {
-                base_.clear_queued_samples();
+                clear_queued_samples();
             } else {
                 if (sub_playhead != sub_playhead_uuid_) {
                     // sound is coming from a different source to
                     // previous time
-                    base_.clear_queued_samples();
+                    clear_queued_samples();
                     sub_playhead_uuid_ = sub_playhead;
                 }
-                base_.queue_samples_for_playing(audio_buffers, playing, forwards, velocity);
+                queue_samples_for_playing(audio_buffers, playing, forwards, velocity);
             }
         }
 
     );
+
+    connect_to_ui();
 }
 
 

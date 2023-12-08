@@ -17,7 +17,6 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/bookmark/bookmark.hpp"
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
-// #include "xstudio/ui/qml/media_ui.hpp"
 
 namespace xstudio::ui::qml {
 
@@ -150,8 +149,8 @@ class BookmarkModel : public caf::mixin::actor_object<JSONTreeModel> {
 
     [[nodiscard]] int length() const { return rowCount(); }
 
-    QFuture<QString> exportCSVFuture(const QUrl &path);
-    QString exportCSV(const QUrl &path) { return exportCSVFuture(path).result(); }
+    Q_INVOKABLE QFuture<QString> exportCSVFuture(const QUrl &path);
+    Q_INVOKABLE QString exportCSV(const QUrl &path) { return exportCSVFuture(path).result(); }
 
     Q_INVOKABLE [[nodiscard]] QString
     getJSON(const QModelIndex &index, const QString &path) const {

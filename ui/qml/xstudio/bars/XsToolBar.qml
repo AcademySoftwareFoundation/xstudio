@@ -24,7 +24,7 @@ Rectangle {
 
     XsModuleAttributesModel {
         id: attrs
-        attributesGroupName: is_main_window ? "main_toolbar" : "popout_toolbar"
+        attributesGroupNames: [viewport.name + "_toolbar", "any_toolbar"]
     }
 
     opacity: 1

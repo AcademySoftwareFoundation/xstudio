@@ -5,24 +5,22 @@ import QtQuick.Controls 2.5
 
 import xStudio 1.0
 import xstudio.qml.module 1.0
+import xstudio.qml.helpers 1.0
 
 Rectangle {
 
     id: mediaInfoBar
-    implicitHeight: XsStyle.mediaInfoBarFontSize*2.2*opacity//filenameLabel.height + XsStyle.mediaInfoBarMargins*2    
+    implicitHeight: XsStyle.mediaInfoBarFontSize*2.2*opacity//filenameLabel.height + XsStyle.mediaInfoBarMargins*2
     color: XsStyle.mediaInfoBarBackground
     opacity: 1
     visible: opacity !== 0
     z: 1000
 
-    property var source: session.onScreenSource
     property var playhead: viewport.playhead
-    property var currentMedia: playhead ? playhead.media.mediaSource : null
-    property var filename: currentMedia ? currentMedia.fileName : ""
-    property var format: currentMedia ? currentMedia.format : ""
-    property var bitDepth: currentMedia ? currentMedia.bitDepth : ""
-    property var fpsString: currentMedia ? currentMedia.fpsString : ""
-    property var resolution: currentMedia ? currentMedia.resolution : ""
+    property var format: app_window.mediaImageSource.values.formatRole ? app_window.mediaImageSource.values.formatRole : "TBD"
+    property var bitDepth: app_window.mediaImageSource.values.bitDepthRole ? app_window.mediaImageSource.values.bitDepthRole : "TBD"
+    property var fpsString: app_window.mediaImageSource.values.rateFPSRole ? app_window.mediaImageSource.values.rateFPSRole : "TBD"
+    property var resolution: app_window.mediaImageSource.values.resolutionRole ? app_window.mediaImageSource.values.resolutionRole : "TBD"
     property var pixel_colour: sessionWidget.viewport.colourUnderCursor
 
     function sourceOffsetFramesChanged() {
@@ -33,11 +31,11 @@ Rectangle {
 
     XsModuleAttributes {
         id: playhead_attrs
-        attributesGroupName: "playhead"
+        attributesGroupNames: "playhead"
     }
 
     property bool auto_align_enabled: playhead_attrs.compare !== undefined ? playhead_attrs.compare == "A/B" : false
-    
+
     Behavior on opacity {
         NumberAnimation { duration: playerWidget.doTrayAnim?200:0 }
     }
@@ -72,83 +70,56 @@ Rectangle {
 
         anchors.fill: parent
 
-        Rectangle {
-            color: "transparent"
-            XsMediaInfoBarAutoAlign{
-                anchors.centerIn: parent
-                id: auto_align_option
-                label_text: "Auto Align"
-                visible: auto_align_enabled
-                tooltip_text: "Select option 'On' to auto align and extend range to include frames from all sources. Select 'On (Trim)' to auto align and reduce to frame range common to all sources."   
-            }
+        XsMediaInfoBarAutoAlign{
+            id: auto_align_option
+            label_text: "Auto Align"
+            visible: auto_align_enabled
+            tooltip_text: "Select option 'On' to auto align and extend range to include frames from all sources. Select 'On (Trim)' to auto align and reduce to frame range common to all sources."
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        Rectangle {
-            color: "transparent"
-            XsMediaInfoBarOffset {
-                id: offset_group
-                visible: offset_enabled
-                anchors.bottom: parent.bottom
-                anchors.top:parent.top
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
+        XsMediaInfoBarOffset {
+            id: offset_group
+            visible: offset_enabled
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        Rectangle {
-            color: "transparent"
-            XsMediaInfoBarItem {
-                id: format_display
-                label_text: "Format"
-                value_text: format
-                tooltip_text: "The image format or video codec of the current source"    
-                anchors.centerIn: parent
-            }
+        XsMediaInfoBarItem {
+            id: format_display
+            label_text: "Format"
+            value_text: format
+            tooltip_text: "The image format or video codec of the current source"
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        Rectangle {
-            color: "transparent"
-            XsMediaInfoBarItem {
-                id: bitdepth_display
-                label_text: "Bit Depth"
-                value_text: bitDepth
-                tooltip_text: "The image bitdepth of the current source"    
-                anchors.centerIn: parent
-            }
+        XsMediaInfoBarItem {
+            id: bitdepth_display
+            label_text: "Bit Depth"
+            value_text: bitDepth
+            tooltip_text: "The image bitdepth of the current source"
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        Rectangle {
-            color: "transparent"
-            XsMediaInfoBarItem {
-                id: fps_display
-                label_text: "FPS"
-                value_text: fpsString
-                tooltip_text: "The playback rate of the current source"    
-                anchors.centerIn: parent
-            }
+        XsMediaInfoBarItem {
+            id: fps_display
+            label_text: "FPS"
+            value_text: fpsString
+            tooltip_text: "The playback rate of the current source"
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        Rectangle {
-            color: "transparent"
-            XsMediaInfoBarItem {
-                id: res_display
-                label_text: "Res"
-                value_text: resolution
-                tooltip_text: "The image resolution in pixels of the current source"    
-                anchors.centerIn: parent
-            }
+        XsMediaInfoBarItem {
+            id: res_display
+            label_text: "Res"
+            value_text: resolution
+            tooltip_text: "The image resolution in pixels of the current source"
             Layout.fillWidth: true
             Layout.fillHeight: true
-
         }
 
     }
@@ -162,9 +133,9 @@ Rectangle {
         anchors.right: parent.right
         property int comp_width: 34
         width: comp_width*3
-    
+
         Text {
-    
+
             text: mediaInfoBar.pixel_colour[0]
             color: "#f66"
             horizontalAlignment: Qt.AlignLeft
@@ -172,16 +143,16 @@ Rectangle {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             x: 0
-        
+
             font {
                 family: XsStyle.pixValuesFontFamily
                 pixelSize: XsStyle.pixValuesFontSize
             }
-    
+
         }
-    
+
         Text {
-    
+
             text: mediaInfoBar.pixel_colour[1]
             color: "#6f6"
             horizontalAlignment: Qt.AlignLeft
@@ -189,16 +160,16 @@ Rectangle {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             x: pixel_colour.comp_width
-        
+
             font {
                 family: XsStyle.pixValuesFontFamily
                 pixelSize: XsStyle.pixValuesFontSize
             }
-    
+
         }
 
         Text {
-    
+
             text: mediaInfoBar.pixel_colour[2]
             color: "#88f"
             horizontalAlignment: Qt.AlignLeft
@@ -206,18 +177,18 @@ Rectangle {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             x: pixel_colour.comp_width*2
-        
+
             font {
                 family: XsStyle.pixValuesFontFamily
                 pixelSize: XsStyle.pixValuesFontSize
             }
-    
+
         }
 
     }*/
 
     /*
-    
+
         ListModel {
 
         id: basic_data
@@ -245,7 +216,7 @@ Rectangle {
     }
 
 
-    
+
     Rectangle {
         id: topLine
         anchors.left: parent.left

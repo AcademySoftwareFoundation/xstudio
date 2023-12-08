@@ -46,38 +46,75 @@ void OCIOColourPipeline::media_source_changed(
             "OCIOColourPipeline: Internal error trying to extract source colour space.");
     }
 
+    // Do not notify to avoid this being interpreted as a manual user selection.
     if (not detected_cs.empty()) {
-        // Do not notify to avoid this being interpreted as a manual user selection.
         source_colour_space_->set_value(
             new_media_param.ocio_config->getCanonicalName(detected_cs.c_str()), false);
+    }
+
+    // Update the per media assigned view
+    if (!global_view_->value()) {
+        view_->set_value(new_media_param.output_view);
     }
 }
 
 void OCIOColourPipeline::attribute_changed(
-    const utility::Uuid &attribute_uuid, const int /*role*/) {
-    // Assume that exposure does not require LUT rebuild in any circumstance.
-    if (exposure_ && attribute_uuid != exposure_->uuid()) {
-        std::scoped_lock lock(pipeline_cache_mutex_);
-        pipeline_cache_.clear();
-    }
+    const utility::Uuid &attribute_uuid, const int role) {
 
     MediaParams media_param = get_media_params(current_source_uuid_);
 
     if (attribute_uuid == display_->uuid()) {
         update_views(media_param.ocio_config);
+    } else if (
+        attribute_uuid == view_->uuid() && !view_->value().empty() && !global_view_->value()) {
+        media_param.output_view = view_->value();
+        set_media_params(current_source_uuid_, media_param);
     } else if (attribute_uuid == source_colour_space_->uuid()) {
         media_param.user_input_cs = source_colour_space_->value();
         set_media_params(current_source_uuid_, media_param);
     } else if (attribute_uuid == colour_bypass_->uuid()) {
         update_bypass(display_, colour_bypass_->value());
-        update_bypass(popout_viewer_display_, colour_bypass_->value());
-    } else if (exposure_ && attribute_uuid == exposure_->uuid()) {
+    } else if (
+        exposure_ && attribute_uuid == exposure_->uuid() ||
+        gamma_ && attribute_uuid == gamma_->uuid() ||
+        saturation_ && attribute_uuid == saturation_->uuid()) {
         redraw_viewport();
+    } else if (attribute_uuid == preferred_view_->uuid()) {
+        bool enable_global = preferred_view_->value() != ui_text_.AUTOMATIC_VIEW;
+        global_view_->set_value(enable_global, false);
+    } else if (attribute_uuid == enable_gamma_->uuid() && connected_to_ui()) {
+
+        if (enable_gamma_->value()) {
+            gamma_->set_role_data(
+                module::Attribute::Groups,
+                nlohmann::json{viewport_name_ + "_toolbar", "colour_pipe_attributes"});
+
+        } else {
+            gamma_->set_role_data(
+                module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
+        }
+
+    } else if (attribute_uuid == enable_saturation_->uuid() && connected_to_ui()) {
+        if (enable_saturation_->value()) {
+            saturation_->set_role_data(
+                module::Attribute::Groups,
+                nlohmann::json{viewport_name_ + "_toolbar", "colour_pipe_attributes"});
+
+        } else {
+            saturation_->set_role_data(
+                module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
+        }
     }
 }
 
 void OCIOColourPipeline::hotkey_pressed(
-    const utility::Uuid &hotkey_uuid, const std::string & /*context*/) {
+    const utility::Uuid &hotkey_uuid, const std::string &context) {
+
+    // if the hotkey was pressed outside the viewport that owns this
+    // instance of the pipeline, skip it.
+    if (viewport_name_ != context)
+        return;
+
     // If user hits 'R' hotkey and we're already looking at the red channel,
     // then we revert back to RGB, same for 'G' and 'B'.
     auto p = channel_hotkeys_.find(hotkey_uuid);
@@ -89,11 +126,19 @@ void OCIOColourPipeline::hotkey_pressed(
         }
     } else if (hotkey_uuid == reset_hotkey_) {
         channel_->set_value("RGB");
-        exposure_->set_value(0.0f);
+        exposure_->set_value(exposure_->get_role_data<float>(module::Attribute::DefaultValue));
+        gamma_->set_value(gamma_->get_role_data<float>(module::Attribute::DefaultValue));
+        saturation_->set_value(
+            saturation_->get_role_data<float>(module::Attribute::DefaultValue));
     } else if (hotkey_uuid == exposure_hotkey_) {
         exposure_->set_role_data(module::Attribute::Activated, true);
-        grab_mouse_focus(); // setting the 'priorty' to 10 so we override other plugins while
-                            // exposure scrubbing
+        grab_mouse_focus();
+    } else if (hotkey_uuid == gamma_hotkey_) {
+        gamma_->set_role_data(module::Attribute::Activated, true);
+        grab_mouse_focus();
+    } else if (hotkey_uuid == saturation_hotkey_) {
+        saturation_->set_role_data(module::Attribute::Activated, true);
+        grab_mouse_focus();
     }
 }
 
@@ -102,55 +147,84 @@ void OCIOColourPipeline::hotkey_released(
     if (hotkey_uuid == exposure_hotkey_) {
         exposure_->set_role_data(module::Attribute::Activated, false);
         release_mouse_focus();
+    } else if (hotkey_uuid == gamma_hotkey_) {
+        gamma_->set_role_data(module::Attribute::Activated, false);
+        release_mouse_focus();
+    } else if (hotkey_uuid == saturation_hotkey_) {
+        saturation_->set_role_data(module::Attribute::Activated, false);
+        release_mouse_focus();
     }
 }
 
 bool OCIOColourPipeline::pointer_event(const ui::PointerEvent &e) {
-    bool used = false;
 
-    // Implementing exposure scrubbing in viewport, while 'E' key is down.
+    module::FloatAttribute *active_attr = nullptr;
     if (exposure_->get_role_data<bool>(module::Attribute::Activated)) {
-        static int x_down;
-        static float e_down;
-        static bool dragging = false;
+        active_attr = exposure_;
+    } else if (gamma_->get_role_data<bool>(module::Attribute::Activated)) {
+        active_attr = gamma_;
+    } else if (saturation_->get_role_data<bool>(module::Attribute::Activated)) {
+        active_attr = saturation_;
+    }
 
-        if (e.type() == ui::Signature::EventType::ButtonDown &&
-            e.buttons() == ui::Signature::Left) {
-            x_down   = e.x();
-            e_down   = exposure_->value();
-            dragging = true;
-            used     = true;
-        } else if (dragging && e.buttons() == ui::Signature::Left) {
-            exposure_->set_value(round((e_down + (e.x() - x_down) * 0.01) * 4.0f) / 4.0f);
-            used = true;
-        } else if (
-            e.type() == ui::Signature::EventType::ButtonRelease &&
-            (e.buttons() & ui::Signature::Left)) {
-            dragging = false;
-            used     = true;
-        }
+    // Nothing to be done
+    if (!active_attr) {
+        return false;
+    }
 
-        if (e.type() == ui::Signature::EventType::DoubleClick) {
-            static float last_value = 0.0f;
-            if (exposure_->value() == 0.0f) {
-                exposure_->set_value(last_value);
-            } else {
-                last_value = exposure_->value();
-                exposure_->set_value(0.0f);
-            }
-            used = true;
+    // Implementing exposure scrubbing in viewport
+    static int x_down;
+    static float e_down;
+    static auto dragging = false;
+    bool used            = false;
+
+    if (e.type() == ui::Signature::EventType::ButtonDown &&
+        e.buttons() == ui::Signature::Left) {
+        x_down   = e.x();
+        e_down   = active_attr->value();
+        dragging = true;
+        used     = true;
+    } else if (dragging && e.buttons() == ui::Signature::Left) {
+        const auto sensitivity =
+            active_attr->get_role_data<float>(module::Attribute::FloatScrubSensitivity);
+        const auto step = active_attr->get_role_data<float>(module::Attribute::FloatScrubStep);
+        const auto min  = active_attr->get_role_data<float>(module::Attribute::FloatScrubMin);
+        const auto max  = active_attr->get_role_data<float>(module::Attribute::FloatScrubMax);
+
+        auto val = 0.0f;
+        val      = round((e_down + (e.x() - x_down) * sensitivity) / step) * step;
+        val      = std::max(std::min(val, max), min);
+        active_attr->set_value(val);
+        used = true;
+    } else if (
+        e.type() == ui::Signature::EventType::ButtonRelease &&
+        (e.buttons() & ui::Signature::Left)) {
+        dragging = false;
+        used     = true;
+    }
+
+    if (e.type() == ui::Signature::EventType::DoubleClick) {
+        static auto last_value = 0.0f;
+        const auto def = active_attr->get_role_data<float>(module::Attribute::DefaultValue);
+
+        if (active_attr->value() == def) {
+            active_attr->set_value(last_value);
+        } else {
+            last_value = active_attr->value();
+            active_attr->set_value(def);
         }
+        used = true;
     }
 
     return used;
 }
 
 void OCIOColourPipeline::screen_changed(
-    const bool &is_primary_viewer,
     const std::string &name,
     const std::string &model,
     const std::string &manufacturer,
     const std::string &serialNumber) {
+
     const MediaParams media_param  = get_media_params(current_source_uuid_);
     const std::string monitor_name = manufacturer + " " + model;
     const std::string display      = default_display(media_param, monitor_name);
@@ -160,20 +234,75 @@ void OCIOColourPipeline::screen_changed(
                    .size() > 0;
     };
 
-    if (is_primary_viewer) {
-        if (menu_populated(display_)) {
-            display_->set_value(display);
-        }
-        main_monitor_name_ = monitor_name;
-    } else {
-        if (menu_populated(popout_viewer_display_)) {
-            popout_viewer_display_->set_value(display);
-        }
-        popout_monitor_name_ = monitor_name;
+    if (menu_populated(display_)) {
+        display_->set_value(display);
+    }
+    monitor_name_ = monitor_name;
+}
+
+void OCIOColourPipeline::connect_to_viewport(
+    caf::actor viewport, const std::string viewport_name, const int viewport_index) {
+
+    viewport_name_ = viewport_name;
+
+    // make the 'display' button appear in the toolbar for the given viewport
+    display_->set_role_data(
+        module::Attribute::Groups,
+        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
+    view_->set_role_data(
+        module::Attribute::Groups,
+        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
+    channel_->set_role_data(
+        module::Attribute::Groups,
+        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
+    exposure_->set_role_data(
+        module::Attribute::Groups,
+        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
+
+    if (enable_saturation_->value()) {
+        saturation_->set_role_data(
+            module::Attribute::Groups,
+            nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
+    }
+    if (enable_gamma_->value()) {
+        gamma_->set_role_data(
+            module::Attribute::Groups,
+            nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
+    }
+
+    add_multichoice_attr_to_menu(
+        display_, viewport_name + "_context_menu_section2", "OCIO Display");
+
+    add_multichoice_attr_to_menu(view_, viewport_name + "_context_menu_section2", "OCIO View");
+
+    add_multichoice_attr_to_menu(channel_, viewport_name + "_context_menu_section1", "Channel");
+
+    if (viewport_index == 0) {
+
+        add_multichoice_attr_to_menu(view_, "Colour", "OCIO View");
+
+        add_multichoice_attr_to_menu(display_, "Colour", "OCIO Display");
+
+        add_multichoice_attr_to_menu(channel_, "Colour", "Channel");
+
+        add_boolean_attr_to_menu(colour_bypass_, "Colour");
+
+        add_boolean_attr_to_menu(global_view_, "Colour");
+
+        add_multichoice_attr_to_menu(source_colour_space_, "Colour", "Source Colour Space");
+
+        add_multichoice_attr_to_menu(preferred_view_, "Colour", "OCIO Preferred View");
+
+        add_boolean_attr_to_menu(enable_saturation_, "panels_menu|Toolbar");
+
+        add_boolean_attr_to_menu(enable_gamma_, "panels_menu|Toolbar");
+
+    } else if (viewport_index == 1) {
+
+        add_multichoice_attr_to_menu(display_, "Colour", "OCIO Pop-Out Viewer Display");
     }
 }
 
-// Set up ui elements of the pluging
 void OCIOColourPipeline::setup_ui() {
     // OCIO Source colour space
 
@@ -181,13 +310,9 @@ void OCIOColourPipeline::setup_ui() {
         add_string_choice_attribute(ui_text_.SOURCE_CS, ui_text_.SOURCE_CS_SHORT);
     source_colour_space_->set_redraw_viewport_on_change(true);
     source_colour_space_->set_role_data(
-        module::Attribute::UuidRole, "805f5778-3a6f-46b2-aa35-054659a72a1a");
-    source_colour_space_->set_role_data(
         module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
     source_colour_space_->set_role_data(module::Attribute::Enabled, false);
     source_colour_space_->set_role_data(module::Attribute::ToolbarPosition, 12.0f);
-    source_colour_space_->set_role_data(
-        module::Attribute::MenuPaths, ui_text_.MENU_PATH_SOURCE_CS);
     source_colour_space_->set_role_data(module::Attribute::ToolTip, ui_text_.SOURCE_CS_TOOLTIP);
 
     // OCIO display selection (main viewer)
@@ -195,43 +320,32 @@ void OCIOColourPipeline::setup_ui() {
     display_ = add_string_choice_attribute(ui_text_.DISPLAY, ui_text_.DISPLAY_SHORT);
     display_->set_redraw_viewport_on_change(true);
     display_->set_role_data(
-        module::Attribute::UuidRole, "cfc4a308-4c19-4a7a-b73f-660428ff0ee1");
-    display_->set_role_data(
-        module::Attribute::Groups, nlohmann::json{"main_toolbar", "colour_pipe_attributes"});
+        module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
     display_->set_role_data(module::Attribute::Enabled, true);
     display_->set_role_data(module::Attribute::ToolbarPosition, 10.0f);
-    display_->set_role_data(module::Attribute::MenuPaths, ui_text_.MENU_PATH_DISPLAY);
     display_->set_role_data(module::Attribute::ToolTip, ui_text_.DISPLAY_TOOLTIP);
-
-    // OCIO display selection (second viewer)
-
-    popout_viewer_display_ =
-        add_string_choice_attribute(ui_text_.DISPLAY, ui_text_.DISPLAY_SHORT);
-    // Avoid clash with the display_ attr on save/load
-    popout_viewer_display_->set_role_data(
-        module::Attribute::UuidRole, "fa7b29b2-b159-4098-b106-b82f0cdc2048");
-    popout_viewer_display_->set_role_data(module::Attribute::SerializeKey, "PopoutDisplay");
-    popout_viewer_display_->set_redraw_viewport_on_change(true);
-    popout_viewer_display_->set_role_data(
-        module::Attribute::Groups, nlohmann::json{"popout_toolbar", "colour_pipe_attributes"});
-    popout_viewer_display_->set_role_data(module::Attribute::Enabled, true);
-    popout_viewer_display_->set_role_data(module::Attribute::ToolbarPosition, 10.0f);
-    popout_viewer_display_->set_role_data(
-        module::Attribute::MenuPaths, ui_text_.MENU_PATH_POPOUT_VIEWER_DISPLAY);
-    popout_viewer_display_->set_role_data(module::Attribute::ToolTip, ui_text_.DISPLAY_TOOLTIP);
 
     // OCIO view selection
 
     view_ = add_string_choice_attribute(ui_text_.VIEW, ui_text_.VIEW);
     view_->set_redraw_viewport_on_change(true);
-    view_->set_role_data(module::Attribute::UuidRole, "74e0d978-0402-41db-8761-9c6bd2f8a608");
-    view_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{"main_toolbar", "popout_toolbar", "colour_pipe_attributes"});
     view_->set_role_data(module::Attribute::Enabled, true);
     view_->set_role_data(module::Attribute::ToolbarPosition, 11.0f);
-    view_->set_role_data(module::Attribute::MenuPaths, ui_text_.MENU_PATH_VIEW);
     view_->set_role_data(module::Attribute::ToolTip, ui_text_.VIEW_TOOLTIP);
+
+    // Preferred view
+
+    preferred_view_ = add_string_choice_attribute(
+        ui_text_.PREF_VIEW, ui_text_.PREF_VIEW, ui_text_.DEFAULT_VIEW);
+    preferred_view_->set_redraw_viewport_on_change(true);
+    preferred_view_->set_role_data(
+        module::Attribute::UuidRole, "06f57aaa-0be8-47ab-ac65-fb742bda410b");
+    preferred_view_->set_role_data(module::Attribute::Enabled, true);
+    preferred_view_->set_role_data(module::Attribute::ToolbarPosition, 11.0f);
+    preferred_view_->set_role_data(module::Attribute::ToolTip, ui_text_.PREF_VIEW_TOOLTIP);
+    preferred_view_->set_role_data(
+        module::Attribute::StringChoices, ui_text_.PREF_VIEW_OPTIONS, false);
+    preferred_view_->set_preference_path("/plugin/colour_pipeline/ocio/user_preferred_view");
 
     // Hot channel selection
 
@@ -247,32 +361,49 @@ void OCIOColourPipeline::setup_ui() {
          ui_text_.LUMINANCE},
         {ui_text_.RGB, ui_text_.R, ui_text_.G, ui_text_.B, ui_text_.A, ui_text_.L});
     channel_->set_redraw_viewport_on_change(true);
-    channel_->set_role_data(
-        module::Attribute::UuidRole, "5c9cecc2-a884-400a-8c46-e7d0d16f5b9f");
-    channel_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{"main_toolbar", "popout_toolbar", "colour_pipe_attributes"});
     channel_->set_role_data(module::Attribute::Enabled, true);
     channel_->set_role_data(module::Attribute::ToolbarPosition, 8.0f);
-    channel_->set_role_data(module::Attribute::MenuPaths, ui_text_.MENU_PATH_CHANNEL);
     channel_->set_role_data(module::Attribute::ToolTip, ui_text_.CS_MSG_CMS_SELECT_CLR_TIP);
-
 
     // Exposure slider
 
     exposure_ = add_float_attribute(
         ui_text_.EXPOSURE, ui_text_.EXPOSURE_SHORT, 0.0f, -10.0f, 10.0f, 0.05f);
     exposure_->set_redraw_viewport_on_change(true);
-    exposure_->set_role_data(
-        module::Attribute::UuidRole, "58bf6780-103e-4be6-a1e8-166999746d74");
     exposure_->set_role_data(module::Attribute::ToolbarPosition, 4.0f);
-    exposure_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{"main_toolbar", "popout_toolbar", "colour_pipe_attributes"});
     exposure_->set_role_data(module::Attribute::Activated, false);
     exposure_->set_role_data(module::Attribute::DefaultValue, 0.0f);
     exposure_->set_role_data(module::Attribute::ToolTip, ui_text_.CS_MSG_CMS_SET_EXP_TIP);
 
+    // Gamma slider
+
+    gamma_ = add_float_attribute(ui_text_.GAMMA, ui_text_.GAMMA_SHORT, 1.0f, 0.0f, 5.0f, 0.05f);
+    gamma_->set_redraw_viewport_on_change(true);
+    gamma_->set_role_data(module::Attribute::ToolbarPosition, 4.1f);
+    gamma_->set_role_data(module::Attribute::Activated, false);
+    gamma_->set_role_data(module::Attribute::DefaultValue, 1.0f);
+    gamma_->set_role_data(module::Attribute::ToolTip, ui_text_.CS_MSG_CMS_SET_GAMMA_TIP);
+
+    enable_gamma_ =
+        add_boolean_attribute(ui_text_.ENABLE_GAMMA, ui_text_.ENABLE_GAMMA_SHORT, false);
+    enable_gamma_->set_redraw_viewport_on_change(true);
+    enable_gamma_->set_preference_path("/plugin/colour_pipeline/ocio/enable_gamma");
+
+    // Saturation slider
+
+    saturation_ = add_float_attribute(
+        ui_text_.SATURATION, ui_text_.SATURATION_SHORT, 1.0f, 0.0f, 10.0f, 0.05f);
+    saturation_->set_redraw_viewport_on_change(true);
+    saturation_->set_role_data(module::Attribute::ToolbarPosition, 4.2f);
+    saturation_->set_role_data(module::Attribute::Activated, false);
+    saturation_->set_role_data(module::Attribute::DefaultValue, 1.0f);
+    saturation_->set_role_data(
+        module::Attribute::ToolTip, ui_text_.CS_MSG_CMS_SET_SATURATION_TIP);
+
+    enable_saturation_ = add_boolean_attribute(
+        ui_text_.ENABLE_SATURATION, ui_text_.ENABLE_SATURATION_SHORT, false);
+    enable_saturation_->set_redraw_viewport_on_change(true);
+    enable_saturation_->set_preference_path("/plugin/colour_pipeline/ocio/enable_saturation");
 
     // Colour bypass
 
@@ -280,17 +411,47 @@ void OCIOColourPipeline::setup_ui() {
 
     colour_bypass_->set_redraw_viewport_on_change(true);
     colour_bypass_->set_role_data(
-        module::Attribute::UuidRole, "35228873-0b08-4abc-877b-14055ddc2772");
-    colour_bypass_->set_role_data(
         module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
     colour_bypass_->set_role_data(module::Attribute::Enabled, false);
-    colour_bypass_->set_role_data(module::Attribute::MenuPaths, ui_text_.MENU_PATH_CMS_OFF);
     colour_bypass_->set_role_data(module::Attribute::ToolTip, ui_text_.CS_BYPASS_TOOLTIP);
 
+    // View mode
+
+    global_view_ = add_boolean_attribute(ui_text_.VIEW_MODE, ui_text_.GLOBAL_VIEW_SHORT, false);
+
+    global_view_->set_redraw_viewport_on_change(true);
+    global_view_->set_role_data(
+        module::Attribute::UuidRole, "ac970f58-3243-4533-8bcb-296849b58277");
+    global_view_->set_role_data(
+        module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
+    global_view_->set_role_data(module::Attribute::Enabled, false);
+    global_view_->set_role_data(module::Attribute::ToolTip, ui_text_.GLOBAL_VIEW_TOOLTIP);
+    global_view_->set_preference_path("/plugin/colour_pipeline/ocio/user_view_mode");
+
     ui_initialized_ = true;
+
+    // Here we register particular attributes to be 'linked'. The main viewer and
+    // the pop-out viewer have their own instances of this class. We want certain
+    // attributes to always have the same value between these two instances. When
+    // the pop-out viewport is created, its colour pipeline instance is 'linked'
+    // to the colour pipeline belonging to the main viewport - any changes on one
+    // of the attributes below that happens in one instance is immediately synced
+    // to the corresponding attribute on the other instance.
+    link_attribute(exposure_->uuid());
+    link_attribute(channel_->uuid());
+    link_attribute(view_->uuid());
+    link_attribute(gamma_->uuid());
+    link_attribute(saturation_->uuid());
+    link_attribute(global_view_->uuid());
+    link_attribute(enable_gamma_->uuid());
+    link_attribute(enable_saturation_->uuid());
 }
 
 void OCIOColourPipeline::register_hotkeys() {
+
+    // don't register hotkeys again (for additional viewports)
+    if (viewport_name_ != "viewport0")
+        return;
 
     for (const auto &hotkey_props : ui_text_.channel_hotkeys) {
         auto hotkey_id = register_hotkey(
@@ -301,7 +462,6 @@ void OCIOColourPipeline::register_hotkeys() {
 
         channel_hotkeys_[hotkey_id] = hotkey_props.channel_name;
     }
-
 
     reset_hotkey_ = register_hotkey(
         int('R'),
@@ -315,23 +475,38 @@ void OCIOColourPipeline::register_hotkeys() {
         "Exposure Scrubbing",
         "Hold this key down and click-scrub the mouse pointer left/right in the viewport to "
         "adjust viewer exposure");
+
+    gamma_hotkey_ = register_hotkey(
+        int('Y'),
+        ui::NoModifier,
+        "Gamma Scrubbing",
+        "Hold this key down and click-scrub the mouse pointer left/right in the viewport to "
+        "adjust viewer gamma");
+
+    saturation_hotkey_ = register_hotkey(
+        int('S'),
+        ui::AltModifier,
+        "Saturation Scrubbing",
+        "Hold this key down and click-scrub the mouse pointer left/right in the viewport to "
+        "adjust viewer saturation");
 }
 
 
 void OCIOColourPipeline::populate_ui(const MediaParams &media_param) {
+
     const auto ocio_config      = media_param.ocio_config;
     const auto ocio_config_name = media_param.ocio_config_name;
 
     // Store the display/view settings for the current config that's
     // about to be switched out.
     if (not current_config_name_.empty() and current_config_name_ != ocio_config_name) {
-        std::scoped_lock l(per_config_settings_mutex_);
-
-        auto &settings                 = per_config_settings_[current_config_name_];
-        settings.display               = display_->value();
-        settings.popout_viewer_display = popout_viewer_display_->value();
-        settings.view                  = view_->value();
+        auto &settings   = per_config_settings_[current_config_name_];
+        settings.display = display_->value();
+        settings.view    = view_->value();
     }
+
+    if (is_worker())
+        return;
 
     std::map<std::string, std::vector<std::string>> display_views;
     const auto displays          = parse_display_views(ocio_config, display_views);
@@ -348,35 +523,30 @@ void OCIOColourPipeline::populate_ui(const MediaParams &media_param) {
 
     // OCIO display list
     display_->set_role_data(module::Attribute::StringChoices, displays, false);
-    popout_viewer_display_->set_role_data(module::Attribute::StringChoices, displays, false);
 
     // Restore settings for the config if we've already used it, else use defaults.
-    std::scoped_lock l(per_config_settings_mutex_);
+    std::string display;
+    std::string popout_display;
+    std::string view;
 
     auto it = per_config_settings_.find(ocio_config_name);
 
     if (it != per_config_settings_.end() and
-        display_views.find(it->second.display) != display_views.end() and
-        display_views.find(it->second.popout_viewer_display) != display_views.end()) {
-        display_->set_value(it->second.display);
-        popout_viewer_display_->set_value(it->second.popout_viewer_display);
-
-        view_->set_role_data(
-            module::Attribute::StringChoices, display_views[it->second.display]);
-        view_->set_value(it->second.view);
+        display_views.find(it->second.display) != display_views.end()) {
+        display = it->second.display;
+        view    = it->second.view;
     } else {
-        if (!main_monitor_name_.empty()) {
-            display_->set_value(default_display(media_param, main_monitor_name_));
-        }
-        if (!popout_monitor_name_.empty()) {
-            popout_viewer_display_->set_value(
-                default_display(media_param, popout_monitor_name_));
-        }
-
-        view_->set_role_data(
-            module::Attribute::StringChoices, display_views[display_->value()]);
-        view_->set_value(default_view);
+        display = default_display(media_param, monitor_name_);
+        // Do not try to re-use view from other config to avoid case where
+        // an unmanaged media with Raw view match a Raw view in an actual
+        // OCIO config.
+        view = default_view;
     }
+
+    // Don't notify while current_source_uuid_ is not up to date.
+    display_->set_value(display, false);
+    view_->set_role_data(module::Attribute::StringChoices, display_views[display]);
+    view_->set_value(view, false);
 }
 
 std::vector<std::string> OCIOColourPipeline::parse_display_views(
@@ -414,6 +584,10 @@ OCIOColourPipeline::parse_all_colourspaces(OCIO::ConstConfigRcPtr ocio_config) c
 }
 
 void OCIOColourPipeline::update_views(OCIO::ConstConfigRcPtr ocio_config) {
+
+    if (is_worker())
+        return;
+
     std::map<std::string, std::vector<std::string>> display_views;
     parse_display_views(ocio_config, display_views);
 
@@ -426,10 +600,13 @@ void OCIOColourPipeline::update_views(OCIO::ConstConfigRcPtr ocio_config) {
     // Check whether the current view is available under the new display or not.
     const std::string curr_view = view_->value();
     bool has_curr_view =
+        !new_views.empty() &&
         std::find(new_views.begin(), new_views.end(), curr_view) != new_views.end();
     if (!has_curr_view) {
         std::string default_view = ocio_config->getDefaultView(new_display.c_str());
-        view_->set_value(default_view);
+        if (!default_view.empty()) {
+            view_->set_value(default_view);
+        }
     }
 }
 

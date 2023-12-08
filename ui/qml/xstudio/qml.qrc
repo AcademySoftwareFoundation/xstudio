@@ -288,35 +288,30 @@
 		<file alias="zoom-out.svg">feather_icons/zoom-out.svg</file>
 	</qresource>
 	<qresource prefix="/">
-	    <file>xStudio/qmldir</file>
-        <file>extern/QuickPromise/qmldir</file>
-        <file>extern/QuickPromise/Promise.qml</file>
-        <file>extern/QuickPromise/promise.js</file>
-        <file>extern/QuickPromise/PromiseTimer.qml</file>
 		<file>bars/XsLayoutsBar.qml</file>
 		<file>bars/XsMainControls.qml</file>
 		<file>bars/XsMediaInfoBar.qml</file>
 		<file>bars/XsMediaListPanelHeader.qml</file>
 		<file>bars/XsMenuBar.qml</file>
 		<file>bars/XsSessionControls.qml</file>
-		<file>bars/XsSessionPanelHeader.qml</file>
+		<file>panels/playlist/XsSessionPanelHeader.qml</file>
 		<file>bars/XsShortcuts.qml</file>
 		<file>bars/XsStatusBar.qml</file>
-		<file>bars/XsViewportTitleBar.qml</file>
 		<file>bars/XsTimelinePanelHeader.qml</file>
 		<file>bars/XsToolBar.qml</file>
+		<file>bars/XsViewportTitleBar.qml</file>
 		<file>base/core/XsDraggableItem.qml</file>
 		<file>base/core/XsModuleMenuBuilder.qml</file>
-		<file>base/core/XsTimer.qml</file>
 		<file>base/core/XsSortFilterModel.qml</file>
+		<file>base/core/XsTimer.qml</file>
 		<file>base/core/XsWindowStateSaver.qml</file>
 		<file>base/dialogs/XsButtonDialog.qml</file>
 		<file>base/dialogs/XsComingSoonDialog.qml</file>
-		<file>base/dialogs/XsWindow.qml</file>
 		<file>base/dialogs/XsDialog.qml</file>
 		<file>base/dialogs/XsDialogModal.qml</file>
 		<file>base/dialogs/XsModuleAttributesDialog.qml</file>
 		<file>base/dialogs/XsStringRequestDialog.qml</file>
+		<file>base/dialogs/XsWindow.qml</file>
 		<file>base/widgets/XsBoolAttrCheckBox.qml</file>
 		<file>base/widgets/XsBusyIndicator.qml</file>
 		<file>base/widgets/XsButton.qml</file>
@@ -331,6 +326,7 @@
 		<file>base/widgets/XsColourChooser.qml</file>
 		<file>base/widgets/XsComboBoxNew.qml</file>
 		<file>base/widgets/XsComboBoxMultiSelect.qml</file>
+		<file>base/widgets/XsComboBoxNew.qml</file>
 		<file>base/widgets/XsComboBoxWithText.qml</file>
 		<file>base/widgets/XsDecoratorWidget.qml</file>
 		<file>base/widgets/XsExpandButton.qml</file>
@@ -338,10 +334,10 @@
 		<file>base/widgets/XsFrame.qml</file>
 		<file>base/widgets/XsFramedButton.qml</file>
 		<file>base/widgets/XsHotkeyView.qml</file>
+		<file>base/widgets/XsHSlider.qml</file>
 		<file>base/widgets/XsHSpacer.qml</file>
 		<file>base/widgets/XsIntAttrSlider.qml</file>
 		<file>base/widgets/XsIntSlider.qml</file>
-		<file>base/widgets/XsHSlider.qml</file>
 		<file>base/widgets/XsIntSliderPopupSimple.qml</file>
 		<file>base/widgets/XsLabel.qml</file>
 		<file>base/widgets/XsLabelInput.qml</file>
@@ -356,8 +352,6 @@
 		<file>base/widgets/XsPopupInfoBox.qml</file>
 		<file>base/widgets/XsRoundButton.qml</file>
 		<file>base/widgets/XsScrollBar.qml</file>
-		<file>base/widgets/XsSessionBarDivider.qml</file>
-		<file>base/widgets/XsSessionBarWidget.qml</file>
 		<file>base/widgets/XsSimpleMenuItem.qml</file>
 		<file>base/widgets/XsSplitView.qml</file>
 		<file>base/widgets/XsStringChoiceAttrComboBox.qml</file>
@@ -367,10 +361,10 @@
 		<file>base/widgets/XsTabView.qml</file>
 		<file>base/widgets/XsText.qml</file>
 		<file>base/widgets/XsTextButton.qml</file>
-		<file>base/widgets/XsTextInput.qml</file>
 		<file>base/widgets/XsTextEdit.qml</file>
 		<file>base/widgets/XsTextFieldNew.qml</file>
 		<file>base/widgets/XsTextHoverable.qml</file>
+		<file>base/widgets/XsTextInput.qml</file>
 		<file>base/widgets/XsTimelineSlider.qml</file>
 		<file>base/widgets/XsToolbarComboBox.qml</file>
 		<file>base/widgets/XsToolbarFloatScrubber.qml</file>
@@ -384,36 +378,31 @@
 		<file>base/widgets/XsTreeStructureDelegate.qml</file>
 		<file>base/widgets/XsTreeView.qml</file>
 		<file>core/XsGlobalPreferences.qml</file>
-		<file>core/XsSessionChooser.qml</file>
 		<file>cursors/magnifier_cursor.svg</file>
 		<file>dialogs/XsAboutDialog.qml</file>
-		<file>dialogs/XsLogDialog.qml</file>
-		<file>dialogs/XsAddMediaDialog.qml</file>
 		<file>dialogs/XsColourCorrectionDialog.qml</file>
 		<file>dialogs/XsDrawingDialog.qml</file>
 		<file>dialogs/XsErrorMessage.qml</file>
 		<file>dialogs/XsExportCSV.qml</file>
 		<file>dialogs/XsFeedbackDialog.qml</file>
 		<file>dialogs/XsFunctionalFeaturesDialog.qml</file>
-		<file>dialogs/XsImportSessionDialog.qml</file>
 		<file>dialogs/XsHotkeysDialog.qml</file>
-		<file>dialogs/XsNewContactSheetDialog.qml</file>
-		<file>dialogs/XsNewPlaylistDialog.qml</file>
-		<file>dialogs/XsNewPlaylistDividerDialog.qml</file>
-		<file>dialogs/XsNewSessionDividerDialog.qml</file>
-		<file>dialogs/XsNewSubsetDialog.qml</file>
-		<file>dialogs/XsNewTimelineDialog.qml</file>
+		<file>dialogs/XsImportSessionDialog.qml</file>
+		<file>dialogs/XsLogDialog.qml</file>
 		<file>dialogs/XsNotesDialog.qml</file>
 		<file>dialogs/XsOpenSessionDialog.qml</file>
 		<file>dialogs/XsSaveBeforeDialog.qml</file>
 		<file>dialogs/XsSaveSelectedSessionDialog.qml</file>
 		<file>dialogs/XsSaveSessionDialog.qml</file>
 		<file>dialogs/XsSessionRequestDialog.qml</file>
-		<file>dialogs/XsSetMediaRateDialog.qml</file>
 		<file>dialogs/XsSettingsDialog.qml</file>
 		<file>dialogs/XsSnapshotDialog.qml</file>
 		<file>dialogs/XsTransformDialog.qml</file>
 		<file>effects/XsClosedownAnimation.qml</file>
+		<file>fonts/BitstreamVeraMono/VeraMoBd.ttf</file>
+		<file>fonts/BitstreamVeraMono/VeraMoBI.ttf</file>
+		<file>fonts/BitstreamVeraMono/VeraMoIt.ttf</file>
+		<file>fonts/BitstreamVeraMono/VeraMono.ttf</file>
 		<file>fonts/Overpass/Overpass-Black.ttf</file>
 		<file>fonts/Overpass/Overpass-BlackItalic.ttf</file>
 		<file>fonts/Overpass/Overpass-Bold.ttf</file>
@@ -430,90 +419,6 @@
 		<file>fonts/Overpass/Overpass-SemiBoldItalic.ttf</file>
 		<file>fonts/Overpass/Overpass-Thin.ttf</file>
 		<file>fonts/Overpass/Overpass-ThinItalic.ttf</file>
-		<file>fonts/BitstreamVeraMono/VeraMoBd.ttf</file>
-		<file>fonts/BitstreamVeraMono/VeraMoBI.ttf</file>
-		<file>fonts/BitstreamVeraMono/VeraMoIt.ttf</file>
-		<file>fonts/BitstreamVeraMono/VeraMono.ttf</file>
-		<file>js/utils.js</file>
-		<file>images/timeline_mockup.png</file>
-		<file>images/xstudio_logo_256_v1.svg</file>
-		<file>main.qml</file>
-		<file>main_viewport_only.qml</file>
-		<file>menus/XsEditMenu.qml</file>
-		<file>menus/XsFileMenu.qml</file>
-		<file>menus/XsFitMenu.qml</file>
-		<file>menus/XsFlagMenu.qml</file>
-		<file>menus/XsHelpMenu.qml</file>
-		<file>menus/XsLayoutMenu.qml</file>
-		<file>menus/XsMediaMenu.qml</file>
-		<file>menus/XsMediaSourceMenu.qml</file>
-		<file>menus/XsPanelMenu.qml</file>
-		<file>menus/XsPlaybackMenu.qml</file>
-		<file>menus/XsPlaylistMenu.qml</file>
-		<file>menus/XsPublishMenu.qml</file>
-		<file>menus/XsRepeatMenu.qml</file>
-		<file>menus/XsTimelineMenu.qml</file>
-		<file>menus/XsViewerContextMenu.qml</file>
-		<file>menus/XsViewerLayoutsMenu.qml</file>
-		<file>mockups/colour.png</file>
-		<file>mockups/drawing.png</file>
-		<file>mockups/notes.png</file>
-		<file>mockups/transform.png</file>
-		<file>models/XsColorsModel.qml</file>
-		<file>overlays/XsDragDropIndicator.qml</file>
-		<file>overlays/XsErrorFrameOverlay.qml</file>
-		<file>overlays/XsOutOfRangeOverlay.qml</file>
-		<file>overlays/XsViewportBlankCard.qml</file>
-		<file>player/XsViewport.qml</file>
-		<file>player/XsPlayerWidget.qml</file>
-		<file>player/XsPlayerWindow.qml</file>
-		<file>player/XsPopoutViewerWidget.qml</file>
-		<file>player/XsSessionWidget.qml</file>
-		<file>qmldir</file>
-		<file>panels/XsPlaylistsPanel.qml</file>
-		<file>panels/XsTimelinePanel.qml</file>
-		<file>panels/media_list/XsMediaPaneListView.qml</file>
-		<file>panels/media_list/XsMediaViewItemContainer.qml</file>
-		<file>panels/media_list/XsMediaViewListItem.qml</file>
-		<file>panels/media_list/XsMediaPaneListHeader.qml</file>
-		<file>panels/panel_layouts/Xs2PaneLayout.qml</file>
-		<file>panels/panel_layouts/Xs3PaneLayout.qml</file>
-		<file>panels/panel_layouts/Xs4PaneLayout.qml</file>
-		<file>panels/panel_layouts/XsPresentationLayout.qml</file>
-		<file>panels/panel_layouts/XsShotgunLayout.qml</file>
-		<file>panels/panel_layouts/XsHorizontalPaneDivider.qml</file>
-		<file>panels/panel_layouts/XsVerticalPaneDivider.qml</file>
-		<file>panels/panel_layouts/XsSplitWidget.qml</file>
-		<file>trays/XsMediaToolsTray.qml</file>
-		<file>trays/XsTransportTray.qml</file>
-		<file>trays/XsLayoutTray.qml</file>
-		<file>trays/XsPaneVisibilityTray.qml</file>
-		<file>widgets/XsForwardWidget.qml</file>
-		<file>widgets/XsHudToolbarButton.qml</file>
-		<file>widgets/XsLoopWidget.qml</file>
-		<file>widgets/XsMediaInfoBarItem.qml</file>
-		<file>widgets/XsMediaInfoBarOffset.qml</file>
-		<file>widgets/XsMediaInfoBarAutoAlign.qml</file>
-		<file>widgets/XsPlaylistDividerWidget.qml</file>
-		<file>widgets/XsPlaylistSubsetWidget.qml</file>
-		<file>widgets/XsPlaylistTimelineWidget.qml</file>
-		<file>widgets/XsPlaylistContactSheetWidget.qml</file>
-		<file>widgets/XsPlaylistGroupWidget.qml</file>
-		<file>widgets/XsPlaylistSubGroupWidget.qml</file>
-		<file>widgets/XsPlaylistWidget.qml</file>
-		<file>widgets/XsPluginWidget.qml</file>
-		<file>widgets/XsPluginMenu.qml</file>
-		<file>widgets/XsPythonWidget.qml</file>
-		<file>widgets/XsRewindWidget.qml</file>
-		<file>widgets/XsSnapshotWidget.qml</file>
-		<file>widgets/XsStepBackWidget.qml</file>
-		<file>widgets/XsStepForwardWidget.qml</file>
-		<file>widgets/XsTimelineDurationWidget.qml</file>
-		<file>widgets/XsTimelinePositionWidget.qml</file>
-		<file>widgets/XsTogglePlayWidget.qml</file>
-		<file>widgets/XsVolumeWidget.qml</file>
-		<file>XsStyle.qml</file>
-		<file>XsStyleGradient.qml</file>
 		<file>icons/bookmark.png</file>
 		<file>icons/colour_correction.png</file>
 		<file>icons/drawing.png</file>
@@ -541,6 +446,90 @@
 		<file>icons/timeline.png</file>
 		<file>icons/transform.png</file>
 		<file>icons/viewer.png</file>
+		<file>images/timeline_mockup.png</file>
+		<file>images/xstudio_logo_256_v1.svg</file>
+		<file>js/utils.js</file>
+		<file>main.qml</file>
+		<file>main_viewport_only.qml</file>
+		<file>menus/XsEditMenu.qml</file>
+		<file>menus/XsFileMenu.qml</file>
+		<file>menus/XsFitMenu.qml</file>
+		<file>menus/XsFlagMenu.qml</file>
+		<file>menus/XsHelpMenu.qml</file>
+		<file>menus/XsLayoutMenu.qml</file>
+		<file>menus/XsMediaMenu.qml</file>
+		<file>menus/XsMediaSourceMenu.qml</file>
+		<file>menus/XsPanelMenu.qml</file>
+		<file>menus/XsPlaybackMenu.qml</file>
+		<file>menus/XsPlaylistMenu.qml</file>
+		<file>menus/XsPublishMenu.qml</file>
+		<file>menus/XsRepeatMenu.qml</file>
+		<file>menus/XsTimelineMenu.qml</file>
+		<file>menus/XsViewerContextMenu.qml</file>
+		<file>menus/XsViewerLayoutsMenu.qml</file>
+		<file>mockups/colour.png</file>
+		<file>mockups/drawing.png</file>
+		<file>mockups/notes.png</file>
+		<file>mockups/transform.png</file>
+		<file>models/XsColorsModel.qml</file>
+		<file>overlays/XsDragDropIndicator.qml</file>
+		<file>overlays/XsErrorFrameOverlay.qml</file>
+		<file>overlays/XsOutOfRangeOverlay.qml</file>
+		<file>overlays/XsViewportBlankCard.qml</file>
+		<file>panels/media_list/delegates/XsDelegateMedia.qml</file>
+		<file>panels/media_list/XsMediaPaneListHeader.qml</file>
+		<file>panels/media_list/XsMediaPanelListView.qml</file>
+		<file>panels/panel_layouts/Xs2PaneLayout.qml</file>
+		<file>panels/panel_layouts/Xs3PaneLayout.qml</file>
+		<file>panels/panel_layouts/Xs4PaneLayout.qml</file>
+		<file>panels/panel_layouts/XsHorizontalPaneDivider.qml</file>
+		<file>panels/panel_layouts/XsPresentationLayout.qml</file>
+		<file>panels/panel_layouts/XsShotgunLayout.qml</file>
+		<file>panels/panel_layouts/XsSplitWidget.qml</file>
+		<file>panels/panel_layouts/XsVerticalPaneDivider.qml</file>
+		<file>panels/playlist/delegates/XsDelegateChoicePlaylist.qml</file>
+		<file>panels/playlist/delegates/XsDelegateChoiceSubset.qml</file>
+		<file>panels/playlist/delegates/XsDelegateChoiceTimeline.qml</file>
+		<file>panels/playlist/delegates/XsDelegateChoiceDivider.qml</file>
+		<file>panels/playlist/XsPlaylistsPanelNew.qml</file>
+		<file>panels/playlist/XsSessionBarDivider.qml</file>
+		<file>panels/playlist/XsSessionBarWidget.qml</file>
+		<file>panels/XsTimelinePanel.qml</file>
+		<file>player/XsPlayerWidget.qml</file>
+		<file>player/XsPlayerWindow.qml</file>
+		<file>player/XsPopoutViewerWidget.qml</file>
+		<file>player/XsSessionWidget.qml</file>
+		<file>player/XsViewport.qml</file>
+		<file>qmldir</file>
+		<file>trays/XsLayoutTray.qml</file>
+		<file>trays/XsMediaToolsTray.qml</file>
+		<file>trays/XsPaneVisibilityTray.qml</file>
+		<file>trays/XsTransportTray.qml</file>
+		<file>widgets/XsForwardWidget.qml</file>
+		<file>widgets/XsHudToolbarButton.qml</file>
+		<file>widgets/XsLoopWidget.qml</file>
+		<file>widgets/XsMediaInfoBarAutoAlign.qml</file>
+		<file>widgets/XsMediaInfoBarItem.qml</file>
+		<file>widgets/XsMediaInfoBarOffset.qml</file>
+		<file>widgets/XsSourceToolbarButton.qml</file>
+		<file>widgets/XsPluginMenu.qml</file>
+		<file>widgets/XsPluginWidget.qml</file>
+		<file>widgets/XsPythonWidget.qml</file>
+		<file>widgets/XsRewindWidget.qml</file>
+		<file>widgets/XsSnapshotWidget.qml</file>
+		<file>widgets/XsStepBackWidget.qml</file>
+		<file>widgets/XsStepForwardWidget.qml</file>
+		<file>widgets/XsTimelineDurationWidget.qml</file>
+		<file>widgets/XsTimelinePositionWidget.qml</file>
+		<file>widgets/XsTogglePlayWidget.qml</file>
+		<file>widgets/XsVolumeWidget.qml</file>
+		<file>XsStyle.qml</file>
+		<file>XsStyleGradient.qml</file>
 		<file>xstudio_icon.png</file>
+	    <file>xStudio/qmldir</file>
+        <file>extern/QuickPromise/promise.js</file>
+        <file>extern/QuickPromise/Promise.qml</file>
+        <file>extern/QuickPromise/PromiseTimer.qml</file>
+        <file>extern/QuickPromise/qmldir</file>
 	</qresource>
 </RCC>

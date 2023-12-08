@@ -9,7 +9,6 @@
     sudo yum install -y alsa-lib-devel pulseaudio-libs-devel freeglut-devel
     sudo yum install -y python3-devel bzip2-devel freetype-devel zlib-devel
     sudo yum install -y libuuid-devel
-    pip3 install --user pytest opentimelineio
 
     #### Qt 5.15
 Install 5.15 dev tools, using Qt5 online installer, requires login account (free).
@@ -44,15 +43,14 @@ Install 5.15 dev tools, using Qt5 online installer, requires login account (free
     cd -
 
 #### NLOHMANN JSON
-    wget https://github.com/nlohmann/json/archive/refs/tags/v3.7.3.tar.gz
-    tar -xf v3.7.3.tar.gz
-    cd json-3.7.3
-    mkdir build
-    cd build
+    wget https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.tar.gz
+    tar -xf v3.11.2.tar.gz
+    mkdir json-3.11.2/build
+    cd json-3.11.2/build
     cmake .. -DJSON_BuildTests=Off
     make -j $JOBS
-    sudo make install
-    cd ../..
+    sudo make  install
+    cd -
 
 
 #### PYBIND11
@@ -130,6 +128,17 @@ Install 5.15 dev tools, using Qt5 online installer, requires login account (free
     sudo make install
     cd -
 
+
+#### OpenTimelineIO
+    git clone https://github.com/AcademySoftwareFoundation/OpenTimelineIO.git
+    cd OpenTimelineIO
+    git checkout cxx17
+    mkdir build
+    cd build
+    cmake -DOTIO_PYTHON_INSTALL=ON -DOTIO_DEPENDENCIES_INSTALL=OFF -DOTIO_FIND_IMATH=ON ..
+    make -j $JOBS
+    sudo make install
+    cd ../..
 
 
 #### FFMPEG AND DEPS

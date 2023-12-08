@@ -201,6 +201,8 @@
       <ul>
         <li><a href="python_api/api.html#xstudio.api.session.playlist.Subset.add_media">(xstudio.api.session.playlist.Subset method)</a>
 </li>
+        <li><a href="python_api/api.html#xstudio.api.session.playlist.Timeline.add_media">(xstudio.api.session.playlist.Timeline method)</a>
+</li>
       </ul></li>
       <li><a href="python_api/api.html#xstudio.api.session.playlist.Playlist.add_media_list">add_media_list() (xstudio.api.session.playlist.Playlist method)</a>
 </li>
@@ -255,6 +257,8 @@
       <li><a href="api/utility.html#c.CHECK_SLOW_WATCHER">CHECK_SLOW_WATCHER (C macro)</a>
 </li>
       <li><a href="api/utility.html#c.CHECK_SLOW_WATCHER_EXACT">CHECK_SLOW_WATCHER_EXACT (C macro)</a>
+</li>
+      <li><a href="api/utility.html#c.CHECK_SLOW_WATCHER_FAST">CHECK_SLOW_WATCHER_FAST (C macro)</a>
 </li>
       <li><a href="python_api/api.html#xstudio.api.session.container.PlaylistTree.children">children() (xstudio.api.session.container.PlaylistTree property)</a>
 
@@ -590,20 +594,20 @@
 </li>
       <li><a href="python_api/api.html#xstudio.api.session.media.MediaSource.image_streams">image_streams() (xstudio.api.session.media.MediaSource property)</a>
 </li>
-      <li><a href="api/atoms.html#_CPPv424IMATH_INTERNAL_NAMESPACE">IMATH_INTERNAL_NAMESPACE (C++ type)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4I0EN24IMATH_INTERNAL_NAMESPACE7inspectEbR9InspectorR3V2f">IMATH_INTERNAL_NAMESPACE::inspect (C++ function)</a>, <a href="api/atoms.html#_CPPv4I0EN24IMATH_INTERNAL_NAMESPACE7inspectEbR9InspectorR3V2i">[1]</a>, <a href="api/atoms.html#_CPPv4I0EN24IMATH_INTERNAL_NAMESPACE7inspectEbR9InspectorR4M44f">[2]</a>
-</li>
       <li><a href="python_api/api.html#xstudio.api.session.playlist.Playlist.import_timeline">import_timeline() (xstudio.api.session.playlist.Playlist method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/core.html#xstudio.core.interactive.InteractiveSession.interact">interact() (xstudio.core.interactive.InteractiveSession method)</a>
 </li>
       <li><a href="python_api/core.html#xstudio.core.interactive.InteractiveSession">InteractiveSession (class in xstudio.core.interactive)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/api.html#xstudio.api.session.media.Media.invalidate_cache">invalidate_cache() (xstudio.api.session.media.Media method)</a>
+
+      <ul>
+        <li><a href="python_api/api.html#xstudio.api.session.media.MediaSource.invalidate_cache">(xstudio.api.session.media.MediaSource method)</a>
 </li>
+      </ul></li>
       <li><a href="python_api/api.html#xstudio.api.auxiliary.json_store.JsonStore.is_null">is_null() (xstudio.api.auxiliary.json_store.JsonStore method)</a>
 
       <ul>
@@ -613,6 +617,8 @@
 </li>
       </ul></li>
       <li><a href="python_api/api.html#xstudio.api.session.playlist.Timeline.item">item() (xstudio.api.session.playlist.Timeline property)</a>
+</li>
+      <li><a href="python_api/api.html#xstudio.api.session.playlist.Timeline.item_name">item_name() (xstudio.api.session.playlist.Timeline property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1005,8 +1011,6 @@
 </li>
       <li><a href="python_api/core.html#xstudio.core.__pybind_xstudio.RemoteSessionManager">RemoteSessionManager (class in xstudio.core.__pybind_xstudio)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/api.html#xstudio.api.auxiliary.json_store.JsonStore.remove">remove() (xstudio.api.auxiliary.json_store.JsonStore method)</a>
 
       <ul>
@@ -1015,6 +1019,8 @@
         <li><a href="python_api/core.html#xstudio.core.__pybind_xstudio.JsonStore.remove">(xstudio.core.__pybind_xstudio.JsonStore method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/api.html#xstudio.api.session.playlist.Playlist.remove_container">remove_container() (xstudio.api.session.playlist.Playlist method)</a>
 
       <ul>
@@ -1041,6 +1047,12 @@
 </li>
       <li><a href="python_api/connection.html#xstudio.connection.Connection.request_receive_timeout">request_receive_timeout() (xstudio.connection.Connection method)</a>
 </li>
+      <li><a href="python_api/api.html#xstudio.api.session.media.Media.rescan">rescan() (xstudio.api.session.media.Media method)</a>
+
+      <ul>
+        <li><a href="python_api/api.html#xstudio.api.session.media.MediaSource.rescan">(xstudio.api.session.media.MediaSource method)</a>
+</li>
+      </ul></li>
       <li><a href="python_api/core.html#xstudio.core.interactive.InteractiveSession.resetbuffer">resetbuffer() (xstudio.core.interactive.InteractiveSession method)</a>
 </li>
   </ul></td>
@@ -1074,10 +1086,6 @@
       <li><a href="python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.selected_sources">selected_sources() (xstudio.api.session.playhead.playhead_selection.PlayheadSelection property)</a>
 </li>
       <li><a href="python_api/core.html#xstudio.core.__pybind_xstudio.Link.self">self() (xstudio.core.__pybind_xstudio.Link method)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv46semver">semver (C++ type)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4I0EN6semver7inspectEbR9InspectorR7version">semver::inspect (C++ function)</a>
 </li>
       <li><a href="python_api/connection.html#xstudio.connection.Connection.send">send() (xstudio.connection.Connection method)</a>
 
@@ -1131,10 +1139,10 @@
 </li>
       <li><a href="python_api/api.html#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.set_selection">set_selection() (xstudio.api.session.playhead.playhead_selection.PlayheadSelection method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/api.html#xstudio.api.intrinsic.GlobalStore.set_value">set_value() (xstudio.api.intrinsic.GlobalStore method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/api.html#xstudio.api.app.App.set_viewport_playhead">set_viewport_playhead() (xstudio.api.app.App method)</a>
 </li>
       <li><a href="python_api/api.html#xstudio.api.session.playhead.Playhead.show_in_viewport">show_in_viewport() (xstudio.api.session.playhead.Playhead method)</a>
@@ -1169,13 +1177,11 @@
 </li>
       <li><a href="python_api/api.html#xstudio.api.API.status">status() (xstudio.api.API method)</a>
 </li>
-      <li><a href="api/atoms.html#_CPPv4St">std (C++ type)</a>, <a href="api/utility.html#_CPPv4St">[1]</a>, <a href="api/utility.html#_CPPv4St">[2]</a>
+      <li><a href="api/utility.html#_CPPv4St">std (C++ type)</a>, <a href="api/utility.html#_CPPv4St">[1]</a>
 </li>
-      <li><a href="api/atoms.html#_CPPv4NSt6chronoE">std::chrono (C++ type)</a>, <a href="api/utility.html#_CPPv4NSt6chronoE">[1]</a>
+      <li><a href="api/utility.html#_CPPv4NSt6chronoE">std::chrono (C++ type)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NSt6chrono9from_jsonERK4jsonRN8timebase6flicksE">std::chrono::from_json (C++ function)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4I0ENSt6chrono7inspectEbR9InspectorRN7xstudio7utility10time_pointE">std::chrono::inspect (C++ function)</a>, <a href="api/atoms.html#_CPPv4I0ENSt6chrono7inspectEbR9InspectorRNSt10filesystem14file_time_typeE">[1]</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NSt6chrono7to_jsonER4jsonRKN8timebase6flicksE">std::chrono::to_json (C++ function)</a>
 </li>
@@ -1403,6 +1409,10 @@
 </li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio15colour_pipelineE">xstudio::colour_pipeline (C++ type)</a>
 </li>
+      <li><a href="api/atoms.html#_CPPv4N7xstudio15colour_pipeline22ColourOperationDataPtrE">xstudio::colour_pipeline::ColourOperationDataPtr (C++ type)</a>
+</li>
+      <li><a href="api/atoms.html#_CPPv4N7xstudio15colour_pipeline21ColourPipelineDataPtrE">xstudio::colour_pipeline::ColourPipelineDataPtr (C++ type)</a>
+</li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio24colour_pipeline_registryE">xstudio::colour_pipeline_registry (C++ member)</a>
 </li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio24embedded_python_registryE">xstudio::embedded_python_registry (C++ member)</a>
@@ -1416,6 +1426,8 @@
       <li><a href="api/atoms.html#_CPPv4N7xstudio15global_registryE">xstudio::global_registry (C++ member)</a>
 </li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio21global_store_registryE">xstudio::global_store_registry (C++ member)</a>
+</li>
+      <li><a href="api/atoms.html#_CPPv4N7xstudio29global_ui_model_data_registryE">xstudio::global_ui_model_data_registry (C++ member)</a>
 </li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio20image_cache_registryE">xstudio::image_cache_registry (C++ member)</a>
 </li>
@@ -1547,11 +1559,9 @@
 </li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio8timelineE">xstudio::timeline (C++ type)</a>
 </li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio9to_stringE18xstudio_error_type">xstudio::to_string (C++ function)</a>
-</li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio2uiE">xstudio::ui (C++ type)</a>, <a href="api/enums.html#_CPPv4N7xstudio2uiE">[1]</a>
 </li>
-      <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewportE">xstudio::ui::viewport (C++ type)</a>
+      <li><a href="api/atoms.html#_CPPv4N7xstudio2ui8viewportE">xstudio::ui::viewport (C++ type)</a>, <a href="api/enums.html#_CPPv4N7xstudio2ui8viewportE">[1]</a>
 </li>
       <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport7FitModeE">xstudio::ui::viewport::FitMode (C++ enum)</a>
 </li>
@@ -1567,6 +1577,8 @@
 </li>
       <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport7FitMode5WidthE">xstudio::ui::viewport::FitMode::Width (C++ enumerator)</a>
 </li>
+      <li><a href="api/atoms.html#_CPPv4N7xstudio2ui8viewport12GPUShaderPtrE">xstudio::ui::viewport::GPUShaderPtr (C++ type)</a>
+</li>
       <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport11GraphicsAPIE">xstudio::ui::viewport::GraphicsAPI (C++ enum)</a>
 </li>
       <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport11GraphicsAPI7DirectXE">xstudio::ui::viewport::GraphicsAPI::DirectX (C++ enumerator)</a>
@@ -1578,6 +1590,16 @@
       <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport11GraphicsAPI6OpenGLE">xstudio::ui::viewport::GraphicsAPI::OpenGL (C++ enumerator)</a>
 </li>
       <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport11GraphicsAPI6VulkanE">xstudio::ui::viewport::GraphicsAPI::Vulkan (C++ enumerator)</a>
+</li>
+      <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport10MirrorModeE">xstudio::ui::viewport::MirrorMode (C++ enum)</a>
+</li>
+      <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport10MirrorMode4BothE">xstudio::ui::viewport::MirrorMode::Both (C++ enumerator)</a>
+</li>
+      <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport10MirrorMode4FlipE">xstudio::ui::viewport::MirrorMode::Flip (C++ enumerator)</a>
+</li>
+      <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport10MirrorMode4FlopE">xstudio::ui::viewport::MirrorMode::Flop (C++ enumerator)</a>
+</li>
+      <li><a href="api/enums.html#_CPPv4N7xstudio2ui8viewport10MirrorMode3OffE">xstudio::ui::viewport::MirrorMode::Off (C++ enumerator)</a>
 </li>
       <li><a href="api/atoms.html#_CPPv4N7xstudio7utilityE">xstudio::utility (C++ type)</a>, <a href="api/enums.html#_CPPv4N7xstudio7utilityE">[1]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[2]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[3]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[4]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[5]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[6]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[7]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[8]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[9]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[10]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[11]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[12]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[13]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[14]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[15]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[16]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[17]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[18]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[19]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[20]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utilityE">[21]</a>
 </li>
@@ -1594,6 +1616,10 @@
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility24absolute_receive_timeout5valueEv">xstudio::utility::absolute_receive_timeout::value (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility24absolute_receive_timeout2x_E">xstudio::utility::absolute_receive_timeout::x_ (C++ member)</a>
+</li>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility17actor_from_stringERN3caf12actor_systemERKNSt6stringE">xstudio::utility::actor_from_string (C++ function)</a>
+</li>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility15actor_to_stringERN3caf12actor_systemERKN3caf5actorE">xstudio::utility::actor_to_string (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility20ActorSystemSingletonE">xstudio::utility::ActorSystemSingleton (C++ class)</a>
 </li>
@@ -1638,6 +1664,8 @@
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility9ContainerE">xstudio::utility::Container (C++ class)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility9Container9ContainerEKNSt6stringEKNSt6stringEKN7utility4UuidE">xstudio::utility::Container::Container (C++ function)</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9Container9ContainerERKN7utility9JsonStoreE">[1]</a>
+</li>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility9Container11deserialiseERKN7utility9JsonStoreE">xstudio::utility::Container::deserialise (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility9Container6detailEN3caf5actorEN3caf5actorE">xstudio::utility::Container::detail (C++ function)</a>
 </li>
@@ -1963,7 +1991,7 @@
 </li>
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility17FrameRateDuration16subtract_secondsERK17FrameRateDurationKb">xstudio::utility::FrameRateDuration::subtract_seconds (C++ function)</a>
 </li>
-      <li><a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER10FrameGroup">xstudio::utility::from_json (C++ function)</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER17FrameRateDuration">[1]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER8Timecode">[2]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER9FrameList">[3]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER9FrameRate">[4]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonERN7utility4UuidE">[5]</a>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER10FrameGroup">xstudio::utility::from_json (C++ function)</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER17FrameRateDuration">[1]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER8Timecode">[2]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER9FrameList">[3]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER9FrameRate">[4]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonER9JsonStore">[5]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility9from_jsonERKN8nlohmann4jsonERN7utility4UuidE">[6]</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility7get_envERKNSt6stringE">xstudio::utility::get_env (C++ function)</a>
 </li>
@@ -1988,6 +2016,8 @@
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility7inspectEbR9InspectorR9JsonStore">xstudio::utility::inspect (C++ function)</a>, <a href="api/utility.html#_CPPv4I0EN7xstudio7utility7inspectEbR9InspectorRN7utility4UuidE">[1]</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility17is_file_supportedERKN3caf3uriE">xstudio::utility::is_file_supported (C++ function)</a>
+</li>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility21is_timeline_supportedERKN3caf3uriE">xstudio::utility::is_timeline_supported (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility14IsSequenceFuncE">xstudio::utility::IsSequenceFunc (C++ type)</a>
 </li>
@@ -2023,6 +2053,8 @@
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility17leave_event_groupEPN3caf17event_based_actorEN3caf5actorE">xstudio::utility::leave_event_group (C++ function)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility5ltrimERKNSt6stringE">xstudio::utility::ltrim (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility10ltrim_charERKNSt6stringEi">xstudio::utility::ltrim_char (C++ function)</a>
@@ -2033,8 +2065,6 @@
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility28make_get_event_group_handlerEN3caf5actorE">xstudio::utility::make_get_event_group_handler (C++ function)</a>
 </li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio7utility24make_get_version_handlerEv">xstudio::utility::make_get_version_handler (C++ function)</a>
-</li>
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility15make_hex_stringENSt6stringE10TInputIter10TInputIterbb">xstudio::utility::make_hex_string (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility16make_scope_guardE11scope_guardI3FunE3Fun">xstudio::utility::make_scope_guard (C++ function)</a>
@@ -2043,8 +2073,6 @@
 </li>
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility16map_value_to_vecENSt6vectorIN1M11mapped_typeEEERK1M">xstudio::utility::map_value_to_vec (C++ function)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReferenceE">xstudio::utility::MediaReference (C++ class)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility14MediaReference9containerEv">xstudio::utility::MediaReference::container (C++ function)</a>
@@ -2063,13 +2091,15 @@
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference11frame_list_E">xstudio::utility::MediaReference::frame_list_ (C++ member)</a>
 </li>
-      <li><a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceEN3caf3uriE9FrameListKbRK9FrameRate">xstudio::utility::MediaReference::MediaReference (C++ function)</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceEN3caf3uriEKbRK9FrameRate">[1]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceEN3caf3uriENSt6stringEKbRK9FrameRate">[2]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceERK9JsonStore">[3]</a>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceEN3caf3uriE9FrameListKbRK9FrameRate">xstudio::utility::MediaReference::MediaReference (C++ function)</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceEN3caf3uriEKbRK9FrameRate">[1]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceEN3caf3uriENSt6stringEKbRK9FrameRate">[2]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceERK14MediaReference">[3]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference14MediaReferenceERK9JsonStore">[4]</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility14MediaReference6offsetEv">xstudio::utility::MediaReference::offset (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReference7offset_E">xstudio::utility::MediaReference::offset_ (C++ member)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility14MediaReferenceneERK14MediaReference">xstudio::utility::MediaReference::operator!= (C++ function)</a>
+</li>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility14MediaReferenceaSERK14MediaReference">xstudio::utility::MediaReference::operator= (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility14MediaReferenceeqERK14MediaReference">xstudio::utility::MediaReference::operator== (C++ function)</a>
 </li>
@@ -2351,7 +2381,11 @@
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility11stop_loggerEv">xstudio::utility::stop_logger (C++ function)</a>
 </li>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility11str_sprintfEPKcz">xstudio::utility::str_sprintf (C++ function)</a>
+</li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility20supported_extensionsE">xstudio::utility::supported_extensions (C++ member)</a>
+</li>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility29supported_timeline_extensionsE">xstudio::utility::supported_timeline_extensions (C++ member)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility14sys_time_pointE">xstudio::utility::sys_time_point (C++ type)</a>
 </li>
@@ -2511,7 +2545,7 @@
 </li>
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility20to_epoc_millisecondsEDaRK1T">xstudio::utility::to_epoc_milliseconds (C++ function)</a>
 </li>
-      <li><a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK10FrameGroup">xstudio::utility::to_json (C++ function)</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK17FrameRateDuration">[1]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK8Timecode">[2]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK9FrameList">[3]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK9FrameRate">[4]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERKN7utility4UuidE">[5]</a>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK10FrameGroup">xstudio::utility::to_json (C++ function)</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK17FrameRateDuration">[1]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK8Timecode">[2]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK9FrameList">[3]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK9FrameRate">[4]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERK9JsonStore">[5]</a>, <a href="api/utility.html#_CPPv4N7xstudio7utility7to_jsonERN8nlohmann4jsonERKN7utility4UuidE">[6]</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility8to_lowerERKNSt6stringE">xstudio::utility::to_lower (C++ function)</a>
 </li>
@@ -2527,7 +2561,7 @@
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility10TUuidActorE">xstudio::utility::TUuidActor (C++ type)</a>
 </li>
-      <li><a href="api/utility.html#_CPPv4N7xstudio7utility10uri_decodeEKNSt6stringE">xstudio::utility::uri_decode (C++ function)</a>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility10uri_decodeERKNSt6stringE">xstudio::utility::uri_decode (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility10uri_encodeERKNSt6stringE">xstudio::utility::uri_encode (C++ function)</a>
 </li>
@@ -2537,7 +2571,7 @@
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility11UriSequenceE">xstudio::utility::UriSequence (C++ type)</a>
 </li>
-      <li><a href="api/utility.html#_CPPv4N7xstudio7utility10url_to_uriERKNSt6stringE">xstudio::utility::url_to_uri (C++ function)</a>
+      <li><a href="api/utility.html#_CPPv4N7xstudio7utility9url_cleanERKNSt6stringE">xstudio::utility::url_clean (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility4UuidE">xstudio::utility::Uuid (C++ struct)</a>
 </li>
@@ -2620,6 +2654,8 @@
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility17UuidListContainer6insertERKN7utility4UuidERKN7utility4UuidE">xstudio::utility::UuidListContainer::insert (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility17UuidListContainer4moveERKN7utility4UuidERKN7utility4UuidE">xstudio::utility::UuidListContainer::move (C++ function)</a>
+</li>
+      <li><a href="api/utility.html#_CPPv4NK7xstudio7utility17UuidListContainer9next_uuidERKN7utility4UuidE">xstudio::utility::UuidListContainer::next_uuid (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4NK7xstudio7utility17UuidListContainereqERK17UuidListContainer">xstudio::utility::UuidListContainer::operator== (C++ function)</a>
 </li>
@@ -2709,6 +2745,8 @@
 </li>
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility26vector_to_caf_actor_vectorENSt6vectorIN3caf5actorEEERK1V">xstudio::utility::vector_to_caf_actor_vector (C++ function)</a>
 </li>
+      <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility21vector_to_uuid_vectorENSt6vectorIN7utility4UuidEEERK1V">xstudio::utility::vector_to_uuid_vector (C++ function)</a>
+</li>
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility16vpair_first_to_sENSt3setIN1V10value_type10first_typeEEERK1V">xstudio::utility::vpair_first_to_s (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility16vpair_first_to_vENSt6vectorIN1V10value_type10first_typeEEERK1V">xstudio::utility::vpair_first_to_v (C++ function)</a>
@@ -2720,32 +2758,6 @@
       <li><a href="api/utility.html#_CPPv4I0EN7xstudio7utility12vpair_to_mapENSt3mapIN1V10value_type10first_typeEN1V10value_type11second_typeEEERK1V">xstudio::utility::vpair_to_map (C++ function)</a>
 </li>
       <li><a href="api/utility.html#_CPPv4N7xstudio7utility12xstudio_rootERKNSt6stringE">xstudio::utility::xstudio_root (C++ function)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio18xstudio_error_typeE">xstudio::xstudio_error_type (C++ enum)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio18xstudio_error_type9caf_errorE">xstudio::xstudio_error_type::caf_error (C++ enumerator)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio18xstudio_error_type17http_client_errorE">xstudio::xstudio_error_type::http_client_error (C++ enumerator)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio18xstudio_error_type11media_errorE">xstudio::xstudio_error_type::media_error (C++ enumerator)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio18xstudio_error_type13runtime_errorE">xstudio::xstudio_error_type::runtime_error (C++ enumerator)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio18xstudio_error_type20shotgun_client_errorE">xstudio::xstudio_error_type::shotgun_client_error (C++ enumerator)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio18xstudio_error_type13xstudio_errorE">xstudio::xstudio_error_type::xstudio_error (C++ enumerator)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio12XStudioErrorE">xstudio::XStudioError (C++ class)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4NK7xstudio12XStudioError9caf_errorEv">xstudio::XStudioError::caf_error (C++ function)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio12XStudioError10caf_error_E">xstudio::XStudioError::caf_error_ (C++ member)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio12XStudioError11error_type_E">xstudio::XStudioError::error_type_ (C++ member)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4NK7xstudio12XStudioError4typeEv">xstudio::XStudioError::type (C++ function)</a>
-</li>
-      <li><a href="api/atoms.html#_CPPv4N7xstudio12XStudioError12XStudioErrorERKN3caf5errorE">xstudio::XStudioError::XStudioError (C++ function)</a>, <a href="api/atoms.html#_CPPv4N7xstudio12XStudioError12XStudioErrorERKNSt13runtime_errorE">[1]</a>, <a href="api/atoms.html#_CPPv4N7xstudio12XStudioError12XStudioErrorERKNSt6stringE">[2]</a>, <a href="api/atoms.html#_CPPv4N7xstudio12XStudioError12XStudioErrorEv">[3]</a>
 </li>
   </ul></td>
 </tr></table>

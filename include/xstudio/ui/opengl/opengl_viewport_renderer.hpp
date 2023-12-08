@@ -26,11 +26,11 @@ namespace ui {
             ColourPipeLutCollection() = default;
             ColourPipeLutCollection(const ColourPipeLutCollection &o);
 
-            void upload_luts(
-                const std::vector<colour_pipeline::ColourLUTPtr> &luts,
-                const bool is_main_viewer);
+            void upload_luts(const std::vector<colour_pipeline::ColourLUTPtr> &luts);
 
             void bind_luts(GLShaderProgramPtr shader, int &tex_idx);
+
+            void clear() { active_luts_.clear(); }
 
           private:
             typedef std::shared_ptr<GLColourLutTexture> GLColourLutTexturePtr;
@@ -40,7 +40,7 @@ namespace ui {
 
         class OpenGLViewportRenderer : public viewport::ViewportRenderer {
           public:
-            OpenGLViewportRenderer(const bool is_main_viewer, const bool gl_context_shared);
+            OpenGLViewportRenderer(const int viewer_index, const bool gl_context_shared);
 
             ~OpenGLViewportRenderer() override = default;
 
@@ -59,7 +59,7 @@ namespace ui {
 
             bool activate_shader(
                 const viewport::GPUShaderPtr &image_buffer_unpack_shader,
-                const viewport::GPUShaderPtr &colour_pipeline_shader);
+                const std::vector<colour_pipeline::ColourOperationDataPtr> &operations);
 
             void
             upload_image_and_colour_data(std::vector<media_reader::ImageBufPtr> next_images);
@@ -84,7 +84,7 @@ namespace ui {
 
             media_reader::ImageBufPtr onscreen_frame_;
 
-            bool is_main_viewer_;
+            int viewport_index_;
             bool has_alpha_ = {false};
         };
     } // namespace opengl

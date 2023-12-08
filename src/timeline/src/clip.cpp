@@ -19,9 +19,9 @@ Clip::Clip(
       media_uuid_(std::move(media_uuid)) {}
 
 Clip::Clip(const utility::JsonStore &jsn)
-    : Container(static_cast<utility::JsonStore>(jsn["container"])),
-      item_(static_cast<utility::JsonStore>(jsn["item"])) {
-    media_uuid_ = jsn["media_uuid"];
+    : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
+      item_(static_cast<utility::JsonStore>(jsn.at("item"))) {
+    media_uuid_ = jsn.at("media_uuid");
 }
 
 utility::JsonStore Clip::serialise() const {

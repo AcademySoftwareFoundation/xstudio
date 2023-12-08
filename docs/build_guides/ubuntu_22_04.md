@@ -7,13 +7,12 @@
     sudo apt install python-is-python3 pybind11-dev libpython3-dev
     sudo apt install libspdlog-dev libfmt-dev libssl-dev zlib1g-dev libasound2-dev nlohmann-json3-dev uuid-dev
     sudo apt install libglu1-mesa-dev freeglut3-dev mesa-common-dev libglew-dev libfreetype-dev
-    sudo apt install libjpeg-dev libpulse-dev
+    sudo apt install libjpeg-dev libpulse-dev nlohmann-json3-dev
     sudo apt install yasm nasm libfdk-aac-dev libfdk-aac2 libmp3lame-dev libopus-dev libvpx-dev libx265-dev libx264-dev
     sudo apt install  qttools5-dev qtbase5-dev qt5-qmake  qtdeclarative5-dev qtquickcontrols2-5-dev
     sudo apt install qml-module-qtquick* qml-module-qt-labs-*
 
     pip install sphinx_rtd_theme
-    pip install opentimelineio
 
 
 ### Local installs
@@ -40,6 +39,18 @@
     cd ../..
 
 
+#### OpenTimelineIO
+    git clone https://github.com/AcademySoftwareFoundation/OpenTimelineIO.git
+    cd OpenTimelineIO
+    git checkout cxx17
+    mkdir build
+    cd build
+    cmake -DOTIO_PYTHON_INSTALL=ON -DOTIO_DEPENDENCIES_INSTALL=OFF -DOTIO_FIND_IMATH=ON ..
+    make -j $JOBS
+    sudo make install
+    cd ../..
+
+
 #### OCIO2
     wget https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/refs/tags/v2.2.0.tar.gz
     tar -xf v2.2.0.tar.gz
@@ -51,16 +62,6 @@
     sudo make install
     cd ../..
 
-#### NLOHMANN JSON
-    wget https://github.com/nlohmann/json/archive/refs/tags/v3.7.3.tar.gz
-    tar -xf v3.7.3.tar.gz
-    cd json-3.7.3
-    mkdir build
-    cd build
-    cmake .. -DJSON_BuildTests=Off
-    make -j $JOBS
-    sudo make install
-    cd ../..
 
 #### FFMPEG
     wget https://ffmpeg.org/releases/ffmpeg-5.1.tar.bz2
@@ -71,6 +72,7 @@
     make -j  $JOBS
     sudo make install
     cd -
+
 
 ### xStudio
     export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:/usr/local/lib64/pkgconfig

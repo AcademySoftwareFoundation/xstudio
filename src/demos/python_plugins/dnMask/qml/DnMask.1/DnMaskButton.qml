@@ -188,7 +188,7 @@ XsToolbarItem  {
         XsModuleAttributesDialog {
             id: settings_dialog
             title: "dnMask Settings"
-            attributesGroupName: "dnmask_settings"
+            attributesGroupNames: "dnmask_settings"
         }
     
         

@@ -17,13 +17,13 @@ XsDialogModal {
 
     XsModuleAttributes {
         id: attrs_options
-        attributesGroupName: "shotgun_datasource_preference"
+        attributesGroupNames: "shotgun_datasource_preference"
         roleName: "combo_box_options"
     }
 
     XsModuleAttributes {
         id: attrs_values
-        attributesGroupName: "shotgun_datasource_preference"
+        attributesGroupNames: "shotgun_datasource_preference"
     }
 
     ColumnLayout {

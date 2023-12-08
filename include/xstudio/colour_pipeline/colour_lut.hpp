@@ -25,52 +25,47 @@ namespace colour_pipeline {
         int ysize_;
         int zsize_;
 
-        static LUTDescriptor Create1DLUT(
+        static LUTDescriptor Create1DLUT( // NOLINT
             int size,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, ONE_D, ch, it, size, 1, 1};
         }
 
-        static LUTDescriptor Create2DLUT(
+        static LUTDescriptor Create2DLUT( // NOLINT
             int width,
             int height,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, TWO_D, ch, it, width, height, 1};
         }
 
-        static LUTDescriptor Create2DRectLUT(
+        static LUTDescriptor Create2DRectLUT( // NOLINT
             int width,
             int height,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, RECT_TWO_D, ch, it, width, height, 1};
         }
 
-        static LUTDescriptor Create3DLUT(
+        static LUTDescriptor Create3DLUT( // NOLINT
             int size,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, THREE_D, ch, it, size, size, size};
         }
 
-        static LUTDescriptor Create3DLUT(
+        static LUTDescriptor Create3DLUT( // NOLINT
             int width,
             int height,
             int depth,
             DataType dt      = FLOAT32,
             Channels ch      = RGB,
-            Interpolation it = LINEAR) // NOLINT
-        {
+            Interpolation it = LINEAR) {
             return LUTDescriptor{dt, THREE_D, ch, it, width, height, depth};
         }
 
@@ -80,8 +75,6 @@ namespace colour_pipeline {
     class ColourLUT {
 
       public:
-        enum TargetViewer { MAIN_VIEWER = 1, POPOUT_VIEWER = 2, ANY_VIEWER = 3 };
-
         ColourLUT(const LUTDescriptor &desc, const std::string name)
             : descriptor_(desc), texture_name_(std::move(name)) {
             const int chans = descriptor_.channels_ == LUTDescriptor::RGB ? 3 : 1;
@@ -116,7 +109,6 @@ namespace colour_pipeline {
 
         [[nodiscard]] size_t data_size() const { return data_size_; }
         [[nodiscard]] const std::string &texture_name() const { return texture_name_; }
-        [[nodiscard]] TargetViewer target_viewer() const { return target_viewer_; }
         [[nodiscard]] std::string texture_name_and_desc() const {
             return texture_name() + descriptor_.as_string();
         }
@@ -136,15 +128,12 @@ namespace colour_pipeline {
                 std::string_view((const char *)buffer_.data(), data_size_));
         }
 
-        void set_target_viewer(TargetViewer t) { target_viewer_ = t; }
-
       private:
         const LUTDescriptor descriptor_;
         // using long long type for data store vector to achieve 8 byte mem alignment
         std::vector<long long> buffer_;
         std::size_t data_size_ = {0};
         std::size_t cache_id_;
-        TargetViewer target_viewer_ = {ANY_VIEWER};
         std::string texture_name_;
     };
 

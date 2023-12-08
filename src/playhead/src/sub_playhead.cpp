@@ -7,7 +7,6 @@
 #include "xstudio/atoms.hpp"
 #include "xstudio/bookmark/bookmark.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
-#include "xstudio/colour_pipeline/colour_pipeline_actor.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/media_reader/media_reader_actor.hpp"
 #include "xstudio/playhead/sub_playhead.hpp"
@@ -29,7 +28,6 @@ SubPlayhead::SubPlayhead(
     const std::string &name,
     caf::actor source,
     caf::actor parent,
-    caf::actor colour_pipeline,
     const timebase::flicks loop_in_point,
     const timebase::flicks loop_out_point,
     const utility::TimeSourceMode time_source_mode,
@@ -39,7 +37,6 @@ SubPlayhead::SubPlayhead(
       base_(name, "ChildPlayhead"),
       source_(std::move(source)),
       parent_(std::move(parent)),
-      colour_pipeline_(std::move(colour_pipeline)),
       loop_in_point_(loop_in_point),
       loop_out_point_(loop_out_point),
       time_source_mode_(time_source_mode),
@@ -131,8 +128,6 @@ void SubPlayhead::init() {
         [=](clear_precache_queue_atom) {
             delegate(pre_reader_, clear_precache_queue_atom_v, base_.uuid());
         },
-
-        [=](colour_pipeline_atom) -> result<caf::actor> { return colour_pipeline_; },
 
         [=](const error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); },
 
@@ -286,7 +281,7 @@ void SubPlayhead::init() {
         },
 
         [=](media::get_edit_list_atom _get_edit_list_atom, const Uuid &uuid) {
-            delegate(source_, _get_edit_list_atom, uuid);
+            delegate(source_, _get_edit_list_atom, media_type_, uuid);
         },
 
         [=](media::source_offset_frames_atom atom) { delegate(source_, atom); },
@@ -341,14 +336,16 @@ void SubPlayhead::init() {
             return result;
         },
 
-        [=](media_source_atom, std::string source_name) -> result<bool> {
+        [=](media_source_atom,
+            std::string source_name,
+            const media::MediaType mt) -> result<bool> {
             auto rp = make_response_promise<bool>();
             // get the media actor on the current frame
             request(caf::actor_cast<caf::actor>(this), infinite, media_atom_v)
                 .then(
                     [=](caf::actor media_actor) mutable {
                         // now get it to switched to the named MediaSource
-                        request(media_actor, infinite, media_source_atom_v, source_name)
+                        request(media_actor, infinite, media_source_atom_v, source_name, mt)
                             .then(
 
                                 [=](bool) mutable {
@@ -380,6 +377,12 @@ void SubPlayhead::init() {
                 result = frame->second->media_uuid_;
             }
             return result;
+        },
+
+        [=](utility::event_atom,
+            media::add_media_source_atom,
+            const utility::UuidActorVector &uav) {
+            send(parent_, utility::event_atom_v, media::add_media_source_atom_v, uav);
         },
 
         [=](media_cache::keys_atom) -> media::MediaKeyVector {
@@ -426,28 +429,17 @@ void SubPlayhead::init() {
                         image_buffer.set_timline_timestamp(timeline_pts);
                         image_buffer.set_frame_id(*(frame.get()));
 
-                        request(
-                            colour_pipeline_,
-                            infinite,
-                            get_colour_pipe_data_atom_v,
-                            *(frame.get()))
-                            .then(
-
-                                [=](ColourPipelineDataPtr colour_pipe_data) mutable {
-                                    if (image_buffer) {
-                                        image_buffer->params()["playhead_frame"] =
-                                            frame->playhead_logical_frame_;
-                                        if (frame->params_.find("HELD_FRAME") !=
-                                            frame->params_.end()) {
-                                            image_buffer->params()["HELD_FRAME"] = true;
-                                        } else {
-                                            image_buffer->params()["HELD_FRAME"] = false;
-                                        }
-                                        image_buffer.colour_pipe_data_ = colour_pipe_data;
-                                    }
-                                    rp.deliver(image_buffer);
-                                },
-                                [=](const error &err) mutable { rp.deliver(err); });
+                        if (image_buffer) {
+                            image_buffer->params()["playhead_frame"] =
+                                frame->playhead_logical_frame_;
+                            if (frame->params_.find("HELD_FRAME") != frame->params_.end()) {
+                                image_buffer->params()["HELD_FRAME"] = true;
+                            } else {
+                                image_buffer->params()["HELD_FRAME"] = false;
+                            }
+                            // image_buffer.colour_pipe_data_ = colour_pipe_data;
+                        }
+                        rp.deliver(image_buffer);
                     },
                     [=](const error &err) mutable { rp.deliver(err); });
             return rp;
@@ -590,6 +582,7 @@ void SubPlayhead::set_position(
     timebase::flicks frame_period, timeline_pts;
     std::shared_ptr<const media::AVFrameID> frame =
         get_frame(time, logical_frame, frame_period, timeline_pts);
+
 
     if (logical_frame_ != logical_frame || force_updates) {
 
@@ -740,67 +733,47 @@ void SubPlayhead::broadcast_image_frame(
                 image_buffer.set_timline_timestamp(timeline_pts);
                 image_buffer.set_frame_id(*(frame_media_pointer.get()));
 
-                request(
-                    colour_pipeline_,
-                    infinite,
-                    get_colour_pipe_data_atom_v,
-                    *(frame_media_pointer.get()))
-                    .await(
+                if (image_buffer) {
+                    image_buffer->params()["playhead_frame"] =
+                        frame_media_pointer->playhead_logical_frame_;
+                    if (frame_media_pointer->params_.find("HELD_FRAME") !=
+                        frame_media_pointer->params_.end()) {
+                        image_buffer->params()["HELD_FRAME"] = true;
+                    } else {
+                        image_buffer->params()["HELD_FRAME"] = false;
+                    }
+                    // image_buffer.colour_pipe_data_ = colour_pipe_data;
+                }
 
-                        [=](ColourPipelineDataPtr colour_pipe_data) mutable {
-                            if (image_buffer) {
-                                image_buffer->params()["playhead_frame"] =
-                                    frame_media_pointer->playhead_logical_frame_;
-                                if (frame_media_pointer->params_.find("HELD_FRAME") !=
-                                    frame_media_pointer->params_.end()) {
-                                    image_buffer->params()["HELD_FRAME"] = true;
-                                } else {
-                                    image_buffer->params()["HELD_FRAME"] = false;
-                                }
-                                image_buffer.colour_pipe_data_ = colour_pipe_data;
-                            }
+                send(
+                    parent_,
+                    show_atom_v,
+                    base_.uuid(), // the uuid of this playhead
+                    image_buffer, // the image
+                    true          // is this the frame that should be on-screen now?
+                );
 
-                            send(
-                                parent_,
-                                show_atom_v,
-                                base_.uuid(), // the uuid of this playhead
-                                image_buffer, // the image
-                                true          // is this the frame that should be on-screen now?
-                            );
+                auto m = caf::actor_cast<caf::actor>(frame_media_pointer->actor_addr_);
+                if (m) {
+                    send(
+                        parent_,
+                        event_atom_v,
+                        media_source_atom_v,
+                        m,
+                        actor_cast<actor>(this),
+                        frame_media_pointer->media_uuid_,
+                        frame_media_pointer->source_uuid_,
+                        frame_media_pointer->frame_);
+                }
 
-                            auto m =
-                                caf::actor_cast<caf::actor>(frame_media_pointer->actor_addr_);
-                            if (m) {
-                                send(
-                                    parent_,
-                                    event_atom_v,
-                                    media_source_atom_v,
-                                    m,
-                                    actor_cast<actor>(this),
-                                    frame_media_pointer->media_uuid_,
-                                    frame_media_pointer->source_uuid_,
-                                    frame_media_pointer->frame_);
-                            }
+                waiting_for_next_frame_ = false;
 
-                            waiting_for_next_frame_ = false;
-
-                            // We have got the frame that we want for *immediate* display,
-                            // now we also want to fetch the next N frames to allow the
-                            // viewport to upload pixel data to the GPU for subsequent
-                            // re-draws during playback
-                            if (playing)
-                                request_future_frames();
-                        },
-                        [=](const error &err) mutable {
-                            waiting_for_next_frame_ = false;
-                            if (err.code() == static_cast<uint8_t>(caf::sec::request_timeout)) {
-                                // Here we tell the main playhead that we couldn't retrieve the
-                                // frame so it can decide to slow down
-                                send(parent_, dropped_frame_atom_v);
-                            } else {
-                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                            }
-                        });
+                // We have got the frame that we want for *immediate* display,
+                // now we also want to fetch the next N frames to allow the
+                // viewport to upload pixel data to the GPU for subsequent
+                // re-draws during playback
+                if (playing)
+                    request_future_frames();
             },
 
             [=](const caf::error &err) mutable {
@@ -908,39 +881,19 @@ void SubPlayhead::request_future_frames() {
         .then(
 
             [=](std::vector<ImageBufPtr> image_buffers) mutable {
-                request(colour_pipeline_, infinite, get_colour_pipe_data_atom_v, future_frames)
-                    .await(
-
-                        [=](const std::vector<ColourPipelineDataPtr>
-                                &colour_pipe_data) mutable {
-                            if (image_buffers.size() != colour_pipe_data.size()) {
-                                spdlog::warn(
-                                    "{} {}",
-                                    __PRETTY_FUNCTION__,
-                                    "Mismatch in number of image buffers and colour pipe data "
-                                    "items");
-                            }
-
-                            auto cp   = colour_pipe_data.begin();
-                            auto tp   = timeline_pts_vec.begin();
-                            auto idsp = future_frames.begin();
-                            for (auto &imbuf : image_buffers) {
-                                imbuf.colour_pipe_data_ = *(cp++);
-                                imbuf.set_timline_timestamp(*(tp++));
-                                std::shared_ptr<const media::AVFrameID> av_idx =
-                                    (idsp++)->second;
-                                if (av_idx)
-                                    imbuf.set_frame_id(*(av_idx.get()));
-                            }
-                            send(
-                                parent_,
-                                show_atom_v,
-                                base_.uuid(), // the uuid of this playhead
-                                image_buffers);
-                        },
-                        [=](const caf::error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        });
+                auto tp   = timeline_pts_vec.begin();
+                auto idsp = future_frames.begin();
+                for (auto &imbuf : image_buffers) {
+                    imbuf.set_timline_timestamp(*(tp++));
+                    std::shared_ptr<const media::AVFrameID> av_idx = (idsp++)->second;
+                    if (av_idx)
+                        imbuf.set_frame_id(*(av_idx.get()));
+                }
+                send(
+                    parent_,
+                    show_atom_v,
+                    base_.uuid(), // the uuid of this playhead
+                    image_buffers);
             },
             [=](const caf::error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -954,6 +907,8 @@ void SubPlayhead::update_playback_precache_requests(caf::typed_response_promise<
     // get the AVFrameID iterator for the current frame
     media::AVFrameIDsAndTimePoints requests;
     get_lookahead_frame_pointers(requests, pre_cache_read_ahead_frames_);
+
+    make_prefetch_requests_for_colour_pipeline(requests);
 
     request(
         pre_reader_, infinite, media_reader::playback_precache_atom_v, requests, base_.uuid())
@@ -978,6 +933,8 @@ void SubPlayhead::make_static_precache_request(
             // std::numeric_limits<int>::max() // this will fetch *ALL* frames in the source
         );
 
+        make_prefetch_requests_for_colour_pipeline(requests);
+
         request(
             pre_reader_, infinite, media_reader::static_precache_atom_v, requests, base_.uuid())
             .await(
@@ -997,6 +954,26 @@ void SubPlayhead::make_static_precache_request(
     }
 }
 
+void SubPlayhead::make_prefetch_requests_for_colour_pipeline(
+    const media::AVFrameIDsAndTimePoints &lookeahead_frames) {
+
+    // Looping through all the frames looking for each individual source that
+    // might hit the screen soon. We broadcast the colour metadata for these sources
+    // to be picked up by the colour management plugin so it has a chance to
+    // do heavy work, like loading and parsing LUT files, ahead of time.
+    media::AVFrameIDsAndTimePoints frame_ids_for_colour_precompute_frame_ids;
+    utility::Uuid curr_uuid;
+    for (const auto &r : lookeahead_frames) {
+        if (r.second->source_uuid_ != curr_uuid) {
+            frame_ids_for_colour_precompute_frame_ids.push_back(r);
+            curr_uuid = r.second->source_uuid_;
+        }
+    }
+
+    send(parent_, colour_pipeline_lookahead_atom_v, frame_ids_for_colour_precompute_frame_ids);
+}
+
+
 void SubPlayhead::receive_image_from_cache(
     ImageBufPtr image_buffer, const media::AVFrameID mptr, const time_point tp) {
 
@@ -1007,53 +984,44 @@ void SubPlayhead::receive_image_from_cache(
         return;
     last_image_timepoint_ = tp;
 
-    request(colour_pipeline_, infinite, get_colour_pipe_data_atom_v, mptr)
-        .then(
+    if (image_buffer) {
+        image_buffer->params()["playhead_frame"] = mptr.playhead_logical_frame_;
+        if (mptr.params_.find("HELD_FRAME") != mptr.params_.end()) {
+            image_buffer->params()["HELD_FRAME"] = true;
+        } else {
+            image_buffer->params()["HELD_FRAME"] = false;
+        }
+    }
 
-            [=](ColourPipelineDataPtr colour_pipe_data) mutable {
-                if (image_buffer) {
-                    image_buffer->params()["playhead_frame"] = mptr.playhead_logical_frame_;
-                    if (mptr.params_.find("HELD_FRAME") != mptr.params_.end()) {
-                        image_buffer->params()["HELD_FRAME"] = true;
-                    } else {
-                        image_buffer->params()["HELD_FRAME"] = false;
-                    }
-                    image_buffer.colour_pipe_data_ = colour_pipe_data;
-                }
+    image_buffer.when_to_display_ = utility::clock::now();
+    if (mptr.playhead_logical_frame_ < (int)full_timeline_frames_.size()) {
+        auto p = full_timeline_frames_.begin();
+        std::advance(p, mptr.playhead_logical_frame_);
+        image_buffer.set_timline_timestamp(p->first);
+    } else {
+        image_buffer.set_timline_timestamp(position_flicks_);
+    }
+    image_buffer.set_frame_id(mptr);
 
-                image_buffer.when_to_display_ = utility::clock::now();
-                if (mptr.playhead_logical_frame_ < full_timeline_frames_.size()) {
-                    auto p = full_timeline_frames_.begin();
-                    std::advance(p, mptr.playhead_logical_frame_);
-                    image_buffer.set_timline_timestamp(p->first);
-                } else {
-                    image_buffer.set_timline_timestamp(position_flicks_);
-                }
-                image_buffer.set_frame_id(mptr);
+    send(
+        parent_,
+        show_atom_v,
+        base_.uuid(), // the uuid of this playhead
+        image_buffer, // the image
+        true          // this image supposed to be shown on-screen NOW
+    );
 
-                send(
-                    parent_,
-                    show_atom_v,
-                    base_.uuid(), // the uuid of this playhead
-                    image_buffer, // the image
-                    true          // this image supposed to be shown on-screen NOW
-                );
-
-                if (auto m = caf::actor_cast<caf::actor>(mptr.actor_addr_)) {
-                    send(
-                        parent_,
-                        event_atom_v,
-                        media_source_atom_v,
-                        m,
-                        actor_cast<actor>(this),
-                        mptr.media_uuid_,
-                        mptr.source_uuid_,
-                        mptr.frame_);
-                }
-            },
-            [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-            });
+    if (auto m = caf::actor_cast<caf::actor>(mptr.actor_addr_)) {
+        send(
+            parent_,
+            event_atom_v,
+            media_source_atom_v,
+            m,
+            actor_cast<actor>(this),
+            mptr.media_uuid_,
+            mptr.source_uuid_,
+            mptr.frame_);
+    }
 }
 
 void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::actor> rp) {
@@ -1080,7 +1048,6 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
                 for (const auto &f : full_timeline_frames_) {
                     timeline_logical_frame_pts_[f.first] = idx++;
                 }
-
 
                 set_in_and_out_frames();
 

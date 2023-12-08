@@ -1,0 +1,38 @@
+module xStudioReskin
+
+XsSessionWindow           1.0 ../windows/XsSessionWindow.qml
+XsDivider                 1.0 ../layout_framework/XsPanelDivider.qml
+XsSplitPanel              1.0 ../layout_framework/XsPanelSplitter.qml
+XsPanelContainer          1.0 ../layout_framework/XsTestWindow.qml
+XsViewContainer           1.0 ../layout_framework/XsViewContainer.qml
+XsPanelsMenuButton        1.0 ../layout_framework/XsPanelsMenuButton.qml
+
+XsMedialist               1.0 ../views/media/XsMedialist.qml
+XsMediaItemDelegate       1.0 ../views/media/delegates/XsMediaItemDelegate.qml
+ 
+XsPlaylistsView           1.0 ../views/playlists/XsPlaylists.qml
+XsPlaylistItemDelegate    1.0 ../views/playlists/delegates/XsPlaylistItemDelegate.qml
+XsPlaylistDividerDelegate 1.0 ../views/playlists/delegates/XsPlaylistDividerDelegate.qml
+
+XsTimeline                1.0 ../views/timeline/XsTimeline.qml
+
+XsViewport                1.0 ../views/viewport/XsViewport.qml
+
+XsSearchBar               1.0 ../widgets/bars_and_tabs/XsSearchBar.qml
+
+XsPrimaryButton           1.0 ../widgets/buttons/XsPrimaryButton.qml
+XsSecondaryButton         1.0 ../widgets/buttons/XsSecondaryButton.qml
+
+XsMainMenuBar             1.0 ../widgets/menus/XsMainMenuBar.qml
+XsMenuDivider             1.0 ../widgets/menus/XsMenuDivider.qml
+XsMenuNew                 1.0 ../widgets/menus/XsMenu.qml
+XsMenuItemNew             1.0 ../widgets/menus/XsMenuItem.qml
+XsMenuChoice              1.0 ../widgets/menus/XsMenuChoice.qml
+XsMenuMultiChoice         1.0 ../widgets/menus/XsMenuMultiChoice.qml
+XsMenuItemToggle          1.0 ../widgets/menus/XsMenuItemToggle.qml
+
+XsImage                   1.0 ../widgets/prototypes/new/XsImage.qml
+XsText                    1.0 ../widgets/prototypes/new/XsText.qml
+XsToolTip                 1.0 ../widgets/prototypes/new/XsToolTip.qml
+
+singleton XsStyleSheet    1.0 ../xStudioReskin/XsStyleSheet.qml

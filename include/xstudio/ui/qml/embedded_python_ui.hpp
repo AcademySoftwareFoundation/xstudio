@@ -23,7 +23,7 @@ namespace ui {
         class SnippetUI : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
-            Q_PROPERTY(QString menuName READ menuName NOTIFY menuNameChanged)
+            Q_PROPERTY(QString menuModelName READ menuModelName NOTIFY menuNameChanged)
             Q_PROPERTY(QString script READ script NOTIFY scriptChanged)
             Q_PROPERTY(QString description READ description NOTIFY descriptionChanged)
 
@@ -42,7 +42,7 @@ namespace ui {
             ~SnippetUI() override = default;
 
             [[nodiscard]] QString name() const { return name_; }
-            [[nodiscard]] QString menuName() const { return menu_name_; }
+            [[nodiscard]] QString menuModelName() const { return menu_name_; }
             [[nodiscard]] QString script() const { return script_; }
             [[nodiscard]] QString description() const { return description_; }
 

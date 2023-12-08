@@ -33,7 +33,7 @@ XsMenu {
     // connect to the backend module to give access to attributes
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupName: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings"
     }
 
     // XsMenuSeparator { }
@@ -195,6 +195,15 @@ XsMenu {
         onTriggered: sessionWidget.toggleSettingsDialog()
     }
 
+    XsMenuSeparator { 
+        id: bod
+    }
+
+    XsModuleMenuBuilder {
+        parent_menu: panel_menu
+        root_menu_name: "panels_menu"
+        insert_after: bod
+    }
 
     property var thedialog: undefined
     function openDialog(qml_path)

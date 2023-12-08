@@ -10,7 +10,11 @@ using namespace xstudio::utility;
 
 MediaSource::MediaSource(const JsonStore &jsn)
     : utility::Container(static_cast<JsonStore>(jsn["container"])), ref_(jsn["media_ref"]) {
+
     reader_ = jsn["reader"];
+
+    size_     = jsn.value("size", 0);
+    checksum_ = jsn.value("checksum", "");
 
     current_image_ = jsn["current_image"];
     for (const auto &i : jsn["image_streams"]) {
@@ -26,29 +30,39 @@ MediaSource::MediaSource(const JsonStore &jsn)
 MediaSource::MediaSource(
     const std::string &name, const caf::uri &_uri, const FrameList &frame_list)
     : utility::Container(name, "MediaSource"), ref_(_uri, frame_list, frame_list.empty()) {
+
     current_image_.clear();
     current_audio_.clear();
 }
 
 MediaSource::MediaSource(const std::string &name, const caf::uri &_uri)
     : utility::Container(name, "MediaSource"), ref_(_uri) {
+
     current_image_.clear();
     current_audio_.clear();
 }
 
 MediaSource::MediaSource(
-    const std::string &name, const utility::MediaReference &media_reference)
-    : utility::Container(name, "MediaSource"), ref_(media_reference) {
+    const std::string &name, const utility::MediaReference &media_reference_)
+    : utility::Container(name, "MediaSource"), ref_(media_reference_) {
+
     current_image_.clear();
     current_audio_.clear();
 }
+
+void MediaSource::set_media_reference(const utility::MediaReference &ref) { ref_ = ref; }
 
 JsonStore MediaSource::serialise() const {
     JsonStore jsn;
 
     jsn["container"] = Container::serialise();
+
     jsn["media_ref"] = ref_.serialise();
-    jsn["reader"]    = reader_;
+
+    jsn["reader"] = reader_;
+
+    jsn["size"]     = size_;
+    jsn["checksum"] = checksum_;
 
     jsn["current_image"] = current_image_;
     jsn["image_streams"] = {};

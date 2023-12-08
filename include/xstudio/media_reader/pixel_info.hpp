@@ -20,8 +20,8 @@ namespace media_reader {
         PixelInfo() = default;
 
         PixelInfo(
-            const Imath::V2i &location_in_image, const std::string &layer_name = std::string())
-            : location_(location_in_image), layer_name_(layer_name) {}
+            const Imath::V2i &location_in_image, const std::string layer_name = std::string())
+            : location_(location_in_image), layer_name_(std::move(layer_name)) {}
 
         PixelInfo(const PixelInfo &o) = default;
 
@@ -56,9 +56,9 @@ namespace media_reader {
         }
 
         struct PixelChannelInfo {
-            std::string channel_name;
-            float pixel_value = {-10.0f};
-            int code_value    = {-888};
+            std::string channel_name;     // NOLINT
+            float pixel_value = {-10.0f}; // NOLINT
+            int code_value    = {-888};   // NOLINT
         };
 
         typedef std::vector<PixelChannelInfo> PixelChannelsData;

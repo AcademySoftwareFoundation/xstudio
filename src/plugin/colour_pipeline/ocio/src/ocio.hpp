@@ -28,7 +28,6 @@ class OCIOColourPipeline : public ColourPipeline {
   private:
     struct PerConfigSettings {
         std::string display;
-        std::string popout_viewer_display;
         std::string view;
     };
 
@@ -45,45 +44,53 @@ class OCIOColourPipeline : public ColourPipeline {
 
         OCIO::GradingPrimary primary = OCIO::GradingPrimary(OCIO::GRADING_LIN);
 
+        std::string output_view;
+
         std::string compute_hash() const;
     };
 
-    struct ShaderDescriptors {
-        OCIO::ConstGpuShaderDescRcPtr main_viewer_shader_desc;
-        OCIO::ConstGpuShaderDescRcPtr popout_viewer_shader_desc;
+    struct ShaderDescriptor {
+        OCIO::ConstGpuShaderDescRcPtr shader_desc;
+        MediaParams params;
         std::mutex mutex;
     };
-    typedef std::shared_ptr<ShaderDescriptors> ShaderDescriptorsPtr;
+    typedef std::shared_ptr<ShaderDescriptor> ShaderDescriptorPtr;
 
   public:
-    explicit OCIOColourPipeline(const utility::JsonStore &s);
+    explicit OCIOColourPipeline(
+        caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
-    void register_hotkeys() override;
+    std::string fast_display_transform_hash(const media::AVFrameID &media_ptr) override;
 
-    static std::string name();
-    const utility::Uuid &class_uuid() const override;
-    ColourPipelineDataPtr make_empty_data() const override;
-
-    // Generates a hash of the shader for the whole display pipeline,
-    // this is used by xStudio to implement caching mechanisms.
-    std::string compute_hash(
-        const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) override;
-
-    // Construct the display pipeline shader, including the code
-    // and resources (eg. textures for LUTs) as needed.
-    void setup_shader(
-        ColourPipelineData &pipe_data,
+    [[nodiscard]] std::string linearise_op_hash(
         const utility::Uuid &source_uuid,
-        const utility::JsonStore &colour_params) override;
+        const utility::JsonStore &media_source_colour_metadata) override;
+
+    [[nodiscard]] std::string linear_to_display_op_hash(
+        const utility::Uuid &source_uuid,
+        const utility::JsonStore &media_source_colour_metadata) override;
+
+    /* Create the ColourOperationDataPtr containing the necessary LUT and
+    shader data for linearising the source colourspace RGB data from the
+    given media source on the screen */
+    ColourOperationDataPtr linearise_op_data(
+        const utility::Uuid &source_uuid,
+        const utility::JsonStore &media_source_colour_metadata) override;
+
+    /* Create the ColourOperationDataPtr containing the necessary LUT and
+    shader data for transforming linear colour values into display space */
+    ColourOperationDataPtr linear_to_display_op_data(
+        const utility::Uuid &source_uuid,
+        const utility::JsonStore &media_source_colour_metadata) override;
 
     // Update colour pipeline shader dynamic parameters.
     void update_shader_uniforms(
-        ColourPipelineDataPtr &pipe_data, const utility::Uuid &source_uuid) override;
+        utility::JsonStore &uniforms,
+        const utility::Uuid &source_uuid,
+        std::any &user_data) override;
 
     thumbnail::ThumbnailBufferPtr process_thumbnail(
         const media::AVFrameID &media_ptr, const thumbnail::ThumbnailBufferPtr &buf) override;
-
-    std::string fast_display_transform_hash(const media::AVFrameID &media_ptr) override;
 
     // GUI handling
     void media_source_changed(
@@ -93,16 +100,31 @@ class OCIOColourPipeline : public ColourPipeline {
     void hotkey_released(const utility::Uuid &hotkey_uuid, const std::string &context) override;
     bool pointer_event(const ui::PointerEvent &e) override;
     void screen_changed(
-        const bool &is_primary_viewer,
         const std::string &name,
         const std::string &model,
         const std::string &manufacturer,
         const std::string &serialNumber) override;
 
+    void register_hotkeys() override;
+
+    void connect_to_viewport(
+        caf::actor viewport,
+        const std::string viewport_name,
+        const int viewport_index) override;
+
     void extend_pixel_info(
         media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) override;
 
+    // CAF details
+    bool allow_workers() const override { return true; }
+
+    caf::actor self_spawn(const utility::JsonStore &s) override {
+        return spawn<OCIOColourPipeline>(s);
+    }
+
   private:
+    void init_media_params(MediaParams &media_param) const;
+
     MediaParams get_media_params(
         const utility::Uuid &source_uuid,
         const utility::JsonStore &colour_params = utility::JsonStore()) const;
@@ -110,14 +132,24 @@ class OCIOColourPipeline : public ColourPipeline {
     void
     set_media_params(const utility::Uuid &source_uuid, const MediaParams &media_param) const;
 
-    // OCIO Transform helpers
+    // OCIO logic
+
+    std::string
+    preferred_ocio_view(const MediaParams &media_param, const std::string &view) const;
 
     const char *working_space(const MediaParams &media_param) const;
 
-    OCIO::TransformRcPtr source_transform(const MediaParams &media_param) const;
-
     const char *
     default_display(const MediaParams &media_param, const std::string &monitor_name = "") const;
+
+    // OCIO Transform helpers
+
+    OCIO::TransformRcPtr source_transform(const MediaParams &media_param) const;
+
+    OCIO::ConstConfigRcPtr display_transform(
+        const MediaParams &media_param,
+        OCIO::ContextRcPtr context,
+        OCIO::GroupTransformRcPtr group) const;
 
     OCIO::TransformRcPtr display_transform(
         const std::string &source,
@@ -131,18 +163,14 @@ class OCIOColourPipeline : public ColourPipeline {
 
     OCIO::ConstConfigRcPtr load_ocio_config(const std::string &config_name) const;
 
-    OCIO::ConstProcessorRcPtr make_to_lin_processor(const MediaParams &media_paraml) const;
+    OCIO::ContextRcPtr setup_ocio_context(const MediaParams &media_param) const;
 
-    OCIO::ConstProcessorRcPtr make_processor(
-        const MediaParams &media_param, bool is_main_viewer, bool is_thumbnail) const;
+    OCIO::ConstProcessorRcPtr make_to_lin_processor(const MediaParams &media_param) const;
 
-    OCIO::ConstProcessorRcPtr make_processor(
-        const MediaParams &media_param,
-        bool is_main_viewer,
-        bool is_thumbnail,
-        OCIO::ExposureContrastTransformRcPtr &ect) const;
+    OCIO::ConstProcessorRcPtr
+    make_display_processor(const MediaParams &media_param, bool is_thumbnail) const;
 
-    OCIO::ConstProcessorRcPtr make_dynamic_display_processor(
+    OCIO::ConstConfigRcPtr make_dynamic_display_processor(
         const MediaParams &media_param,
         const OCIO::ConstConfigRcPtr &config,
         const OCIO::ConstContextRcPtr &context,
@@ -152,22 +180,22 @@ class OCIOColourPipeline : public ColourPipeline {
         const std::string &look_name,
         const std::string &cdl_file_name) const;
 
-    OCIO::ConstGpuShaderDescRcPtr
-    make_shader(OCIO::ConstProcessorRcPtr &processor, bool is_main_viewer) const;
+    OCIO::ConstGpuShaderDescRcPtr make_shader(
+        OCIO::ConstProcessorRcPtr &processor,
+        const char *function_name,
+        const char *resource_prefix) const;
 
     void setup_textures(
-        OCIO::ConstGpuShaderDescRcPtr &shader_desc,
-        ColourPipelineData &data,
-        bool is_main_viewer) const;
+        OCIO::ConstGpuShaderDescRcPtr &shader_desc, ColourOperationDataPtr op_data) const;
 
     // OCIO dynamic properties
 
     void update_dynamic_parameters(
-        OCIO::ConstGpuShaderDescRcPtr &shader, const utility::Uuid &source_uuid) const;
+        OCIO::ConstGpuShaderDescRcPtr &shader, const MediaParams &media_param) const;
 
     void update_all_uniforms(
         OCIO::ConstGpuShaderDescRcPtr &shader,
-        ColourPipelineDataPtr &data,
+        utility::JsonStore &uniforms,
         const utility::Uuid &source_uuid) const;
 
     // GUI handling
@@ -187,19 +215,8 @@ class OCIOColourPipeline : public ColourPipeline {
     void update_bypass(module::StringChoiceAttribute *viewer, bool bypass);
 
   private:
-    // We currently use global mutexes for simplicity, this means any
-    // lookup in those maps will be serialized. A better strategy would
-    // be a double lock approach where each items have their own lock
-    // so that multiple request on different items can be truly parallel.
-    // The above approach is used in OCIO (eg. look for "g_fileCache").
-    // Waiting for performance feedback first before optimising further...
-    mutable std::mutex pipeline_cache_mutex_;
-    mutable std::map<std::string, std::string> pipeline_cache_;
-    mutable std::mutex ocio_config_cache_mutex_;
     mutable std::map<std::string, OCIO::ConstConfigRcPtr> ocio_config_cache_;
-    mutable std::mutex media_params_mutex_;
     mutable std::map<utility::Uuid, MediaParams> media_params_;
-    mutable std::mutex per_config_settings_mutex_;
     mutable std::map<std::string, PerConfigSettings> per_config_settings_;
 
     // GUI handling
@@ -208,14 +225,21 @@ class OCIOColourPipeline : public ColourPipeline {
 
     module::StringChoiceAttribute *channel_;
     module::StringChoiceAttribute *display_;
-    module::StringChoiceAttribute *popout_viewer_display_;
     module::StringChoiceAttribute *view_;
     module::FloatAttribute *exposure_;
+    module::FloatAttribute *gamma_;
+    module::FloatAttribute *saturation_;
     module::StringChoiceAttribute *source_colour_space_;
     module::BooleanAttribute *colour_bypass_;
+    module::StringChoiceAttribute *preferred_view_;
+    module::BooleanAttribute *global_view_;
+    module::BooleanAttribute *enable_gamma_;
+    module::BooleanAttribute *enable_saturation_;
 
     std::map<utility::Uuid, std::string> channel_hotkeys_;
     utility::Uuid exposure_hotkey_;
+    utility::Uuid gamma_hotkey_;
+    utility::Uuid saturation_hotkey_;
     utility::Uuid reset_hotkey_;
 
     // Holds info about the currently on screen media
@@ -224,12 +248,13 @@ class OCIOColourPipeline : public ColourPipeline {
     MediaParams current_source_media_params_;
 
     // Holds data on display screen option
-    std::string main_monitor_name_;
-    std::string popout_monitor_name_;
+    std::string monitor_name_;
+    std::string viewport_name_;
 
+    // Pixel probe
     std::string last_pixel_probe_source_hash_;
-    OCIO::ConstCPUProcessorRcPtr pixel_probe_proc_, pixel_probe_to_lin_proc_;
-    OCIO::ExposureContrastTransformRcPtr pixel_probe_exposure_transform_;
+    OCIO::ConstCPUProcessorRcPtr pixel_probe_to_display_proc_;
+    OCIO::ConstCPUProcessorRcPtr pixel_probe_to_lin_proc_;
 };
 
 } // namespace xstudio::colour_pipeline

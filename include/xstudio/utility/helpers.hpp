@@ -59,7 +59,13 @@ namespace utility {
     const std::array supported_extensions{".AAF",  ".AIFF", ".AVI", ".CIN", ".DPX", ".EXR",
                                           ".GIF",  ".JPEG", ".JPG", ".MKV", ".MOV", ".MPG",
                                           ".MPEG", ".MP3",  ".MP4", ".MXF", ".PNG", ".PPM",
-                                          ".TIF",  ".TIFF", ".WAV"};
+                                          ".TIF",  ".TIFF", ".WAV", ".WEBM"};
+
+    const std::array supported_timeline_extensions{".OTIO", ".XML", ".EDL"};
+
+
+    std::string actor_to_string(caf::actor_system &sys, const caf::actor &actor);
+    caf::actor actor_from_string(caf::actor_system &sys, const std::string &str_addr);
 
     void join_event_group(caf::event_based_actor *source, caf::actor actor);
     void leave_event_group(caf::event_based_actor *source, caf::actor actor);
@@ -209,103 +215,33 @@ namespace utility {
     bool check_plugin_uri_request(const std::string &request);
 
     // used due to bug in caf, which should be fixed in the next release..
-    inline caf::uri url_to_uri(const std::string &url) {
-        auto uri = caf::make_uri(url);
-        if (uri)
-            return *uri;
+    inline std::string url_clean(const std::string &url) {
+        const std::regex xstudio_shake(
+            R"(^(.+\.)([#@]+)(\..+?)(=([-0-9x,]+))?$)", std::regex::optimize);
 
-        // }
-        // std::string _url = url;
-        // if(url.find("file:///") == 0){
-        //  _url = "file:/" + url.substr(8);
-        // }
-        // caf::uri uri;
-        // caf::parse(_url, uri);
-        return caf::uri();
+        auto clean = url;
+        std::cmatch m;
+
+        if (std::regex_match(clean.c_str(), m, xstudio_shake)) {
+            size_t pad_c = 0;
+            if (m[2].str() == "#") {
+                pad_c = 4;
+            } else {
+                pad_c = m[2].str().size();
+            }
+
+            clean = m[1].str() + "{:0" + std::to_string(pad_c) + "d}" + m[3].str();
+        }
+
+        return clean;
     }
 
     //  DIRTY REPLACE (does caf support this?)
-    inline std::string uri_decode(const std::string eString) {
-        std::string ret;
-        char ch;
-        unsigned int i, j;
-        for (i = 0; i < eString.length(); i++) {
-            if (int(eString[i]) == 37) {
-                sscanf(eString.substr(i + 1, 2).c_str(), "%x", &j);
-                ch = static_cast<char>(j);
-                ret += ch;
-                i = i + 2;
-            } else {
-                ret += eString[i];
-            }
-        }
-        return (ret);
-    }
-
+    std::string uri_decode(const std::string &eString);
     // this is WRONG on purpose, as caf::uri are buggy.
     // the path component needs to be escaped, even when it's a file::
-    inline std::string uri_encode(const std::string &s) {
-        std::string result;
-        result.reserve(s.size());
-        auto params = false;
-        std::array<char, 4> hex;
-
-        for (size_t i = 0; s[i]; i++) {
-            switch (s[i]) {
-            case ' ':
-                result += "%20";
-                break;
-            case '+':
-                result += "%2B";
-                break;
-            case '\r':
-                result += "%0D";
-                break;
-            case '\n':
-                result += "%0A";
-                break;
-            case '\'':
-                result += "%27";
-                break;
-            case ',':
-                result += "%2C";
-                break;
-            // case ':': result += "%3A"; break; // ok? probably...
-            case ';':
-                result += "%3B";
-                break;
-            default:
-                auto c = static_cast<uint8_t>(s[i]);
-                if (c == '?')
-                    params = true;
-
-                if (not params and c == '&') {
-                    result += "%26";
-                } else if (c >= 0x80) {
-                    result += '%';
-                    auto len = snprintf(hex.data(), hex.size() - 1, "%02X", c);
-                    assert(len == 2);
-                    result.append(hex.data(), static_cast<size_t>(len));
-                } else {
-                    result += s[i];
-                }
-                break;
-            }
-        }
-
-        return result;
-    }
-
-    inline std::string uri_to_posix_path(const caf::uri &uri) {
-        if (uri.path().data()) {
-            std::string path = uri_decode(uri.path().data());
-            if (not path.empty() and path[0] != '/' and not uri.authority().empty()) {
-                path = "/" + path;
-            }
-            return path;
-        }
-        return "";
-    }
+    std::string uri_encode(const std::string &s);
+    std::string uri_to_posix_path(const caf::uri &uri);
 
     // can only get signature for posix urls..
     inline std::array<uint8_t, 16> get_signature(const caf::uri &uri) {
@@ -376,7 +312,8 @@ namespace utility {
         fs::file_time_type mtim = fs::file_time_type::min();
         try {
             mtim = fs::last_write_time(path);
-        } catch (...) {
+        } catch (const std::exception &err) {
+            // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
         return mtim;
     }
@@ -390,6 +327,15 @@ namespace utility {
         fs::path p(uri_to_posix_path(uri));
         std::string ext = to_upper(p.extension());
         for (const auto &i : supported_extensions)
+            if (i == ext)
+                return true;
+        return false;
+    }
+
+    inline bool is_timeline_supported(const caf::uri &uri) {
+        fs::path p(uri_to_posix_path(uri));
+        std::string ext = to_upper(p.extension());
+        for (const auto &i : supported_timeline_extensions)
             if (i == ext)
                 return true;
         return false;
@@ -417,6 +363,7 @@ namespace utility {
         return result;
     }
 
+
     template <typename V>
     std::vector<typename V::value_type::first_type> vpair_first_to_v(const V &v) {
         std::vector<typename V::value_type::first_type> result;
@@ -437,14 +384,6 @@ namespace utility {
         return result;
     }
 
-    template <typename V> std::vector<caf::actor> vector_to_caf_actor_vector(const V &v) {
-        std::vector<caf::actor> result;
-        result.reserve(v.size());
-        for (auto it = v.begin(); it != v.end(); ++it) {
-            result.push_back(static_cast<caf::actor>(*it));
-        }
-        return result;
-    }
 
     template <typename V>
     std::set<typename V::value_type::first_type> vpair_first_to_s(const V &v) {
@@ -475,7 +414,28 @@ namespace utility {
         return result;
     }
 
+    //  this is annoying.. we now have to create all these silly UuidActor functions..
+
+
     // for vector<class> that can be cast actor or uuid (e.g. UuidActor !)
+    template <typename V> std::vector<caf::actor> vector_to_caf_actor_vector(const V &v) {
+        std::vector<caf::actor> result;
+        result.reserve(v.size());
+        for (auto it = v.begin(); it != v.end(); ++it) {
+            result.push_back(static_cast<caf::actor>(*it));
+        }
+        return result;
+    }
+    // for vector<class> that can be cast actor or uuid (e.g. UuidActor !)
+    template <typename V> std::vector<utility::Uuid> vector_to_uuid_vector(const V &v) {
+        std::vector<utility::Uuid> result;
+        result.reserve(v.size());
+        for (auto it = v.begin(); it != v.end(); ++it) {
+            result.push_back(static_cast<utility::Uuid>(*it));
+        }
+        return result;
+    }
+
     template <typename V>
     std::map<utility::Uuid, caf::actor> uuidactor_vect_to_map(const V &v) {
         std::map<utility::Uuid, caf::actor> result;

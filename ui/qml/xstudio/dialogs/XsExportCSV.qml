@@ -8,7 +8,7 @@ import xStudio 1.0
 
 FileDialog {
     title: "Export CSV"
-    folder: session.pathNative ? XsUtils.stem(session.path.toString()).replace("localhost","") : shortcuts.home
+    folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
     defaultSuffix: "csv"
 
     signal saved(variant path)

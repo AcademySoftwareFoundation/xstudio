@@ -9,77 +9,6 @@
 using namespace xstudio::module;
 using namespace xstudio;
 
-bool AttributeData::set(const nlohmann::json &data) {
-
-    bool rt = false;
-    if (data.is_string()) {
-
-        if (typeid(utility::Uuid) == data_.type()) {
-            rt = set(utility::Uuid(data.get<std::string>()));
-        } else {
-            rt = set(data.get<std::string>());
-        }
-
-    } else if (
-        data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
-        data.begin().value().get<std::string>() == "vec3") {
-
-        rt = set(data.get<Imath::V3f>());
-
-    } else if (
-        data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
-        data.begin().value().get<std::string>() == "colour") {
-
-        rt = set(data.get<utility::ColourTriplet>());
-
-    } else if (data.is_array() && data.size() && data.begin().value().is_string()) {
-
-        std::vector<std::string> v;
-        for (auto p = data.begin(); p != data.end(); p++) {
-            if (p.value().is_string()) {
-                v.push_back(p.value().get<std::string>());
-            }
-        }
-        rt = set(v);
-
-    } else if (data.is_array() && data.size() && data.begin().value().is_boolean()) {
-
-        std::vector<bool> v;
-        for (auto p = data.begin(); p != data.end(); p++) {
-            if (p.value().is_boolean()) {
-                v.push_back(p.value().get<bool>());
-            }
-        }
-        rt = set(v);
-
-    } else if (data.is_array() && data.size() && data.begin().value().is_number_float()) {
-
-        std::vector<float> v;
-        for (auto p = data.begin(); p != data.end(); p++) {
-            if (p.value().is_number_float()) {
-                v.push_back(p.value().get<float>());
-            }
-        }
-        rt = set(v);
-
-    } else if (data.is_boolean()) {
-        rt = set(data.get<bool>());
-    } else if (data.is_number_integer()) {
-        rt = set(data.get<int>());
-    } else if (data.is_number_float()) {
-        rt = set(data.get<float>());
-    } else if (data_.type() == typeid(nlohmann::json) && get<nlohmann::json>() != data) {
-        data_ = data;
-        rt    = true;
-    } else if (!data_.has_value()) {
-        data_ = data;
-        rt    = true;
-    } else if (data.is_null()) {
-        rt = true;
-    }
-    return rt;
-}
-
 
 Attribute::Attribute(
     const std::string &title, const std::string &abbr_title, const std::string &type_name)
@@ -129,12 +58,24 @@ nlohmann::json Attribute::as_json() const {
     return result;
 }
 
-bool Attribute::belongs_to_group(const std::string group_name) const {
+void Attribute::update_from_json(const nlohmann::json &data, const bool notify) {
 
-    bool rt          = false;
-    auto group_names = get_role_data<std::vector<std::string>>(Groups);
-    for (const auto &p : group_names) {
-        if (p == group_name) {
+    if (data.is_object()) {
+
+        for (auto p = data.begin(); p != data.end(); p++) {
+            int role = role_index(p.key());
+            if (role != UuidRole)
+                set_role_data(role, p.value(), notify);
+        }
+    }
+}
+
+bool Attribute::belongs_to_groups(const std::vector<std::string> &group_names) const {
+
+    bool rt                     = false;
+    const auto attr_group_names = get_role_data<std::vector<std::string>>(Groups);
+    for (const auto &p : attr_group_names) {
+        if (std::find(group_names.begin(), group_names.end(), p) != group_names.end()) {
             rt = true;
             break;
         }

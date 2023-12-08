@@ -71,7 +71,7 @@ RowLayout {
 
     XsOrderedModuleAttributesModel {
         id: attrs
-        attributesGroupName: "media_tools_buttons"
+        attributesGroupNames: "media_tools_buttons"
     }
 
     ListView {

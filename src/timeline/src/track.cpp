@@ -24,9 +24,9 @@ Track::Track(
           utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor))) {}
 
 Track::Track(const JsonStore &jsn)
-    : Container(static_cast<utility::JsonStore>(jsn["container"])),
-      item_(static_cast<utility::JsonStore>(jsn["item"])) {
-    media_type_ = jsn["media_type"];
+    : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
+      item_(static_cast<utility::JsonStore>(jsn.at("item"))) {
+    media_type_ = jsn.at("media_type");
 }
 
 JsonStore Track::serialise() const {

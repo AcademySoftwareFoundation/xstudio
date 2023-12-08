@@ -26,7 +26,8 @@ namespace media {
             const utility::Uuid &uuid            = utility::Uuid(),
             const utility::UuidActorVector &srcs = utility::UuidActorVector());
 
-        MediaActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
+        MediaActor(
+            caf::actor_config &cfg, const utility::JsonStore &jsn, const bool async = false);
         ~MediaActor() override = default;
 
         caf::behavior make_behavior() override { return behavior_; }
@@ -36,6 +37,9 @@ namespace media {
       private:
         inline static const std::string NAME = "MediaActor";
         void init();
+
+        void deserialise(const utility::JsonStore &jsn);
+
         void add_or_rename_media_source(
             const utility::MediaReference &ref,
             const std::string &name,
@@ -47,12 +51,16 @@ namespace media {
 
         void switch_current_source_to_named_source(
             caf::typed_response_promise<bool> rp,
-            const std::string &visual_source_name,
-            const std::string &audio_source_name);
+            const std::string &source_name,
+            const media::MediaType mt,
+            const bool auto_select_source_if_failed = false);
+
+        void auto_set_current_source(const media::MediaType media_type);
 
         caf::behavior behavior_;
         Media base_;
         caf::actor json_store_;
+        caf::actor event_group_;
         std::map<utility::Uuid, caf::actor> media_sources_;
         bool pending_change_{false};
     };
@@ -81,15 +89,17 @@ namespace media {
         MediaSourceActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
         ~MediaSourceActor() override = default;
 
+        static caf::message_handler default_event_handler();
+
         caf::behavior make_behavior() override { return behavior_; }
 
         const char *name() const override { return NAME.c_str(); }
 
       private:
+        void update_media_status();
+
         void
         acquire_detail(const utility::FrameRate &rate, caf::typed_response_promise<bool> rp);
-        void send_source_details_to_ui(caf::actor ui_actor);
-        void send_stream_details_to_ui(caf::actor ui_actor);
         void deliver_frames_media_keys(
             caf::typed_response_promise<media::MediaKeyVector> rp,
             const MediaType media_type,
@@ -99,6 +109,12 @@ namespace media {
             const MediaType media_type,
             const LogicalFrameRanges &ranges,
             caf::typed_response_promise<media::AVFrameIDs> rp);
+
+        void update_stream_media_reference(
+            StreamDetail &stream_detail,
+            const utility::Uuid &stream_uuid,
+            const utility::FrameRate &rate,
+            const utility::Timecode &timecode);
 
         inline static const std::string NAME = "MediaSourceActor";
         void init();

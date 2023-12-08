@@ -141,6 +141,8 @@ namespace module {
 
         [[nodiscard]] nlohmann::json as_json() const;
 
+        void update_from_json(const nlohmann::json &data, const bool notify);
+
         void delete_role_data(const int role) {
             if (has_role_data(role)) {
                 role_data_.erase(role_data_.find(role));
@@ -151,10 +153,8 @@ namespace module {
             set_role_data(role, std::string(data));
         }
 
-        void set_role_data(
-            const int role, const nlohmann::json &data, const bool owner_notify = true) {
-            // N.B. this is RUBBISH! Using nlohmann::json as intermediate type for setting
-            // data. need proper template version of this function for the type of 'data'
+        template <typename T>
+        void set_role_data(const int role, const T &data, const bool owner_notify = true) {
             if (role_data_[role].set(data)) {
                 Attribute::notify_change(role, data, owner_notify);
             }
@@ -170,7 +170,7 @@ namespace module {
 
         bool operator==(const utility::Uuid &o_uuid) const { return uuid() == o_uuid; }
 
-        [[nodiscard]] bool belongs_to_group(const std::string group_name) const;
+        [[nodiscard]] bool belongs_to_groups(const std::vector<std::string> &group_name) const;
 
         [[nodiscard]] utility::Uuid uuid() const {
             return get_role_data<utility::Uuid>(UuidRole);

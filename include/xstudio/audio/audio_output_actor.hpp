@@ -37,22 +37,19 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
 };
 
 
-class AudioOutputControlActor : public caf::event_based_actor {
+class AudioOutputControlActor : public caf::event_based_actor, AudioOutputControl {
 
   public:
     AudioOutputControlActor(
         caf::actor_config &cfg, const std::string name = "AudioOutputControlActor");
     ~AudioOutputControlActor() override = default;
 
-    caf::behavior make_behavior() override {
-        return base_.message_handler().or_else(behavior_);
-    }
+    caf::behavior make_behavior() override { return message_handler().or_else(behavior_); }
 
     void on_exit() override;
     const char *name() const override { return NAME.c_str(); }
 
   private:
-    AudioOutputControl base_;
     caf::actor audio_output_device_;
 
     inline static const std::string NAME = "AudioOutputControlActor";

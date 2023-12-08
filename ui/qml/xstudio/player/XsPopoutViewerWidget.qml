@@ -23,7 +23,7 @@ import QuickPromise 1.0
 //------------------------------------------------------------------------------
 import xstudio.qml.viewport 1.0
 import xstudio.qml.session 1.0
-import xstudio.qml.playlist 1.0
+//import xstudio.qml.playlist 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
 import xstudio.qml.helpers 1.0
@@ -53,7 +53,7 @@ Rectangle {
     XsShortcuts {
         anchors.fill: parent
         id: shortcuts
-        context: "popout_viewport"
+        context: viewport.name
         //enabled: viewport.enableShortcuts
     }
 

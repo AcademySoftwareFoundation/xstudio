@@ -34,6 +34,7 @@ namespace ui {
 
             Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
             Q_PROPERTY(bool frameOutOfRange READ frameOutOfRange NOTIFY frameOutOfRangeChanged)
+            Q_PROPERTY(bool noAlphaChannel READ noAlphaChannel NOTIFY noAlphaChannelChanged)
             Q_PROPERTY(QString fpsExpression READ fpsExpression NOTIFY fpsExpressionChanged)
             Q_PROPERTY(float scale READ scale WRITE setScale NOTIFY scaleChanged)
             Q_PROPERTY(
@@ -49,6 +50,7 @@ namespace ui {
                            imageBoundaryInViewportChanged)
             Q_PROPERTY(QSize imageResolution READ imageResolution NOTIFY imageResolutionChanged)
             Q_PROPERTY(bool enableShortcuts READ enableShortcuts NOTIFY enableShortcutsChanged)
+            Q_PROPERTY(QString name READ name NOTIFY nameChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);
@@ -59,12 +61,14 @@ namespace ui {
             QVector2D translate();
             QObject *playhead();
             [[nodiscard]] QStringList colourUnderCursor() const { return colour_under_cursor; }
+            [[nodiscard]] QString name() const;
             [[nodiscard]] int mouseButtons() const { return mouse_buttons; }
             [[nodiscard]] QPoint mouse() const { return mouse_position; }
             [[nodiscard]] int onScreenImageLogicalFrame() const {
                 return on_screen_logical_frame_;
             }
             [[nodiscard]] bool frameOutOfRange() const { return frame_out_of_range_; }
+            [[nodiscard]] bool noAlphaChannel() const { return no_alpha_channel_; }
             [[nodiscard]] bool enableShortcuts() const { return enable_shortcuts_; }
             void setPlayhead(caf::actor playhead);
 
@@ -97,6 +101,7 @@ namespace ui {
             void setOnScreenImageLogicalFrame(const int frame_num);
             QRectF imageBoundaryInViewport();
             void setFrameOutOfRange(bool frame_out_of_range);
+            void setNoAlphaChannel(bool no_alpha_channel);
             QString renderImageToFile(
                 const QUrl filePath,
                 const int format,
@@ -127,8 +132,10 @@ namespace ui {
             void imageBoundaryInViewportChanged();
             void imageResolutionChanged();
             void frameOutOfRangeChanged();
+            void noAlphaChannelChanged();
             void enableShortcutsChanged();
             void doSnapshot(QString, QString, int, int, bool);
+            void nameChanged();
 
           private:
             void releaseResources() override;
@@ -150,8 +157,9 @@ namespace ui {
             QPoint mouse_position;
             int on_screen_logical_frame_ = {0};
             bool frame_out_of_range_     = {false};
-            bool is_primary_viewport_    = {true};
+            bool no_alpha_channel_       = {false};
             bool enable_shortcuts_       = {true};
+            int viewport_index_          = {0};
         };
 
     } // namespace qml

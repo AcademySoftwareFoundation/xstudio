@@ -1,5 +1,7 @@
 SET(LINK_DEPS
 	xstudio::utility
+	xstudio::plugin_manager
+	xstudio::module
 	caf::core
 )
 

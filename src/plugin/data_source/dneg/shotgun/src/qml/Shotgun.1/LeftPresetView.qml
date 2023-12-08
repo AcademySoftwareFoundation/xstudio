@@ -313,8 +313,20 @@ Rectangle{ id: presetsDiv
                         rotation: (isExpanded)? 0: -90
                         Behavior on rotation {NumberAnimation{id: rotationAnim; duration: 150 }}
 
-                        onClicked: {
-                            expandedRole = !expandedRole
+                        TapHandler {
+                            acceptedModifiers: Qt.ShiftModifier
+                            onTapped: {
+                                expandedRole = !expandedRole
+                            }
+                        }
+                        TapHandler {
+                            acceptedModifiers: Qt.NoModifier
+                            onTapped: {
+                                if(!expandedRole) {
+                                    presetsModel.model.clearExpanded()
+                                }
+                                expandedRole = !expandedRole
+                            }
                         }
                     }
                     Rectangle{ anchors{right: busy.right; verticalCenter: busy.verticalCenter; }

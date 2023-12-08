@@ -139,7 +139,8 @@ TEST(PlaylistActorTest, Test) {
 // 	);
 
 // 	// check our media refs work..
-// 	f.self->request(tmp, std::chrono::seconds(10), get_media_pointer_atom_v, 0).receive(
+// 	f.self->request(tmp, std::chrono::seconds(10), get_media_pointer_atom_v, media::MT_IMAGE,
+// 0).receive(
 // 		[&](const media::AVFrameID &result) {
 // 			EXPECT_EQ(result.frame_, 1);
 // 			EXPECT_EQ(result.uri_, posix_path_to_uri(TEST_RESOURCE

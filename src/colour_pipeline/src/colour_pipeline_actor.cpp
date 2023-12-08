@@ -43,14 +43,30 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {
             // nop
         },
-        [=](get_colour_pipeline_atom, const std::string &pipe_name) -> result<caf::actor> {
-            auto rp = make_response_promise<caf::actor>();
-            make_or_get_colour_pipeline(pipe_name, prefs_jsn_, rp);
+        [=](colour_pipeline_atom, const std::string &viewport_name) -> result<caf::actor> {
+            auto rp                    = make_response_promise<caf::actor>();
+            auto init_data             = prefs_jsn_;
+            init_data["viewport_name"] = viewport_name;
+            make_colour_pipeline(default_plugin_name_, init_data, rp);
             return rp;
         },
-        [=](get_colour_pipeline_atom) -> result<caf::actor> {
+        [=](get_thumbnail_colour_pipeline_atom) -> result<caf::actor> {
             auto rp = make_response_promise<caf::actor>();
-            make_or_get_colour_pipeline(default_plugin_name_, prefs_jsn_, rp);
+            if (viewport0_colour_pipeline_) {
+                rp.deliver(viewport0_colour_pipeline_);
+            } else {
+                request(
+                    caf::actor_cast<caf::actor>(this),
+                    infinite,
+                    colour_pipeline_atom_v,
+                    "viewport0")
+                    .then(
+                        [=](caf::actor colour_pipe) mutable {
+                            viewport0_colour_pipeline_ = colour_pipe;
+                            rp.deliver(viewport0_colour_pipeline_);
+                        },
+                        [=](caf::error &err) mutable { rp.deliver(err); });
+            }
             return rp;
         },
         [=](json_store::update_atom,
@@ -60,36 +76,28 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
             delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
         },
         [=](json_store::update_atom, const JsonStore &js) { prefs_jsn_ = js; },
-        [=](module::connect_to_ui_atom, caf::actor cpipe) {
-            // as it stands we only ever want one colour pipeline plugin exposing
-            // its attributes (via dynamic widgets) in the UI at once. As such,
-            // this global colour pipe actor will manage which colour pipe is
-            // 'connected' to the UI, because playheads may or may not share a
-            // colour pipeline actor and it would be complicated for playheads
-            // to switch on/off the active status of the colour pipeline actors
-            // without sync issues getting us into a mess
-            if (cpipe != active_in_ui_colour_pipeline_) {
-                if (active_in_ui_colour_pipeline_) {
-                    anon_send(active_in_ui_colour_pipeline_, module::disconnect_from_ui_atom_v);
-                }
-                active_in_ui_colour_pipeline_ = cpipe;
-                if (active_in_ui_colour_pipeline_) {
-                    anon_send(active_in_ui_colour_pipeline_, module::connect_to_ui_atom_v);
-                }
-            }
-        },
         [=](media_reader::process_thumbnail_atom,
             const media::AVFrameID &mptr,
             const thumbnail::ThumbnailBufferPtr &buf) -> result<thumbnail::ThumbnailBufferPtr> {
             auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-
-            request(caf::actor_cast<caf::actor>(this), infinite, get_colour_pipeline_atom_v)
-                .then(
-                    [=](caf::actor colour_pipe) mutable {
-                        rp.delegate(
-                            colour_pipe, media_reader::process_thumbnail_atom_v, mptr, buf);
-                    },
-                    [=](caf::error &err) mutable { rp.deliver(err); });
+            if (viewport0_colour_pipeline_) {
+                rp.delegate(
+                    viewport0_colour_pipeline_,
+                    media_reader::process_thumbnail_atom_v,
+                    mptr,
+                    buf);
+            } else {
+                request(
+                    caf::actor_cast<caf::actor>(this),
+                    infinite,
+                    get_thumbnail_colour_pipeline_atom_v)
+                    .then(
+                        [=](caf::actor colour_pipe) mutable {
+                            rp.delegate(
+                                colour_pipe, media_reader::process_thumbnail_atom_v, mptr, buf);
+                        },
+                        [=](caf::error &err) mutable { rp.deliver(err); });
+            }
             return rp;
         }};
 }
@@ -123,15 +131,10 @@ void GlobalColourPipelineActor::load_colour_pipe_details() {
     }
 }
 
-void GlobalColourPipelineActor::make_or_get_colour_pipeline(
+void GlobalColourPipelineActor::make_colour_pipeline(
     const std::string &pipe_name,
     const utility::JsonStore &jsn,
     caf::typed_response_promise<caf::actor> &rp) {
-    // Look in loaded actors first
-    if (colour_pipeline_actors_.find(pipe_name) != colour_pipeline_actors_.end()) {
-        rp.deliver(colour_pipeline_actors_[pipe_name]);
-        return;
-    }
 
     // Otherwise try load the requested plugin and fallback to the builtin
     // OCIO plugin if loading fails
@@ -152,9 +155,17 @@ void GlobalColourPipelineActor::make_or_get_colour_pipeline(
         request(pm, infinite, plugin_manager::spawn_plugin_atom_v, uuid, jsn)
             .await(
                 [=](caf::actor colour_pipe) mutable {
-                    link_to(colour_pipe);
-                    colour_pipeline_actors_[pipe_name] = colour_pipe;
-                    rp.deliver(colour_pipe);
+                    // link_to(colour_pipe);
+                    if (jsn["viewport_name"] == "viewport0") {
+                        if (viewport0_colour_pipeline_) {
+                            rp.deliver(viewport0_colour_pipeline_);
+                        } else {
+                            viewport0_colour_pipeline_ = colour_pipe;
+                            rp.deliver(colour_pipe);
+                        }
+                    } else {
+                        rp.deliver(colour_pipe);
+                    }
                 },
                 [=](const error &err) mutable {
                     if (pipe_name == default_plugin_name_ and
@@ -167,7 +178,7 @@ void GlobalColourPipelineActor::make_or_get_colour_pipeline(
                             BUILTIN_PLUGIN_NAME);
 
                         default_plugin_name_ = BUILTIN_PLUGIN_NAME;
-                        make_or_get_colour_pipeline(default_plugin_name_, jsn, rp);
+                        make_colour_pipeline(default_plugin_name_, jsn, rp);
                     } else {
                         rp.deliver(err);
                     }

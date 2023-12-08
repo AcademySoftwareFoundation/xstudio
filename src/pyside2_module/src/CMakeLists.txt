@@ -110,20 +110,15 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::opengl::viewport
 		xstudio::ui::qt::viewport_widget
 		xstudio::ui::qml::module
-		xstudio::ui::qml::contact_sheet
 		xstudio::ui::qml::global_store
 		xstudio::ui::qml::helper
-		xstudio::ui::qml::media
 		xstudio::ui::qml::playhead
 		xstudio::ui::qml::bookmark
-		xstudio::ui::qml::playlist
 		xstudio::ui::qml::session
 		xstudio::ui::qml::studio
-		xstudio::ui::qml::subset
 		xstudio::ui::qml::viewport
 		xstudio::ui::qml::quickfuture
 		xstudio::ui::qml::tag
-		xstudio::ui::qml::timeline
 		xstudio::utility
 		xstudio::module
 	PRIVATE
