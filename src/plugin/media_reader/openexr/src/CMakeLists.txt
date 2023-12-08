@@ -1,8 +1,10 @@
 find_package(OpenEXR)
 find_package(Imath)
+find_package(GLEW)
 
 SET(LINK_DEPS
 	xstudio::media_reader
+	GLEW::GLEW
 	OpenEXR::OpenEXR
 	Imath::Imath
 )

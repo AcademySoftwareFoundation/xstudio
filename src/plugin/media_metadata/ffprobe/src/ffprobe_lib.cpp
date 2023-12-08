@@ -102,7 +102,7 @@ AVDictionary **init_find_stream_opts(AVFormatContext *avfc, AVDictionary *codec_
     AVDictionary **result = nullptr;
 
     if (avfc->nb_streams) {
-        result = (AVDictionary **)av_mallocz_array(avfc->nb_streams, sizeof(*result));
+        result = (AVDictionary **)av_malloc_array(avfc->nb_streams, sizeof(*result));
 
         if (result) {
             for (unsigned int i = 0; i < avfc->nb_streams; i++)
