@@ -13,27 +13,31 @@ Item {
     // 'hotkey' strings.
                 
     id: widget
-    width: menuRealWidth<menuStdWidth? menuStdWidth : menuRealWidth
+    width: parentWidth //(menuWidth > menuStdWidth)? menuWidth : menuStdWidth
     height: XsStyleSheet.menuHeight
-    property real menuRealWidth: checkBox.width + labelMetrics.width + (checkBoxPadding*2) + (labelPadding)
-
+    
     property var menu_model
     property var menu_model_index
+    property var parent_menu
 
     property string label: name ? name : ""
     property bool isChecked: isRadioButton? radioSelectedChoice==label : is_checked
 
-    signal checked()
+    signal clicked()
 
     property bool isHovered: menuMouseArea.containsMouse
     property bool isActive: menuMouseArea.pressed
     property bool isFocused: menuMouseArea.activeFocus
 
-    property bool isRadioButton: false
-    property var radioSelectedChoice: ""
+    property real parentWidth: 0
+    property real menuWidth: parentWidth<menuRealWidth? menuRealWidth : parentWidth
+    property real menuRealWidth: checkBox.width + labelMetrics.width + (checkBoxPadding*2) + (labelPadding)
     property real menuStdWidth: XsStyleSheet.menuStdWidth
+
+    property bool isRadioButton: false
+    property string radioSelectedChoice: ""
     property real checkBoxSize: XsStyleSheet.menuIndicatorSize
-    property real checkBoxPadding: XsStyleSheet.menuPadding*2
+    property real checkBoxPadding: XsStyleSheet.menuLabelPaddingLR/4 //XsStyleSheet.menuPadding*2
     property real labelPadding: XsStyleSheet.menuPadding
     property color bgColorActive: palette.highlight
     property color bgColorNormal: "transparent"
@@ -51,9 +55,7 @@ Item {
         propagateComposedEvents: true
 
         onClicked: {
-            // isChecked = !isChecked
-            if (!isRadioButton) is_checked = !is_checked
-            console.log("is_checked", is_checked)
+            widget.clicked()
         }
     }
 
@@ -75,11 +77,27 @@ Item {
         anchors.centerIn: parent 
     }
 
+    // Image {
+    //     id: checkBox
+    //     source: isRadioButton? 
+    //         isChecked?  "qrc:/icons/radio_button_checked.svg" : "qrc:/icons/radio_button_unchecked.svg" :
+    //         isChecked?  "qrc:/icons/check_box_checked.svg" : "qrc:/icons/check_box_unchecked.svg"
+    //     width: checkBoxSize
+    //     height: checkBoxSize
+    //     anchors.left: parent.left
+    //     anchors.leftMargin: checkBoxPadding
+    //     anchors.verticalCenter: parent.verticalCenter
+    //     layer {
+    //         enabled: true
+    //         effect: ColorOverlay { color: isChecked? widget.highlighted?labelColor:bgColorPressed : hotKeyColor }
+    //     }
+    // }
+    Rectangle{anchors.fill: checkBox; color: bgColorPressed; visible: isChecked; scale: 0.8; radius: isRadioButton? width/2:0}         
     Image {
         id: checkBox
         source: isRadioButton? 
-            isChecked?  "qrc:/assets/icons/new/radio_button_checked.svg" : "qrc:/assets/icons/new/radio_button_unchecked.svg" :
-            isChecked?  "qrc:/assets/icons/new/check_box_checked.svg" : "qrc:/assets/icons/new/check_box_unchecked.svg"
+            isChecked?  "qrc:/icons/radio_button_checked.svg" : "qrc:/icons/radio_button_unchecked.svg" :
+            isChecked?  "qrc:/icons/check_box_checked.svg" : "qrc:/icons/check_box_unchecked.svg"
         width: checkBoxSize
         height: checkBoxSize
         anchors.left: parent.left
@@ -87,9 +105,31 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         layer {
             enabled: true
-            effect: ColorOverlay { color: isChecked? widget.highlighted?labelColor:bgColorPressed : hotKeyColor }
+            // effect: ColorOverlay { color: isChecked? labelColor : hotKeyColor }
+            effect: ColorOverlay { color: hotKeyColor }
         }
     }
+
+
+
+
+
+
+    // Image {
+    //     id: extraBoxFrame
+    //     source: isRadioButton? "qrc:/icons/radio_button_unchecked.svg" :
+    //             "qrc:/icons/check_box_unchecked.svg"
+    //     width: checkBoxSize
+    //     height: checkBoxSize
+    //     anchors.left: parent.left
+    //     anchors.leftMargin: checkBoxPadding
+    //     anchors.verticalCenter: parent.verticalCenter
+    //     visible: isChecked
+    //     layer {
+    //         enabled: true
+    //         effect: ColorOverlay { color: hotKeyColor }
+    //     }
+    // }
 
 
     Text {
@@ -104,6 +144,9 @@ Item {
         horizontalAlignment: Text.AlignLeft
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
+
+        width: parent.width - (checkBoxSize + checkBoxPadding*2)
+        // clip: true
     }
     Text {
         id: hotKeyDiv
@@ -112,7 +155,7 @@ Item {
         font: labelDiv.font
         color: hotKeyColor 
         anchors.right: parent.right
-        anchors.rightMargin: labelPadding
+        anchors.rightMargin: checkBoxPadding //labelPadding
         horizontalAlignment: Text.AlignRight
         verticalAlignment: Text.AlignVCenter
     }

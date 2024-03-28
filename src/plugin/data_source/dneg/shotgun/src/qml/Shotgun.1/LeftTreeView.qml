@@ -32,7 +32,11 @@ Rectangle{ id: section
     }
 
     function selectItem(index) {
-        itemExpandedModel.select(index.parent, ItemSelectionModel.Select)
+        let i = index.parent
+        while(i.valid) {
+            itemExpandedModel.select(i, ItemSelectionModel.Select)
+            i = i.parent
+        }
         callback_delay_timer.setTimeout(function(){ itemSelectionModel.select(index, ItemSelectionModel.ClearAndSelect) }, 100);
     }
 

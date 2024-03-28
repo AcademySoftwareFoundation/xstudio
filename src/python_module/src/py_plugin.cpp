@@ -20,13 +20,17 @@ using namespace xstudio;
 namespace py = pybind11;
 
 void py_plugin(py::module_ &m) {
-    py::enum_<plugin_manager::PluginType>(m, "PluginType")
-        .value("PT_CUSTOM", plugin_manager::PluginType::PT_CUSTOM)
-        .value("PT_MEDIA_READER", plugin_manager::PluginType::PT_MEDIA_READER)
-        .value("PT_MEDIA_HOOK", plugin_manager::PluginType::PT_MEDIA_HOOK)
-        .value("PT_MEDIA_METADATA", plugin_manager::PluginType::PT_MEDIA_METADATA)
-        .value("PT_COLOUR_MANAGEMENT", plugin_manager::PluginType::PT_COLOUR_MANAGEMENT)
-        .value("PT_DATA_SOURCE", plugin_manager::PluginType::PT_DATA_SOURCE)
-        .value("PT_UTILITY", plugin_manager::PluginType::PT_UTILITY)
+    py::enum_<plugin_manager::PluginFlags>(m, "PluginFlags")
+        .value("PF_CUSTOM", plugin_manager::PluginFlags::PF_CUSTOM)
+        .value("PF_MEDIA_READER", plugin_manager::PluginFlags::PF_MEDIA_READER)
+        .value("PF_MEDIA_HOOK", plugin_manager::PluginFlags::PF_MEDIA_HOOK)
+        .value("PF_MEDIA_METADATA", plugin_manager::PluginFlags::PF_MEDIA_METADATA)
+        .value("PF_COLOUR_MANAGEMENT", plugin_manager::PluginFlags::PF_COLOUR_MANAGEMENT)
+        .value("PF_COLOUR_OPERATION", plugin_manager::PluginFlags::PF_COLOUR_OPERATION)
+        .value("PF_DATA_SOURCE", plugin_manager::PluginFlags::PF_DATA_SOURCE)
+        .value("PF_VIEWPORT_OVERLAY", plugin_manager::PluginFlags::PF_VIEWPORT_OVERLAY)
+        .value("PF_HEAD_UP_DISPLAY", plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY)
+        .value("PF_UTILITY", plugin_manager::PluginFlags::PF_UTILITY)
+        .value("PF_CONFORM", plugin_manager::PluginFlags::PF_CONFORM)
         .export_values();
 }

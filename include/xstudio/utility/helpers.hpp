@@ -46,6 +46,7 @@ namespace utility {
     class ActorSystemSingleton {
 
       public:
+        static caf::actor_system &actor_system_ref();
         static caf::actor_system &actor_system_ref(caf::actor_system &sys);
 
       private:
@@ -62,6 +63,8 @@ namespace utility {
                                           ".TIF",  ".TIFF", ".WAV", ".WEBM"};
 
     const std::array supported_timeline_extensions{".OTIO", ".XML", ".EDL"};
+
+    const std::array session_extensions{".XST", ".XSZ"};
 
 
     std::string actor_to_string(caf::actor_system &sys, const caf::actor &actor);
@@ -177,27 +180,10 @@ namespace utility {
         spdlog::debug("{} created {}", name, to_string(hdl));
     }
 
-    inline void print_on_exit(const caf::actor &hdl, const Container &cont) {
-        hdl->attach_functor([=](const caf::error &reason) {
-            spdlog::debug(
-                "{} {} {} exited: {}",
-                cont.type(),
-                cont.name(),
-                to_string(cont.uuid()),
-                to_string(reason));
-        });
-    }
+    void print_on_exit(const caf::actor &hdl, const Container &cont);
 
-    inline void print_on_exit(
-        const caf::actor &hdl, const std::string &name, const Uuid &uuid = utility::Uuid()) {
-        hdl->attach_functor([=](const caf::error &reason) {
-            spdlog::debug(
-                "{} {} exited: {}",
-                name,
-                uuid.is_null() ? "" : to_string(uuid),
-                to_string(reason));
-        });
-    }
+    void print_on_exit(
+        const caf::actor &hdl, const std::string &name, const Uuid &uuid = utility::Uuid());
 
     std::string exec(const std::vector<std::string> &cmd, int &exit_code);
 
@@ -331,6 +317,17 @@ namespace utility {
                 return true;
         return false;
     }
+
+    inline bool is_session(const std::string &path) {
+        fs::path p(path);
+        std::string ext = to_upper(p.extension());
+        for (const auto &i : session_extensions)
+            if (i == ext)
+                return true;
+        return false;
+    }
+
+    inline bool is_session(const caf::uri &path) { return is_session(uri_to_posix_path(path)); }
 
     inline bool is_timeline_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));

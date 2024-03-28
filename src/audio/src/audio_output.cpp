@@ -122,37 +122,6 @@ template <typename T>
 media_reader::AudioBufPtr
 super_simple_respeed_audio_buffer(const media_reader::AudioBufPtr in, const float velocity);
 
-AudioOutputControl::AudioOutputControl(const utility::JsonStore &jsn)
-    : Module("AudioOutputControl"), prefs_(jsn) {
-
-
-    audio_delay_millisecs_ =
-        add_integer_attribute("Audio Delay Millisecs", "Audio Delay Millisecs", 0, -1000, 1000);
-    audio_delay_millisecs_->set_role_data(
-        module::Attribute::PreferencePath, "/core/audio/audio_latency_millisecs");
-
-    audio_repitch_ = add_boolean_attribute("Audio Repitch", "Audio Repitch", false);
-    audio_repitch_->set_role_data(
-        module::Attribute::PreferencePath, "/core/audio/audio_repitch");
-
-    audio_scrubbing_ = add_boolean_attribute("Audio Scrubbing", "Audio Scrubbing", false);
-    audio_repitch_->set_role_data(
-        module::Attribute::PreferencePath, "/core/audio/audio_scrubbing");
-
-
-    volume_ = add_float_attribute("volume", "volume", 100.0f, 0.0f, 100.0f, 0.05f);
-    volume_->set_role_data(module::Attribute::PreferencePath, "/core/audio/volume");
-
-    // by setting static UUIDs on these module we only create them once in the UI
-    volume_->set_role_data(module::Attribute::UuidRole, "d1545257-5540-4f2e-9c90-9012232fedb8");
-    volume_->set_role_data(module::Attribute::Groups, nlohmann::json{"audio_output"});
-
-    muted_ = add_boolean_attribute("muted", "muted", false);
-    muted_->set_role_data(module::Attribute::UuidRole, "59b08f8c-8d86-433e-82f3-ee9c2bc7a27e");
-    muted_->set_role_data(module::Attribute::Groups, nlohmann::json{"audio_output"});
-    muted_->set_role_data(module::Attribute::PreferencePath, "/core/audio/muted");
-}
-
 void AudioOutputControl::prepare_samples_for_soundcard(
     std::vector<int16_t> &v,
     const long num_samps_to_push,
@@ -182,8 +151,7 @@ void AudioOutputControl::prepare_samples_for_soundcard(
                 // new buffer ready to be pushed into the soundcard buffer
                 auto next_sample_play_time =
                     utility::clock::now() + std::chrono::microseconds(microseconds_delay) +
-                    std::chrono::microseconds((num_samps_pushed * 1000000) / sample_rate) -
-                    std::chrono::milliseconds(audio_delay_millisecs_->value());
+                    std::chrono::microseconds((num_samps_pushed * 1000000) / sample_rate);
 
                 current_buf_ = pick_audio_buffer(next_sample_play_time, true);
 
@@ -491,7 +459,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
         T *tt = ((T *)current_buf->buffer()) + current_buf_position * num_channels;
 
         if (fade_in_out & AudioOutputControl::DoFadeHead) {
-            while (current_buf_position < 32 && num_samples_to_copy &&
+            while (current_buf_position < FADE_FUNC_SAMPS && num_samples_to_copy &&
                    current_buf_position < current_buf->num_samples()) {
 
                 for (int chn = 0; chn < num_channels; ++chn) {
@@ -522,7 +490,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
             while (num_samples_to_copy && current_buf_position < current_buf->num_samples()) {
 
                 const int i   = current_buf->num_samples() - current_buf_position - 1;
-                const float f = i < 32 ? fade_coeffs[i] : 1.0f;
+                const float f = i < FADE_FUNC_SAMPS ? fade_coeffs[i] : 1.0f;
 
                 for (int chn = 0; chn < num_channels; ++chn) {
                     (*stream++) = T(round((*tt++) * f));

@@ -6,7 +6,7 @@ import Qt.labs.qmlmodels 1.0
 import xStudioReskin 1.0
 import xstudio.qml.models 1.0
 
-Popup {
+XsPopup {
 
     // Note that the model gives use a string 'current_choice', plus 
     // a list of strings 'choices'
@@ -14,51 +14,66 @@ Popup {
     id: the_popup
     height: view.height+ (topPadding+bottomPadding)
     width: view.width
-    topPadding: XsStyleSheet.menuPadding
-    bottomPadding: XsStyleSheet.menuPadding
-    leftPadding: 0
-    rightPadding: 0
 
     property var menu_model
     property var menu_model_index
 
-    property color bgColorNormal: "#1AFFFFFF"
-    property color forcedBgColorNormal: "#EE444444" //bgColorNormal
-
-    background: Rectangle{
-        implicitWidth: 100
-        implicitHeight: 200
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: forcedBgColorNormal==bgColorNormal?"#33FFFFFF":"#EE222222"}
-            GradientStop { position: 1.0; color: forcedBgColorNormal }
-        }
-    }
+    // N.B. the XsMenuModel exposes role data called 'choices' which lists the
+    // items in the multi choice. The active option is exposed via 'current_choice'
+    // role data
+    // Multi-choice menus can also be made via the XsModuleData model. This
+    // exposes a role data 'combo_box_options' fir the items in the multi-choice.
+    // The active option is exposed via 'value' role data
+    property var _choices: typeof choices !== "undefined" ? choices : typeof combo_box_options !== "undefined" ? combo_box_options : []
+    property var _currentChoice: typeof current_choice !== "undefined" ? current_choice : typeof value !== "undefined" ? value : ""
 
     ListView {
 
         id: view
         orientation: ListView.Vertical
         spacing: 0
-        width: contentWidth
+        width: 150 //contentWidth
         height: contentHeight
         contentHeight: contentItem.childrenRect.height
         contentWidth: contentItem.childrenRect.width
         snapMode: ListView.SnapToItem
+        // currentIndex: -1
 
         model: DelegateModel {           
 
-            model: choices
+            model: _choices
 
             delegate: XsMenuItemToggle{
 
-                radioSelectedChoice: current_choice
-                isRadioButton: true
-                label: choices[index]
+                // isRadioButton: true
+                // radioSelectedChoice: current_choice
+                // label: choices[index]
                 
-                onChecked: {
-                    current_choice = label
+                // onChecked: {
+                //     label= choices[index]
+                //     current_choice = label
+                //     radioSelectedChoice = current_choice
+                // }
+
+                isRadioButton: true
+                radioSelectedChoice: _currentChoice
+                onClicked:{
+                    if (typeof current_choice!== "undefined") {
+                        current_choice = name
+                    } else if (value) {
+                        value = name
+                    }
                 }
 
+                parent_menu: the_popup
+                parentWidth: view.width
+
+                property var name: _choices[index]
+
+                // Component.onCompleted: {
+                //     label =  choices[index]
+                //     // is_checked = current_choice == label
+                // }
             }
 
             // delegate:

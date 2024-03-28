@@ -58,6 +58,25 @@ caf::actor StackActor::deserialise(const utility::JsonStore &value, const bool r
     return actor;
 }
 
+StackActor::StackActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
+    : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn.at("base"))) {
+
+    base_.item().set_actor_addr(this);
+
+    for (const auto &[key, value] : jsn.at("actors").items()) {
+        try {
+            deserialise(value, true);
+        } catch (const std::exception &e) {
+            spdlog::error("{}", e.what());
+        }
+    }
+    base_.item().set_system(&system());
+    base_.item().bind_item_event_func([this](const utility::JsonStore &event, Item &item) {
+        item_event_callback(event, item);
+    });
+
+    init();
+}
 
 StackActor::StackActor(caf::actor_config &cfg, const utility::JsonStore &jsn, Item &pitem)
     : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn.at("base"))) {
@@ -226,6 +245,13 @@ void StackActor::init() {
             return rp;
         },
 
+        [=](item_flag_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_flag(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
         [=](item_name_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
@@ -263,6 +289,17 @@ void StackActor::init() {
             return jsn;
         },
 
+        [=](active_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().active_range();
+        },
+
+        [=](available_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().available_range();
+        },
+
+        [=](trimmed_range_atom) -> utility::FrameRange { return base_.item().trimmed_range(); },
+
+        // should these be reflected upward ?
         [=](history::undo_atom, const JsonStore &hist) -> result<bool> {
             base_.item().undo(hist);
             if (actors_.empty())
@@ -296,15 +333,6 @@ void StackActor::init() {
         },
 
         // handle child change events.
-        // [=](event_atom, item_atom, const Item &item) {
-        //     // it's possibly one of ours.. so try and substitue the record
-        //     if(base_.item().replace_child(item)) {
-        //         base_.item().refresh();
-        //         send(event_group_, event_atom_v, item_atom_v, base_.item());
-        //     }
-        // },
-
-        // handle child change events.
         [=](event_atom, item_atom, const JsonStore &update, const bool hidden) {
             if (base_.item().update(update)) {
                 auto more = base_.item().refresh();
@@ -318,154 +346,39 @@ void StackActor::init() {
             send(event_group_, event_atom_v, item_atom_v, update, hidden);
         },
 
-
-        [=](insert_item_atom, const int index, const UuidActor &ua) -> result<JsonStore> {
-            auto rp = make_response_promise<JsonStore>();
-            // get item..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        rp.delegate(
-                            caf::actor_cast<caf::actor>(this),
-                            insert_item_atom_v,
-                            index,
-                            ua,
-                            item);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
-
-            return rp;
-        },
-
-        // we only allow access to direct children.. ?
-        [=](insert_item_atom, const int index, const UuidActor &ua, const Item &item)
-            -> result<JsonStore> {
-            if (not base_.item().valid_child(item)) {
-                return make_error(xstudio_error::error, "Invalid child type");
-            }
-
-            // take ownership
-            add_item(ua);
-
-            auto rp = make_response_promise<JsonStore>();
-            // re-aquire item. as we may have gone out of sync..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        // insert on index..
-                        // cheat..
-                        auto it  = base_.item().begin();
-                        auto ind = 0;
-                        for (int i = 0; it != base_.item().end(); i++, it++) {
-                            if (i == index)
-                                break;
-                        }
-
-                        auto changes = base_.item().insert(it, item);
-                        auto more    = base_.item().refresh();
-                        if (not more.is_null())
-                            changes.insert(changes.begin(), more.begin(), more.end());
-
-                        send(event_group_, event_atom_v, item_atom_v, changes, false);
-                        rp.deliver(changes);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
-
-            return rp;
-        },
-
-
         [=](insert_item_atom,
-            const utility::Uuid &before_uuid,
-            const UuidActor &ua) -> result<JsonStore> {
+            const int index,
+            const UuidActorVector &uav) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-            // get item..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        rp.delegate(
-                            caf::actor_cast<caf::actor>(this),
-                            insert_item_atom_v,
-                            before_uuid,
-                            ua,
-                            item);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
-
+            insert_items(index, uav, rp);
             return rp;
         },
 
         [=](insert_item_atom,
             const utility::Uuid &before_uuid,
-            const UuidActor &ua,
-            const Item &item) -> result<JsonStore> {
-            if (not base_.item().valid_child(item)) {
-                return make_error(xstudio_error::error, "Invalid child type");
-            }
-            // take ownership
-            add_item(ua);
-
+            const UuidActorVector &uav) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-            // re-aquire item. as we may have gone out of sync..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        auto changes = utility::JsonStore();
 
-                        if (before_uuid.is_null()) {
-                            changes = base_.item().insert(base_.item().end(), item);
-                        } else {
-                            auto it = find_uuid(base_.item().children(), before_uuid);
-                            if (it == base_.item().end()) {
-                                return rp.deliver(
-                                    make_error(xstudio_error::error, "Invalid uuid"));
-                            }
-                            changes = base_.item().insert(it, item);
-                        }
+            auto index = base_.item().size();
+            // find index. for uuid
+            if (not before_uuid.is_null()) {
+                auto it = find_uuid(base_.item().children(), before_uuid);
+                if (it == base_.item().end())
+                    rp.deliver(make_error(xstudio_error::error, "Invalid uuid"));
+                else
+                    index = std::distance(base_.item().begin(), it);
+            }
 
-                        auto more = base_.item().refresh();
-                        if (not more.is_null())
-                            changes.insert(changes.begin(), more.begin(), more.end());
-
-                        send(event_group_, event_atom_v, item_atom_v, changes, false);
-                        rp.deliver(changes);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
+            if (rp.pending())
+                insert_items(index, uav, rp);
 
             return rp;
         },
 
         [=](move_item_atom, const int src_index, const int count, const int dst_index)
             -> result<JsonStore> {
-            auto sit = base_.item().children().begin();
-            std::advance(sit, src_index);
-
-            if (sit == base_.item().children().end())
-                return make_error(xstudio_error::error, "Invalid src index");
-
-            auto src_uuid = sit->uuid();
-            // dst index is the index it should be after the move.
-            // we need to account for the items we're moving..
-            auto dit = base_.item().children().begin();
-
-            if (dst_index == src_index)
-                return make_error(xstudio_error::error, "Invalid Move");
-
-            auto adj_dst = dst_index;
-
-            if (dst_index > src_index)
-                adj_dst += count;
-
-            // spdlog::warn("{} {} {} -> {}", src_index, count, dst_index, adj_dst);
-
-            std::advance(dit, adj_dst);
-            auto dst_uuid = utility::Uuid();
-            if (dit != base_.item().children().end())
-                dst_uuid = dit->uuid();
-
             auto rp = make_response_promise<JsonStore>();
-            rp.delegate(
-                caf::actor_cast<caf::actor>(this), move_item_atom_v, src_uuid, count, dst_uuid);
+            move_items(src_index, count, dst_index, rp);
             return rp;
         },
 
@@ -474,83 +387,111 @@ void StackActor::init() {
             const int count,
             const utility::Uuid &before_uuid) -> result<JsonStore> {
             // check src is valid.
+            auto rp   = make_response_promise<JsonStore>();
             auto sitb = find_uuid(base_.item().children(), src_uuid);
             if (sitb == base_.item().end())
-                return make_error(xstudio_error::error, "Invalid src uuid");
+                rp.deliver(make_error(xstudio_error::error, "Invalid src uuid"));
 
-            auto dit = base_.item().children().end();
-            if (not before_uuid.is_null()) {
-                dit = find_uuid(base_.item().children(), before_uuid);
-                if (dit == base_.item().end())
-                    return make_error(xstudio_error::error, "Invalid dst uuid");
+
+            if (rp.pending()) {
+                auto dit = base_.item().children().end();
+                if (not before_uuid.is_null()) {
+                    dit = find_uuid(base_.item().children(), before_uuid);
+                    if (dit == base_.item().end())
+                        rp.deliver(make_error(xstudio_error::error, "Invalid dst uuid"));
+                }
+                if (rp.pending())
+                    move_items(
+                        std::distance(base_.item().begin(), sitb),
+                        count,
+                        std::distance(base_.item().begin(), dit),
+                        rp);
             }
 
-            if (count) {
-                auto site = sitb;
-                std::advance(site, count);
-                auto changes = base_.item().splice(dit, base_.item().children(), sitb, site);
-                auto more    = base_.item().refresh();
-                if (not more.is_null())
-                    changes.insert(changes.begin(), more.begin(), more.end());
-
-                send(event_group_, event_atom_v, item_atom_v, changes, false);
-                return changes;
-            }
-
-            return JsonStore();
-        },
-
-        [=](remove_item_atom, const int index) -> result<std::pair<JsonStore, Item>> {
-            auto it = base_.item().children().begin();
-            std::advance(it, index);
-            if (it == base_.item().children().end())
-                return make_error(xstudio_error::error, "Invalid index");
-
-            auto rp = make_response_promise<std::pair<JsonStore, Item>>();
-            rp.delegate(caf::actor_cast<caf::actor>(this), remove_item_atom_v, it->uuid());
             return rp;
         },
 
-        [=](remove_item_atom, const utility::Uuid &uuid) -> result<std::pair<JsonStore, Item>> {
+        [=](remove_item_atom,
+            const int index) -> result<std::pair<JsonStore, std::vector<Item>>> {
+            auto rp = make_response_promise<std::pair<JsonStore, std::vector<Item>>>();
+            remove_items(index, 1, rp);
+            return rp;
+        },
+
+        [=](remove_item_atom,
+            const int index,
+            const int count) -> result<std::pair<JsonStore, std::vector<Item>>> {
+            auto rp = make_response_promise<std::pair<JsonStore, std::vector<Item>>>();
+            remove_items(index, count, rp);
+            return rp;
+        },
+
+        [=](remove_item_atom,
+            const utility::Uuid &uuid) -> result<std::pair<JsonStore, std::vector<Item>>> {
+            auto rp = make_response_promise<std::pair<JsonStore, std::vector<Item>>>();
+
             auto it = find_uuid(base_.item().children(), uuid);
+
             if (it == base_.item().end())
-                return make_error(xstudio_error::error, "Invalid uuid");
+                rp.deliver(make_error(xstudio_error::error, "Invalid uuid"));
 
-            auto item = *it;
-            demonitor(item.actor());
-            actors_.erase(item.uuid());
+            if (rp.pending())
+                remove_items(std::distance(base_.item().begin(), it), 1, rp);
 
-            auto changes = base_.item().erase(it);
-            auto more    = base_.item().refresh();
-            if (not more.is_null())
-                changes.insert(changes.begin(), more.begin(), more.end());
-
-            send(event_group_, event_atom_v, item_atom_v, changes, false);
-
-            // as the item/actor still exists.. ?
-            // ACK!!!! What do we do !!!
-            return std::make_pair(changes, item);
+            return rp;
         },
 
         [=](erase_item_atom, const int index) -> result<JsonStore> {
-            auto it = base_.item().children().begin();
-            std::advance(it, index);
-            if (it == base_.item().children().end())
-                return make_error(xstudio_error::error, "Invalid index");
             auto rp = make_response_promise<JsonStore>();
-            rp.delegate(caf::actor_cast<caf::actor>(this), erase_item_atom_v, it->uuid());
+            erase_items(index, 1, rp);
+            return rp;
+        },
+
+        [=](erase_item_atom, const int index, const int count) -> result<JsonStore> {
+            auto rp = make_response_promise<JsonStore>();
+            erase_items(index, count, rp);
             return rp;
         },
 
         [=](erase_item_atom, const utility::Uuid &uuid) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-            request(caf::actor_cast<caf::actor>(this), infinite, remove_item_atom_v, uuid)
-                .then(
-                    [=](const std::pair<JsonStore, Item> &hist_item) mutable {
-                        send_exit(hist_item.second.actor(), caf::exit_reason::user_shutdown);
-                        rp.deliver(hist_item.first);
-                    },
-                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            auto it = find_uuid(base_.item().children(), uuid);
+
+            if (it == base_.item().end())
+                rp.deliver(make_error(xstudio_error::error, "Invalid uuid"));
+
+            if (rp.pending())
+                erase_items(std::distance(base_.item().begin(), it), 1, rp);
+
+            return rp;
+        },
+
+        [=](utility::duplicate_atom) -> result<UuidActor> {
+            auto rp = make_response_promise<UuidActor>();
+            JsonStore jsn;
+            auto dup = base_.duplicate();
+            dup.item().clear();
+
+            jsn["base"]   = dup.serialise();
+            jsn["actors"] = {};
+            auto actor    = spawn<StackActor>(jsn);
+
+            if (actors_.empty()) {
+                rp.deliver(UuidActor(dup.uuid(), actor));
+            } else {
+                // duplicate all children and relink against items.
+                scoped_actor sys{system()};
+
+                for (const auto &i : base_.children()) {
+                    auto ua = request_receive<UuidActor>(
+                        *sys, actors_[i.uuid()], utility::duplicate_atom_v);
+                    request_receive<JsonStore>(
+                        *sys, actor, insert_item_atom_v, -1, UuidActorVector({ua}));
+                }
+                rp.deliver(UuidActor(dup.uuid(), actor));
+            }
+
             return rp;
         },
 
@@ -598,4 +539,134 @@ void StackActor::add_item(const utility::UuidActor &ua) {
     // join_event_group(this, ua.second);
     monitor(ua.actor());
     actors_[ua.uuid()] = ua.actor();
+}
+
+void StackActor::insert_items(
+    const int index,
+    const UuidActorVector &uav,
+    caf::typed_response_promise<utility::JsonStore> rp) {
+    // validate items can be inserted.
+    fan_out_request<policy::select_all>(vector_to_caf_actor_vector(uav), infinite, item_atom_v)
+        .then(
+            [=](std::vector<Item> items) mutable {
+                // items are valid for insertion ?
+                for (const auto &i : items) {
+                    if (not base_.item().valid_child(i))
+                        return rp.deliver(
+                            make_error(xstudio_error::error, "Invalid child type"));
+                }
+
+                // take ownership
+                for (const auto &ua : uav)
+                    add_item(ua);
+
+                // find insertion point..
+                auto it = std::next(base_.item().begin(), index);
+
+                // insert items..
+                // our list will be out of order..
+                auto changes = JsonStore(R"([])"_json);
+                for (const auto &ua : uav) {
+                    // find item..
+                    auto found = false;
+                    for (const auto &i : items) {
+                        if (ua.uuid() == i.uuid()) {
+                            auto tmp = base_.item().insert(it, i);
+                            changes.insert(changes.begin(), tmp.begin(), tmp.end());
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (not found) {
+                        spdlog::error("item not found for insertion");
+                    }
+                }
+
+                // add changes to stack
+                auto more = base_.item().refresh();
+                if (not more.is_null())
+                    changes.insert(changes.begin(), more.begin(), more.end());
+
+                send(event_group_, event_atom_v, item_atom_v, changes, false);
+                rp.deliver(changes);
+            },
+            [=](const caf::error &err) mutable { rp.deliver(err); });
+}
+
+void StackActor::remove_items(
+    const int index,
+    const int count,
+    caf::typed_response_promise<std::pair<utility::JsonStore, std::vector<timeline::Item>>>
+        rp) {
+
+    std::vector<Item> items;
+    JsonStore changes(R"([])"_json);
+
+    if (index < 0 or index + count - 1 >= static_cast<int>(base_.item().size()))
+        rp.deliver(make_error(xstudio_error::error, "Invalid index / count"));
+    else {
+        scoped_actor sys{system()};
+
+        for (int i = index + count - 1; i >= index; i--) {
+            auto it = std::next(base_.item().begin(), i);
+            if (it != base_.item().end()) {
+                auto item = *it;
+                demonitor(item.actor());
+                actors_.erase(item.uuid());
+
+                auto blind = request_receive<JsonStore>(*sys, item.actor(), serialise_atom_v);
+
+                auto tmp = base_.item().erase(it, blind);
+                changes.insert(changes.end(), tmp.begin(), tmp.end());
+                items.push_back(item);
+            }
+        }
+
+        auto more = base_.item().refresh();
+        if (not more.is_null())
+            changes.insert(changes.begin(), more.begin(), more.end());
+
+        send(event_group_, event_atom_v, item_atom_v, changes, false);
+
+        rp.deliver(std::make_pair(changes, items));
+    }
+}
+
+void StackActor::erase_items(
+    const int index, const int count, caf::typed_response_promise<JsonStore> rp) {
+
+    request(caf::actor_cast<caf::actor>(this), infinite, remove_item_atom_v, index, count)
+        .then(
+            [=](const std::pair<JsonStore, std::vector<Item>> &hist_item) mutable {
+                for (const auto &i : hist_item.second)
+                    send_exit(i.actor(), caf::exit_reason::user_shutdown);
+                rp.deliver(hist_item.first);
+            },
+            [=](error &err) mutable { rp.deliver(std::move(err)); });
+}
+
+void StackActor::move_items(
+    const int src_index,
+    const int count,
+    const int dst_index,
+    caf::typed_response_promise<utility::JsonStore> rp) {
+
+    // don't allow mixing audio / video tracks ?
+
+    if (dst_index == src_index or not count)
+        rp.deliver(make_error(xstudio_error::error, "Invalid Move"));
+    else {
+        auto sit = std::next(base_.item().begin(), src_index);
+        auto eit = std::next(sit, count);
+        auto dit = std::next(base_.item().begin(), dst_index);
+
+        auto changes = base_.item().splice(dit, base_.item().children(), sit, eit);
+        auto more    = base_.item().refresh();
+        if (not more.is_null())
+            changes.insert(changes.begin(), more.begin(), more.end());
+
+        send(event_group_, event_atom_v, item_atom_v, changes, false);
+        rp.deliver(changes);
+    }
 }

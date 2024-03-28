@@ -62,7 +62,12 @@ void PlayheadGlobalEventsActor::init() {
                 request(on_screen_playhead_, infinite, buffer_atom_v)
                     .then(
                         [=](const media_reader::ImageBufPtr &buf) {
-                            send(event_group_, utility::event_atom_v, show_atom_v, buf);
+                            /*send(
+                                event_group_,
+                                utility::event_atom_v,
+                                show_atom_v,
+                                buf,
+                                "viewport0");*/
                         },
                         [=](caf::error &) {});
             }
@@ -78,20 +83,50 @@ void PlayheadGlobalEventsActor::init() {
                     ui::viewport::viewport_playhead_atom_v,
                     playhead);
                 on_screen_playhead_ = playhead;
+                if (playhead) {
+                    // force an event broadcast for the on-screen media and 
+                    // media source (useful for plugins or anything else who
+                    // has joined our event group)
+                    request(playhead, infinite, playhead::media_atom_v).then(
+                        [=](caf::actor media) {
+                            request(playhead, infinite, playhead::media_source_atom_v).then(
+                                [=](caf::actor media_source) {
+                                    send(event_group_, utility::event_atom_v, show_atom_v, media, media_source);
+                                },
+                                [=](caf::error &) {});
+
+                        },
+                        [=](caf::error &) {});                    
+                }
                 monitor(playhead);
             }
         },
         [=](show_atom, const media_reader::ImageBufPtr &buf) {
-            if (caf::actor_cast<caf::actor>(current_sender()) == on_screen_playhead_) {
-                send(event_group_, utility::event_atom_v, show_atom_v, buf);
-            }
+            // TODO: cleanup this stuff?
+            /*if (caf::actor_cast<caf::actor>(current_sender()) == on_screen_playhead_) {
+                send(event_group_, utility::event_atom_v, show_atom_v, buf, "viewport0");
+            }*/
         },
         [=](show_atom, caf::actor media, caf::actor media_source) {
+            // TODO: cleanup this stuff?
             if (caf::actor_cast<caf::actor>(current_sender()) == on_screen_playhead_) {
                 send(event_group_, utility::event_atom_v, show_atom_v, media, media_source);
             }
         },
-        [=](ui::viewport::viewport_playhead_atom) -> caf::actor {
-            return on_screen_playhead_;
+        [=](ui::viewport::viewport_playhead_atom) -> caf::actor { return on_screen_playhead_; },
+        [=](ui::viewport::viewport_atom, const std::string viewport_name, caf::actor viewport) {
+            viewports_[viewport_name] = caf::actor_cast<caf::actor_addr>(viewport);
+        },
+        [=](ui::viewport::viewport_atom,
+            const std::string viewport_name) -> result<caf::actor> {
+            caf::actor r;
+            auto p = viewports_.find(viewport_name);
+            if (p != viewports_.end()) {
+                r = caf::actor_cast<caf::actor>(p->second);
+            }
+            if (!r)
+                return make_error(
+                    xstudio_error::error, fmt::format("No viewport named {}", viewport_name));
+            return r;
         });
 }

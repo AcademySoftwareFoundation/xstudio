@@ -202,7 +202,7 @@ Item {
     // controlled behaviour)
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupNames: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings_0"
     }
 
     XsHotkey {
@@ -215,7 +215,7 @@ Item {
 
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+p"
+        sequence: "Ctrl+Shift+p"
         name: "Create New Playlist"
         description: "Creates a new playlist."
         onActivated: sessionFunction.newPlaylist(
@@ -225,7 +225,7 @@ Item {
 
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+d"
+        sequence: "Ctrl+Shift+d"
         name: "Create Divider"
         description: "Creates a divider in the session playlist view."
         onActivated: sessionFunction.newDivider(
@@ -244,7 +244,7 @@ Item {
     }
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+s"
+        sequence: "Ctrl+Shift+s"
         name: "Create Subset"
         description: "Creates a playlsit subset under the current playlist."
         onActivated: {
@@ -258,20 +258,20 @@ Item {
     }
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+t"
+        sequence: "Ctrl+Shift+t"
         name: "Create Timeline"
         description: "Creates a timeline under the current playlist."
     }
 
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+c"
+        sequence: "Ctrl+Shift+c"
         name: "Create Contact Sheet"
         description: "Creates a contact sheet under the current playlist."
     }
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+i"
+        sequence: "Ctrl+Shift+i"
         name: "Create Playlist Divider"
         description: "Creates a divider within the subsets of the current playlist."
         onActivated: {
@@ -325,14 +325,6 @@ Item {
         name: "Toggle Full Screen"
         description: "Toggles the xStudio UI in/out of full-screen mode"
         onActivated: playerWidget.toggleFullscreen()
-    }
-
-    XsHotkey {
-        context: shortcuts.context
-        sequence: "Alt+f"
-        name: "Toggle Full Screen"
-        description: "Toggles the xStudio UI in/out of full-screen mode"
-        onActivated: parent_win.fitWindowToImage()
     }
 
     XsHotkey {
@@ -409,12 +401,17 @@ Item {
     Repeater {
         model: app_window.mediaFlags
         Item {
+            property var myName: name
             XsHotkey {
                 context: shortcuts.context
                 sequence:  "Ctrl+" + (index == app_window.mediaFlags.count-1 ? 0: index+1)
                 name: "Flag media with color " + (index == app_window.mediaFlags.count-1 ? 0: index+1)
                 description: "Flags media with the associated colour code"
-                onActivated: app_window.sessionFunction.flagSelectedMedia(colour)
+                //onActivated: app_window.sessionFunction.flagSelectedMedia(colour, control.name)
+                 onActivated: {
+                     let model = app_window.mediaFlags
+                     app_window.sessionFunction.flagSelectedMedia(colour, myName)
+                 }
             }
         }
     }
@@ -454,7 +451,7 @@ Item {
     }
     XsHotkey {
         context: shortcuts.context
-        sequence: "Ctrl+shift+s"
+        sequence: "Ctrl+Shift+s"
         name: "Save Session As"
         description: "Saves current session under a new file path."
         onActivated: app_window.sessionFunction.saveSessionAs()

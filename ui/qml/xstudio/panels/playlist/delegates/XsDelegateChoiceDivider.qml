@@ -38,7 +38,7 @@ DelegateChoice {
 		   	anchors.right: parent.right
 
 		    color: highlighted || dropFlag ? XsStyle.menuBorderColor : (hovered ? XsStyle.controlBackground : XsStyle.mainBackground)
-		    tint: flagRole == undefined ? "" : flagRole
+		    tint: flagColourRole == undefined ? "" : flagColourRole
 
 		    expand_button_holder: true
 
@@ -86,8 +86,8 @@ DelegateChoice {
 				fakeDisabled: true
 
 		        XsFlagMenu {
-		            flag: flagRole == undefined ? "" : flagRole
-		            onFlagHexChanged: flagRole = flagHex
+		            flag: flagColourRole == undefined ? "" : flagColourRole
+		            onFlagHexChanged: flagColourRole = flagHex
 		        }
 
 		        XsMenuItem {

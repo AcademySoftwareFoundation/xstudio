@@ -17,8 +17,9 @@ namespace utility {
     using time_point   = clock::time_point;
     using milliseconds = std::chrono::milliseconds;
 
-    using sysclock       = std::chrono::system_clock;
-    using sys_time_point = sysclock::time_point;
+    using sysclock          = std::chrono::system_clock;
+    using sys_time_point    = sysclock::time_point;
+    using sys_time_duration = sysclock::duration;
 
     inline std::string to_string(const sys_time_point &tp) {
         auto in_time_t = std::chrono::system_clock::to_time_t(tp);

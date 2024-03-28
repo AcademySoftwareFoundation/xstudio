@@ -2,7 +2,7 @@
 from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom, rescan_atom
 from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid
 from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI
-from xstudio.core import set_json_atom, JsonStore
+from xstudio.core import set_json_atom, JsonStore, quickview_media_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_source import MediaSource

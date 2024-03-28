@@ -21,91 +21,105 @@ ApplicationWindow {
     property var window_name: "main_window"
 
     // override default palette
-    palette.base: XsStyleSheet.panelBgColor        //"#414141" //XsStyle.controlBackground
-    palette.highlight: XsStyleSheet.accentColor   //"#D17000" //"#bb7700"    //highlightColor
-    palette.text: XsStyleSheet.primaryTextColor                       //XsStyle.hoverColor
+    palette.base: XsStyleSheet.panelBgColor
+    palette.highlight: XsStyleSheet.accentColor //== "#666666" ? Qt.lighter(XsStyleSheet.accentColor, 1.5) : XsStyleSheet.accentColor
+    palette.text: XsStyleSheet.primaryTextColor
     palette.buttonText: XsStyleSheet.primaryTextColor
     palette.windowText: XsStyleSheet.primaryTextColor
-    palette.button: Qt.darker( "#414141" , 2.4) //XsStyle.controlTitleColor
-    palette.light: "#bb7700"                    //highlightColor
-    palette.highlightedText: Qt.darker( "#414141" , 2.0) //XsStyle.mainBackground
-    palette.brightText: "#bb7700"               //highlightColor
+    palette.button: Qt.darker("#414141", 2.4)
+    palette.light: "#bb7700"
+    palette.highlightedText: Qt.darker("#414141", 2.0)
+    palette.brightText: "#bb7700"
    
+    FontLoader {id: fontInter; source: "qrc:/fonts/Inter/Inter-Regular.ttf"}
+
     XsReskinPanelsLayoutModel {
 
-        id: frontend_model
-        property var root_index: frontend_model.search_recursive(window_name, "window_name")
+        id: ui_layouts_model
+        property var root_index: ui_layouts_model.search_recursive(window_name, "window_name")
         onJsonChanged: {
-            root_index = frontend_model.search_recursive(window_name, "window_name")
+            root_index = ui_layouts_model.search_recursive(window_name, "window_name")
         }
     }
 
     onXChanged: {
-        frontend_model.set(frontend_model.root_index, x, "position_x")
+        ui_layouts_model.set(ui_layouts_model.root_index, x, "position_x")
     }
 
     onYChanged: {
-        frontend_model.set(frontend_model.root_index, y, "position_y")
+        ui_layouts_model.set(ui_layouts_model.root_index, y, "position_y")
     }
 
     onWidthChanged: {
-        frontend_model.set(frontend_model.root_index, width, "width")
+        ui_layouts_model.set(ui_layouts_model.root_index, width, "width")
     }
 
     onHeightChanged: {
-        frontend_model.set(frontend_model.root_index, height, "height")
+        ui_layouts_model.set(ui_layouts_model.root_index, height, "height")
     }
     
-    property alias playlistModel: sessionModel.playlists
-
-    property alias sessionModel: sessionModel
-
-    XsSessionModel {
-        id: sessionModel
+    /*****************************************************************
+     * 
+     * The sessionData entry is THE entry point to xstudio's backend
+     * data. Most of the session state can be reached through this
+     * 2D tree of data. Developers need to know about how QAbstractItemModel
+     * c++ class works in the QML layer to understand how we index
+     * into the sessionData object and use it as a model at different 
+     * levels to instance UI elements to display all information about playlists,
+     * media, timelines, playheads and so-on.
+     * 
+     ****************************************************************/
+    XsSessionData {
+        id: sessionData
         sessionActorAddr: studio.sessionActorAddr
-
-        onPlaylistsChanged: {
-            let ind = sessionModel.search_recursive("Playlist", "typeRole")
-            if(ind.valid) {
-                screenSource.index = ind
-            }
-        }
-
     }
 
-    property alias screenSource: screenSource
-    
-    XsModelPropertyMap {
-        id: screenSource
-        index: sessionModel.index(-1,-1)
-        onIndexChanged: {
-            sessionModel.setPlayheadTo(index)
-        }
-    }
+    // Makes these important global items visible in child contexts 
+    property alias theSessionData: sessionData.session
+    property alias sessionSelectionModel: sessionData.sessionSelectionModel
+    property alias globalStoreModel: sessionData.globalStoreModel
+    property alias mediaSelectionModel: sessionData.mediaSelectionModel
+    property alias playlistsModelData: sessionData.playlistsModelData
+    property alias viewedMediaSetIndex: sessionData.viewedMediaSetIndex
+    property alias selectedMediaSetIndex: sessionData.selectedMediaSetIndex
+    property alias viewedMediaSetProperties: sessionData.viewedMediaSetProperties
+    property alias selectedMediaSetProperties: sessionData.selectedMediaSetProperties
+    property alias currentPlayheadData: sessionData.current_playhead_data
+    property alias callbackTimer: sessionData.callbackTimer
 
-    property var viewport
+    property var child_dividers: []
 
-    Item {
-        anchors.fill: parent
-        Keys.forwardTo: viewport
-        focus: true
-    }
-    
+    property var layouts_model
+    property var layouts_model_root_index
+
     ColumnLayout {
 
         anchors.fill: parent
-        spacing: 0
-
-        XsMainMenuBar {
+        spacing: 1 
+ 
+        RowLayout{
             Layout.fillWidth: true
+            spacing: 1
+
+            XsMainMenuBar { id: menuBar
+                Layout.preferredWidth: parent.width*1.85/3
+            }
+            XsLayoutModeBar { 
+                id: layoutBar
+                layouts_model: ui_layouts_model
+                layouts_model_root_index: ui_layouts_model.root_index
+                Layout.fillWidth: true 
+            }
         }
 
-        XsSplitPanel {
-            id: root_panel
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            panels_layout_model: frontend_model
-            panels_layout_model_index: frontend_model.root_index
+            XsSplitPanel {
+                id: root_panel
+                panels_layout_model: ui_layouts_model
+                panels_layout_model_index: layoutBar.current_layout_index
+            }
         }
     
     }
@@ -116,15 +130,15 @@ ApplicationWindow {
 
     Component.onCompleted: {
 
-        views_model.register_view("../views/media/XsMedialist.qml", "Media List")
-        views_model.register_view("../views/playlists/XsPlaylists.qml", "Playlists View")
-        views_model.register_view("../views/timeline/XsTimeline.qml", "Timeline View")
-        views_model.register_view("../views/viewport/XsViewport.qml", "Player Viewport")
-
-        x = frontend_model.get(frontend_model.root_index, "position_x")
-        y = frontend_model.get(frontend_model.root_index, "position_y")
-        width = frontend_model.get(frontend_model.root_index, "width")
-        height = frontend_model.get(frontend_model.root_index, "height")
+        views_model.register_view("qrc:/views/playlists/XsPlaylists.qml", "Playlists")
+        views_model.register_view("qrc:/views/media/XsMedialist.qml", "Media")
+        views_model.register_view("qrc:/views/viewport/XsViewport.qml", "Viewport")
+        views_model.register_view("qrc:/views/timeline/XsTimeline.qml", "Timeline")
+        
+        x = ui_layouts_model.get(ui_layouts_model.root_index, "position_x")
+        y = ui_layouts_model.get(ui_layouts_model.root_index, "position_y")
+        width = ui_layouts_model.get(ui_layouts_model.root_index, "width")
+        height = ui_layouts_model.get(ui_layouts_model.root_index, "height")
     }
 
 }

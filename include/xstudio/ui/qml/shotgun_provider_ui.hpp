@@ -56,7 +56,7 @@ class ShotgunThumbnailReader : public ControllableJob<std::pair<QImage, QString>
                 system_.registry().get<caf::actor>(thumbnail_manager_registry);
 
             if (not shotgun)
-                throw std::runtime_error("Shotgun not available");
+                throw std::runtime_error("ShotGrid not available");
 
             scoped_actor sys{system_};
 
@@ -118,6 +118,7 @@ class ShotgunThumbnailReader : public ControllableJob<std::pair<QImage, QString>
                     .scaled(actual_width, actual_height, Qt::KeepAspectRatio),
                 QString());
         } catch (const std::exception &err) {
+            spdlog::debug("{} {} {}", __PRETTY_FUNCTION__, StdFromQString(id_), err.what());
             if (cjc.shouldRun())
                 error = err.what();
         }

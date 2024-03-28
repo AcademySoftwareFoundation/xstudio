@@ -42,6 +42,14 @@ void Container::deserialise(const utility::JsonStore &jsn) {
     last_changed_ = utility::clock::now();
 }
 
+Container Container::duplicate() const {
+    Container result = *this;
+
+    result.set_uuid(Uuid::generate());
+
+    return result;
+}
+
 
 JsonStore Container::serialise() const {
     utility::JsonStore jsn;

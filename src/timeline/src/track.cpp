@@ -21,12 +21,28 @@ Track::Track(
       item_(
           media_type == MediaType::MT_IMAGE ? ItemType::IT_VIDEO_TRACK
                                             : ItemType::IT_AUDIO_TRACK,
-          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor))) {}
+          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor))) {
+    item_.set_name(name);
+}
 
 Track::Track(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
       item_(static_cast<utility::JsonStore>(jsn.at("item"))) {
     media_type_ = jsn.at("media_type");
+}
+
+Track Track::duplicate() const {
+    utility::JsonStore jsn;
+
+    auto dup_container = Container::duplicate();
+    auto dup_item      = item_;
+    dup_item.set_uuid(dup_container.uuid());
+
+    jsn["container"]  = dup_container.serialise();
+    jsn["media_type"] = media_type_;
+    jsn["item"]       = dup_item.serialise(1);
+
+    return Track(jsn);
 }
 
 JsonStore Track::serialise() const {

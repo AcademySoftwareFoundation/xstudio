@@ -92,7 +92,11 @@ static std::string shader{R"(
 uniform int width;
 uniform int height;
 uniform int num_channels;
-uniform int pix_type;
+uniform int pix_type_r;
+uniform int pix_type_g;
+uniform int pix_type_b;
+uniform int pix_type_a;
+uniform int bytes_per_pixel;
 uniform ivec2 image_bounds_min;
 uniform ivec2 image_bounds_max;
 
@@ -101,88 +105,67 @@ uniform ivec2 image_bounds_max;
 vec2 get_image_data_2floats(int byte_address);
 float get_image_data_float32(int byte_address);
 
-vec4 fetch_pixel_32bitfloat(ivec2 image_coord)
+vec4 fetch_rgba_pixel(ivec2 image_coord)
 {
-	if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x) return vec4(0.0,0.0,0.0,0.0);
+    if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x) return vec4(0.0,0.0,0.0,0.0);
 	if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y) return vec4(0.0,0.0,0.0,0.0);
 
-    int pixel_address_bytes = ((image_coord.x-image_bounds_min.x) + (image_coord.y-image_bounds_min.y)*(image_bounds_max.x-image_bounds_min.x))*num_channels*4;
+    int pixel_address_bytes = ((image_coord.x-image_bounds_min.x) + (image_coord.y-image_bounds_min.y)*(image_bounds_max.x-image_bounds_min.x))*bytes_per_pixel;
 
-    float R = get_image_data_float32(pixel_address_bytes);
-
-    if (num_channels > 2) {
-
-        float G = get_image_data_float32(pixel_address_bytes+4);
-        float B = get_image_data_float32(pixel_address_bytes+8);
-        if (num_channels == 3)
-        {
-            return vec4(R,G,B,1.0);
-        }
-        else
-        {
-            float A = get_image_data_float32(pixel_address_bytes+12);
-            return vec4(R, G, B, A);
-        }
-    }
-    else if (num_channels == 2)
-	{
-        // using Luminance/Alpha layout
-        float A = get_image_data_float32(pixel_address_bytes+4);
-		return vec4(R,R,R,A);
-	}
-	else if (num_channels == 1)
-	{
-		// 1 channels, assume luminance
-        return vec4(R, R, R, 1.0);
-	}
-
-	return vec4(0.9,0.4,0.0,1.0);
-
-}
-
-vec4 fetch_pixel_16bitfloat(ivec2 image_coord)
-{
-	if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x) return vec4(0.0,0.0,0.0,0.0);
-	if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y) return vec4(0.0,0.0,0.0,0.0);
-
-    int pixel_address_bytes = ((image_coord.x-image_bounds_min.x) + (image_coord.y-image_bounds_min.y)*(image_bounds_max.x-image_bounds_min.x))*num_channels*2;
+    float R = 0.9;
+    float G = 0.4;
+    float B = 0.0;
+    float A = 1.0;
 
     vec2 pixRG = get_image_data_2floats(pixel_address_bytes);
 
-    if (num_channels > 2) {
-
-        vec2 pixBA = get_image_data_2floats(pixel_address_bytes+4);
-        if (num_channels == 3)
-        {
-            return vec4(pixRG.x,pixRG.y,pixBA.x,1.0);
-        }
-        else
-        {
-            return vec4(pixRG,pixBA);
-        }
+    if(pix_type_r == 1) {
+        R = pixRG.x;
+        pixel_address_bytes = pixel_address_bytes+2;
+    } else if(pix_type_r == 2) {
+        R = get_image_data_float32(pixel_address_bytes);
+        pixel_address_bytes = pixel_address_bytes+4;
     }
-    else if (num_channels == 2)
-	{
+
+    if(num_channels == 1) {
+        // 1 channels, assume luminance
+        return vec4(R, R, R, 1.0);
+    }
+
+    if(pix_type_g == 1) {
+        G = pixRG.y;
+        pixel_address_bytes = pixel_address_bytes+2;
+    } else if(pix_type_g == 2) {
+        G = get_image_data_float32(pixel_address_bytes);
+        pixel_address_bytes = pixel_address_bytes+4;
+    }
+
+    if(num_channels == 2) {
         // 2 channels, assume luminance/alpha
-		return vec4(pixRG.x,pixRG.x,pixRG.x,pixRG.y);
-	}
-	else if (num_channels == 1)
-	{
-		// 1 channels, assume luminance
-        return vec4(pixRG.x,pixRG.x,pixRG.x,1.0);
-	}
-
-	return vec4(0.9,0.4,0.0,1.0);
-
-}
-
-vec4 fetch_rgba_pixel(ivec2 image_coord)
-{
-    if (pix_type == 1) {
-        return fetch_pixel_16bitfloat(image_coord);
-    } else if (pix_type == 2) {
-        return fetch_pixel_32bitfloat(image_coord);
+        return vec4(R, R, R, G);
     }
+
+    vec2 pixBA = get_image_data_2floats(pixel_address_bytes);
+
+    if(pix_type_b == 1) {
+        B = pixBA.x;
+        pixel_address_bytes = pixel_address_bytes+2;
+    } else if(pix_type_b == 2) {
+        B = get_image_data_float32(pixel_address_bytes);
+        pixel_address_bytes = pixel_address_bytes+4;
+    }
+
+    if(num_channels == 3) {
+        return vec4(R, G, B, 1.0);
+    }
+
+    if(pix_type_a == 1) {
+        A = pixBA.y;
+    } else if(pix_type_a == 2) {
+        A = get_image_data_float32(pixel_address_bytes);
+    }
+
+    return vec4(R, G, B, A);
 }
 )"};
 
@@ -239,7 +222,7 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         Imf::MultiPartInputFile input(path.c_str());
         int parts    = input.parts();
         int part_idx = -1;
-        Imf::PixelType pix_type;
+        std::array<Imf::PixelType, 4> pix_type;
         std::vector<std::string> exr_channels_to_load;
 
         for (int prt = 0; prt < parts; ++prt) {
@@ -294,17 +277,37 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
 
         // compute the size of the buffer we need
         const size_t n_pixels = (data_window.size().x + 1) * (data_window.size().y + 1);
-        const size_t bytes_per_channel = (pix_type == Imf::PixelType::HALF ? 2 : 4);
-        const size_t bytes_per_pixel   = bytes_per_channel * exr_channels_to_load.size();
-        const size_t buf_size          = n_pixels * bytes_per_pixel;
+        const size_t bytes_per_channel_r =
+            (pix_type[0] == -1                     ? 0
+             : pix_type[0] == Imf::PixelType::HALF ? 2
+                                                   : 4);
+        const size_t bytes_per_channel_g =
+            (pix_type[1] == -1                     ? 0
+             : pix_type[1] == Imf::PixelType::HALF ? 2
+                                                   : 4);
+        const size_t bytes_per_channel_b =
+            (pix_type[2] == -1                     ? 0
+             : pix_type[2] == Imf::PixelType::HALF ? 2
+                                                   : 4);
+        const size_t bytes_per_channel_a =
+            (pix_type[3] == -1                     ? 0
+             : pix_type[3] == Imf::PixelType::HALF ? 2
+                                                   : 4);
+        const size_t bytes_per_pixel = bytes_per_channel_r + bytes_per_channel_g +
+                                       bytes_per_channel_b + bytes_per_channel_a;
+        const size_t buf_size = n_pixels * bytes_per_pixel;
 
         // const size_t gl_line_size = 8192*4;
         // const size_t padded_buf_size = (buf_size & (gl_line_size-1)) ?
         // ((buf_size/gl_line_size) + 1)*gl_line_size : buf_size;
 
         JsonStore jsn;
-        jsn["num_channels"] = exr_channels_to_load.size();
-        jsn["pix_type"]     = int(pix_type);
+        jsn["num_channels"]    = exr_channels_to_load.size();
+        jsn["pix_type_r"]      = int(pix_type[0]);
+        jsn["pix_type_g"]      = int(pix_type[1]);
+        jsn["pix_type_b"]      = int(pix_type[2]);
+        jsn["pix_type_a"]      = int(pix_type[3]);
+        jsn["bytes_per_pixel"] = int(bytes_per_pixel);
         // jsn["path"] = to_string(mptr.uri_);
 
         ImageBufPtr buf(new ImageBuffer(openexr_shader_uuid, jsn));
@@ -348,15 +351,23 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
                                 chunk_y_min * line_stride;
 
                 Imf::FrameBuffer fb;
+                int ii = 0;
                 std::for_each(
                     exr_channels_to_load.begin(),
                     exr_channels_to_load.end(),
                     [&](const std::string chan_name) {
+                        Imf::PixelType channel_type = pix_type[ii++];
                         fb.insert(
                             chan_name.c_str(),
                             Imf::Slice(
-                                pix_type, (char *)fPtr, bytes_per_pixel, line_stride, 1, 1, 0));
-                        fPtr += bytes_per_channel;
+                                channel_type,
+                                (char *)fPtr,
+                                bytes_per_pixel,
+                                line_stride,
+                                1,
+                                1,
+                                0));
+                        fPtr += channel_type == Imf::PixelType::HALF ? 2 : 4;
                     });
                 in.setFrameBuffer(fb);
 
@@ -382,15 +393,25 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
                            data_window.min.y * line_stride;
 
             Imf::FrameBuffer fb;
+            int ii = 0;
             std::for_each(
                 exr_channels_to_load.begin(),
                 exr_channels_to_load.end(),
                 [&](const std::string chan_name) {
+                    std::string chan_lower_case = to_lower(chan_name);
+                    Imf::PixelType channel_type = pix_type[ii++];
+
                     fb.insert(
                         chan_name.c_str(),
                         Imf::Slice(
-                            pix_type, (char *)buffer, bytes_per_pixel, line_stride, 1, 1, 0));
-                    buffer += bytes_per_channel;
+                            channel_type,
+                            (char *)buffer,
+                            bytes_per_pixel,
+                            line_stride,
+                            1,
+                            1,
+                            0));
+                    buffer += channel_type == Imf::PixelType::HALF ? 2 : 4;
                 });
             in.setFrameBuffer(fb);
             in.readPixels(data_window.min.y, data_window.max.y);
@@ -472,7 +493,7 @@ void OpenEXRMediaReader::stream_ids_from_exr_part(
     }
 }
 
-Imf::PixelType OpenEXRMediaReader::pick_exr_channels_from_stream_id(
+std::array<Imf::PixelType, 4> OpenEXRMediaReader::pick_exr_channels_from_stream_id(
     const Imf::Header &header,
     const std::string &stream_id,
     std::vector<std::string> &exr_channels_to_load) const {
@@ -518,9 +539,9 @@ Imf::PixelType OpenEXRMediaReader::pick_exr_channels_from_stream_id(
         exr_channels_to_load.end(),
         [&is_xyzuv](std::string a, std::string b) {
             if (is_xyzuv) {
-                return a < b;
+                return to_lower(a) < to_lower(b);
             } else {
-                return a > b;
+                return to_lower(a) > to_lower(b);
             }
         });
 
@@ -530,22 +551,23 @@ Imf::PixelType OpenEXRMediaReader::pick_exr_channels_from_stream_id(
 
     const auto &channels = header.channels();
 
-    int p_type_chk = -1;
-    Imf::PixelType pix_type;
+    std::array<Imf::PixelType, 4> pix_type;
 
-    // fetch the channel names for 16bit float channels
-    for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
-        if (std::find(exr_channels_to_load.begin(), exr_channels_to_load.end(), i.name()) !=
-            exr_channels_to_load.end()) {
-            if (p_type_chk == -1) {
-                p_type_chk = (int)i.channel().type;
-                pix_type   = i.channel().type;
-            } else if (pix_type != i.channel().type) {
-                throw std::runtime_error(
-                    "EXR part/layer mixes pixel channel types. This is not supported.");
+    // fetch the channel type for each of the channels we will load
+    int ii = 0;
+    for (const auto &chan_name : exr_channels_to_load) {
+
+        pix_type[ii] = Imf::PixelType::UINT;
+        for (Imf::ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i) {
+            if (i.name() == chan_name) {
+                pix_type[ii] = i.channel().type;
             }
         }
+        ii++;
+        if (ii == 4)
+            break; // shouldn't happen!
     }
+
     return pix_type;
 }
 
@@ -570,10 +592,21 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         const Imf::Header &h  = input.header(0);
         const auto rate       = h.findTypedAttribute<Imf::RationalAttribute>("framesPerSecond");
         const auto rate_bogus = h.findTypedAttribute<Imf::V2iAttribute>("framesPerSecond");
-        const auto timecode   = h.findTypedAttribute<Imf::TimeCodeAttribute>("timeCode");
+        const auto rate_nuke = h.findTypedAttribute<Imf::V2iAttribute>("nuke/input/frame_rate");
+        const auto timecode  = h.findTypedAttribute<Imf::TimeCodeAttribute>("timeCode");
         const auto timecode_rate = h.findTypedAttribute<Imf::IntAttribute>("timecodeRate");
-        if (rate)
+
+        // Note - possible bug in Nuke where denominator of 'framesPerSecond'
+        // metadata value gets set to 1 on file write.
+        // For 23.976 framesPerSecond would be 24000/1001 but you might get a
+        // value of 24000 here if Nuke has knackered the data. Hence extra
+        // sanity check on the 'rate' metadata value here
+
+        if (rate && rate->value() < 1000.0 && rate->value() > 1.0)
             fr = static_cast<double>(rate->value());
+        else if (rate_nuke and rate_nuke->value().y > 0)
+            fr = static_cast<double>(rate_nuke->value().x) /
+                 static_cast<double>(rate_nuke->value().y);
         else if (rate_bogus and rate_bogus->value().y > 0)
             fr = static_cast<double>(rate_bogus->value().x) /
                  static_cast<double>(rate_bogus->value().y);
@@ -599,16 +632,28 @@ xstudio::media::MediaDetail OpenEXRMediaReader::detail(const caf::uri &uri) cons
         frd.set_rate(fr == 0.0 ? utility::FrameRate() : utility::FrameRate(1.0 / fr));
 
         std::vector<std::string> stream_ids;
+        std::vector<Imath::V2i> resolutions;
+        std::vector<float> pixel_aspects;
+        std::vector<int> part_number;
         for (int prt = 0; prt < parts; ++prt) {
             // skip incomplete parts - maybe better error/handling messaging required?
             if (!input.partComplete(prt))
                 continue;
             const Imf::Header &part_header = input.header(prt);
             stream_ids_from_exr_part(part_header, stream_ids);
+            resolutions.emplace_back(
+                part_header.displayWindow().max.x - part_header.displayWindow().min.x,
+                part_header.displayWindow().max.y - part_header.displayWindow().min.y);
+            pixel_aspects.emplace_back(part_header.pixelAspectRatio());
+            part_number.emplace_back(prt);
         }
 
+        int ct = 0;
         for (const auto &stream_id : stream_ids) {
             streams.emplace_back(media::StreamDetail(frd, stream_id));
+            streams.back().resolution_   = resolutions[ct];
+            streams.back().pixel_aspect_ = pixel_aspects[ct];
+            streams.back().index_        = part_number[ct++];
         }
 
     } catch (const std::exception &e) {
@@ -673,7 +718,11 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
     int width                         = buf.image_size_in_pixels().x;
     int height                        = buf.image_size_in_pixels().y;
     int num_channels                  = buf.shader_params().value("num_channels", 0);
-    int pix_type                      = buf.shader_params().value("pix_type", 0);
+    int bytes_per_pixel               = buf.shader_params().value("bytes_per_pixel", 0);
+    int pix_type_r                    = buf.shader_params().value("pix_type_r", 0);
+    int pix_type_g                    = buf.shader_params().value("pix_type_g", 0);
+    int pix_type_b                    = buf.shader_params().value("pix_type_b", 0);
+    int pix_type_a                    = buf.shader_params().value("pix_type_a", 0);
     const Imath::V2i image_bounds_min = buf.image_pixels_bounding_box().min;
     const Imath::V2i image_bounds_max = buf.image_pixels_bounding_box().max;
 
@@ -689,6 +738,7 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
     if (chan_names.is_array()) {
         for (const auto &i : chan_names) {
             std::string chan_name = i.get<std::string>();
+
             if (chan_name.find(stream_id) == 0) {
                 chan_name = std::string(chan_name, stream_id.size());
             }
@@ -709,71 +759,61 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
         return Imath::V2f(v[0], v[1]);
     };
 
-    auto fetch_pixel_32bitfloat = [&](const Imath::V2i image_coord) {
-        if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x)
-            return;
-        if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y)
-            return;
+    if (pixel_location.x < image_bounds_min.x || pixel_location.x >= image_bounds_max.x)
+        return r;
+    if (pixel_location.y < image_bounds_min.y || pixel_location.y >= image_bounds_max.y)
+        return r;
 
-        int pixel_address_bytes =
-            ((image_coord.x - image_bounds_min.x) +
-             (image_coord.y - image_bounds_min.y) * (image_bounds_max.x - image_bounds_min.x)) *
-            num_channels * 4;
+    int pixel_address_bytes =
+        ((pixel_location.x - image_bounds_min.x) +
+         (pixel_location.y - image_bounds_min.y) * (image_bounds_max.x - image_bounds_min.x)) *
+        bytes_per_pixel;
 
+    Imath::V2f pixRG = get_image_data_2xhalf_float(pixel_address_bytes);
+
+    if (pix_type_r == 1) {
+        r.add_raw_channel_info(channel_names[0], pixRG.x);
+        pixel_address_bytes += 2;
+    } else {
         float R = get_image_data_float32(pixel_address_bytes);
+        pixel_address_bytes += 4;
         r.add_raw_channel_info(channel_names[0], R);
+    }
 
-        if (num_channels > 2) {
-
-            float G = get_image_data_float32(pixel_address_bytes + 4);
+    if (num_channels >= 2) {
+        if (pix_type_g == 1) {
+            r.add_raw_channel_info(channel_names[1], pixRG.y);
+            pixel_address_bytes += 2;
+        } else {
+            float G = get_image_data_float32(pixel_address_bytes);
+            pixel_address_bytes += 4;
             r.add_raw_channel_info(channel_names[1], G);
-            float B = get_image_data_float32(pixel_address_bytes + 8);
-            r.add_raw_channel_info(channel_names[2], B);
-            if (num_channels == 4) {
-                float A = get_image_data_float32(pixel_address_bytes + 12);
-                r.add_raw_channel_info(channel_names[3], A);
-            }
-        } else if (num_channels == 2) {
-            // using Luminance/Alpha layout
-            float A = get_image_data_float32(pixel_address_bytes + 4);
-            r.add_raw_channel_info(channel_names[1], A);
         }
-    };
 
-    auto fetch_pixel_16bitfloat = [&](const Imath::V2i image_coord) {
-        if (image_coord.x < image_bounds_min.x || image_coord.x >= image_bounds_max.x)
-            return;
-        if (image_coord.y < image_bounds_min.y || image_coord.y >= image_bounds_max.y)
-            return;
+        if (num_channels == 2)
+            return r; // using Luminance/Alpha layout
 
-        int pixel_address_bytes =
-            ((image_coord.x - image_bounds_min.x) +
-             (image_coord.y - image_bounds_min.y) * (image_bounds_max.x - image_bounds_min.x)) *
-            num_channels * 2;
+        Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes);
 
-        Imath::V2f pixRG = get_image_data_2xhalf_float(pixel_address_bytes);
-
-        if (num_channels > 2) {
-
-            Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes + 4);
-            r.add_raw_channel_info(channel_names[0], pixRG.x);
-            r.add_raw_channel_info(channel_names[1], pixRG.y);
+        if (pix_type_b == 1) {
             r.add_raw_channel_info(channel_names[2], pixBA.x);
-            if (num_channels == 4) {
-                r.add_raw_channel_info(channel_names[3], pixBA.y);
-            }
-        } else if (num_channels == 2) {
-            r.add_raw_channel_info(channel_names[0], pixRG.x);
-            r.add_raw_channel_info(channel_names[1], pixRG.y);
-        } else if (num_channels == 1) {
-            // 1 channels, assume luminance
-            r.add_raw_channel_info(channel_names[0], pixRG.x);
+            pixel_address_bytes += 2;
+        } else {
+            float B = get_image_data_float32(pixel_address_bytes);
+            pixel_address_bytes += 4;
+            r.add_raw_channel_info(channel_names[2], B);
         }
-    };
 
-    if (pix_type == 1)
-        fetch_pixel_16bitfloat(pixel_location);
-    else
-        fetch_pixel_32bitfloat(pixel_location);
+        if (num_channels == 3)
+            return r;
+
+        if (pix_type_a == 1) {
+            r.add_raw_channel_info(channel_names[3], pixBA.y);
+        } else {
+            float A = get_image_data_float32(pixel_address_bytes);
+            r.add_raw_channel_info(channel_names[3], A);
+        }
+    } // else 1 channel, assume luminance
+
     return r;
 }

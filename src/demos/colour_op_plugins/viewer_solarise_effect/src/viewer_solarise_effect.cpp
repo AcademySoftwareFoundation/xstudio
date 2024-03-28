@@ -33,16 +33,13 @@ class SolariseOp : public ColourOpPlugin {
 
     float ordering() const override { return 100.0f; }
 
-    ColourOperationDataPtr data(
+    ColourOperationDataPtr colour_op_graphics_data(
         utility::UuidActor &media_source,
         const utility::JsonStore &media_source_colour_metadata) override {
         return op_data_;
     }
 
-    void update_shader_uniforms(
-        utility::JsonStore &uniforms_dict,
-        const utility::Uuid &source_uuid,
-        const utility::JsonStore &media_source_colour_metadata) override;
+    utility::JsonStore update_shader_uniforms(const media_reader::ImageBufPtr &image) override;
 
     module::FloatAttribute *gamma_;
     ColourOperationDataPtr op_data_;
@@ -59,20 +56,20 @@ SolariseOp::SolariseOp(caf::actor_config &cfg, const utility::JsonStore &init_se
     gamma_->set_role_data(module::Attribute::DefaultValue, 1.0f);
     gamma_->set_role_data(module::Attribute::ToolTip, "Set the viewport gamma");
 
-    ColourOperationData *d = new ColourOperationData("Grade and Saturation OP");
+    ColourOperationData *d = new ColourOperationData(PLUGIN_UUID, "Grade and Saturation OP");
     d->shader_.reset(new ui::opengl::OpenGLShader(PLUGIN_UUID, glsl_shader_code));
     op_data_.reset(d);
 }
 
-void SolariseOp::update_shader_uniforms(
-    utility::JsonStore &uniforms_dict,
-    const utility::Uuid & /*source_uuid*/,
-    const utility::JsonStore & /*media_source_colour_metadata*/
-) {
+utility::JsonStore SolariseOp::update_shader_uniforms(const media_reader::ImageBufPtr &image)
+
     // for this simple plugin, the effect is global so we don't depend on
     // the media
-    uniforms_dict["solarise"] = gamma_->value();
+    utility::JsonStore rt;
+rt["solarise"] = gamma_->value();
+return rt;
 }
+
 } // namespace
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {

@@ -461,80 +461,200 @@
 				"default_value": "{}",
 				"description": "Windows layouts",
 				"value": {
-				"children": [
+					"children": [
+						{
+							"window_name": "main_window",
+							"width": 800,
+							"height": 800,
+							"current_layout": 0,
+							"position_x": 100,
+							"position_y": 100,
+							"children": [
+								{
+									"layout_name": "Review",
+									"enabled": true,
+									"children": [
+										{
+											"split_horizontal": false, 
+											"child_dividers": [0.5],
+											"children": [
+												{
+													"split_horizontal": true, 
+													"child_dividers": [0.5],
+													"children": [
+														{
+															"current_tab": 2,
+															"children": [
+																{ "tab_view" : "Media" },
+																{ "tab_view" : "Timeline" },
+																{ "tab_view" : "Viewport" }
+															]
+														},
+														{
+															"current_tab": 0,
+															"children": [
+																{ "tab_view" : "Playlists" }
+															]
+														}
+													]
+												},
+												{
+													"current_tab": 0,
+													"children": [
+														{ "tab_view" : "Timeline" }
+													]
+												}
+											]
+										}
+									]
+								},
+								{
+									"layout_name": "Present",
+									"enabled": true,
+									"children": [
+										{
+											"split_horizontal": false, 
+											"child_dividers": [0.5],
+											"children": [
+												{
+													"split_horizontal": true, 
+													"child_dividers": [0.5],
+													"children": [
+														{
+															"current_tab": 2,
+															"children": [
+																{ "tab_view" : "Media" },
+																{ "tab_view" : "Timeline" },
+																{ "tab_view" : "Viewport" }
+															]
+														},
+														{
+															"current_tab": 0,
+															"children": [
+																{ "tab_view" : "Playlists" }
+															]
+														}
+													]
+												},
+												{
+													"current_tab": 0,
+													"children": [
+														{ "tab_view" : "Timeline" }
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				"datatype": "json",
+				"context": ["QML_UI"]
+			},
+			"media_list_columns_config": {
+				"path": "/ui/qml/media_list_columns_config",
+				"default_value": "{}",
+				"description": "Media List Columns Configuration",
+				"value": {
+					"target_role_data_slot": 0,
+					"children": [
 					{
-						"window_name": "main_window",
-						"width": 800,
-						"height": 800,
-						"position_x": 100,
-						"position_y": 100,
-						"children": [
-							{
-								"split": "heightwise", 
-								"fractional_position": 0.0,
-								"fractional_size": 1.0,
-								"children": [
-									{
-										"split": "widthwise", 
-										"fractional_position": 0.0,
-										"fractional_size": 0.7,
-										"children": [
-											{
-												"panel_source_qml": "../views/timeline/XsTimeline.qml",
-												"fractional_position": 0.0,
-												"fractional_size": 0.5
-											},
-											{
-												"panel_source_qml": "../views/playlists/XsPlaylists.qml",
-												"fractional_position": 0.5,
-												"fractional_size": 0.5
-											}
-										]
-									},
-									{
-										"panel_source_qml": "../views/media/XsMedialist.qml",
-										"fractional_position": 0.7,
-										"fractional_size": 0.3
-									}
-								]
-							}
-						]
+						"title": "",
+						"size": 10,
+						"resizable": false,
+						"data_type": "flag",
+						"sortable": false
 					},
 					{
-						"window_name": "second_window",
-						"children": [
-							{
-								"split": "heightwise", 
-								"fractional_position": 0.0,
-								"fractional_size": 1.0,
-								"children": [
-									{
-										"split": "widthwise", 
-										"fractional_position": 0.0,
-										"fractional_size": 0.7,
-										"children": [
-											{
-												"panel_source_qml": "../views/timeline/XsTimeline.qml",
-												"fractional_position": 0.0,
-												"fractional_size": 0.5
-											},
-											{
-												"panel_source_qml": "../views/playlists/XsPlaylists.qml",
-												"fractional_position": 0.5,
-												"fractional_size": 0.5
-											}
-										]
-									},
-									{
-										"panel_source_qml": "../views/media/XsMedialist.qml",
-										"fractional_position": 0.7,
-										"fractional_size": 0.3
-									}
-								]
-							}
-						]
+						"title": "",
+						"size": 40,
+						"resizable": false,
+						"data_type": "index",
+						"sortable": true
+					},
+					{
+						"title": "Image",
+						"size": 70,
+						"resizable": true,
+						"data_type": "thumbnail",
+						"sortable": false
+					},
+					{
+						"title": "File",
+						"size": 300,
+						"role_name": "pathRole",
+						"object": "MediaSource",
+						"resizable": true,
+						"data_type": "role_data",
+						"sortable": false,
+						"format_regex": ".+\\/([^\\/]+)$",
+						"format_out": "$1"
+					},
+					{
+						"title": "Resolution",
+						"size": 70,
+						"object": "MediaSource",
+						"role_name": "resolutionRole",
+						"resizable": true,
+						"data_type": "role_data",
+						"sortable": false
+					},
+					{
+						"title": "Notes",
+						"size": 50,
+						"resizable": false,
+						"data_type": "notes",
+						"sortable": false
+					},
+					{
+						"title": "Shot",
+						"metadata_path": "/metadata/shotgun/shot/attributes/code",
+						"object": "Media",
+						"size": 120,
+						"data_type": "metadata",
+						"resizable": true,
+						"sortable": false					
+					},
+					{
+						"title": "Pipeline Step",
+						"metadata_path": "/metadata/shotgun/version/attributes/sg_pipeline_step",
+						"object": "Media",
+						"size": 120,
+						"data_type": "metadata",
+						"resizable": true,
+						"sortable": true
+					},
+					{
+						"title": "Version",
+						"metadata_path": "/metadata/shotgun/version/attributes/sg_dneg_version",
+						"object": "Media",
+						"size": 80,
+						"data_type": "metadata",
+						"resizable": true,
+						"sortable": true
+					},
+					{
+						"title": "Author",
+						"metadata_path": "/metadata/shotgun/version/relationships/created_by/data/name",
+						"object": "Media",
+						"size": 120,
+						"data_type": "metadata",
+						"resizable": true,
+						"sortable": true
+					},
+					{
+						"title": "Date",
+						"metadata_path": "/metadata/shotgun/version/attributes/created_at",
+						"object": "Media",
+						"size": 120,
+						"data_type": "metadata",
+						"resizable": true,
+						"sortable": true,
+						"format_regex": "([0-9]+\\-[0-9]+\\-[0-9]+).+",
+						"format_out": "$1"
 					}
-
 				]},
 				"datatype": "json",
 				"context": ["QML_UI"]

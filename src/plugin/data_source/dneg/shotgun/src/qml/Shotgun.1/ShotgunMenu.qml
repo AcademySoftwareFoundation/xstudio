@@ -2,20 +2,20 @@
 import xStudio 1.0
 
 XsMenu {
-    title: qsTr("Shotgun Playlists")
+    title: qsTr("ShotGrid Playlists")
 
     XsMenuItem {
-        mytext: qsTr("Create Selected Shotgun Playlists...")
+        mytext: qsTr("Create Selected ShotGrid Playlists...")
         onTriggered: sessionFunction.object_map["ShotgunRoot"].create_playlist()
     }
 
     XsMenuItem {
-        mytext: qsTr("Update Selected Shotgun Playlists")
+        mytext: qsTr("Update Selected ShotGrid Playlists")
         onTriggered: sessionFunction.object_map["ShotgunRoot"].update_playlist()
     }
 
     XsMenuItem {
-        mytext: qsTr("Refresh Selected Shotgun Playlists")
+        mytext: qsTr("Refresh Selected ShotGrid Playlists")
         onTriggered: sessionFunction.object_map["ShotgunRoot"].refresh_playlist()
     }
 

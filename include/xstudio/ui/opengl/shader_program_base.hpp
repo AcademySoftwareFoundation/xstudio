@@ -42,6 +42,8 @@ namespace ui {
                 const std::vector<std::string> &colour_op_shaders,
                 const bool use_ssbo);
 
+            ~GLShaderProgram();
+
             void inject_colour_op_shader(const std::string &colour_op_shader);
 
             void compile();
@@ -63,6 +65,7 @@ namespace ui {
             std::map<std::string, int> locations_;
             std::vector<std::string> vertex_shaders_;
             std::vector<std::string> fragment_shaders_;
+            std::vector<GLuint> shaders_;
             int colour_operation_index_ = {1};
         };
     } // namespace opengl

@@ -24,6 +24,8 @@ namespace xstudio {
 using namespace shotgun_client;
 namespace ui {
     namespace qml {
+        using namespace std::chrono_literals;
+        const auto SHOTGUN_TIMEOUT = 120s;
 
         class ShotModel;
         class ShotgunListModel;
@@ -123,19 +125,27 @@ namespace ui {
                 }
             }
 
+            void updateModel(const QString &name);
+
             QString getPlaylists(const int project_id) {
                 return getPlaylistsFuture(project_id).result();
             }
             QFuture<QString> getPlaylistsFuture(const int project_id);
 
-            QString getPlaylistVersions(const int id);
+            QString getPlaylistVersions(const int id) {
+                return getPlaylistVersionsFuture(id).result();
+            }
             QFuture<QString> getPlaylistVersionsFuture(const int id);
 
-            QString getPlaylistNotes(const int id);
+            QString getPlaylistNotes(const int id) {
+                return getPlaylistNotesFuture(id).result();
+            }
             QFuture<QString> getPlaylistNotesFuture(const int id);
 
             QString addVersionToPlaylist(
-                const QString &version, const QUuid &playlist, const QUuid &before = QUuid());
+                const QString &version, const QUuid &playlist, const QUuid &before = QUuid()) {
+                return addVersionToPlaylistFuture(version, playlist, before).result();
+            }
             QFuture<QString> addVersionToPlaylistFuture(
                 const QString &version, const QUuid &playlist, const QUuid &before = QUuid());
 
@@ -168,6 +178,37 @@ namespace ui {
             QString getUsers() { return getUsersFuture().result(); }
             QFuture<QString> getUsersFuture();
 
+            QString getEntity(const QString &entity, const int id) {
+                return getEntityFuture(entity, id).result();
+            }
+            QFuture<QString> getEntityFuture(const QString &entity, const int id);
+
+            QString getReferenceTags() { return getReferenceTagsFuture().result(); }
+            QFuture<QString> getReferenceTagsFuture();
+
+            QString tagEntity(const QString &entity, const int record_id, const int tag_id) {
+                return tagEntityFuture(entity, record_id, tag_id).result();
+            }
+            QFuture<QString>
+            tagEntityFuture(const QString &entity, const int record_id, const int tag_id);
+
+            QString untagEntity(const QString &entity, const int record_id, const int tag_id) {
+                return untagEntityFuture(entity, record_id, tag_id).result();
+            }
+            QFuture<QString>
+            untagEntityFuture(const QString &entity, const int record_id, const int tag_id);
+
+            QString createTag(const QString &text) { return createTagFuture(text).result(); }
+            QFuture<QString> createTagFuture(const QString &text);
+
+            QString renameTag(const int tag_id, const QString &text) {
+                return renameTagFuture(tag_id, text).result();
+            }
+            QFuture<QString> renameTagFuture(const int tag_id, const QString &text);
+
+            QString removeTag(const int tag_id) { return removeTagFuture(tag_id).result(); }
+            QFuture<QString> removeTagFuture(const int tag_id);
+
             QString getDepartments() { return getDepartmentsFuture().result(); }
             QFuture<QString> getDepartmentsFuture();
 
@@ -177,7 +218,9 @@ namespace ui {
             QFuture<QString> getCustomEntity24Future(const int project_id);
 
             QString updateEntity(
-                const QString &entity, const int record_id, const QString &update_json);
+                const QString &entity, const int record_id, const QString &update_json) {
+                return updateEntityFuture(entity, record_id, update_json).result();
+            }
             QFuture<QString> updateEntityFuture(
                 const QString &entity, const int record_id, const QString &update_json);
 
@@ -197,13 +240,13 @@ namespace ui {
             }
             QFuture<QString> refreshPlaylistVersionsFuture(const QUuid &playlist);
 
-            QString refreshPlaylistNotes(const QUuid &playlist) {
-                return refreshPlaylistNotesFuture(playlist).result();
-            }
-            QFuture<QString> refreshPlaylistNotesFuture(const QVariant &playlist) {
-                return refreshPlaylistNotesFuture(playlist.toUuid());
-            }
-            QFuture<QString> refreshPlaylistNotesFuture(const QUuid &playlist);
+            // QString refreshPlaylistNotes(const QUuid &playlist) {
+            //     return refreshPlaylistNotesFuture(playlist).result();
+            // }
+            // QFuture<QString> refreshPlaylistNotesFuture(const QVariant &playlist) {
+            //     return refreshPlaylistNotesFuture(playlist.toUuid());
+            // }
+            // QFuture<QString> refreshPlaylistNotesFuture(const QUuid &playlist);
 
             QString createPlaylist(
                 const QUuid &playlist,
@@ -316,6 +359,12 @@ namespace ui {
                 const QVariant &query,
                 const bool update_result_model = false);
 
+            QFuture<QString> executeQueryNew(
+                const QString &context,
+                const int project_id,
+                const QVariant &query,
+                const bool update_result_model = false);
+
             QVariant mergeQueries(
                 const QVariant &dst,
                 const QVariant &src,
@@ -420,7 +469,6 @@ namespace ui {
 
             void handleResult(
                 const utility::JsonStore &request,
-                const utility::JsonStore &data,
                 const std::string &model,
                 const std::string &name);
 

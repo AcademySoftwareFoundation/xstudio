@@ -11,6 +11,7 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/helper_ui.hpp"
+#include "xstudio/ui/qt/offscreen_viewport.hpp"
 #include "xstudio/utility/uuid.hpp"
 
 namespace xstudio {
@@ -28,7 +29,7 @@ namespace ui {
 
           public:
             explicit StudioUI(caf::actor_system &system, QObject *parent = nullptr);
-            ~StudioUI() override = default;
+            ~StudioUI();
 
             Q_INVOKABLE bool clearImageCache();
 
@@ -57,11 +58,15 @@ namespace ui {
             void setSessionActorAddr(const QString &addr);
 
           signals:
+
             void newSessionCreated(const QString &session_addr);
             void sessionLoaded(const QString &session_addr);
             void dataSourcesChanged();
             void sessionRequest(const QUrl path, const QByteArray jsn);
             void sessionActorAddrChanged();
+            void openQuickViewers(QStringList mediaActors, QString compareMode);
+            void showMessageBox(
+                QString messageTile, QString messageBody, bool closeButton, int timeoutSeconds);
 
 
           public slots:
@@ -69,9 +74,14 @@ namespace ui {
           private:
             void init(caf::actor_system &system) override;
             void updateDataSources();
+            void loadVideoOutputPlugins();
 
             QList<QObject *> data_sources_;
             QString session_actor_addr_;
+            std::vector<xstudio::ui::qt::OffscreenViewport *> offscreen_viewports_;
+            std::vector<caf::actor> video_output_plugins_;
+            xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
+
         };
     } // namespace qml
 } // namespace ui

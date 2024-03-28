@@ -99,7 +99,7 @@ DelegateChoice {
 	    Component.onCompleted: {
 	    	let ind = modelIndex()
 
-        	ind.model.get(ind, "childrenRole")
+        	ind.model.fetchMore(ind)
 			updateCounts()
 			control.highlighted = sessionSelectionModel.isSelected(modelIndex())
 	    }
@@ -156,7 +156,7 @@ DelegateChoice {
 		   	anchors.top: parent.top
 		   	anchors.left: parent.left
 		   	anchors.right: parent.right
-	        tint: flagRole != undefined ? flagRole : ""
+	        tint: flagColourRole != undefined ? flagColourRole : ""
 
 	        busy.running: busyRole != undefined ? busyRole : false
 
@@ -261,9 +261,9 @@ DelegateChoice {
 						    target: control.DelegateModel.model.srcModel
 						    function onDataChanged(indexa,indexb,role) {
 						    	if(modelIndex() == indexa && (!role.length || role.includes(sess.model.roleId("childrenRole")))) {
-						        	control.DelegateModel.model.srcModel.get(modelIndex(), "childrenRole")
-						        	control.DelegateModel.model.srcModel.get(sessionModel.index(0,0,modelIndex()), "childrenRole")
-						        	control.DelegateModel.model.srcModel.get(sessionModel.index(2,0,modelIndex()), "childrenRole")
+						        	control.DelegateModel.model.srcModel.fetchMore(modelIndex())
+						        	control.DelegateModel.model.srcModel.fetchMore(sessionModel.index(0, 0, modelIndex()))
+						        	control.DelegateModel.model.srcModel.fetchMore(sessionModel.index(2, 0, modelIndex()))
 									updateCounts()
 									sess.rootIndex = control.DelegateModel.model.srcModel.index(2,0,control.DelegateModel.model.srcModel.index(index, 0, control.DelegateModel.model.rootIndex))
 						    	}

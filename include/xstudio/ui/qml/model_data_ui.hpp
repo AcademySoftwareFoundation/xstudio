@@ -61,6 +61,10 @@ class UIModelData : public caf::mixin::actor_object<JSONTreeModel> {
 
     Q_INVOKABLE bool
     removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
+
+    Q_INVOKABLE bool
+    removeRowsSync(int row, int count, const QModelIndex &parent = QModelIndex());
+
     Q_INVOKABLE bool moveRows(
         const QModelIndex &sourceParent,
         int sourceRow,
@@ -77,6 +81,7 @@ class UIModelData : public caf::mixin::actor_object<JSONTreeModel> {
     caf::actor central_models_data_actor_;
     std::string model_name_;
     std::string data_preference_path_;
+    bool foobarred_ = {false};
 };
 
 class MenusModelData : public UIModelData {
@@ -98,7 +103,11 @@ class ViewsModelData : public UIModelData {
 
     // call this function to register a widget (or view) that can be used to
     // fill an xSTUDIO panel in the interface. See main.qml for examples.
-    void register_view(QString qml_path, QString view_name);
+    void register_view(QString qml_source, QString view_name);
+
+    // call this function to retrieve the QML source (or the path to the
+    // source .qml file) for the given view
+    QVariant view_qml_source(QString view_name);
 };
 
 class ReskinPanelsModel : public UIModelData {
@@ -107,6 +116,18 @@ class ReskinPanelsModel : public UIModelData {
 
   public:
     explicit ReskinPanelsModel(QObject *parent = nullptr);
+
+    Q_INVOKABLE void close_panel(QModelIndex panel_index);
+    Q_INVOKABLE void split_panel(QModelIndex panel_index, bool horizontal_split);
+    Q_INVOKABLE void duplicate_layout(QModelIndex panel_index);
+};
+
+class MediaListColumnsModel : public UIModelData {
+
+    Q_OBJECT
+
+  public:
+    explicit MediaListColumnsModel(QObject *parent = nullptr);
 };
 
 class MenuModelItem : public caf::mixin::actor_object<QObject> {
@@ -173,7 +194,6 @@ class MenuModelItem : public caf::mixin::actor_object<QObject> {
         }
     }
     void setIsChecked(const bool checked) {
-        std::cerr << "OIOI " << checked << " " << is_checked_ << "\n";
         if (checked != is_checked_) {
             is_checked_ = checked;
             emit isCheckedChanged();

@@ -222,6 +222,7 @@ PlaylistActor::PlaylistActor(
             try {
                 auto actor = system().spawn<timeline::TimelineActor>(
                     static_cast<utility::JsonStore>(value), caf::actor_cast<caf::actor>(this));
+
                 container_[key] = actor;
                 link_to(actor);
                 join_event_group(this, actor);
@@ -1919,7 +1920,7 @@ void PlaylistActor::add_media(
                     open_media_reader(ua.actor());
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, to_string(err), to_string(ua.actor()));
                 send_content_changed_event();
                 base_.send_changed(event_group_, this);
                 rp.deliver(ua);
@@ -2000,13 +2001,13 @@ void PlaylistActor::notify_tree(const utility::UuidTree<utility::PlaylistItem> &
 void PlaylistActor::duplicate_tree(utility::UuidTree<utility::PlaylistItem> &tree) {
     tree.value().set_name(tree.value().name() + " - copy");
 
-    if (tree.value().type() == "ContainerDivider") {
+    auto type = tree.value().type();
+
+    if (type == "ContainerDivider") {
         tree.value().set_uuid(Uuid::generate());
-    } else if (tree.value().type() == "ContainerGroup") {
+    } else if (type == "ContainerGroup") {
         tree.value().set_uuid(Uuid::generate());
-    } else if (
-        tree.value().type() == "Subset" || tree.value().type() == "ContactSheet" ||
-        tree.value().type() == "Timeline") {
+    } else if (type == "Subset" || type == "ContactSheet" || type == "Timeline") {
         // need to issue a duplicate action, as we actors are blackboxes..
         // try not to confuse this with duplicating a container, as opposed to the actor..
         // we need to insert the new playlist in to the session and update the UUID
@@ -2014,6 +2015,14 @@ void PlaylistActor::duplicate_tree(utility::UuidTree<utility::PlaylistItem> &tre
             caf::scoped_actor sys(system());
             auto result = request_receive<utility::UuidActor>(
                 *sys, container_[tree.value().uuid()], duplicate_atom_v);
+
+            if (type == "Timeline")
+                anon_send(
+                    result.actor(),
+                    playhead::source_atom_v,
+                    caf::actor_cast<caf::actor>(this),
+                    UuidUuidMap());
+
             tree.value().set_uuid(result.uuid());
             container_[result.uuid()] = result.actor();
             link_to(result.actor());

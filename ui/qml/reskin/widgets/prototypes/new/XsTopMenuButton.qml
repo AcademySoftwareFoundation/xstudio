@@ -8,8 +8,6 @@ import xStudioReskin 1.0
 Item{
     id: widget
 
-    property alias buttonWidget: buttonWidget
-
     property color bgColorPressed: palette.highlight //"#D17000" 
     property color bgColorNormal: "#1AFFFFFF"
     property color forcedBgColorNormal: bgColorNormal
@@ -22,6 +20,7 @@ Item{
     property alias bgDiv: bgDiv
     property var textElide: textDiv.elide
     property alias textDiv: textDiv
+    property alias buttonWidget: buttonWidget
 
     property string text: ""
     property string menuValue: ""//menuOptions.menuAt(menuOptions.currentIndex)
@@ -95,8 +94,8 @@ Item{
             }
         }
     
-        onPressed: focus = true
-        onReleased: focus = false
+        /*onPressed: focus = true
+        onReleased: focus = false*/
         onClicked: menuOptions.toggleShow()
 
     }

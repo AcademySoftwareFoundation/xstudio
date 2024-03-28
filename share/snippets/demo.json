@@ -31,19 +31,25 @@
     },
 	{
 		"name": "Dump shots",
-		"description": "Dump shot maetadata with flag.",
+		"description": "Dump shot metadata with flag.",
 		"menu": "Demo",
 		"script": "from xstudio import demo; demo.dump_shots(XSTUDIO.api.session)"
     },
 	{
-		"name": "Remder all annotations",
+		"name": "Dump Shots Editorial",
+		"description": "Dump shot metadata with flag.",
+		"menu": "DNeg",
+		"script": "from xstudio import demo; demo.dump_shots_gruff(XSTUDIO.api.session)"
+    },
+	{
+		"name": "Render all annotations",
 		"description": "Dump exr renders of all annotations in the session to tmp dir.",
 		"menu": "Demo",
 		"script": "from xstudio import demo; demo.render_all_annotations(XSTUDIO.api.session)"
     }
 	,
 	{
-		"name": "Foo Noo",
+		"name": "Demo Mask Plugin",
 		"description": "Foo Noo Poo Noo",
 		"menu": "Demo",
 		"script": "from xstudio import demo; demo.mask_plugin(XSTUDIO)"

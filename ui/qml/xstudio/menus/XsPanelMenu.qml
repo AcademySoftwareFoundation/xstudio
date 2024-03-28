@@ -33,7 +33,7 @@ XsMenu {
     // connect to the backend module to give access to attributes
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupNames: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings_0"
     }
 
     // XsMenuSeparator { }

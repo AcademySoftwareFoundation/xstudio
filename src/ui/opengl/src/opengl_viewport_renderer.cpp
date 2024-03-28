@@ -51,11 +51,32 @@ void ColourPipeLutCollection::upload_luts(
     }
 }
 
+void ColourPipeLutCollection::register_texture(
+    const std::vector<colour_pipeline::ColourTexture> &textures) {
+
+    for (const auto &tex : textures) {
+        active_textures_[tex.name] = tex;
+    }
+}
+
 void ColourPipeLutCollection::bind_luts(GLShaderProgramPtr shader, int &tex_idx) {
     for (const auto &lut : active_luts_) {
         utility::JsonStore txshder_param(nlohmann::json{{lut->texture_name(), tex_idx}});
         lut->bind(tex_idx);
         shader->set_shader_parameters(txshder_param);
+        tex_idx++;
+    }
+    for (const auto &[name, tex] : active_textures_) {
+        glActiveTexture(GL_TEXTURE0 + tex_idx);
+        switch (tex.target) {
+        case colour_pipeline::ColourTextureTarget::TEXTURE_2D: {
+            glBindTexture(GL_TEXTURE_2D, tex.id);
+        }
+        }
+
+        utility::JsonStore txshder_param(nlohmann::json{{tex.name, tex_idx}});
+        shader->set_shader_parameters(txshder_param);
+
         tex_idx++;
     }
 }
@@ -67,17 +88,9 @@ OpenGLViewportRenderer::OpenGLViewportRenderer(
       viewport_index_(viewer_index) {}
 
 void OpenGLViewportRenderer::upload_image_and_colour_data(
-    std::vector<media_reader::ImageBufPtr> next_images) {
+    std::vector<media_reader::ImageBufPtr> &next_images) {
 
 
-    if (!next_images.size()) {
-        if (onscreen_frame_)
-            onscreen_frame_.reset();
-        active_shader_program_ = no_image_shader_program_;
-        return;
-    }
-
-    onscreen_frame_                                         = next_images.front();
     colour_pipeline::ColourPipelineDataPtr colour_pipe_data = onscreen_frame_.colour_pipe_data_;
 
     if (!textures_.size())
@@ -101,6 +114,7 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
         colour_pipe_textures_.clear();
         for (const auto &op : colour_pipe_data->operations()) {
             colour_pipe_textures_.upload_luts(op->luts_);
+            colour_pipe_textures_.register_texture(op->textures_);
         }
         latest_colour_pipe_data_cacheid_ = colour_pipe_data->cache_id_;
     }
@@ -211,11 +225,14 @@ void OpenGLViewportRenderer::set_prefs(const utility::JsonStore &prefs) {
 }
 
 void OpenGLViewportRenderer::render(
-    const std::vector<media_reader::ImageBufPtr> &next_images,
+    const std::vector<media_reader::ImageBufPtr> &_next_images,
     const Imath::M44f &to_scene_matrix,
     const Imath::M44f &projection_matrix,
     const Imath::M44f &fit_mode_matrix) {
 
+    // we want our images to be modifiable so we can append colour op sidecar
+    // data in the pre_viewport_draw_gpu_hook calls
+    std::vector<media_reader::ImageBufPtr> next_images = _next_images;
 
     // const std::lock_guard<std::mutex> mutex_locker(m);
     init();
@@ -235,7 +252,6 @@ void OpenGLViewportRenderer::render(
     // (with the rest of the UI taking up the remainder) then this value will be 0.5
     const float viewport_x_size_in_window = to_scene_matrix[0][0] / to_scene_matrix[3][3];
 
-
     // the gl viewport corresponds to the parent window size.
     std::array<int, 4> gl_viewport;
     glGetIntegerv(GL_VIEWPORT, gl_viewport.data());
@@ -249,11 +265,32 @@ void OpenGLViewportRenderer::render(
     /* we do our own clear of the viewport */
     clear_viewport_area(to_scene_matrix);
 
-    // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
-    // draw, upload the data
-    upload_image_and_colour_data(next_images);
-
     glUseProgram(0);
+
+    if (!next_images.size()) {
+        if (onscreen_frame_)
+            onscreen_frame_.reset();
+        active_shader_program_ = no_image_shader_program_;
+    } else {
+        onscreen_frame_ = next_images.front();
+    }
+
+    /* Here we allow plugins to run arbitrary GPU draw & computation routines.
+    This will allow pixel data to be rendered to textures (offscreen), for example,
+    which can then be sampled at actual draw time.*/
+    if (onscreen_frame_) {
+        for (auto hook : pre_render_gpu_hooks_) {
+            hook.second->pre_viewport_draw_gpu_hook(
+                to_scene_matrix,
+                transform_viewport_to_image_space,
+                viewport_du_dx,
+                onscreen_frame_);
+        }
+
+        // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
+        // draw, upload the data
+        upload_image_and_colour_data(next_images);
+    }
 
     /* Call the render functions of overlay plugins - for the BeforeImage pass, we only call
     this if we have an alpha buffer that allows us to 'under' the image with the overlay
@@ -265,7 +302,7 @@ void OpenGLViewportRenderer::render(
                 orf.second->render_opengl(
                     to_scene_matrix,
                     transform_viewport_to_image_space,
-                    viewport_du_dx,
+                    abs(viewport_du_dx),
                     onscreen_frame_,
                     has_alpha_);
             }
@@ -298,7 +335,7 @@ void OpenGLViewportRenderer::render(
         }
 
         // coordinate system set-up
-        utility::JsonStore shader_params;
+        utility::JsonStore shader_params = shader_uniforms_;
         shader_params["to_coord_system"]        = transform_viewport_to_image_space;
         shader_params["to_canvas"]              = to_scene_matrix;
         shader_params["use_bilinear_filtering"] = use_bilinear_filtering;
@@ -316,20 +353,20 @@ void OpenGLViewportRenderer::render(
         // to the coordinates of the Viewport QQuickItem, we multiply by the "to_canvas" matrix,
         // which is done in the main shader.
         static std::array<float, 16> vertices = {
-            -1.0,
-            1.0,
+            -1.0f,
+            1.0f,
             0.0f,
             1.0f,
-            1.0,
-            1.0,
+            1.0f,
+            1.0f,
             0.0f,
             1.0f,
-            1.0,
-            -1.0,
+            1.0f,
+            -1.0f,
             0.0f,
             1.0f,
-            -1.0,
-            -1.0,
+            -1.0f,
+            -1.0f,
             0.0f,
             1.0f};
 
@@ -371,7 +408,7 @@ void OpenGLViewportRenderer::render(
                 orf.second->render_opengl(
                     to_scene_matrix,
                     transform_viewport_to_image_space,
-                    viewport_du_dx,
+                    abs(viewport_du_dx),
                     onscreen_frame_,
                     has_alpha_);
             }
@@ -420,7 +457,7 @@ bool OpenGLViewportRenderer::activate_shader(
 
         try {
 
-            std::vector<std::string> shader_componenets;
+            std::vector<std::string> shader_components;
             for (const auto &colour_op : colour_operations) {
                 // sanity check - this should be impossible, though
                 if (colour_op->shader_->graphics_api() != GraphicsAPI::OpenGL) {
@@ -428,13 +465,13 @@ bool OpenGLViewportRenderer::activate_shader(
                         "Non-OpenGL shader data in colour operation chain!");
                 }
                 auto pr = static_cast<opengl::OpenGLShader const *>(colour_op->shader_.get());
-                shader_componenets.push_back(pr->shader_code());
+                shader_components.push_back(pr->shader_code());
             }
 
             programs_[shader_id].reset(new GLShaderProgram(
                 default_vertex_shader,
                 image_buffer_unpack_shader->shader_code(),
-                shader_componenets,
+                shader_components,
                 use_ssbo_));
 
         } catch (std::exception &e) {

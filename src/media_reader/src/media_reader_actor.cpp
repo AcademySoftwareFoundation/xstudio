@@ -161,7 +161,10 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
         auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
         scoped_actor sys{system()};
         auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys, pm, utility::detail_atom_v, plugin_manager::PluginType::PT_MEDIA_READER);
+            *sys,
+            pm,
+            utility::detail_atom_v,
+            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_MEDIA_READER));
 
         for (const auto &i : details) {
             if (i.enabled_) {
@@ -235,6 +238,10 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
         },
 
         [=](const group_down_msg &) {},
+
+        [=](retire_readers_atom, const media::AVFrameID &mptr) -> bool {
+            return prune_reader(reader_key(mptr.uri_, mptr.actor_addr_));
+        },
 
         [=](get_image_atom,
             const media::AVFrameID &mptr,
@@ -594,6 +601,21 @@ GlobalMediaReaderActor::reader_key(const caf::uri &_uri, const caf::actor_addr &
 }
 
 
+bool GlobalMediaReaderActor::prune_reader(const std::string &key) {
+    auto result = false;
+    auto it     = readers_.find(key);
+
+    if (it != std::end(readers_)) {
+        result = true;
+        unlink_from(it->second);
+        send_exit(it->second, caf::exit_reason::user_shutdown);
+        reader_access_.erase(it->first);
+        readers_.erase(it->first);
+    }
+
+    return result;
+}
+
 void GlobalMediaReaderActor::prune_readers() {
     utility::time_point now = clock::now();
     bool reaped             = true;
@@ -835,11 +857,6 @@ void GlobalMediaReaderActor::read_and_cache_image(
             [=](const caf::error &err) mutable {
                 mark_playhead_received_precache_result(playhead_uuid);
                 send_error_to_source(mptr->actor_addr_, err);
-                spdlog::warn(
-                    "read_and_cache_image Failed to load buffer {} {} {}",
-                    to_string(mptr->uri_),
-                    mptr->key_,
-                    to_string(err));
                 // we might still have more work to do so keep going
                 continue_precacheing();
             });
@@ -891,11 +908,6 @@ void GlobalMediaReaderActor::read_and_cache_audio(
             [=](const caf::error &err) mutable {
                 mark_playhead_received_precache_result(playhead_uuid);
                 send_error_to_source(mptr->actor_addr_, err);
-                spdlog::warn(
-                    "read_and_cache_audio Failed to load buffer {} {} {}",
-                    to_string(mptr->uri_),
-                    mptr->key_,
-                    to_string(err));
                 // we might still have more work to do so keep going
                 continue_precacheing();
             });
@@ -939,6 +951,7 @@ void GlobalMediaReaderActor::mark_playhead_received_precache_result(
 void GlobalMediaReaderActor::send_error_to_source(
     const caf::actor_addr &addr, const caf::error &err) {
     if (addr) {
+
         auto dest = caf::actor_cast<caf::actor>(addr);
         if (dest and err.category() == caf::type_id_v<media::media_error>) {
             media_error me;

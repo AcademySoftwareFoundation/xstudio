@@ -14,6 +14,8 @@ Item::Item(const utility::JsonStore &jsn, caf::actor_system *system)
     item_type_       = jsn.at("type");
     enabled_         = jsn.at("enabled");
     name_            = jsn.value("name", "");
+    flag_            = jsn.value("flag", "");
+    prop_            = jsn.value("prop", JsonStore());
 
     if (jsn.count("actor_addr"))
         uuid_addr_.second = string_to_actor_addr(jsn.at("actor_addr"));
@@ -67,6 +69,8 @@ utility::JsonStore Item::serialise(const int depth) const {
     jsn["type"]       = item_type_;
     jsn["enabled"]    = enabled_;
     jsn["name"]       = name_;
+    jsn["flag"]       = flag_;
+    jsn["prop"]       = prop_;
 
     if (has_available_range_)
         jsn["available_range"] = available_range_;
@@ -338,8 +342,10 @@ utility::UuidActorVector Item::find_all_uuid_actors(const ItemType item_type) co
     return items;
 }
 
-std::optional<std::tuple<const Item &, utility::FrameRate>>
-Item::resolve_time(const utility::FrameRate &time, const media::MediaType mt) const {
+std::optional<ResolvedItem> Item::resolve_time(
+    const utility::FrameRate &time,
+    const media::MediaType mt,
+    const utility::UuidSet &focus) const {
     if (transparent())
         return {};
 
@@ -350,7 +356,7 @@ Item::resolve_time(const utility::FrameRate &time, const media::MediaType mt) co
     case IT_TIMELINE:
         // pass to stack
         if (not empty()) {
-            auto t = front().resolve_time(time + trimmed_start(), mt);
+            auto t = front().resolve_time(time + trimmed_start(), mt, focus);
             if (t)
                 return *t;
         }
@@ -362,23 +368,55 @@ Item::resolve_time(const utility::FrameRate &time, const media::MediaType mt) co
         // needs depth first search ?
         // most of the logic lives here..
         if (mt == media::MediaType::MT_IMAGE) {
+            std::optional<ResolvedItem> found_item = {};
+
             for (const auto &it : *this) {
                 // we skip audio track..
                 if (it.transparent() or it.item_type() == IT_AUDIO_TRACK)
                     continue;
-                auto t = it.resolve_time(time + trimmed_start(), mt);
-                if (t)
-                    return *t;
+
+                auto t = it.resolve_time(time + trimmed_start(), mt, focus);
+
+                if (t) {
+                    if (focus.empty())
+                        return *t;
+
+                    if (focus.count(it.uuid()) and std::get<0>(*t).item_type() == IT_CLIP)
+                        return *t;
+
+                    if (focus.count(std::get<0>(*t).uuid()))
+                        return *t;
+
+                    if (not found_item and std::get<0>(*t).item_type() == IT_CLIP)
+                        found_item = *t;
+                }
             }
+            if (found_item)
+                return *found_item;
+
         } else {
+            std::optional<ResolvedItem> found_item = {};
             for (const auto &it : *this) {
                 // we skip video track
                 if (it.transparent() or it.item_type() == IT_VIDEO_TRACK)
                     continue;
-                auto t = it.resolve_time(time + trimmed_start(), mt);
-                if (t)
-                    return *t;
+                auto t = it.resolve_time(time + trimmed_start(), mt, focus);
+                if (t) {
+                    if (focus.empty())
+                        return *t;
+
+                    if (focus.count(it.uuid()) and std::get<0>(*t).item_type() == IT_CLIP)
+                        return *t;
+
+                    if (focus.count(std::get<0>(*t).uuid()))
+                        return *t;
+
+                    if (not found_item and std::get<0>(*t).item_type() == IT_CLIP)
+                        found_item = *t;
+                }
             }
+            if (found_item)
+                return *found_item;
         }
         // we shouldn't return the container..
         break;
@@ -397,7 +435,7 @@ Item::resolve_time(const utility::FrameRate &time, const media::MediaType mt) co
                 if (ttp + ts >= td) {
                     ttp -= td;
                 } else {
-                    auto t = it.resolve_time(ttp + ts, mt);
+                    auto t = it.resolve_time(ttp + ts, mt, focus);
                     if (t)
                         return *t;
                     break;
@@ -422,6 +460,10 @@ void Item::set_enabled_direct(const bool &value) { enabled_ = value; }
 
 void Item::set_name_direct(const std::string &value) { name_ = value; }
 
+void Item::set_flag_direct(const std::string &value) { flag_ = value; }
+
+void Item::set_prop_direct(const utility::JsonStore &value) { prop_ = value; }
+
 utility::JsonStore Item::set_enabled(const bool &value) {
     if (enabled_ != value) {
         utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
@@ -444,6 +486,34 @@ utility::JsonStore Item::set_name(const std::string &value) {
         jsn[0]["undo"]["value"]                         = name_;
         jsn[0]["redo"]["value"]                         = value;
         set_name_direct(value);
+        return jsn;
+    }
+
+    return utility::JsonStore();
+}
+
+utility::JsonStore Item::set_flag(const std::string &value) {
+    if (flag_ != value) {
+        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IT_FLAG;
+        jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
+        jsn[0]["undo"]["value"]                         = flag_;
+        jsn[0]["redo"]["value"]                         = value;
+        set_flag_direct(value);
+        return jsn;
+    }
+
+    return utility::JsonStore();
+}
+
+utility::JsonStore Item::set_prop(const utility::JsonStore &value) {
+    if (prop_ != value) {
+        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IT_PROP;
+        jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
+        jsn[0]["undo"]["value"]                         = prop_;
+        jsn[0]["redo"]["value"]                         = value;
+        set_prop_direct(value);
         return jsn;
     }
 
@@ -563,7 +633,7 @@ Item::insert(Items::iterator position, const Item &value, const utility::JsonSto
 
 Items::iterator Item::erase_direct(Items::iterator position) { return Items::erase(position); }
 
-utility::JsonStore Item::erase(Items::iterator position) {
+utility::JsonStore Item::erase(Items::iterator position, const utility::JsonStore &blind) {
     utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
     auto index = std::distance(begin(), position);
 
@@ -572,7 +642,7 @@ utility::JsonStore Item::erase(Items::iterator position) {
     jsn[0]["undo"]["action"] = ItemAction::IT_INSERT;
     jsn[0]["undo"]["index"]  = index;
     jsn[0]["undo"]["item"]   = position->serialise();
-    jsn[0]["undo"]["blind"]  = nullptr;
+    jsn[0]["undo"]["blind"]  = blind;
 
     jsn[0]["redo"]["action"]    = ItemAction::IT_REMOVE;
     jsn[0]["redo"]["index"]     = index;
@@ -599,34 +669,35 @@ utility::JsonStore Item::splice(
 
     utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
 
-    auto pos_index   = std::distance(cbegin(), pos);
-    auto first_index = std::distance(cbegin(), first);
-    auto last_index  = std::distance(cbegin(), last);
-
-    // splice can't insert into range..
-    // move position to end of range.
-    if (pos_index >= first_index and pos_index <= last_index) {
-        pos_index = last_index + 1;
-        pos       = std::next(last, 1);
-    }
+    auto dst_index   = std::distance(cbegin(), pos);
+    auto start_index = std::distance(cbegin(), first);
+    auto count       = std::distance(first, last);
 
     jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
 
     jsn[0]["redo"]["action"] = ItemAction::IT_SPLICE;
-    jsn[0]["redo"]["dst"]    = pos_index;   // dst
-    jsn[0]["redo"]["first"]  = first_index; // frst
-    jsn[0]["redo"]["last"]   = last_index;  // lst
+    jsn[0]["redo"]["dst"]    = dst_index;   // dst
+    jsn[0]["redo"]["first"]  = start_index; // frst
+    jsn[0]["redo"]["count"]  = count;
 
-    if (pos_index > last_index) {
-        pos_index -= (last_index - first_index);
+    int undo_first;
+    auto undo_dst = start_index;
+
+    if (dst_index > start_index) {
+        undo_first = dst_index - count;
+    } else {
+        undo_first = dst_index;
+        undo_dst += count;
     }
 
     jsn[0]["undo"]["action"] = ItemAction::IT_SPLICE;
-    jsn[0]["undo"]["dst"]    = first_index; // dst
-    jsn[0]["undo"]["first"]  = pos_index;
-    jsn[0]["undo"]["last"]   = pos_index + (last_index - first_index);
+    jsn[0]["undo"]["dst"]    = undo_dst;
+    jsn[0]["undo"]["first"]  = undo_first;
+    jsn[0]["undo"]["count"]  = count;
 
-    // spdlog::warn("{}", jsn.dump(2));
+    // std::cerr << "first " << undo_first << std::endl;
+    // std::cerr << "  dst " << undo_dst << std::endl;
+    // std::cerr << std::endl << std::flush;
 
     splice_direct(pos, other, first, last);
 
@@ -652,8 +723,8 @@ void Item::redo(const utility::JsonStore &event) {
 }
 
 bool Item::process_event(const utility::JsonStore &event) {
-    // spdlog::warn("{} {} {}", event["uuid"], to_string(uuid_addr_.first), event["uuid"] ==
-    // uuid_addr_.first);
+    // spdlog::warn("{}", event.dump(2));
+
     if (event.at("uuid") == uuid_addr_.first) {
         switch (static_cast<ItemAction>(event.at("action"))) {
         case IT_ENABLE:
@@ -661,6 +732,12 @@ bool Item::process_event(const utility::JsonStore &event) {
             break;
         case IT_NAME:
             set_name_direct(event.at("value"));
+            break;
+        case IT_FLAG:
+            set_flag_direct(event.at("value"));
+            break;
+        case IT_PROP:
+            set_prop_direct(event.at("value"));
             break;
         case IT_ACTIVE:
             set_active_range_direct(event.at("value"));
@@ -671,23 +748,46 @@ bool Item::process_event(const utility::JsonStore &event) {
             has_available_range_ = event.at("value2");
             break;
         case IT_INSERT: {
-            auto it = begin();
-            std::advance(it, event.at("index"));
-            insert_direct(it, Item(JsonStore(event.at("item")), the_system_));
+            // spdlog::warn("IT_INSERT {}", event.dump(2));
+            auto index = event.at("index").get<size_t>();
+            if (index == 0 or index <= size()) {
+                insert_direct(
+                    std::next(begin(), index), Item(JsonStore(event.at("item")), the_system_));
+            } else {
+                spdlog::error(
+                    "IT_INSERT - INVALID INDEX {} {} {}", size(), index, event.dump(2));
+            }
         } break;
         case IT_REMOVE: {
-            auto it = begin();
-            std::advance(it, event.at("index"));
-            erase_direct(it);
+            // spdlog::warn("IT_REMOVE {}", event.dump(2));
+            auto index = event.at("index").get<size_t>();
+            if (index < size()) {
+                erase_direct(std::next(begin(), index));
+            } else {
+                spdlog::error(
+                    "IT_REMOVE - INVALID INDEX {} {} {} {} {} {}",
+                    to_string(uuid()),
+                    name(),
+                    to_string(item_type()),
+                    size(),
+                    index,
+                    event.dump(2));
+            }
         } break;
         case IT_SPLICE: {
-            auto it1 = begin();
-            std::advance(it1, event.at("dst"));
-            auto it2 = begin();
-            std::advance(it2, event.at("first"));
-            auto it3 = begin();
-            std::advance(it3, event.at("last"));
-            splice_direct(it1, *this, it2, it3);
+            // spdlog::warn("IT_SPLICE {}", event.dump(2));
+            auto dst   = event.at("dst").get<size_t>();
+            auto first = event.at("first").get<size_t>();
+            if ((dst == 0 or dst <= size()) and (first == 0 or first < size())) {
+                auto it1 = std::next(begin(), dst);
+                auto it2 = std::next(begin(), first);
+                auto it3 = std::next(it2, event.at("count").get<int>());
+
+                splice_direct(it1, *this, it2, it3);
+            } else {
+                spdlog::error(
+                    "IT_SPLICE - INVALID INDEX {} {} {} {}", size(), first, dst, event.dump(2));
+            }
         } break;
 
         case IT_ADDR:
@@ -724,4 +824,75 @@ void Item::bind_item_event_func(ItemEventFunc fn, const bool recursive) {
         for (auto &i : *this)
             i.bind_item_event_func(fn, recursive_bind_);
     }
+}
+
+std::optional<std::pair<Items::const_iterator, int>>
+Item::item_at_frame(const int track_frame) const {
+    auto start    = trimmed_frame_start().frames();
+    auto duration = trimmed_frame_duration().frames();
+
+    if (track_frame >= start or track_frame <= start + duration - 1) {
+        // should be valid..
+        // increment start til we find item.
+
+        for (auto it = cbegin(); it != cend(); it++) {
+            if (start + it->trimmed_frame_duration().frames() > track_frame) {
+                return std::make_pair(
+                    it, (track_frame - start) + it->trimmed_frame_start().frames());
+            } else {
+                start += it->trimmed_frame_duration().frames();
+            }
+        }
+    }
+
+    return {};
+}
+
+utility::FrameRange Item::range_at_index(const int item_index) const {
+    auto result = utility::FrameRange();
+    result.set_rate(trimmed_range().rate());
+
+    auto start = trimmed_range().start();
+    auto end =
+        item_index >= static_cast<int>(size()) ? cend() : std::next(cbegin(), item_index);
+    auto it = cbegin();
+
+    for (; it != end; ++it)
+        start += it->trimmed_range().duration();
+
+    if (it != cend())
+        result.set_duration(it->trimmed_range().duration());
+    else
+        result.set_duration(FrameRate());
+
+    result.set_start(start);
+
+    return result;
+}
+
+
+int Item::frame_at_index(const int item_index) const {
+    int result = trimmed_frame_start().frames();
+    auto end =
+        item_index >= static_cast<int>(size()) ? cend() : std::next(cbegin(), item_index);
+
+    for (auto it = cbegin(); it != end; ++it)
+        result += it->trimmed_frame_duration().frames();
+
+    return result;
+}
+
+int Item::frame_at_index(const int item_index, const int item_frame) const {
+    auto dur = item_frame;
+
+    if (item_index < static_cast<int>(size()) and item_index >= 0)
+        dur -= std::next(cbegin(), item_index)->trimmed_frame_start().frames();
+
+    return frame_at_index(item_index) + dur;
+}
+
+std::optional<Items::const_iterator> Item::item_at_index(const int index) const {
+    if (index < 0 or index >= static_cast<int>(size()))
+        return {};
+    return std::next(begin(), index);
 }

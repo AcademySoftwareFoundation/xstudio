@@ -27,6 +27,7 @@ namespace ui {
             ColourPipeLutCollection(const ColourPipeLutCollection &o);
 
             void upload_luts(const std::vector<colour_pipeline::ColourLUTPtr> &luts);
+            void register_texture(const std::vector<colour_pipeline::ColourTexture> &textures);
 
             void bind_luts(GLShaderProgramPtr shader, int &tex_idx);
 
@@ -36,6 +37,7 @@ namespace ui {
             typedef std::shared_ptr<GLColourLutTexture> GLColourLutTexturePtr;
             std::map<std::string, GLColourLutTexturePtr> lut_textures_;
             std::vector<GLColourLutTexturePtr> active_luts_;
+            std::map<std::string, colour_pipeline::ColourTexture> active_textures_;
         };
 
         class OpenGLViewportRenderer : public viewport::ViewportRenderer {
@@ -62,7 +64,7 @@ namespace ui {
                 const std::vector<colour_pipeline::ColourOperationDataPtr> &operations);
 
             void
-            upload_image_and_colour_data(std::vector<media_reader::ImageBufPtr> next_images);
+            upload_image_and_colour_data(std::vector<media_reader::ImageBufPtr> &next_images);
             void bind_textures();
             void release_textures();
             void clear_viewport_area(const Imath::M44f &to_scene_matrix);

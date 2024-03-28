@@ -42,7 +42,7 @@ DelegateChoice {
 
 	    Component.onCompleted: {
 	    	// grab children
-        	control.DelegateModel.model.srcModel.get(modelIndex(), "childrenRole")
+        	control.DelegateModel.model.srcModel.fetchMore(modelIndex())
 	    }
 
 	    function modelIndex() {
@@ -87,7 +87,7 @@ DelegateChoice {
 		   	anchors.top: parent.top
 		   	anchors.left: parent.left
 		   	anchors.right: parent.right
-	        tint: flagRole != undefined ? flagRole : ""
+	        tint: flagColourRole != undefined ? flagColourRole : ""
 
 			type_icon_source: "qrc:///feather_icons/trello.svg"
 			type_icon_color: XsStyle.highlightColor
@@ -149,8 +149,8 @@ DelegateChoice {
 	        fakeDisabled: true
 
 	        XsFlagMenu {
-	            flag:  flagRole != undefined ? flagRole : ""
-	            onFlagHexChanged: flagRole = flagHex
+	            flag:  flagColourRole != undefined ? flagColourRole : ""
+	            onFlagHexChanged: flagColourRole = flagHex
 	        }
 
 	        XsMenuSeparator {}

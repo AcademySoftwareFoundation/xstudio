@@ -61,10 +61,20 @@ namespace ui {
              */
             virtual void set_prefs(const utility::JsonStore &prefs) = 0;
 
+            void set_aux_shader_uniforms(const utility::JsonStore &uniforms) {
+                shader_uniforms_ = uniforms;
+            }
+
             void add_overlay_renderer(
                 const utility::Uuid &uuid, plugin::ViewportOverlayRendererPtr renderer) {
                 viewport_overlay_renderers_[uuid] = renderer;
             }
+
+            void
+            add_pre_renderer_hook(const utility::Uuid &uuid, plugin::GPUPreDrawHookPtr hook) {
+                pre_render_gpu_hooks_[uuid] = hook;
+            }
+
 
             void set_render_hints(RenderHints hint) { render_hints_ = hint; }
 
@@ -97,8 +107,11 @@ namespace ui {
             std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
                 viewport_overlay_renderers_;
 
+            std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> pre_render_gpu_hooks_;
+
             RenderHints render_hints_ = {BilinearWhenZoomedOut};
             bool done_init_           = false;
+            utility::JsonStore shader_uniforms_;
         };
 
         typedef std::shared_ptr<ViewportRenderer> ViewportRendererPtr;

@@ -52,6 +52,7 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
     }
     link_to(json_store_);
 
+    bool re_aquire_detail = false;
     for (const auto &[key, value] : jsn["actors"].items()) {
         if (value["base"]["container"]["type"] == "MediaStream") {
             try {
@@ -59,10 +60,20 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
                     system().spawn<media::MediaStreamActor>(static_cast<JsonStore>(value));
                 link_to(media_streams_[Uuid(key)]);
                 join_event_group(this, media_streams_[Uuid(key)]);
+
+                // as of xSTUDIO v2 media detail has been extended to have
+                // reoslution and pixel aspect info. If we're reading from
+                // an older session file we need to update the media details
+                re_aquire_detail |= !value["base"].contains("resolution");
+
             } catch (const std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
             }
         }
+    }
+
+    if (re_aquire_detail) {
+        update_media_detail();
     }
 
     init();
@@ -128,7 +139,6 @@ MediaSourceActor::MediaSourceActor(
     mr.set_timecode_from_frames();
     base_.set_media_reference(mr);
 
-
     // special case , when duplicating, as that'll suppy streams.
     // anon_send(actor_cast<actor>(this), acquire_media_detail_atom_v, media_reference.rate());
 
@@ -136,6 +146,48 @@ MediaSourceActor::MediaSourceActor(
 }
 
 #include <chrono>
+
+void MediaSourceActor::update_media_detail() {
+
+    // xstudio 2.0 extends 'StreamDetail' to include resolution and pixel
+    // aspect data ... here we therefore rescan for StreamDetail
+    try {
+        auto gmra = system().registry().template get<caf::actor>(media_reader_registry);
+        if (!gmra)
+            throw std::runtime_error("No global media reader.");
+        int frame;
+        auto _uri = base_.media_reference().uri(0, frame);
+        if (not _uri)
+            throw std::runtime_error("Invalid frame index");
+        request(gmra, infinite, get_media_detail_atom_v, *_uri, actor_cast<actor_addr>(this))
+            .then(
+                [=](const MediaDetail md) mutable {
+                    for (auto strm : media_streams_) {
+
+                        request(strm.second, infinite, get_stream_detail_atom_v)
+                            .then(
+                                [=](const StreamDetail &old_detail) {
+                                    for (const auto &stream_detail : md.streams_) {
+                                        if (stream_detail.name_ == old_detail.name_ &&
+                                            stream_detail.media_type_ ==
+                                                old_detail.media_type_) {
+                                            // update the media stream actor's details
+                                            send(strm.second, stream_detail);
+                                        }
+                                    }
+                                },
+                                [=](const error &err) mutable {
+                                    spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                });
+                    }
+                },
+                [=](const error &err) mutable {
+                    spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                });
+    } catch (std::exception &e) {
+        spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
 
 void MediaSourceActor::acquire_detail(
     const utility::FrameRate &rate, caf::typed_response_promise<bool> rp) {
@@ -179,8 +231,7 @@ void MediaSourceActor::acquire_detail(
                             // HACK!!!
 
                             auto uuid   = utility::Uuid::generate();
-                            auto stream = spawn<MediaStreamActor>(
-                                i.name_, i.duration_, i.media_type_, i.key_format_, uuid);
+                            auto stream = spawn<MediaStreamActor>(i, uuid);
                             link_to(stream);
                             join_event_group(this, stream);
                             media_streams_[uuid] = stream;
@@ -387,10 +438,16 @@ void MediaSourceActor::init() {
         },
 
         [=](current_media_stream_atom, const MediaType media_type) -> result<UuidActor> {
-            if (media_streams_.count(base_.current(media_type)))
-                return UuidActor(
-                    base_.current(media_type), media_streams_.at(base_.current(media_type)));
-            return result<UuidActor>(make_error(xstudio_error::error, "No streams"));
+            auto rp = make_response_promise<UuidActor>();
+            request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v).then(
+                [=](bool) mutable {
+                    if (media_streams_.count(base_.current(media_type)))
+                        rp.deliver(UuidActor(
+                            base_.current(media_type), media_streams_.at(base_.current(media_type))));
+                    rp.deliver(make_error(xstudio_error::error, "No streams"));
+                },
+                [=](const error &err) mutable { rp.deliver(err); });
+            return rp;            
         },
 
         [=](current_media_stream_atom, const MediaType media_type, const Uuid &uuid) -> bool {
@@ -461,19 +518,27 @@ void MediaSourceActor::init() {
         [=](get_edit_list_atom,
             const MediaType media_type,
             const Uuid &uuid) -> result<utility::EditList> {
-            if (base_.current(media_type).is_null()) {
-                return make_error(xstudio_error::error, "No streams");
-            }
 
-            if (uuid.is_null())
-                return utility::EditList({EditListSection(
-                    base_.uuid(),
-                    base_.media_reference(base_.current(media_type)).duration(),
-                    base_.media_reference(base_.current(media_type)).timecode())});
-            return utility::EditList({EditListSection(
-                uuid,
-                base_.media_reference(base_.current(media_type)).duration(),
-                base_.media_reference(base_.current(media_type)).timecode())});
+            auto rp = make_response_promise<utility::EditList>();
+            request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v).then(
+                [=](bool) mutable {
+                    if (base_.current(media_type).is_null()) {
+                        rp.deliver(make_error(xstudio_error::error, "No streams"));
+                    }
+
+                    if (uuid.is_null())
+                        rp.deliver(utility::EditList({EditListSection(
+                            base_.uuid(),
+                            base_.media_reference(base_.current(media_type)).duration(),
+                            base_.media_reference(base_.current(media_type)).timecode())}));
+                    return rp.deliver(utility::EditList({EditListSection(
+                        uuid,
+                        base_.media_reference(base_.current(media_type)).duration(),
+                        base_.media_reference(base_.current(media_type)).timecode())}));
+                },
+                [=](const error &err) mutable { rp.deliver(err); });
+            return rp;            
+            
         },
 
         [=](get_media_pointer_atom,
@@ -491,6 +556,8 @@ void MediaSourceActor::init() {
                 get_stream_detail_atom_v)
                 .then(
                     [=](const StreamDetail &detail) mutable {
+                        auto timecode =
+                            base_.media_reference(base_.current(media_type)).timecode();
                         if (media_type == MT_IMAGE) {
                             request(
                                 json_store_,
@@ -521,9 +588,11 @@ void MediaSourceActor::init() {
                                                     base_.reader(),
                                                     caf::actor_cast<caf::actor_addr>(this),
                                                     meta,
-                                                    base_.current(MT_IMAGE),
+                                                    base_.uuid(),
                                                     parent_uuid_,
                                                     media_type));
+                                                results.back().timecode_ = timecode;
+                                                timecode                 = timecode + 1;
                                             }
 
                                             rp.deliver(results);
@@ -558,6 +627,8 @@ void MediaSourceActor::init() {
                                                     utility::Uuid(),
                                                     parent_uuid_,
                                                     media_type));
+                                                results.back().timecode_ = timecode;
+                                                timecode                 = timecode + 1;
                                             }
 
                                             rp.deliver(results);
@@ -583,9 +654,11 @@ void MediaSourceActor::init() {
                                     base_.reader(),
                                     caf::actor_cast<caf::actor_addr>(this),
                                     utility::JsonStore(),
-                                    base_.current(media_type),
+                                    base_.uuid(),
                                     parent_uuid_,
                                     media_type));
+                                results.back().timecode_ = timecode;
+                                timecode                 = timecode + 1;
                             }
 
                             rp.deliver(results);
@@ -642,7 +715,7 @@ void MediaSourceActor::init() {
                                                 base_.reader(),
                                                 caf::actor_cast<caf::actor_addr>(this),
                                                 meta,
-                                                base_.current(media_type),
+                                                base_.uuid(),
                                                 parent_uuid_,
                                                 media_type));
                                         },
@@ -678,7 +751,7 @@ void MediaSourceActor::init() {
                                     base_.reader(),
                                     caf::actor_cast<caf::actor_addr>(this),
                                     utility::JsonStore(),
-                                    base_.current(media_type),
+                                    base_.uuid(),
                                     parent_uuid_,
                                     media_type));
                             }
@@ -1163,11 +1236,38 @@ void MediaSourceActor::init() {
         },
 
         [=](media::checksum_atom, const std::pair<std::string, uintmax_t> &checksum) {
-            return base_.checksum(checksum);
+            // force thumbnail update on change. Might cause double update..
+            auto old_size = base_.checksum().second;
+            if (base_.checksum(checksum) and old_size) {
+                send(
+                    event_group_,
+                    utility::event_atom_v,
+                    media_status_atom_v,
+                    base_.media_status());
+
+                // trigger re-eval of reader..
+                request(
+                    caf::actor_cast<caf::actor>(this),
+                    infinite,
+                    get_media_pointer_atom_v,
+                    MT_IMAGE,
+                    static_cast<int>(0))
+                    .then(
+                        [=](const media::AVFrameID &tmp) {
+                            auto global_media_reader =
+                                system().registry().template get<caf::actor>(
+                                    media_reader_registry);
+                            anon_send(global_media_reader, retire_readers_atom_v, tmp);
+                        },
+                        [=](const error &err) {});
+            }
         },
 
         [=](media::rescan_atom atom) -> result<MediaReference> {
             auto rp = make_response_promise<MediaReference>();
+
+            // trigger status update
+            update_media_status();
 
             auto scanner = system().registry().template get<caf::actor>(scanner_registry);
             if (scanner) {
@@ -1182,11 +1282,30 @@ void MediaSourceActor::init() {
                                     mr)
                                     .then(
                                         [=](const bool) mutable {
+                                            // rebuild hash (file might have changed)
+                                            auto scanner =
+                                                system().registry().template get<caf::actor>(
+                                                    scanner_registry);
+                                            if (scanner)
+                                                anon_send(
+                                                    scanner,
+                                                    checksum_atom_v,
+                                                    this,
+                                                    base_.media_reference());
+
                                             anon_send(this, invalidate_cache_atom_v);
                                             rp.deliver(base_.media_reference());
                                         },
                                         [=](const error &err) mutable { rp.deliver(err); });
                             } else {
+                                auto scanner = system().registry().template get<caf::actor>(
+                                    scanner_registry);
+                                if (scanner)
+                                    anon_send(
+                                        scanner,
+                                        checksum_atom_v,
+                                        this,
+                                        base_.media_reference());
                                 anon_send(this, invalidate_cache_atom_v);
                                 rp.deliver(base_.media_reference());
                             }
@@ -1291,6 +1410,8 @@ void MediaSourceActor::get_media_pointers_for_frames(
                         [=](const StreamDetail &detail) mutable {
                             media::AVFrameIDs result;
                             media::AVFrameID mptr;
+                            auto timecode =
+                                base_.media_reference(base_.current(media_type)).timecode();
 
                             for (const auto &i : ranges) {
                                 for (auto logical_frame = i.first; logical_frame <= i.second;
@@ -1323,7 +1444,7 @@ void MediaSourceActor::get_media_pointers_for_frames(
                                                 base_.reader(),
                                                 caf::actor_cast<caf::actor_addr>(this),
                                                 meta,
-                                                base_.current(media_type),
+                                                base_.uuid(),
                                                 parent_uuid_,
                                                 media_type);
                                         } else {
@@ -1333,6 +1454,9 @@ void MediaSourceActor::get_media_pointers_for_frames(
                                                 detail.key_format_, *_uri, frame, detail.name_);
                                         }
 
+                                        mptr.timecode_               = timecode;
+                                        mptr.playhead_logical_frame_ = logical_frame;
+                                        timecode                     = timecode + 1;
                                         result.emplace_back(
                                             std::shared_ptr<const media::AVFrameID>(
                                                 new media::AVFrameID(mptr)));

@@ -89,7 +89,6 @@ namespace media_reader {
         std::map<caf::uri, utility::time_point> media_detail_cache_age_;
 
         utility::Uuid uuid_;
-        caf::actor colour_pipe_manager_;
         std::vector<caf::actor> plugins_;
         std::map<utility::Uuid, caf::actor> plugins_map_;
     };

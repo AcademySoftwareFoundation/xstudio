@@ -6,6 +6,7 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/media/media.hpp"
 #include "xstudio/media_reader/pixel_info.hpp"
+#include "xstudio/media_reader/image_buffer.hpp"
 
 using namespace xstudio::colour_pipeline;
 using namespace xstudio;
@@ -23,11 +24,13 @@ ColourPipeline::ColourPipeline(caf::actor_config &cfg, const utility::JsonStore 
     : StandardPlugin(
           cfg, init_settings.value<std::string>("name", "ColourPipeline"), init_settings),
       uuid_(utility::Uuid::generate()),
-      viewport_name_(init_settings.value<std::string>("viewport_name", "no viewport")),
       init_data_(init_settings) {
 
     cache_ = system().registry().template get<caf::actor>(colour_cache_registry);
+
+    // this ensures colour OPs get loaded
     load_colour_op_plugins();
+
     if (!init_settings.value<bool>("is_worker", false)) {
         delayed_anon_send(
             caf::actor_cast<caf::actor>(this),
@@ -37,6 +40,8 @@ ColourPipeline::ColourPipeline(caf::actor_config &cfg, const utility::JsonStore 
         is_worker_ = true;
     }
 }
+
+ColourPipeline::~ColourPipeline() {}
 
 size_t ColourOperationData::size() const {
     size_t rt = 0;
@@ -53,11 +58,17 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         j["is_worker"] = true;
         static int ct  = 1;
         std::stringstream nm;
-        nm << Module::name() << "_" << viewport_name_ << "_Worker" << ct++;
+        nm << Module::name() << "_Worker" << ct++;
         j["name"]   = nm.str();
         auto worker = self_spawn(j);
+        link_to(worker);
         if (worker) {
-            link_to_module(worker, true, false, true);
+            link_to_module(
+                worker,
+                true,   // link_all_attrs
+                false,  // both_ways
+                true    // initial_push_sync
+            );
             workers_.push_back(worker);
         }
         return worker;
@@ -260,16 +271,15 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             spdlog::debug("ColourPipelineActor exited: {}", to_string(reason));
         },
         [=](colour_operation_uniforms_atom atom,
-            const media::AVFrameID &media_ptr,
-            ColourPipelineDataPtr cpipe_data) -> result<utility::JsonStore> {
+            const media_reader::ImageBufPtr &image) -> result<utility::JsonStore> {
             auto rp = make_response_promise<utility::JsonStore>();
 
             if (worker_pool_) {
-                rp.delegate(worker_pool_, atom, media_ptr, cpipe_data);
+                rp.delegate(worker_pool_, atom, image);
             } else {
                 auto result = std::make_shared<utility::JsonStore>();
-                for (const auto &op : cpipe_data->operations()) {
-                    update_shader_uniforms(*result, media_ptr.source_uuid_, op->user_data_);
+                for (const auto &op : image.colour_pipe_data_->operations()) {
+                    result->merge(update_shader_uniforms(image, op->user_data_));
                 }
                 auto rcount = std::make_shared<int>((int)colour_op_plugins_.size());
 
@@ -279,8 +289,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                 }
                 for (auto &colour_op_plugin : colour_op_plugins_) {
 
-                    request(
-                        colour_op_plugin, infinite, colour_operation_uniforms_atom_v, media_ptr)
+                    request(colour_op_plugin, infinite, colour_operation_uniforms_atom_v, image)
                         .then(
                             [=](const utility::JsonStore &uniforms) mutable {
                                 result->merge(uniforms);
@@ -375,9 +384,10 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         [=](connect_to_viewport_atom,
             caf::actor viewport_actor,
             const std::string &viewport_name,
-            const int viewport_index) {
+            const std::string &viewport_toolbar_name,
+            bool connect) {
             disable_linking();
-            connect_to_viewport(viewport_actor, viewport_name, viewport_index);
+            connect_to_viewport(viewport_name, viewport_toolbar_name, connect);
             enable_linking();
             connect_to_ui();
         },
@@ -433,7 +443,25 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             } catch (...) {
             }*/
         },
-        [=](utility::serialise_atom) -> utility::JsonStore { return serialise(); });
+        [=](utility::serialise_atom) -> utility::JsonStore { return serialise(); },
+        [=](ui::viewport::pre_render_gpu_hook_atom,
+            const int viewer_index) -> result<plugin::GPUPreDrawHookPtr> {
+            // This message handler overrides the one in PluginBase class.
+            // op plugins themselves might have a GPUPreDrawHook that needs
+            // to be passed back up to the Viewport object that is making this
+            // request. Due to asynchronous nature of the plugin loading
+            // (see load_colour_op_plugins) we therefore need our own logic here.
+            auto rp = make_response_promise<plugin::GPUPreDrawHookPtr>();
+            if (colour_ops_loaded_) {
+                make_pre_draw_gpu_hook(rp, viewer_index);
+            } else {
+                // add to a queue of these requests pending a response
+                hook_requests_.push_back(std::make_pair(rp, viewer_index));
+                // load_colour_op_plugins() will respond to these requests
+                // when all the plugins are loaded.
+            }
+            return rp;
+        });
 }
 
 void ColourPipeline::attribute_changed(const utility::Uuid &attr_uuid, const int role) {
@@ -523,6 +551,7 @@ void ColourPipeline::add_colour_op_plugin_data(
             .then(
                 [=](ColourOperationDataPtr colour_op_data) mutable {
                     result->add_operation(colour_op_data);
+                    result->cache_id_ += colour_op_data->cache_id_;
                     (*rcount)--;
                     if (!(*rcount)) {
 
@@ -564,33 +593,124 @@ void ColourPipeline::load_colour_op_plugins() {
     // ColourPipelineActor which is spawned byt the plugin_manager_registry...
     // If we did blocking request receive we would have a lock situation as the
     // plugin_manager_registry is busy spawning 'this'.
+
     auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
     request(
-        pm, infinite, utility::detail_atom_v, plugin_manager::PluginType::PT_COLOUR_OPERATION)
+        pm,
+        infinite,
+        utility::detail_atom_v,
+        plugin_manager::PluginType(plugin_manager::PluginFlags::PF_COLOUR_OPERATION))
         .then(
             [=](const std::vector<plugin_manager::PluginDetail>
                     &colour_op_plugin_details) mutable {
+                auto count = std::make_shared<int>(colour_op_plugin_details.size());
+
+                if (colour_op_plugin_details.empty()) {
+                    colour_ops_loaded_ = true;
+                    for (auto &hr : hook_requests_) {
+                        make_pre_draw_gpu_hook(hr.first, hr.second);
+                    }
+                    hook_requests_.clear();
+                }
+
                 for (const auto &pd : colour_op_plugin_details) {
-                    // Note singleton flag - we only want one instance of a
                     request(
                         pm,
                         infinite,
                         plugin_manager::spawn_plugin_atom_v,
                         pd.uuid_,
-                        utility::JsonStore(),
-                        true // this is the 'singleton' flag
-                        )
+                        utility::JsonStore())
                         .then(
                             [=](caf::actor colour_op_actor) mutable {
                                 anon_send(colour_op_actor, module::connect_to_ui_atom_v);
                                 colour_op_plugins_.push_back(colour_op_actor);
+
+                                // TODO: uncomment this when we've fixed colour grading
+                                // singleton issue!! link_to(colour_op_actor);
+                                (*count)--;
+                                if (!(*count)) {
+                                    colour_ops_loaded_ = true;
+                                    for (auto &hr : hook_requests_) {
+                                        make_pre_draw_gpu_hook(hr.first, hr.second);
+                                    }
+                                    hook_requests_.clear();
+                                }
                             },
                             [=](const caf::error &err) mutable {
-                                // spdlog::warn(
+                                for (auto &hr : hook_requests_) {
+                                    hr.first.deliver(err);
+                                }
+                                hook_requests_.clear();
                             });
                 }
             },
             [=](const caf::error &err) mutable {
-                // spdlog::warn(
+                for (auto &hr : hook_requests_) {
+                    hr.first.deliver(err);
+                }
+                hook_requests_.clear();
             });
+}
+
+/* We wrap any GPUPreDrawHooks in a single GPUPreDrawHook - so if multiple
+colour ops have GPUPreDrawHooks then they appear as a single one to the
+Viewport that executes our wrapper. Just makes life a bit easier than passing
+a set of them back to the viewport, I suppose.*/
+class HookCollection : public plugin::GPUPreDrawHook {
+  public:
+    std::vector<plugin::GPUPreDrawHookPtr> hooks_;
+
+    void pre_viewport_draw_gpu_hook(
+        const Imath::M44f &transform_window_to_viewport_space,
+        const Imath::M44f &transform_viewport_to_image_space,
+        const float viewport_du_dpixel,
+        xstudio::media_reader::ImageBufPtr &image) override {
+        for (auto &hook : hooks_) {
+            hook->pre_viewport_draw_gpu_hook(
+                transform_window_to_viewport_space,
+                transform_viewport_to_image_space,
+                viewport_du_dpixel,
+                image);
+        }
+    }
+};
+
+
+void ColourPipeline::make_pre_draw_gpu_hook(
+    caf::typed_response_promise<plugin::GPUPreDrawHookPtr> rp, const int viewer_index) {
+
+    // assumption: requests made in load_colour_op_plugins have finished
+    HookCollection *collection = new HookCollection();
+    auto result = plugin::GPUPreDrawHookPtr(static_cast<plugin::GPUPreDrawHook *>(collection));
+
+    if (colour_op_plugins_.empty()) {
+        rp.deliver(result);
+        return;
+    }
+    caf::scoped_actor sys(system());
+
+    // loop over the colour_op_plugins, requesting their GPUPreDrawHook class
+    // instances, gather them in our 'HookCollection' and when we have all
+    // the responses back we deliver.
+    auto count = std::make_shared<int>(colour_op_plugins_.size());
+    for (auto &colour_op_plugin : colour_op_plugins_) {
+
+        request(
+            colour_op_plugin, infinite, ui::viewport::pre_render_gpu_hook_atom_v, viewer_index)
+            .then(
+                [=](plugin::GPUPreDrawHookPtr &hook) mutable {
+                    if (hook) {
+                        // gather
+                        collection->hooks_.push_back(hook);
+                    }
+                    (*count)--;
+                    if (!(*count)) {
+                        rp.deliver(result);
+                    }
+                },
+                [=](const caf::error &err) mutable {
+                    rp.deliver(err);
+                    (*count) = 0;
+                });
+    }
 }

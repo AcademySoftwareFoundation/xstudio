@@ -7,40 +7,40 @@ import QtQml.Models 2.14
 import xStudioReskin 1.0
 import xstudio.qml.models 1.0
 
-Rectangle { 
+XsSecondaryButton { 
     
     id: hamBtn
     // background: Rectangle{color:"red"}
     width: 15*1.7 
     height: width*1.1
     z: 1000
-    property string panel_id
 
+    imgSrc: "qrc:/icons/menu.svg"
+    smooth: true
+    antialiasing: true
+
+    property string panelId
     onPanel_idChanged: {
         hamburgerMenu.menu_model_index = panels_menus_model.index(-1, -1)
     }
 
-    MouseArea {
-        
-        anchors.fill: parent
-        onClicked: {
-            hamburgerMenu.x = x-hamburgerMenu.width
-            hamburgerMenu.visible = true
-        }
+    onClicked: {
+        hamburgerMenu.x = -hamburgerMenu.width
+        hamburgerMenu.visible = true
     }
-
-    Image{
-        width: parent.width-6
-        height: parent.height-6
-        anchors.centerIn: parent
-        source: "qrc:///assets/icons/menu.svg"
-    }
+    // MouseArea {
+    //     anchors.fill: parent
+    //     onClicked: {
+    //         hamburgerMenu.x = x-hamburgerMenu.width
+    //         hamburgerMenu.visible = true
+    //     }
+    // }
 
     // this gives us access to the global tree model that defines menus, 
     // sub-menus and menu items
     XsMenusModel {
         id: panels_menus_model
-        modelDataName: panel_id
+        modelDataName: panelId
 
         onJsonChanged: {
             hamburgerMenu.menu_model_index = index(-1, -1)

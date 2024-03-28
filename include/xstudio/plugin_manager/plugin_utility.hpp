@@ -49,7 +49,7 @@ namespace plugin_manager {
             : plugin_manager::PluginFactoryTemplate<T>(
                   uuid,
                   name,
-                  plugin_manager::PluginType::PT_UTILITY,
+                  plugin_manager::PluginFlags::PF_UTILITY,
                   true,
                   author,
                   description,

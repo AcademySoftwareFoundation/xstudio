@@ -69,7 +69,7 @@ namespace media_metadata {
             : plugin_manager::PluginFactoryTemplate<T>(
                   uuid,
                   name,
-                  plugin_manager::PluginType::PT_MEDIA_METADATA,
+                  plugin_manager::PluginFlags::PF_MEDIA_METADATA,
                   false,
                   author,
                   description,

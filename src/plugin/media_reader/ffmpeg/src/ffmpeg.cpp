@@ -351,7 +351,10 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 fmt::format("stream {}", p.first),
                 (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ? media::MT_IMAGE
                                                               : media::MT_AUDIO),
-                "{0}@{1}/{2}"));
+                "{0}@{1}/{2}",
+                p.second->resolution(),
+                p.second->pixel_aspect(),
+                p.first));
         }
     }
 

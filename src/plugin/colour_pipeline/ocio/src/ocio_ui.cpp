@@ -54,7 +54,21 @@ void OCIOColourPipeline::media_source_changed(
 
     // Update the per media assigned view
     if (!global_view_->value()) {
-        view_->set_value(new_media_param.output_view);
+        // When the main viewport gets the event and change the view here,
+        // it will be propagated to the popout viewer because the view_
+        // attribute is linked accross viewports. If the popout viewport
+        // hasn't got the source change event, or didn't process it yet,
+        // it might receive the view_ attribute_changed event and go on
+        // to update the per media parameters with the new view for the
+        // wrong media. This then cause a mix up of view assigned to
+        // the incorrect media.
+        // Hence we make sure to not notify the change here.
+        view_->set_value(new_media_param.output_view, false);
+    }
+
+    // Update the assigned source colour space depending on the current view
+    if (adjust_source_->value()) {
+        update_cs_from_view(new_media_param, view_->value());
     }
 }
 
@@ -65,13 +79,17 @@ void OCIOColourPipeline::attribute_changed(
 
     if (attribute_uuid == display_->uuid()) {
         update_views(media_param.ocio_config);
-    } else if (
-        attribute_uuid == view_->uuid() && !view_->value().empty() && !global_view_->value()) {
-        media_param.output_view = view_->value();
-        set_media_params(current_source_uuid_, media_param);
+    } else if (attribute_uuid == view_->uuid() && !view_->value().empty()) {
+        if (!global_view_->value()) {
+            media_param.output_view = view_->value();
+            set_media_params(media_param);
+        }
+        if (adjust_source_->value()) {
+            update_cs_from_view(media_param, view_->value());
+        }
     } else if (attribute_uuid == source_colour_space_->uuid()) {
         media_param.user_input_cs = source_colour_space_->value();
-        set_media_params(current_source_uuid_, media_param);
+        set_media_params(media_param);
     } else if (attribute_uuid == colour_bypass_->uuid()) {
         update_bypass(display_, colour_bypass_->value());
     } else if (
@@ -82,38 +100,18 @@ void OCIOColourPipeline::attribute_changed(
     } else if (attribute_uuid == preferred_view_->uuid()) {
         bool enable_global = preferred_view_->value() != ui_text_.AUTOMATIC_VIEW;
         global_view_->set_value(enable_global, false);
-    } else if (attribute_uuid == enable_gamma_->uuid() && connected_to_ui()) {
+    } else if (attribute_uuid == enable_gamma_->uuid()) {
 
-        if (enable_gamma_->value()) {
-            gamma_->set_role_data(
-                module::Attribute::Groups,
-                nlohmann::json{viewport_name_ + "_toolbar", "colour_pipe_attributes"});
+        make_attribute_visible_in_viewport_toolbar(gamma_, enable_gamma_->value());
 
-        } else {
-            gamma_->set_role_data(
-                module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
-        }
+    } else if (attribute_uuid == enable_saturation_->uuid()) {
 
-    } else if (attribute_uuid == enable_saturation_->uuid() && connected_to_ui()) {
-        if (enable_saturation_->value()) {
-            saturation_->set_role_data(
-                module::Attribute::Groups,
-                nlohmann::json{viewport_name_ + "_toolbar", "colour_pipe_attributes"});
-
-        } else {
-            saturation_->set_role_data(
-                module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
-        }
+        make_attribute_visible_in_viewport_toolbar(saturation_, enable_saturation_->value());
     }
 }
 
 void OCIOColourPipeline::hotkey_pressed(
     const utility::Uuid &hotkey_uuid, const std::string &context) {
-
-    // if the hotkey was pressed outside the viewport that owns this
-    // instance of the pipeline, skip it.
-    if (viewport_name_ != context)
-        return;
 
     // If user hits 'R' hotkey and we're already looking at the red channel,
     // then we revert back to RGB, same for 'G' and 'B'.
@@ -241,33 +239,14 @@ void OCIOColourPipeline::screen_changed(
 }
 
 void OCIOColourPipeline::connect_to_viewport(
-    caf::actor viewport, const std::string viewport_name, const int viewport_index) {
+    const std::string &viewport_name, const std::string &viewport_toolbar_name, bool connect) {
 
-    viewport_name_ = viewport_name;
+    Module::connect_to_viewport(viewport_name, viewport_toolbar_name, connect);
 
-    // make the 'display' button appear in the toolbar for the given viewport
-    display_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
-    view_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
-    channel_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
-    exposure_->set_role_data(
-        module::Attribute::Groups,
-        nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
-
-    if (enable_saturation_->value()) {
-        saturation_->set_role_data(
-            module::Attribute::Groups,
-            nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
-    }
-    if (enable_gamma_->value()) {
-        gamma_->set_role_data(
-            module::Attribute::Groups,
-            nlohmann::json{viewport_name + "_toolbar", "colour_pipe_attributes"});
+    if (viewport_name == "viewport0") {
+        // this is the OCIO actor for the main viewport... we register ourselves
+        // so other OCIO actors can talk to us
+        system().registry().put("MAIN_VIEWPORT_OCIO_INSTANCE", this);
     }
 
     add_multichoice_attr_to_menu(
@@ -277,7 +256,7 @@ void OCIOColourPipeline::connect_to_viewport(
 
     add_multichoice_attr_to_menu(channel_, viewport_name + "_context_menu_section1", "Channel");
 
-    if (viewport_index == 0) {
+    if (viewport_name == "viewport0") {
 
         add_multichoice_attr_to_menu(view_, "Colour", "OCIO View");
 
@@ -289,6 +268,8 @@ void OCIOColourPipeline::connect_to_viewport(
 
         add_boolean_attr_to_menu(global_view_, "Colour");
 
+        add_boolean_attr_to_menu(adjust_source_, "Colour");
+
         add_multichoice_attr_to_menu(source_colour_space_, "Colour", "Source Colour Space");
 
         add_multichoice_attr_to_menu(preferred_view_, "Colour", "OCIO Preferred View");
@@ -297,7 +278,7 @@ void OCIOColourPipeline::connect_to_viewport(
 
         add_boolean_attr_to_menu(enable_gamma_, "panels_menu|Toolbar");
 
-    } else if (viewport_index == 1) {
+    } else if (viewport_name == "viewport1") {
 
         add_multichoice_attr_to_menu(display_, "Colour", "OCIO Pop-Out Viewer Display");
     }
@@ -428,7 +409,25 @@ void OCIOColourPipeline::setup_ui() {
     global_view_->set_role_data(module::Attribute::ToolTip, ui_text_.GLOBAL_VIEW_TOOLTIP);
     global_view_->set_preference_path("/plugin/colour_pipeline/ocio/user_view_mode");
 
+    // Source colour space mode
+
+    adjust_source_ = add_boolean_attribute(ui_text_.SOURCE_CS_MODE, ui_text_.SOURCE_CS_MODE_SHORT, true);
+
+    adjust_source_->set_redraw_viewport_on_change(true);
+    adjust_source_->set_role_data(
+        module::Attribute::UuidRole, "4eada6a9-7969-4b29-9476-ef8a9344096c");
+    adjust_source_->set_role_data(
+        module::Attribute::Groups, nlohmann::json{"colour_pipe_attributes"});
+    adjust_source_->set_role_data(module::Attribute::Enabled, false);
+    adjust_source_->set_role_data(module::Attribute::ToolTip, ui_text_.SOURCE_CS_MODE_TOOLTIP);
+    adjust_source_->set_preference_path("/plugin/colour_pipeline/ocio/user_source_mode");
+
     ui_initialized_ = true;
+
+    make_attribute_visible_in_viewport_toolbar(exposure_);
+    make_attribute_visible_in_viewport_toolbar(channel_);
+    make_attribute_visible_in_viewport_toolbar(display_);
+    make_attribute_visible_in_viewport_toolbar(view_);
 
     // Here we register particular attributes to be 'linked'. The main viewer and
     // the pop-out viewer have their own instances of this class. We want certain
@@ -437,21 +436,19 @@ void OCIOColourPipeline::setup_ui() {
     // to the colour pipeline belonging to the main viewport - any changes on one
     // of the attributes below that happens in one instance is immediately synced
     // to the corresponding attribute on the other instance.
+    link_attribute(source_colour_space_->uuid());
     link_attribute(exposure_->uuid());
     link_attribute(channel_->uuid());
     link_attribute(view_->uuid());
     link_attribute(gamma_->uuid());
     link_attribute(saturation_->uuid());
     link_attribute(global_view_->uuid());
+    link_attribute(adjust_source_->uuid());
     link_attribute(enable_gamma_->uuid());
     link_attribute(enable_saturation_->uuid());
 }
 
 void OCIOColourPipeline::register_hotkeys() {
-
-    // don't register hotkeys again (for additional viewports)
-    if (viewport_name_ != "viewport0")
-        return;
 
     for (const auto &hotkey_props : ui_text_.channel_hotkeys) {
         auto hotkey_id = register_hotkey(
@@ -536,11 +533,38 @@ void OCIOColourPipeline::populate_ui(const MediaParams &media_param) {
         display = it->second.display;
         view    = it->second.view;
     } else {
+
         display = default_display(media_param, monitor_name_);
         // Do not try to re-use view from other config to avoid case where
         // an unmanaged media with Raw view match a Raw view in an actual
         // OCIO config.
         view = default_view;
+
+        // .. however, let's see if we can use the view setting from the main
+        // viewport if there's a match (useful for 'quickview' windows)
+        auto main_ocio =
+            system().registry().template get<caf::actor>("MAIN_VIEWPORT_OCIO_INSTANCE");
+        if (main_ocio && main_ocio != self()) {
+
+            try {
+                caf::scoped_actor sys(system());
+
+                auto data = utility::request_receive<utility::JsonStore>(
+                    *sys, main_ocio, module::attribute_value_atom_v, "View");
+
+                if (data.is_string()) {
+                    auto p = std::find(
+                        display_views[display].begin(),
+                        display_views[display].end(),
+                        data.get<std::string>());
+                    if (p != display_views[display].end()) {
+                        view = data.get<std::string>();
+                    }
+                }
+            } catch (std::exception &e) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+            }
+        }
     }
 
     // Don't notify while current_source_uuid_ is not up to date.
@@ -581,6 +605,19 @@ OCIOColourPipeline::parse_all_colourspaces(OCIO::ConstConfigRcPtr ocio_config) c
     }
 
     return colourspaces;
+}
+
+void OCIOColourPipeline::update_cs_from_view(const MediaParams &media_param, const std::string &view) {
+
+    const auto new_cs = input_space_for_view(media_param, view_->value());
+
+    if (!new_cs.empty() && new_cs != source_colour_space_->value()) {
+        MediaParams update_media_param = media_param;
+        update_media_param.user_input_cs = new_cs;
+        set_media_params(update_media_param);
+
+        source_colour_space_->set_value(new_cs, false);
+    }
 }
 
 void OCIOColourPipeline::update_views(OCIO::ConstConfigRcPtr ocio_config) {

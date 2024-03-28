@@ -38,7 +38,7 @@ class TestPlugin : public PluginFactory {
     [[nodiscard]] utility::Uuid uuid() const override {
         return Uuid("17e4323c-8ee7-4d9c-b74a-57ba805c10e8");
     }
-    [[nodiscard]] PluginType type() const override { return PluginType::PT_CUSTOM; }
+    [[nodiscard]] PluginType type() const override { return PluginFlags::PF_CUSTOM; }
     [[nodiscard]] bool resident() const override { return false; }
     [[nodiscard]] std::string author() const override { return "author"; }
     [[nodiscard]] std::string description() const override { return "description"; }

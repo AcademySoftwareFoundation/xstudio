@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include "xstudio/media/media.hpp"
 #include "xstudio/session/session_actor.hpp"
 #include "xstudio/tag/tag.hpp"
-#include "xstudio/media/media.hpp"
+#include "xstudio/timeline/item.hpp"
+#include "xstudio/ui/qml/caf_response_ui.hpp"
 #include "xstudio/ui/qml/job_control_ui.hpp"
 #include "xstudio/ui/qml/session_model_ui.hpp"
-#include "xstudio/ui/qml/caf_response_ui.hpp"
 
 CAF_PUSH_WARNINGS
 #include <QThreadPool>
@@ -18,6 +19,14 @@ using namespace caf;
 using namespace xstudio;
 using namespace xstudio::utility;
 using namespace xstudio::ui::qml;
+
+void SessionModel::add_id_uuid_lookup(const utility::Uuid &uuid, const QModelIndex &index) {
+    if (not uuid.is_null()) {
+        if (not id_uuid_lookup_.count(uuid))
+            id_uuid_lookup_[uuid] = std::set<QPersistentModelIndex>();
+        id_uuid_lookup_[uuid].insert(index);
+    }
+}
 
 void SessionModel::add_uuid_lookup(const utility::Uuid &uuid, const QModelIndex &index) {
     if (not uuid.is_null()) {
@@ -39,7 +48,7 @@ void SessionModel::add_lookup(const utility::JsonTree &tree, const QModelIndex &
 
     // add actorUuidLookup
     if (tree.data().count("id") and not tree.data().at("id").is_null())
-        add_uuid_lookup(tree.data().at("id").get<Uuid>(), index);
+        add_id_uuid_lookup(tree.data().at("id").get<Uuid>(), index);
     if (tree.data().count("actor_uuid") and not tree.data().at("actor_uuid").is_null())
         add_uuid_lookup(tree.data().at("actor_uuid").get<Uuid>(), index);
     if (tree.data().count("container_uuid") and not tree.data().at("container_uuid").is_null())
@@ -55,23 +64,23 @@ void SessionModel::add_lookup(const utility::JsonTree &tree, const QModelIndex &
 }
 
 
-caf::actor SessionModel::actorFromIndex(const QModelIndex &index, const bool try_parent) {
+caf::actor SessionModel::actorFromIndex(const QModelIndex &index, const bool try_parent) const {
     auto result = caf::actor();
 
     try {
         if (index.isValid()) {
-            nlohmann::json &j = indexToData(index);
-            result            = j.count("actor") and not j.at("actor").is_null()
-                                    ? actorFromString(system(), j.at("actor"))
-                                    : caf::actor();
+            const nlohmann::json &j = indexToData(index);
+            result                  = j.count("actor") and not j.at("actor").is_null()
+                                          ? actorFromString(system(), j.at("actor"))
+                                          : caf::actor();
 
             if (not result and try_parent) {
                 QModelIndex pindex = index.parent();
                 if (pindex.isValid()) {
-                    nlohmann::json &pj = indexToData(pindex);
-                    result             = pj.count("actor") and not pj.at("actor").is_null()
-                                             ? actorFromString(system(), pj.at("actor"))
-                                             : caf::actor();
+                    const nlohmann::json &pj = indexToData(pindex);
+                    result = pj.count("actor") and not pj.at("actor").is_null()
+                                 ? actorFromString(system(), pj.at("actor"))
+                                 : caf::actor();
                 }
             }
         }
@@ -116,15 +125,8 @@ void SessionModel::forcePopulate(
 
     if (tjson.count("group_actor") and not tjson.at("group_actor").is_null()) {
         auto grp = actorFromString(system(), tjson.at("group_actor").get<std::string>());
-        if (grp) {
+        if (grp)
             anon_send(grp, broadcast::join_broadcast_atom_v, as_actor());
-            // spdlog::error("join grp {} {} {}",
-            //     ijc.back().at("type").is_string() ?
-            //     ijc.back().at("type").get<std::string>() : "",
-            //     ijc.back().at("name").is_string() ?
-            //     ijc.back().at("name").get<std::string>() : "",
-            //     to_string(grp));
-        }
 
     } else if (
         tjson.count("actor") and not tjson.at("actor").is_null() and
@@ -205,7 +207,8 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
 
     try {
         if (type == "Session" or type == "Container List" or type == "Media" or
-            type == "Media List" or type == "PlayheadSelection" or type == "MediaSource") {
+            type == "Clip" or type == "Media List" or type == "PlayheadSelection" or
+            type == "MediaSource") {
 
             // point to result  children..
             auto rjc = nlohmann::json();
@@ -227,7 +230,7 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
             if (type == "Session" or type == "Container List") {
                 emit playlistsChanged();
                 compare_key = "container_uuid";
-            } else if (type == "Media List" or type == "Media")
+            } else if (type == "Media List" or type == "Media" or type == "Clip")
                 compare_key = "actor_uuid";
             else if (type == "PlayheadSelection")
                 compare_key = "uuid";
@@ -460,7 +463,19 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
         emit dataChanged(parent_index, parent_index, roles);
     }
 
+    emit jsonChanged();
+
     CHECK_SLOW_WATCHER_FAST()
+}
+
+void SessionModel::finishedDataSlot(
+    const QVariant &search_value, const int search_role, const int role) {
+
+    auto inflight = mapFromValue(search_value).dump() + std::to_string(search_role) + "-" +
+                    std::to_string(role);
+    if (in_flight_requests_.count(inflight)) {
+        in_flight_requests_.erase(inflight);
+    }
 }
 
 void SessionModel::receivedDataSlot(
@@ -479,11 +494,6 @@ void SessionModel::receivedDataSlot(
             json::parse(StdFromQString(result)));
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        // spdlog::warn("{}", data_.dump(2));
-    }
-    auto inflight = std::make_tuple(search_value, search_role, role);
-    if (in_flight_requests_.count(inflight)) {
-        in_flight_requests_.erase(inflight);
     }
 }
 
@@ -531,8 +541,21 @@ void SessionModel::receivedData(
             {Roles::audioActorUuidRole, "audio_actor_uuid"},
             {Roles::imageActorUuidRole, "image_actor_uuid"},
             {Roles::mediaStatusRole, "media_status"},
-            {Roles::flagRole, "flag"},
+            {Roles::flagColourRole, "flag"},
+            {Roles::flagTextRole, "flag_text"},
+            {Roles::selectionRole, "playhead_selection"},
             {Roles::thumbnailURLRole, "thumbnail_url"},
+            {Roles::metadataSet0Role, "metadata_set0"},
+            {Roles::metadataSet1Role, "metadata_set1"},
+            {Roles::metadataSet2Role, "metadata_set2"},
+            {Roles::metadataSet3Role, "metadata_set3"},
+            {Roles::metadataSet4Role, "metadata_set4"},
+            {Roles::metadataSet5Role, "metadata_set5"},
+            {Roles::metadataSet6Role, "metadata_set6"},
+            {Roles::metadataSet7Role, "metadata_set7"},
+            {Roles::metadataSet8Role, "metadata_set8"},
+            {Roles::metadataSet9Role, "metadata_set9"},
+            {Roles::metadataSet10Role, "metadata_set10"},
         });
 
         for (auto &index : indexes) {
@@ -547,9 +570,39 @@ void SessionModel::receivedData(
                         if (j.count(role_to_key[role]) and j.at(role_to_key[role]) != result) {
                             j[role_to_key[role]] = result;
                             emit dataChanged(index, index, roles);
+                        } else if (not j.count(role_to_key[role])) {
+                            j[role_to_key[role]] = result;
+                            emit dataChanged(index, index, roles);
                         }
                     }
                     break;
+
+                //  this might be inefficient, we need a new event for media changing underneath
+                //  us
+                case Roles::mediaStatusRole:
+                    if (j.count(role_to_key[role]) and j.at(role_to_key[role]) != result) {
+                        j[role_to_key[role]] = result;
+
+                        if (j.count(role_to_key[Roles::thumbnailURLRole])) {
+                            roles.push_back(Roles::thumbnailURLRole);
+                            j[role_to_key[Roles::thumbnailURLRole]] = nullptr;
+                        }
+                        emit dataChanged(index, index, roles);
+
+                        // update error counts in parents.
+                        updateErroredCount(index);
+
+                    } else {
+                        // force update of thumbnail..
+                        if (j.count(role_to_key[Roles::thumbnailURLRole])) {
+                            roles.clear();
+                            roles.push_back(Roles::thumbnailURLRole);
+                            j[role_to_key[Roles::thumbnailURLRole]] = nullptr;
+                            emit dataChanged(index, index, roles);
+                        }
+                    }
+                    break;
+
                 case Roles::thumbnailURLRole:
                     if (role_to_key.count(role)) {
                         if (j.count(role_to_key[role]) and j.at(role_to_key[role]) != result) {
@@ -566,6 +619,25 @@ void SessionModel::receivedData(
                         auto grp         = actorFromString(system(), result.get<std::string>());
                         if (grp) {
                             anon_send(grp, broadcast::join_broadcast_atom_v, as_actor());
+                            // if type is playlist request children, to make sure we're in sync.
+                            if (j.at("type").is_string() and j.at("type") == "Playlist") {
+                                auto media_list_index = SessionModel::index(0, 0, index);
+                                if (media_list_index.isValid()) {
+                                    const nlohmann::json &jj = indexToData(media_list_index);
+                                    // spdlog::warn("{} {}",
+                                    //     StdFromQString(media_list_index.data(typeRole).toString()),
+                                    //     jj.at("id").dump()
+                                    // );
+                                    requestData(
+                                        QVariant::fromValue(QUuidFromUuid(jj.at("id"))),
+                                        idRole,
+                                        index,
+                                        media_list_index,
+                                        childrenRole);
+                                }
+                            }
+
+
                             // spdlog::error(
                             //     "join grp {} {} {}",
                             //     j.at("type").is_string() ? j.at("type").get<std::string>() :
@@ -575,6 +647,45 @@ void SessionModel::receivedData(
                         //  should we join ??
                         emit dataChanged(index, index, roles);
                         // spdlog::warn("{}", data_.dump(2));
+                    }
+                    break;
+
+                case JSONTreeModel::Roles::JSONTextRole:
+                    if (j.at("type") == "TimelineItem") {
+                        // this is an init setup..
+                        auto owner =
+                            actorFromString(system(), j.at("actor_owner").get<std::string>());
+                        timeline_lookup_.emplace(
+                            std::make_pair(owner, timeline::Item(result, &system())));
+
+                        timeline_lookup_[owner].bind_item_event_func(
+                            [this](const utility::JsonStore &event, timeline::Item &item) {
+                                item_event_callback(event, item);
+                            },
+                            true);
+
+                        // rebuild json
+                        auto jsn =
+                            timelineItemToJson(timeline_lookup_.at(owner), system(), true);
+                        // spdlog::info("construct timeline object {}", jsn.dump(2));
+                        // root is myself
+                        auto node     = indexToTree(index);
+                        auto new_node = json_to_tree(jsn, children_);
+
+                        node->splice(node->end(), new_node.base());
+
+                        // update root..
+                        j[children_] = nlohmann::json::array();
+
+                        // spdlog::error("{} {}", j["id"], jsn["uuid"]);
+
+                        j["id"]              = jsn["id"];
+                        j["actor"]           = jsn["actor"];
+                        j["enabled"]         = jsn["enabled"];
+                        j["transparent"]     = jsn["transparent"];
+                        j["active_range"]    = jsn["active_range"];
+                        j["available_range"] = jsn["available_range"];
+                        emit dataChanged(index, index, QVector<int>());
                     }
                     break;
 
@@ -591,20 +702,19 @@ void SessionModel::receivedData(
     CHECK_SLOW_WATCHER()
 }
 
-// if(can_duplicate)
-//     result = JSONTreeModel::insertRows(row, count, parent);
-
 void SessionModel::requestData(
     const QVariant &search_value,
     const int search_role,
     const QPersistentModelIndex &search_hint,
     const QModelIndex &index,
-    const int role) const {
+    const int role,
+    const std::map<int, std::string> &metadata_paths) const {
     // dispatch call to backend to retrieve missing data.
 
     // spdlog::warn("{} {}", role, StdFromQString(roleName(role)));
     try {
-        requestData(search_value, search_role, search_hint, indexToData(index), role);
+        requestData(
+            search_value, search_role, search_hint, indexToData(index), role, metadata_paths);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -615,20 +725,14 @@ void SessionModel::requestData(
     const int search_role,
     const QPersistentModelIndex &search_hint,
     const nlohmann::json &data,
-    const int role) const {
+    const int role,
+    const std::map<int, std::string> &metadata_paths) const {
     // dispatch call to backend to retrieve missing data.
-    auto inflight = std::make_tuple(search_value, search_role, role);
+    auto inflight = mapFromValue(search_value).dump() + std::to_string(search_role) + "-" +
+                    std::to_string(role);
 
     if (not in_flight_requests_.count(inflight)) {
         in_flight_requests_.emplace(inflight);
-
-        // spdlog::warn("request {} {} {} {}",
-        //     mapFromValue(search_value).dump(2),
-        //     StdFromQString(roleName(search_role)),
-        //     data.dump(2),
-        //     StdFromQString(roleName(role))
-        // );
-
         auto tmp = new CafResponse(
             search_value,
             search_role,
@@ -636,12 +740,13 @@ void SessionModel::requestData(
             data,
             role,
             StdFromQString(roleName(role)),
+            metadata_paths,
             request_handler_);
 
         connect(tmp, &CafResponse::received, this, &SessionModel::receivedDataSlot);
+        connect(tmp, &CafResponse::finished, this, &SessionModel::finishedDataSlot);
     }
 }
-
 
 nlohmann::json SessionModel::playlistTreeToJson(
     const utility::PlaylistTree &tree,
@@ -653,6 +758,7 @@ nlohmann::json SessionModel::playlistTreeToJson(
         "group_actor": null,
         "actor_uuid": null,
         "flag": null,
+        "flag_text": null,
         "name": null
     })"_json);
 
@@ -663,7 +769,8 @@ nlohmann::json SessionModel::playlistTreeToJson(
 
         // playlists and dividers..
         for (const auto &i : tree.children_ref()) {
-            if (i.value().type() == "ContainerDivider") {
+            const auto type = i.value().type();
+            if (type == "ContainerDivider") {
                 auto n = createEntry(R"({
                     "name": null,
                     "actor_uuid": null,
@@ -672,26 +779,28 @@ nlohmann::json SessionModel::playlistTreeToJson(
                     "type": null
                 })"_json);
                 n.erase("children");
-                n["type"]           = i.value().type();
+                n["type"]           = type;
                 n["name"]           = i.value().name();
                 n["flag"]           = i.value().flag();
                 n["actor_uuid"]     = i.value().uuid();
                 n["container_uuid"] = i.uuid();
                 result["children"].emplace_back(n);
-            } else if (i.value().type() == "Subset" or i.value().type() == "Timeline") {
+            } else if (type == "Subset" or type == "Timeline") {
                 auto n = createEntry(R"({
                     "name": null,
                     "actor_uuid": null,
                     "container_uuid": null,
                     "group_actor": null,
                     "flag": null,
+                    "flag_text": null,
                     "type": null,
                     "actor": null,
                     "busy": false,
-                    "media_count": 0
+                    "media_count": 0,
+                    "error_count": 0
                 })"_json);
 
-                n["type"]           = i.value().type();
+                n["type"]           = type;
                 n["name"]           = i.value().name();
                 n["flag"]           = i.value().flag();
                 n["actor_uuid"]     = i.value().uuid();
@@ -706,12 +815,22 @@ nlohmann::json SessionModel::playlistTreeToJson(
                 n["children"][0]["actor_owner"] = n["actor"];
 
                 n["children"].push_back(createEntry(
-                    R"({"type": "PlayheadSelection", "name": null, "actor_owner": null, "actor_uuid": null, "actor": null, "group_actor": null})"_json));
+                    R"({"type": "PlayheadSelection", "playhead_selection": null, "name": null, "actor_owner": null, "actor_uuid": null, "actor": null, "group_actor": null})"_json));
                 n["children"][1]["actor_owner"] = n["actor"];
+
+                if (type == "Timeline") {
+                    n["children"].push_back(createEntry(
+                        R"({"type": "TimelineItem", "name": null, "actor_owner": null})"_json));
+                    n["children"][2]["actor_owner"] = n["actor"];
+                }
+
+                n["children"].push_back(createEntry(
+                    R"({"type": "Playhead", "actor": null, "actor_owner": null, "actor_uuid": null})"_json));
+                n["children"].back()["actor_owner"] = n["actor"];
 
                 result["children"].emplace_back(n);
             } else {
-                spdlog::warn("{} invalid type {}", __PRETTY_FUNCTION__, i.value().type());
+                spdlog::warn("{} invalid type {}", __PRETTY_FUNCTION__, type);
             }
         }
 
@@ -764,7 +883,8 @@ nlohmann::json SessionModel::sessionTreeToJson(
                     "type": null,
                     "actor": null,
                     "busy": false,
-                    "media_count": 0
+                    "media_count": 0,
+                    "error_count": 0
                 })"_json);
 
                 n["type"]           = i.value().type();
@@ -782,12 +902,16 @@ nlohmann::json SessionModel::sessionTreeToJson(
                 n["children"][0]["actor_owner"] = n["actor"];
 
                 n["children"].push_back(createEntry(
-                    R"({"type": "PlayheadSelection", "name": null, "actor_owner": null, "actor_uuid": null, "actor": null, "group_actor": null})"_json));
+                    R"({"type": "PlayheadSelection", "playhead_selection": null, "name": null, "actor_owner": null, "actor_uuid": null, "actor": null, "group_actor": null})"_json));
                 n["children"][1]["actor_owner"] = n["actor"];
 
                 n["children"].push_back(
                     createEntry(R"({"type": "Container List", "actor_owner": null})"_json));
                 n["children"][2]["actor_owner"] = n["actor"];
+
+                n["children"].push_back(createEntry(
+                    R"({"type": "Playhead", "actor_owner": null, "actor_uuid": null})"_json));
+                n["children"].back()["actor_owner"] = n["actor"];
 
                 result["children"].emplace_back(n);
             } else {
@@ -829,11 +953,23 @@ nlohmann::json SessionModel::containerDetailToJson(
     }
 
     if (detail.type_ == "Media" or detail.type_ == "MediaSource") {
+        result["metadata_set0"]    = nullptr;
+        result["metadata_set1"]    = nullptr;
+        result["metadata_set2"]    = nullptr;
+        result["metadata_set3"]    = nullptr;
+        result["metadata_set4"]    = nullptr;
+        result["metadata_set5"]    = nullptr;
+        result["metadata_set6"]    = nullptr;
+        result["metadata_set7"]    = nullptr;
+        result["metadata_set8"]    = nullptr;
+        result["metadata_set9"]    = nullptr;
+        result["metadata_set10"]   = nullptr;
         result["audio_actor_uuid"] = nullptr;
         result["image_actor_uuid"] = nullptr;
         result["media_status"]     = nullptr;
         if (detail.type_ == "Media") {
-            result["flag"] = nullptr;
+            result["flag"]      = nullptr;
+            result["flag_text"] = nullptr;
         } else if (detail.type_ == "MediaSource") {
             result["thumbnail_url"] = nullptr;
             result["rate"]          = nullptr;
@@ -881,7 +1017,7 @@ void SessionModel::updateSelection(const QModelIndex &index, const QModelIndexLi
             nlohmann::json &j = indexToData(index);
             // spdlog::warn("{}", j.dump(2));
 
-            if (j.at("type") == "PlayheadSelection") {
+            if (j.at("type") == "PlayheadSelection" && j.at("actor").is_string()) {
                 auto actor = actorFromString(system(), j.at("actor"));
                 if (actor) {
                     UuidList uv;
@@ -899,4 +1035,70 @@ void SessionModel::updateSelection(const QModelIndex &index, const QModelIndexLi
             spdlog::warn("{}", j.dump(2));
         }
     }
+}
+
+
+nlohmann::json SessionModel::timelineItemToJson(
+    const timeline::Item &item, caf::actor_system &sys, const bool recurse) {
+    auto result = R"({})"_json;
+
+    result["id"]    = item.uuid();
+    result["actor"] = actorToString(sys, item.actor());
+    result["type"]  = to_string(item.item_type());
+    result["name"]  = item.name();
+    result["flag"]  = item.flag();
+    result["prop"]  = item.prop();
+
+    result["active_range"]    = nullptr;
+    result["available_range"] = nullptr;
+
+    auto active_range    = item.active_range();
+    auto available_range = item.available_range();
+
+    switch (item.item_type()) {
+    case timeline::IT_NONE:
+        break;
+
+    case timeline::IT_GAP:
+    case timeline::IT_AUDIO_TRACK:
+    case timeline::IT_VIDEO_TRACK:
+    case timeline::IT_STACK:
+    case timeline::IT_TIMELINE:
+    case timeline::IT_CLIP:
+        result["enabled"]     = item.enabled();
+        result["transparent"] = item.transparent();
+        if (active_range)
+            result["active_range"] = *active_range;
+        if (available_range)
+            result["available_range"] = *available_range;
+        break;
+    }
+
+    if (recurse)
+        switch (item.item_type()) {
+        case timeline::IT_NONE:
+        case timeline::IT_GAP:
+            result["children"] = nlohmann::json::array();
+            break;
+
+        case timeline::IT_CLIP:
+            result["children"] = nlohmann::json::array();
+            break;
+
+        case timeline::IT_AUDIO_TRACK:
+        case timeline::IT_VIDEO_TRACK:
+        case timeline::IT_STACK:
+        case timeline::IT_TIMELINE:
+            result["children"] = nlohmann::json::array();
+            if (recurse) {
+                int index = 0;
+                for (const auto &i : item.children()) {
+                    result["children"].push_back(timelineItemToJson(i, sys, recurse));
+                    index++;
+                }
+            }
+            break;
+        }
+
+    return result;
 }

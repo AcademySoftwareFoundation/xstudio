@@ -62,7 +62,7 @@ template <typename T> struct adl_serializer<Imath::Matrix44<T>> {
         vv++; // skip count
         for (int i = 0; i < 4; ++i)
             for (int k = 0; k < 4; ++k)
-                p[i][k] = (vv++).value().get<T>();
+                p[k][i] = (vv++).value().get<T>();
     }
 };
 
@@ -88,7 +88,7 @@ template <typename T> struct adl_serializer<Imath::Matrix33<T>> {
         vv++; // skip count
         for (int i = 0; i < 3; ++i)
             for (int k = 0; k < 3; ++k)
-                p[i][k] = (vv++).value().get<T>();
+                p[k][i] = (vv++).value().get<T>();
     }
 };
 
@@ -286,6 +286,10 @@ namespace utility {
 
     namespace fs = std::filesystem;
 
+    JsonStore open_session(const caf::uri &path);
+    JsonStore open_session(const std::string &path);
+
+    nlohmann::json sort_by(const nlohmann::json &jsn, const nlohmann::json::json_pointer &ptr);
 
     inline JsonStore
     merge_json_from_path(const std::string &path, JsonStore merged = JsonStore()) {

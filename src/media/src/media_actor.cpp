@@ -464,6 +464,9 @@ void MediaActor::init() {
 
             return result;
         },
+        [=](timeline::duration_atom, const timebase::flicks &new_duration) -> bool {
+            return false;
+        },
         [=](get_edit_list_atom atom,
             const MediaType media_type,
             const Uuid &uuid) -> caf::result<utility::EditList> {
@@ -550,8 +553,55 @@ void MediaActor::init() {
                 media_sources_.at(base_.current(media_type)), atom, media_type, logical_frame);
             return rp;
         },
-        // const int num_frames,
-        // const int start_frame,
+
+        [=](get_media_pointers_atom atom,
+            const MediaType media_type,
+            const utility::TimeSourceMode tsm,
+            const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMap> {
+            auto rp = make_response_promise<media::FrameTimeMap>();
+
+            request(
+                caf::actor_cast<caf::actor>(this),
+                infinite,
+                get_edit_list_atom_v,
+                media_type,
+                utility::Uuid())
+                .then(
+                    [=](const utility::EditList &edl) mutable {
+                        const auto clip           = edl.section_list()[0];
+                        const int num_clip_frames = clip.frame_rate_and_duration_.frames(
+                            tsm == TimeSourceMode::FIXED ? override_rate : FrameRate());
+                        const utility::Timecode tc = clip.timecode_;
+
+                        request(
+                            caf::actor_cast<caf::actor>(this),
+                            infinite,
+                            atom,
+                            media_type,
+                            media::LogicalFrameRanges({{0, num_clip_frames - 1}}),
+                            override_rate)
+                            .then(
+                                [=](const media::AVFrameIDs &ids) mutable {
+                                    media::FrameTimeMap result;
+                                    auto time_point = timebase::flicks(0);
+                                    for (int f = 0; f < num_clip_frames; f++) {
+                                        result[time_point] = ids[f];
+                                        const_cast<media::AVFrameID *>(result[time_point].get())
+                                            ->playhead_logical_frame_ = f;
+                                        const_cast<media::AVFrameID *>(ids[f].get())
+                                            ->timecode_ = tc + f;
+                                        time_point +=
+                                            tsm == TimeSourceMode::FIXED
+                                                ? override_rate
+                                                : clip.frame_rate_and_duration_.rate();
+                                    }
+                                    rp.deliver(result);
+                                },
+                                [=](error &err) mutable { rp.deliver(err); });
+                    },
+                    [=](error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
 
         [=](get_media_pointers_atom atom,
             const MediaType media_type,
@@ -570,11 +620,15 @@ void MediaActor::init() {
                 override_rate)
                 .then(
                     [=](bool) mutable {
-                        rp.delegate(
+                        request(
                             media_sources_.at(base_.current(media_type)),
+                            infinite,
                             atom,
                             media_type,
-                            ranges);
+                            ranges)
+                            .then(
+                                [=](const media::AVFrameIDs &ids) mutable { rp.deliver(ids); },
+                                [=](error &err) mutable { rp.deliver(err); });
                     },
                     [=](error &err) mutable { rp.deliver(err); });
             return rp;
@@ -617,6 +671,16 @@ void MediaActor::init() {
                 atom,
                 (uuid.is_null() ? base_.uuid() : uuid));
             return rp;
+        },
+
+        [=](media::source_offset_frames_atom) -> int {
+            // needed for SubPlayhead when playing media direct
+            return 0;
+        },
+
+        [=](media::source_offset_frames_atom, const int) -> bool {
+            // needed for SubPlayhead when playing media direct
+            return false;
         },
 
         [=](playlist::reflag_container_atom) -> std::tuple<std::string, std::string> {
@@ -708,6 +772,28 @@ void MediaActor::init() {
             return rp;
         },
 
+        [=](media::checksum_atom) -> result<std::pair<std::string, uintmax_t>> {
+            auto rp = make_response_promise<std::pair<std::string, uintmax_t>>();
+
+            if (base_.empty())
+                rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+            else
+                rp.delegate(media_sources_.at(base_.current(MT_IMAGE)), media::checksum_atom_v);
+
+            return rp;
+        },
+
+        [=](media::checksum_atom,
+            const media::MediaType mt) -> result<std::pair<std::string, uintmax_t>> {
+            auto rp = make_response_promise<std::pair<std::string, uintmax_t>>();
+
+            if (base_.empty())
+                rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+            else
+                rp.delegate(media_sources_.at(base_.current(mt)), media::checksum_atom_v);
+
+            return rp;
+        },
 
         [=](get_media_source_names_atom, const media::MediaType mt)
             -> caf::result<std::vector<std::pair<utility::Uuid, std::string>>> {
@@ -815,6 +901,25 @@ void MediaActor::init() {
         },
 
         [=](json_store::get_json_atom atom,
+            const std::string &path,
+            bool try_source_actors) -> caf::result<JsonStore> {
+            auto rp = make_response_promise<JsonStore>();
+            if (!try_source_actors) {
+                rp.delegate(caf::actor_cast<caf::actor>(this), atom, utility::Uuid(), path);
+            } else {
+                request(json_store_, infinite, atom, path)
+                    .then(
+                        [=](const JsonStore &r) mutable { rp.deliver(r); },
+                        [=](error &) mutable {
+                            // our own store doesn't have data at 'path'. Try the
+                            // current media source as a fallback
+                            rp.delegate(media_sources_.at(base_.current()), atom, path);
+                        });
+            }
+            return rp;
+        },
+
+        [=](json_store::get_json_atom atom,
             const utility::Uuid &uuid,
             const std::string &path) -> caf::result<JsonStore> {
             if (uuid.is_null() or uuid == base_.uuid()) {
@@ -827,6 +932,15 @@ void MediaActor::init() {
                 return rp;
             }
             return make_error(xstudio_error::error, "No MediaSources");
+        },
+
+        [=](json_store::get_json_atom atom, const std::string &path) -> caf::result<JsonStore> {
+            if (base_.empty() or not media_sources_.count(base_.current()))
+                return make_error(xstudio_error::error, "No MediaSources");
+
+            auto rp = make_response_promise<JsonStore>();
+            rp.delegate(media_sources_.at(base_.current()), atom, path);
+            return rp;
         },
 
         [=](json_store::get_json_atom atom, const std::string &path) -> caf::result<JsonStore> {
@@ -1351,25 +1465,28 @@ void MediaActor::auto_set_current_source(const media::MediaType media_type) {
             }
         };
 
-    // first step, get info on the streams that each source can provide. Since
-    // the response to each request come in asynchonously we need a shared
-    // pointer to hold the results
-    auto sources_matching_media_type = std::make_shared<std::set<utility::Uuid>>();
-    auto response_count              = std::make_shared<int>(base_.media_sources().size());
+    // TODO: do these requests asynchronously, as it could be heavy and slow
+    // loading of big playlists etc
+    
+    std::set<utility::Uuid> sources_matching_media_type;
+    caf::scoped_actor sys(system());
+
     for (auto source_uuid : base_.media_sources()) {
 
         auto source_actor = media_sources_[source_uuid];
-        request(source_actor, infinite, detail_atom_v, media_type)
-            .then([=](const std::vector<ContainerDetail> stream_details) mutable {
-                if (stream_details.size())
-                    sources_matching_media_type->insert(source_uuid);
-                (*response_count)--;
 
-                if (!(*response_count)) {
+        try {
+            auto stream_details = request_receive<std::vector<ContainerDetail>>(
+                *sys,
+                source_actor,
+                detail_atom_v,
+                media_type);
 
-                    // we've gathered all our responses
-                    auto_set_sources_mt(*sources_matching_media_type);
-                }
-            });
+            if (stream_details.size())
+                sources_matching_media_type.insert(source_uuid);
+        } catch (...) {}
     }
+
+    auto_set_sources_mt(sources_matching_media_type);
+
 }

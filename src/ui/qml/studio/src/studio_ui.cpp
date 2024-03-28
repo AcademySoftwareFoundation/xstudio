@@ -19,6 +19,21 @@ StudioUI::StudioUI(caf::actor_system &system, QObject *parent) : QMLActor(parent
     init(system);
 }
 
+StudioUI::~StudioUI() {
+    caf::scoped_actor sys(system());
+    for (auto output_plugin : video_output_plugins_) {
+        sys->send_exit(output_plugin, caf::exit_reason::user_shutdown);
+    }
+    video_output_plugins_.clear();
+    // Ofscreen viewports are unparented as they are running
+    // in their own threads. Schedule deletion here.
+    for (auto vp : offscreen_viewports_) {
+        vp->stop();
+    }
+    system().registry().erase(studio_ui_registry);
+    snapshot_offscreen_viewport_->stop();
+}
+
 void StudioUI::init(actor_system &system_) {
     QMLActor::init(system_);
 
@@ -57,6 +72,9 @@ void StudioUI::init(actor_system &system_) {
 
     updateDataSources();
 
+    // put ourselves in the registry
+    system().registry().template put<caf::actor>(studio_ui_registry, as_actor());
+
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
             [=](utility::event_atom, utility::change_atom) {},
@@ -72,8 +90,80 @@ void StudioUI::init(actor_system &system_) {
                 setSessionActorAddr(actorToQString(system(), session));
             },
 
-            [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {}};
+            [=](utility::event_atom,
+                ui::open_quickview_window_atom,
+                const utility::UuidActorVector &media_items,
+                const std::string &compare_mode) {
+                QStringList media_actors_as_strings;
+                for (const auto &media : media_items) {
+                    media_actors_as_strings.push_back(
+                        QStringFromStd(actorToString(system(), media.actor())));
+                }
+                emit openQuickViewers(media_actors_as_strings, QStringFromStd(compare_mode));
+            },
+
+            [=](utility::event_atom,
+                ui::show_message_box_atom,
+                const std::string &message_title,
+                const std::string &message_body,
+                const bool close_button,
+                const int timeout_seconds) {
+                emit showMessageBox(
+                    QStringFromStd(message_title),
+                    QStringFromStd(message_body),
+                    close_button,
+                    timeout_seconds);
+            },
+
+            [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+
+            [=](ui::offscreen_viewport_atom, const std::string name) -> caf::actor {
+                // create a new offscreen viewport and return the actor handle
+                offscreen_viewports_.push_back(new xstudio::ui::qt::OffscreenViewport(name));
+                return offscreen_viewports_.back()->as_actor();
+                    
+            },
+
+            [=](ui::offscreen_viewport_atom, const std::string name, caf::actor requester) {
+                // create a new offscreen viewport and send it back to the 'requester' actor.
+                // The reason we do it this way is because the requester might be a mixin
+                // actor based off a QObject - if so it can't do request/receive message
+                // handling with this actor which also lives in the Qt UI thread.
+                offscreen_viewports_.push_back(new xstudio::ui::qt::OffscreenViewport(name));
+                anon_send(
+                    requester,
+                    ui::offscreen_viewport_atom_v,
+                    offscreen_viewports_.back()->as_actor());
+                    
+            },
+            [=](std::string) { 
+
+                loadVideoOutputPlugins(); 
+                
+            }
+            
+            };
     });
+
+    // here we tell the studio that we're up and running so it can send us
+    // any pending 'quickview' requests
+    auto studio = system().registry().template get<caf::actor>(studio_registry);
+    if (studio) {
+        anon_send(studio, ui::open_quickview_window_atom_v, as_actor());
+    }
+
+    // create the offscreen viewport used for rendering snapshots
+    snapshot_offscreen_viewport_ = new xstudio::ui::qt::OffscreenViewport("snapshot_viewport");
+    system().registry().template put<caf::actor>(
+        offscreen_viewport_registry,
+        snapshot_offscreen_viewport_->as_actor()
+        );
+
+    // we need to delay loading video output plugins by a couple of seconds
+    // to make sure the UI is up and running before we create offscreen viewports
+    // etc. that the video output plugin probably wants
+    delayed_anon_send(as_actor(), std::chrono::seconds(5), std::string("load video output plugins"));
+
 }
 
 void StudioUI::setSessionActorAddr(const QString &addr) {
@@ -139,8 +229,7 @@ QFuture<bool> StudioUI::loadSessionFuture(const QUrl &path, const QVariant &json
             JsonStore js;
 
             if (json.isNull()) {
-                std::ifstream i(StdFromQString(path.path()));
-                i >> js;
+                js = utility::open_session(StdFromQString(path.path()));
             } else {
                 js = qvariant_to_json(json);
             }
@@ -165,10 +254,7 @@ QFuture<bool> StudioUI::loadSessionRequestFuture(const QUrl &path) {
         auto result = false;
         try {
             scoped_actor sys{system()};
-            JsonStore js;
-
-            std::ifstream i(StdFromQString(path.path()));
-            i >> js;
+            JsonStore js = utility::open_session(StdFromQString(path.path()));
 
             // if current session is empty load.
             // else notify UI
@@ -215,7 +301,10 @@ void StudioUI::updateDataSources() {
         // watch for changes..
         auto pm      = system().registry().template get<caf::actor>(plugin_manager_registry);
         auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys, pm, utility::detail_atom_v, plugin_manager::PluginType::PT_DATA_SOURCE);
+            *sys,
+            pm,
+            utility::detail_atom_v,
+            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_DATA_SOURCE));
 
         for (const auto &i : details) {
             try {
@@ -250,6 +339,38 @@ void StudioUI::updateDataSources() {
         }
         if (changed)
             emit dataSourcesChanged();
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+}
+
+void StudioUI::loadVideoOutputPlugins() {
+
+    try {
+        scoped_actor sys{system()};
+        bool changed = false;
+
+        // connect to plugin manager, acquire enabled datasource plugins
+        // watch for changes..
+        auto pm      = system().registry().template get<caf::actor>(plugin_manager_registry);
+        auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
+            *sys,
+            pm,
+            utility::detail_atom_v,
+            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_VIDEO_OUTPUT));
+
+        for (const auto &i : details) {
+            try {
+                
+                auto video_output_plugin = request_receive<caf::actor>(
+                    *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
+                video_output_plugins_.push_back(video_output_plugin);
+
+            } catch (const std::exception &err) {
+                spdlog::info("{}", err.what());
+            }
+        }
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }

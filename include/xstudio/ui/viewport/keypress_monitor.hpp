@@ -31,7 +31,7 @@ namespace ui {
             caf::behavior behavior_;
             std::set<int> held_keys_;
             std::map<utility::Uuid, ui::Hotkey> active_hotkeys_;
-            caf::actor actor_grabbing_all_mouse_input_;
+            std::set<caf::actor> actor_grabbing_all_mouse_input_;
             caf::actor actor_grabbing_all_keyboard_input_;
         };
     } // namespace keypress_monitor

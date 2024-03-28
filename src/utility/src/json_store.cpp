@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // #include <iostream>
+#include <zstr.hpp>
 #include "xstudio/utility/json_store.hpp"
+#include "xstudio/utility/helpers.hpp"
 
 using namespace nlohmann;
 using namespace xstudio::utility;
@@ -26,6 +28,20 @@ bool JsonStore::remove(const std::string &path) {
     }
     return true;
 }
+
+JsonStore xstudio::utility::open_session(const caf::uri &path) {
+    return open_session(utility::uri_to_posix_path(path));
+}
+
+JsonStore xstudio::utility::open_session(const std::string &path) {
+    JsonStore js;
+
+    zstr::ifstream i(path);
+    i >> js;
+
+    return js;
+}
+
 
 // void JsonStore::merge(const JsonStore &json, const std::string &path) {
 //     merge(json, path);
@@ -86,3 +102,22 @@ std::string xstudio::utility::to_string(const xstudio::utility::JsonStore &x) {
 void xstudio::utility::to_json(nlohmann::json &j, const JsonStore &c) { j = c.get(""); }
 
 void xstudio::utility::from_json(const nlohmann::json &j, JsonStore &c) { c = JsonStore(j); }
+
+nlohmann::json
+xstudio::utility::sort_by(const nlohmann::json &jsn, const nlohmann::json::json_pointer &ptr) {
+    auto result = jsn;
+
+    if (result.is_array()) {
+        std::sort(
+            result.begin(), result.end(), [ptr = ptr](const auto &a, const auto &b) -> bool {
+                try {
+                    return a.at(ptr) < b.at(ptr);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{}", err.what());
+                }
+                return false;
+            });
+    }
+
+    return result;
+}

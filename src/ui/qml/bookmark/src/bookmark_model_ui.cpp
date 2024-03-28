@@ -81,13 +81,20 @@ bool BookmarkFilterModel::filterAcceptsRow(
     bool result = true;
 
     QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
-    auto owner        = sourceModel()->data(index, BookmarkModel::Roles::ownerRole).toString();
+    auto visible      = sourceModel()->data(index, BookmarkModel::Roles::visibleRole).toBool();
+
+    if (not visible)
+        return false;
+
+    auto owner = sourceModel()->data(index, BookmarkModel::Roles::ownerRole).toString();
 
     if (StdFromQString(index.data(BookmarkModel::Roles::startTimecodeRole).toString()) ==
         "--:--:--:--")
         return false;
 
     switch (depth_) {
+    case 3:
+        break;
     case 2:
     case 1:
         result = media_order_.contains(owner);
@@ -176,7 +183,8 @@ BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
          "objectRole",
          "startRole",
          "durationRole",
-         "durationFrameRole"}));
+         "durationFrameRole",
+         "visibleRole"}));
 }
 
 // don't optimise yet.
@@ -230,9 +238,7 @@ void BookmarkModel::init(caf::actor_system &_system) {
                 // spdlog::warn("bookmark::bookmark_change_atom {}", to_string(ua.uuid()) );
                 auto ind = search_recursive(QUuidFromUuid(ua.uuid()), "uuidRole");
 
-                if (not ind.isValid()) {
-                    spdlog::warn("new bookmark ??");
-                } else {
+                if (ind.isValid()) {
                     try {
 
                         auto detail = getDetail(ua.actor());
@@ -450,6 +456,11 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
             case uuidRole:
                 result = QVariant::fromValue(QUuidFromUuid(detail.uuid_));
                 break;
+
+            case visibleRole:
+                result = QVariant::fromValue(*(detail.visible_));
+                break;
+
 
             case enabledRole:
                 result = QVariant::fromValue(*(detail.enabled_));

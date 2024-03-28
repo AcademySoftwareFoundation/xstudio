@@ -6,6 +6,7 @@
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/ui/qml/tag_ui.hpp"
+#include "xstudio/timeline/item.hpp"
 
 
 CAF_PUSH_WARNINGS
@@ -13,6 +14,10 @@ CAF_PUSH_WARNINGS
 #include <QFutureWatcher>
 #include <QtConcurrent>
 CAF_POP_WARNINGS
+
+// namespace xstudio::timeline {
+//     class Item;
+// }
 
 namespace xstudio::ui::qml {
 using namespace caf;
@@ -28,33 +33,58 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_PROPERTY(QString bookmarkActorAddr READ bookmarkActorAddr NOTIFY bookmarkActorAddrChanged)
 
     Q_PROPERTY(QVariant playlists READ playlists NOTIFY playlistsChanged)
+    Q_PROPERTY(QStringList conformTasks READ conformTasks NOTIFY conformTasksChanged)
 
   public:
     enum Roles {
-        actorRole = JSONTreeModel::Roles::LASTROLE,
+        activeDurationRole = JSONTreeModel::Roles::LASTROLE,
+        activeStartRole,
+        actorRole,
         actorUuidRole,
         audioActorUuidRole,
+        availableDurationRole,
+        availableStartRole,
         bitDepthRole,
         busyRole,
         childrenRole,
+        clipMediaUuidRole,
         containerUuidRole,
-        flagRole,
+        enabledRole,
+        errorRole,
+        flagColourRole,
+        flagTextRole,
         formatRole,
         groupActorRole,
         idRole,
         imageActorUuidRole,
         mediaCountRole,
         mediaStatusRole,
+        metadataSet0Role,
+        metadataSet10Role,
+        metadataSet1Role,
+        metadataSet2Role,
+        metadataSet3Role,
+        metadataSet4Role,
+        metadataSet5Role,
+        metadataSet6Role,
+        metadataSet7Role,
+        metadataSet8Role,
+        metadataSet9Role,
         mtimeRole,
         nameRole,
+        parentStartRole,
         pathRole,
         pixelAspectRole,
         placeHolderRole,
         rateFPSRole,
         resolutionRole,
+        selectionRole,
         thumbnailURLRole,
+        trackIndexRole,
+        trimmedDurationRole,
+        trimmedStartRole,
         typeRole,
-        uuidRole,
+        uuidRole
     };
 
     using super = caf::mixin::actor_object<JSONTreeModel>;
@@ -74,6 +104,8 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_INVOKABLE bool
     removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 
+    void fetchMore(const QModelIndex &parent) override;
+
     Q_INVOKABLE bool
     removeRows(int row, int count, const bool deep, const QModelIndex &parent = QModelIndex());
 
@@ -84,7 +116,6 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     // possibly makes above redundant..
     Q_INVOKABLE QModelIndexList
     copyRows(const QModelIndexList &indexes, const int row, const QModelIndex &parent);
-
 
     Q_INVOKABLE bool moveRows(
         const QModelIndex &sourceParent,
@@ -102,6 +133,34 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_INVOKABLE void
     mergeRows(const QModelIndexList &indexes, const QString &name = "Combined Playlist");
 
+    // timeline operations
+    Q_INVOKABLE bool removeTimelineItems(const QModelIndexList &indexes);
+    Q_INVOKABLE QModelIndex getTimelineIndex(const QModelIndex &index) const;
+    Q_INVOKABLE QModelIndex insertTimelineGap(
+        const int row,
+        const QModelIndex &parent,
+        const int frames    = 24,
+        const double rate   = 24.0,
+        const QString &name = "Gap");
+    Q_INVOKABLE QModelIndex insertTimelineClip(
+        const int row,
+        const QModelIndex &parent,
+        const QModelIndex &mediaIndex,
+        const QString &name = "Clip");
+    Q_INVOKABLE QModelIndex splitTimelineClip(const int frame, const QModelIndex &index);
+
+    Q_INVOKABLE bool
+    removeTimelineItems(const QModelIndex &track_index, const int frame, const int duration);
+
+    Q_INVOKABLE bool moveTimelineItem(const QModelIndex &index, const int distance);
+    Q_INVOKABLE bool moveRangeTimelineItems(
+        const QModelIndex &track_index,
+        const int frame,
+        const int duration,
+        const int dest,
+        const bool insert);
+    Q_INVOKABLE bool
+    alignTimelineItems(const QModelIndexList &indexes, const bool align_right = true);
 
     [[nodiscard]] QString sessionActorAddr() const { return session_actor_addr_; };
     void setSessionActorAddr(const QString &addr);
@@ -141,6 +200,10 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
 
     static nlohmann::json
     containerDetailToJson(const utility::ContainerDetail &detail, caf::actor_system &sys);
+
+    static nlohmann::json timelineItemToJson(
+        const timeline::Item &item, caf::actor_system &sys, const bool recurse = true);
+
 
     Q_INVOKABLE QString save(const QUrl &path, const QModelIndexList &selection = {}) {
         return saveFuture(path, selection).result();
@@ -184,7 +247,7 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     [[nodiscard]] QString bookmarkActorAddr() const { return bookmark_actor_addr_; };
 
     [[nodiscard]] QVariant playlists() const;
-
+    [[nodiscard]] QStringList conformTasks() const;
 
     Q_INVOKABLE void moveSelectionByIndex(const QModelIndex &index, const int offset);
     Q_INVOKABLE void
@@ -212,6 +275,27 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_INVOKABLE void rescanMedia(const QModelIndexList &indexes);
     Q_INVOKABLE QModelIndex getPlaylistIndex(const QModelIndex &index) const;
 
+    Q_INVOKABLE QFuture<bool> undoFuture(const QModelIndex &index);
+    Q_INVOKABLE QFuture<bool> redoFuture(const QModelIndex &index);
+
+    Q_INVOKABLE void
+    setTimelineFocus(const QModelIndex &timeline, const QModelIndexList &indexes) const;
+
+    Q_INVOKABLE bool undo(const QModelIndex &index) { return undoFuture(index).result(); }
+    Q_INVOKABLE bool redo(const QModelIndex &index) { return redoFuture(index).result(); }
+
+    Q_INVOKABLE QFuture<QModelIndexList>
+    conformInsertFuture(const QString &task, const QModelIndexList &indexes);
+    Q_INVOKABLE QModelIndexList
+    conformInsert(const QString &task, const QModelIndexList &indexes) {
+        return conformInsertFuture(task, indexes).result();
+    }
+
+    Q_INVOKABLE void updateMetadataSelection(const int slot, QStringList metadata_paths);
+
+  public slots:
+    void updateMedia();
+
   signals:
     void bookmarkActorAddrChanged();
     void sessionActorAddrChanged();
@@ -220,11 +304,12 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     void tagsChanged();
     void modifiedChanged();
     void playlistsChanged();
+    void conformTasksChanged();
     void
     mediaSourceChanged(const QModelIndex &media, const QModelIndex &source, const int mode);
 
   public:
-    caf::actor_system &system() { return self()->home_system(); }
+    caf::actor_system &system() const { return self()->home_system(); }
     static nlohmann::json createEntry(const nlohmann::json &update = R"({})"_json);
 
   protected:
@@ -253,6 +338,12 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     bool isChildOf(const QModelIndex &parent, const QModelIndex &child) const;
     int depthOfChild(const QModelIndex &parent, const QModelIndex &child) const;
 
+    void triggerMediaStatusChange(const QModelIndex &index);
+
+    void updateConformTasks(const std::vector<std::string> &tasks);
+
+    void updateErroredCount(const QModelIndex &media_index);
+
     QModelIndexList insertRows(
         int row,
         int count,
@@ -268,6 +359,8 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
         const int role,
         const QString &result);
 
+    void finishedDataSlot(const QVariant &search_value, const int search_role, const int role);
+
     void receivedData(
         const nlohmann::json &search_value,
         const int search_role,
@@ -280,15 +373,18 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
         const int search_role,
         const QPersistentModelIndex &search_hint,
         const QModelIndex &index,
-        const int role) const;
+        const int role,
+        const std::map<int, std::string> &metadata_paths = std::map<int, std::string>()) const;
+
     void requestData(
         const QVariant &search_value,
         const int search_role,
         const QPersistentModelIndex &search_hint,
         const nlohmann::json &data,
-        const int role) const;
+        const int role,
+        const std::map<int, std::string> &metadata_paths = std::map<int, std::string>()) const;
 
-    caf::actor actorFromIndex(const QModelIndex &index, const bool try_parent = false);
+    caf::actor actorFromIndex(const QModelIndex &index, const bool try_parent = false) const;
     utility::Uuid actorUuidFromIndex(const QModelIndex &index, const bool try_parent = false);
 
     void processChildren(const nlohmann::json &result_json, const QModelIndex &index);
@@ -300,6 +396,8 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
 
     QFuture<QList<QUuid>> handleMediaIdDropFuture(
         const int proposedAction, const utility::JsonStore &drop, const QModelIndex &index);
+    QFuture<QList<QUuid>> handleTimelineIdDropFuture(
+        const int proposedAction, const utility::JsonStore &drop, const QModelIndex &index);
     QFuture<QList<QUuid>> handleContainerIdDropFuture(
         const int proposedAction, const utility::JsonStore &drop, const QModelIndex &index);
     QFuture<QList<QUuid>> handleUriListDropFuture(
@@ -307,9 +405,11 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     QFuture<QList<QUuid>> handleOtherDropFuture(
         const int proposedAction, const utility::JsonStore &drop, const QModelIndex &index);
 
+    void add_id_uuid_lookup(const utility::Uuid &uuid, const QModelIndex &index);
     void add_uuid_lookup(const utility::Uuid &uuid, const QModelIndex &index);
     void add_string_lookup(const std::string &str, const QModelIndex &index);
     void add_lookup(const utility::JsonTree &tree, const QModelIndex &index);
+    void item_event_callback(const utility::JsonStore &event, timeline::Item &item);
 
   private:
     QString session_actor_addr_;
@@ -318,15 +418,25 @@ class SessionModel : public caf::mixin::actor_object<JSONTreeModel> {
     caf::actor session_actor_;
     TagManagerUI *tag_manager_{nullptr};
 
+    caf::actor conform_actor_;
+    QStringList conform_tasks_;
+
     utility::time_point saved_time_;
     utility::time_point last_changed_;
 
-    mutable std::set<std::tuple<QVariant, int, int>> in_flight_requests_;
+    mutable std::set<std::string> in_flight_requests_;
     QThreadPool *request_handler_;
 
-
+    std::map<utility::Uuid, std::set<QPersistentModelIndex>> id_uuid_lookup_;
     std::map<utility::Uuid, std::set<QPersistentModelIndex>> uuid_lookup_;
     std::map<std::string, std::set<QPersistentModelIndex>> string_lookup_;
+
+    std::map<caf::actor, timeline::Item> timeline_lookup_;
+
+    bool mediaStatusChangePending_{false};
+    QPersistentModelIndex mediaStatusIndex_;
+
+    std::map<int, std::map<int, std::string>> metadata_sets_;
 };
 
 } // namespace xstudio::ui::qml

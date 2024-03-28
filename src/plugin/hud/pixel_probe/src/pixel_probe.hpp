@@ -40,18 +40,22 @@ namespace ui {
                 const utility::Uuid &attribute_uuid, const int /*role*/
                 ) override;
 
-            // Overriding this allows us to keep updated as to the current on-screen image
-            void on_screen_image(const media_reader::ImageBufPtr &) override;
+            void images_going_on_screen(
+                const std::vector<media_reader::ImageBufPtr> & /*images*/,
+                const std::string viewport_name,
+                const bool playhead_playing) override;
 
           protected:
             bool pointer_event(const ui::PointerEvent &e) override;
 
           private:
-            void update_onscreen_info();
-            void get_colour_pipeline_actor();
+            void update_onscreen_info(const std::string &viewport_name = std::string());
+            caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
             void make_pixel_info_onscreen_text(const media_reader::PixelInfo &pixel_info);
 
             media_reader::ImageBufPtr current_onscreen_image_;
+            std::map<std::string, media_reader::ImageBufPtr> current_onscreen_images_;
+            std::map<std::string, caf::actor> colour_pipelines_;
             module::StringAttribute *pixel_info_text_;
             module::StringAttribute *pixel_info_title_;
             module::BooleanAttribute *show_code_values_;

@@ -44,6 +44,7 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::qml::tag
 		xstudio::ui::qml::viewport
 		xstudio::ui::viewport
+		xstudio::ui::qt::viewport_widget
 		xstudio::utility
 	PUBLIC
 		caf::core

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import Uuid, actor, UuidActor, ItemType
+from xstudio.core import Uuid, actor, UuidActor, ItemType, item_flag_atom
 from xstudio.core import item_atom, insert_item_atom, enable_atom, remove_item_atom, erase_item_atom, item_name_atom, move_item_atom
 from xstudio.core import active_range_atom, available_range_atom
 from xstudio.api.session.container import Container
@@ -48,6 +48,24 @@ class Stack(Container):
             state(bool): Set enabled state.
         """
         self.connection.request_receive(self.remote, enable_atom(), x)
+
+    @property
+    def item_flag(self):
+        """Get flag.
+
+        Returns:
+            name(str): flag.
+        """
+        return self.item.flag()
+
+    @item_flag.setter
+    def item_flag(self, x):
+        """Set flag.
+
+        Args:
+            name(str): Set flag.
+        """
+        self.connection.request_receive(self.remote, item_flag_atom(), x)
 
     @property
     def item_name(self):

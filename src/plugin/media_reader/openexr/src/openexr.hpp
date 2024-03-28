@@ -44,7 +44,7 @@ namespace media_reader {
         void stream_ids_from_exr_part(
             const Imf::Header &header, std::vector<std::string> &stream_ids) const;
 
-        Imf::PixelType pick_exr_channels_from_stream_id(
+        std::array<Imf::PixelType, 4> pick_exr_channels_from_stream_id(
             const Imf::Header &header,
             const std::string &stream_id,
             std::vector<std::string> &exr_channels_to_load) const;

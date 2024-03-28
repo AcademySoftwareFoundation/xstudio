@@ -91,6 +91,7 @@ Rectangle {
     }
 
     property var viewport: playerWidget.viewport
+    Keys.forwardTo: viewport
 
     XsStatusBar {
         id: status_bar

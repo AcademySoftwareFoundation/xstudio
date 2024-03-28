@@ -60,7 +60,7 @@ namespace ui {
           protected:
             void register_hotkeys() override;
 
-            utility::BlindDataObjectPtr prepare_render_data(
+            utility::BlindDataObjectPtr prepare_overlay_data(
                 const media_reader::ImageBufPtr &, const bool /*offscreen*/) const override;
 
             plugin::ViewportOverlayRendererPtr make_overlay_renderer(const int) override {

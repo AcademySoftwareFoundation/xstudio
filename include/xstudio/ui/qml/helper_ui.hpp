@@ -42,6 +42,41 @@ namespace ui {
         QVariant mapFromValue(const nlohmann::json &value);
         nlohmann::json mapFromValue(const QVariant &value);
 
+        class ModelRowCount : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+            Q_PROPERTY(int count READ count NOTIFY countChanged)
+
+          public:
+            explicit ModelRowCount(QObject *parent = nullptr) : QObject(parent) {}
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] int count() const { return count_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+
+          signals:
+            void indexChanged();
+            void countChanged();
+
+          private slots:
+            void inserted(const QModelIndex &parent, int first, int last);
+            void moved(
+                const QModelIndex &sourceParent,
+                int sourceStart,
+                int sourceEnd,
+                const QModelIndex &destinationParent,
+                int destinationRow);
+            void removed(const QModelIndex &parent, int first, int last);
+
+          private:
+            void setCount(const int count);
+
+            QPersistentModelIndex index_;
+            int count_{0};
+        };
+
         class ModelProperty : public QObject {
             Q_OBJECT
 
@@ -136,6 +171,7 @@ namespace ui {
             [[nodiscard]] QQmlPropertyMap *values() const { return values_; }
 
             Q_INVOKABLE void setIndex(const QModelIndex &index);
+            Q_INVOKABLE void dump();
 
           signals:
             void indexChanged();
@@ -195,7 +231,9 @@ namespace ui {
 
           public:
             using super = caf::mixin::actor_object<QObject>;
-            explicit QMLActor(QObject *parent = nullptr) : super(parent) {}
+            explicit QMLActor(QObject *parent = nullptr);
+
+            virtual ~QMLActor();
             virtual void init(caf::actor_system &system) { super::init(system); }
 
           public:
@@ -393,6 +431,44 @@ namespace ui {
                 for (const auto &i : l)
                     s.select(i, i);
                 return s;
+            }
+            Q_INVOKABLE [[nodiscard]] bool itemSelectionContains(
+                const QItemSelection &selection, const QModelIndex &item) const {
+                return selection.contains(item);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            saturate(const QColor &color, const double factor = 1.5) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                s = std::max(0.0, std::min(1.0, s * factor));
+                return QColor::fromHslF(h, s, l, a);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            luminate(const QColor &color, const double factor = 1.5) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                l = std::max(0.0, std::min(1.0, l * factor));
+                return QColor::fromHslF(h, s, l, a);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            alphate(const QColor &color, const double alpha) const {
+                auto result = color;
+                result.setAlphaF(std::max(0.0, std::min(1.0, alpha)));
+                return result;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor saturateLuminate(
+                const QColor &color,
+                const double sfactor = 1.0,
+                const double lfactor = 1.0) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                s = std::max(0.0, std::min(1.0, s * sfactor));
+                l = std::max(0.0, std::min(1.0, l * lfactor));
+                return QColor::fromHslF(h, s, l, a);
             }
 
           private:

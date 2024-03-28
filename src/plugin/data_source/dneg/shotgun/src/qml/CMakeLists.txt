@@ -21,6 +21,9 @@ QT5_WRAP_CPP(SHOTGUN_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shotgun_model
 set(SOURCES
 	shotgun_model_ui.cpp
 	data_source_shotgun_ui.cpp
+	data_source_shotgun_requests_ui.cpp
+	data_source_shotgun_query_ui.cpp
+	../data_source_shotgun_query_engine.cpp
 	${DATA_SOURCE_SHOTGUN_UI_MOC_SRC}
 	${SHOTGUN_MODEL_UI_MOC_SRC}
 )

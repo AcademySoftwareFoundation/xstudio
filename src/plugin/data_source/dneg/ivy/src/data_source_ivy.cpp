@@ -21,11 +21,12 @@ using namespace std::chrono_literals;
 
 namespace fs = std::filesystem;
 
-const auto GetShotFromIdJSON   = R"({"shot_id": null, "operation": "GetShotFromId"})"_json;
+const auto GetShotFromId       = R"({"shot_id": null, "operation": "GetShotFromId"})"_json;
 const auto ShotgunMetadataPath = std::string("/metadata/shotgun");
 const auto IvyMetadataPath     = std::string("/metadata/ivy");
 const auto SHOW_REGEX = std::regex(R"(^(?:/jobs|/hosts/[^/]+/user_data\d*)/([A-Z0-9]+)/.+$)");
-
+const auto GetVersionIvyUuid =
+    R"({"operation": "VersionIvyUuid", "job":null, "ivy_uuid": null})"_json;
 
 class IvyMediaWorker : public caf::event_based_actor {
   public:
@@ -641,12 +642,11 @@ void IvyMediaWorker::get_shotgun_version(
                 },
                 [=](const error &err) mutable {
                     // get from shotgun..
-                    request(
-                        shotgun_actor,
-                        infinite,
-                        data_source::use_data_atom_v,
-                        project,
-                        stalk_dnuuid)
+                    auto jsre        = JsonStore(GetVersionIvyUuid);
+                    jsre["ivy_uuid"] = to_string(stalk_dnuuid);
+                    jsre["job"]      = project;
+
+                    request(shotgun_actor, infinite, data_source::get_data_atom_v, jsre)
                         .then(
                             [=](const JsonStore &jsn) mutable {
                                 if (jsn.count("payload")) {
@@ -711,7 +711,7 @@ void IvyMediaWorker::get_shotgun_shot(
                 [=](const error &err) mutable {
                     // get from shotgun..
                     try {
-                        auto shotreq       = JsonStore(GetShotFromIdJSON);
+                        auto shotreq       = JsonStore(GetShotFromId);
                         shotreq["shot_id"] = shot_id;
 
                         request(shotgun_actor, infinite, get_data_atom_v, shotreq)

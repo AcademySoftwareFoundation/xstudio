@@ -125,7 +125,8 @@ class BookmarkModel : public caf::mixin::actor_object<JSONTreeModel> {
         objectRole,
         startRole,
         durationRole,
-        durationFrameRole
+        durationFrameRole,
+        visibleRole
     };
 
     using super = caf::mixin::actor_object<JSONTreeModel>;

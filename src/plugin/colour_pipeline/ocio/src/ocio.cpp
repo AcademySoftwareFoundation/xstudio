@@ -93,7 +93,16 @@ std::string OCIOColourPipeline::MediaParams::compute_hash() const {
 OCIOColourPipeline::OCIOColourPipeline(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : ColourPipeline(cfg, init_settings) {
+
     setup_ui();
+}
+
+void OCIOColourPipeline::on_exit() {
+    auto main_ocio =
+        system().registry().template get<caf::actor>("MAIN_VIEWPORT_OCIO_INSTANCE");
+    if (main_ocio == self()) {
+        system().registry().erase("MAIN_VIEWPORT_OCIO_INSTANCE");
+    }
 }
 
 std::string OCIOColourPipeline::linearise_op_hash(
@@ -214,17 +223,6 @@ ColourOperationDataPtr OCIOColourPipeline::linear_to_display_op_data(
         std::string display_shader_src = replace_once(
             ShaderTemplates::OCIO_display, "//OCIODisplay", display_shader->getShaderText());
 
-        // GradingPrimary implement the power function with mirrored behaviour for negatives
-        // (absolute value before pow then multiply by sign). We update the shader here to
-        // match ASC CDL clamping [0, 1] behaviour.
-        std::regex pattern(
-            R"((\w+)\.rgb = pow\( abs\(\w+\.rgb / (\w+_grading_primary_pivot)\), (\w+_grading_primary_contrast) \) \* sign\(\w+\.rgb\) \* \w+_grading_primary_pivot;)");
-
-        display_shader_src = std::regex_replace(
-            display_shader_src,
-            pattern,
-            "outColor.rgb = pow( clamp($1.rgb, 0.0, 1.0) / $2, $3 ) * $2;");
-
         data->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
             utility::Uuid::generate(), display_shader_src);
 
@@ -246,9 +244,10 @@ ColourOperationDataPtr OCIOColourPipeline::linear_to_display_op_data(
     return data;
 }
 
-void OCIOColourPipeline::update_shader_uniforms(
-    utility::JsonStore &uniforms, const utility::Uuid &source_uuid, std::any &user_data) {
+utility::JsonStore OCIOColourPipeline::update_shader_uniforms(
+    const media_reader::ImageBufPtr &image, std::any &user_data) {
 
+    utility::JsonStore uniforms;
     if (channel_->value() == "Red") {
         uniforms["show_chan"] = 1;
     } else if (channel_->value() == "Green") {
@@ -280,12 +279,14 @@ void OCIOColourPipeline::update_shader_uniforms(
                 // values for the current shot.
                 std::scoped_lock lock(shader->mutex);
                 update_dynamic_parameters(shader->shader_desc, shader->params);
-                update_all_uniforms(shader->shader_desc, uniforms, source_uuid);
+                update_all_uniforms(
+                    shader->shader_desc, uniforms, image.frame_id().source_uuid_);
             }
         } catch (const std::exception &e) {
             spdlog::warn("OCIOColourPipeline: Failed to update shader uniforms: {}", e.what());
         }
     }
+    return uniforms;
 }
 
 thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
@@ -337,6 +338,7 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
             OCIO::AutoStride,
             OCIO::AutoStride);
 
+
         OCIO::PackedImageDesc out_img(
             dst,
             thumb->width(),
@@ -349,8 +351,8 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
 
         cpu_to_lin_proc->apply(in_img, intermediate_img);
         cpu_lin_to_display_proc->apply(intermediate_img, out_img);
-
         return thumb;
+
     } catch (const std::exception &e) {
         spdlog::warn("OCIOColourPipeline: Failed to compute thumbnail: {}", e.what());
     }
@@ -366,8 +368,9 @@ void OCIOColourPipeline::extend_pixel_info(
 
     try {
 
-        const MediaParams media_param =
-            get_media_params(frame_id.source_uuid_, frame_id.params_);
+        MediaParams media_param = get_media_params(frame_id.source_uuid_, frame_id.params_);
+
+        media_param.output_view = view_->value();
 
         auto raw_info = pixel_info.raw_channels_info();
 
@@ -509,9 +512,39 @@ OCIOColourPipeline::MediaParams OCIOColourPipeline::get_media_params(
     return media_params_[source_uuid];
 }
 
-void OCIOColourPipeline::set_media_params(
-    const utility::Uuid &source_uuid, const MediaParams &new_media_param) const {
-    media_params_[source_uuid] = new_media_param;
+void OCIOColourPipeline::set_media_params(const MediaParams &new_media_param) const {
+    media_params_[new_media_param.source_uuid] = new_media_param;
+}
+
+std::string OCIOColourPipeline::input_space_for_view(
+    const MediaParams &media_param, const std::string &view) const {
+
+    std::string new_colourspace;
+
+    auto colourspace_or = [media_param](const std::string &cs, const std::string &fallback){
+        const bool has_cs = bool(media_param.ocio_config->getColorSpace(cs.c_str()));
+        return has_cs ? cs : fallback;
+    };
+
+    if (media_param.metadata.contains("input_category")) {
+        const auto is_untonemapped = view == "Un-tone-mapped";
+        const auto category = media_param.metadata["input_category"];
+        if (category == "internal_movie") {
+            new_colourspace = is_untonemapped ?
+                "disp_Rec709-G24" : colourspace_or("DNEG_Rec709", "Film_Rec709");
+        } else if (category == "edit_ref" or category == "movie_media") {
+            new_colourspace = is_untonemapped ?
+                "disp_Rec709-G24" : colourspace_or("Client_Rec709", "Film_Rec709");
+        } else if (category == "still_media") {
+            new_colourspace = is_untonemapped ?
+                "disp_sRGB" : colourspace_or("DNEG_sRGB", "Film_sRGB");
+        }
+
+        // Double check the new colourspace actually exists
+        new_colourspace = colourspace_or(new_colourspace, "");
+    }
+
+    return new_colourspace;
 }
 
 std::string OCIOColourPipeline::preferred_ocio_view(
@@ -845,8 +878,11 @@ OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_display_processor(
         return ocio_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
 
     } catch (const std::exception &e) {
-        spdlog::warn("OCIOColourPipeline: Failed to construct OCIO processor: {}", e.what());
-        spdlog::warn("OCIOColourPipeline: Defaulting to no-op processor");
+        if (media_param.ocio_config_name != "__raw__") {
+            spdlog::warn(
+                "OCIOColourPipeline: Failed to construct OCIO processor: {}", e.what());
+            spdlog::warn("OCIOColourPipeline: Defaulting to no-op processor");
+        }
         return ocio_config->getProcessor(identity_transform());
     }
 }
@@ -874,7 +910,7 @@ OCIO::ConstConfigRcPtr OCIOColourPipeline::make_dynamic_display_processor(
         auto primary                     = grading_primary_from_cdl(cdl_transform);
 
         updated_media_params.primary = primary;
-        set_media_params(media_param.source_uuid, updated_media_params);
+        set_media_params(updated_media_params);
 
         // Create a dynamic version of the look
         auto dynamic_config = config->createEditableCopy();
@@ -1111,7 +1147,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<OCIOColourPipeline>>(
                 PLUGIN_UUID,
                 "OCIOColourPipeline",
-                plugin_manager::PluginType::PT_COLOUR_MANAGEMENT,
+                plugin_manager::PluginFlags::PF_COLOUR_MANAGEMENT,
                 false,
                 "xStudio",
                 "OCIO (v2) Colour Pipeline",

@@ -19,6 +19,9 @@ import xStudio 1.1
 
 Rectangle{ id: rightDiv
     property var searchResultsViewModel
+    onSearchResultsViewModelChanged:{
+        searchResultsViewModel.setFilterWildcard(filterTextField.text)
+    }
 
     property var currentPresetIndex: -1
 
@@ -108,7 +111,7 @@ Rectangle{ id: rightDiv
             searchResultsViewModel.sortRoleName = "shotRole"
         } else if(actionText == "Creation Date") {
             searchResultsViewModel.sortRoleName = "createdDateRole"
-        } else if(actionText == "Reveal In Shotgun") {
+        } else if(actionText == "Reveal In ShotGrid") {
             // get selection..
             let i = selectionModel.selectedIndexes[0]
             helpers.openURL(searchResultsViewModel.get(i.row,"URLRole"))
@@ -764,7 +767,7 @@ Rectangle{ id: rightDiv
                 XsMenuSeparator {}
 
                 XsMenuItem {
-                    mytext: "Reveal In Shotgun"; onTriggered: popupMenuAction(text)
+                    mytext: "Reveal In ShotGrid"; onTriggered: popupMenuAction(text)
                     enabled: selectionModel.selectedIndexes.length
                 }
                 XsMenuItem {

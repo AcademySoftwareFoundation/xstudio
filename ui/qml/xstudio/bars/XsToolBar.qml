@@ -7,6 +7,7 @@ import QtQuick.Extras 1.4
 import xStudio 1.0
 
 import xstudio.qml.module 1.0
+import xstudio.qml.models 1.0
 
 import BasicViewportMask 1.0
 
@@ -22,9 +23,9 @@ Rectangle {
         return (barHeight + topPadding) * opacity
     }
 
-    XsModuleAttributesModel {
-        id: attrs
-        attributesGroupNames: [viewport.name + "_toolbar", "any_toolbar"]
+    XsModuleData {
+        id: tester
+        modelDataName: viewport.name + "_toolbar"
     }
 
     opacity: 1
@@ -73,36 +74,7 @@ Rectangle {
 
         id: the_view
         anchors.fill: parent
-        model: attrs
-        property var ordering: []
-
-        onItemAdded: {
-            arrange_widgets()
-        }
-
-        onItemRemoved: {
-            arrange_widgets()
-        }
-
-        function arrange_widgets() {
-
-            function compare( a, b ) {
-                if ( a[1] < b[1] ) { return -1; }
-                if ( a[1] > b[1] ) { return 1; }
-                return 0;
-            }
-
-            var toolbar_items = []
-            for (var idx = 0; idx < count; idx++) {
-                if (itemAt(idx)) toolbar_items.push([itemAt(idx), itemAt(idx).order_value])
-            }
-            toolbar_items.sort( compare );
-
-            for (var idx = 0; idx < toolbar_items.length; idx++) {
-                toolbar_items[idx][0].ordered_x_position = idx
-            }
-
-        }
+        model: tester
 
         delegate: Item {
 
@@ -111,7 +83,7 @@ Rectangle {
             anchors.top: parent.top
             width: (myBar.width-separator_width*(the_view.count-1))/the_view.count
             property var ordered_x_position: 0
-            x: ordered_x_position*(width+separator_width)
+            x: index*(width+separator_width)
             property var dynamic_widget
 
             // 'title', 'type', 'qml_code' attributes may or may not be provided by the Repeater model,

@@ -29,9 +29,13 @@ namespace bookmark {
         virtual utility::JsonStore serialise(utility::Uuid &plugin_uuid) const {
             return store_;
         }
-        const utility::JsonStore store_;
         utility::Uuid bookmark_uuid_;
+
+      private:
+        utility::JsonStore store_;
     };
+
+    typedef std::shared_ptr<AnnotationBase> AnnotationBasePtr;
 
     class Note {
       public:
@@ -84,6 +88,7 @@ namespace bookmark {
         std::optional<utility::UuidActor> owner_;
         std::optional<bool> enabled_;
         std::optional<bool> has_focus_;
+        std::optional<bool> visible_;
         std::optional<timebase::flicks> start_;
         std::optional<timebase::flicks> duration_;
 
@@ -96,6 +101,7 @@ namespace bookmark {
 
         std::optional<bool> has_note_;
         std::optional<bool> has_annotation_;
+
         std::optional<utility::MediaReference> media_reference_;
         std::optional<std::string> media_flag_;
 
@@ -108,6 +114,7 @@ namespace bookmark {
                 f.field("own", x.owner_),
                 f.field("ena", x.enabled_),
                 f.field("foc", x.has_focus_),
+                f.field("vis", x.visible_),
                 f.field("sta", x.start_),
                 f.field("dur", x.duration_),
                 f.field("hasa", x.has_annotation_),
@@ -277,6 +284,7 @@ namespace bookmark {
 
         auto enabled() const { return enabled_; }
         auto has_focus() const { return has_focus_; }
+        auto visible() const { return visible_; }
         auto start() const { return start_; }
         auto duration() const { return duration_; }
 
@@ -284,6 +292,7 @@ namespace bookmark {
 
         void set_owner(const utility::Uuid owner) { owner_ = owner; }
         void set_enabled(const bool enabled = true) { enabled_ = enabled; }
+        void set_visible(const bool visible = true) { visible_ = visible; }
         void set_has_focus(const bool has_focus = true) { has_focus_ = has_focus; }
         void set_start(const timebase::flicks start = timebase::k_flicks_low) {
             start_ = start;
@@ -301,12 +310,29 @@ namespace bookmark {
         utility::Uuid owner_;
         bool enabled_{true};
         bool has_focus_{false};
+        bool visible_{true};
         timebase::flicks start_{timebase::k_flicks_low};
         timebase::flicks duration_{timebase::k_flicks_max};
 
         std::shared_ptr<Note> note_{nullptr};
         std::shared_ptr<AnnotationBase> annotation_{nullptr};
     };
+
+    /* This struct is used by Playhead classes as a convenient way to maintain
+    a record of bookmarks, attached annotation data and a logical frame range*/
+    struct BookmarkAndAnnotation {
+
+        BookmarkDetail detail_;
+        std::shared_ptr<AnnotationBase> annotation_;
+        int start_frame_ = -1;
+        int end_frame_   = -1;
+    };
+
+    // BookmarkAndAnnotationPtrs can be shared across different parts of the
+    // application (for example the SubPlayhead, ImageBufPtr, AnnotationsTool)
+    // and therefore it must be const data
+    typedef std::shared_ptr<const BookmarkAndAnnotation> BookmarkAndAnnotationPtr;
+    typedef std::vector<BookmarkAndAnnotationPtr> BookmarkAndAnnotations;
 
     // not sure if we want this...
     class Bookmarks : public utility::Container {

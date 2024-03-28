@@ -36,6 +36,8 @@ class JSONTreeModel : public QAbstractItemModel {
 
     JSONTreeModel(QObject *parent = nullptr);
 
+    [[nodiscard]] bool canFetchMore(const QModelIndex &parent) const override;
+
     [[nodiscard]] int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     [[nodiscard]] int columnCount(const QModelIndex &parent = QModelIndex()) const override {
         return 1;
@@ -75,6 +77,8 @@ class JSONTreeModel : public QAbstractItemModel {
     insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 
     bool insertRows(int row, int count, const QModelIndex &parent, const nlohmann::json &data);
+
+    Q_INVOKABLE QModelIndex invalidIndex() const { return QModelIndex(); }
 
     Q_INVOKABLE int
     countExpandedChildren(const QModelIndex parent, const QModelIndexList &expanded);
@@ -149,7 +153,7 @@ class JSONTreeModel : public QAbstractItemModel {
 
     nlohmann::json &indexToData(const QModelIndex &index);
     const nlohmann::json &indexToData(const QModelIndex &index) const;
-    nlohmann::json indexToFullData(const QModelIndex &index) const;
+    nlohmann::json indexToFullData(const QModelIndex &index, const int depth = -1) const;
 
     utility::JsonTree *indexToTree(const QModelIndex &index) const;
     nlohmann::json::json_pointer getIndexPath(const QModelIndex &index = QModelIndex()) const;

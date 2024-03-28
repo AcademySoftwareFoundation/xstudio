@@ -29,7 +29,7 @@ XsDialogModal {
 
         XsLabel {
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.fillHeight: visible ? true : false
             Layout.minimumHeight: 20
             Layout.alignment: Qt.AlignVCenter|Qt.AlignHCenter
 

@@ -25,13 +25,14 @@ Rectangle  {
     property bool is_overridden: override_value ? (override_value != "" ? true : false) : false
     property var value_text: value ? value : ""
     property var display_value: is_overridden ? override_value : value_text
-    property var short_display_value: short_value ? short_value : display_value.slice(0,3) + "..."
+    property var short_display_value: display_value ? display_value.slice(0,3) + "..." : ""
     property bool fixed_width_font: false
     property var min_pad: 2
     property bool collapse: false
     property bool inactive : attr_enabled != undefined ? !attr_enabled : false
     property var custom_message_: custom_message != undefined ? custom_message : undefined
     property bool hovered: false
+    property var actual_text: collapse_mode <= 1 ? display_value : short_display_value
 
     property var showHighlighted: hovered | (activated != undefined && activated)
 
@@ -105,13 +106,13 @@ Rectangle  {
     TextMetrics {
         id:     full_value_metrics
         font:   value_widget.font
-        text:   control.display_value
+        text:   control.display_value ? control.display_value : ""
     }
 
     TextMetrics {
         id:     short_value_metrics
         font:   value_widget.font
-        text:   control.short_display_value
+        text:   control.short_display_value ? control.short_display_value : ""
     }
 
     Rectangle {
@@ -144,7 +145,7 @@ Rectangle  {
 
             id: value_widget
 
-            text: collapse_mode <= 1 ? display_value : short_display_value
+            text: actual_text ? actual_text : ""
 
             opacity: collapse_mode != 3
             visible: opacity > 0.2

@@ -86,7 +86,7 @@ Button {
         radius: borderRadius
     }
 
-    onPressed: focus = true
-    onReleased: focus = false
+    /*onPressed: focus = true
+    onReleased: focus = false*/
 }
 

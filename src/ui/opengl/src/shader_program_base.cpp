@@ -76,7 +76,10 @@ void main()
 {
     vec4 rpos = aPos*to_coord_system;
     gl_Position = aPos*to_canvas;
-    texPosition = vec2((rpos.x + 1.0f)*float(image_dims.x), (rpos.y*pixel_aspect*float(image_dims.x))+float(image_dims.y))*0.5f;
+    texPosition = vec2(
+        (rpos.x + 1.0f) * float(image_dims.x),
+        (rpos.y * pixel_aspect * float(image_dims.x)) + float(image_dims.y)
+    ) * 0.5f;
 }
 )";
 
@@ -94,6 +97,7 @@ uniform bool use_bilinear_filtering;
 
 uniform usampler2DRect the_tex;
 uniform ivec2 tex_dims;
+uniform bool pack_rgb_10_bit;
 
 ivec2 step_sample(ivec2 tex_coord)
 {
@@ -274,6 +278,31 @@ vec4 get_bicubic_filter(vec2 pos)
         mix(sample1, sample0, sx), sy);
 }
 
+vec4 pack_RGB_10_10_10_2(vec4 rgb) 
+{
+    // this sets up the rgba value so that if the fragment 
+    // bit depth is 8 bit RGBA, the 4 bytes contain the
+    // RGB as packed 10 bit colours. We use this for SDI
+    // output, for example.
+
+    // scale to 10 bits
+    uint offset = 64;
+    float scale = 876.0f;
+    uint r = offset + uint(max(0.0,min(rgb.r*scale,scale)));
+    uint g = offset + uint(max(0.0,min(rgb.g*scale,scale)));
+    uint b = offset + uint(max(0.0,min(rgb.b*scale,scale)));
+
+    // pack
+    uint RR = (r << 20) + (g << 10) + b;
+
+    // unpack!
+    return vec4(float((RR >> 24)&255)/255.0,
+        float((RR >> 16)&255)/255.0,
+        float((RR >> 8)&255)/255.0,
+        float(RR&255)/255.0);
+
+}
+
 void main(void)
 {
     if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
@@ -291,8 +320,14 @@ void main(void)
         }
 
         //INJECT_COLOUR_OPS_CALL
+        if (pack_rgb_10_bit) {
+            rgb_frag_value = pack_RGB_10_10_10_2(rgb_frag_value);
+        } else {
+            rgb_frag_value.a = 1.0;
+        }
 
-        FragColor = vec4(rgb_frag_value.rgb, 1.0);
+        FragColor = rgb_frag_value;
+
     }
 }
 )";
@@ -306,6 +341,7 @@ out vec4 FragColor;
 uniform ivec2 image_dims;
 uniform ivec2 image_bounds_min;
 uniform ivec2 image_bounds_max;
+uniform bool pack_rgb_10_bit;
 
 uniform bool use_bilinear_filtering;
 
@@ -466,6 +502,30 @@ vec4 get_bicubic_filter(vec2 pos)
         mix(sample1, sample0, sx), sy);
 }
 
+vec4 pack_RGB_10_10_10_2(vec4 rgb) 
+{
+    // this sets up the rgba value so that if the fragment 
+    // bit depth is 8 bit RGBA, the 4 bytes contain the
+    // RGB as packed 10 bit colours. We use this for SDI
+    // output, for example.
+
+    // scale to 10 bits
+    uint offset = 64;
+    float scale = 876.0f;
+    uint r = offset + uint(max(0.0,min(rgb.r*scale,scale)));
+    uint g = offset + uint(max(0.0,min(rgb.g*scale,scale)));
+    uint b = offset + uint(max(0.0,min(rgb.b*scale,scale)));
+
+    // pack
+    uint RR = (r << 20) + (g << 10) + b;
+
+    // unpack!
+    return vec4(float((RR >> 24)&255)/255.0,
+        float((RR >> 16)&255)/255.0,
+        float((RR >> 8)&255)/255.0,
+        float(RR&255)/255.0);
+}
+
 void main(void)
 {
     if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
@@ -483,7 +543,14 @@ void main(void)
         }
 
         //INJECT_COLOUR_OPS_CALL
-        FragColor = vec4(rgb_frag_value.rgb, 1.0);
+
+        if (pack_rgb_10_bit) {
+            rgb_frag_value = pack_RGB_10_10_10_2(rgb_frag_value);
+        } else {
+            rgb_frag_value.a = 1.0;
+        }
+
+        FragColor = rgb_frag_value;
     }
 }
 )";
@@ -611,10 +678,20 @@ GLShaderProgram::GLShaderProgram(
     }
 }
 
+GLShaderProgram::~GLShaderProgram() {
+    // We don't need the program anymore.
+    glDeleteProgram(program_);
+
+    // Always detach shaders after a successful link.
+    std::for_each(shaders_.begin(), shaders_.end(), [](GLuint shdr) { glDeleteShader(shdr); });
+}
+
+
 bool GLShaderProgram::is_colour_op_shader_source(const std::string &shader_code) const {
 
     // colour op shaders implement a specific signature function that we can look for.
-    static const std::regex op_func_match(R"(vec4\s*colour_transform_op\s*\(\s*vec4[^\)]+\))");
+    static const std::regex op_func_match(
+        R"(vec4\s*colour_transform_op\s*\(\s*vec4[^\)]+\s*\,\s*vec2[^\)]+\s*\))");
     std::smatch m;
     return std::regex_search(shader_code, m, op_func_match);
 }
@@ -636,7 +713,7 @@ void GLShaderProgram::inject_colour_op_shader(const std::string &colour_op_shade
 
     std::stringstream transform_op_fwd_declaration;
     transform_op_fwd_declaration << "vec4 colour_transform_op" << colour_operation_index_
-                                 << "(vec4 rgba);\n";
+                                 << "(vec4 rgba, vec2 image_pos);\n";
     // search the frag shaders for the injection points for colour op shaders
     for (auto &frag_shader : fragment_shaders_) {
 
@@ -648,7 +725,7 @@ void GLShaderProgram::inject_colour_op_shader(const std::string &colour_op_shade
             if (j != std::string::npos) {
                 std::stringstream transform_op_call;
                 transform_op_call << "\t\trgb_frag_value = " << renamed_transform_op.str()
-                                  << "(rgb_frag_value);\n";
+                                  << "(rgb_frag_value, texPosition/image_dims);\n";
                 frag_shader.insert(j, transform_op_call.str());
             }
         }
@@ -668,36 +745,34 @@ void GLShaderProgram::compile() {
     // Get a program object.
     program_ = glCreateProgram();
 
-    std::vector<GLuint> shaders;
-
     try {
 
         // compile the vertex shader objects
         std::for_each(
             vertex_shaders_.begin(),
             vertex_shaders_.end(),
-            [&shaders](const std::string &shader_code) {
-                shaders.push_back(compile_vertex_shader(shader_code));
+            [=](const std::string &shader_code) {
+                shaders_.push_back(compile_vertex_shader(shader_code));
             });
 
         // compile the fragment shader objects
         std::for_each(
             fragment_shaders_.begin(),
             fragment_shaders_.end(),
-            [&shaders](const std::string &shader_code) {
-                shaders.push_back(compile_frag_shader(shader_code));
+            [=](const std::string &shader_code) {
+                shaders_.push_back(compile_frag_shader(shader_code));
             });
 
     } catch (...) {
 
         // a shader hasn't compiled ... delete anthing that did compile
         std::for_each(
-            shaders.begin(), shaders.end(), [](GLuint shdr) { glDeleteShader(shdr); });
+            shaders_.begin(), shaders_.end(), [](GLuint shdr) { glDeleteShader(shdr); });
         throw;
     }
 
     // attach the shaders to the program
-    std::for_each(shaders.begin(), shaders.end(), [&](GLuint shader_id) {
+    std::for_each(shaders_.begin(), shaders_.end(), [&](GLuint shader_id) {
         glAttachShader(program_, shader_id);
     });
 
@@ -720,7 +795,9 @@ void GLShaderProgram::compile() {
 
         // Always detach shaders after a successful link.
         std::for_each(
-            shaders.begin(), shaders.end(), [](GLuint shdr) { glDeleteShader(shdr); });
+            shaders_.begin(), shaders_.end(), [](GLuint shdr) { glDeleteShader(shdr); });
+
+        shaders_.clear();
 
         // Use the infoLog as you see fit.
         std::stringstream e;
@@ -730,7 +807,7 @@ void GLShaderProgram::compile() {
 
     // Always detach shaders after a successful link.
     std::for_each(
-        shaders.begin(), shaders.end(), [&](GLuint shdr) { glDetachShader(program_, shdr); });
+        shaders_.begin(), shaders_.end(), [&](GLuint shdr) { glDetachShader(program_, shdr); });
 }
 
 void GLShaderProgram::use() const { glUseProgram(program_); }

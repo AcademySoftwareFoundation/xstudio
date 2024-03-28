@@ -35,6 +35,8 @@ Item
     property alias display: display
     property alias python_history: python_history
     property alias recent_history: recent_history
+    property alias session_compression: session_compression
+    property alias quickview_all_incoming_media: quickview_all_incoming_media
     property alias session_link_prefix: session_link_prefix
     property alias click_to_toggle_play: click_to_toggle_play
  	// property alias panel_geoms: panel_geoms
@@ -48,6 +50,7 @@ Item
     property alias viewport_scrub_sensitivity: viewport_scrub_sensitivity
     property alias default_playhead_compare_mode: default_playhead_compare_mode
     property alias default_media_folder: default_media_folder
+    property alias snapshot_paths: snapshot_paths
 
     property color accent_color: '#bb7700'
 
@@ -55,6 +58,12 @@ Item
         id: note_category
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_category", "pathRole")
+    }
+
+    XsModelProperty {
+        id: snapshot_paths
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/snapshot/paths", "pathRole")
     }
 
     XsModelProperty {
@@ -97,6 +106,18 @@ Item
         id: session_link_prefix
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/core/session/session_link_prefix", "pathRole")
+    }
+
+    XsModelProperty {
+        id: session_compression
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/compression", "pathRole")
+    }
+
+    XsModelProperty {
+        id: quickview_all_incoming_media
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/quickview_all_incoming_media", "pathRole")
     }
 
     XsModelProperty {

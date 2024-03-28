@@ -32,6 +32,10 @@ PlayheadUI::PlayheadUI(QObject *parent)
 // helper ?
 
 void PlayheadUI::set_backend(caf::actor backend) {
+
+    if (backend_ == backend)
+        return;
+
     scoped_actor sys{system()};
 
     bool had_backend = bool(backend_);
@@ -54,6 +58,7 @@ void PlayheadUI::set_backend(caf::actor backend) {
         self()->demonitor(backend_events_);
         backend_events_ = caf::actor();
     }
+
 
     if (!backend_) {
         looping_              = playhead::LoopMode::LM_LOOP;
@@ -176,7 +181,6 @@ void PlayheadUI::init(actor_system &system_) {
     // 	if(msg.source == store)
     // 		unsubscribe();
     // });
-    scoped_actor sys{system()};
 
     // media_uuid_ = QUuid();
     // emit mediaUuidChanged(media_uuid_);

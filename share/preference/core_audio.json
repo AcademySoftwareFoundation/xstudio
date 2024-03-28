@@ -46,9 +46,9 @@
 			"pulse_audio_prefs": {
                 "sample_rate": {
                     "path": "/core/audio/pulse_audio_prefs/sample_rate",
-                    "default_value": 44100,
+                    "default_value": 48000,
                     "description": "Souncard sample rate",
-                    "value": 44100,
+                    "value": 48000,
                     "minimum": 8000,
                     "maximum": 96000,
                     "datatype": "int",

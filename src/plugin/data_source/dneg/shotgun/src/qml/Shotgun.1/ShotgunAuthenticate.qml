@@ -10,7 +10,7 @@ import xstudio.qml.module 1.0
 XsDialogModal {
     id: dlg
     property string message: ""
-    title: "Shotgun Authentication" + (message ? " - "+message:"")
+    title: "ShotGrid Authentication" + (message ? " - "+message:"")
 
     width: 300
     height: 200

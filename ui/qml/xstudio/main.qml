@@ -62,6 +62,9 @@ ApplicationWindow {
     palette.buttonText: XsStyle.hoverColor
     palette.windowText: XsStyle.hoverColor
 
+    // so visible clients can action requests.
+    signal flagSelectedItems(string flag)
+
     // palette.alternateBase: "Red"
     // palette.dark: "Red"
     // palette.link: "Red"
@@ -75,8 +78,6 @@ ApplicationWindow {
 
     property var preFullScreenVis: [app_window.x, app_window.y, app_window.width, app_window.height]
     property var qmlWindowRef: Window  // so javascript can reference Window enums.
-
-    property var popout_window: undefined
 
     FontLoader {source: "qrc:/fonts/Overpass/Overpass-Regular.ttf"}
     FontLoader {source: "qrc:/fonts/Overpass/Overpass-Black.ttf"}
@@ -257,20 +258,64 @@ ApplicationWindow {
         }
     }
 
-    function togglePopoutViewer() {
-        if (popout_window) {
-            popout_window.toggle_visible()
-            return
-        }
+    function launchQuickViewerWithSize(sources, compare_mode, __position, __size) {
 
-        var component = Qt.createComponent("player/XsPlayerWindow.qml");
+        var component = Qt.createComponent("player/XsLightPlayerWindow.qml");
         if (component.status == Component.Ready) {
-            popout_window = component.createObject(app_window, {x: 100, y: 100, mediaImageSource: mediaImageSource});
-            popout_window.show()
+            if (compare_mode == "Off" || compare_mode == "") {
+                for (var source in sources) {
+                    var light_viewer = component.createObject(app_window, {x: __position.x, y: __position.y, width: __size.width, height: __size.height, sessionModel: sessionModel});
+                    light_viewer.show()
+                    light_viewer.viewport.quickViewSource([sources[source]], "Off")
+                    light_viewer.raise()
+                    light_viewer.requestActivate()
+                    light_viewer.raise()
+                }
+            } else {
+                var light_viewer = component.createObject(app_window, {x: __position.x, y: __position.y, width: __size.width, height: __size.height, sessionModel: sessionModel});
+                light_viewer.show()
+                light_viewer.viewport.quickViewSource(sources, compare_mode)
+                light_viewer.raise()
+                light_viewer.requestActivate()
+                light_viewer.raise()
+        }
         } else {
             // Error Handling
             console.log("Error loading component:", component.errorString());
         }
+    }
+
+    // QuickView window position management
+    property var quickWinPosition: Qt.point(100, 100)
+    property var quickWinSize: Qt.size(1280,720)
+    property bool quickWinPosSet: false
+
+    function closingQuickviewWindow(position, size) {
+        // when a QuickView window is closed, remember its size and position and
+        // re-use for next QuickView window
+        quickWinPosition = position
+        quickWinSize = size
+        quickWinPosSet = true
+    }
+
+    function launchQuickViewer(sources, compare_mode) {
+        launchQuickViewerWithSize(sources, compare_mode, quickWinPosition, quickWinSize)
+        if (quickWinPosSet) {
+            // rest the default position for the next QuickView window
+            quickWinPosition = Qt.point(100, 100)
+            quickWinPosSet = false
+        } else {
+            // each new window will be positioned 100 pixels to the bottom and
+            // right of the previous one
+            quickWinPosition = Qt.point(quickWinPosition.x + 100, quickWinPosition.y + 100)
+        }
+    }
+
+    width: 1280
+    height: 820
+
+    function togglePopoutViewer() {
+        popout_window.toggle_visible()
     }
 
     function toggleFullscreen() {
@@ -290,11 +335,6 @@ ApplicationWindow {
         if (visibility == Window.FullScreen) {
             toggleFullscreen()
         }
-    }
-
-    function fitWindowToImage() {
-        // doesn't apply to session window
-        spawnNewViewer()
     }
 
     XsButtonDialog {
@@ -476,6 +516,7 @@ ApplicationWindow {
 
         onIndexChanged: {
             // console.log("*****************************mediaImageSource, onIndexChanged", index)
+            screenMedia.index = index.parent
             if(index.valid) {
                 // we need these populated first..
                 if(index.model.rowCount(index)) {
@@ -550,9 +591,16 @@ ApplicationWindow {
             sessionModel.setPlayheadTo(index)
         }
     }
-        XsTimer {
-          id: m_timer
-        }
+
+    property alias screenMedia: screenMedia
+    XsModelPropertyMap {
+        id: screenMedia
+        index: mediaImageSource.index
+    }
+
+    XsTimer {
+        id: m_timer
+    }
 
     // manages media selection, for current source.
     property alias mediaSelectionModel: mediaSelectionModel
@@ -579,7 +627,6 @@ ApplicationWindow {
                     m_timer.setTimeout(function(index) { return function() {
                         let model = index.model
                         let mind = model.search_recursive(model.get(index, "imageActorUuidRole"), "actorUuidRole", index)
-                        console.log(mind)
                         if(mind.valid && mediaImageSource.index != mind) {
                             mediaImageSource.index = mind
                         }
@@ -676,6 +723,30 @@ ApplicationWindow {
             property var index: null
             property string type: ""
 
+            XsTimer {
+                id: timelineReady
+            }
+
+            function addTracks(timeline_index) {
+                delayTimer.setTimeout(function() {
+                    let model = timeline_index.model;
+
+                    let timelineItemIndex = model.index(2,0,timeline_index)
+                    if(timelineItemIndex.valid) {
+                        let stackIndex = model.index(0,0,timelineItemIndex)
+                        if(stackIndex.valid) {
+                            app_window.sessionModel.insertRowsSync(0, 1, "Audio Track", "Audio Track", stackIndex)
+                            app_window.sessionModel.insertRowsSync(0, 1, "Video Track", "Video Track", stackIndex)
+                        } else {
+                            addTracks(timeline_index)
+                        }
+                    } else {
+                        addTracks(timeline_index)
+                    }
+                }, 100)
+
+            }
+
             onOkayed: {
                 let new_indexes = index.model.insertRowsSync(
                     index.model.rowCount(index),
@@ -683,6 +754,11 @@ ApplicationWindow {
                     type, text,
                     index
                 )
+                if(type == "Timeline") {
+                    index.model.index(2, 0, new_indexes[0])
+                    addTracks(new_indexes[0])
+                }
+
                 app_window.sessionExpandedModel.select(index.parent, ItemSelectionModel.Select)
             }
         }
@@ -1032,7 +1108,7 @@ ApplicationWindow {
             remove_selected.open()
         }
 
-        function newPlaylist(index, text=null) {
+        function newPlaylist(index, text=null, centeron=null) {
             if(index != null) {
                 request_new.text = "Untitled Playlist"
                 request_new.okay_text = "Add Playlist"
@@ -1128,10 +1204,12 @@ ApplicationWindow {
             }
         }
 
-        function flagSelected(flag) {
+        function flagSelected(flag, flag_text="") {
             let sindexs = sessionSelectionModel.selectedIndexes
             for(let i = 0; i< sindexs.length; i++) {
-                sessionModel.set(sindexs[i], flag, "flagRole")
+                sessionModel.set(sindexs[i], flag, "flagColourRole")
+                if(flag_text)
+                    sessionModel.set(sindexs[i], flag_text, "flagTextRole")
             }
         }
 
@@ -1211,6 +1289,7 @@ ApplicationWindow {
 
         function newSession() {
             studio.newSession("New Session")
+            studio.clearImageCache()
         }
 
         function mediaIndexAfterRemoved(indexes) {
@@ -1372,10 +1451,12 @@ ApplicationWindow {
         }
 
 
-        function flagSelectedMedia(flag) {
+        function flagSelectedMedia(flag, flag_text="") {
             let sindexs = mediaSelectionModel.selectedIndexes
             for(let i = 0; i< sindexs.length; i++) {
-                sessionModel.set(sindexs[i], flag, "flagRole")
+                sessionModel.set(sindexs[i], flag, "flagColourRole")
+                if(flag_text)
+                    sessionModel.set(sindexs[i], flag_text, "flagTextRole")
             }
         }
 
@@ -1440,6 +1521,10 @@ ApplicationWindow {
             return result;
         }
 
+
+        function conformInsertSelectedMedia(item) {
+            sessionModel.conformInsert(item, mediaSelectionModel.selectedIndexes)
+        }
 
         function duplicateSelectedMedia() {
             var media = XsUtils.cloneArray(mediaSelectionModel.selectedIndexes)
@@ -1530,6 +1615,9 @@ ApplicationWindow {
         //     session.sessionActorAddr = session_addr
         // }
 
+        function onOpenQuickViewers(media_actors, compare_mode) {
+            launchQuickViewer(media_actors, compare_mode)
+        }
 
         function onSessionRequest(path, jsn) {
             // console.log("onSessionRequest")
@@ -1538,6 +1626,40 @@ ApplicationWindow {
             dialog.payload = jsn
             dialog.show()
         }
+        
+        function onShowMessageBox(title, body, closeButton, timeoutSecs) {
+            messageBox.title = title
+            messageBox.text = body
+            messageBox.buttonModel = closeButton ? ["Close"] : []
+            messageBox.hideTimer(timeoutSecs)
+            messageBox.show()
+        }
+    }
+
+    XsButtonDialog {
+        id: messageBox
+        // parent: sessionWidget
+        width: 400
+        onSelected: {
+            if(button_index == 0) {
+                hide()
+            }
+        }
+
+        Timer {
+            id: hide_timer
+            repeat: false
+            interval: 500
+            onTriggered: messageBox.hide()
+        }
+
+        function hideTimer(seconds) {
+            if (seconds != 0) {
+                hide_timer.interval = seconds*1000
+                hide_timer.start()
+            }
+        }
+    
     }
 
     // Session {
@@ -1586,6 +1708,16 @@ ApplicationWindow {
         }
         snapshotDialog.open()
     }
+
+    XsPlayerWindow {
+        id: popout_window
+        visible: false
+        mediaImageSource: app_window.mediaImageSource
+        Component.onCompleted: {
+            popout_window.viewport.linkToViewport(app_window.viewport)
+        }
+    }
+    property alias popout_window: popout_window
 
 }
 

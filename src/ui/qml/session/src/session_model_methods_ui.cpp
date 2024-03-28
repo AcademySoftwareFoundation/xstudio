@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include "xstudio/conform/conformer.hpp"
+#include "xstudio/media/media.hpp"
 #include "xstudio/session/session_actor.hpp"
 #include "xstudio/tag/tag.hpp"
-#include "xstudio/media/media.hpp"
+#include "xstudio/timeline/clip_actor.hpp"
+#include "xstudio/timeline/timeline.hpp"
+#include "xstudio/ui/qml/caf_response_ui.hpp"
 #include "xstudio/ui/qml/job_control_ui.hpp"
 #include "xstudio/ui/qml/session_model_ui.hpp"
-#include "xstudio/ui/qml/caf_response_ui.hpp"
 
 CAF_PUSH_WARNINGS
 #include <QThreadPool>
@@ -34,6 +37,21 @@ QVariant SessionModel::playlists() const {
 
     return mapFromValue(data);
 }
+
+QStringList SessionModel::conformTasks() const { return conform_tasks_; }
+
+void SessionModel::updateConformTasks(const std::vector<std::string> &tasks) {
+    QStringList result;
+
+    for (const auto &i : tasks)
+        result.push_back(QStringFromStd(i));
+
+    if (result != conform_tasks_) {
+        conform_tasks_ = result;
+        emit conformTasksChanged();
+    }
+}
+
 
 QModelIndex SessionModel::getPlaylistIndex(const QModelIndex &index) const {
     QModelIndex result = index;
@@ -152,6 +170,7 @@ void SessionModel::setSessionActorAddr(const QString &addr) {
             }
 
             // clear lookup..
+            id_uuid_lookup_.clear();
             uuid_lookup_.clear();
             string_lookup_.clear();
 
@@ -291,6 +310,8 @@ QFuture<QList<QUuid>> SessionModel::handleDropFuture(
         auto jdrop = dropToJsonStore(drop);
         if (jdrop.count("xstudio/media-ids"))
             return handleMediaIdDropFuture(proposedAction_, jdrop, index);
+        else if (jdrop.count("xstudio/timeline-ids"))
+            return handleTimelineIdDropFuture(proposedAction_, jdrop, index);
         else if (jdrop.count("xstudio/container-ids"))
             return handleContainerIdDropFuture(proposedAction_, jdrop, index);
         else if (jdrop.count("text/uri-list"))
@@ -316,6 +337,7 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
         QList<QUuid> results;
         UuidActorVector new_media;
         auto proposedAction = proposedAction_;
+        auto dropIndex      = index;
 
         try {
             // spdlog::warn(
@@ -323,7 +345,7 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
             auto valid_index = index.isValid();
             Uuid before;
             // build list of media actor uuids
-            UuidVector media_uuids;
+            UuidActorVector media;
             Uuid media_owner_uuid;
             std::string media_owner_name;
 
@@ -338,68 +360,117 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
                             media_owner_uuid = UuidFromQUuid(p.data(actorUuidRole).toUuid());
                         }
                     }
-                    media_uuids.emplace_back(UuidFromQUuid(mind.data(actorUuidRole).toUuid()));
+                    media.emplace_back(UuidActor(
+                        UuidFromQUuid(mind.data(actorUuidRole).toUuid()),
+                        actorFromQString(system(), mind.data(actorRole).toString())));
                 }
             }
-            if (not media_uuids.empty()) {
+
+            if (not media.empty()) {
                 if (valid_index) {
                     // Moving or copying Media to existing playlist, possibly itself.
                     const auto &ij = indexToData(index);
                     // spdlog::warn("{}", ij.at("type").get<std::string>());
+                    auto type        = ij.at("type").get<std::string>();
                     auto target      = caf::actor();
-                    auto target_uuid = ij.at("actor_uuid").get<Uuid>();
+                    auto target_uuid = Uuid();
 
-                    if (ij.at("type") == "Playlist") {
-                        target = actorFromString(system(), ij.at("actor"));
-                    } else if (ij.at("type") == "Subset") {
-                        target = actorFromIndex(index.parent(), true);
-                    } else if (ij.at("type") == "Timeline") {
-                        target = actorFromIndex(index.parent(), true);
-                    } else if (ij.at("type") == "Media") {
-                        before = ij.at("actor_uuid");
-                        target = actorFromIndex(index.parent().parent(), true);
+                    if (type == "Playlist") {
+                        target      = actorFromString(system(), ij.at("actor"));
+                        target_uuid = ij.at("actor_uuid").get<Uuid>();
+                    } else if (type == "Subset") {
+                        target      = actorFromIndex(index.parent(), true);
+                        target_uuid = ij.at("actor_uuid").get<Uuid>();
+                    } else if (type == "Timeline") {
+                        target      = actorFromIndex(index.parent(), true);
+                        target_uuid = ij.at("actor_uuid").get<Uuid>();
+                    } else if (type == "Media") {
+                        before      = ij.at("actor_uuid");
+                        target      = actorFromIndex(index.parent().parent(), true);
+                        target_uuid = ij.at("actor_uuid").get<Uuid>();
+                    } else if (
+                        type == "Video Track" or type == "Audio Track" or type == "Gap" or
+                        type == "Clip") {
+                        auto tindex = getTimelineIndex(index);
+                        dropIndex   = tindex.parent();
+                        target      = actorFromIndex(tindex.parent(), true);
+                        target_uuid = UuidFromQUuid(tindex.data(actorUuidRole).toUuid());
                     } else {
-                        spdlog::warn("UNHANDLED {}", ij.at("type").get<std::string>());
+                        spdlog::warn("UNHANDLED {}", type);
                     }
 
-                    if (target and not media_uuids.empty()) {
+                    if (target and not media.empty()) {
                         bool local_mode = false;
                         // might be adding to end of playlist, which different
                         // check these uuids aren't already in playlist..
-                        if (ij.at("type") == "Media")
+                        if (type == "Media")
                             local_mode = true;
                         else {
                             // just check first.
                             auto dup = search(
-                                QVariant::fromValue(QUuidFromUuid(media_uuids[0])),
+                                QVariant::fromValue(QUuidFromUuid(media[0].uuid())),
                                 actorUuidRole,
-                                SessionModel::index(0, 0, index));
+                                SessionModel::index(0, 0, dropIndex));
+
                             if (dup.isValid())
                                 local_mode = true;
                         }
 
                         if (local_mode) {
-                            anon_send(target, playlist::move_media_atom_v, media_uuids, before);
+                            anon_send(
+                                target,
+                                playlist::move_media_atom_v,
+                                vector_to_uuid_vector(media),
+                                before);
                         } else {
                             if (proposedAction == Qt::MoveAction) {
+                                // spdlog::warn("proposedAction == Qt::MoveAction");
                                 // move media to new playlist
                                 anon_send(
                                     session_actor_,
                                     playlist::move_media_atom_v,
                                     target_uuid,
                                     media_owner_uuid,
-                                    media_uuids,
+                                    vector_to_uuid_vector(media),
                                     before,
                                     false);
                             } else {
+                                // spdlog::warn("proposedAction == Qt::CopyAction");
                                 anon_send(
                                     session_actor_,
                                     playlist::copy_media_atom_v,
                                     target_uuid,
-                                    media_uuids,
+                                    vector_to_uuid_vector(media),
                                     false,
                                     before,
                                     false);
+                            }
+                        }
+
+                        // post process timeline drops..
+                        if (type == "Video Track" or type == "Audio Track" or type == "Gap" or
+                            type == "Clip") {
+                            auto track_actor = caf::actor();
+                            auto row         = -1;
+
+                            if (type == "Video Track" or type == "Audio Track")
+                                track_actor = actorFromIndex(index, false);
+                            else {
+                                track_actor = actorFromIndex(index.parent(), false);
+                                row         = index.row();
+                            }
+
+                            // append to track as clip.
+                            // assuming media_id exists in timeline already.
+                            for (const auto &i : media) {
+                                auto new_uuid = utility::Uuid::generate();
+                                auto new_item =
+                                    self()->spawn<timeline::ClipActor>(i, "", new_uuid);
+                                anon_send(
+                                    track_actor,
+                                    timeline::insert_item_atom_v,
+                                    row,
+                                    UuidActorVector({UuidActor(new_uuid, new_item)}));
                             }
                         }
                     }
@@ -426,7 +497,7 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
                             playlist::move_media_atom_v,
                             uua.second.uuid(),
                             media_owner_uuid,
-                            media_uuids,
+                            vector_to_uuid_vector(media),
                             Uuid(),
                             false);
                     } else {
@@ -435,7 +506,7 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
                             session_actor_,
                             playlist::copy_media_atom_v,
                             uua.second.uuid(),
-                            media_uuids,
+                            vector_to_uuid_vector(media),
                             false,
                             Uuid(),
                             false);
@@ -602,15 +673,30 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                 // Moving or copying Media to existing playlist, possibly itself.
                 const auto &ij   = indexToData(index);
                 auto target      = caf::actor();
-                auto target_uuid = ij.at("actor_uuid").get<Uuid>();
+                auto target_uuid = ij.value("actor_uuid", Uuid());
                 const auto &type = ij.at("type").get<std::string>();
+                auto sub_target  = caf::actor();
+
+                spdlog::warn("{}", type);
 
                 if (type == "Playlist") {
                     target = actorFromString(system(), ij.at("actor"));
                 } else if (type == "Subset") {
-                    target = actorFromIndex(index.parent(), true);
+                    target     = actorFromIndex(index.parent(), true);
+                    sub_target = actorFromString(system(), ij.at("actor"));
                 } else if (type == "Timeline") {
-                    target = actorFromIndex(index.parent(), true);
+                    target     = actorFromIndex(index.parent(), true);
+                    sub_target = actorFromString(system(), ij.at("actor"));
+                } else if (
+                    type == "Video Track" or type == "Audio Track" or type == "Gap" or
+                    type == "Clip") {
+                    auto tindex = getTimelineIndex(index);
+                    auto pindex = tindex.parent();
+
+                    sub_target = actorFromIndex(tindex, true);
+
+                    target      = actorFromIndex(pindex, true);
+                    target_uuid = UuidFromQUuid(pindex.data(actorUuidRole).toUuid());
                 } else if (type == "Media") {
                     before = ij.at("actor_uuid");
                     target = actorFromIndex(index.parent().parent(), true);
@@ -650,19 +736,35 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                         }
                     }
 
-                    if (type == "Subset") {
-                        auto sub_actor = actorFromString(system(), ij.at("actor"));
-                        if (sub_actor) {
-                            for (const auto &i : new_media)
+                    if (sub_target) {
+                        for (const auto &i : new_media)
+                            anon_send(sub_target, playlist::add_media_atom_v, i.uuid(), Uuid());
+
+                        // post process timeline drops..
+                        if (type == "Video Track" or type == "Audio Track" or type == "Gap" or
+                            type == "Clip") {
+                            auto track_actor = caf::actor();
+                            auto row         = -1;
+
+                            if (type == "Video Track" or type == "Audio Track")
+                                track_actor = actorFromIndex(index, false);
+                            else {
+                                track_actor = actorFromIndex(index.parent(), false);
+                                row         = index.row();
+                            }
+
+                            // append to track as clip.
+                            // assuming media_id exists in timeline already.
+                            for (const auto &i : new_media) {
+                                auto new_uuid = utility::Uuid::generate();
+                                auto new_item =
+                                    self()->spawn<timeline::ClipActor>(i, "", new_uuid);
                                 anon_send(
-                                    sub_actor, playlist::add_media_atom_v, i.uuid(), Uuid());
-                        }
-                    } else if (type == "Timeline") {
-                        auto sub_actor = actorFromString(system(), ij.at("actor"));
-                        if (sub_actor) {
-                            for (const auto &i : new_media)
-                                anon_send(
-                                    sub_actor, playlist::add_media_atom_v, i.uuid(), Uuid());
+                                    track_actor,
+                                    timeline::insert_item_atom_v,
+                                    row,
+                                    UuidActorVector({UuidActor(new_uuid, new_item)}));
+                            }
                         }
                     }
                 }
@@ -708,20 +810,34 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
             auto pm     = system().registry().template get<caf::actor>(plugin_manager_registry);
             auto target = caf::actor();
             auto sub_target = caf::actor();
+            auto type       = std::string();
 
             if (valid_index) {
                 const auto &ij = indexToData(index);
+                type           = ij.at("type").get<std::string>();
+
+
                 // spdlog::warn("{}", ij.at("type").get<std::string>());
 
-                if (ij.at("type") == "Playlist") {
+                if (type == "Playlist") {
                     target = actorFromString(system(), ij.at("actor"));
-                } else if (ij.at("type") == "Subset") {
+                } else if (type == "Subset") {
                     target     = actorFromIndex(index.parent(), true);
                     sub_target = actorFromString(system(), ij.at("actor"));
-                } else if (ij.at("type") == "Timeline") {
+                } else if (type == "Timeline") {
                     target     = actorFromIndex(index.parent(), true);
                     sub_target = actorFromString(system(), ij.at("actor"));
-                } else if (ij.at("type") == "Media") {
+                } else if (
+                    type == "Video Track" or type == "Audio Track" or type == "Gap" or
+                    type == "Clip") {
+                    auto tindex = getTimelineIndex(index);
+                    auto pindex = tindex.parent();
+
+                    sub_target = actorFromIndex(tindex, true);
+
+                    target = actorFromIndex(pindex, true);
+                    // target_uuid = UuidFromQUuid(pindex.data(actorUuidRole).toUuid());
+                } else if (type == "Media") {
                     before = ij.at("actor_uuid");
                     target = actorFromIndex(index.parent().parent(), true);
                 } else {
@@ -770,9 +886,36 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
                     }
                 }
 
+
                 if (sub_target) {
                     for (const auto &i : new_media)
                         anon_send(sub_target, playlist::add_media_atom_v, i.uuid(), Uuid());
+
+                    // post process timeline drops..
+                    if (type == "Video Track" or type == "Audio Track" or type == "Gap" or
+                        type == "Clip") {
+                        auto track_actor = caf::actor();
+                        auto row         = -1;
+
+                        if (type == "Video Track" or type == "Audio Track")
+                            track_actor = actorFromIndex(index, false);
+                        else {
+                            track_actor = actorFromIndex(index.parent(), false);
+                            row         = index.row();
+                        }
+
+                        // append to track as clip.
+                        // assuming media_id exists in timeline already.
+                        for (const auto &i : new_media) {
+                            auto new_uuid = utility::Uuid::generate();
+                            auto new_item = self()->spawn<timeline::ClipActor>(i, "", new_uuid);
+                            anon_send(
+                                track_actor,
+                                timeline::insert_item_atom_v,
+                                row,
+                                UuidActorVector({UuidActor(new_uuid, new_item)}));
+                        }
+                    }
                 }
 
             } catch (const std::exception &err) {
@@ -827,8 +970,7 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
 
         if (json.isNull()) {
             try {
-                std::ifstream i(StdFromQString(path.path()));
-                i >> js;
+                js = utility::open_session(StdFromQString(path.path()));
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 return false;
@@ -1086,6 +1228,7 @@ void SessionModel::setPlayheadTo(const QModelIndex &index) {
             nlohmann::json &j = indexToData(index);
             auto actor        = actorFromString(system(), j.at("actor"));
             auto type         = j.at("type").get<std::string>();
+
             if (actor and (type == "Subset" or type == "Playlist" or type == "Timeline")) {
                 auto ph_events =
                     system().registry().template get<caf::actor>(global_playhead_events_actor);
@@ -1103,4 +1246,61 @@ void SessionModel::setPlayheadTo(const QModelIndex &index) {
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
+}
+
+QFuture<QModelIndexList>
+SessionModel::conformInsertFuture(const QString &task, const QModelIndexList &indexes) {
+    auto playlist_ua = UuidActor();
+    auto media_uas   = UuidActorVector();
+
+    try {
+        if (not indexes.empty()) {
+            // populate playlist
+            auto playlist_index = getPlaylistIndex(indexes[0]);
+
+            if (playlist_index.isValid()) {
+                // get uuid and actor
+                playlist_ua.uuid_ = UuidFromQUuid(playlist_index.data(actorUuidRole).toUuid());
+                playlist_ua.actor_ =
+                    actorFromQString(system(), playlist_index.data(actorRole).toString());
+            }
+
+            for (const auto &i : indexes) {
+                if (i.data(typeRole) == QString("Media")) {
+                    media_uas.emplace_back(UuidActor(
+                        UuidFromQUuid(i.data(actorUuidRole).toUuid()),
+                        actorFromQString(system(), i.data(actorRole).toString())));
+                }
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return QtConcurrent::run([=]() {
+        QModelIndexList result;
+        try {
+
+            scoped_actor sys{system()};
+
+            if (conform_actor_ and playlist_ua.actor() and not media_uas.empty()) {
+                auto response = request_receive<conform::ConformReply>(
+                    *sys,
+                    conform_actor_,
+                    conform::conform_atom_v,
+                    StdFromQString(task),
+                    utility::JsonStore(), // conform detail
+                    playlist_ua,
+                    media_uas);
+
+                // we've got come new stuff, we maybe to contruct them,
+                // or they may already exist of have been created for us.
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
+
+        return result;
+    });
 }

@@ -13,8 +13,8 @@
 
 #include <fmt/format.h>
 
-#include <reproc++/drain.hpp>
-#include <reproc++/reproc.hpp>
+//#include <reproc++/drain.hpp>
+//#include <reproc++/reproc.hpp>
 
 #include "xstudio/utility/frame_list.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -36,6 +36,11 @@ namespace fs = std::filesystem;
 // }
 
 static std::shared_ptr<ActorSystemSingleton> s_actor_system_singleton;
+
+caf::actor_system &ActorSystemSingleton::actor_system_ref() {
+    assert(s_actor_system_singleton);
+    return s_actor_system_singleton->get_system();
+}
 
 caf::actor_system &ActorSystemSingleton::actor_system_ref(caf::actor_system &sys) {
 
@@ -99,6 +104,7 @@ xstudio::utility::actor_from_string(caf::actor_system &sys, const std::string &s
 }
 
 void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor actor) {
+
     source->request(actor, caf::infinite, broadcast::join_broadcast_atom_v)
         .then(
             [=](const bool) mutable {},
@@ -167,8 +173,28 @@ void xstudio::utility::leave_event_group(caf::event_based_actor *source, caf::ac
 }
 
 
+void xstudio::utility::print_on_exit(const caf::actor &hdl, const Container &cont) {
+    hdl->attach_functor([=](const caf::error &reason) {
+        spdlog::debug(
+            "{} {} {} exited: {}",
+            cont.type(),
+            cont.name(),
+            to_string(cont.uuid()),
+            to_string(reason));
+    });
+}
+
+void xstudio::utility::print_on_exit(
+    const caf::actor &hdl, const std::string &name, const Uuid &uuid) {
+
+    hdl->attach_functor([=](const caf::error &reason) {
+        spdlog::debug(
+            "{} {} exited: {}", name, uuid.is_null() ? "" : to_string(uuid), to_string(reason));
+    });
+}
+
 std::string xstudio::utility::exec(const std::vector<std::string> &cmd, int &exit_code) {
-    reproc::process process;
+    /*reproc::process process;
     std::error_code ec = process.start(cmd);
 
     if (ec == std::errc::no_such_file_or_directory) {
@@ -195,7 +221,8 @@ std::string xstudio::utility::exec(const std::vector<std::string> &cmd, int &exi
         return ec.message();
     }
 
-    return output;
+    return output;*/
+    return std::string();
 }
 
 std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {

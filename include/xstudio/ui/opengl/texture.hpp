@@ -19,8 +19,8 @@ namespace ui {
         class GLBlindTex {
 
           public:
-            GLBlindTex()          = default;
-            virtual ~GLBlindTex() = default;
+            GLBlindTex() = default;
+            ~GLBlindTex();
 
             void release();
 
@@ -52,7 +52,7 @@ namespace ui {
 
           public:
             GLSsboTex();
-            ~GLSsboTex() override;
+            virtual ~GLSsboTex();
 
             void map_buffer_for_upload(media_reader::ImageBufPtr &frame) override;
             void start_pixel_upload() override;
@@ -75,7 +75,7 @@ namespace ui {
 
           public:
             GLBlindRGBA8bitTex() = default;
-            ~GLBlindRGBA8bitTex() override;
+            virtual ~GLBlindRGBA8bitTex();
 
             void map_buffer_for_upload(media_reader::ImageBufPtr &frame) override;
             void start_pixel_upload() override;
@@ -131,6 +131,7 @@ namespace ui {
           public:
             GLColourLutTexture(
                 const colour_pipeline::LUTDescriptor desc, const std::string texture_name);
+            virtual ~GLColourLutTexture();
 
             void bind(int tex_index);
             void release();

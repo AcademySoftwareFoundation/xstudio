@@ -118,11 +118,15 @@ XsWindow {
 
     function getNotifyGroups() {
         let result = []
+        let email_group_names = []
         if(notify_group_cb.checked) {
             for(let i =0;i<notify_group_cb.checkedIndexes.length;i++) {
-                result.push(notify_group_cb.model.get(notify_group_cb.checkedIndexes[i], "idRole"))
+                result.push(notify_group_cb.model.sourceModel.get(notify_group_cb.checkedIndexes[i].row, "idRole"))
+                email_group_names.push(notify_group_cb.model.sourceModel.get(notify_group_cb.checkedIndexes[i].row, "nameRole"))
             }
         }
+
+        // console.log("E-mail notification groups for ShotGrid note publish: ", email_group_names)
         return result
     }
 
@@ -424,7 +428,7 @@ XsWindow {
 
             XsText{
                 color: XsStyle.highlightColor
-                text: "Only notes attached Shotgun Media are currently supported."
+                text: "Only notes attached ShotGrid Media are currently supported."
                 font.bold: true
 
                 Layout.minimumHeight: itemHeight

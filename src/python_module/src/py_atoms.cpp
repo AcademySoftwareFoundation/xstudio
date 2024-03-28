@@ -35,6 +35,7 @@ using namespace xstudio::sync;
 using namespace xstudio::tag;
 using namespace xstudio::thumbnail;
 using namespace xstudio::timeline;
+using namespace xstudio::ui;
 using namespace xstudio::ui::keypress_monitor;
 using namespace xstudio::ui::qml;
 using namespace xstudio::ui::viewport;
@@ -65,12 +66,21 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::timeline, active_range_atom);
     ADD_ATOM(xstudio::timeline, available_range_atom);
     ADD_ATOM(xstudio::timeline, duration_atom);
-    ADD_ATOM(xstudio::timeline, item_name_atom);
-    ADD_ATOM(xstudio::timeline, item_atom);
-    ADD_ATOM(xstudio::timeline, insert_item_atom);
-    ADD_ATOM(xstudio::timeline, remove_item_atom);
-    ADD_ATOM(xstudio::timeline, move_item_atom);
+    ADD_ATOM(xstudio::timeline, erase_item_at_frame_atom);
     ADD_ATOM(xstudio::timeline, erase_item_atom);
+    ADD_ATOM(xstudio::timeline, insert_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, insert_item_atom);
+    ADD_ATOM(xstudio::timeline, item_atom);
+    ADD_ATOM(xstudio::timeline, item_name_atom);
+    ADD_ATOM(xstudio::timeline, item_flag_atom);
+    ADD_ATOM(xstudio::timeline, focus_atom);
+    ADD_ATOM(xstudio::timeline, move_item_atom);
+    ADD_ATOM(xstudio::timeline, move_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, remove_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, remove_item_atom);
+    ADD_ATOM(xstudio::timeline, split_item_atom);
+    ADD_ATOM(xstudio::timeline, split_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, trimmed_range_atom);
 
     ADD_ATOM(xstudio::thumbnail, cache_path_atom);
     ADD_ATOM(xstudio::thumbnail, cache_stats_atom);
@@ -180,6 +190,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::module, grab_all_keyboard_input_atom);
     ADD_ATOM(xstudio::module, grab_all_mouse_input_atom);
     ADD_ATOM(xstudio::module, attribute_uuids_atom);
+    ADD_ATOM(xstudio::module, remove_attribute_atom);
 
     ADD_ATOM(xstudio::global, exit_atom);
     ADD_ATOM(xstudio::global, api_exit_atom);
@@ -357,6 +368,9 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::history, history_atom);
 
     ADD_ATOM(xstudio::ui::viewport, viewport_playhead_atom);
+    ADD_ATOM(xstudio::ui::viewport, quickview_media_atom);
+    ADD_ATOM(xstudio::ui, show_message_box_atom);
+
     ADD_ATOM(xstudio::ui::keypress_monitor, register_hotkey_atom);
     ADD_ATOM(xstudio::ui::keypress_monitor, hotkey_event_atom);
 }

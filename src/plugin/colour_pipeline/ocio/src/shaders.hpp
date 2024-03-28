@@ -12,7 +12,7 @@ uniform float saturation;
 
 //OCIODisplay
 
-vec4 colour_transform_op(vec4 rgba)
+vec4 colour_transform_op(vec4 rgba, vec2 image_pos)
 {
     rgba = OCIODisplay(rgba);
 
@@ -44,7 +44,7 @@ vec4 colour_transform_op(vec4 rgba)
 
 //OCIOLinearise
 
-vec4 colour_transform_op(vec4 rgba)
+vec4 colour_transform_op(vec4 rgba, vec2 image_pos)
 {
     return OCIOLinearise(rgba);
 }

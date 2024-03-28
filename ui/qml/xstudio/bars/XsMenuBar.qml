@@ -48,7 +48,7 @@ MenuBar  {
         onFocusChanged: {
             // this prevents stealing keypresses that might be needed elsewhere.
             // (like space for play/pause-- not opening a menu)
-            focus = false
+            //focus = false
         }
 
     }
@@ -63,9 +63,9 @@ MenuBar  {
         id: playback_menu
     }
     XsViewerContextMenu {
-        is_popout_viewport: viewport.is_popout_viewport
     }
     XsLayoutMenu {}
+    XsSnapshotMenu {}
     XsPanelMenu {
         id: panel_menu
     }

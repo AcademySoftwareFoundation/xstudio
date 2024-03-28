@@ -9,7 +9,7 @@ import xstudio.qml.module 1.0
 
 XsDialogModal {
     id: dialog
-    title: "Push Contents To Shotgun"
+    title: "Push Contents To ShotGrid"
 
     property var playlist_uuid: null
     property int validMediaCount: 0
@@ -57,7 +57,7 @@ XsDialogModal {
                 }
             }
             XsLabel {
-                text: "Valid Shotgun Media : "
+                text: "Valid ShotGrid Media : "
                 Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
             }
             XsLabel {
@@ -95,7 +95,7 @@ XsDialogModal {
             }
             XsHSpacer{}
             XsRoundButton {
-                text: "Push To Shotgun"
+                text: "Push To ShotGrid"
                 highlighted: !linking
                 enabled: !linking
 

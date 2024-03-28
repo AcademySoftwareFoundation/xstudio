@@ -14,9 +14,8 @@ using namespace xstudio::playhead;
 using namespace xstudio::utility;
 
 PlayheadBase::PlayheadBase(const std::string &name, const utility::Uuid uuid)
-    : Container(name, "PlayheadBase", std::move(uuid)),
-      Module(name),
-
+    : Container(name, "PlayheadBase", uuid),
+      Module(name, uuid),
       playhead_rate_(timebase::k_flicks_24fps),
       position_(0),
       loop_start_(timebase::k_flicks_low),
@@ -29,20 +28,18 @@ PlayheadBase::PlayheadBase(const std::string &name, const utility::Uuid uuid)
 PlayheadBase::PlayheadBase(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn["container"])),
       Module("PlayheadBase"),
-      loop_(jsn["loop"]),
       play_rate_mode_(jsn["play_rate_mode"]),
       playhead_rate_(timebase::k_flicks_24fps),
       position_(jsn["position"]),
       loop_start_(jsn["loop_start"]),
       loop_end_(jsn["loop_end"])
-// use_loop_range_(false) // use_loop_range_(jsn["use_loop_range"]) - forcing looprange off on
 // load, unwanted behaviour
 {
-
     add_attributes();
     if (jsn.find("module") != jsn.end()) {
         Module::deserialise(jsn["module"]);
     }
+    set_loop(jsn["loop"]);
 }
 
 void PlayheadBase::add_attributes() {
@@ -62,7 +59,6 @@ void PlayheadBase::add_attributes() {
          module::Attribute::ToolTip,
          "Set playback speed. Double-click to toggle between last set value and default
        (1.0)");*/
-
 
     velocity_multiplier_ =
         add_float_attribute("Velocity Multiplier", "FFWD", 1.0f, 1.0f, 16.0f, 1.0f);
@@ -94,22 +90,8 @@ void PlayheadBase::add_attributes() {
     viewport_scrub_sensitivity_->set_role_data(
         module::Attribute::PreferencePath, "/ui/viewport/viewport_scrub_sensitivity");
 
-    compare_mode_->set_role_data(
-        module::Attribute::Groups, nlohmann::json{"any_toolbar", "playhead"});
-    velocity_->set_role_data(
-        module::Attribute::Groups, nlohmann::json{"any_toolbar", "playhead"});
-
-    source_ = add_qml_code_attribute(
-        "Src",
-        R"(
-        import xStudio 1.0
-        XsSourceToolbarButton {
-            anchors.fill: parent
-        }
-    )");
-
-    source_->set_role_data(
-        module::Attribute::Groups, nlohmann::json{"any_toolbar", "playhead"});
+    compare_mode_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
+    velocity_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
 
     image_source_->set_role_data(
         module::Attribute::Groups, nlohmann::json{"image_source", "playhead"});
@@ -118,12 +100,12 @@ void PlayheadBase::add_attributes() {
 
     playing_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
     forward_->set_role_data(module::Attribute::Groups, nlohmann::json{"playhead"});
+
     auto_align_mode_->set_role_data(
         module::Attribute::Groups, nlohmann::json{"playhead_align_mode"});
 
     velocity_->set_role_data(module::Attribute::ToolbarPosition, 3.0f);
     compare_mode_->set_role_data(module::Attribute::ToolbarPosition, 9.0f);
-    source_->set_role_data(module::Attribute::ToolbarPosition, 12.0f);
 
     velocity_->set_role_data(module::Attribute::DefaultValue, 1.0f);
 
@@ -156,6 +138,29 @@ void PlayheadBase::add_attributes() {
         ui::ControlModifier,
         "Reset PlayheadBase",
         "Resets the playhead properties, to normal playback speed and forwards playing");
+
+
+    loop_mode_              = add_integer_attribute("Loop Mode", "Loop Mode", LM_LOOP, 0, 4);
+    loop_start_frame_       = add_integer_attribute("Loop Start Frame", "Loop Start Frame", 0);
+    loop_end_frame_         = add_integer_attribute("Loop End Frame", "Loop End Frame", 0);
+    playhead_logical_frame_ = add_integer_attribute("Logical Frame", "Logical Frame", 0);
+    playhead_media_logical_frame_ =
+        add_integer_attribute("Media Logical Frame", "Media Logical Frame", 0);
+    playhead_media_frame_ = add_integer_attribute("Media Frame", "Media Frame", 0);
+    duration_frames_      = add_integer_attribute("Duration Frames", "Duration Frames", 0);
+    current_source_frame_timecode_ =
+        add_string_attribute("Current Source Timecode", "Current Source Timecode", "");
+    current_media_uuid_ = add_string_attribute("Current Media Uuid", "Current Media Uuid", "");
+    current_media_source_uuid_ =
+        add_string_attribute("Current Media Source Uuid", "Current Media Source Uuid", "");
+    do_looping_ = add_boolean_attribute("Do Looping", "Do Looping", true);
+
+    // this attr tracks the global 'Audio Delay Millisecs' preference
+    audio_delay_millisecs_ =
+        add_integer_attribute("Audio Delay Millisecs", "Audio Delay Millisecs", 0, -1000, 1000);
+    audio_delay_millisecs_->set_role_data(
+        module::Attribute::PreferencePath, "/core/audio/audio_latency_millisecs");
+
 }
 
 
@@ -164,11 +169,11 @@ JsonStore PlayheadBase::serialise() const {
 
     jsn["container"]      = Container::serialise();
     jsn["position"]       = position_.count();
-    jsn["loop"]           = loop_;
+    jsn["loop"]           = loop_mode_->value();
     jsn["play_rate_mode"] = play_rate_mode_;
     jsn["loop_start"]     = loop_start_.count();
     jsn["loop_end"]       = loop_end_.count();
-    jsn["use_loop_range"] = use_loop_range_;
+    jsn["use_loop_range"] = use_loop_range();
     jsn["module"]         = Module::serialise();
 
     return jsn;
@@ -188,13 +193,13 @@ PlayheadBase::OptionalTimePoint PlayheadBase::play_step() {
         set_position(position_ - delta);
     }
 
-    const timebase::flicks in = use_loop_range_ and loop_start_ != timebase::k_flicks_low
+    const timebase::flicks in = use_loop_range() and loop_start_ != timebase::k_flicks_low
                                     ? loop_start_
                                     : timebase::flicks(0);
     const timebase::flicks out =
-        use_loop_range_ and loop_end_ != timebase::k_flicks_max ? loop_end_ : duration_;
+        use_loop_range() and loop_end_ != timebase::k_flicks_max ? loop_end_ : duration_;
 
-    if (loop_ == LM_LOOP) {
+    if (loop() == LM_LOOP) {
 
         if (forward()) {
             if (position_ > out || position_ < in) {
@@ -206,7 +211,7 @@ PlayheadBase::OptionalTimePoint PlayheadBase::play_step() {
             }
         }
 
-    } else if (loop_ == LM_PING_PONG) {
+    } else if (loop() == LM_PING_PONG) {
 
         if (forward()) {
             if (position_ > out) {
@@ -245,19 +250,152 @@ PlayheadBase::OptionalTimePoint PlayheadBase::play_step() {
     return {};
 }
 
+timebase::flicks PlayheadBase::adjusted_position() const {
+    if (!playing())
+        return position_;
+
+    const timebase::flicks delta = std::chrono::duration_cast<timebase::flicks>(
+        std::chrono::milliseconds(audio_delay_millisecs_->value()));
+
+    const timebase::flicks in = use_loop_range() and loop_start_ != timebase::k_flicks_low
+                                    ? loop_start_
+                                    : timebase::flicks(0);
+    const timebase::flicks out =
+        use_loop_range() and loop_end_ != timebase::k_flicks_max ? loop_end_ : duration_;
+
+    // somewhat fiddly - we are advancing the position by 'delta' but what if
+    // this wraps through the in/out points ... and what if it wraps more than
+    // the whole duration of the loop in/out region?
+    if (forward() && (position_ + delta) > out) {
+
+        auto remainder = (position_ + delta) - out;
+        if (loop() == LM_LOOP) {
+
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+            }
+            return in + remainder;
+
+        } else if (loop() == LM_PING_PONG) {
+
+            bool fwd = 0;
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+                fwd = !fwd;
+            }
+            if (fwd) {
+                return in + remainder;
+            } else {
+                return out - remainder;
+            }
+
+        } else {
+            return out;
+        }
+
+    } else if (forward() && (position_ + delta) < in) {
+
+        auto remainder = in - (position_ + delta);
+        if (loop() == LM_LOOP) {
+
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+            }
+            return out - remainder;
+
+        } else if (loop() == LM_PING_PONG) {
+
+            bool fwd = 0;
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+                fwd = !fwd;
+            }
+            if (fwd) {
+                return in + remainder;
+            } else {
+                return out - remainder;
+            }
+
+        } else {
+            return out;
+        }
+
+    } else if (!forward() && (position_ - delta) < in) {
+
+        auto remainder = in - (position_ - delta);
+        if (loop() == LM_LOOP) {
+
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+            }
+            return out - remainder;
+
+        } else if (loop() == LM_PING_PONG) {
+
+            bool fwd = true;
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+                fwd = !fwd;
+            }
+            if (fwd) {
+                return in + remainder;
+            } else {
+                return out - remainder;
+            }
+
+        } else {
+            return out;
+        }
+
+    } else if (!forward() && (position_ + delta) > out) {
+
+        auto remainder = (position_ + delta) - out;
+        if (loop() == LM_LOOP) {
+
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+            }
+            return in + remainder;
+
+        } else if (loop() == LM_PING_PONG) {
+
+            bool fwd = false;
+            while (remainder > (out - in)) {
+                remainder -= (out - in);
+                fwd = !fwd;
+            }
+            if (fwd) {
+                return in + remainder;
+            } else {
+                return out - remainder;
+            }
+
+        } else {
+            return out;
+        }
+
+    } else if (!forward()) {
+        return position_ - delta;
+    }
+
+    return position_ + delta;
+}
+
 void PlayheadBase::set_playing(const bool play) {
 
     if (play != playing()) {
 
         // in play once mode, if the user wants to play again we set the
         // position back to the start to play through again
-        if (play && loop_ == LM_PLAY_ONCE) {
+        if (play && loop() == LM_PLAY_ONCE) {
 
             const timebase::flicks in =
-                use_loop_range_ and loop_start_ != timebase::k_flicks_low ? loop_start_
-                                                                          : timebase::flicks(0);
+                use_loop_range() and loop_start_ != timebase::k_flicks_low
+                    ? loop_start_
+                    : timebase::flicks(0);
             const timebase::flicks out =
-                use_loop_range_ and loop_end_ != timebase::k_flicks_max ? loop_end_ : duration_;
+                use_loop_range() and loop_end_ != timebase::k_flicks_max ? loop_end_
+                                                                         : duration_;
 
             if (forward()) {
                 if (position_ == out)
@@ -286,7 +424,7 @@ timebase::flicks PlayheadBase::clamp_timepoint_to_loop_range(const timebase::fli
     const timebase::flicks out = loop_end();
 
     auto rt = pos;
-    if (loop_ == LM_LOOP) {
+    if (loop() == LM_LOOP) {
 
         if (forward()) {
             if (pos > out || pos < in) {
@@ -298,7 +436,7 @@ timebase::flicks PlayheadBase::clamp_timepoint_to_loop_range(const timebase::fli
             }
         }
 
-    } else if (loop_ == LM_PING_PONG) {
+    } else if (loop() == LM_PING_PONG) {
 
         if (forward()) {
             if (pos > out) {
@@ -335,8 +473,8 @@ void PlayheadBase::set_position(const timebase::flicks p) { position_ = p; }
 bool PlayheadBase::set_use_loop_range(const bool use_loop_range) {
 
     bool position_changed = false;
-    if (use_loop_range_ != use_loop_range) {
-        use_loop_range_ = use_loop_range;
+    if (this->use_loop_range() != use_loop_range) {
+        do_looping_->set_value(use_loop_range);
         if (use_loop_range) {
             if (position_ < loop_start_) {
                 set_position(loop_start_);
@@ -358,7 +496,7 @@ bool PlayheadBase::set_loop_start(const timebase::flicks loop_start) {
         position_changed = true;
     }
 
-    if (use_loop_range_ && position_ < loop_start_) {
+    if (use_loop_range() && position_ < loop_start_) {
         set_position(loop_start_);
         position_changed = true;
     }
@@ -374,7 +512,7 @@ bool PlayheadBase::set_loop_end(const timebase::flicks loop_end) {
         position_changed = true;
     }
 
-    if (use_loop_range_ && position_ > loop_end_) {
+    if (use_loop_range() && position_ > loop_end_) {
         set_position(loop_end_);
         position_changed = true;
     }
@@ -497,7 +635,7 @@ void PlayheadBase::play_faster(const bool forwards) {
 }
 
 void PlayheadBase::hotkey_pressed(
-    const utility::Uuid &hotkey_uuid, const std::string & /*context*/) {
+    const utility::Uuid &hotkey_uuid, const std::string &context) {
 
     if (hotkey_uuid == play_hotkey_) {
         forward_->set_value(true);
@@ -516,3 +654,21 @@ void PlayheadBase::hotkey_pressed(
 }
 
 void PlayheadBase::set_duration(const timebase::flicks duration) { duration_ = duration; }
+
+void PlayheadBase::connect_to_viewport(
+    const std::string &viewport_name, const std::string &viewport_toolbar_name, bool connect) {
+
+    // this playhead needs to be connected (exposed) in a given toolbar
+    // attributes group, so that the compare, source and velocity attrs
+    // are visible in a particular viewport toolbar
+    // .. or, disconnected
+    expose_attribute_in_model_data(
+        image_source_, viewport_toolbar_name + "_image_source", connect);
+    expose_attribute_in_model_data(
+        audio_source_, viewport_toolbar_name + "_audio_source", connect);
+
+    expose_attribute_in_model_data(compare_mode_, viewport_toolbar_name, connect);
+    expose_attribute_in_model_data(velocity_, viewport_toolbar_name, connect);
+
+    Module::connect_to_viewport(viewport_name, viewport_toolbar_name, connect);
+}

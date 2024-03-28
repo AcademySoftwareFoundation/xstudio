@@ -1,4 +1,5 @@
 add_src_and_test(base)
+add_src_and_test(canvas)
 add_src_and_test(model_data)
 add_src_and_test(viewport)
 add_src_and_test(qt)

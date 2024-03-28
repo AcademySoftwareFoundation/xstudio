@@ -277,6 +277,10 @@ EditListActor::EditListActor(
             }
         },
 
+        [=](utility::event_atom, timeline::item_atom, const utility::JsonStore &changes, bool) {
+            // ignoring timeline events
+        },
+
         [=](utility::get_event_group_atom) -> caf::actor { return event_group_; });
 }
 

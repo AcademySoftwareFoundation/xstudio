@@ -80,6 +80,8 @@ void TimelineActor::item_event_callback(const utility::JsonStore &event, Item &i
                 child_item_it->make_actor_addr_update(),
                 true);
         }
+        spdlog::warn("TimelineActor IT_INSERT");
+        // rebuilt child.. trigger relink
     } break;
 
     case IT_REMOVE: {
@@ -140,7 +142,12 @@ void process_item(
                                 source_range->duration().rate())))
                         .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-                self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+                self->request(
+                        parent,
+                        infinite,
+                        insert_item_atom_v,
+                        -1,
+                        UuidActorVector({UuidActor(uuid, actor)}))
                     .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
                 process_item(ii->children(), self, actor, media_lookup);
@@ -161,7 +168,12 @@ void process_item(
                                 source_range->duration().rate())))
                         .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-                self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+                self->request(
+                        parent,
+                        infinite,
+                        insert_item_atom_v,
+                        -1,
+                        UuidActorVector({UuidActor(uuid, actor)}))
                     .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
                 process_item(ii->children(), self, actor, media_lookup);
@@ -182,7 +194,12 @@ void process_item(
                             source_range->duration().rate())))
                     .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-            self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+            self->request(
+                    parent,
+                    infinite,
+                    insert_item_atom_v,
+                    -1,
+                    UuidActorVector({UuidActor(uuid, actor)}))
                 .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
         } else if (auto ii = dynamic_cast<otio::Clip *>(&(*i))) {
@@ -236,7 +253,12 @@ void process_item(
                     .receive([=](const JsonStore &) {}, [=](const error &err) {});
             }
 
-            self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+            self->request(
+                    parent,
+                    infinite,
+                    insert_item_atom_v,
+                    -1,
+                    UuidActorVector({UuidActor(uuid, actor)}))
                 .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
         } else if (auto ii = dynamic_cast<otio::Stack *>(&(*i))) {
@@ -256,7 +278,12 @@ void process_item(
                             source_range->duration().rate())))
                     .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-            self->request(parent, infinite, insert_item_atom_v, -1, UuidActor(uuid, actor))
+            self->request(
+                    parent,
+                    infinite,
+                    insert_item_atom_v,
+                    -1,
+                    UuidActorVector({UuidActor(uuid, actor)}))
                 .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
             process_item(ii->children(), self, parent, media_lookup);
@@ -311,6 +338,18 @@ void timeline_importer(
             continue;
         }
 
+
+        auto clip_metadata = JsonStore();
+        try {
+            otio::ErrorStatus err;
+            auto clip_meta = nlohmann::json::parse(cl->to_json_string(&err, {}, 0));
+            if (clip_meta.count("metadata")) {
+                clip_metadata = JsonStore(clip_meta.at("metadata"));
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
         // check we're not adding the same media twice.
         UuidActorVector sources;
 
@@ -332,11 +371,30 @@ void timeline_importer(
                         rate = FrameRate(ar->start_time().rate());
                     }
 
+                    auto source_metadata = JsonStore();
+                    try {
+                        otio::ErrorStatus err;
+                        auto ext_meta = nlohmann::json::parse(ext->to_json_string(&err, {}, 0));
+                        if (ext_meta.count("metadata")) {
+                            source_metadata = JsonStore(ext_meta.at("metadata"));
+                        }
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
+
                     auto source = self->spawn<media::MediaSourceActor>(
                         extname.empty() ? std::string("ExternalReference") : extname,
                         *uri,
                         rate,
                         source_uuid);
+
+                    if (not source_metadata.is_null())
+                        anon_send(
+                            source,
+                            json_store::set_json_atom_v,
+                            source_metadata,
+                            "/metadata/timeline");
+
                     sources.emplace_back(UuidActor(source_uuid, source));
                 }
             }
@@ -349,6 +407,14 @@ void timeline_importer(
             auto uuid = Uuid::generate();
             target_url_map[active_path] =
                 UuidActor(uuid, self->spawn<media::MediaActor>(name, uuid, sources));
+
+            if (not clip_metadata.is_null())
+                anon_send(
+                    target_url_map[active_path].actor(),
+                    json_store::set_json_atom_v,
+                    clip_metadata,
+                    "/metadata/timeline");
+
             anon_send(
                 target_url_map[active_path].actor(),
                 media::current_media_source_atom_v,
@@ -434,7 +500,8 @@ TimelineActor::TimelineActor(
     base_.item().set_actor_addr(this);
     // parse and generate tracks/stacks.
 
-    anon_send(this, playhead::source_atom_v, playlist, UuidUuidMap());
+    if (playlist)
+        anon_send(this, playhead::source_atom_v, playlist, UuidUuidMap());
 
     for (const auto &[key, value] : jsn["actors"].items()) {
         try {
@@ -464,7 +531,8 @@ TimelineActor::TimelineActor(
     // create default stack
     auto suuid = Uuid::generate();
     auto stack = spawn<StackActor>("Stack", suuid);
-    anon_send<message_priority::high>(this, insert_item_atom_v, 0, UuidActor(suuid, stack));
+    anon_send<message_priority::high>(
+        this, insert_item_atom_v, 0, UuidActorVector({UuidActor(suuid, stack)}));
     base_.item().set_system(&system());
     base_.item().set_name(name);
     base_.item().bind_item_event_func([this](const utility::JsonStore &event, Item &item) {
@@ -578,6 +646,13 @@ void TimelineActor::init() {
             return jsn;
         },
 
+        [=](item_flag_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_flag(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
         [=](item_name_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
@@ -593,6 +668,16 @@ void TimelineActor::init() {
             }
             return jsn;
         },
+
+        [=](active_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().active_range();
+        },
+
+        [=](available_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().available_range();
+        },
+
+        [=](trimmed_range_atom) -> utility::FrameRange { return base_.item().trimmed_range(); },
 
         [=](item_atom) -> Item { return base_.item(); },
 
@@ -691,6 +776,64 @@ void TimelineActor::init() {
             return rp;
         },
 
+        [=](history::undo_atom, const utility::sys_time_duration &duration) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+            request(history_, infinite, history::undo_atom_v, duration)
+                .then(
+                    [=](const std::vector<JsonStore> &hist) mutable {
+                        auto count = std::make_shared<size_t>(0);
+                        for (const auto &h : hist) {
+                            request(
+                                caf::actor_cast<caf::actor>(this),
+                                infinite,
+                                history::undo_atom_v,
+                                h)
+                                .then(
+                                    [=](const bool) mutable {
+                                        (*count)++;
+                                        if (*count == hist.size())
+                                            rp.deliver(true);
+                                    },
+                                    [=](const error &err) mutable {
+                                        (*count)++;
+                                        if (*count == hist.size())
+                                            rp.deliver(true);
+                                    });
+                        }
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+            return rp;
+        },
+
+        [=](history::redo_atom, const utility::sys_time_duration &duration) -> result<bool> {
+            auto rp = make_response_promise<bool>();
+            request(history_, infinite, history::redo_atom_v, duration)
+                .then(
+                    [=](const std::vector<JsonStore> &hist) mutable {
+                        auto count = std::make_shared<size_t>(0);
+                        for (const auto &h : hist) {
+                            request(
+                                caf::actor_cast<caf::actor>(this),
+                                infinite,
+                                history::redo_atom_v,
+                                h)
+                                .then(
+                                    [=](const bool) mutable {
+                                        (*count)++;
+                                        if (*count == hist.size())
+                                            rp.deliver(true);
+                                    },
+                                    [=](const error &err) mutable {
+                                        (*count)++;
+                                        if (*count == hist.size())
+                                            rp.deliver(true);
+                                    });
+                        }
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+            return rp;
+        },
+
         [=](history::undo_atom) -> result<bool> {
             auto rp = make_response_promise<bool>();
             request(history_, infinite, history::undo_atom_v)
@@ -716,221 +859,189 @@ void TimelineActor::init() {
         },
 
         [=](history::undo_atom, const JsonStore &hist) -> result<bool> {
-            base_.item().undo(hist);
-            if (actors_.empty())
-                return true;
-            // push to children..
             auto rp = make_response_promise<bool>();
 
-            fan_out_request<policy::select_all>(
-                map_value_to_vec(actors_), infinite, history::undo_atom_v, hist)
-                .then(
-                    [=](std::vector<bool> updated) mutable { rp.deliver(true); },
-                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+            base_.item().undo(hist);
 
+            auto inverted = R"([])"_json;
+            for (const auto &i : hist) {
+                auto ev    = R"({})"_json;
+                ev["redo"] = i.at("undo");
+                ev["undo"] = i.at("redo");
+                inverted.emplace_back(ev);
+            }
+
+            // send(event_group_, event_atom_v, item_atom_v, JsonStore(inverted), true);
+
+            if (not actors_.empty()) {
+                // push to children..
+                fan_out_request<policy::select_all>(
+                    map_value_to_vec(actors_), infinite, history::undo_atom_v, hist)
+                    .await(
+                        [=](std::vector<bool> updated) mutable {
+                            anon_send(this, link_media_atom_v, media_actors_);
+                            send(
+                                event_group_,
+                                event_atom_v,
+                                item_atom_v,
+                                JsonStore(inverted),
+                                true);
+                            rp.deliver(true);
+                        },
+                        [=](error &err) mutable { rp.deliver(std::move(err)); });
+            } else {
+                send(event_group_, event_atom_v, item_atom_v, JsonStore(inverted), true);
+                rp.deliver(true);
+            }
             return rp;
         },
 
         [=](history::redo_atom, const JsonStore &hist) -> result<bool> {
-            base_.item().redo(hist);
-            if (actors_.empty())
-                return true;
-            // push to children..
             auto rp = make_response_promise<bool>();
+            base_.item().redo(hist);
 
-            fan_out_request<policy::select_all>(
-                map_value_to_vec(actors_), infinite, history::redo_atom_v, hist)
-                .then(
-                    [=](std::vector<bool> updated) mutable { rp.deliver(true); },
-                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+            // send(event_group_, event_atom_v, item_atom_v, hist, true);
 
-            return rp;
-        },
+            if (not actors_.empty()) {
+                // push to children..
+                fan_out_request<policy::select_all>(
+                    map_value_to_vec(actors_), infinite, history::redo_atom_v, hist)
+                    .await(
+                        [=](std::vector<bool> updated) mutable {
+                            rp.deliver(true);
+                            anon_send(this, link_media_atom_v, media_actors_);
 
-        [=](insert_item_atom, const int index, const UuidActor &ua) -> result<JsonStore> {
-            if (not base_.item().empty())
-                return make_error(xstudio_error::error, "Only one child allowed");
-            auto rp = make_response_promise<JsonStore>();
-            // get item..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        rp.delegate<message_priority::high>(
-                            caf::actor_cast<caf::actor>(this),
-                            insert_item_atom_v,
-                            index,
-                            ua,
-                            item);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
-
-            return rp;
-        },
-
-        // we only allow access to direct children.. ?
-        [=](insert_item_atom, const int index, const UuidActor &ua, const Item &item)
-            -> result<JsonStore> {
-            if (not base_.item().empty())
-                return make_error(xstudio_error::error, "Only one child allowed");
-            if (not base_.item().valid_child(item)) {
-                return make_error(xstudio_error::error, "Invalid child type");
+                            send(event_group_, event_atom_v, item_atom_v, hist, true);
+                        },
+                        [=](error &err) mutable { rp.deliver(std::move(err)); });
+            } else {
+                send(event_group_, event_atom_v, item_atom_v, hist, true);
+                rp.deliver(true);
             }
-
-            // take ownership
-            add_item(ua);
-
-            auto rp = make_response_promise<JsonStore>();
-            // re-aquire item. as we may have gone out of sync..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        // insert on index..
-                        // cheat..
-                        auto it  = base_.item().begin();
-                        auto ind = 0;
-                        for (int i = 0; it != base_.item().end(); i++, it++) {
-                            if (i == index)
-                                break;
-                        }
-
-                        auto changes = base_.item().insert(it, item);
-                        auto more    = base_.item().refresh();
-                        if (not more.is_null())
-                            changes.insert(changes.begin(), more.begin(), more.end());
-
-                        // broadcast change. (may need to be finer grained)
-                        send(event_group_, event_atom_v, item_atom_v, changes, false);
-                        anon_send(history_, history::log_atom_v, sysclock::now(), changes);
-                        send(this, utility::event_atom_v, change_atom_v);
-
-                        rp.deliver(true);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
-            return rp;
-        },
-
-        [=](insert_item_atom,
-            const utility::Uuid &before_uuid,
-            const UuidActor &ua) -> result<JsonStore> {
-            if (not base_.item().empty())
-                return make_error(xstudio_error::error, "Only one child allowed");
-            auto rp = make_response_promise<JsonStore>();
-            // get item..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        rp.delegate(
-                            caf::actor_cast<caf::actor>(this),
-                            insert_item_atom_v,
-                            before_uuid,
-                            ua,
-                            item);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
 
             return rp;
         },
 
         [=](insert_item_atom,
+            const int index,
+            const UuidActorVector &uav) -> result<JsonStore> {
+            auto rp = make_response_promise<JsonStore>();
+
+            if (not base_.item().empty() or uav.size() > 1)
+                rp.deliver(make_error(xstudio_error::error, "Only one child allowed"));
+            else
+                insert_items(index, uav, rp);
+            return rp;
+        },
+
+        [=](insert_item_atom,
             const utility::Uuid &before_uuid,
-            const UuidActor &ua,
-            const Item &item) -> result<JsonStore> {
-            if (not base_.item().valid_child(item)) {
-                return make_error(xstudio_error::error, "Invalid child type");
+            const UuidActorVector &uav) -> result<JsonStore> {
+            auto rp = make_response_promise<JsonStore>();
+
+            if (not base_.item().empty() or uav.size() > 1)
+                rp.deliver(make_error(xstudio_error::error, "Only one child allowed"));
+            else {
+
+                auto index = base_.item().size();
+                // find index. for uuid
+                if (not before_uuid.is_null()) {
+                    auto it = find_uuid(base_.item().children(), before_uuid);
+                    if (it == base_.item().end())
+                        rp.deliver(make_error(xstudio_error::error, "Invalid uuid"));
+                    else
+                        index = std::distance(base_.item().begin(), it);
+                }
+
+                if (rp.pending())
+                    insert_items(index, uav, rp);
             }
 
-            if (not base_.item().empty())
-                return make_error(xstudio_error::error, "Only one child allowed");
-
-            // take ownership
-            add_item(ua);
-
-            auto rp = make_response_promise<JsonStore>();
-            // re-aquire item. as we may have gone out of sync..
-            request(ua.actor(), infinite, item_atom_v)
-                .await(
-                    [=](const Item &item) mutable {
-                        auto changes = utility::JsonStore();
-
-                        if (before_uuid.is_null()) {
-                            changes = base_.item().insert(base_.item().end(), item);
-                        } else {
-                            auto it = find_uuid(base_.item().children(), before_uuid);
-                            if (it == base_.item().end()) {
-                                return rp.deliver(
-                                    make_error(xstudio_error::error, "Invalid uuid"));
-                            }
-                            changes = base_.item().insert(it, item);
-                        }
-
-                        auto more = base_.item().refresh();
-                        if (not more.is_null())
-                            changes.insert(changes.begin(), more.begin(), more.end());
-
-                        send(event_group_, event_atom_v, item_atom_v, changes, false);
-                        anon_send(history_, history::log_atom_v, sysclock::now(), changes);
-                        send(this, utility::event_atom_v, change_atom_v);
-                        rp.deliver(true);
-                    },
-                    [=](const caf::error &err) mutable { rp.deliver(err); });
             return rp;
         },
 
-        [=](remove_item_atom, const int index) -> result<std::pair<JsonStore, Item>> {
-            auto it = base_.item().children().begin();
-            std::advance(it, index);
-            if (it == base_.item().children().end())
-                return make_error(xstudio_error::error, "Invalid index");
-            auto rp = make_response_promise<std::pair<JsonStore, Item>>();
-            rp.delegate(caf::actor_cast<caf::actor>(this), remove_item_atom_v, it->uuid());
+        [=](remove_item_atom,
+            const int index) -> result<std::pair<JsonStore, std::vector<Item>>> {
+            auto rp = make_response_promise<std::pair<JsonStore, std::vector<Item>>>();
+            remove_items(index, 1, rp);
             return rp;
         },
 
-        [=](remove_item_atom, const utility::Uuid &uuid) -> result<std::pair<JsonStore, Item>> {
+        [=](remove_item_atom,
+            const int index,
+            const int count) -> result<std::pair<JsonStore, std::vector<Item>>> {
+            auto rp = make_response_promise<std::pair<JsonStore, std::vector<Item>>>();
+            remove_items(index, count, rp);
+            return rp;
+        },
+
+        [=](remove_item_atom,
+            const utility::Uuid &uuid) -> result<std::pair<JsonStore, std::vector<Item>>> {
+            auto rp = make_response_promise<std::pair<JsonStore, std::vector<Item>>>();
+
             auto it = find_uuid(base_.item().children(), uuid);
+
             if (it == base_.item().end())
-                return make_error(xstudio_error::error, "Invalid uuid");
-            auto item = *it;
-            demonitor(item.actor());
-            actors_.erase(item.uuid());
+                rp.deliver(make_error(xstudio_error::error, "Invalid uuid"));
 
-            auto changes = base_.item().erase(it);
-            auto more    = base_.item().refresh();
-            if (not more.is_null())
-                changes.insert(changes.begin(), more.begin(), more.end());
+            if (rp.pending())
+                remove_items(std::distance(base_.item().begin(), it), 1, rp);
 
-            // send(event_group_, event_atom_v, item_atom_v, changes, false);
-            anon_send(history_, history::log_atom_v, sysclock::now(), changes);
-
-            send(this, utility::event_atom_v, change_atom_v);
-            return std::make_pair(changes, item);
+            return rp;
         },
 
         [=](erase_item_atom, const int index) -> result<JsonStore> {
-            auto it = base_.item().children().begin();
-            std::advance(it, index);
-            if (it == base_.item().children().end())
-                return make_error(xstudio_error::error, "Invalid index");
             auto rp = make_response_promise<JsonStore>();
-            rp.delegate(caf::actor_cast<caf::actor>(this), erase_item_atom_v, it->uuid());
+            erase_items(index, 1, rp);
+            return rp;
+        },
+
+        [=](erase_item_atom, const int index, const int count) -> result<JsonStore> {
+            auto rp = make_response_promise<JsonStore>();
+            erase_items(index, count, rp);
             return rp;
         },
 
         [=](erase_item_atom, const utility::Uuid &uuid) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-            request(caf::actor_cast<caf::actor>(this), infinite, remove_item_atom_v, uuid)
-                .then(
-                    [=](const Item &item) mutable {
-                        send_exit(item.actor(), caf::exit_reason::user_shutdown);
-                        rp.deliver(true);
-                    },
-                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            auto it = find_uuid(base_.item().children(), uuid);
+
+            if (it == base_.item().end())
+                rp.deliver(make_error(xstudio_error::error, "Invalid uuid"));
+
+            if (rp.pending())
+                erase_items(std::distance(base_.item().begin(), it), 1, rp);
+
             return rp;
         },
 
-
         // emulate subset
         [=](playlist::sort_alphabetically_atom) { sort_alphabetically(); },
+
+        [=](media::get_edit_list_atom, media::MediaType, const Uuid &) -> utility::EditList {
+            // Edit list actor (from A/B compare in PlaheadActor) sends this
+            // message, we will return empty edit list as getting Timelines to
+            // construct EditLists seems pointless at this stage and instead we
+            // will get rid of EditListActor
+            return utility::EditList();
+        },
+
+        [=](media::source_offset_frames_atom) -> int {
+            // needed when retime actor wraps a timeline
+            return 0;
+        },
+
+        [=](media::source_offset_frames_atom, const int) -> bool {
+            // needed when retime actor wraps a timeline
+            return false;
+        },
+
+        [=](timeline::duration_atom, const timebase::flicks &new_duration) -> bool {
+            // attempt by playhead to force trim the duration (to support compare
+            // modes for sources of different lenght). Here we ignore it.
+            return false;
+        },
 
         [=](media::get_edit_list_atom, const Uuid &uuid) -> result<utility::EditList> {
             std::vector<caf::actor> actors;
@@ -1048,6 +1159,41 @@ void TimelineActor::init() {
 
         [=](playlist::add_media_atom,
             const Uuid &uuid,
+            const Uuid &before_uuid) -> result<bool> {
+            // get actor from playlist..
+            auto rp = make_response_promise<bool>();
+
+            request(
+                caf::actor_cast<actor>(playlist_), infinite, playlist::get_media_atom_v, uuid)
+                .then(
+                    [=](caf::actor actor) mutable {
+                        rp.delegate(
+                            caf::actor_cast<caf::actor>(this),
+                            playlist::add_media_atom_v,
+                            uuid,
+                            actor,
+                            before_uuid);
+                        // add_media(actor, uuid, before_uuid);
+                        // send(event_group_, utility::event_atom_v, change_atom_v);
+                        // send(change_event_group_, utility::event_atom_v,
+                        // utility::change_atom_v); send(
+                        //     event_group_,
+                        //     utility::event_atom_v,
+                        //     playlist::add_media_atom_v,
+                        //     UuidActor(uuid, actor));
+                        // base_.send_changed(event_group_, this);
+                        // rp.deliver(true);
+                    },
+                    [=](error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(false);
+                    });
+
+            return rp;
+        },
+
+        [=](playlist::add_media_atom,
+            const Uuid &uuid,
             const caf::actor &actor,
             const Uuid &before_uuid) -> bool {
             try {
@@ -1100,14 +1246,17 @@ void TimelineActor::init() {
             const utility::Uuid &after_this_uuid,
             int skip_by) -> result<UuidActor> {
             const utility::UuidList media = base_.media();
+
             if (skip_by > 0) {
                 auto i = std::find(media.begin(), media.end(), after_this_uuid);
                 if (i == media.end()) {
                     // not found!
                     return make_error(
                         xstudio_error::error,
-                        "playlist::get_next_media_atom called with uuid that is not in "
-                        "subset");
+                        fmt::format(
+                            "playlist::get_next_media_atom called with uuid that is not in "
+                            "timeline {}",
+                            to_string(after_this_uuid)));
                 }
                 while (skip_by--) {
                     i++;
@@ -1116,8 +1265,8 @@ void TimelineActor::init() {
                         break;
                     }
                 }
-                if (actors_.count(*i))
-                    return UuidActor(*i, actors_[*i]);
+                if (media_actors_.count(*i))
+                    return UuidActor(*i, media_actors_[*i]);
 
             } else {
                 auto i = std::find(media.rbegin(), media.rend(), after_this_uuid);
@@ -1125,8 +1274,10 @@ void TimelineActor::init() {
                     // not found!
                     return make_error(
                         xstudio_error::error,
-                        "playlist::get_next_media_atom called with uuid that is not in "
-                        "playlist");
+                        fmt::format(
+                            "playlist::get_next_media_atom called with uuid that is not in "
+                            "playlist",
+                            to_string(after_this_uuid)));
                 }
                 while (skip_by++) {
                     i++;
@@ -1136,27 +1287,46 @@ void TimelineActor::init() {
                     }
                 }
 
-                if (actors_.count(*i))
-                    return UuidActor(*i, actors_[*i]);
+                if (media_actors_.count(*i))
+                    return UuidActor(*i, media_actors_[*i]);
             }
 
             return make_error(
                 xstudio_error::error,
-                "playlist::get_next_media_atom called with uuid for which no media actor "
-                "exists");
+                fmt::format(
+                    "playlist::get_next_media_atom called with uuid for which no media actor "
+                    "exists {}",
+                    to_string(after_this_uuid)));
         },
 
         [=](playlist::create_playhead_atom) -> UuidActor {
             if (playhead_)
                 return playhead_;
-            auto uuid  = utility::Uuid::generate();
-            auto actor = spawn<playhead::PlayheadActor>(
-                std::string("Timeline Playhead"), selection_actor_, uuid);
-            link_to(actor);
 
-            anon_send(actor, playhead::playhead_rate_atom_v, base_.rate());
+            auto uuid = utility::Uuid::generate();
 
-            playhead_ = UuidActor(uuid, actor);
+            /*auto actor = spawn<playhead::PlayheadActor>(
+                std::string("Timeline Playhead"), selection_actor_, uuid);*/
+
+            // N.B. for now we're not using the 'selection_actor_' as this
+            // feeds the playhead a list of selected media which the playhead
+            // will play. It will ignore this timeline completely if we do that.
+            // We want to play this timeline, not the media in the timeline
+            // that is selected.
+            auto playhead_actor = spawn<playhead::PlayheadActor>(
+                std::string("Timeline Playhead"), caf::actor(), uuid);
+
+            link_to(playhead_actor);
+
+            anon_send(playhead_actor, playhead::playhead_rate_atom_v, base_.rate());
+
+            // now make this timeline the (only) source for the playhead
+            anon_send(
+                playhead_actor,
+                playhead::source_atom_v,
+                std::vector<caf::actor>({caf::actor_cast<caf::actor>(this)}));
+
+            playhead_ = UuidActor(uuid, playhead_actor);
             return playhead_;
         },
 
@@ -1413,93 +1583,170 @@ void TimelineActor::init() {
         // },
 
         [=](duplicate_atom) -> result<UuidActor> {
-            // clone ourself..
-            auto uuid  = Uuid::generate();
-            auto actor = spawn<timeline::TimelineActor>(
-                base_.name(), uuid, caf::actor_cast<caf::actor>(playlist_));
+            auto rp = make_response_promise<UuidActor>();
 
-            // anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
-            // get uuid from actor..
             try {
+                // clone ourself..
                 caf::scoped_actor sys(system());
 
-                // maybe not be safe.. as ordering isn't implicit..
-                std::vector<UuidActor> media_actors;
-                for (const auto &i : base_.media())
-                    media_actors.emplace_back(UuidActor(i, media_actors_[i]));
+                JsonStore jsn;
+                auto dup = base_.duplicate();
+                dup.item().clear();
 
-                request_receive<bool>(
-                    *sys, actor, playlist::add_media_atom_v, media_actors, Uuid(), true);
+                jsn["base"]   = dup.serialise();
+                jsn["actors"] = {};
+                auto actor    = spawn<TimelineActor>(jsn, caf::actor());
 
-                return UuidActor(uuid, actor);
+                auto hactor = request_receive<UuidActor>(*sys, actor, history::history_atom_v);
+                anon_send(hactor.actor(), plugin_manager::enable_atom_v, false);
+
+                for (const auto &i : base_.children()) {
+                    auto ua = request_receive<UuidActor>(
+                        *sys, actors_[i.uuid()], utility::duplicate_atom_v);
+                    anon_send(actor, insert_item_atom_v, -1, UuidActorVector({ua}));
+                }
+
+                // enable history
+                anon_send(hactor.actor(), plugin_manager::enable_atom_v, true);
+
+                rp.deliver(UuidActor(dup.uuid(), actor));
 
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                rp.deliver(make_error(xstudio_error::error, err.what()));
             }
 
-            return make_error(xstudio_error::error, "Invalid uuid");
+            return rp;
         },
 
+        [=](timeline::focus_atom) -> UuidVector {
+            auto tmp = base_.focus_list();
+            return UuidVector(tmp.begin(), tmp.end());
+        },
+
+        [=](timeline::focus_atom, const UuidVector &list) {
+            base_.set_focus_list(list);
+            // both ?
+            send(event_group_, utility::event_atom_v, change_atom_v);
+            send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
+        },
 
         [=](playhead::source_atom) -> caf::actor {
             return caf::actor_cast<caf::actor>(playlist_);
         },
 
         // set source (playlist), triggers relinking
-        [=](playhead::source_atom, caf::actor playlist, const UuidUuidMap &swap) -> bool {
-            for (const auto &i : base_.media()) {
-                if (media_actors_.count(i))
-                    demonitor(media_actors_[i]);
-                media_actors_.erase(i);
-            }
+        [=](playhead::source_atom,
+            caf::actor playlist,
+            const UuidUuidMap &swap) -> result<bool> {
+            auto rp = make_response_promise<bool>();
 
-            // for (const auto &i : actors_)
-            //     demonitor(i.second);
-            // actors_.clear();
+            for (const auto &i : media_actors_)
+                demonitor(i.second);
+            media_actors_.clear();
 
             playlist_ = caf::actor_cast<actor_addr>(playlist);
 
-            caf::scoped_actor sys(system());
-            try {
-                auto media = request_receive<std::vector<UuidActor>>(
-                    *sys, playlist, playlist::get_media_atom_v);
+            request(playlist, infinite, playlist::get_media_atom_v)
+                .then(
+                    [=](const std::vector<UuidActor> &media) mutable {
+                        // build map
+                        UuidActorMap amap;
+                        for (const auto &i : media)
+                            amap[i.uuid()] = i.actor();
 
-                // build map
-                UuidActorMap amap;
-                for (const auto &i : media)
-                    amap[i.uuid()] = i.actor();
-
-                bool clean = false;
-                while (not clean) {
-                    clean = true;
-                    for (const auto &i : base_.media()) {
-                        auto ii = (swap.count(i) ? swap.at(i) : i);
-                        if (not amap.count(ii)) {
-                            spdlog::error("Failed to find media in playlist {}", to_string(ii));
-                            base_.remove_media(i);
-                            clean = false;
-                            break;
+                        bool clean = false;
+                        while (not clean) {
+                            clean = true;
+                            for (const auto &i : base_.media()) {
+                                auto ii = (swap.count(i) ? swap.at(i) : i);
+                                if (not amap.count(ii)) {
+                                    spdlog::error(
+                                        "Failed to find media in playlist {}", to_string(ii));
+                                    base_.remove_media(i);
+                                    clean = false;
+                                    break;
+                                }
+                            }
                         }
-                    }
-                }
-                // link
-                for (const auto &i : base_.media()) {
-                    auto ii = (swap.count(i) ? swap.at(i) : i);
-                    if (ii != i) {
-                        base_.swap_media(i, ii);
-                    }
-                    media_actors_[ii] = amap[ii];
-                    monitor(amap[ii]);
-                }
-            } catch (const std::exception &e) {
-                spdlog::error("Failed to init Subset {}", e.what());
-                base_.clear();
-            }
-            base_.send_changed(event_group_, this);
-            return true;
+                        // link
+                        for (const auto &i : base_.media()) {
+                            auto ii = (swap.count(i) ? swap.at(i) : i);
+                            if (ii != i) {
+                                base_.swap_media(i, ii);
+                            }
+                            media_actors_[ii] = amap[ii];
+                            monitor(amap[ii]);
+                        }
+                        base_.send_changed(event_group_, this);
+                        rp.deliver(true);
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
         },
 
         [=](duration_atom, const int) {},
+
+        [=](media::get_media_pointers_atom atom,
+            const media::MediaType media_type,
+            const utility::TimeSourceMode tsm,
+            const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMap> {
+            // This is required by SubPlayhead actor to make the timeline
+            // playable.
+
+            auto rp = make_response_promise<media::FrameTimeMap>();
+
+            if (!base_.item().available_range()) {
+                rp.deliver(media::FrameTimeMap());
+                return rp;
+            }
+
+            // Should this be trimmed_range, active_range or available_range or
+            // something else?
+            const int start_frame =
+                (*base_.item().available_range()).frame_start().frames(override_rate);
+            const int end_frame =
+                start_frame +
+                (*base_.item().available_range()).frame_duration().frames(override_rate);
+
+            // request the sequential AVFrameIDs for this timeline
+            request(
+                caf::actor_cast<caf::actor>(this),
+                infinite,
+                atom,
+                media_type,
+                media::LogicalFrameRanges({{
+                    start_frame,
+                    end_frame,
+                }}),
+                override_rate)
+                .then(
+                    [=](const media::AVFrameIDs &frame_ids) mutable {
+                        auto time_point = timebase::flicks(0);
+                        media::FrameTimeMap reslt;
+                        for (const auto &frame_id : frame_ids) {
+                            auto frame_id_cpy = std::make_shared<media::AVFrameID>(*frame_id);
+
+                            // use the base rate to set the frame rate - this
+                            // could be varied within this function if it fits
+                            // with the timeline model. For example, supporting
+                            // media of different frame rates in one timeline?
+                            frame_id_cpy->rate_ = base_.rate();
+                            reslt[time_point]   = frame_id_cpy;
+
+                            // This is where the frame rate for the current
+                            // frame is actually applied. We can increment
+                            // by anything which allows playheads to play
+                            // media of different rates.
+                            time_point += frame_id_cpy->rate_.to_flicks();
+                        }
+                        rp.deliver(reslt);
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
 
         [=](media::get_media_pointers_atom atom,
             const media::MediaType media_type,
@@ -1525,7 +1772,9 @@ void TimelineActor::init() {
             for (const auto &r : ranges) {
                 for (auto i = r.first; i <= r.second; i++) {
                     auto ii = base_.item().resolve_time(
-                        FrameRate(i * override_rate.to_flicks()), media_type);
+                        FrameRate(i * override_rate.to_flicks()),
+                        media_type,
+                        base_.focus_list());
                     if (ii) {
                         item_tp.emplace_back(*ii);
                         (*count)++;
@@ -1725,9 +1974,8 @@ void TimelineActor::init() {
 
         [=](playlist::select_media_atom, utility::Uuid media_uuid) {},
 
-        [=](playhead::get_selected_sources_atom) -> std::vector<caf::actor> {
-            std::vector<caf::actor> result;
-            return result;
+        [=](playhead::get_selected_sources_atom) -> utility::UuidActorVector {
+            return utility::UuidActorVector();
         },
 
         [=](session::get_playlist_atom) -> caf::actor {
@@ -1944,4 +2192,117 @@ void TimelineActor::sort_alphabetically() {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 });
     }
+}
+
+void TimelineActor::insert_items(
+    const int index,
+    const UuidActorVector &uav,
+    caf::typed_response_promise<utility::JsonStore> rp) {
+    // validate items can be inserted.
+    fan_out_request<policy::select_all>(vector_to_caf_actor_vector(uav), infinite, item_atom_v)
+        .then(
+            [=](std::vector<Item> items) mutable {
+                // items are valid for insertion ?
+                for (const auto &i : items) {
+                    if (not base_.item().valid_child(i))
+                        return rp.deliver(
+                            make_error(xstudio_error::error, "Invalid child type"));
+                }
+
+                // take ownership
+                for (const auto &ua : uav)
+                    add_item(ua);
+
+                // find insertion point..
+                auto it = std::next(base_.item().begin(), index);
+
+                // insert items..
+                // our list will be out of order..
+                auto changes = JsonStore(R"([])"_json);
+                for (const auto &ua : uav) {
+                    // find item..
+                    auto found = false;
+                    for (const auto &i : items) {
+                        if (ua.uuid() == i.uuid()) {
+                            auto tmp = base_.item().insert(it, i);
+                            changes.insert(changes.end(), tmp.begin(), tmp.end());
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (not found) {
+                        spdlog::error("item not found for insertion");
+                    }
+                }
+
+                // add changes to stack
+                auto more = base_.item().refresh();
+
+                if (not more.is_null())
+                    changes.insert(changes.begin(), more.begin(), more.end());
+
+                send(event_group_, event_atom_v, item_atom_v, changes, false);
+                anon_send(history_, history::log_atom_v, sysclock::now(), changes);
+                send(this, utility::event_atom_v, change_atom_v);
+
+                rp.deliver(changes);
+            },
+            [=](const caf::error &err) mutable { rp.deliver(err); });
+}
+
+void TimelineActor::remove_items(
+    const int index,
+    const int count,
+    caf::typed_response_promise<std::pair<utility::JsonStore, std::vector<timeline::Item>>>
+        rp) {
+
+    std::vector<Item> items;
+    JsonStore changes(R"([])"_json);
+
+    if (index < 0 or index + count - 1 >= static_cast<int>(base_.item().size()))
+        rp.deliver(make_error(xstudio_error::error, "Invalid index / count"));
+    else {
+        scoped_actor sys{system()};
+
+        for (int i = index + count - 1; i >= index; i--) {
+            auto it = std::next(base_.item().begin(), i);
+            if (it != base_.item().end()) {
+                auto item = *it;
+                demonitor(item.actor());
+                actors_.erase(item.uuid());
+                auto blind = request_receive<JsonStore>(*sys, item.actor(), serialise_atom_v);
+
+                auto tmp = base_.item().erase(it, blind);
+                changes.insert(changes.end(), tmp.begin(), tmp.end());
+                items.push_back(item);
+            }
+        }
+
+        auto more = base_.item().refresh();
+        if (not more.is_null())
+            changes.insert(changes.begin(), more.begin(), more.end());
+
+        // why was this commented out ?
+        // send(event_group_, event_atom_v, item_atom_v, changes, false);
+
+        anon_send(history_, history::log_atom_v, sysclock::now(), changes);
+
+        send(this, utility::event_atom_v, change_atom_v);
+
+        rp.deliver(std::make_pair(changes, items));
+    }
+}
+
+void TimelineActor::erase_items(
+    const int index, const int count, caf::typed_response_promise<JsonStore> rp) {
+
+    request(caf::actor_cast<caf::actor>(this), infinite, remove_item_atom_v, index, count)
+        .then(
+            [=](const std::pair<JsonStore, std::vector<Item>> &hist_item) mutable {
+                for (const auto &i : hist_item.second)
+                    send_exit(i.actor(), caf::exit_reason::user_shutdown);
+                rp.deliver(hist_item.first);
+            },
+            [=](error &err) mutable { rp.deliver(std::move(err)); });
 }

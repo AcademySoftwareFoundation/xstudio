@@ -3,6 +3,7 @@ SET(LINK_DEPS
 	Qt5::Core
 	Qt5::Test
 	xstudio::ui::qml::helper
+	xstudio::timeline
 	xstudio::utility
 )
 

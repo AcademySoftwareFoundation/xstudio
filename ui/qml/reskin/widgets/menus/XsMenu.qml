@@ -6,38 +6,24 @@ import Qt.labs.qmlmodels 1.0
 import xStudioReskin 1.0
 import xstudio.qml.models 1.0
 
-Popup {
+XsPopup {
 
     id: the_popup
+    // x: 30
     height: view.height+ (topPadding+bottomPadding)
     width: view.width
-    topPadding: XsStyleSheet.menuPadding
-    bottomPadding: XsStyleSheet.menuPadding
-    leftPadding: 0
-    rightPadding: 0
 
     property var menu_model
     property var menu_model_index
 
-    property color bgColorPressed: palette.highlight
-    property color bgColorNormal: "#1AFFFFFF"
-    property color forcedBgColorNormal: "#EE444444" //bgColorNormal
-
-    background: Rectangle{
-        implicitWidth: 100
-        implicitHeight: 200
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: forcedBgColorNormal==bgColorNormal?"#33FFFFFF":"#EE222222" }
-            GradientStop { position: 1.0; color: forcedBgColorNormal }
-        }
-    }
+    property alias menuWidth: view.width
 
     ListView {
 
         id: view
         orientation: ListView.Vertical
         spacing: 0
-        width: contentWidth
+        width: 160 //contentWidth
         height: contentHeight
         contentHeight: contentItem.childrenRect.height
         contentWidth: contentItem.childrenRect.width
@@ -55,9 +41,8 @@ Popup {
             delegate: chooser
 
             DelegateChooser {
-
                 id: chooser
-                role: "menu_item_type"
+                role: "menu_item_type" 
             
                 DelegateChoice {
                     roleValue: "button"
@@ -72,7 +57,11 @@ Popup {
                             the_popup.menu_model_index // the parent index into the model
                         )
                         parent_menu: the_popup
+                        parentWidth: view.width
+                        
+                        // icon: "qrc:/icons/filter_none.svg" 
                     }
+
                 }
             
                 DelegateChoice {
@@ -88,24 +77,17 @@ Popup {
                             the_popup.menu_model_index // the parent index into the model
                         )
                         parent_menu: the_popup
+                        parentWidth: view.width
                     }
                 }
 
                 DelegateChoice {
                     roleValue: "divider"
                     
-                    XsMenuDivider {}
-
-                }
-
-                DelegateChoice {
-                    roleValue: "choice"
-                    
-                    XsMenuItemNew { 
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+                    XsMenuDivider {
+                        parentWidth: view.width
                     }
-                    
+
                 }
 
                 DelegateChoice {
@@ -114,6 +96,9 @@ Popup {
                     XsMenuItemNew { 
                         menu_model: the_popup.menu_model
                         menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+                    
+                        parent_menu: the_popup
+                        parentWidth: view.width
                     }
                     
                 }
@@ -124,12 +109,52 @@ Popup {
                     XsMenuItemToggle { 
                         menu_model: the_popup.menu_model
                         menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+                        
+                        parent_menu: the_popup
+                        parentWidth: view.width
+                    
+                        onClicked: {
+                            isChecked = !isChecked
+                        }
+                    }
+
+                }
+
+                DelegateChoice {
+                    roleValue: "toggle_settings"
+                    
+                    XsMenuItemToggleWithSettings { 
+                        menu_model: the_popup.menu_model
+                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+                        
+                        parent_menu: the_popup
+                        parentWidth: view.width
+                    
                         onChecked:{
                             isChecked = !isChecked
                         }
                     }
 
                 }
+
+                DelegateChoice {
+                    roleValue: "toggle_checkbox"
+                    
+                    XsMenuItemToggle { 
+                        menu_model: the_popup.menu_model
+                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
+                        
+                        isRadioButton: true
+                        parent_menu: the_popup
+                        parentWidth: view.width
+                    
+                        onClicked:{
+                            isChecked = !isChecked
+                        }
+                    }
+
+                }
+
 
             }
         }

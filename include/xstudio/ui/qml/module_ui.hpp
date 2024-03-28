@@ -31,7 +31,7 @@ namespace ui {
             Q_PROPERTY(QString roleName READ roleName WRITE setRoleName NOTIFY roleNameChanged)
 
             ModuleAttrsDirect(QObject *parent = nullptr);
-            ~ModuleAttrsDirect() override = default;
+            virtual ~ModuleAttrsDirect();
 
             void add_attributes_from_backend(
                 const module::AttributeSet &attrs, const bool check_group = false);
@@ -100,7 +100,7 @@ namespace ui {
                            setattributesGroupNames NOTIFY attributesGroupNamesChanged)
 
             ModuleAttrsModel(QObject *parent = nullptr);
-            ~ModuleAttrsModel() override = default;
+            virtual ~ModuleAttrsModel();
 
             [[nodiscard]] int rowCount() { return rowCount(QModelIndex()); }
 

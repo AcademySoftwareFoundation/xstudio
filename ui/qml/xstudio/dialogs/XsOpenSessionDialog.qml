@@ -11,7 +11,7 @@ FileDialog {
     folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
     defaultSuffix: "xst"
 
-    nameFilters:  ["Xstudio (*.xst)"]
+    nameFilters:  ["xStudio (*.xst *.xsz)"]
     selectExisting: true
     selectMultiple: false
     onAccepted: {

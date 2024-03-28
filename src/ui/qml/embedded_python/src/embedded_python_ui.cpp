@@ -223,6 +223,7 @@ void EmbeddedPythonUI::init(actor_system &system_) {
                 if (uuid == event_uuid_) {
                     auto out = std::get<0>(output);
                     auto err = std::get<1>(output);
+                    std::cerr << out << err;
                     if (not out.empty()) {
                         emit stdoutEvent(QStringFromStd(out));
                     }

@@ -40,7 +40,7 @@ DelegateChoice {
 
 		    property bool insertionFlag: false
 
-		    property var model_index: control.DelegateModel.model.srcModel.index(-1,-1)
+		    property var media_item_model_index: control.DelegateModel.model.srcModel.index(-1,-1)
 		    property var image_source_model_index: control.DelegateModel.model.srcModel.index(-1,-1)
 
 		    // may not be required..
@@ -54,7 +54,7 @@ DelegateChoice {
 		    property bool copying: false
 
 		    Component.onCompleted: {
-	        	control.DelegateModel.model.srcModel.get(modelIndex(), "childrenRole")
+	        	control.DelegateModel.model.srcModel.fetchMore(modelIndex())
 				control.updateProperties()
 	        	control.updateSelected()
 		    }
@@ -77,7 +77,7 @@ DelegateChoice {
 		    }
 
 			function modelIndex() {
-				return model_index
+				return media_item_model_index
 			}
 
 			function imageSouceIndex() {
@@ -131,13 +131,13 @@ DelegateChoice {
 		    	// console.log(control.DelegateModel.model.rootIndex)
 		    	if(control.DelegateModel.model.srcModel) {
 
-			    	control.model_index = helpers.makePersistent(control.DelegateModel.model.srcModel.index(
+			    	control.media_item_model_index = helpers.makePersistent(control.DelegateModel.model.srcModel.index(
 			    		index, 0, control.DelegateModel.model.rootIndex
 			    	))
 
-			    	if(control.model_index.valid) {
-						control.image_source_model_index = helpers.makePersistent(control.model_index.model.search_recursive(
-							imageActorUuidRole, "actorUuidRole", control.model_index
+			    	if(control.media_item_model_index.valid) {
+						control.image_source_model_index = helpers.makePersistent(control.media_item_model_index.model.search_recursive(
+							imageActorUuidRole, "actorUuidRole", control.media_item_model_index
 						))
 
 						if(control.image_source_model_index.valid) {
@@ -182,7 +182,10 @@ DelegateChoice {
 		    			app_window.mediaSelectionModel.select(helpers.createItemSelection(indexs), ItemSelectionModel.Select)
 		            } else if(mouse.modifiers & Qt.ControlModifier) {
 		   				app_window.mediaSelectionModel.select(modelIndex(), ItemSelectionModel.Toggle)
-		            } else if(mouse.modifiers == Qt.NoModifier) {
+		            } else if(mouse.modifiers & Qt.AltModifier) {
+						// alt + click will launch a 'quick viewer'
+						app_window.launchQuickViewer([actorRole], "Off")
+				 	} else if(mouse.modifiers == Qt.NoModifier) {
 		            	if(currentSource.index == screenSource.index){
 			            	if(selection_index == -1) {
 								app_window.sessionFunction.setActiveMedia(modelIndex(), true)
@@ -345,7 +348,7 @@ DelegateChoice {
 
 
 			    Rectangle {
-			        color: flagRole != undefined ? flagRole : "#00000000"
+			        color: flagColourRole != undefined ? flagColourRole : "#00000000"
 			        width:3
 			        anchors.left: parent.left
 			        anchors.top: parent.top
@@ -536,18 +539,33 @@ DelegateChoice {
 			        color: XsStyle.highlightColor
 			        anchors.top: thumb.top
 			        anchors.right: thumb.right
-			        // anchors.topMargin: 1
-			        // anchors.bottomMargin: 1
-			        // anchors.leftMargin: 1
-			        // anchors.rightMargin: 4
-			        visible: app_window.bookmarkModel.search(actorUuidRole, "ownerRole").valid
+					visible: false
 
-			        Connections {
+					property var actorUuid: actorUuidRole
+					onActorUuidChanged: {
+						rescan_for_bookmarks()
+					}
+
+					function rescan_for_bookmarks() {
+						var vis = false
+						var idx = app_window.bookmarkModel.search(actorUuidRole, "ownerRole")
+						if (idx.valid) {
+							var foo = app_window.bookmarkModel.search_list(actorUuidRole, "ownerRole", idx.parent, 0, -1)
+							for (var i = 0; i < foo.length; ++i) {
+								if (app_window.bookmarkModel.get(foo[i], "visibleRole")) {
+									vis = true
+									break
+								}
+							}
+						}
+						bookmark_indicator.visible = vis						
+					}
+					Connections {
 			            target: app_window.bookmarkModel
 			            function onLengthChanged() {
 			                callback_delay_timer.setTimeout(
 			                	function(){
-			                		bookmark_indicator.visible = app_window.bookmarkModel.search(actorUuidRole, "ownerRole").valid
+									bookmark_indicator.rescan_for_bookmarks()
 			                	},
 			                	500
 			                );

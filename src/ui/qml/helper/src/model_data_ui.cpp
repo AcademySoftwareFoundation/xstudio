@@ -57,10 +57,7 @@ void UIModelData::setModelDataName(QString name) {
 
         model_name_ = StdFromQString(name);
 
-        caf::scoped_actor sys{self()->home_system()};
-
-        auto data = request_receive<utility::JsonStore>(
-            *sys,
+        anon_send(
             central_models_data_actor_,
             ui::model_data::register_model_data_atom_v,
             model_name_,
@@ -68,7 +65,6 @@ void UIModelData::setModelDataName(QString name) {
             as_actor());
 
         // process app/user..
-        setModelData(data);
         emit modelDataNameChanged();
     }
 }
@@ -79,7 +75,7 @@ void UIModelData::init(caf::actor_system &system) {
     self()->set_default_handler(caf::drop);
 
     try {
-        utility::print_on_create(as_actor(), "SessionModel");
+        utility::print_on_create(as_actor(), "UIModelData");
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -89,6 +85,7 @@ void UIModelData::init(caf::actor_system &system) {
 
             [=](utility::event_atom,
                 xstudio::ui::model_data::set_node_data_atom,
+                const std::string model_name,
                 const std::string path,
                 const utility::JsonStore &data) {
                 try {
@@ -99,14 +96,21 @@ void UIModelData::init(caf::actor_system &system) {
                     emit dataChanged(idx, idx, QVector<int>());
                 } catch (std::exception &e) {
                     spdlog::warn(
-                        "{} {} : {} {}", __PRETTY_FUNCTION__, e.what(), path, data.dump());
+                        "{} {} : {} {} {}",
+                        __PRETTY_FUNCTION__,
+                        e.what(),
+                        path,
+                        data.dump(),
+                        path);
                 }
             },
             [=](utility::event_atom,
                 xstudio::ui::model_data::set_node_data_atom,
+                const std::string model_name,
                 const std::string path,
                 const utility::JsonStore &data,
-                const std::string role) {
+                const std::string role,
+                const utility::Uuid &uuid) {
                 try {
 
                     QModelIndex idx   = getPathIndex(nlohmann::json::json_pointer(path));
@@ -115,26 +119,55 @@ void UIModelData::init(caf::actor_system &system) {
                         j[role] = data;
                         for (size_t i = 0; i < role_names_.size(); ++i) {
                             if (role_names_[i] == role) {
-                                emit dataChanged(idx, idx, QVector<int>({Roles::LASTROLE + i}));
+                                emit dataChanged(
+                                    idx,
+                                    idx,
+                                    QVector<int>({Roles::LASTROLE + static_cast<int>(i)}));
                                 break;
                             }
                         }
                     }
 
                 } catch (std::exception &e) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                    if (!length()) {
+                        // we have no data - Let's say we are exposing the model
+                        // called 'foo'. If the backend object that wants to
+                        // expose itself in 'foo' hasn't got around to pushing
+                        // its data to central_models_data_actor_ against the
+                        // 'foo' model ID, but we have created the UI model data
+                        // access thing and said we want the 'foo' model data
+                        // then we can be in this situation. Do a force fetch
+                        // to ensure we are updated now.
+                        caf::scoped_actor sys{self()->home_system()};
+                        auto data = request_receive<utility::JsonStore>(
+                            *sys,
+                            central_models_data_actor_,
+                            ui::model_data::register_model_data_atom_v,
+                            model_name_,
+                            utility::JsonStore(nlohmann::json::parse("{}")),
+                            as_actor());
+
+                        // process app/user..
+                        setModelData(data);
+                    } else {
+                        // suppressing this warning, because you can get it when it's not
+                        // a problem if this node gets a set_node_data message before the
+                        // given node has been added. The backend model is all fine, but
+                        // we can get a bit out of sync here and it's no big deal.
+                        spdlog::debug("{} {} {}", __PRETTY_FUNCTION__, e.what(), path);
+                    }
                 }
             },
             [=](utility::event_atom,
                 xstudio::ui::model_data::model_data_atom,
+                const std::string model_name,
                 const utility::JsonStore &data) { setModelData(data); }};
     });
 }
 
 bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int role) {
 
-    bool result = JSONTreeModel::setData(index, value, role);
-
+    bool result = false;
     try {
 
         auto path = getIndexPath(index).to_string();
@@ -147,6 +180,8 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
                     QJsonDocument::fromVariant(value.value<QJSValue>().toVariant())
                         .toJson(QJsonDocument::Compact)
                         .constData());
+            } else if (std::string(value.typeName()) == "QString") {
+                j = nlohmann::json::parse(StdFromQString(value.toString()));
             } else {
                 j = nlohmann::json::parse(QJsonDocument::fromVariant(value)
                                               .toJson(QJsonDocument::Compact)
@@ -162,6 +197,8 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
 
 
         } else {
+
+            result = JSONTreeModel::setData(index, value, role);
 
             auto id = role - Roles::LASTROLE;
             if (id >= 0 and id < static_cast<int>(role_names_.size())) {
@@ -207,6 +244,33 @@ bool UIModelData::removeRows(int row, int count, const QModelIndex &parent) {
     }
     return result;
 }
+
+bool UIModelData::removeRowsSync(int row, int count, const QModelIndex &parent) {
+
+    auto result = false;
+
+    try {
+
+        auto path = getIndexPath(parent).to_string();
+
+        anon_send(
+            central_models_data_actor_,
+            xstudio::ui::model_data::remove_rows_atom_v,
+            model_name_,
+            path,
+            row,
+            count,
+            false);
+
+        result = JSONTreeModel::removeRows(row, count, parent);
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        result = false;
+    }
+    return result;
+}
+
 
 bool UIModelData::moveRows(
     const QModelIndex &sourceParent,
@@ -353,7 +417,7 @@ MenusModelData::MenusModelData(QObject *parent) : UIModelData(parent) {
 
 ViewsModelData::ViewsModelData(QObject *parent) : UIModelData(parent) {
 
-    setRoleNames(std::vector<std::string>{"view_name", "view_qml_path"});
+    setRoleNames(std::vector<std::string>{"view_name", "view_qml_source"});
     setModelDataName("view widgets");
 }
 
@@ -362,10 +426,18 @@ void ViewsModelData::register_view(QString qml_path, QString view_name) {
     auto rc = rowCount(index(-1, -1)); // QModelIndex());
     insertRowsSync(rc, 1, index(-1, -1));
     QModelIndex view_reg_index = index(rc, 0, index(-1, -1));
-    set(view_reg_index, QVariant(view_name), QString("view_name"));
-    set(view_reg_index, QVariant(qml_path), QString("view_qml_path"));
+    std::ignore                = set(view_reg_index, QVariant(view_name), QString("view_name"));
+    std::ignore = set(view_reg_index, QVariant(qml_path), QString("view_qml_source"));
 }
 
+QVariant ViewsModelData::view_qml_source(QString view_name) {
+
+    QModelIndex idx = search(QVariant(view_name), "view_name");
+    if (idx.isValid()) {
+        return get(idx, "view_qml_source");
+    }
+    return QVariant();
+}
 
 ReskinPanelsModel::ReskinPanelsModel(QObject *parent)
     : UIModelData(
@@ -373,6 +445,125 @@ ReskinPanelsModel::ReskinPanelsModel(QObject *parent)
           std::string("reskin panels model"),
           std::string("/ui/qml/reskin_windows_and_panels_model")) {}
 
+void ReskinPanelsModel::close_panel(QModelIndex panel_index) {
+
+    // Logic for closing a 'panel' is not trivial. Panels are hosted in
+    // 'splitters' which chop up the window area into resizable sections
+    // Splitters can have splitters as children, meaning you can subdivide
+    // the xSTUDIO interface many times with really flexible panel arrangements.
+    // When you want to close a panel, the json tree data that backs the
+    // arrangement needs to be reconfigured carefully to get the expected
+    // behaviour ....
+
+    // how many siblings including the panel we are about to delete?
+    const int siblings = rowCount(panel_index.parent());
+
+    if (siblings > 2) {
+
+        removeRows(panel_index.row(), 1, panel_index.parent());
+
+        // get the divider positions from the parent
+        QVariant dividers = get(panel_index.parent(), "child_dividers");
+        if (dividers.userType() == QMetaType::QVariantList) {
+            QList<QVariant> divs = dividers.toList();
+            divs.removeAt(panel_index.row() ? panel_index.row() - 1 : 0);
+            std::ignore = set(panel_index.parent(), divs, "child_dividers");
+        }
+
+    } else if (siblings == 2) {
+
+        QModelIndex parentNode = panel_index.parent();
+
+        // get the json data about the other panel that's not being deleted
+        nlohmann::json other_panel_data = indexToFullData(index(
+            !panel_index
+                 .row(), // we have two rows ... we want the OTHER row to the one being removed
+            0,
+            parentNode));
+
+        // now we wipe out the parent splitter with the 'other' panel
+        setData(parentNode, QVariantMapFromJson(other_panel_data), Roles::JSONRole);
+
+    } else {
+
+        // do nothing if there is only one panel at this index - we can't
+        // collapse a panel that isn't part of a split panel
+    }
+}
+
+void ReskinPanelsModel::split_panel(QModelIndex panel_index, bool horizontal_split) {
+
+    QModelIndex parentNode  = panel_index.parent();
+    const int insertion_row = panel_index.row();
+
+    QVariant h = get(parentNode, "split_horizontal");
+    if (!h.isNull() && h.canConvert(QMetaType::Bool) && h.toBool() == horizontal_split) {
+
+        // parent splitter is of type matching the type of split we want
+        // so we need to insert a new panel.
+
+        // we need to reset the divider positions for the parent splitter
+        // now it has more children
+        int num_dividers = rowCount(parentNode);
+        QList<QVariant> divider_positions;
+        for (int i = 0; i < num_dividers; ++i) {
+            divider_positions.push_back(float(i + 1) / float(num_dividers + 1));
+        }
+        std::ignore = set(parentNode, divider_positions, "child_dividers");
+
+        // do the insertion
+        nlohmann::json j;
+        j["current_tab"] = 0;
+        j["children"]    = nlohmann::json::parse(R"([{"tab_view" : "Playlists"}])");
+
+        insertRowsSync(insertion_row, 1, parentNode);
+        setData(index(insertion_row, 0, parentNode), QVariantMapFromJson(j), Roles::JSONRole);
+
+
+    } else {
+
+        nlohmann::json current_panel_data = indexToFullData(panel_index);
+
+        // parent splitter type does not match the type of split we want
+        // so we need to replace the current panel with a new slitter
+        // of the desired type
+
+        // this is the data of the new splitter - new divider position is
+        // at 0.5
+        nlohmann::json j;
+        j["child_dividers"]   = nlohmann::json::parse(R"([0.5])");
+        j["split_horizontal"] = horizontal_split;
+
+        // this is the new panel
+        nlohmann::json new_child;
+        new_child["current_tab"] = 0;
+        new_child["children"]    = nlohmann::json::parse(R"([{"tab_view" : "Playlists"}])");
+
+        // add the existing panel and new panel to the new splitter
+        j["children"] = nlohmann::json::array();
+        j["children"].push_back(current_panel_data);
+        j["children"].push_back(new_child);
+
+        // wipe out the existing panel with the new splitter and its children
+        setData(panel_index, QVariantMapFromJson(j), Roles::JSONRole);
+    }
+}
+
+void ReskinPanelsModel::duplicate_layout(QModelIndex layout_index) {
+
+    nlohmann::json layout_data = indexToFullData(layout_index);
+    int rc                     = rowCount(layout_index.parent());
+    insertRowsSync(rc, 1, layout_index.parent());
+    QModelIndex idx = index(rc, 0, layout_index.parent());
+    setData(idx, QVariantMapFromJson(layout_data), Roles::JSONRole);
+}
+
+
+MediaListColumnsModel::MediaListColumnsModel(QObject *parent)
+    : UIModelData(
+          parent,
+          std::string("media list columns model"),
+          std::string("/ui/qml/media_list_columns_config")) {}
 
 MenuModelItem::MenuModelItem(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
@@ -410,9 +601,11 @@ void MenuModelItem::init(caf::actor_system &system) {
                 const std::string path) { emit activated(); },
             [=](utility::event_atom,
                 xstudio::ui::model_data::set_node_data_atom,
+                const std::string model_name,
                 const std::string path,
                 const std::string role,
-                const utility::JsonStore &data) {
+                const utility::JsonStore &data,
+                const utility::Uuid &menu_item_uuid) {
                 dont_update_model_ = true;
                 if (role == "is_checked" && data.is_boolean()) {
                     setIsChecked(data.get<bool>());

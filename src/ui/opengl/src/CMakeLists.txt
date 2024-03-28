@@ -5,6 +5,7 @@ SET(LINK_DEPS
 	GLEW::GLEW
     pthread
     xstudio::ui::base
+    xstudio::ui::canvas
     xstudio::utility
     xstudio::media_reader
 	OpenEXR::OpenEXR

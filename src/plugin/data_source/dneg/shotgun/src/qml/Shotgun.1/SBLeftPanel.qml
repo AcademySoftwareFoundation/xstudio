@@ -36,6 +36,7 @@ Rectangle{ id: leftDiv
     property var boolModel: null
     property var resultLimitModel: null
     property var reviewLocationModel: null
+    property var referenceTagModel: null
     property var orderByModel: null
     property var primaryLocationModel: null
     property var lookbackModel: null
@@ -126,6 +127,8 @@ Rectangle{ id: leftDiv
 "Preferred Audio",
 "Preferred Visual",
 "Production Status",
+"Reference Tag",
+"Reference Tags",
 "Result Limit",
 "Sent To Client",
 "Sent To Dailies",
@@ -157,6 +160,8 @@ Rectangle{ id: leftDiv
 "Preferred Audio",
 "Preferred Visual",
 "Production Status",
+"Reference Tag",
+"Reference Tags",
 "Result Limit",
 "Sent To Client",
 "Sent To Dailies",
@@ -206,6 +211,8 @@ Rectangle{ id: leftDiv
 "Preferred Audio",
 "Preferred Visual",
 "Production Status",
+"Reference Tag",
+"Reference Tags",
 "Result Limit",
 "Sent To Client",
 "Sent To Dailies",
@@ -225,7 +232,9 @@ Rectangle{ id: leftDiv
 "Filter",
 "Flag Media",
 "Lookback",
+"Newer Version",
 "Note Type",
+"Older Version",
 "Order By",
 "Pipeline Step",
 "Playlist",
@@ -603,7 +612,7 @@ Rectangle{ id: leftDiv
                     if(live == undefined)
                         live = false
 
-                    if(term != term_type && !live) {
+                    if(term != term_type ) { //&& !live
                         searchTreePresetsViewModel.set(0, term_type, "termRole", index);
                         searchTreePresetsViewModel.set(0, term_value, "argRole", index);
                         if(i == row) {
@@ -1191,12 +1200,19 @@ Rectangle{ id: leftDiv
 
                 Connections {
                     target: searchTreePresetsViewModel
-                    function onActiveSeqShotChanged() {
+                    function onActiveShotChanged() {
                         if(treeMode) {
-                            let index = sequenceTreeModel.search_recursive(searchTreePresetsViewModel.activeSeqShot, "nameRole")
-                            treeTab.selectItem(index)
+                            let index = sequenceTreeModel.search_recursive(searchTreePresetsViewModel.activeShot, "nameRole")
+                            if(index.valid)
+                                treeTab.selectItem(index)
                         }
                     }
+                    // function onActiveSeqChanged() {
+                    //     if(treeMode) {
+                    //         let index = sequenceTreeModel.search_recursive(searchTreePresetsViewModel.activeSeq, "nameRole")
+                    //         treeTab.selectItem(index)
+                    //     }
+                    // }
                 }
 
                 LeftTreeView{id: treeTab

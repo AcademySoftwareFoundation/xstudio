@@ -11,162 +11,53 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/helpers.hpp"
 
-// include for system (soundcard) audio output
-#ifdef __linux__
-#include "linux_audio_output_device.hpp"
-#elif __APPLE__
-// TO DO
-#elif _WIN32
-// TO DO
-#endif
-
-
 using namespace caf;
 using namespace xstudio::audio;
 using namespace xstudio::utility;
 using namespace xstudio;
 
-AudioOutputDeviceActor::AudioOutputDeviceActor(
-    caf::actor_config &cfg, caf::actor_addr audio_playback_manager, const std::string name)
-    : caf::event_based_actor(cfg),
-      name_(name),
-      playing_(false),
-      audio_playback_manager_(std::move(audio_playback_manager)),
-      waiting_for_samples_(false) {
+GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
+    : caf::event_based_actor(cfg), module::Module("GlobalAudioOutputActor")
+{
 
-    spdlog::debug("Created {} {}", NAME, name_);
-    print_on_exit(this, "AudioOutputDeviceActor");
+    audio_repitch_ = add_boolean_attribute("Audio Repitch", "Audio Repitch", false);
+    audio_repitch_->set_role_data(
+        module::Attribute::PreferencePath, "/core/audio/audio_repitch");
 
-    try {
-        auto prefs = global_store::GlobalStoreHelper(system());
-        JsonStore j;
-        join_broadcast(this, prefs.get_group(j));
-        open_output_device(j);
-    } catch (...) {
-        open_output_device(JsonStore());
-    }
+    audio_scrubbing_ = add_boolean_attribute("Audio Scrubbing", "Audio Scrubbing", false);
+    audio_scrubbing_->set_role_data(
+        module::Attribute::PreferencePath, "/core/audio/audio_scrubbing");
 
-    behavior_.assign(
+    volume_ = add_float_attribute("volume", "volume", 100.0f, 0.0f, 100.0f, 0.05f);
+    volume_->set_role_data(module::Attribute::PreferencePath, "/core/audio/volume");
 
-        [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+    // by setting static UUIDs on these module we only create them once in the UI
+    volume_->set_role_data(module::Attribute::Groups, nlohmann::json{"audio_output"});
 
-        [=](json_store::update_atom,
-            const JsonStore & /*change*/,
-            const std::string & /*path*/,
-            const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
-        },
-        [=](json_store::update_atom, const JsonStore & /*j*/) {
-            // TODO: restart soundcard connection with new prefs
-        },
-        [=](playhead::play_atom, const bool is_playing) {
-            if (!is_playing) {
-                // this stops the loop pushing samples to the soundcard
-                playing_ = false;
-                output_device_->disconnect_from_soundcard();
-            } else if (is_playing && !playing_) {
-                // start loop
-                playing_ = true;
-                output_device_->connect_to_soundcard();
-                anon_send(actor_cast<caf::actor>(this), push_samples_atom_v);
-            }
-        },
-        [=](push_samples_atom) {
-            // The 'waiting_for_samples_' flag allows us to ensure that we
-            // don't have multiple requests for samples to play in flight -
-            // since each response to a request then sends another
-            // 'push_samples_atom' atom (to keep playback running), having multiple
-            // requests in flight completely messes up the audio playback as
-            // essentially we have two loops running within the single actor.
-            if (waiting_for_samples_ || !playing_)
-                return;
-            waiting_for_samples_ = true;
+    muted_ = add_boolean_attribute("muted", "muted", false);
+    muted_->set_role_data(module::Attribute::Groups, nlohmann::json{"audio_output"});
+    muted_->set_role_data(module::Attribute::PreferencePath, "/core/audio/muted");
 
-            const long num_samps_soundcard_wants = (long)output_device_->desired_samples();
-            auto tt                              = utility::clock::now();
-            request(
-                actor_cast<caf::actor>(audio_playback_manager_),
-                infinite,
-                get_samples_for_soundcard_atom_v,
-                num_samps_soundcard_wants,
-                (long)output_device_->latency_microseconds(),
-                (int)output_device_->num_channels(),
-                (int)output_device_->sample_rate())
-                .then(
-                    [=](const std::vector<int16_t> &samples_to_play) mutable {
-                        output_device_->push_samples(
-                            (const void *)samples_to_play.data(), num_samps_soundcard_wants);
-
-                        waiting_for_samples_ = false;
-
-                        if (playing_) {
-                            anon_send(actor_cast<caf::actor>(this), push_samples_atom_v);
-                        }
-                    },
-                    [=](caf::error &err) mutable { waiting_for_samples_ = false; });
-        }
-
-    );
-}
-
-void AudioOutputDeviceActor::open_output_device(const utility::JsonStore &prefs) {
-
-    try {
-#ifdef __linux__
-        output_device_ = std::make_unique<LinuxAudioOutputDevice>(prefs);
-#elif __APPLE__
-        // TO DO
-#elif _WIN32
-        // TO DO
-#endif
-    } catch (std::exception &e) {
-        spdlog::debug(
-            "{} Failed to connect to an audio device: {}", __PRETTY_FUNCTION__, e.what());
-    }
-}
-
-
-AudioOutputControlActor::AudioOutputControlActor(caf::actor_config &cfg, const std::string name)
-    : caf::event_based_actor(cfg), name_(name) {
-    init();
-}
-
-void AudioOutputControlActor::init() {
-
-    spdlog::debug("Created {} {}", NAME, name_);
-    print_on_exit(this, "AudioOutputControlActor");
+    spdlog::debug("Created GlobalAudioOutputActor");
+    print_on_exit(this, "GlobalAudioOutputActor");
 
     system().registry().put(audio_output_registry, this);
 
-    audio_output_device_ = spawn<AudioOutputDeviceActor>(actor_cast<caf::actor_addr>(this));
-    link_to(audio_output_device_);
+    event_group_ = spawn<broadcast::BroadcastActor>(this);
+    link_to(event_group_);
+
     set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
 
     behavior_.assign(
+
+        [=](utility::get_event_group_atom) -> caf::actor { 
+            return event_group_; 
+        },
+
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        [=](get_samples_for_soundcard_atom,
-            const long num_samps_to_push,
-            const long microseconds_delay,
-            const int num_channels,
-            const int sample_rate) -> result<std::vector<int16_t>> {
-            std::vector<int16_t> samples;
-            try {
-
-                prepare_samples_for_soundcard(
-                    samples, num_samps_to_push, microseconds_delay, num_channels, sample_rate);
-
-            } catch (std::exception &e) {
-
-                return caf::make_error(xstudio_error::error, e.what());
-            }
-            return samples;
-        },
         [=](playhead::play_atom, const bool is_playing) {
-            if (!is_playing) {
-                clear_queued_samples();
-            }
-            anon_send(audio_output_device_, playhead::play_atom_v, is_playing);
+            send(event_group_, utility::event_atom_v, playhead::play_atom_v, is_playing);
         },
         [=](playhead::sound_audio_atom,
             const std::vector<media_reader::AudioBufPtr> &audio_buffers,
@@ -174,23 +65,38 @@ void AudioOutputControlActor::init() {
             const bool playing,
             const bool forwards,
             const float velocity) {
-            if (!playing) {
-                clear_queued_samples();
-            } else {
-                if (sub_playhead != sub_playhead_uuid_) {
-                    // sound is coming from a different source to
-                    // previous time
-                    clear_queued_samples();
-                    sub_playhead_uuid_ = sub_playhead;
-                }
-                queue_samples_for_playing(audio_buffers, playing, forwards, velocity);
-            }
+
+            send(event_group_,
+                utility::event_atom_v,
+                playhead::sound_audio_atom_v,
+                audio_buffers,
+                sub_playhead,
+                playing,
+                forwards,
+                velocity);
+
         }
 
     );
 
     connect_to_ui();
+
+    
+
 }
 
+void GlobalAudioOutputActor::on_exit() { system().registry().erase(audio_output_registry); }
 
-void AudioOutputControlActor::on_exit() { system().registry().erase(audio_output_registry); }
+void GlobalAudioOutputActor::attribute_changed(const utility::Uuid &attr_uuid, const int role) {
+
+    // update and audio output clients with volume, mute etc.
+    send(event_group_,
+        utility::event_atom_v,
+        module::change_attribute_event_atom_v,
+        volume_->value(),
+        muted_->value(),
+        audio_repitch_->value(),
+        audio_scrubbing_->value());
+
+    Module::attribute_changed(attr_uuid, role);
+}

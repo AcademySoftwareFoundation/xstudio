@@ -52,6 +52,25 @@ namespace ui {
                 const utility::JsonStore &data,
                 const std::string &role = std::string());
 
+            void set_data(
+                const std::string &model_name,
+                const utility::Uuid &item_uuid,
+                const std::string &role,
+                const utility::JsonStore &data,
+                caf::actor setter);
+
+            void insert_attribute_data_into_model(
+                const std::string &model_name,
+                const utility::Uuid &attribute_uuid,
+                const utility::JsonStore &attribute_data,
+                const std::string &sort_role,
+                caf::actor client);
+
+            void remove_attribute_data_from_model(
+                const std::string &model_name,
+                const utility::Uuid &attribute_uuid,
+                caf::actor client);
+
             void register_model(
                 const std::string &model_name,
                 const utility::JsonStore &model_data,
@@ -73,9 +92,12 @@ namespace ui {
                 const std::string &model_name,
                 const std::string &path,
                 const int row,
-                int count);
+                int count,
+                caf::actor requester = caf::actor());
 
-            void push_to_prefs(const std::string &model_name);
+            void push_to_prefs(const std::string &model_name, const bool actually_push = false);
+
+            void remove_attribute_from_model(const std::string &model_name, const utility::Uuid &attr_uuid);
 
             void node_activated(const std::string &model_name, const std::string &path);
 
@@ -86,6 +108,8 @@ namespace ui {
                 caf::actor watcher);
 
             void remove_node(const std::string &model_name, const utility::Uuid &model_item_id);
+
+            void broadcast_whole_model_data(const std::string &model_name);
 
             struct ModelData {
                 ModelData()                   = default;
@@ -111,6 +135,7 @@ namespace ui {
             typedef std::shared_ptr<ModelData> ModelDataPtr;
 
             std::map<std::string, ModelDataPtr> models_;
+            std::set<std::string> models_to_be_fully_broadcasted_;
 
             caf::behavior behavior_;
         };

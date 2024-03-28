@@ -33,16 +33,13 @@ class GradingDemoColourOp : public ColourOpPlugin {
 
     float ordering() const override { return -100.0f; }
 
-    ColourOperationDataPtr data(
+    ColourOperationDataPtr colour_op_graphics_data(
         utility::UuidActor &media_source,
         const utility::JsonStore &media_source_colour_metadata) override {
         return op_data_;
     }
 
-    void update_shader_uniforms(
-        utility::JsonStore &uniforms_dict,
-        const utility::Uuid &source_uuid,
-        const utility::JsonStore &media_source_colour_metadata) override;
+    utility::JsonStore update_shader_uniforms(const media_reader::ImageBufPtr &image) override;
 
     void attribute_changed(
         const utility::Uuid &attribute_uuid, const int /*role*/
@@ -104,7 +101,7 @@ GradingDemoColourOp::GradingDemoColourOp(
     blue_->expose_in_ui_attrs_group("grading_demo_controls");
     blue_->set_role_data(module::Attribute::Colour, utility::ColourTriplet(0.0f, 0.0f, 1.0f));
 
-    ColourOperationData *d = new ColourOperationData("Grade Demo OP");
+    ColourOperationData *d = new ColourOperationData(PLUGIN_UUID, "Grade Demo OP");
     d->shader_.reset(new ui::opengl::OpenGLShader(PLUGIN_UUID, glsl_shader_code));
     op_data_.reset(d);
 
@@ -122,14 +119,21 @@ void GradingDemoColourOp::update_shader_uniforms(
     utility::JsonStore &uniforms_dict,
     const utility::Uuid & /*source_uuid*/,
     const utility::JsonStore & /*media_source_colour_metadata*/
-) {
+) {}
+
+utility::JsonStore
+GradingDemoColourOp::update_shader_uniforms(const media_reader::ImageBufPtr &image)
+
     // for this simple plugin, the effect is global so we don't depend on
     // the media
-    if (tool_is_active_->value())
-        uniforms_dict["rgb_factor"] =
-            Imath::V3f(red_->value(), green_->value(), blue_->value());
-    else
-        uniforms_dict["rgb_factor"] = Imath::V3f(1.0f, 1.0f, 1.0f);
+    utility::JsonStore uniforms_dict;
+// for this simple plugin, the effect is global so we don't depend on
+// the media
+if (tool_is_active_->value())
+    uniforms_dict["rgb_factor"] = Imath::V3f(red_->value(), green_->value(), blue_->value());
+else
+    uniforms_dict["rgb_factor"] = Imath::V3f(1.0f, 1.0f, 1.0f);
+return uniforms_dict;
 }
 
 void GradingDemoColourOp::attribute_changed(

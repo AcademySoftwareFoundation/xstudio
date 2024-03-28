@@ -24,8 +24,8 @@ macro(default_compile_options name)
 		PRIVATE -D__linux__
 		PRIVATE XSTUDIO_GLOBAL_VERSION=\"${XSTUDIO_GLOBAL_VERSION}\"
 		PRIVATE XSTUDIO_GLOBAL_NAME=\"${XSTUDIO_GLOBAL_NAME}\"
-		PRIVATE PROJECT_VERSION=\"${PROJECT_VERSION}\"
-		PRIVATE BINARY_DIR=\"${CMAKE_BINARY_DIR}/bin\"
+		PUBLIC PROJECT_VERSION=\"${PROJECT_VERSION}\"
+		PUBLIC BINARY_DIR=\"${CMAKE_BINARY_DIR}/bin\"
 		PRIVATE TEST_RESOURCE=\"${TEST_RESOURCE}\"
 		PRIVATE ROOT_DIR=\"${ROOT_DIR}\"
 		PRIVATE $<$<CONFIG:Debug>:XSTUDIO_DEBUG=1>
@@ -57,9 +57,9 @@ if (BUILD_TESTING)
 			PUBLIC $<$<NOT:$<BOOL:${BUILD_TESTING}>>:test_private=private>
 			PRIVATE XSTUDIO_GLOBAL_VERSION=\"${XSTUDIO_GLOBAL_VERSION}\"
 			PRIVATE XSTUDIO_GLOBAL_NAME=\"${XSTUDIO_GLOBAL_NAME}\"
-			PRIVATE PROJECT_VERSION=\"${PROJECT_VERSION}\"
+			PUBLIC PROJECT_VERSION=\"${PROJECT_VERSION}\"
 			PRIVATE SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
-			PRIVATE BINARY_DIR=\"${CMAKE_BINARY_DIR}/bin\"
+			PUBLIC BINARY_DIR=\"${CMAKE_BINARY_DIR}/bin\"
 			PRIVATE TEST_RESOURCE=\"${TEST_RESOURCE}\"
 			PRIVATE ROOT_DIR=\"${ROOT_DIR}\"
 			PRIVATE $<$<CONFIG:Debug>:XSTUDIO_DEBUG=1>
@@ -92,8 +92,13 @@ endmacro()
 
 macro(default_options name)
 	default_options_local(${name})
-	install(TARGETS ${name}
+	install(TARGETS ${name} EXPORT xstudio
         LIBRARY DESTINATION share/xstudio/lib)
+	target_include_directories(${name} INTERFACE
+  		$<BUILD_INTERFACE:${ROOT_DIR}/include>
+  		$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
+  		$<INSTALL_INTERFACE:include>
+		$<INSTALL_INTERFACE:extern/include>)
 endmacro()
 
 macro(default_options_static name)
@@ -191,7 +196,7 @@ macro(default_options_qt name)
 	    PROPERTIES
 	    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/lib"
 	)
-	install(TARGETS ${name}
+	install(TARGETS ${name} EXPORT xstudio
         LIBRARY DESTINATION share/xstudio/lib)
 
 endmacro()

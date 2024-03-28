@@ -232,8 +232,9 @@ class DNegMediaHook : public MediaHook {
         result["colour_pipeline"]         = colour_p;
         result["colour_pipeline"]["path"] = path;
 
+
         static const std::regex show_shot_regex(
-            R"([\/]+(hosts\/*fs*\/user_data[1-9]{0,1}|jobs)\/([^\/]+)\/([^\/]+))");
+            R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|jobs)\/([^\/]+)\/([^\/]+))");
         static const std::regex show_shot_alternative_regex(R"(.+-([^-]+)-([^-]+).dneg.webm$)");
 
         std::smatch match;
@@ -258,7 +259,22 @@ class DNegMediaHook : public MediaHook {
             }
         }
 
+        if (metadata.contains(nlohmann::json::json_pointer("/metadata/timeline/dneg"))) {
+            //     "dnuuid": "b32f9c30-9c18-4e93-ac11-98ae1c685273",
+            //     "job": "NECRUS",
+            //     "shot": "00TS_0020"
+            const auto &dneg =
+                metadata.at(nlohmann::json::json_pointer("/metadata/timeline/dneg"));
+            if (dneg.count("job"))
+                result["metadata"]["external"]["DNeg"]["show"] = dneg.at("job");
+            if (dneg.count("shot"))
+                result["metadata"]["external"]["DNeg"]["shot"] = dneg.at("shot");
+            if (dneg.count("dnuuid"))
+                result["metadata"]["external"]["DNeg"]["Ivy"]["dnuuid"] = dneg.at("dnuuid");
+        }
+
         // spdlog::warn("MediaHook Metadata Result {}", result["colour_pipeline"].dump(2));
+        // spdlog::warn("MediaHook Metadata Result {}", result.dump(2));
 
         return result;
     }
@@ -274,7 +290,7 @@ class DNegMediaHook : public MediaHook {
         std::smatch match;
 
         static const std::regex show_shot_regex(
-            R"(\/(\/hosts\/*fs*\/user_data|jobs)\/([^\/]+)\/([^\/]+))");
+            R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|jobs)\/([^\/]+)\/([^\/]+))");
 
         static const std::regex show_shot_alternative_regex(
             R"(.+-([^-]+)-([^-]+)\.dneg\.webm$)");
@@ -304,7 +320,24 @@ class DNegMediaHook : public MediaHook {
 
             bool is_cms1_config = pipeline_version == "2";
 
-            // Input colour space detection
+            // Detect override to active displays and views
+            const std::string active_displays =
+                get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_DISPLAYS", "");
+            if (!active_displays.empty()) {
+                r["active_displays"] = active_displays;
+            }
+
+            std::string active_views =
+                get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_VIEWS", "");
+            if (!active_views.empty()) {
+                r["active_views"] = active_views;
+            }
+            const auto views = utility::split(active_views, ':');
+            const bool has_untonemapped_view = std::find(
+                views.begin(), views.end(), "Un-tone-mapped") != views.end();
+
+
+            // Input media category detection
             static const std::regex review_regex(".+\\.review[0-9]\\.mov$");
             static const std::regex internal_regex(".+\\.dneg.mov$");
 
@@ -314,23 +347,33 @@ class DNegMediaHook : public MediaHook {
             static const std::set<std::string> stills_ext{
                 ".png", ".tiff", ".tif", ".jpeg", ".jpg", ".gif"};
 
-            // Newer configs use a colour space instead of inverting the view for
-            // better integration in the UI source colorspace menu.
-            auto fill_baked_space =
-                [is_cms1_config](utility::JsonStore &r, const std::string &display) {
-                    if (is_cms1_config) {
-                        r["input_colorspace"] = std::string("DNEG_") + display;
-                    } else {
-                        r["input_display"] = display;
-                        r["input_view"]    = "Film";
-                    }
-                };
+            std::string input_category = "unknown";
 
-            std::string media_colorspace = "";
-            std::string media_display    = "";
-            std::string media_view       = "";
+            if (std::regex_match(path, review_regex)) {
+                input_category = "review_proxy";
+            } else if (std::regex_match(path, internal_regex)) {
+                input_category = "internal_movie";
+            } else if (path.find("/edit_ref/") != std::string::npos) {
+                input_category = "edit_ref";
+            } else if (linear_ext.find(ext) != linear_ext.end()) {
+                input_category = "linear_media";
+            } else if (log_ext.find(ext) != log_ext.end()) {
+                input_category = "log_media";
+            } else if (stills_ext.find(ext) != stills_ext.end()) {
+                input_category = "still_media";
+            } else {
+                input_category = "movie_media";
+            }
+
+            r["input_category"] = input_category;
+
+            // Input colour space detection
 
             // Extract OCIO metadata from internal and review proxy movies.
+            std::string media_colorspace;
+            std::string media_display;
+            std::string media_view;
+
             if (std::regex_match(path, review_regex) ||
                 std::regex_match(path, internal_regex)) {
                 try {
@@ -344,71 +387,81 @@ class DNegMediaHook : public MediaHook {
                 }
             }
 
+            // Note that we prefer using input_colorspace when possible,
+            // this maps better to the UI source colour space menu.
+
+            // Except for specific cases, we convert the source to scene_linear
+            r["working_space"] = "scene_linear";
+
+            // If we have OCIO metadata, use it to derive the input space
             if (!media_colorspace.empty()) {
                 r["input_colorspace"] = media_colorspace;
             } else if (!media_display.empty() && !media_view.empty()) {
                 r["input_colorspace"] = media_view + "_" + media_display;
-            } else if (std::regex_match(path, review_regex)) {
+            } else if (input_category == "review_proxy") {
                 r["input_colorspace"] = "dneg_proxy_log:log";
-                /*
-                http://jira/browse/CLR-2006 - This is a fix for LBP where all
-                review proxy movies are baked with
-                log_ARRIWideGamut_ARRILogC3 colorspace. Once the show is
-                switched to CMS1 config the input colorspace will be wrong
-                and to avoid proxy re processing, we added this check to
-                change the input cs to log_ARRIWideGamut_ARRILogC3 which is
-                the old log space that was used on LBP to make review proxy.
-                */
-                if (context["SHOW"] == "LBP" && is_cms1_config) {
+                // LBP review proxy before CMS1 migration (no metadata)
+                // http://jira/browse/CLR-2006
+                if (context["SHOW"] == "LBP") {
                     r["input_colorspace"] = "log_ARRIWideGamut_ARRILogC3";
                 }
-            } else if (std::regex_match(path, internal_regex)) {
-                /*
-                http://jira/browse/CLR-2006 - This is a fix for LBP where  all
-                internal movies are baked with Film_Rec709 colorspace. Once the show is
-                switched to CMS1 config the input colorspace will be wrong. To avoid
-                movie re processing, we added this check to change the input cs to
-                Client_Rec709 which is the old Film_Rec709 cs.
-                */
-                if (context["SHOW"] == "LBP" && is_cms1_config) {
+            } else if (input_category == "internal_movie") {
+                // LBP internal movie before CMS1 migration (no metadata)
+                // http://jira/browse/CLR-2006
+                if (context["SHOW"] == "LBP") {
                     r["input_colorspace"] = "Client_Rec709";
+                } else if (is_cms1_config) {
+                    r["input_colorspace"] = "DNEG_Rec709";
                 } else {
-                    fill_baked_space(r, "Rec709");
+                    r["input_display"] = "Rec709";
+                    r["input_view"]    = "Film";
                 }
-            } else if (linear_ext.find(ext) != linear_ext.end()) {
-                r["input_colorspace"] = "linear";
-            } else if (log_ext.find(ext) != log_ext.end()) {
-                r["input_colorspace"] = "log";
-            } else if (stills_ext.find(ext) != stills_ext.end()) {
-                fill_baked_space(r, "sRGB");
-            } else {
-                fill_baked_space(r, "Rec709");
+            } else if (input_category == "edit_ref") {
+                if (is_cms1_config or has_untonemapped_view) {
+                    r["input_colorspace"] = "disp_Rec709-G24";
+                    r["working_space"]    = "display_linear";
+                    r["automatic_view"]   = "Un-tone-mapped";
+                } else {
+                    r["input_display"]  = "Rec709";
+                    r["input_view"]     = "Film";
+                    r["automatic_view"] = "Film";
+                }
+            } else if (input_category == "linear_media") {
+                r["input_colorspace"] = "scene_linear:linear";
+            } else if (input_category == "log_media") {
+                r["input_colorspace"] = "compositing_log:log";
+            } else if (input_category == "still_media") {
+                if (is_cms1_config) {
+                    r["input_colorspace"] = "DNEG_sRGB";
+                    r["automatic_view"]   = "DNEG";
+                } else {
+                    r["input_display"]  = "sRGB";
+                    r["input_view"]     = "Film";
+                    r["automatic_view"] = "Film";
+                }
+            } else if (input_category == "movie_media") {
+                if (is_cms1_config or has_untonemapped_view) {
+                    r["input_colorspace"] = "disp_Rec709-G24";
+                    r["working_space"]    = "display_linear";
+                    r["automatic_view"]   = "Un-tone-mapped";
+                } else {
+                    r["input_display"]  = "Rec709";
+                    r["input_view"]     = "Film";
+                    r["automatic_view"] = "Film";
+                }
             }
 
-            // Detect automatic view assignment
-            if (path.find("/edit_ref/") != std::string::npos) {
-                r["automatic_view"] = is_cms1_config ? "Client" : "Film";
-            } else if (path.find("/ASSET/") != std::string::npos) {
-                r["automatic_view"] = "DNEG";
-            } else if (
-                path.find("/out/") != std::string::npos ||
-                path.find("/ELEMENT/") != std::string::npos) {
-                r["automatic_view"] = is_cms1_config ? "Client graded" : "Film primary";
-            } else {
-                r["automatic_view"] = is_cms1_config ? "Client" : "Film";
-            }
-
-            // Detect override to active displays and views
-            const std::string active_displays =
-                get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_DISPLAYS", "");
-            if (!active_displays.empty()) {
-                r["active_displays"] = active_displays;
-            }
-
-            const std::string active_views =
-                get_showvar_or(context["SHOW"], "DN_REVIEW_XSTUDIO_OCIO_ACTIVE_VIEWS", "");
-            if (!active_views.empty()) {
-                r["active_views"] = active_views;
+            // Detect automatic view assignment in case not found yet
+            if (!r.count("automatic_view")) {
+                if (path.find("/ASSET/") != std::string::npos) {
+                    r["automatic_view"] = "DNEG";
+                } else if (
+                    path.find("/out/") != std::string::npos ||
+                    path.find("/ELEMENT/") != std::string::npos) {
+                    r["automatic_view"] = is_cms1_config ? "Client graded" : "Film primary";
+                } else {
+                    r["automatic_view"] = is_cms1_config ? "Client" : "Film";
+                }
             }
 
             // Detect grading CDLs slots to upgrade as GradingPrimary
@@ -422,6 +475,7 @@ class DNegMediaHook : public MediaHook {
 
         } else {
             r["ocio_config"] = "__raw__";
+            r["working_space"] = "raw";
         }
 
         return r;

@@ -21,6 +21,7 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::module
 		xstudio::plugin_manager
 		xstudio::utility
+		xstudio::playhead
 		OpenEXR::OpenEXR
 		Imath::Imath
 		caf::core

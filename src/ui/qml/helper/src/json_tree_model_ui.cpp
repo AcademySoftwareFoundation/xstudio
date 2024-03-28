@@ -47,8 +47,8 @@ nlohmann::json JSONTreeModel::modelData() const {
     return tree_to_json(data_, children_);
 }
 
-nlohmann::json JSONTreeModel::indexToFullData(const QModelIndex &index) const {
-    return tree_to_json(*indexToTree(index), children_);
+nlohmann::json JSONTreeModel::indexToFullData(const QModelIndex &index, const int depth) const {
+    return tree_to_json(*indexToTree(index), children_, depth);
 }
 
 nlohmann::json &JSONTreeModel::indexToData(const QModelIndex &index) {
@@ -267,6 +267,22 @@ int JSONTreeModel::countExpandedChildren(
     return count;
 }
 
+bool JSONTreeModel::canFetchMore(const QModelIndex &parent) const {
+    auto result = false;
+
+    try {
+        if (parent.isValid()) {
+            const auto &jsn = indexToData(parent);
+            if (jsn.count(children_) and jsn.at(children_).is_null())
+                result = true;
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
+}
+
 bool JSONTreeModel::hasChildren(const QModelIndex &parent) const {
     auto result = false;
 
@@ -443,11 +459,26 @@ bool JSONTreeModel::setData(const QModelIndex &index, const QVariant &value, int
             auto new_node = json_to_tree(jval, children_);
             auto old_node = indexToTree(index);
             // remove old children
-            old_node->clear();
+
+            if (old_node->size()) {
+                emit beginRemoveRows(index, 0, old_node->size() - 1);
+                old_node->clear();
+                emit endRemoveRows();
+            }
+
             // replace data..
             old_node->data() = new_node.data();
             // copy children
-            old_node->splice(old_node->end(), new_node.base());
+            // this doesn't work..
+            // need to invalidate/add surplus rows.
+            if (new_node.size()) {
+                emit beginInsertRows(index, 0, new_node.size() - 1);
+
+                old_node->splice(old_node->end(), new_node.base());
+
+                emit endInsertRows();
+            }
+
 
             result = true;
             roles.clear();
@@ -596,7 +627,12 @@ bool JSONTreeModel::moveRows(
             //     dest
             // );
         } else {
-            spdlog::warn("{} invalid move", __PRETTY_FUNCTION__);
+            spdlog::warn(
+                "{} invalid move: f {} l {} d {}",
+                __PRETTY_FUNCTION__,
+                moveFirst,
+                moveLast,
+                dest);
         }
 
 
@@ -752,8 +788,11 @@ bool JSONTreeFilterModel::filterAcceptsRow(
             if (not v.isNull()) {
                 try {
                     auto qv = sourceModel()->data(index, k);
-                    if (v != qv)
-                        return false;
+                    if (v.userType() == QMetaType::Bool)
+                        if (v.toBool() != qv.toBool())
+                            return false;
+                        else if (v != qv)
+                            return false;
                 } catch (...) {
                 }
             }

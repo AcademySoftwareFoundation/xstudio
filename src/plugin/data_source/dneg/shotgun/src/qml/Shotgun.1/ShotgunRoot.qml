@@ -72,8 +72,52 @@ Item {
         // parent: playlist_panel
         x: Math.max(0,(playlist_panel.width - width) / 2)
         y: (playlist_panel.height - height) / 2
-        title: "Shotgun datasource error"
+        title: "ShotGrid datasource error"
     }
+
+    XsStringRequestDialog {
+        id: create_ref_tag_dialog
+        okay_text: "Create Reference Tag"
+        text: "Tag"
+        onOkayed: {
+            Future.promise(
+                data_source.createTagFuture(text.toUpperCase()+".REFERENCE")
+            ).then(function(json_string) {
+                // console.log(json_string)
+            })
+        }
+    }
+
+    XsStringRequestDialog {
+        id: rename_ref_tag_dialog
+        okay_text: "Rename Reference Tag"
+        text: "Tag"
+        property int tag_id: 0
+        onOkayed: {
+            Future.promise(
+                data_source.renameTagFuture(tag_id, text.toUpperCase()+".REFERENCE")
+            ).then(function(json_string) {
+                // console.log(json_string)
+            })
+        }
+    }
+
+    ShotgunTagDialog {
+        id: tag_dialog
+        data_source: control.data_source
+        tagMethod: control.tagSelectedMedia
+        untagMethod: control.untagSelectedMedia
+        newTagMethod: create_ref_tag_dialog.open
+
+        renameTagMethod: control.renameTag
+        removeTagMethod: control.removeTag
+
+        onVisibleChanged: {
+            if(!data_source.connected && visible)
+                data_source.connected = true
+        }
+    }
+
 
     Timer {
         id: timer
@@ -95,6 +139,15 @@ Item {
                     addDecorator(app_window.bookmarkModel.get(ind, "uuidRole"))
                 }
             }
+        }
+    }
+
+    XsHotkey {
+        sequence: "Shift+T"
+        name: "Show Reference Tag"
+        description: "Shows the tag browser interface"
+        onActivated: {
+            tag_dialog.toggle()
         }
     }
 
@@ -186,7 +239,7 @@ Item {
         visible: false
         id: revealInShotgunMenu
         onTriggered: revealInShotgun()
-        mytext : "Reveal In Shotgun..."
+        mytext : "Reveal In ShotGrid..."
     }
 
     XsMenuItem {
@@ -208,6 +261,14 @@ Item {
         id: downloadMissingMovieMenu
         mytext :  "Download SG Previews (missing)"
         onTriggered: shotgun_menu_action("download_missing_movie", app_window.currentSource.index)
+    }
+
+    XsMenuItem {
+        visible: false
+        id: referenceMenu
+        shortcut : "Shift+T"
+        mytext: "Reference Tag (Experimental)"
+        onTriggered: tag_dialog.toggle()
     }
 
     XsMenu {
@@ -291,7 +352,7 @@ Item {
         visible: false
         id: revealInShotgunMenuP
         onTriggered: revealInShotgun()
-        mytext : "Reveal In Shotgun..."
+        mytext : "Reveal In ShotGrid..."
     }
 
     XsMenuItem {
@@ -399,6 +460,7 @@ Item {
         interval: 1000
         onTriggered: {
             sessionWidget.sessionMenu.panelMenu.insertItem(5, toggleBrowser)
+            sessionWidget.sessionMenu.panelMenu.insertItem(5, referenceMenu)
 
             let m_index = 12
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, showNoteseMenu)
@@ -411,6 +473,7 @@ Item {
 
             sessionWidget.sessionMenu.mediaMenu.insertMenu(m_index, substituteMenu)
             sessionWidget.sessionMenu.mediaMenu.insertMenu(m_index, compareMenu)
+
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, downloadMissingMovieMenu)
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, menuSep)
 
@@ -461,11 +524,14 @@ Item {
 
             revealInShotgunMenu.visible = true
             revealInShotgunMenuP.visible = true
+
+            referenceMenu.visible = true
         }
     }
 
     Component.onDestruction: {
         sessionWidget.sessionMenu.panelMenu.removeItem(toggleBrowser)
+        sessionWidget.sessionMenu.panelMenu.removeItem(referenceMenu)
 
         sessionWidget.sessionMenu.mediaMenu.removeItem(showNoteseMenu)
         sessionWidget.sessionMenu.mediaMenu.removeItem(allVersionsMenu)
@@ -632,6 +698,7 @@ Item {
         reviewLocationModel: data_source.connected ? data_source.termModels.reviewLocationModel : null
         siteModel: data_source.connected ? data_source.termModels.locationModel : null
         shotStatusModel: data_source.connected ? data_source.termModels.shotStatusModel : null
+        referenceTagModel: data_source.connected ? data_source.termModels.referenceTagModel : null
 
         sequenceTreeModelFunc: data_source.connected ? data_source.sequenceTreeModel : null
         sequenceModelFunc: data_source.connected ? data_source.sequenceModel : null
@@ -694,6 +761,21 @@ Item {
         }
     }
 
+    function revealPlaylistInShotgun(index=null) {
+        if(index == null) {
+            if(app_window.sourceSelectionModel.selectedIndexes.length) {
+                index = app_window.sourceSelectionModel.selectedIndexes[0]
+            }
+        }
+
+        Future.promise(
+            index.model.getJSONFuture(index, "/metadata/shotgun/playlist/id")
+        ).then(function(json_string) {
+            json_string = json_string.replace(/^"|"$/g, '')
+            helpers.openURL("http://shotgun/detail/Playlist/"+json_string)
+        })
+    }
+
     function revealInShotgun() {
         if(app_window.mediaSelectionModel.selectedIndexes.length) {
             let mindex = app_window.mediaSelectionModel.selectedIndexes[0]
@@ -737,6 +819,75 @@ Item {
             request_password.show()
         }
 
+    }
+
+    function renameTag(tag_id, oldname) {
+        rename_ref_tag_dialog.tag_id = tag_id
+        rename_ref_tag_dialog.text = oldname
+        rename_ref_tag_dialog.open()
+    }
+
+    function removeTag(tag_id) {
+        Future.promise(
+            data_source.removeTagFuture(tag_id)
+        ).then(function(json_string) {
+        })
+    }
+
+    function tagSelectedMedia(tag_id) {
+        let selected = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+
+        if(selected.length) {
+            for(let i = 0; i<selected.length; ++i ) {
+
+                let mindex = selected[i]
+                Future.promise(
+                    mindex.model.getJSONFuture(mindex, "/metadata/shotgun/version/id")
+                ).then(function(version_id) {
+                    version_id = version_id.replace(/^"|"$/g, '')
+                    // console.log("tagSelectedMedia", version_id, tag_id)
+                    Future.promise(
+                        data_source.tagEntityFuture("Version", version_id,  tag_id)
+                    ).then(function(json_string) {
+                        let new_tag = JSON.parse(json_string)
+                        mindex.model.setJSONFuture(
+                            mindex,
+                            JSON.stringify(new_tag["data"]["relationships"]["tags"]),
+                            "/metadata/shotgun/version/relationships/tags"
+                        )
+                        // console.log(data_source.getEntity("Version", version_id))
+                        // console.log(json_string)
+                    })
+                })
+            }
+        }
+    }
+
+    function untagSelectedMedia(tag_id) {
+        let selected = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+
+        if(selected.length) {
+            for(let i = 0; i<selected.length; ++i ) {
+
+                let mindex = selected[i]
+                Future.promise(
+                    mindex.model.getJSONFuture(mindex, "/metadata/shotgun/version/id")
+                ).then(function(version_id) {
+                    version_id = version_id.replace(/^"|"$/g, '')
+                    // console.log("tagSelectedMedia", version_id, tag_id)
+                    Future.promise(
+                        data_source.untagEntityFuture("Version", version_id,  tag_id)
+                    ).then(function(json_string) {
+                        let new_tag = JSON.parse(json_string)
+                        mindex.model.setJSONFuture(
+                            mindex,
+                            JSON.stringify(new_tag["data"]["relationships"]["tags"]),
+                            "/metadata/shotgun/version/relationships/tags"
+                        )
+                    })
+                })
+            }
+        }
     }
 
     XsTimer {
@@ -840,9 +991,9 @@ Item {
                     load_playlist(data_source, data["data"]["id"], data["data"]["attributes"]["code"])
                 }
             } catch(err) {
-                // ShotgunHelpers.handle_response(string, "Shotgun Create Playlist", false, name, error)
+                // ShotgunHelpers.handle_response(string, "ShotGrid Create Playlist", false, name, error)
             }
-            ShotgunHelpers.handle_response(json_string, "Shotgun Create Playlist", false, name, error)
+            ShotgunHelpers.handle_response(json_string, "ShotGrid Create Playlist", false, name, error)
         })
     }
 
@@ -897,7 +1048,7 @@ Item {
         let ui = `
             import xStudio 1.0
             XsMenu {
-                title: "Shotgun Playlist"
+                title: "ShotGrid Playlist"
                 XsMenuItem {
                     mytext: qsTr("Create...")
                     onTriggered: sessionFunction.object_map["ShotgunRoot"].create_playlist(modelIndex())
@@ -909,26 +1060,31 @@ Item {
                 }
 
                 XsMenuItem {
-                    mytext: qsTr("Push Contents To Shotgun...")
+                    mytext: qsTr("Push Contents To ShotGrid...")
                     onTriggered: sessionFunction.object_map["ShotgunRoot"].update_playlist(modelIndex())
+                }
+
+                XsMenuItem {
+                    mytext: qsTr("Reveal In ShotGrid...")
+                    onTriggered: sessionFunction.object_map["ShotgunRoot"].revealPlaylistInShotgun(modelIndex())
                 }
             }
         `
-        app_window.sessionModel.addTag(uuid, "Menu", ui, uuid.toString()+"ShotgunMenu");
+        app_window.sessionModel.addTag(uuid, "Menu", ui, uuid.toString()+"ShotGridMenu");
     }
 
     function addMenusPartial(uuid) {
         let ui = `
             import xStudio 1.0
             XsMenu {
-                title: "Shotgun Playlist"
+                title: "ShotGrid Playlist"
                 XsMenuItem {
                     mytext: qsTr("Create...")
                     onTriggered: sessionFunction.object_map["ShotgunRoot"].create_playlist(modelIndex())
                 }
             }
         `
-        app_window.sessionModel.addTag(uuid, "Menu", ui, uuid.toString()+"ShotgunMenu");
+        app_window.sessionModel.addTag(uuid, "Menu", ui, uuid.toString()+"ShotGridMenu");
     }
 
     function processPlaylist(playlist_index) {
@@ -951,7 +1107,7 @@ Item {
         Future.promise(
             data_source.pushPlaylistNotesFuture(payload, playlist_uuid)
         ).then(function(json_string) {
-            ShotgunHelpers.handle_response(json_string, "Shotgun Publish Note", false, "", error)
+            ShotgunHelpers.handle_response(json_string, "ShotGrid Publish Note", false, "", error)
         })
     }
 
@@ -963,7 +1119,7 @@ Item {
         ).then(function(json_string) {
             index.model.set(index, false, "busyRole")
             // load new playlist..
-            ShotgunHelpers.handle_response(json_string, "Push Contents To Shotgun ", false, name, error)
+            ShotgunHelpers.handle_response(json_string, "Push Contents To ShotGrid ", false, name, error)
         })
     }
 
@@ -1276,10 +1432,11 @@ Item {
         if(typeof(items) == "string") {
             try {
                 let j = JSON.parse(items)
-                j["data"]["preferred_visual_source"] = preferred_visual
-                j["data"]["preferred_audio_source"] = preferred_audio
-                j["data"]["flag_text"] = flag_text
-                j["data"]["flag_colour"] = flag_colour
+                j["context"] = new Map()
+                j["context"]["visual_source"] = preferred_visual
+                j["context"]["audio_source"] = preferred_audio
+                j["context"]["flag_text"] = flag_text
+                j["context"]["flag_colour"] = flag_colour
                 query = JSON.stringify(j)
             }catch(err){
             }
@@ -1292,10 +1449,12 @@ Item {
             )
             if(versions.length) {
                 query = '{"data":[' + versions.join(",") + '], ' +
-                '"preferred_visual_source": "' + preferred_visual + '",' +
-                '"preferred_audio_source": "' + preferred_audio + '",' +
+                '"context": {' +
+                '"visual_source": "' + preferred_visual + '",' +
+                '"audio_source": "' + preferred_audio + '",' +
                 '"flag_text": "' + flag_text + '",' +
                 '"flag_colour": "' + flag_colour + '"' +
+                '}'+
                 '}'
             }
         }
@@ -1341,10 +1500,11 @@ Item {
         if(typeof(items) == "string") {
             try {
                 let j = JSON.parse(items)
-                j["data"]["preferred_visual_source"] = preferred_visual
-                j["data"]["preferred_audio_source"] = preferred_audio
-                j["data"]["flag_text"] = flag_text
-                j["data"]["flag_colour"] = flag_colour
+                j["context"] = new Map()
+                j["context"]["visual_source"] = preferred_visual
+                j["context"]["audio_source"] = preferred_audio
+                j["context"]["flag_text"] = flag_text
+                j["context"]["flag_colour"] = flag_colour
                 query = JSON.stringify(j)
             }catch(err){
             }
@@ -1357,10 +1517,12 @@ Item {
             )
             if(versions.length) {
                 query = '{"data":[' + versions.join(",") + '], ' +
-                '"preferred_visual_source": "' + preferred_visual + '",' +
-                '"preferred_audio_source": "' + preferred_audio + '",' +
+                '"context": {' +
+                '"visual_source": "' + preferred_visual + '",' +
+                '"audio_source": "' + preferred_audio + '",' +
                 '"flag_text": "' + flag_text + '",' +
                 '"flag_colour": "' + flag_colour + '"' +
+                '}'+
                 '}'
             }
         }
@@ -1481,10 +1643,11 @@ Item {
                         }
                     )
 
-                    data["preferred_visual_source"] = preferred_visual
-                    data["preferred_audio_source"] = preferred_audio
-                    data["flag_text"] = flag_text
-                    data["flag_colour"] = flag_colour
+                    data["context"] = new Map()
+                    data["context"]["visual_source"] = preferred_visual
+                    data["context"]["audio_source"] = preferred_audio
+                    data["context"]["flag_text"] = flag_text
+                    data["context"]["flag_colour"] = flag_colour
 
                     // add versions to playlist.
                     Future.promise(data_source.addVersionToPlaylistFuture(JSON.stringify(data), uuid)).then(
@@ -1508,14 +1671,14 @@ Item {
                     )
                 } else {
                     index.model.set(index, false, "busyRole")
-                    error.title = "Load Shotgun Playlist " + name
+                    error.title = "Load ShotGrid Playlist " + name
                     error.text = json_string
                     error.open()
                 }
             }
             catch(err) {
                 index.model.set(index, false, "busyRole")
-                error.title = "Load Shotgun Playlist " + name
+                error.title = "Load ShotGrid Playlist " + name
                 error.text = err + "\n" + json_string
                 error.open()
                 console.log(err, json_string)

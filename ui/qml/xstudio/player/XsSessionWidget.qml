@@ -38,7 +38,6 @@ Rectangle {
     property real borderWidth: XsStyle.outerBorderWidth
 
     property var sessionMenu: menu_row.menuBar
-
     property var mediaMenu1: media_list.mediaMenu
 
     property alias playerWidget: playerWidget
@@ -72,6 +71,7 @@ Rectangle {
         id: prefs
         index: app_window.globalStoreModel.search_recursive("/ui/qml/" + window_name + "_settings", "pathRole")
         property alias properties: prefs.values
+
     }
 
     property string layout_name: prefs.values.layout_name !== undefined ? prefs.values.layout_name : ""
@@ -328,7 +328,7 @@ Rectangle {
 
             //bottom_divider: vert_divider2
 
-            header_component: "qrc:/bars/XsTimelinePanelHeader.qml"
+            header_component: "qrc:/panels/timeline/XsTimelinePanelHeader.qml"
 
             XsTimelinePanel {
                 id: timeline

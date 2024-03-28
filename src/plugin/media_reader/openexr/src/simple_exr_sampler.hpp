@@ -12,9 +12,10 @@ namespace media_reader {
             exr_size     = exr_buf->image_size_in_pixels();
             exr_data_win = exr_buf->image_pixels_bounding_box();
             exr_chans    = exr_buf->shader_params()["num_channels"].get<int>();
-            pix_type     = exr_buf->shader_params()["pix_type"].get<int>();
+            // Check only for the bitness of the R channel since RGB will be similar
+            pix_type            = exr_buf->shader_params()["pix_type_r"].get<int>();
+            exr_bytes_per_pixel = exr_buf->shader_params()["bytes_per_pixel"].get<int>();
 
-            exr_bytes_per_pixel = exr_chans * (pix_type == Imf::PixelType::HALF ? 2 : 4);
             exr_bytes_per_line =
                 (exr_data_win.max.x - exr_data_win.min.x) * exr_bytes_per_pixel;
 
@@ -71,7 +72,7 @@ namespace media_reader {
         inline std::array<float, 3> sample_16bit_exr_float(const int x, const int y) const {
             if (x < exr_data_win.min.x || x >= exr_data_win.max.x || y < exr_data_win.min.y ||
                 y >= exr_data_win.max.y)
-                return std::array<float, 3>({1.0f, 0.0f, 1.0f});
+                return std::array<float, 3>({0.0f, 0.0f, 0.0f});
 
             half * pix = (half *)(exr_buf_->buffer() + (x-exr_data_win.min.x)*exr_bytes_per_pixel + (y-exr_data_win.min.y)*exr_bytes_per_line);
             if (exr_chans <= 2)

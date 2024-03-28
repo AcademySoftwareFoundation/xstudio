@@ -1,13 +1,19 @@
 <RCC>
 	<qresource prefix="/feather_icons">
 	</qresource>
+	
 	<qresource prefix="/">
+
 	    <file>main_reskin.qml</file>
 	    <file>xStudioReskin/qmldir</file>
 	    <file>xStudioReskin/XsStyleSheet.qml</file>
 
+	    <file>session_data/XsMediaListModelData.qml</file>
+	    <file>session_data/XsSessionData.qml</file>
+
 	    <file>windows/XsSessionWindow.qml</file>
 
+	    <file>layout_framework/XsLayoutModeBar.qml</file>
 	    <file>layout_framework/XsPanelDivider.qml</file>
 	    <file>layout_framework/XsPanelSplitter.qml</file>
 	    <file>layout_framework/XsTestWindow.qml</file>
@@ -15,65 +21,207 @@
 	    <file>layout_framework/XsPanelsMenuButton.qml</file>
 
 	    <file>views/media/XsMedialist.qml</file>
+	    <file>views/media/XsMediaHeader.qml</file>
+	    <file>views/media/XsMediaItems.qml</file>
 		<file>views/media/delegates/XsMediaItemDelegate.qml</file>
+		<file>views/media/delegates/XsMediaHeaderColumn.qml</file>
+		<file>views/media/delegates/XsMediaSourceSelector.qml</file>
+		<file>views/media/data_indicators/XsMediaFlagIndicator.qml</file>
+		<file>views/media/data_indicators/XsMediaNotesIndicator.qml</file>
+		<file>views/media/data_indicators/XsMediaTextItem.qml</file>
+		<file>views/media/data_indicators/XsMediaThumbnailImage.qml</file>
 
 	    <file>views/playlists/XsPlaylists.qml</file>
+	    <file>views/playlists/XsPlaylistItems.qml</file>
 	    <file>views/playlists/delegates/XsPlaylistItemDelegate.qml</file>
 	    <file>views/playlists/delegates/XsPlaylistDividerDelegate.qml</file>
+	    <file>views/playlists/delegates/XsSubsetItemDelegate.qml</file>
+	    <file>views/playlists/delegates/XsTimelineItemDelegate.qml</file>
 
+	    <file>views/timeline/XsTimelinePanel.qml</file>
 	    <file>views/timeline/XsTimeline.qml</file>
+	    <file>views/timeline/XsTimelineEditTools.qml</file>
+	    <file>views/timeline/XsTimelineMenu.qml</file>
+	    <file>views/timeline/data/XsSortFilterModel.qml</file>
+	    <file>views/timeline/delegates/XsTimelineEditToolItems.qml</file>
+	    <file>views/timeline/delegates/XsDelegateAudioTrack.qml</file>
+	    <file>views/timeline/delegates/XsDelegateClip.qml</file>
+	    <file>views/timeline/delegates/XsDelegateGap.qml</file>
+	    <file>views/timeline/delegates/XsDelegateStack.qml</file>
+	    <file>views/timeline/delegates/XsDelegateVideoTrack.qml</file>
+	    <file>views/timeline/widgets/XsClipItem.qml</file>
+	    <file>views/timeline/widgets/XsDragBoth.qml</file>
+	    <file>views/timeline/widgets/XsDragLeft.qml</file>
+	    <file>views/timeline/widgets/XsDragRight.qml</file>
+	    <file>views/timeline/widgets/XsGapItem.qml</file>
+	    <file>views/timeline/widgets/XsMoveClip.qml</file>
+	    <file>views/timeline/widgets/XsTrackHeader.qml</file>
+	    <file>views/timeline/widgets/XsTimelineCursor.qml</file>
+	    <file>views/timeline/widgets/XsTickWidget.qml</file>
+	    <file>views/timeline/widgets/XsElideLabel.qml</file>
 
 	    <file>views/viewport/XsViewport.qml</file>
+	    <file>views/viewport/XsViewportActionBar.qml</file>
+	    <file>views/viewport/XsViewportTransportBar.qml</file>
+	    <file>views/viewport/XsViewportToolBar.qml</file>
+	    <file>views/viewport/XsViewportInfoBar.qml</file>
+	    <file>views/viewport/widgets/XsViewerMenuButton.qml</file>
+	    <file>views/viewport/widgets/XsViewerSeekEditButton.qml</file>
+	    <file>views/viewport/widgets/XsViewerTextDisplay.qml</file>
+	    <file>views/viewport/widgets/XsViewerToggleButton.qml</file>
+	    <file>views/viewport/widgets/XsViewerVolumeButton.qml</file>
+
+	</qresource>
+
+	<qresource prefix="/">
 
 	    <file>widgets/bars_and_tabs/XsSearchBar.qml</file>
+	    <file>widgets/bars_and_tabs/XsTab.qml</file>
+	    <file>widgets/bars_and_tabs/XsTabView.qml</file>
 
+	    <file>widgets/buttons/XsNavButton.qml</file>
 	    <file>widgets/buttons/XsPrimaryButton.qml</file>
+	    <file>widgets/buttons/XsSearchButton.qml</file>
 	    <file>widgets/buttons/XsSecondaryButton.qml</file>
+
+	    <file>widgets/controls/XsSlider.qml</file>
+	    <file>widgets/controls/XsScrollBar.qml</file>
+
+	    <file>widgets/dialogs/XsPopup.qml</file>
+	    <file>widgets/dialogs/XsOpenSessionDialog.qml</file>
+
+	    <file>widgets/labels/XsText.qml</file>
+	    <file>widgets/labels/XsTextField.qml</file>
+	    <file>widgets/labels/XsToolTip.qml</file>
 
 	    <file>widgets/menus/XsMainMenuBar.qml</file>
 	    <file>widgets/menus/XsMenu.qml</file>
 	    <file>widgets/menus/XsMenuDivider.qml</file>		
 	    <file>widgets/menus/XsMenuItem.qml</file>
-	    <file>widgets/menus/XsMenuChoice.qml</file>
 	    <file>widgets/menus/XsMenuMultiChoice.qml</file>
 	    <file>widgets/menus/XsMenuItemToggle.qml</file>
+	    <file>widgets/menus/XsMenuItemToggleWithSettings.qml</file>
 
-	    <file>widgets/prototypes/new/XsImage.qml</file>
-	    <file>widgets/prototypes/new/XsText.qml</file>
-		<file>widgets/prototypes/new/XsToolTip.qml</file>
+	    <file>widgets/outputs/XsGridView.qml</file>
+	    <file>widgets/outputs/XsImage.qml</file>
+	    <file>widgets/outputs/XsListView.qml</file>
 
-	    <file>assets/icons/menu.svg</file>
-	    <file>assets/icons/play.svg</file>
-	    <file>assets/icons/plus.svg</file>
-	    <file>assets/icons/circle.svg</file>
-	    <file>assets/icons/search.svg</file>
-	    <file>assets/icons/x.svg</file>
+	</qresource> 
 
-	    <file>assets/icons/new/add.svg</file>
-	    <file>assets/icons/new/chevron_right.svg</file>
-	    <file>assets/icons/new/close.svg</file>
-	    <file>assets/icons/new/fast_forward.svg</file>
-	    <file>assets/icons/new/play_arrow.svg</file>
-	    <file>assets/icons/new/radio_button_checked.svg</file>
-	    <file>assets/icons/new/radio_button_unchecked.svg</file>
-	    <file>assets/icons/new/check_box_checked.svg</file>
-	    <file>assets/icons/new/check_box_unchecked.svg</file>
-	    <file>assets/icons/new/search.svg</file>
-	    <file>assets/icons/new/skip_next.svg</file>
-	    <file>assets/icons/new/skip_previous.svg</file>
-	    <file>assets/icons/new/menu.svg</file>
-	    <file>assets/icons/new/more_vert_500.svg</file>
-	    <file>assets/icons/new/error.svg</file>
-	    <file>assets/icons/new/filter_none.svg</file>
-	    <file>assets/icons/new/search_w500.svg</file>
-	    <file>assets/icons/new/delete_w500.svg</file>
-	    <file>assets/icons/new/view_w500.svg</file>
-	    <file>assets/icons/new/view_grid_w500.svg</file>
-	    <file>assets/icons/new/draft.svg</file>
-	    <file>assets/icons/new/more_horiz.svg</file>
-	    <file>assets/icons/new/arrow_drop_down.svg</file>
+	<qresource prefix="/">
 
-	    <file>assets/images/sample.png</file>
+		<file>fonts/Inter/OFL.txt</file>
+		<file>fonts/Inter/Inter-Black.ttf</file>
+		<file>fonts/Inter/Inter-Bold.ttf</file>
+		<file>fonts/Inter/Inter-ExtraBold.ttf</file>
+		<file>fonts/Inter/Inter-ExtraLight.ttf</file>
+		<file>fonts/Inter/Inter-Light.ttf</file>
+		<file>fonts/Inter/Inter-Medium.ttf</file>
+		<file>fonts/Inter/Inter-Regular.ttf</file>
+		<file>fonts/Inter/Inter-SemiBold.ttf</file>
+		<file>fonts/Inter/Inter-Thin.ttf</file>
+
+	</qresource> 
+
+	<qresource prefix="/images">
+	    <file alias="sample.png">assets/images/sample.png</file>
+	</qresource>
+
+	<qresource prefix="/icons">
+
+	    <file alias="sort_flipped.png">assets/icons/sort_flipped.png</file>
+
+	    <file alias="sort.svg">assets/icons/new/sort.svg</file>
+	    <file alias="triangle.svg">assets/icons/new/triangle.svg</file>
+	    <file alias="add.svg">assets/icons/new/add.svg</file>
+	    <file alias="chevron_right.svg">assets/icons/new/chevron_right.svg</file>
+	    <file alias="close.svg">assets/icons/new/close.svg</file>
+	    <file alias="fast_forward.svg">assets/icons/new/fast_forward.svg</file>
+	    <file alias="play_arrow.svg">assets/icons/new/play_arrow.svg</file>
+	    <file alias="radio_button_checked.svg">assets/icons/new/radio_button_checked.svg</file>
+	    <file alias="radio_button_unchecked.svg">assets/icons/new/radio_button_unchecked.svg</file>
+	    <file alias="check_box_checked.svg">assets/icons/new/check_box_checked.svg</file>
+	    <file alias="check_box_unchecked.svg">assets/icons/new/check_box_unchecked.svg</file>
+	    <file alias="search.svg">assets/icons/new/search.svg</file>
+	    <file alias="skip_next.svg">assets/icons/new/skip_next.svg</file>
+	    <file alias="skip_previous.svg">assets/icons/new/skip_previous.svg</file>
+	    <file alias="menu.svg">assets/icons/new/menu.svg</file>
+	    <file alias="more_vert.svg">assets/icons/new/more_vert.svg</file>
+	    <file alias="error.svg">assets/icons/new/error.svg</file>
+	    <file alias="filter_none.svg">assets/icons/new/filter_none.svg</file>
+	    <file alias="draft.svg">assets/icons/new/draft.svg</file>
+	    <file alias="more_horiz.svg">assets/icons/new/more_horiz.svg</file>
+	    <file alias="arrow_drop_down.svg">assets/icons/new/arrow_drop_down.svg</file>
+	    <file alias="settings.svg">assets/icons/new/settings.svg</file>
+	    <file alias="disabled.svg">assets/icons/new/disabled.svg</file>
+	    <file alias="splitscreen.svg">assets/icons/new/splitscreen.svg</file>
+	    <file alias="splitscreen2.svg">assets/icons/new/splitscreen2.svg</file>
+
+	    <file alias="list_default.svg">assets/icons/new/list_default.svg</file>
+	    <file alias="list_shotgun.svg">assets/icons/new/list_shotgun.svg</file>
+	    <file alias="list_subset.svg">assets/icons/new/list_subset.svg</file>
+
+	    <file alias="search.svg">assets/icons/new/search.svg</file>
+	    <file alias="search_off.svg">assets/icons/new/search_off.svg</file>
+	    <file alias="delete.svg">assets/icons/new/delete.svg</file>
+	    <file alias="view.svg">assets/icons/new/view.svg</file>
+	    <file alias="view_grid.svg">assets/icons/new/view_grid.svg</file>
+
+	    <file alias="fast_rewind.svg">assets/icons/new/fast_rewind.svg</file>
+	    <file alias="fast_forward.svg">assets/icons/new/fast_forward.svg</file>
+	    <file alias="open_in_new.svg">assets/icons/new/open_in_new.svg</file>
+	    <file alias="photo_camera.svg">assets/icons/new/photo_camera.svg</file>
+	    <file alias="play_arrow.svg">assets/icons/new/play_arrow.svg</file>
+	    <file alias="pause.svg">assets/icons/new/pause.svg</file>
+	    <file alias="repeat.svg">assets/icons/new/repeat.svg</file>
+	    <file alias="skip_previous.svg">assets/icons/new/skip_previous.svg</file>
+	    <file alias="skip_next.svg">assets/icons/new/skip_next.svg</file>
+	    <file alias="sync.svg">assets/icons/new/sync.svg</file>
+	    <file alias="trending.svg">assets/icons/new/trending.svg</file>
+	    <file alias="volume_no_sound.svg">assets/icons/new/volume_no_sound.svg</file>
+	    <file alias="volume_down.svg">assets/icons/new/volume_down.svg</file>
+	    <file alias="volume_mute.svg">assets/icons/new/volume_mute.svg</file>
+	    <file alias="volume_up.svg">assets/icons/new/volume_up.svg</file>
+
+	    <file alias="brush.svg">assets/icons/new/brush.svg</file>
+	    <file alias="open_with.svg">assets/icons/new/open_with.svg</file>
+	    <file alias="sticky_note.svg">assets/icons/new/sticky_note.svg</file>
+	    <file alias="tune.svg">assets/icons/new/tune.svg</file>
+		<file alias="pan.svg">assets/icons/new/pan.svg</file>
+		<file alias="zoom_in.svg">assets/icons/new/zoom_in.svg</file>
+		<file alias="restart.svg">assets/icons/new/restart.svg</file>
+		<file alias="reset_image.svg">assets/icons/new/reset_image.svg</file>
+		<file alias="movie.svg">assets/icons/new/movie.svg</file>
+		<file alias="theaters.svg">assets/icons/new/theaters.svg</file>
+
+		<file alias="list.svg">assets/icons/new/list.svg</file>
+		<file alias="list_view.svg">assets/icons/new/list_view.svg</file>
+
+		<file alias="reset_tv.svg">assets/icons/new/reset_tv.svg</file>
+		<file alias="undo.svg">assets/icons/new/undo.svg</file>
+		<file alias="redo.svg">assets/icons/new/redo.svg</file>
+		<file alias="filter.svg">assets/icons/new/filter.svg</file>
+		<file alias="ad_group.svg">assets/icons/new/ad_group.svg</file>
+		<file alias="arrow_selector_tool.svg">assets/icons/new/arrow_selector_tool.svg</file>
+		<file alias="content_cut.svg">assets/icons/new/content_cut.svg</file>
+		<file alias="content_paste.svg">assets/icons/new/content_paste.svg</file>
+		<file alias="expand.svg">assets/icons/new/expand.svg</file>
+		<file alias="expand_all.svg">assets/icons/new/expand_all.svg</file>
+		<file alias="format_size.svg">assets/icons/new/format_size.svg</file>
+		<file alias="ink_pen.svg">assets/icons/new/ink_pen.svg</file>
+		<file alias="input.svg">assets/icons/new/input.svg</file>
+		<file alias="laps.svg">assets/icons/new/laps.svg</file>
+		<file alias="library_music.svg">assets/icons/new/library_music.svg</file>
+		<file alias="output.svg">assets/icons/new/output.svg</file>
+		<file alias="rectangle.svg">assets/icons/new/rectangle.svg</file>
+		<file alias="upload.svg">assets/icons/new/upload.svg</file>
+		<file alias="arrows_outward.svg">assets/icons/new/arrows_outward.svg</file>
+		<file alias="repartition.svg">assets/icons/new/repartition.svg</file>
+
+
+		<file alias="build_gang.svg">assets/icons/new/build_gang.svg</file>
+		<file alias="center_focus_strong.svg">assets/icons/new/center_focus_strong.svg</file>
+		<file alias="variables_insert.svg">assets/icons/new/variables_insert.svg</file>
 
 	</qresource>
 

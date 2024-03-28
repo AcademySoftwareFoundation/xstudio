@@ -35,6 +35,8 @@ void GLBlindTex::release() {
     when_last_used_ = utility::clock::now();
 }
 
+GLBlindTex::~GLBlindTex() {}
+
 GLDoubleBufferedTexture::GLDoubleBufferedTexture() {
 
     if (using_ssbo_) {
@@ -137,6 +139,9 @@ GLBlindRGBA8bitTex::~GLBlindRGBA8bitTex() {
     // ensure no copying is in flight
     if (upload_thread_.joinable())
         upload_thread_.join();
+
+    glDeleteTextures(1, &tex_id_);
+    glDeleteBuffers(1, &pixel_buf_object_id_);
 }
 
 void GLBlindRGBA8bitTex::resize(const size_t required_size_bytes) {
@@ -480,6 +485,11 @@ GLColourLutTexture::GLColourLutTexture(
     glGenBuffers(1, &pbo_);
 }
 
+GLColourLutTexture::~GLColourLutTexture() {
+    glDeleteTextures(1, &tex_id_);
+    glDeleteBuffers(1, &pbo_);
+}
+
 GLenum GLColourLutTexture::target() const {
     if (descriptor_.dimension_ == colour_pipeline::LUTDescriptor::ONE_D)
         return GL_TEXTURE_1D;
@@ -567,6 +577,7 @@ GLSsboTex::GLSsboTex() { glGenBuffers(1, &ssbo_id_); }
 GLSsboTex::~GLSsboTex() {
     if (upload_thread_.joinable())
         upload_thread_.join();
+    glDeleteBuffers(1, &ssbo_id_);
 }
 
 

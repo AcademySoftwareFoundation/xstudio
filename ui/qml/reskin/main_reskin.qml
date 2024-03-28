@@ -2,8 +2,8 @@
 
 import xStudioReskin 1.0
 
-XsSessionWindow { 
-    
+XsSessionWindow {
+
     window_name: "main_window"
 
 }

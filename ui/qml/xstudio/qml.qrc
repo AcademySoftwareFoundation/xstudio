@@ -294,10 +294,8 @@
 		<file>bars/XsMediaListPanelHeader.qml</file>
 		<file>bars/XsMenuBar.qml</file>
 		<file>bars/XsSessionControls.qml</file>
-		<file>panels/playlist/XsSessionPanelHeader.qml</file>
 		<file>bars/XsShortcuts.qml</file>
 		<file>bars/XsStatusBar.qml</file>
-		<file>bars/XsTimelinePanelHeader.qml</file>
 		<file>bars/XsToolBar.qml</file>
 		<file>bars/XsViewportTitleBar.qml</file>
 		<file>base/core/XsDraggableItem.qml</file>
@@ -313,6 +311,7 @@
 		<file>base/dialogs/XsStringRequestDialog.qml</file>
 		<file>base/dialogs/XsWindow.qml</file>
 		<file>base/widgets/XsBoolAttrCheckBox.qml</file>
+		<file>base/widgets/XsBorder.qml</file>
 		<file>base/widgets/XsBusyIndicator.qml</file>
 		<file>base/widgets/XsButton.qml</file>
 		<file>base/widgets/XsButtonNew.qml</file>
@@ -324,11 +323,12 @@
 		<file>base/widgets/XsCollapsibleLabel.qml</file>
 		<file>base/widgets/XsColoredImage.qml</file>
 		<file>base/widgets/XsColourChooser.qml</file>
-		<file>base/widgets/XsComboBoxNew.qml</file>
 		<file>base/widgets/XsComboBoxMultiSelect.qml</file>
+		<file>base/widgets/XsComboBoxNew.qml</file>
 		<file>base/widgets/XsComboBoxNew.qml</file>
 		<file>base/widgets/XsComboBoxWithText.qml</file>
 		<file>base/widgets/XsDecoratorWidget.qml</file>
+		<file>base/widgets/XsElideLabel.qml</file>
 		<file>base/widgets/XsExpandButton.qml</file>
 		<file>base/widgets/XsFloatAttrSlider.qml</file>
 		<file>base/widgets/XsFrame.qml</file>
@@ -365,6 +365,8 @@
 		<file>base/widgets/XsTextFieldNew.qml</file>
 		<file>base/widgets/XsTextHoverable.qml</file>
 		<file>base/widgets/XsTextInput.qml</file>
+		<file>base/widgets/XsTickWidget.qml</file>
+		<file>base/widgets/XsTimelineCursor.qml</file>
 		<file>base/widgets/XsTimelineSlider.qml</file>
 		<file>base/widgets/XsToolbarComboBox.qml</file>
 		<file>base/widgets/XsToolbarFloatScrubber.qml</file>
@@ -379,6 +381,9 @@
 		<file>base/widgets/XsTreeView.qml</file>
 		<file>core/XsGlobalPreferences.qml</file>
 		<file>cursors/magnifier_cursor.svg</file>
+		<file>cursors/move-edge-left.svg</file>
+		<file>cursors/move-edge-right.svg</file>
+		<file>cursors/move-join.svg</file>
 		<file>dialogs/XsAboutDialog.qml</file>
 		<file>dialogs/XsColourCorrectionDialog.qml</file>
 		<file>dialogs/XsDrawingDialog.qml</file>
@@ -389,6 +394,8 @@
 		<file>dialogs/XsHotkeysDialog.qml</file>
 		<file>dialogs/XsImportSessionDialog.qml</file>
 		<file>dialogs/XsLogDialog.qml</file>
+		<file>dialogs/XsMediaMoveCopyDialog.qml</file>
+		<file>dialogs/XsNewSnapshotDialog.qml</file>
 		<file>dialogs/XsNotesDialog.qml</file>
 		<file>dialogs/XsOpenSessionDialog.qml</file>
 		<file>dialogs/XsSaveBeforeDialog.qml</file>
@@ -464,6 +471,8 @@
 		<file>menus/XsPlaylistMenu.qml</file>
 		<file>menus/XsPublishMenu.qml</file>
 		<file>menus/XsRepeatMenu.qml</file>
+		<file>menus/XsSnapshotMenu.qml</file>
+		<file>menus/XsSnapshotDirectoryMenu.qml</file>
 		<file>menus/XsTimelineMenu.qml</file>
 		<file>menus/XsViewerContextMenu.qml</file>
 		<file>menus/XsViewerLayoutsMenu.qml</file>
@@ -487,14 +496,30 @@
 		<file>panels/panel_layouts/XsShotgunLayout.qml</file>
 		<file>panels/panel_layouts/XsSplitWidget.qml</file>
 		<file>panels/panel_layouts/XsVerticalPaneDivider.qml</file>
+		<file>panels/playlist/delegates/XsDelegateChoiceDivider.qml</file>
 		<file>panels/playlist/delegates/XsDelegateChoicePlaylist.qml</file>
 		<file>panels/playlist/delegates/XsDelegateChoiceSubset.qml</file>
 		<file>panels/playlist/delegates/XsDelegateChoiceTimeline.qml</file>
-		<file>panels/playlist/delegates/XsDelegateChoiceDivider.qml</file>
 		<file>panels/playlist/XsPlaylistsPanelNew.qml</file>
 		<file>panels/playlist/XsSessionBarDivider.qml</file>
 		<file>panels/playlist/XsSessionBarWidget.qml</file>
-		<file>panels/XsTimelinePanel.qml</file>
+		<file>panels/playlist/XsSessionPanelHeader.qml</file>
+		<file>panels/timeline/delegates/XsDelegateStack.qml</file>
+		<file>panels/timeline/delegates/XsDelegateClip.qml</file>
+		<file>panels/timeline/delegates/XsDelegateGap.qml</file>
+		<file>panels/timeline/delegates/XsDelegateAudioTrack.qml</file>
+		<file>panels/timeline/delegates/XsDelegateVideoTrack.qml</file>
+		<file>panels/timeline/widgets/XsClipItem.qml</file>
+		<file>panels/timeline/widgets/XsDragLeft.qml</file>
+		<file>panels/timeline/widgets/XsMoveClip.qml</file>
+		<file>panels/timeline/widgets/XsDragRight.qml</file>
+		<file>panels/timeline/widgets/XsDragBoth.qml</file>
+		<file>panels/timeline/widgets/XsGapItem.qml</file>
+		<file>panels/timeline/widgets/XsTrackHeader.qml</file>
+		<file>panels/timeline/XsTimelinePanel.qml</file>
+		<file>panels/timeline/XsTimelinePanelHeader.qml</file>
+		<file>player/XsLightPlayerWidget.qml</file>
+		<file>player/XsLightPlayerWindow.qml</file>
 		<file>player/XsPlayerWidget.qml</file>
 		<file>player/XsPlayerWindow.qml</file>
 		<file>player/XsPopoutViewerWidget.qml</file>
@@ -511,12 +536,12 @@
 		<file>widgets/XsMediaInfoBarAutoAlign.qml</file>
 		<file>widgets/XsMediaInfoBarItem.qml</file>
 		<file>widgets/XsMediaInfoBarOffset.qml</file>
-		<file>widgets/XsSourceToolbarButton.qml</file>
 		<file>widgets/XsPluginMenu.qml</file>
 		<file>widgets/XsPluginWidget.qml</file>
 		<file>widgets/XsPythonWidget.qml</file>
 		<file>widgets/XsRewindWidget.qml</file>
 		<file>widgets/XsSnapshotWidget.qml</file>
+		<file>widgets/XsSourceToolbarButton.qml</file>
 		<file>widgets/XsStepBackWidget.qml</file>
 		<file>widgets/XsStepForwardWidget.qml</file>
 		<file>widgets/XsTimelineDurationWidget.qml</file>

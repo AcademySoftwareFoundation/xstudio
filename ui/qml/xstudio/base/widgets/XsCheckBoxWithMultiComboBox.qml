@@ -16,10 +16,10 @@ Control {
     property alias checked: checkBox.checked
     property alias popup: multiComboBox.popup
     property alias checkedIndexes: multiComboBox.checkedIndexes
-    
+
     signal hide()
     onHide:{
-        multiComboBox.close() 
+        multiComboBox.close()
     }
 
     XsCheckbox{ id: checkBox
@@ -39,10 +39,10 @@ Control {
         anchors.left: checkBox.right
         anchors.right: parent.right
         hint: "multi-input"
+        anchors.verticalCenter: parent.verticalCenter
+        width: parent.width
+        // height: itemHeight
     }
-
-    
-
 }
 
 

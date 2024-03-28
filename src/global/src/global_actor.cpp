@@ -12,6 +12,7 @@
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/colour_pipeline/colour_cache_actor.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline_actor.hpp"
+#include "xstudio/conform/conform_manager_actor.hpp"
 #include "xstudio/embedded_python/embedded_python_actor.hpp"
 #include "xstudio/global/global_actor.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -23,14 +24,23 @@
 #include "xstudio/module/global_module_events_actor.hpp"
 #include "xstudio/playhead/playhead_global_events_actor.hpp"
 #include "xstudio/plugin_manager/plugin_manager_actor.hpp"
-#include "xstudio/studio/studio_actor.hpp"
 #include "xstudio/scanner/scanner_actor.hpp"
+#include "xstudio/studio/studio_actor.hpp"
 #include "xstudio/sync/sync_actor.hpp"
 #include "xstudio/thumbnail/thumbnail_manager_actor.hpp"
 #include "xstudio/ui/model_data/model_data_actor.hpp"
 #include "xstudio/ui/viewport/keypress_monitor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
+
+// include for system (soundcard) audio output
+#ifdef __linux__
+#include "xstudio/audio/linux_audio_output_device.hpp"
+#elif __APPLE__
+// TO DO
+#elif _WIN32
+// TO DO
+#endif
 
 using namespace caf;
 using namespace xstudio;
@@ -85,6 +95,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
     auto sga             = spawn<sync::SyncGatewayActor>();
     auto sgma            = spawn<sync::SyncGatewayManagerActor>();
+    auto ui_models       = spawn<ui::model_data::GlobalUIModelData>();
     auto pm              = spawn<plugin_manager::PluginManagerActor>();
     auto colour          = spawn<colour_pipeline::GlobalColourPipelineActor>();
     auto gmma            = spawn<media_metadata::GlobalMediaMetadataActor>();
@@ -95,31 +106,43 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     auto gmha            = spawn<media_hook::GlobalMediaHookActor>();
     auto thumbnail       = spawn<thumbnail::ThumbnailManagerActor>();
     auto keyboard_events = spawn<ui::keypress_monitor::KeypressMonitor>();
-    auto audio           = spawn<audio::AudioOutputControlActor>();
+    auto audio           = spawn<audio::GlobalAudioOutputActor>();
     auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto pa              = spawn<embedded_python::EmbeddedPythonActor>("Python");
     auto scanner         = spawn<scanner::ScannerActor>();
-    auto ui_models       = spawn<ui::model_data::GlobalUIModelData>();
+    auto conform         = spawn<conform::ConformManagerActor>();
 
+    link_to(attr_evs);
+    link_to(audio);
     link_to(colour);
-    link_to(sga);
-    link_to(sgma);
-    link_to(pm);
-    link_to(gsa);
-    link_to(gmma);
-    link_to(gmra);
-    link_to(gica);
+    link_to(conform);
     link_to(gaca);
     link_to(gcca);
+    link_to(gica);
     link_to(gmha);
-    link_to(pa);
-    link_to(scanner);
-    link_to(audio);
-    link_to(thumbnail);
-    link_to(attr_evs);
+    link_to(gmma);
+    link_to(gmra);
+    link_to(gsa);
     link_to(keyboard_events);
+    link_to(pa);
     link_to(phev);
+    link_to(pm);
+    link_to(scanner);
+    link_to(sga);
+    link_to(sgma);
+    link_to(thumbnail);
     link_to(ui_models);
+
+    
+    // Make default audio output
+#ifdef __linux__
+    auto audio_out = spawn<audio::AudioOutputActor<audio::LinuxAudioOutputDevice>>();
+    link_to(audio_out);
+#elif __APPLE__
+        // TO DO
+#elif _WIN32
+        // TO DO
+#endif
 
     python_enabled_ = false;
     connected_      = false;
@@ -248,7 +271,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
                                                 // add timestamp+ext
                                                 auto session_fullname = std::string(fmt::format(
-                                                    "{}_{:%Y%m%d_%H%M%S}.xst",
+                                                    "{}_{:%Y%m%d_%H%M%S}.xsz",
                                                     session_name,
                                                     fmt::localtime(std::time(nullptr))));
 
@@ -447,6 +470,8 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
         [=](session::session_request_atom _atom, const std::string &path, const JsonStore &js) {
             delegate(studio_, _atom, path, js);
         },
+
+        [=](bookmark::get_bookmark_atom atom) { delegate(studio_, atom); },
 
         [=](sync::get_sync_atom _atm) { delegate(sgma, _atm); });
 }

@@ -201,13 +201,13 @@ bool GlobalStoreModel::updateProperty(
 
 // convert to internal representation.
 nlohmann::json GlobalStoreModel::storeToTree(const nlohmann::json &src) {
+    
     auto result = R"([])"_json;
-
     for (const auto &[k, v] : src.items()) {
         if (v.count("datatype")) {
             // spdlog::warn("{}", v.dump(2));
             result.push_back(v);
-        } else {
+        } else if (v.is_object()) {
             auto item        = R"({})"_json;
             item["path"]     = k;
             item["children"] = storeToTree(v);
@@ -217,6 +217,7 @@ nlohmann::json GlobalStoreModel::storeToTree(const nlohmann::json &src) {
 
     return result;
 }
+
 
 QVariant GlobalStoreModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();

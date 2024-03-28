@@ -68,7 +68,6 @@ void xstudio::global_store::set_global_store_def(
 bool xstudio::global_store::preference_load_defaults(
     utility::JsonStore &js, const std::string &path) {
 
-    js.clear();
     bool result = false;
     try {
         for (const auto &entry : fs::directory_iterator(path)) {
@@ -140,6 +139,7 @@ void load_from_list(const std::string &path, std::vector<fs::path> &overrides) {
     }
 }
 // parse json, should be jsonpointers and values..
+// parse json, should be jsonpointers and values..
 void load_override(utility::JsonStore &json, const fs::path &path) {
     std::ifstream i(path);
     nlohmann::json j;
@@ -149,19 +149,24 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
 
     // should be dict ..
     for (auto it : j.items()) {
-        // test for existence..
         try {
             if (not ends_with(it.key(), "/value") and not ends_with(it.key(), "/locked")) {
                 spdlog::warn("Property key is restricted {} {}", it.key(), path.string());
                 continue;
             }
 
-            // check it exists, with throw if not..
+            // check it exists, with throw if not... unless it is a plugin preference,
+            // because plugins are loaded after the prefs are built and plugins
+            // can insert new preferences at runtime.
             nlohmann::json jj;
+            bool set_as_overridden = true;
             try {
                 jj = json.get(it.key());
             } catch (...) {
-                if (ends_with(it.key(), "/value")) {
+
+                if (starts_with(it.key(), "/plugin")) {
+                    set_as_overridden = false;
+                } else if (ends_with(it.key(), "/value")) {
                     try {
                         jj = json.get(it.value()["template_key"]);
                     } catch (...) {
@@ -186,13 +191,13 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
                 "Property overriden {} {} {}", it.key(), to_string(it.value()), path.string());
             // tag it.
             set_preference_overridden_path(json, path.string(), property);
-            json.set(it.value(), property + "/overridden_value");
+            if (set_as_overridden) json.set(it.value(), property + "/overridden_value");
+
         } catch (const std::exception &err) {
             spdlog::warn("{} {} {}", err.what(), it.key(), to_string(it.value()));
         }
     }
 }
-
 void xstudio::global_store::preference_load_overrides(
     utility::JsonStore &js, const std::vector<std::string> &paths) {
     // we get a collection of JSONPOINTERS and values.
@@ -348,4 +353,37 @@ JsonStore GlobalStore::serialise() const {
     jsn["store"]     = preferences_;
 
     return jsn;
+}
+
+/*If a preference is found at path return the value. Otherwise build
+a preference at path and return default.*/
+utility::JsonStore GlobalStoreHelper::get_existing_or_create_new_preference(
+    const std::string &path,
+    const utility::JsonStore &default_,
+    const bool async,
+    const bool broacast_change,
+    const std::string &context) 
+{
+    try {
+
+        utility::JsonStore v = get(path);
+        if (!v.contains("overridden_value")) {
+            v["overridden_value"] = default_;
+            v["path"] = path;
+            v["context"] = std::vector<std::string>({"APPLICATION"});
+            JsonStoreHelper::set(v, path, async, broacast_change);
+        }
+        return v["value"];
+
+    } catch (...) {
+
+        utility::JsonStore v;
+        v["value"] = default_;
+        v["overridden_value"] = default_;
+        v["path"] = path;
+        v["context"] = std::vector<std::string>({"APPLICATION"});
+        JsonStoreHelper::set(v, path, async, broacast_change);
+    }
+    return default_;
+
 }

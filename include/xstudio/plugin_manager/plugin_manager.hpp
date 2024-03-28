@@ -100,15 +100,13 @@ namespace plugin_manager {
         [[nodiscard]] caf::actor spawn(
             caf::blocking_actor &sys,
             const utility::Uuid &uuid,
-            const utility::JsonStore &json = utility::JsonStore(),
-            const bool singleton           = false);
+            const utility::JsonStore &json = utility::JsonStore());
         [[nodiscard]] std::string spawn_widget_ui(const utility::Uuid &uuid);
         [[nodiscard]] std::string spawn_menu_ui(const utility::Uuid &uuid);
 
       private:
         std::list<std::string> plugin_paths_;
         std::map<utility::Uuid, PluginEntry> factories_;
-        std::map<utility::Uuid, caf::actor_addr> singletons_;
     };
 } // namespace plugin_manager
 } // namespace xstudio

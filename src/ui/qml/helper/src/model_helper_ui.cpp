@@ -6,6 +6,76 @@ using namespace xstudio::ui::qml;
 #include <QJSValue>
 #include <QItemSelectionRange>
 
+void ModelRowCount::setCount(const int count) {
+    if (count != count_) {
+        count_ = count;
+        emit countChanged();
+    }
+}
+
+void ModelRowCount::inserted(const QModelIndex &parent, int first, int last) {
+    if (index_.isValid() and parent == index_) {
+        setCount(count_ + ((last - first) + 1));
+    }
+}
+
+void ModelRowCount::moved(
+    const QModelIndex &sourceParent,
+    int sourceStart,
+    int sourceEnd,
+    const QModelIndex &destinationParent,
+    int destinationRow) {
+    if (index_.isValid()) {
+        if (sourceParent == destinationParent) {
+        } else if (sourceParent == index_) {
+            setCount(count_ - ((sourceEnd - sourceStart) + 1));
+        } else if (destinationParent == index_) {
+            setCount(count_ + ((sourceEnd - sourceStart) + 1));
+        }
+    }
+}
+
+void ModelRowCount::removed(const QModelIndex &parent, int first, int last) {
+    if (index_.isValid() and parent == index_) {
+        setCount(count_ - ((last - first) + 1));
+    }
+}
+
+
+void ModelRowCount::setIndex(const QModelIndex &index) {
+    if (index.isValid()) {
+        if (index_.isValid()) {
+            disconnect(
+                index_.model(),
+                &QAbstractItemModel::rowsRemoved,
+                this,
+                &ModelRowCount::removed);
+            disconnect(
+                index_.model(),
+                &QAbstractItemModel::rowsInserted,
+                this,
+                &ModelRowCount::inserted);
+            disconnect(
+                index_.model(), &QAbstractItemModel::rowsMoved, this, &ModelRowCount::moved);
+        }
+
+        connect(index.model(), &QAbstractItemModel::rowsRemoved, this, &ModelRowCount::removed);
+        connect(
+            index.model(), &QAbstractItemModel::rowsInserted, this, &ModelRowCount::inserted);
+        connect(index.model(), &QAbstractItemModel::rowsMoved, this, &ModelRowCount::moved);
+
+        index_ = QPersistentModelIndex(index);
+        emit indexChanged();
+
+        setCount(index_.model()->rowCount(index_));
+    } else {
+        index_ = QPersistentModelIndex(index);
+        emit indexChanged();
+        setCount(0);
+    }
+}
+
+
 void ModelProperty::setIndex(const QModelIndex &index) {
     if (index.isValid()) {
         if (index_.isValid())
@@ -148,6 +218,22 @@ void ModelPropertyMap::setIndex(const QModelIndex &index) {
     }
 }
 
+void ModelPropertyMap::dump() {
+
+    if (index_.isValid()) {
+        auto hash = index_.model()->roleNames();
+
+        QHash<int, QByteArray>::const_iterator i = hash.constBegin();
+        while (i != hash.constEnd()) {
+            const auto role   = i.key();
+            auto model_value  = index_.data(role);
+            auto propery_name = QString(i.value());
+            qDebug() << propery_name << " " << model_value << "\n";
+            ++i;
+        }
+    }
+}
+
 void ModelPropertyMap::updateValues(const QVector<int> &roles) {
     if (index_.isValid()) {
         auto hash = index_.model()->roleNames();
@@ -159,8 +245,9 @@ void ModelPropertyMap::updateValues(const QVector<int> &roles) {
                 auto model_value  = index_.data(role);
                 auto propery_name = QString(i.value());
 
-                if (model_value != (*values_)[propery_name])
+                if (model_value != (*values_)[propery_name]) {
                     values_->setProperty(StdFromQString(propery_name).c_str(), model_value);
+                }
             }
             ++i;
         }

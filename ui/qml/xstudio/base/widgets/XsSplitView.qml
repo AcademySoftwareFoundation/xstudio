@@ -10,6 +10,8 @@ SplitView {
     property color textColorActive: "white"
     property color textColorNormal: "light grey"
 
+    focus: false
+
     property Component splitHandleHorizontal:
     Rectangle {
         implicitWidth: framePadding; implicitHeight: framePadding; color: "transparent"
@@ -54,8 +56,4 @@ SplitView {
 
     orientation: Qt.Horizontal
     handle: orientation === Qt.Horizontal? splitHandleHorizontal: splitHandleVertical
-
-    // anchors.fill: parent
-
-
 }

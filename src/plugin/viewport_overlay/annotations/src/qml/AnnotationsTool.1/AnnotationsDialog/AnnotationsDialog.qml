@@ -68,7 +68,7 @@ XsWindow {
 
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupNames: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings_0"
     }
 
 
@@ -125,7 +125,7 @@ XsWindow {
 
     }
 
-    // make a read only binding to the "annotations_tool_active" backend attribute
+    // make a read only binding to the "annotations_tool_active_0" backend attribute
     property bool annotationToolActive: anno_tool_backend_settings.annotations_tool_active ? anno_tool_backend_settings.annotations_tool_active : false
 
     // is the mouse over the handles for moving, scaling or deleting text captions?
@@ -424,7 +424,7 @@ XsWindow {
                                     }
                                 }
                                 maximumLength: 3
-                                inputMask: "900"
+                                // inputMask: "900"
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 // validator: IntValidator {bottom: 0; top: 100;}
                                 selectByMouse: false
@@ -441,6 +441,7 @@ XsWindow {
                                 }
                                 onAccepted:{
                                     if(currentTool != "Erase"){
+
                                         if(parseInt(text) >= 100) {
                                             anno_tool_backend_settings.pen_opacity = 100
                                         } 
@@ -458,6 +459,7 @@ XsWindow {
                             }
                             MouseArea{
                                 id: opacityMArea
+                                
                                 anchors.fill: parent
                                 cursorShape: Qt.SizeHorCursor
                                 hoverEnabled: true
@@ -623,7 +625,7 @@ XsWindow {
 
                     Rectangle { id: toolPreview
                         width: parent.width/2 - spacing
-                        height: parent.height - spacing
+                        height: currentTool === "Text"? (parent.height/3-spacing) : (parent.height-spacing) 
                         color: "#595959" //"transparent"
                         border.color: frameColor
                         border.width: frameWidth
@@ -693,16 +695,26 @@ XsWindow {
                                 opacity: 1
                             }
 
-                            Text{ id: textPreview
-                                text: "Example"
-                                visible: currentTool === "Text"
-                                property real sizeScaleFactor: 80/100
-                                font.pixelSize: currentToolSize *sizeScaleFactor
-                                //font.family: textCategories.currentValue
-                                color: currentToolColour
-                                opacity: currentToolOpacity
-                                horizontalAlignment: Text.AlignHCenter
+                            Item{ id: textPreview
                                 anchors.centerIn: parent
+                                visible: currentTool === "Text"
+
+                                Rectangle{ id: textFillPreview
+                                    anchors.fill: textFontPreview
+                                    color: textCategories.backgroundColor
+                                    opacity: textCategories.backgroundOpacity / 100
+                                }
+    
+                                Text{ id: textFontPreview
+                                    text: "Example"
+                                    property real sizeScaleFactor: 80/100
+                                    font.pixelSize: currentToolSize * sizeScaleFactor
+                                    //font.family: textCategories.currentValue
+                                    color: currentToolColour
+                                    opacity: currentToolOpacity / 100
+                                    horizontalAlignment: Text.AlignHCenter
+                                    anchors.centerIn: parent
+                                }
                             }
 
                             Image { id: shapePreview
@@ -1092,14 +1104,14 @@ XsWindow {
             XsModuleAttributes {
                 // this lets us get at the combo_box_options for the 'Display Mode' attr
                 id: annotations_tool_draw_mode_options
-                attributesGroupNames: "annotations_tool_draw_mode"
+                attributesGroupNames: "annotations_tool_draw_mode_0"
                 roleName: "combo_box_options"
             }
 
             XsModuleAttributes {
                 // this lets us get at the value for the 'Display Mode' attr
                 id: annotations_tool_draw_mode
-                attributesGroupNames: "annotations_tool_draw_mode"
+                attributesGroupNames: "annotations_tool_draw_mode_0"
             }
 
             XsComboBox {

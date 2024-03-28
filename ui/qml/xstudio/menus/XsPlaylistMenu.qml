@@ -14,14 +14,14 @@ XsMenu {
         title: "New"
         XsMenuItem {
             mytext: qsTr("&Playlist")
-            shortcut: "Shift+P"
+            shortcut: "Ctrl+Shift+P"
             onTriggered: sessionFunction.newPlaylist(
                 app_window.sessionModel.index(0, 0), null
             )
         }
 
         XsMenuItem {mytext: qsTr("Session &Divider")
-            shortcut: "Shift+D"
+            shortcut: "Ctrl+Shift+D"
             onTriggered: sessionFunction.newDivider(
                 app_window.sessionModel.index(0, 0), null, playlist_panel
             )
@@ -35,7 +35,7 @@ XsMenu {
         }
 
         XsMenuItem {mytext: qsTr("&Subset")
-            shortcut: "Shift+S"
+            shortcut: "Ctrl+Shift+S"
             onTriggered: {
                 let ind = app_window.sessionFunction.firstSelected("Playlist")
                 if(ind != null)  {
@@ -47,17 +47,17 @@ XsMenu {
         }
 
         XsMenuItem {mytext: qsTr("&Timeline")
-            shortcut: "Shift+T"
+            shortcut: "Ctrl+Shift+T"
             enabled: false
         }
 
         XsMenuItem {mytext: qsTr("&Contact Sheet")
-            shortcut: "Shift+C"
+            shortcut: "Ctrl+Shift+C"
             enabled: false
         }
 
         XsMenuItem {mytext: qsTr("D&ivider")
-            shortcut: "Shift+i"
+            shortcut: "Ctrl+Shift+I"
             onTriggered: {
                 let ind = app_window.sessionFunction.firstSelected("Playlist")
                 if(ind != null)  {

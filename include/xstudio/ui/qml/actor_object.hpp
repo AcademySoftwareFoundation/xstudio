@@ -34,11 +34,13 @@ CAF_PUSH_WARNINGS
 #include <QDebug>
 CAF_POP_WARNINGS
 
+#include "xstudio/atoms.hpp"
 #include "xstudio/utility/logging.hpp"
 
 namespace caf::mixin {
 
-template <typename Base, int EventId = static_cast<int>(QEvent::User + 31337)>
+// QEvent::User == 1000
+template <typename Base, int EventId = static_cast<int>(FIRST_CUSTOM_ID)>
 class actor_object : public Base {
   public:
     /// A shared lockable.

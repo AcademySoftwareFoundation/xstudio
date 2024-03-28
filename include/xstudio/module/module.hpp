@@ -20,7 +20,7 @@ namespace module {
 
       protected:
       public:
-        Module(const std::string name);
+        Module(const std::string name, const utility::Uuid &uuid = utility::Uuid::generate());
 
         virtual ~Module();
 
@@ -102,6 +102,8 @@ namespace module {
 
         [[nodiscard]] const std::string &name() const { return name_; }
 
+        [[nodiscard]] const utility::Uuid &uuid() const { return module_uuid_; }
+
         virtual void deserialise(const nlohmann::json &json);
 
         void set_parent_actor_addr(caf::actor_addr addr);
@@ -120,6 +122,9 @@ namespace module {
             bool link_all_attrs,
             const bool both_ways,
             const bool initial_push_sync);
+
+        void unlink_module(
+            caf::actor other_module);
 
         /* If this Module instance is linked to another Module instance, only
         attributes that have been registered with this function will be synced
@@ -183,9 +188,6 @@ namespace module {
         // re-implement to receive callback when the on-screen media changes. To
         virtual void on_screen_media_changed(caf::actor media) {}
 
-        // re-implement to receive callback when the on-screen image changes.
-        virtual void on_screen_image(const media_reader::ImageBufPtr &) {}
-
         // re-implement to receive callback when the on-screen media changes.
         virtual void on_screen_media_changed(caf::actor media, caf::actor media_source) {}
 
@@ -194,6 +196,14 @@ namespace module {
         virtual void bookmark_ranges_changed(
             const std::vector<std::tuple<utility::Uuid, std::string, int, int>>
                 &bookmark_frame_ranges) {}
+
+        // re-implement to execute custom code when your module connects to a viewport.
+        // For example, exposing certain attributes in a particular named group
+        // of attributes for the UI layer (see Playhead.cpp)
+        virtual void connect_to_viewport(
+            const std::string &viewport_name,
+            const std::string &viewport_toolbar_name,
+            bool connect);
 
       protected:
         /* Call this method with your StringChoiceAttribute to expose it in
@@ -221,7 +231,15 @@ namespace module {
             const std::string top_level_menu,
             const std::string before = std::string{});
 
+        void make_attribute_visible_in_viewport_toolbar(
+            Attribute *attr, const bool make_visible = true);
+
+        void expose_attribute_in_model_data(
+            Attribute *attr, const std::string &model_name, const bool expose = true);
+
         void redraw_viewport();
+
+        virtual utility::JsonStore public_state_data();
 
         // re-implement this function and use it to add custom hotkeys
         virtual void register_hotkeys() {}
@@ -249,9 +267,12 @@ namespace module {
         void disable_linking() { linking_disabled_ = true; }
         void enable_linking() { linking_disabled_ = false; }
 
+        std::vector<AttributePtr> attributes_;
+
       private:
         void notify_attribute_destroyed(Attribute *);
         void attribute_changed(const utility::Uuid &attr_uuid, const int role_id, bool notify);
+        void add_attribute(Attribute *attr);
 
         caf::actor global_module_events_actor_;
         caf::actor keypress_monitor_actor_;
@@ -264,11 +285,12 @@ namespace module {
         std::set<caf::actor_addr> partially_linked_modules_;
         std::set<caf::actor_addr> fully_linked_modules_;
         std::set<utility::Uuid> linked_attrs_;
+        std::set<utility::Uuid> attrs_in_toolbar_;
+        std::set<std::string> connected_viewports_;
 
-        std::vector<AttributePtr> attributes_;
-        bool connected_to_ui_      = {false};
-        bool linking_disabled_     = {false};
-        utility::Uuid module_uuid_ = {utility::Uuid::generate()};
+        bool connected_to_ui_  = {false};
+        bool linking_disabled_ = {false};
+        utility::Uuid module_uuid_;
         std::string name_;
         std::set<utility::Uuid> attrs_waiting_to_update_prefs_;
 

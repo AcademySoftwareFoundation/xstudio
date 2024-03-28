@@ -25,11 +25,15 @@ namespace timeline {
         IT_REMOVE = 0x6L,
         IT_SPLICE = 0x7L,
         IT_NAME   = 0x8L,
+        IT_FLAG   = 0x9L,
+        IT_PROP   = 0x10L,
 
     } ItemAction;
 
     class Item;
     using Items = std::list<Item>;
+
+    using ResolvedItem = std::tuple<Item, utility::FrameRate>;
 
     typedef std::function<void(const utility::JsonStore &event, Item &item)> ItemEventFunc;
 
@@ -88,7 +92,7 @@ namespace timeline {
         using Items::back;
         using Items::front;
 
-        // using Items::insert;
+        // these circumvent the event handler
         using Items::emplace_back;
         using Items::emplace_front;
         using Items::pop_back;
@@ -117,17 +121,28 @@ namespace timeline {
         [[nodiscard]] std::optional<utility::FrameRate> available_duration() const;
         [[nodiscard]] std::optional<utility::FrameRate> active_duration() const;
 
-
         [[nodiscard]] utility::FrameRate trimmed_start() const;
         [[nodiscard]] std::optional<utility::FrameRate> available_start() const;
         [[nodiscard]] std::optional<utility::FrameRate> active_start() const;
 
+        [[nodiscard]] utility::FrameRateDuration trimmed_frame_start() const {
+            return trimmed_range().frame_start();
+        }
         [[nodiscard]] utility::FrameRateDuration trimmed_frame_duration() const {
             return trimmed_range().frame_duration();
         }
         [[nodiscard]] std::optional<utility::FrameRateDuration> active_frame_duration() const;
         [[nodiscard]] std::optional<utility::FrameRateDuration>
         available_frame_duration() const;
+
+        [[nodiscard]] std::optional<std::pair<Items::const_iterator, int>>
+        item_at_frame(const int frame) const;
+
+        [[nodiscard]] std::optional<Items::const_iterator> item_at_index(const int index) const;
+
+        [[nodiscard]] utility::FrameRange range_at_index(const int item_index) const;
+        [[nodiscard]] int frame_at_index(const int item_index) const;
+        [[nodiscard]] int frame_at_index(const int item_index, const int item_frame) const;
 
         [[nodiscard]] caf::actor_addr actor_addr() const { return uuid_addr_.second; }
         [[nodiscard]] caf::actor actor() const {
@@ -138,6 +153,8 @@ namespace timeline {
         }
         [[nodiscard]] bool enabled() const { return enabled_; }
         [[nodiscard]] std::string name() const { return name_; }
+        [[nodiscard]] std::string flag() const { return flag_; }
+        [[nodiscard]] utility::JsonStore prop() const { return prop_; }
         [[nodiscard]] bool transparent() const {
             if (item_type_ == ItemType::IT_GAP)
                 return true;
@@ -153,8 +170,12 @@ namespace timeline {
 
         utility::JsonStore refresh(const int depth = std::numeric_limits<int>::max());
 
+        void set_uuid(const utility::Uuid &uuid) { uuid_addr_.first = uuid; }
+
         utility::JsonStore set_enabled(const bool &value);
         utility::JsonStore set_name(const std::string &value);
+        utility::JsonStore set_flag(const std::string &value);
+        utility::JsonStore set_prop(const utility::JsonStore &value);
         void set_system(caf::actor_system *value) { the_system_ = value; }
 
         utility::JsonStore set_actor_addr(const caf::actor_addr &value);
@@ -168,7 +189,8 @@ namespace timeline {
             Items::iterator position,
             const Item &val,
             const utility::JsonStore &blind = utility::JsonStore());
-        utility::JsonStore erase(Items::iterator position);
+        utility::JsonStore
+        erase(Items::iterator position, const utility::JsonStore &blind = utility::JsonStore());
         utility::JsonStore splice(
             Items::const_iterator pos,
             Items &other,
@@ -183,6 +205,8 @@ namespace timeline {
                 f.field("ava_rng", x.available_range_),
                 f.field("enabled", x.enabled_),
                 f.field("name", x.name_),
+                f.field("flag", x.flag_),
+                f.field("prop", x.prop_),
                 f.field("has_av", x.has_available_range_),
                 f.field("has_ac", x.has_active_range_),
                 f.field("children", x.children()));
@@ -193,12 +217,13 @@ namespace timeline {
                    uuid_addr_.first == other.uuid_addr_.first and
                    available_range_ == other.available_range_ and
                    active_range_ == other.active_range_ and enabled_ == other.enabled_ and
-                   name_ == other.name_;
+                   flag_ == other.flag_ and prop_ == other.prop_ and name_ == other.name_;
         }
 
-        [[nodiscard]] std::optional<std::tuple<const Item &, utility::FrameRate>> resolve_time(
+        [[nodiscard]] std::optional<ResolvedItem> resolve_time(
             const utility::FrameRate &time,
-            const media::MediaType mt = media::MediaType::MT_IMAGE) const;
+            const media::MediaType mt     = media::MediaType::MT_IMAGE,
+            const utility::UuidSet &focus = utility::UuidSet()) const;
 
         void undo(const utility::JsonStore &event);
         void redo(const utility::JsonStore &event);
@@ -221,6 +246,8 @@ namespace timeline {
         void set_actor_addr_direct(const caf::actor_addr &value);
         void set_enabled_direct(const bool &value);
         void set_name_direct(const std::string &value);
+        void set_flag_direct(const std::string &value);
+        void set_prop_direct(const utility::JsonStore &value);
 
         [[nodiscard]] std::string actor_addr_to_string(const caf::actor_addr &addr) const;
         [[nodiscard]] caf::actor_addr string_to_actor_addr(const std::string &addr) const;
@@ -236,6 +263,8 @@ namespace timeline {
         bool has_active_range_{false};
         bool enabled_{true};
         std::string name_{};
+        std::string flag_{};
+        utility::JsonStore prop_{};
 
         // not sure if this is safe..
         caf::actor_system *the_system_{nullptr};
@@ -243,19 +272,27 @@ namespace timeline {
         bool recursive_bind_{false};
     };
 
-    inline Items::const_iterator find_item(const Items &items, const utility::Uuid &uuid) {
+    inline std::optional<Items::const_iterator>
+    find_item(const Items &items, const utility::Uuid &uuid) {
         auto it = std::find_if(items.cbegin(), items.cend(), [uuid](Item const &obj) {
             return obj.uuid() == uuid;
         });
+
+        // search children
         if (it == items.cend()) {
             for (const auto &i : items) {
                 auto ii = find_item(i.children(), uuid);
-                if (ii != i.cend()) {
-                    it = ii;
+
+                if (ii) {
+                    it = *ii;
                     break;
                 }
             }
         }
+
+        if (it == items.cend())
+            return {};
+
         return it;
     }
 
@@ -296,17 +333,17 @@ namespace timeline {
 
     inline auto sum_trimmed_duration(const Items &items) {
         auto duration = utility::FrameRate();
-        for (const auto &i : items) {
+        for (const auto &i : items)
             duration += i.trimmed_duration();
-        }
+
         return duration;
     }
 
     inline auto max_trimmed_duration(const Items &items) {
         auto duration = utility::FrameRate();
-        for (const auto &i : items) {
+        for (const auto &i : items)
             duration = std::max(i.trimmed_duration(), duration);
-        }
+
         return duration;
     }
 

@@ -99,6 +99,19 @@ void py_config::add_messages() {
         "std::pair<std::string, std::vector<std::byte>>",
         nullptr);
 
+    add_message_type<std::vector<std::pair<int, int>>>(
+        "std::vector<std::pair<int, int>>", "std::vector<std::pair<int, int>>", nullptr);
+
+    add_message_type<timebase::flicks>("timebase::flicks", "timebase::flicks", nullptr);
+
+    add_message_type<std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>>(
+        "std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>",
+        "std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>",
+        nullptr);
+
+    add_message_type<timebase::flicks>(
+        "xstudio::utility::time_point", "xstudio::utility::time_point", nullptr);
+
     add_message_type<std::vector<utility::Uuid>>(
         "UuidVec", "std::vector<xstudio::utility::Uuid>", &register_uuidvec_class);
     add_message_type<utility::absolute_receive_timeout>(

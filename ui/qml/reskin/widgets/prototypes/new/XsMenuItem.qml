@@ -46,7 +46,7 @@ MenuItem {
 
     arrow: Image {
         id:myIcon
-        source:"qrc:/assets/icons/new/chevron_right.svg"
+        source:"qrc:/icons/chevron_right.svg"
         sourceSize.height: 16//parent.height
         sourceSize.width: 16//parent.width
         x: parent.width - width - 5
@@ -96,8 +96,8 @@ MenuItem {
             Image {
                 id: checkIcon
                 // visible: widget.isCheckable
-                source: widget.isMultiCheckable? widget.checked? "qrc:/assets/icons/new/check_box_checked.svg" : "qrc:/assets/icons/new/check_box_unchecked.svg"
-                : widget.checked? "qrc:/assets/icons/new/radio_button_checked.svg" : "qrc:/assets/icons/new/radio_button_unchecked.svg"
+                source: widget.isMultiCheckable? widget.checked? "qrc:/icons/check_box_checked.svg" : "qrc:/icons/check_box_unchecked.svg"
+                : widget.checked? "qrc:/icons/radio_button_checked.svg" : "qrc:/icons/radio_button_unchecked.svg"
                 width: iconsize // 2
                 height: iconsize // 2
                 anchors.centerIn: parent

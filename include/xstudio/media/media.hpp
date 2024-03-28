@@ -65,16 +65,24 @@ namespace media {
             utility::FrameRateDuration duration = utility::FrameRateDuration(),
             std::string name                    = "Main",
             const MediaType media_type          = MT_IMAGE,
-            std::string key_format              = "{0}@{1}/{2}")
+            std::string key_format              = "{0}@{1}/{2}",
+            Imath::V2i resolution               = Imath::V2i(0, 0),
+            float pixel_aspect                  = 1.0f,
+            int index                           = -1)
             : duration_(std::move(duration)),
               name_(std::move(name)),
               media_type_(media_type),
-              key_format_(std::move(key_format)) {}
+              key_format_(std::move(key_format)),
+              resolution_(resolution),
+              pixel_aspect_(pixel_aspect),
+              index_(index) {}
         virtual ~StreamDetail() = default;
         bool operator==(const StreamDetail &other) const {
             return (
                 duration_ == other.duration_ and name_ == other.name_ and
-                media_type_ == other.media_type_ and key_format_ == other.key_format_);
+                media_type_ == other.media_type_ and key_format_ == other.key_format_ and
+                resolution_ == other.resolution_ and pixel_aspect_ == other.pixel_aspect_ and
+                index_ == other.index_);
         }
 
         template <class Inspector> friend bool inspect(Inspector &f, StreamDetail &x) {
@@ -82,7 +90,10 @@ namespace media {
                 f.field("dur", x.duration_),
                 f.field("name", x.name_),
                 f.field("mt", x.media_type_),
-                f.field("kf", x.key_format_));
+                f.field("kf", x.key_format_),
+                f.field("res", x.resolution_),
+                f.field("pa", x.pixel_aspect_),
+                f.field("idx", x.index_));
         }
         friend std::string to_string(const StreamDetail &value);
 
@@ -90,6 +101,9 @@ namespace media {
         std::string name_;
         MediaType media_type_;
         std::string key_format_;
+        Imath::V2i resolution_;
+        float pixel_aspect_;
+        int index_;
     };
 
     inline std::string to_string(const StreamDetail &v) {
@@ -372,9 +386,14 @@ namespace media {
         [[nodiscard]] std::pair<std::string, uintmax_t> checksum() const {
             return std::make_pair(checksum_, size_);
         }
-        void checksum(const std::pair<std::string, uintmax_t> &checksum) {
-            checksum_ = checksum.first;
-            size_     = checksum.second;
+        [[nodiscard]] bool checksum(const std::pair<std::string, uintmax_t> &checksum) {
+            auto changed = false;
+            if (checksum_ != checksum.first or size_ != checksum.second) {
+                checksum_ = checksum.first;
+                size_     = checksum.second;
+                changed   = true;
+            }
+            return changed;
         }
 
       private:
@@ -393,25 +412,24 @@ namespace media {
     class MediaStream : public utility::Container {
       public:
         MediaStream(const utility::JsonStore &jsn);
-        MediaStream(
-            const std::string &name,
-            utility::FrameRateDuration duration = utility::FrameRateDuration(),
-            const MediaType media_type          = MT_IMAGE,
-            std::string key_format              = "{0}@{1}/{2}");
+        MediaStream(const StreamDetail &detail);
 
         ~MediaStream() override = default;
         [[nodiscard]] utility::JsonStore serialise() const override;
 
-        [[nodiscard]] std::string key_format() const { return key_format_; }
-        void set_key_format(const std::string &key_format) { key_format_ = key_format; }
+        [[nodiscard]] std::string key_format() const { return detail_.key_format_; }
+        void set_key_format(const std::string &key_format) { detail_.key_format_ = key_format; }
+        void set_detail(const StreamDetail &detail) {
+            detail_       = detail;
+            detail_.name_ = name();
+        }
 
-        [[nodiscard]] MediaType media_type() const { return media_type_; }
-        [[nodiscard]] utility::FrameRateDuration duration() const { return duration_; }
+        [[nodiscard]] MediaType media_type() const { return detail_.media_type_; }
+        [[nodiscard]] utility::FrameRateDuration duration() const { return detail_.duration_; }
+        const StreamDetail &detail() const { return detail_; }
 
       private:
-        utility::FrameRateDuration duration_;
-        std::string key_format_;
-        MediaType media_type_;
+        StreamDetail detail_;
     };
 
     inline std::shared_ptr<const AVFrameID> make_blank_frame(const MediaType media_type) {

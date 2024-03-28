@@ -345,9 +345,13 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                         system().registry().template get<caf::actor>(plugin_manager_registry);
                     auto session =
                         request_receive<caf::actor>(*sys, global, session::session_atom_v);
+                    auto media_rate =
+                        request_receive<FrameRate>(*sys, session, session::media_rate_atom_v);
 
                     for (const auto &i : requests) {
+
                         try {
+
                             auto jsn = nlohmann::json::parse(i);
                             // should be dict with paths: array
                             if (jsn["args"]["paths"].empty())
@@ -388,6 +392,18 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
 
                             bool first = true;
 
+                            bool quickview = false;
+                            if (jsn.at("args").contains("quickview")) {
+                                if (jsn.at("args")["quickview"].is_boolean()) {
+                                    quickview = jsn.at("args").at("quickview");
+                                } else if (jsn.at("args")["quickview"].is_string()) {
+                                    quickview = jsn.at("args").at("quickview") == "true";
+                                }
+                            }
+                            
+                            bool ab_compare = jsn.at("args").contains("compare") &&
+                                              jsn.at("args").at("compare") == "ab";
+
                             for (std::string path : jsn.at("args").at("paths")) {
                                 // auto path = j.get<std::string>();
                                 if (starts_with(path, "xstudio://")) {
@@ -397,24 +413,23 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                 }
 
                                 if (utility::check_plugin_uri_request(path)) {
+
                                     // send to plugin manager..
                                     auto uri = caf::make_uri(path);
-
-                                    auto media_rate = request_receive<FrameRate>(
-                                        *sys, session, session::media_rate_atom_v);
-
                                     if (uri)
-                                        anon_send(
-                                            pm,
-                                            data_source::use_data_atom_v,
+                                        send_uri_request_to_plugin(
                                             *uri,
+                                            media_rate,
                                             session,
                                             playlist,
-                                            media_rate);
+                                            pm,
+                                            quickview,
+                                            ab_compare);
                                     else {
                                         spdlog::warn(
                                             "{} Invalid URI {}", __PRETTY_FUNCTION__, path);
                                     }
+
                                 } else {
                                     try {
                                         FrameList fl;
@@ -460,6 +475,21 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                                     playlist::select_media_atom_v,
                                                     new_media.uuid());
                                             }
+
+                                            // trigger the session to (perhaps -
+                                            // depending on quick view preference)
+                                            // launch a quick viewer for the new
+                                            // media
+                                            auto studio =
+                                                system().registry().template get<caf::actor>(
+                                                    studio_registry);
+
+                                            anon_send(
+                                                studio,
+                                                ui::open_quickview_window_atom_v,
+                                                utility::UuidActorVector({new_media}),
+                                                "Off",
+                                                quickview);
                                         }
 
                                     } catch (const std::exception &e) {
@@ -498,9 +528,63 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
     caf::behavior make_behavior() override { return behavior_; }
 
   private:
+    void send_uri_request_to_plugin(
+        const caf::uri &uri,
+        const FrameRate &rate,
+        caf::actor session,
+        caf::actor playlist,
+        caf::actor plugin_manager,
+        const bool quickview,
+        const bool ab_compare);
+
     caf::behavior behavior_;
     T utility_;
 };
+
+template <class T>
+void DNRunPluginActor<T>::send_uri_request_to_plugin(
+    const caf::uri &uri,
+    const FrameRate &rate,
+    caf::actor session,
+    caf::actor playlist,
+    caf::actor plugin_manager,
+    const bool quickview,
+    const bool ab_compare) {
+
+    request(
+        plugin_manager, infinite, data_source::use_data_atom_v, uri, session, playlist, rate)
+        .then(
+            [=](UuidActorVector &new_media) {
+                if (!new_media.size())
+                    return;
+
+                // check if we're loading media
+                request(new_media[0].actor(), infinite, type_atom_v)
+                    .then(
+                        [=](const std::string &type) {
+                            if (type == "Media") {
+                                // trigger the session to (perhaps -
+                                // depending on quick view preference)
+                                // launch a quick viewer for the new
+                                // media
+                                auto studio = system().registry().template get<caf::actor>(
+                                    studio_registry);
+                                anon_send(
+                                    studio,
+                                    ui::open_quickview_window_atom_v,
+                                    new_media,
+                                    ab_compare ? "Off" : "A/B",
+                                    quickview);
+                            }
+                        },
+                        [=](error &err) mutable {
+                            spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        });
+            },
+            [=](error &err) mutable {
+                spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            });
+}
 
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {

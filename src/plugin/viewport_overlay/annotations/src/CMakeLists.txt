@@ -7,8 +7,6 @@ set(SOURCES
 	annotation.cpp
 	annotation_opengl_renderer.cpp
 	annotation_serialiser.cpp
-	caption.cpp
-	pen_stroke.cpp
 	serialisers/1.0/serialiser_1_pt_0.cpp
 )
 

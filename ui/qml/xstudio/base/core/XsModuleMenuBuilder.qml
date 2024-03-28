@@ -15,6 +15,7 @@ Item {
 
     property var ct: parent_menu.count
     onCtChanged: set_insert_index()
+    property var empty: module_menu_shim.empty
 
     onInsert_afterChanged: set_insert_index()
     onParent_menuChanged: set_insert_index()

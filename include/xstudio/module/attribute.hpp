@@ -74,7 +74,8 @@ namespace module {
             TextAlignment,
             TextContainerBox,
             Colour,
-            HotkeyUuid
+            HotkeyUuid,
+            UserData
         };
 
         inline static const std::map<int, std::string> role_names = {
@@ -99,7 +100,7 @@ namespace module {
             {DefaultValue, "default_value"},
             {AbbrValue, "short_value"},
             {DisabledValue, "disabled_value"},
-            {UuidRole, "uuid"},
+            {UuidRole, "attr_uuid"},
             {Groups, "groups"},
             {MenuPaths, "menu_paths"},
             {ToolbarPosition, "toolbar_position"},
@@ -113,7 +114,8 @@ namespace module {
             {TextAlignment, "text_alignment"},
             {TextContainerBox, "text_alignment_box"},
             {Colour, "attr_colour"},
-            {HotkeyUuid, "hotkey_uuid"}};
+            {HotkeyUuid, "hotkey_uuid"},
+            {UserData, "user_data"}};
 
         ~Attribute() = default;
 
@@ -162,7 +164,7 @@ namespace module {
 
         void set_preference_path(const std::string &preference_path);
 
-        void expose_in_ui_attrs_group(const std::string &group_name);
+        void expose_in_ui_attrs_group(const std::string &group_name, bool expose = true);
 
         void set_tool_tip(const std::string &tool_tip);
 

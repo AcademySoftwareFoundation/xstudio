@@ -600,6 +600,13 @@ FFMpegStream::FFMpegStream(
         frame->height = avc_stream_->codecpar->height;
         frame->format = codec_context_->pix_fmt;
 
+        // store resolution and pixel aspect
+        resolution_ = Imath::V2f(avc_stream_->codecpar->width, avc_stream_->codecpar->height);
+        auto sar    = av_guess_sample_aspect_ratio(format_context_, avc_stream_, nullptr);
+        if (sar.num && sar.den) {
+            pixel_aspect_ = float(sar.num) / float(sar.den);
+        }
+
         if (codec_->capabilities & AV_CODEC_CAP_DR1) {
 
             // See Note 1 below
@@ -626,6 +633,11 @@ FFMpegStream::FFMpegStream(
     if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
         fpsNum_     = avc_stream_->avg_frame_rate.num;
         fpsDen_     = avc_stream_->avg_frame_rate.den;
+        frame_rate_ = xstudio::utility::FrameRate(
+            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+    } else if (avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
+        fpsNum_     = avc_stream_->r_frame_rate.num;
+        fpsDen_     = avc_stream_->r_frame_rate.den;
         frame_rate_ = xstudio::utility::FrameRate(
             static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
     } else {

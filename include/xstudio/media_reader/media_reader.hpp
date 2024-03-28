@@ -102,7 +102,7 @@ namespace media_reader {
             : plugin_manager::PluginFactoryTemplate<T>(
                   uuid,
                   name,
-                  plugin_manager::PluginType::PT_MEDIA_READER,
+                  plugin_manager::PluginFlags::PF_MEDIA_READER,
                   false,
                   author,
                   description,

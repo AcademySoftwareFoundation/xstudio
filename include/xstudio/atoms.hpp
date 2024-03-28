@@ -26,6 +26,7 @@ const std::string audio_cache_registry{"AUDIOCACHE"};
 const std::string audio_output_registry{"AUDIO_OUTPUT"};
 const std::string colour_cache_registry{"COLOURCACHE"};
 const std::string colour_pipeline_registry{"COLOURPIPELINE"};
+const std::string conform_registry{"CONFORM"};
 const std::string embedded_python_registry{"EMBEDDEDPYTHON"};
 const std::string global_event_group{"XSTUDIO_EVENTS"};
 const std::string global_registry{"GLOBAL"};
@@ -33,16 +34,15 @@ const std::string global_playhead_events_actor{"GLOBALPLAYHEADEVENTS"};
 const std::string global_store_registry{"GLOBALSTORE"};
 const std::string image_cache_registry{"IMAGECACHE"};
 const std::string keyboard_events{"KEYBOARDEVENTS"};
-const std::string main_viewport_registry{"MAIN_VIEWPORT"};
 const std::string media_hook_registry{"MEDIAHOOK"};
 const std::string media_metadata_registry{"MEDIAMETADATA"};
 const std::string media_reader_registry{"MEDIAREADER"};
 const std::string module_events_registry{"MODULE_EVENTS"};
 const std::string offscreen_viewport_registry{"OFFSCREEN_VIEWPORT"};
-const std::string player_ui_registry{"PLAYERUI"};
 const std::string plugin_manager_registry{"PLUGINMNGR"};
 const std::string scanner_registry{"SCANNER"};
 const std::string studio_registry{"STUDIO"};
+const std::string studio_ui_registry{"STUDIOUI"};
 const std::string sync_gateway_manager_registry{"SYNCGATEMAN"};
 const std::string sync_gateway_registry{"SYNCGATE"};
 const std::string thumbnail_manager_registry{"THUMBNAIL"};
@@ -51,6 +51,8 @@ const std::string global_ui_model_data_registry{"GLOBALUIMODELDATA"};
 namespace bookmark {
     class AnnotationBase;
     struct BookmarkDetail;
+    struct BookmarkAndAnnotation;
+    typedef std::shared_ptr<const BookmarkAndAnnotation> BookmarkAndAnnotationPtr;
 } // namespace bookmark
 
 namespace event {
@@ -103,6 +105,11 @@ namespace media {
     typedef std::vector<MediaKey> MediaKeyVector;
 } // namespace media
 
+namespace conform {
+    struct ConformRequest;
+    struct ConformReply;
+} // namespace conform
+
 namespace media_reader {
     class AudioBuffer;
     class AudioBufPtr;
@@ -138,6 +145,7 @@ namespace plugin_manager {
 
 namespace plugin {
     class ViewportOverlayRenderer;
+    class GPUPreDrawHook;
 } // namespace plugin
 
 namespace module {
@@ -156,7 +164,6 @@ using namespace caf;
     caf::init_global_meta_objects<caf::id_block::xstudio_playback_atoms>();                    \
     caf::init_global_meta_objects<caf::id_block::xstudio_ui_atoms>();
 
-
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(httplib::Headers)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(httplib::Params)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(httplib::Response)
@@ -168,6 +175,8 @@ CAF_ALLOW_UNSAFE_MESSAGE_TYPE(std::shared_ptr<xstudio::media::AVFrameID>)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(std::shared_ptr<xstudio::media_reader::AudioBuffer>)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(std::shared_ptr<xstudio::media_reader::MediaReaderManager>)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(std::shared_ptr<xstudio::plugin::ViewportOverlayRenderer>)
+CAF_ALLOW_UNSAFE_MESSAGE_TYPE(std::shared_ptr<xstudio::plugin::GPUPreDrawHook>)
+CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::bookmark::BookmarkAndAnnotationPtr)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::colour_pipeline::ColourOperationDataPtr)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::colour_pipeline::ColourPipelineDataPtr)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::media::FrameTimeMap)
@@ -181,8 +190,10 @@ CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::ui::Hotkey)
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(xstudio::ui::viewport::GPUShaderPtr)
 
 // clang-format off
+// offset first_custom_type_id by first custom qt event
+#define FIRST_CUSTOM_ID (first_custom_type_id + 1000 + 100)
 
-CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, first_custom_type_id)
+CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, FIRST_CUSTOM_ID)
 
     CAF_ADD_TYPE_ID(xstudio_simple_types, (httplib::Headers))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (httplib::Params))
@@ -192,18 +203,19 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, first_custom_type_id)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (Imath::V2i))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (timebase::flicks))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::bookmark::BookmarkDetail))
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::colour_pipeline::ColourPipelineDataPtr))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::bookmark::BookmarkAndAnnotationPtr))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::colour_pipeline::ColourOperationDataPtr))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::colour_pipeline::ColourPipelineDataPtr))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::event::Event))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::global::StatusType))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::http_client::http_client_error))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::AVFrameID))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::AVFrameIDs))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::AVFrameIDsAndTimePoints))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::FrameTimeMap))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::media_error))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::MediaDetail))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::MediaKey))
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::AVFrameID))
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::AVFrameIDs))
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::AVFrameIDsAndTimePoints))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::MediaStatus))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::MediaType))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::media::StreamDetail))
@@ -216,7 +228,6 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, first_custom_type_id)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::LoopMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::OverflowMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::plugin_manager::PluginDetail))
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::plugin_manager::PluginType))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::session::ExportFormat))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::shotgun_client::AuthenticateShotgun))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::shotgun_client::AUTHENTICATION_METHOD))
@@ -231,6 +242,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, first_custom_type_id)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::PointerEvent))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::Signature))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::FitMode))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::GPUShaderPtr))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::absolute_receive_timeout))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::ContainerDetail))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::CopyResult))
@@ -248,36 +260,36 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, first_custom_type_id)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::Uuid))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::UuidActorMap))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::xstudio_error))
-
-    // **************** add new entries here ******************
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::GPUShaderPtr))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::ui::viewport::ImageFormat))
 
 CAF_END_TYPE_ID_BLOCK(xstudio_simple_types)
 
-
-CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, xstudio_simple_types_last_type_id + 100)
+// xstudio_simple_types_last_type_id
+CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
 
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::array<uint8_t, 16>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::list<xstudio::utility::Uuid>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::map<float, std::set<caf::actor>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::map<xstudio::utility::Uuid, xstudio::utility::Uuid>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::optional<xstudio::utility::FrameRange>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::optional<xstudio::utility::time_point>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<caf::actor, xstudio::utility::JsonStore>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<caf::uri, std::filesystem::file_time_type>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<int, xstudio::utility::time_point>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<int, xstudio::utility::UuidActor>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::UuidActor, xstudio::utility::UuidActor>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<std::string, std::string>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<std::string, uintmax_t>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<std::string, xstudio::media_metadata::MMCertainty>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<std::string,std::vector<std::byte>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::JsonStore, int>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::JsonStore, std::vector<xstudio::timeline::Item>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::Timecode, int>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::utility::UuidActor))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::Uuid, xstudio::utility::UuidActor>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::Uuid, xstudio::media_reader::MRCertainty>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::Uuid, xstudio::utility::MediaReference>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::Uuid, xstudio::utility::UuidActor>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::Uuid,std::string>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::UuidActor, xstudio::utility::UuidActor>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::UuidActor,xstudio::utility::JsonStore>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::set<int>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::shared_ptr<const xstudio::module::Attribute>))
@@ -290,10 +302,10 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, xstudio_simple_types_last_type_id
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::shared_ptr<xstudio::thumbnail::ThumbnailBuffer>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<int, double, xstudio::utility::Timecode>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<std::optional<std::string>, std::optional<std::string>>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<xstudio::utility::UuidActor, xstudio::utility::UuidActor, caf::actor>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<xstudio::utility::Uuid, std::string, std::string, double, xstudio::media::StreamDetail, std::vector<xstudio::utility::UuidActor>, xstudio::utility::Uuid>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<std::string, std::string>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<xstudio::utility::JsonStore, xstudio::utility::JsonStore, xstudio::utility::ContainerDetail>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<xstudio::utility::Uuid, std::string, std::string, double, xstudio::media::StreamDetail, std::vector<xstudio::utility::UuidActor>, xstudio::utility::Uuid>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::tuple<xstudio::utility::UuidActor, xstudio::utility::UuidActor, caf::actor>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<bool>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<caf::uri>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<int16_t>))
@@ -302,28 +314,27 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, xstudio_simple_types_last_type_id
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::byte>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<int, int>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<int, xstudio::utility::time_point>>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::UuidActor, xstudio::utility::UuidActor>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::media::MediaKey, xstudio::utility::time_point>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::EditList, caf::actor>>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::utility::UuidActorVector))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::Uuid, std::string>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::Uuid,xstudio::utility::UuidActorVector>>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::UuidActor, xstudio::utility::UuidActor>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::UuidActor,xstudio::utility::JsonStore>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::shared_ptr<const xstudio::module::Attribute>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::string>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::tuple<std::string, caf::uri, xstudio::utility::FrameList>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::bookmark::BookmarkDetail>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::colour_pipeline::ColourPipelineDataPtr>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::colour_pipeline::ColourOperationDataPtr>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::ui::viewport::GPUShaderPtr>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::media::MediaKey>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::colour_pipeline::ColourPipelineDataPtr>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::media::AVFrameID>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::media::MediaKey>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::media_reader::AudioBufPtr>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::media_reader::ImageBufPtr>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::plugin_manager::PluginDetail>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::tag::Tag>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::ui::Hotkey>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::ui::viewport::GPUShaderPtr>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::ContainerDetail>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::EditList>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::FrameRate>))
@@ -331,14 +342,18 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, xstudio_simple_types_last_type_id
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::MediaReference>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::time_point>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::utility::Uuid>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::utility::UuidActor))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::utility::UuidActorVector))
 
-    // **************** add new entries here ******************
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<std::string, uintmax_t>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::conform::ConformRequest))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (xstudio::conform::ConformReply))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::set<xstudio::utility::Uuid>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::shared_ptr<xstudio::plugin::GPUPreDrawHook>))
 
 CAF_END_TYPE_ID_BLOCK(xstudio_complex_types)
 
 
-CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, xstudio_complex_types_last_type_id+100)
+CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, FIRST_CUSTOM_ID + (200 * 2))
 
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::broadcast, broadcast_down_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::broadcast, join_broadcast_atom)
@@ -347,10 +362,12 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, xstudio_complex_types_last_type
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, busy_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, create_studio_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, exit_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_actor_from_registry_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_api_mode_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_application_mode_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_global_audio_cache_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_global_image_cache_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_global_playhead_events_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_global_store_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_global_thumbnail_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_plugin_manager_atom)
@@ -378,6 +395,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, xstudio_complex_types_last_type
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, add_attribute_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, attribute_deleted_event_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, attribute_role_data_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, attribute_uuids_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, attribute_value_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, change_attribute_event_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, change_attribute_request_atom)
@@ -388,11 +406,12 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, xstudio_complex_types_last_type
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, disconnect_from_ui_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, full_attributes_description_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, get_ui_focus_events_group_atom)
-    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, grab_ui_focus_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, grab_all_keyboard_input_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, grab_all_mouse_input_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, grab_ui_focus_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, join_module_attr_events_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, leave_module_attr_events_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, link_module_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, module_ui_events_group_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, redraw_viewport_group_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, release_ui_focus_atom)
@@ -423,16 +442,12 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, xstudio_complex_types_last_type
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::utility, uuid_atom)
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::utility, version_atom)
 
-    // **************** add new entries here ******************
-    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_global_playhead_events_atom)
-    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, attribute_uuids_atom)
-    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, get_actor_from_registry_atom)
-    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, link_module_atom)
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::module, remove_attribute_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_framework_atoms)
 
 
-CAF_BEGIN_TYPE_ID_BLOCK(xstudio_plugin_atoms, xstudio_framework_atoms_last_type_id+100)
+CAF_BEGIN_TYPE_ID_BLOCK(xstudio_plugin_atoms,  FIRST_CUSTOM_ID + (200 * 3))
 
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::data_source, get_data_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::data_source, post_data_atom)
@@ -470,6 +485,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_plugin_atoms, xstudio_framework_atoms_last_type_
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_authentication_source_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_create_entity_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_credential_atom)
+    CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_delete_entity_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_entity_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_entity_filter_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_entity_search_atom)
@@ -490,11 +506,13 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_plugin_atoms, xstudio_framework_atoms_last_type_
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::shotgun_client, shotgun_attachment_atom)
 
     // **************** add new entries here ******************
+    CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::conform, conform_atom)
+    CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::conform, conform_tasks_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_plugin_atoms)
 
 
-CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, xstudio_plugin_atoms_last_type_id+100)
+CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
 
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, add_annotation_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::bookmark, add_bookmark_atom)
@@ -511,8 +529,10 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, xstudio_plugin_atoms_last_type_id
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, acquire_media_detail_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, add_media_source_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, add_media_stream_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, checksum_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, current_media_source_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, current_media_stream_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, decompose_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, get_edit_list_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, get_media_details_atom) //DEPRECATED
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, get_media_pointer_atom)
@@ -525,6 +545,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, xstudio_plugin_atoms_last_type_id
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, invalidate_cache_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, media_reference_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, media_status_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, relink_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, rescan_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, source_offset_frames_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media_metadata, get_metadata_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, add_media_atom)
@@ -586,29 +608,39 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, xstudio_plugin_atoms_last_type_id
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, available_range_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, duration_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, erase_item_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, erase_item_at_frame_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, insert_item_at_frame_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, insert_item_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_name_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, link_media_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, move_item_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, move_item_at_frame_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, remove_item_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, remove_item_at_frame_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, split_item_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, split_item_at_frame_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, trimmed_range_atom)
 
-    // **************** add new entries here ******************
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_name_atom)
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, checksum_atom)
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, relink_atom)
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, decompose_atom)
-    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, rescan_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, item_flag_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, metadata_selection_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::timeline, focus_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_session_atoms)
 
 
-CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, xstudio_session_atoms_last_type_id+100)
+CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, FIRST_CUSTOM_ID + (200 * 5))
 
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::audio, get_samples_for_soundcard_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::audio, push_samples_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_operation_uniforms_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_pipeline_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, connect_to_viewport_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, display_colour_transform_hash_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_colour_pipe_data_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_colour_pipe_params_atom)
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_pipeline_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_thumbnail_colour_pipeline_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, pixel_info_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, set_colour_pipe_params_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::media_cache, cached_frames_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::media_cache, count_atom)
@@ -660,12 +692,14 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, xstudio_session_atoms_last_type_
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, jump_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, key_child_playhead_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, key_playhead_index_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, last_frame_media_pointer_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, logical_frame_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, logical_frame_to_flicks_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, loop_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_events_group_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_frame_to_flicks_atom)
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_logical_frame_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_source_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, monitored_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, overflow_mode_atom)
@@ -691,19 +725,11 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_playback_atoms, xstudio_session_atoms_last_type_
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, velocity_multiplier_atom)
     CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, viewport_events_group_atom)
 
-    // **************** add new entries here ******************
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, last_frame_media_pointer_atom)
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, display_colour_transform_hash_atom)
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, pixel_info_atom)
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_logical_frame_atom)
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, get_thumbnail_colour_pipeline_atom)
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, connect_to_viewport_atom)
-    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::colour_pipeline, colour_operation_uniforms_atom)
-
+    CAF_ADD_ATOM(xstudio_playback_atoms, xstudio::playhead, media_frame_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_playback_atoms)
 
-CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms, xstudio_playback_atoms_last_type_id+100)
+CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms,  FIRST_CUSTOM_ID + (200 * 6))
 
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, show_buffer_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::fps_monitor, connect_to_playhead_atom)
@@ -711,17 +737,27 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms, xstudio_playback_atoms_last_type_id+10
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::fps_monitor, framebuffer_swapped_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::fps_monitor, update_actual_fps_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, all_keys_up_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, hotkey_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, hotkey_event_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, key_down_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, key_pressed_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, key_released_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, key_up_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, mouse_event_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, pressed_keys_changed_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, register_hotkey_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, skipped_mouse_event_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, text_entry_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, register_hotkey_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, hotkey_event_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, insert_or_update_menu_node_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, insert_rows_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, menu_node_activated_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, model_data_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, register_model_data_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, remove_node_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, remove_rows_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, set_node_data_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::qml, backend_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, enable_hud_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, fit_mode_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, other_viewport_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, overlay_render_function_atom)
@@ -734,18 +770,17 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms, xstudio_playback_atoms_last_type_id+10
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, viewport_playhead_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, viewport_scale_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, viewport_set_scene_coordinates_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, quickview_media_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, connect_to_viewport_toolbar_atom)
 
-    // **************** add new entries here ******************
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, enable_hud_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::keypress_monitor, hotkey_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, register_model_data_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, model_data_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, set_node_data_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, insert_rows_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, remove_rows_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, remove_node_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, menu_node_activated_atom)
-    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::model_data, insert_or_update_menu_node_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, open_quickview_window_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, show_message_box_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, viewport_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, pre_render_gpu_hook_atom)
+
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, offscreen_viewport_atom)    
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, video_output_actor_atom)
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, aux_shader_uniforms_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_ui_atoms)
 

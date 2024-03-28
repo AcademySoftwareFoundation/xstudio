@@ -13,6 +13,32 @@
 namespace xstudio {
 namespace plugin {
 
+    class GPUPreDrawHook {
+
+      public:
+        /* Plugins can provide this class to allow a way to execute any GPU
+        draw/compute functions *before* the viewport is drawn to the screen.
+        Note that 'image' is a non-const reference and as-such the colour
+        pipeline data object ptr that is a member of ImageBufPtr can be
+        overwritten with new data that the plugin (if it's a ColourOP) can
+        access at draw time (like LUTS & texture). Similiarly ViewportOverlay
+        plugins could use this to do pixel analysis and put the result into
+        texture data. This could be useful for doing waveform overlays, for
+        example.
+
+        Note that plugins can add their own data to media via the bookmarks
+        system which will then be available here at draw time as metadata on
+        the ImageBufPtr we receive here. */
+
+        virtual void pre_viewport_draw_gpu_hook(
+            const Imath::M44f &transform_window_to_viewport_space,
+            const Imath::M44f &transform_viewport_to_image_space,
+            const float viewport_du_dpixel,
+            xstudio::media_reader::ImageBufPtr &image) = 0;
+    };
+
+    typedef std::shared_ptr<GPUPreDrawHook> GPUPreDrawHookPtr;
+
     class ViewportOverlayRenderer {
 
       public:
@@ -57,35 +83,43 @@ namespace plugin {
 
         caf::message_handler message_handler_;
 
-        virtual utility::BlindDataObjectPtr prepare_render_data(
+        virtual utility::BlindDataObjectPtr prepare_overlay_data(
             const media_reader::ImageBufPtr & /*image*/, const bool /*offscreen*/
         ) const {
             return utility::BlindDataObjectPtr();
         }
 
+        // TODO: deprecate prepare_render_data and use this everywhere
+        virtual utility::BlindDataObjectPtr onscreen_render_data(
+            const media_reader::ImageBufPtr & /*image*/, const std::string & /*viewport_name*/
+        ) const {
+            return utility::BlindDataObjectPtr();
+        }
+
+        // reimpliment this function to receive the image buffer(s) that are
+        // currently being displayed on the given viewport
+        virtual void images_going_on_screen(
+            const std::vector<media_reader::ImageBufPtr> & /*images*/,
+            const std::string /*viewport_name*/,
+            const bool /*playhead_playing*/
+        ) {}
+
         virtual ViewportOverlayRendererPtr make_overlay_renderer(const int /*viewer_index*/) {
             return ViewportOverlayRendererPtr();
         }
 
-        utility::Uuid create_bookmark_on_current_frame(bookmark::BookmarkDetail bmd);
+        // Override this and return your own subclass of GPUPreDrawHook to allow
+        // arbitrary GPU rendering (e.g. when in the viewport OpenGL context)
+        virtual GPUPreDrawHookPtr make_pre_draw_gpu_hook(const int /*viewer_index*/) {
+            return GPUPreDrawHookPtr();
+        }
 
         // reimplement this function in an annotations plugin to return your
         // custom annotation class, based on bookmark::AnnotationBase base class.
-        virtual std::shared_ptr<bookmark::AnnotationBase>
+        virtual bookmark::AnnotationBasePtr
         build_annotation(const utility::JsonStore &anno_data) {
-            return std::shared_ptr<bookmark::AnnotationBase>();
+            return bookmark::AnnotationBasePtr();
         }
-
-        void push_annotation_to_bookmark(std::shared_ptr<bookmark::AnnotationBase> annotation);
-
-        std::shared_ptr<bookmark::AnnotationBase>
-        fetch_annotation(const utility::Uuid &bookmark_uuid);
-
-        std::map<utility::Uuid, utility::JsonStore>
-        clear_annotations_and_bookmarks(std::vector<utility::Uuid> bookmark_ids);
-
-        void restore_annotations_and_bookmarks(
-            const std::map<utility::Uuid, utility::JsonStore> &bookmarks_data);
 
         /* Function signature for on screen frame change callback - reimplement to
         receive this event */
@@ -95,13 +129,6 @@ namespace plugin {
             const int,                // media frame
             const int,                // media logical frame
             const utility::Timecode & // media frame timecode
-        ) {}
-
-        /* Function signature for on screen annotation change - reimplement to
-        receive this event */
-        virtual void on_screen_annotation_changed(
-            std::vector<std::shared_ptr<bookmark::AnnotationBase>> // ptrs to annotation
-                                                                   // data
         ) {}
 
         /* Function signature for on screen annotation change - reimplement to
@@ -120,19 +147,37 @@ namespace plugin {
         viewport. See basic_viewport_masking and pixel_probe plugin examples. */
         void qml_viewport_overlay_code(const std::string &code);
 
+        /* Use this function to create a new bookmark on the current (on screen) frame
+        of for the entire duration for the media currently showing on the given named
+        viewport. */
+        utility::Uuid create_bookmark_on_current_media(
+            const std::string &viewport_name,
+            const std::string &bookmark_subject,
+            const bookmark::BookmarkDetail &detail,
+            const bool bookmark_entire_duratio = false);
+
+
+        /* Call this function to update the annotation data attached to the
+        given bookmark */
+        void update_bookmark_annotation(
+            const utility::Uuid bookmark_id,
+            std::shared_ptr<bookmark::AnnotationBase> annotation_data,
+            const bool annotation_is_empty);
+
+        void update_bookmark_detail(
+            const utility::Uuid bookmark_id, const bookmark::BookmarkDetail &bmd);
+
+
       private:
         // re-implement to receive callback when the on-screen media changes. To
         void on_screen_media_changed(caf::actor media) override;
 
         void session_changed(caf::actor session);
 
-        void check_if_onscreen_bookmarks_have_changed(
-            const int media_frame, const bool force_update = false);
-
         void current_viewed_playhead_changed(caf::actor_addr playhead_addr);
 
-        std::vector<std::tuple<utility::Uuid, std::string, int, int>> bookmark_frame_ranges_;
-        utility::UuidList onscreen_bookmarks_;
+        void join_studio_events();
+
         int playhead_logical_frame_ = {-1};
 
         caf::actor_addr active_viewport_playhead_;

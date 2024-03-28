@@ -74,7 +74,7 @@ namespace media_hook {
             : plugin_manager::PluginFactoryTemplate<T>(
                   uuid,
                   name,
-                  plugin_manager::PluginType::PT_MEDIA_HOOK,
+                  plugin_manager::PluginFlags::PF_MEDIA_HOOK,
                   false,
                   author,
                   description,

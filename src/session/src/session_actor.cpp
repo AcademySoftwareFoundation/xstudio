@@ -4,6 +4,8 @@
 #include <caf/policy/select_all.hpp>
 #include <tuple>
 
+#include <zstr.hpp>
+
 #include "xstudio/atoms.hpp"
 #include "xstudio/bookmark/bookmarks_actor.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -314,7 +316,7 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
                 [=](UuidUuidActor playlist) {
                     for (const auto &i : uris_) {
                         fs::path p(uri_to_posix_path(i));
-                        if (p.extension() != ".xst")
+                        if (not is_session(p.string()))
                             anon_send(
                                 playlist.second.actor(),
                                 playlist::add_media_atom_v,
@@ -347,7 +349,7 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
                         });
 
             } else {
-                if (p.extension() == ".xst")
+                if (is_session(p.string()))
                     anon_send(session_, merge_session_atom_v, i);
                 else
                     has_files = true;
@@ -360,7 +362,7 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
                     [=](UuidUuidActor playlist) {
                         for (const auto &i : uris_) {
                             fs::path p(uri_to_posix_path(i));
-                            if (!fs::is_directory(p) and p.extension() != ".xst")
+                            if (!fs::is_directory(p) and not is_session(p.string()))
                                 anon_send(
                                     playlist.second.actor(),
                                     playlist::add_media_atom_v,
@@ -875,10 +877,7 @@ caf::message_handler SessionActor::message_handler() {
             auto rp = make_response_promise<UuidVector>();
 
             try {
-                JsonStore js;
-                std::ifstream i(uri_to_posix_path(path));
-                i >> js;
-                auto session = spawn<session::SessionActor>(js, path);
+                auto session = spawn<session::SessionActor>(utility::open_session(path), path);
                 rp.delegate(actor_cast<caf::actor>(this), merge_session_atom_v, session);
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1487,6 +1486,18 @@ caf::message_handler SessionActor::message_handler() {
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
             }
+        },
+        [=](ui::open_quickview_window_atom,
+            const utility::UuidActorVector &media_items,
+            std::string compare_mode,
+            bool force) {
+            // forward to the studio actor
+            anon_send(
+                home_system().registry().get<caf::actor>(studio_registry),
+                ui::open_quickview_window_atom_v,
+                media_items,
+                compare_mode,
+                force);
         }};
 }
 
@@ -1876,6 +1887,7 @@ void SessionActor::save_json_to(
             return rp.deliver(new_hash);
         }
 
+        // fix something ?
         auto ppath = utility::posix_path_to_uri(utility::uri_to_posix_path(path));
 
         // try and save, we are already looking at this file
@@ -1884,27 +1896,47 @@ void SessionActor::save_json_to(
             resolve_link = true;
         }
 
-
         auto save_path = uri_to_posix_path(ppath);
         if (resolve_link && fs::exists(save_path) && fs::is_symlink(save_path))
             save_path = fs::canonical(save_path);
 
-        // this maybe a symlink in which case we should resolve it.
-        std::ofstream o(save_path + ".tmp");
-        try {
-            o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            // if(not o.is_open())
-            //     throw std::runtime_error();
-            o << std::setw(4) << data << std::endl;
-            o.close();
-        } catch (const std::exception &) {
-            // remove failed file
-            if (o.is_open()) {
+
+        // compress data.
+        if (to_lower(fs::path(save_path).extension()) == ".xsz") {
+            zstr::ofstream o(save_path + ".tmp");
+            try {
+                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                // if(not o.is_open())
+                //     throw std::runtime_error();
+                o << std::setw(4) << data << std::endl;
                 o.close();
-                fs::remove(save_path + ".tmp");
+            } catch (const std::exception &) {
+                // remove failed file
+                if (o.is_open()) {
+                    o.close();
+                    fs::remove(save_path + ".tmp");
+                }
+                throw std::runtime_error("Failed to open file");
             }
-            throw std::runtime_error("Failed to open file");
+        } else {
+            // this maybe a symlink in which case we should resolve it.
+            std::ofstream o(save_path + ".tmp");
+            try {
+                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                // if(not o.is_open())
+                //     throw std::runtime_error();
+                o << std::setw(4) << data << std::endl;
+                o.close();
+            } catch (const std::exception &) {
+                // remove failed file
+                if (o.is_open()) {
+                    o.close();
+                    fs::remove(save_path + ".tmp");
+                }
+                throw std::runtime_error("Failed to open file");
+            }
         }
+
         // rename tmp to final name
         fs::rename(save_path + ".tmp", save_path);
 

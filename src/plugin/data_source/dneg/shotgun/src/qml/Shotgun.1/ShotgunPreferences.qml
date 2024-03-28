@@ -9,6 +9,6 @@ import xstudio.qml.module 1.0
 
 XsDialogModal {
     id: dlg
-    title: "Shotgun Preferences"
+    title: "ShotGrid Preferences"
 }
 

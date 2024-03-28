@@ -271,8 +271,9 @@ BasicViewportMasking::BasicViewportMasking(
         add_string_choice_attribute("Mask", "Mk", "Off", {"Off", "On"}, {"Off", "On"});
     mask_selection_->set_tool_tip("Toggles the mask on / off, use the settings to customize "
                                   "the mask. You can use the M hotkey to toggle on / off");
-    mask_selection_->expose_in_ui_attrs_group("any_toolbar");
     mask_selection_->expose_in_ui_attrs_group("viewport_mask_settings");
+
+    make_attribute_visible_in_viewport_toolbar(mask_selection_);
 
     // here we set custom QML code to implement a custom widget that is inserted
     // into the viewer toolbox. In this case, we have extended the widget for
@@ -327,7 +328,7 @@ void BasicViewportMasking::register_hotkeys() {
         "Toggles viewport masking. Find mask settings in the toolbar under the 'Mask' button");
 }
 
-utility::BlindDataObjectPtr BasicViewportMasking::prepare_render_data(
+utility::BlindDataObjectPtr BasicViewportMasking::prepare_overlay_data(
     const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
 
     auto r = utility::BlindDataObjectPtr();
@@ -397,7 +398,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<BasicViewportMasking>>(
                 utility::Uuid("4006826a-6ff2-41ec-8ef2-d7a40bfd65e4"),
                 "BasicViewportMasking",
-                plugin_manager::PluginType::PT_VIEWPORT_OVERLAY,
+                plugin_manager::PluginFlags::PF_VIEWPORT_OVERLAY,
                 true,
                 "Ted Waine",
                 "Basic Viewport Masking Plugin")}));

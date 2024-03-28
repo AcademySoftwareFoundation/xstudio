@@ -4,6 +4,7 @@
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/tree.hpp"
 #include "xstudio/module/module.hpp"
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/playhead/playhead.hpp"
@@ -16,13 +17,24 @@ using namespace xstudio::utility;
 using namespace xstudio::module;
 using namespace xstudio;
 
-Module::Module(const std::string name) : name_(std::move(name)) {}
+namespace {
+caf::behavior delayed_resend(caf::event_based_actor *) {
+    return {[](update_attribute_in_preferences_atom, caf::actor_addr module) {
+        auto mod = caf::actor_cast<caf::actor>(module);
+        if (mod) {
+            anon_send(mod, update_attribute_in_preferences_atom_v);
+        }
+    }};
+}
+} // namespace
+
+Module::Module(const std::string name, const utility::Uuid &uuid)
+    : name_(std::move(name)), module_uuid_(uuid) {}
 
 Module::~Module() {
     disconnect_from_ui();
     global_module_events_actor_ = caf::actor();
     keypress_monitor_actor_     = caf::actor();
-    module_events_group_        = caf::actor();
 }
 
 void Module::set_parent_actor_addr(caf::actor_addr addr) {
@@ -52,7 +64,6 @@ void Module::set_parent_actor_addr(caf::actor_addr addr) {
         } catch (std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
-        // self()->link_to(module_events_group_);
     }
 
     // we can't add hotkeys until the parent actor has been set. Subclasses of
@@ -74,6 +85,20 @@ void Module::set_parent_actor_addr(caf::actor_addr addr) {
         }
         unregistered_hotkeys_.clear();
     }
+
+    /*if (self()) {
+        self()->attach_functor([=](const caf::error &reason) {
+            spdlog::debug(
+                "STANKSTONK {} exited: {}",
+                name(),
+                to_string(reason));
+            cleanup();
+            spdlog::debug(
+                "STINKDONK {} exited: {}",
+                name(),
+                to_string(reason));
+        });
+    }*/
 }
 
 void Module::delete_attribute(const utility::Uuid &attribute_uuid) {
@@ -101,22 +126,16 @@ void Module::link_to_module(
 
         if (intial_push_sync) {
 
-            scoped_actor sys{self()->home_system()};
             // send state of all attrs to 'other_module' so it can update its copies as required
             for (auto &attribute : attributes_) {
                 if (link_all_attrs ||
                     linked_attrs_.find(attribute->uuid()) != linked_attrs_.end()) {
-                    try {
-                        utility::request_receive<bool>(
-                            *sys,
-                            other_module,
-                            change_attribute_value_atom_v,
-                            attribute->get_role_data<std::string>(Attribute::Title),
-                            utility::JsonStore(attribute->role_data_as_json(Attribute::Value)),
-                            true);
-                    } catch (std::exception &e) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-                    }
+                    anon_send(
+                        other_module,
+                        change_attribute_value_atom_v,
+                        attribute->get_role_data<std::string>(Attribute::Title),
+                        utility::JsonStore(attribute->role_data_as_json(Attribute::Value)),
+                        true);
                 }
             }
         }
@@ -124,6 +143,27 @@ void Module::link_to_module(
         if (both_ways)
             anon_send(
                 other_module, module::link_module_atom_v, self(), link_all_attrs, false, false);
+    }
+}
+
+void Module::unlink_module(caf::actor other_module)
+{
+    auto addr = caf::actor_cast<caf::actor_addr>(other_module);
+    auto p = std::find(fully_linked_modules_.begin(), fully_linked_modules_.end(), addr);
+    bool found_link = false;
+    if (p != fully_linked_modules_.end()) {
+        fully_linked_modules_.erase(p);
+        found_link = true;
+    }
+    p = std::find(partially_linked_modules_.begin(), partially_linked_modules_.end(), addr);
+    if (p != partially_linked_modules_.end()) {
+        partially_linked_modules_.erase(p);
+        found_link = true;
+    }
+
+    if (found_link) {
+        anon_send(
+                other_module, module::link_module_atom_v, self(), false);
     }
 }
 
@@ -148,7 +188,8 @@ FloatAttribute *Module::add_float_attribute(
         fscrub_sensitivity));
     rt->set_owner(this);
 
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
+
     return rt;
 }
 
@@ -162,7 +203,7 @@ StringChoiceAttribute *Module::add_string_choice_attribute(
         title, abbr_title, value, options, abbr_options.empty() ? options : abbr_options));
     // rt->set_role_data(module::Attribute::StringChoicesEnabled, std::vector<bool>{}, false);
     rt->set_owner(this);
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
@@ -170,7 +211,7 @@ JsonAttribute *Module::add_json_attribute(
     const std::string &title, const std::string &abbr_title, const nlohmann::json &value) {
     auto *rt(new JsonAttribute(title, abbr_title, value));
     rt->set_owner(this);
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
@@ -179,7 +220,7 @@ BooleanAttribute *Module::add_boolean_attribute(
     auto *rt(new BooleanAttribute(title, abbr_title, value));
     rt->set_owner(this);
 
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
@@ -188,7 +229,7 @@ StringAttribute *Module::add_string_attribute(
     auto rt = new StringAttribute(title, abbr_title, value);
     rt->set_owner(this);
 
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
@@ -201,7 +242,7 @@ IntegerAttribute *Module::add_integer_attribute(
 
     auto rt = new IntegerAttribute(title, abbr_title, value, int_min, int_max);
     rt->set_owner(this);
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
@@ -210,7 +251,7 @@ QmlCodeAttribute *
 Module::add_qml_code_attribute(const std::string &name, const std::string &qml_code) {
     auto rt = new QmlCodeAttribute(name, qml_code);
     rt->set_owner(this);
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
@@ -221,7 +262,7 @@ ColourAttribute *Module::add_colour_attribute(
     auto rt = new ColourAttribute(title, abbr_title, value);
     rt->set_owner(this);
 
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
@@ -231,21 +272,46 @@ Module::add_action_attribute(const std::string &title, const std::string &abbr_t
     auto rt = new ActionAttribute(title, abbr_title);
     rt->set_owner(this);
 
-    attributes_.emplace_back(static_cast<Attribute *>(rt));
+    add_attribute(static_cast<Attribute *>(rt));
     return rt;
 }
 
 bool Module::remove_attribute(const utility::Uuid &attribute_uuid) {
-    bool rt = false;
-    for (auto p = attributes_.begin(); p != attributes_.end(); p++) {
-        if ((*p)->uuid() == attribute_uuid) {
-            attributes_.erase(p);
-            anon_send(module_events_group_, attribute_deleted_event_atom_v, attribute_uuid);
-            rt = true;
-            break;
+
+    auto attr = get_attribute(attribute_uuid);
+    if (attr) {
+
+        auto central_models_data_actor =
+            self()->home_system().registry().template get<caf::actor>(
+                global_ui_model_data_registry);
+
+        if (attr->has_role_data(Attribute::Groups)) {
+            auto groups = attr->get_role_data<std::vector<std::string>>(Attribute::Groups);
+            for (const auto &group_name : groups) {
+
+                anon_send(
+                    central_models_data_actor,
+                    ui::model_data::remove_rows_atom_v,
+                    group_name,
+                    attribute_uuid);
+            }
         }
+        for (auto p = attributes_.begin(); p != attributes_.end(); p++) {
+            if ((*p)->uuid() == attribute_uuid) {
+                attributes_.erase(p);
+                break;
+            }
+        }
+    } else {
+        throw std::runtime_error(
+            fmt::format(
+                "{}: No attribute with id {}",
+                __PRETTY_FUNCTION__,
+                to_string(attribute_uuid)).c_str()
+                );
     }
-    return rt;
+    return true;
+
 }
 
 utility::JsonStore Module::serialise() const {
@@ -324,6 +390,7 @@ caf::message_handler Module::message_handler() {
              const std::string &role_name,
              const utility::JsonStore &value) -> result<bool> {
              try {
+
                  for (const auto &p : attributes_) {
                      if (p->uuid() == attr_uuid) {
 
@@ -356,7 +423,6 @@ caf::message_handler Module::message_handler() {
                      attribute_events_group_,
                      broadcast::join_broadcast_atom_v,
                      subscriber);
-
                  return r;
 
              } catch (std::exception &e) {
@@ -570,6 +636,19 @@ caf::message_handler Module::message_handler() {
              }
          },
 
+         [=](remove_attribute_atom,
+            const utility::Uuid & uuid) -> result<bool> {
+
+            try {
+                remove_attribute(uuid);
+            } catch (std::exception &e) {
+                return caf::make_error(xstudio_error::error, e.what());
+            }
+            return true;
+
+        },
+
+
          [=](attribute_uuids_atom) -> std::vector<xstudio::utility::Uuid> {
              std::vector<xstudio::utility::Uuid> rt;
              for (auto &attr : attributes_) {
@@ -614,6 +693,14 @@ caf::message_handler Module::message_handler() {
              link_to_module(linkwith, all_attrs, both_ways, intial_push_sync);
          },
 
+         [=](link_module_atom,
+             caf::actor linkwith,
+             bool unlink) {
+            if (unlink) {
+                unlink_module(linkwith);
+            }
+         },
+
          [=](connect_to_ui_atom) { connect_to_ui(); },
 
          [=](disconnect_from_ui_atom) { disconnect_from_ui(); },
@@ -627,7 +714,8 @@ caf::message_handler Module::message_handler() {
              const bool auto_repeat) { key_pressed(key, context, auto_repeat); },
 
          [=](ui::keypress_monitor::mouse_event_atom, const ui::PointerEvent &e) {
-             if (!pointer_event(e)) {
+             if (connected_viewports_.find(e.context()) != connected_viewports_.end() &&
+                 !pointer_event(e)) {
                  // pointer event was not used
              }
          },
@@ -701,7 +789,8 @@ caf::message_handler Module::message_handler() {
                  activated,
                  context);
 
-             if (activated && connected_to_ui_)
+             if (activated && connected_to_ui_ &&
+                 connected_viewports_.find(context) != connected_viewports_.end())
                  hotkey_pressed(uuid, context);
              else
                  hotkey_released(uuid, context);
@@ -735,10 +824,13 @@ caf::message_handler Module::message_handler() {
              attrs_waiting_to_update_prefs_.clear();
          },
          [=](module::current_viewport_playhead_atom, caf::actor_addr) {},
-         [=](utility::name_atom) -> std::string { return name(); },
-         [=](utility::event_atom, playhead::show_atom, const media_reader::ImageBufPtr &buf) {
-             on_screen_image(buf);
+         [=](ui::viewport::connect_to_viewport_toolbar_atom,
+             const std::string &viewport_name,
+             const std::string &viewport_toolbar_name,
+             bool connect) {
+             connect_to_viewport(viewport_name, viewport_toolbar_name, connect);
          },
+         [=](utility::name_atom) -> std::string { return name(); },
          [=](utility::event_atom,
              playhead::show_atom,
              caf::actor media,
@@ -750,7 +842,32 @@ caf::message_handler Module::message_handler() {
                  playhead::show_atom_v,
                  media,
                  media_source);
-         }
+         },
+         [=](utility::event_atom,
+             xstudio::ui::model_data::set_node_data_atom,
+             const std::string &model_name,
+             const std::string &path,
+             const utility::JsonStore &data) {},
+         [=](utility::event_atom,
+             xstudio::ui::model_data::set_node_data_atom,
+             const std::string &model_name,
+             const std::string path,
+             const utility::JsonStore &data,
+             const std::string role,
+             const utility::Uuid &uuid_role_data) {
+             try {
+                 Attribute *attr = get_attribute(uuid_role_data);
+                 if (attr) {
+                     attr->set_role_data(Attribute::role_index(role), data);
+                 }
+             } catch (std::exception &e) {
+                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+             }
+         },
+         [=](utility::event_atom,
+             xstudio::ui::model_data::model_data_atom,
+             const std::string &model_name,
+             const utility::JsonStore &data) {}
 
         });
     return h.or_else(playhead::PlayheadGlobalEventsActor::default_event_handler());
@@ -783,22 +900,114 @@ void Module::notify_change(
             role,
             value);
 
+        if (attr->has_role_data(Attribute::Groups)) {
+
+            auto central_models_data_actor =
+                self()->home_system().registry().template get<caf::actor>(
+                    global_ui_model_data_registry);
+
+            auto groups = attr->get_role_data<std::vector<std::string>>(Attribute::Groups);
+            for (const auto &group_name : groups) {
+                anon_send(
+                    central_models_data_actor,
+                    ui::model_data::set_node_data_atom_v,
+                    group_name,
+                    attr->uuid(),
+                    Attribute::role_name(role),
+                    value,
+                    self());
+            }
+        }
         attribute_changed(attr_uuid, role, self_notify);
     }
 
+    if (role == Attribute::PreferencePath) {
+        
+        // looks like the preference path is being set on the attribute. Note 
+        // we might get here before ser_parent_actor_addr' has been called so
+        // we don't have 'self()' which is why I use the ActorSystemSingleton
+        // to get to the caf system to get a GlobalStoreHelper
+        auto prefs = global_store::GlobalStoreHelper(
+            xstudio::utility::ActorSystemSingleton::actor_system_ref()
+            );
 
+        std::string pref_path;
+        try {
+
+            pref_path =  attr->get_role_data<std::string>(Attribute::PreferencePath);
+            attr->set_role_data(
+                Attribute::Value,
+                prefs.get_existing_or_create_new_preference(
+                    pref_path,
+                    attr->role_data_as_json(Attribute::Value),
+                    true,
+                    false
+                    )
+                );
+
+        } catch (std::exception & e) {
+
+            spdlog::warn("{} : {} {}", name(), __PRETTY_FUNCTION__, e.what());
+        }
+    }
+
+    // if an attr has a PreferencePath this means its value will be stored and
+    // retrieved from the preferences system so the attribute value persists
+    // between sessions. So if you set Volume to level 8, next time you start
+    // xSTUDIO it is already at 8 for example.
     if (attr && attr->has_role_data(Attribute::PreferencePath) && self()) {
         if (!attrs_waiting_to_update_prefs_.size()) {
-            // if we haven't already queued up attrs to update in the prefs,
-            // order an update for 10 seconds time
+
+            // In order to prevent rapid granular attr updates spamming the
+            // preference store when a user grabs a slider (like volume adjust, say)
+            // and interacts with it, we make a list of attrs that have changed
+            // and then do a periodic update to push the value to the prefs.
+
+            // 'delayed_anon_send' is causing big problems with and Modules that
+            // have a parent actor that lives in the Qt layer (Viewport, for
+            // example) because it will hang the actor system if the Viewport is
+            // destroyed before the delayed message is received.
+
+            /*delayed_anon_send(
+                self(), std::chrono::seconds(2), update_attribute_in_preferences_atom_v);*/
+
+            // To get around this problem we can do this shenannegans instead...
+            auto resender = self()->home_system().spawn(delayed_resend);
             delayed_anon_send(
-                self(), std::chrono::seconds(2), update_attribute_in_preferences_atom_v);
+                resender,
+                std::chrono::seconds(2),
+                update_attribute_in_preferences_atom_v,
+                parent_actor_addr_);
         }
+
         attrs_waiting_to_update_prefs_.insert(attr_uuid);
     }
 }
 
 void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id, bool notify) {
+
+
+    module::Attribute *attr = get_attribute(attr_uuid);
+
+    if (role_id == Attribute::Groups && attr) {
+
+        auto central_models_data_actor =
+            self()->home_system().registry().template get<caf::actor>(
+                global_ui_model_data_registry);
+
+        auto groups = attr->get_role_data<std::vector<std::string>>(Attribute::Groups);
+
+        for (const auto &group_name : groups) {
+            anon_send(
+                central_models_data_actor,
+                ui::model_data::register_model_data_atom_v,
+                group_name,
+                utility::JsonStore(attr->as_json()),
+                attr_uuid,
+                Attribute::role_name(Attribute::ToolbarPosition),
+                self());
+        }
+    }
 
     // This is where the 'linking' mechanism is enacted. We send a change_attribute
     // message to linked modules.
@@ -972,7 +1181,9 @@ void Module::listen_to_playhead_events(const bool listen) {
 void Module::connect_to_ui() {
 
     // if necessary, get the global module events actor and the associated events groups
-    if (!global_module_events_actor_ && self()) {
+    if ((!global_module_events_actor_ || !keypress_monitor_actor_ ||
+         !keyboard_and_mouse_group_) &&
+        self()) {
 
         try {
 
@@ -996,28 +1207,35 @@ void Module::connect_to_ui() {
         }
     }
 
-    // Now join the events groups to 'connect' to events coming from the UI.
-    // (got to be a better way of doing this than these casts!?)
-    auto a = caf::actor_cast<caf::event_based_actor *>(self());
-    if (a) {
-        join_broadcast(a, keyboard_and_mouse_group_);
-        join_broadcast(a, ui_attribute_events_group_);
-    } else {
-        auto b = caf::actor_cast<caf::blocking_actor *>(self());
-        if (b) {
-            join_broadcast(b, keyboard_and_mouse_group_);
-            join_broadcast(b, ui_attribute_events_group_);
+    try {
+
+        // Now join the events groups to 'connect' to events coming from the UI.
+        // (got to be a better way of doing this than these casts!?)
+        auto a = caf::actor_cast<caf::event_based_actor *>(self());
+        if (a) {
+            join_broadcast(a, keyboard_and_mouse_group_);
+            join_broadcast(a, ui_attribute_events_group_);
         } else {
-            spdlog::warn(
-                "{} {}",
-                __PRETTY_FUNCTION__,
-                "Unable to cast parent actor for hotkey registration");
+            auto b = caf::actor_cast<caf::blocking_actor *>(self());
+            if (b) {
+                join_broadcast(b, keyboard_and_mouse_group_);
+                join_broadcast(b, ui_attribute_events_group_);
+            } else {
+                spdlog::warn(
+                    "{} {}",
+                    __PRETTY_FUNCTION__,
+                    "Unable to cast parent actor for hotkey registration");
+            }
         }
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
     if (!connected_to_ui_) {
         connected_to_ui_ = true;
         connected_to_ui_changed();
+    } else {
+        return;
     }
 
     register_hotkeys();
@@ -1025,9 +1243,38 @@ void Module::connect_to_ui() {
     anon_send(
         global_module_events_actor_, join_module_attr_events_atom_v, module_events_group_);
     anon_send(global_module_events_actor_, full_attributes_description_atom_v, full_module());
+
+    // here we set-up a tree model that holds the state of attributes that we want
+    // to make visible in the UI (Qt/QML) layer using QAbstractItemModel.
+    // The tree lives in a central actor that is a middleman between us and the
+    // UI. When we update an attribute we notify the middleman about the change,
+    // and this is forwarded to the UI. Likewise, if the UI changes an attribute
+    // a message is sent to the middleman which is passed back to Module here so
+    // we update the actual attribute.
+
+    auto central_models_data_actor = self()->home_system().registry().template get<caf::actor>(
+        global_ui_model_data_registry);
+
+    for (auto &a : attributes_) {
+
+        if (a->has_role_data(Attribute::Groups)) {
+            auto groups = a->get_role_data<std::vector<std::string>>(Attribute::Groups);
+            for (const auto &group_name : groups) {
+                anon_send(
+                    central_models_data_actor,
+                    ui::model_data::register_model_data_atom_v,
+                    group_name,
+                    utility::JsonStore(a->as_json()),
+                    a->uuid(),
+                    Attribute::role_name(Attribute::ToolbarPosition),
+                    self());
+            }
+        }
+    }
 }
 
 void Module::disconnect_from_ui() {
+
     if (!connected_to_ui_)
         return;
 
@@ -1046,6 +1293,27 @@ void Module::disconnect_from_ui() {
                     "{} {}",
                     __PRETTY_FUNCTION__,
                     "Unable to cast parent actor for hotkey registration");
+            }
+        }
+
+        // tell the UI middleman to remove our attributes from its data models
+
+        auto central_models_data_actor =
+            self()->home_system().registry().template get<caf::actor>(
+                global_ui_model_data_registry);
+
+        for (auto &a : attributes_) {
+
+            if (a->has_role_data(Attribute::Groups)) {
+                auto groups = a->get_role_data<std::vector<std::string>>(Attribute::Groups);
+                for (const auto &group_name : groups) {
+                    anon_send(
+                        central_models_data_actor,
+                        ui::model_data::register_model_data_atom_v,
+                        group_name,
+                        a->uuid(),
+                        self());
+                }
             }
         }
     }
@@ -1113,7 +1381,7 @@ void Module::update_attrs_from_preferences(const utility::JsonStore &entire_pref
                 auto pref_value = global_store::preference_value<nlohmann::json>(
                     entire_prefs_dict, pref_path);
 
-                attr->set_role_data(Attribute::Value, pref_value, false);
+                attr->set_role_data(Attribute::Value, pref_value, true);
 
             } catch (std::exception &e) {
                 spdlog::warn("{} failed to set preference {}", __PRETTY_FUNCTION__, e.what());
@@ -1166,10 +1434,71 @@ void Module::add_boolean_attr_to_menu(
     attr->set_role_data(module::Attribute::MenuPaths, nlohmann::json(menu_paths));
 }
 
+void Module::make_attribute_visible_in_viewport_toolbar(
+    Attribute *attr, const bool make_visible) {
+    if (make_visible) {
+
+        attrs_in_toolbar_.insert(attr->uuid());
+
+        if (!self())
+            return;
+
+        auto central_models_data_actor =
+            self()->home_system().registry().template get<caf::actor>(
+                global_ui_model_data_registry);
+
+        if (central_models_data_actor) {
+
+            for (const auto &viewport_name : connected_viewports_) {
+
+                std::string toolbar_name = viewport_name + "_toolbar";
+                attr->expose_in_ui_attrs_group(toolbar_name, true);
+
+                anon_send(
+                    central_models_data_actor,
+                    ui::model_data::register_model_data_atom_v,
+                    toolbar_name,
+                    utility::JsonStore(attr->as_json()),
+                    attr->uuid(),
+                    Attribute::role_name(Attribute::ToolbarPosition),
+                    self());
+            }
+        }
+
+    } else {
+
+        if (attrs_in_toolbar_.find(attr->uuid()) != attrs_in_toolbar_.end()) {
+            attrs_in_toolbar_.erase(attrs_in_toolbar_.find(attr->uuid()));
+        }
+
+        if (!self())
+            return;
+
+        auto central_models_data_actor =
+            self()->home_system().registry().template get<caf::actor>(
+                global_ui_model_data_registry);
+
+        if (central_models_data_actor) {
+            for (const auto &viewport_name : connected_viewports_) {
+
+                std::string toolbar_name = viewport_name + "_toolbar";
+                attr->expose_in_ui_attrs_group(toolbar_name, false);
+
+                anon_send(
+                    central_models_data_actor,
+                    ui::model_data::register_model_data_atom_v,
+                    toolbar_name,
+                    attr->uuid(),
+                    caf::actor());
+            }
+        }
+    }
+}
 
 void Module::redraw_viewport() {
     anon_send(module_events_group_, playhead::redraw_viewport_atom_v);
 }
+
 
 Attribute *Module::add_attribute(
     const std::string &title,
@@ -1229,8 +1558,12 @@ Attribute *Module::add_attribute(
         attr = static_cast<Attribute *>(
             add_string_attribute(title, title, value.get<std::string>()));
 
-    } else {
+    } else if (value.is_object() || value.is_null()) {
 
+        attr = static_cast<Attribute *>(add_json_attribute(title, nlohmann::json("{}")));
+        attr->set_role_data(Attribute::Value, value);
+
+    } else {
         throw std::runtime_error("Unrecognised attribute value type");
     }
 
@@ -1243,4 +1576,69 @@ Attribute *Module::add_attribute(
     }
 
     return attr;
+}
+
+void Module::expose_attribute_in_model_data(
+    Attribute *attr, const std::string &model_name, const bool expose) {
+
+    attr->expose_in_ui_attrs_group(model_name, connect);
+    auto central_models_data_actor = self()->home_system().registry().template get<caf::actor>(
+        global_ui_model_data_registry);
+
+    try {
+        if (expose) {
+            anon_send(
+                central_models_data_actor,
+                ui::model_data::register_model_data_atom_v,
+                model_name,
+                utility::JsonStore(attr->as_json()),
+                attr->uuid(),
+                Attribute::role_name(Attribute::ToolbarPosition),
+                self());
+        } else {
+            // this removes the attribute from the model of name
+            // 'model_name'
+            anon_send(
+                central_models_data_actor,
+                ui::model_data::register_model_data_atom_v,
+                model_name,
+                attr->uuid(),
+                self());
+        }
+    } catch (std::exception &) {
+    }
+}
+
+void Module::connect_to_viewport(
+    const std::string &viewport_name, const std::string &viewport_toolbar_name, bool connect) {
+
+    if (connect) {
+        connected_viewports_.insert(viewport_name);
+    } else if (connected_viewports_.find(viewport_name) != connected_viewports_.end()) {
+        connected_viewports_.erase(connected_viewports_.find(viewport_name));
+    }
+
+    for (const auto &toolbar_attr_id : attrs_in_toolbar_) {
+        Attribute *attr = get_attribute(toolbar_attr_id);
+        if (attr) {
+            expose_attribute_in_model_data(attr, viewport_toolbar_name, connect);
+        }
+    }
+}
+
+void Module::add_attribute(Attribute *attr) { attributes_.emplace_back(attr); }
+
+utility::JsonStore Module::public_state_data() {
+
+    // This is not called. Maybe we need live JsonTree data for the whole
+    // session at the backend to simplify frontend stuff for exposing data.
+    utility::JsonStore data;
+    data["name"]     = name();
+    data["children"] = nlohmann::json::array();
+    for (auto &attr : attributes_) {
+
+        data["children"].push_back(attr->as_json());
+    }
+    // std::cerr << data.dump(2) << "\n";
+    return data;
 }

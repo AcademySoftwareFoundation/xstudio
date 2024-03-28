@@ -29,6 +29,22 @@
 				"datatype": "double",
 				"context": ["NEW_SESSION"]
 			},
+			"compression": {
+				"path": "/core/session/compression",
+				"default_value": false,
+				"description": "Compress sessions.",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"quickview_all_incoming_media": {
+				"path": "/core/session/quickview_all_incoming_media",
+				"default_value": false,
+				"description": "Launch a quickview window for incoming media sent over the CLI",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
 			"media_flags": {
 				"path": "/core/session/media_flags",
 				"description": "Media flag names.",

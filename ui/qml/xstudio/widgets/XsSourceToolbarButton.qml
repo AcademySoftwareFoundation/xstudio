@@ -5,6 +5,8 @@ import QtQuick.Layouts 1.15
 
 import xStudio 1.0
 import xstudio.qml.module 1.0
+import xstudio.qml.models 1.0
+import xstudio.qml.helpers 1.0
 
 XsToolbarItem  {
 
@@ -14,6 +16,7 @@ XsToolbarItem  {
     hovered: mouse_area.containsMouse
     showHighlighted: mouse_area.containsMouse | mouse_area.pressed | (activated != undefined && activated)
     property int iconsize: XsStyle.menuItemHeight *.66
+    property string toolbar_name
 
     MouseArea {
         id: mouse_area
@@ -25,17 +28,37 @@ XsToolbarItem  {
         }
     }
 
-    XsModuleAttributes {
-        id: image_source_value_watcher
-        attributesGroupNames: "image_source"
-    }
-    XsModuleAttributes {
-        id: audio_source_value_watcher
-        attributesGroupNames: "audio_source"
+    XsModuleData {
+        id: image_source
+        modelDataName: toolbar_name + "_image_source"
+        onJsonChanged: {
+            curr_image_source_property.index = search_recursive("Source", "title")
+        }
     }
 
-    property var curr_image_source: image_source_value_watcher.source ? image_source_value_watcher.source : ""
-    property var curr_audio_source: audio_source_value_watcher.source ? audio_source_value_watcher.audio_source : ""
+    XsModuleData {
+        id: audio_source
+        modelDataName: toolbar_name + "_audio_source"
+        onJsonChanged: {
+            curr_audio_source_property.index = search_recursive("Source", "title")
+        }
+    }
+
+
+    XsModelProperty {
+        id: curr_image_source_property
+        role: "value"
+        index: image_source.search_recursive("Source", "title")
+    }
+
+    XsModelProperty {
+        id: curr_audio_source_property
+        role: "value"
+        index: audio_source.search_recursive("Source", "title")
+    }
+
+    property var curr_image_source: curr_image_source_property.value
+    property var curr_audio_source: curr_audio_source_property.value
 
     value_text: curr_image_source != "" ? curr_image_source : curr_audio_source != "" ? curr_audio_source : "None"
 
@@ -71,12 +94,7 @@ XsToolbarItem  {
         }
         color: XsStyle.mainBackground
         radius: XsStyle.menuRadius
-
-        XsModuleAttributesModel {
-            id: image_source
-            attributesGroupNames: "image_source"
-        }
-
+    
         ColumnLayout {
 
             id: imageColumn
@@ -199,11 +217,6 @@ XsToolbarItem  {
             color: XsStyle.menuBorderColor
         }
         
-        XsModuleAttributesModel {
-            id: audio_source
-            attributesGroupNames: "audio_source"
-        }
-
         ColumnLayout {
 
             id: audioColumn

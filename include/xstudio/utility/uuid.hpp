@@ -138,6 +138,7 @@ namespace utility {
     using UuidActorAddrMap = std::map<utility::Uuid, caf::actor_addr>;
     using UuidList         = std::list<utility::Uuid>;
     using UuidVector       = std::vector<utility::Uuid>;
+    using UuidSet          = std::set<utility::Uuid>;
 
     /*!
         UuidActor

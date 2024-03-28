@@ -67,6 +67,12 @@ void GapActor::init() {
             return jsn;
         },
 
+        [=](item_flag_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_flag(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
 
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
@@ -88,6 +94,16 @@ void GapActor::init() {
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
+
+        [=](active_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().active_range();
+        },
+
+        [=](available_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().available_range();
+        },
+
+        [=](trimmed_range_atom) -> utility::FrameRange { return base_.item().trimmed_range(); },
 
         [=](link_media_atom, const UuidActorMap &) -> bool { return true; },
 
@@ -116,6 +132,15 @@ void GapActor::init() {
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](const group_down_msg & /*msg*/) {},
+
+        [=](utility::duplicate_atom) -> UuidActor {
+            JsonStore jsn;
+            auto dup    = base_.duplicate();
+            jsn["base"] = dup.serialise();
+
+            auto actor = spawn<GapActor>(jsn);
+            return UuidActor(dup.uuid(), actor);
+        },
 
         [=](utility::serialise_atom) -> JsonStore {
             JsonStore jsn;

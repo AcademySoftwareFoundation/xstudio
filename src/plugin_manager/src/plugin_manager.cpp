@@ -86,16 +86,7 @@ size_t PluginManager::load_plugins() {
 }
 
 caf::actor PluginManager::spawn(
-    caf::blocking_actor &sys,
-    const utility::Uuid &uuid,
-    const utility::JsonStore &json,
-    const bool singleton) {
-
-    if (singleton && singletons_.find(uuid) != singletons_.end() &&
-        caf::actor_cast<caf::actor>(singletons_[uuid])) {
-        return caf::actor_cast<caf::actor>(singletons_[uuid]);
-    }
-
+    caf::blocking_actor &sys, const utility::Uuid &uuid, const utility::JsonStore &json) {
 
     auto spawned = caf::actor();
     if (factories_.count(uuid))
@@ -103,8 +94,6 @@ caf::actor PluginManager::spawn(
     else
         throw std::runtime_error("Invalid plugin uuid");
 
-    if (spawned && singleton)
-        singletons_[uuid] = caf::actor_cast<caf::actor_addr>(spawned);
     return spawned;
 }
 

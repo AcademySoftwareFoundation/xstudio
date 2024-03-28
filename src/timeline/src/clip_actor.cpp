@@ -17,6 +17,14 @@ using namespace xstudio::utility;
 using namespace xstudio::timeline;
 using namespace caf;
 
+ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn)
+    : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
+    base_.item().set_actor_addr(this);
+    base_.item().set_system(&system());
+
+    init();
+}
+
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
@@ -38,7 +46,9 @@ ClipActor::ClipActor(
     base_.item().set_name(name);
 
     if (media.actor()) {
+
         media_ = caf::actor_cast<caf::actor_addr>(media.actor());
+
         monitor(media.actor());
         join_event_group(this, media.actor());
 
@@ -47,7 +57,18 @@ ClipActor::ClipActor(
             auto ref = request_receive<std::vector<MediaReference>>(
                 *sys, media.actor(), media::media_reference_atom_v)[0];
 
-            base_.item().set_available_range(utility::FrameRange(ref.duration()));
+            if (name.empty()) {
+                base_.item().set_name(
+                    fs::path(uri_to_posix_path(ref.uri())).filename().string());
+            }
+
+            if (ref.frame_count())
+                base_.item().set_available_range(utility::FrameRange(ref.duration()));
+            else
+                delayed_send(
+                    caf::actor_cast<caf::actor>(this),
+                    std::chrono::milliseconds(100),
+                    media::acquire_media_detail_atom_v);
 
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -88,9 +109,15 @@ void ClipActor::init() {
         [=](link_media_atom, const UuidActorMap &media) -> bool {
             if (media.count(base_.media_uuid())) {
                 auto media_actor = media.at(base_.media_uuid());
-                monitor(media_actor);
-                join_event_group(this, media_actor);
-                media_ = caf::actor_cast<caf::actor_addr>(media_actor);
+                auto addr        = caf::actor_cast<caf::actor_addr>(media_actor);
+
+                if (media_ != addr) {
+                    monitor(media_actor);
+                    join_event_group(this, media_actor);
+                    media_ = addr;
+                }
+            } else {
+                media_ = caf::actor_addr();
             }
             return true;
         },
@@ -112,6 +139,13 @@ void ClipActor::init() {
             return jsn;
         },
 
+        [=](item_flag_atom, const std::string &value) -> JsonStore {
+            auto jsn = base_.item().set_flag(value);
+            if (not jsn.is_null())
+                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
         [=](active_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_active_range(fr);
             if (not jsn.is_null())
@@ -125,6 +159,16 @@ void ClipActor::init() {
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
+
+        [=](active_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().active_range();
+        },
+
+        [=](available_range_atom) -> std::optional<utility::FrameRange> {
+            return base_.item().available_range();
+        },
+
+        [=](trimmed_range_atom) -> utility::FrameRange { return base_.item().trimmed_range(); },
 
         [=](history::undo_atom, const JsonStore &hist) -> result<bool> {
             base_.item().undo(hist);
@@ -206,19 +250,51 @@ void ClipActor::init() {
 
         // [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
         // events from media actor
+
+        // re-evaluate media reference.., needed for lazy loading
+        [=](media::acquire_media_detail_atom) {
+            auto actor = caf::actor_cast<caf::actor>(media_);
+            if (actor) {
+                request(actor, infinite, media::media_reference_atom_v)
+                    .then(
+                        [=](const std::vector<MediaReference> &refs) {
+                            if (not refs.empty() and refs[0].frame_count()) {
+                                auto jsn = base_.item().set_available_range(
+                                    utility::FrameRange(refs[0].duration()));
+
+                                if (not jsn.is_null())
+                                    send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                            } else {
+                                // retry ?
+                                delayed_send(
+                                    caf::actor_cast<caf::actor>(this),
+                                    std::chrono::seconds(1),
+                                    media::acquire_media_detail_atom_v);
+                            }
+                        },
+                        [=](const error &err) {});
+            }
+        },
+
         [=](utility::event_atom,
             playlist::reflag_container_atom,
             const Uuid &,
             const std::tuple<std::string, std::string> &) {},
+
         [=](utility::event_atom,
             bookmark::bookmark_change_atom,
             const utility::Uuid &bookmark_uuid) {
-            send(
-                event_group_,
-                utility::event_atom_v,
-                bookmark::bookmark_change_atom_v,
-                bookmark_uuid);
+            // not sure why we want this..
+            // send(
+            //     event_group_,
+            //     utility::event_atom_v,
+            //     bookmark::bookmark_change_atom_v,
+            //     bookmark_uuid);
         },
+
+        [=](utility::event_atom, bookmark::remove_bookmark_atom, const utility::Uuid &) {},
+        [=](utility::event_atom, bookmark::add_bookmark_atom, const utility::UuidActor &) {},
+
         [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {},
         [=](utility::event_atom,
             media::current_media_source_atom,
@@ -462,6 +538,28 @@ void ClipActor::init() {
         },
         [=](xstudio::playlist::reflag_container_atom atom) {
             delegate(caf::actor_cast<caf::actor>(media_), atom);
+        },
+
+        [=](utility::duplicate_atom) -> result<UuidActor> {
+            JsonStore jsn;
+            auto dup    = base_.duplicate();
+            jsn["base"] = dup.serialise();
+
+            auto actor = spawn<ClipActor>(jsn);
+            UuidActorMap media_map;
+            media_map[base_.media_uuid()] = caf::actor_cast<caf::actor>(media_);
+
+            auto rp = make_response_promise<UuidActor>();
+
+            request(actor, infinite, link_media_atom_v, media_map)
+                .then(
+                    [=](const bool) mutable { rp.deliver(UuidActor(dup.uuid(), actor)); },
+                    [=](const caf::error &err) mutable {
+                        send_exit(actor, caf::exit_reason::user_shutdown);
+                        rp.deliver(err);
+                    });
+
+            return rp;
         },
 
         [=](utility::serialise_atom) -> JsonStore {

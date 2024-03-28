@@ -259,19 +259,43 @@ ThumbnailBufferPtr TDCHelperActor::decode_thumb(const std::vector<std::byte> &bu
         static_cast<size_t>(decompressInfo->output_height));
 
     size_t pixel_size = decompressInfo->output_components;
-    if (pixel_size != 3) {
-        throw std::runtime_error("Invalid pixel size");
-    }
-    //    int colourspace = decompressInfo->out_color_space;
-    size_t row_stride = result->width() * pixel_size;
 
-    // should match ..
-    std::byte *p = &(result->data()[0]);
-    while (decompressInfo->output_scanline < result->height()) {
-        ::jpeg_read_scanlines(decompressInfo.get(), reinterpret_cast<JSAMPARRAY>(&p), 1);
-        p += row_stride;
+    if (pixel_size == 3) {
+        size_t row_stride = result->width() * 3;
+
+        // should match ..
+        std::byte *p = &(result->data()[0]);
+        while (decompressInfo->output_scanline < result->height()) {
+            ::jpeg_read_scanlines(decompressInfo.get(), reinterpret_cast<JSAMPARRAY>(&p), 1);
+            p += row_stride;
+        }
+        ::jpeg_finish_decompress(decompressInfo.get());
+    } else if (pixel_size == 1) {
+        size_t row_stride = result->width() * 3;
+
+        char *mono = new char[result->width()];
+
+        // should match ..
+        std::byte *p = &(result->data()[0]);
+        while (decompressInfo->output_scanline < result->height()) {
+            ::jpeg_read_scanlines(decompressInfo.get(), reinterpret_cast<JSAMPARRAY>(&mono), 1);
+
+            for (auto i = 0; i < result->width(); i++) {
+                p[i * 3] = p[(i * 3) + 1] = p[(i * 3) + 2] =
+                    static_cast<std::byte>(*(mono + i));
+            }
+
+            p += row_stride;
+        }
+        ::jpeg_finish_decompress(decompressInfo.get());
+
+        delete[] mono;
+
+    } else {
+        // ::jpeg_finish_decompress(decompressInfo.get());
+        throw std::runtime_error(
+            "Invalid pixel size " + std::to_string(pixel_size) + " != 3 or 1");
     }
-    ::jpeg_finish_decompress(decompressInfo.get());
 
     return result;
 }

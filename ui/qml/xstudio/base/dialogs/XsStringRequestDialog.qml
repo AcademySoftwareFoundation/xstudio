@@ -80,7 +80,7 @@ XsDialogModal {
             Layout.topMargin: 10
             Layout.minimumHeight: 20
 
-            focus: true
+            //focus: true
             Keys.onReturnPressed: okayed()
             Keys.onEscapePressed: cancelled()
 

@@ -96,7 +96,9 @@ namespace media {
         const char *name() const override { return NAME.c_str(); }
 
       private:
+      
         void update_media_status();
+        void update_media_detail();
 
         void
         acquire_detail(const utility::FrameRate &rate, caf::typed_response_promise<bool> rp);
@@ -132,11 +134,8 @@ namespace media {
       public:
         MediaStreamActor(
             caf::actor_config &cfg,
-            const std::string &name,
-            const utility::FrameRateDuration &duration = utility::FrameRateDuration(),
-            const MediaType media_type                 = MT_IMAGE,
-            const std::string &key_format              = "{0}@{1}/{2}",
-            const utility::Uuid &uuid                  = utility::Uuid());
+            const StreamDetail &detail,
+            const utility::Uuid &uuid = utility::Uuid());
         MediaStreamActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
         ~MediaStreamActor() override = default;
 

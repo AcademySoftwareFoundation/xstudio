@@ -25,110 +25,68 @@ using namespace caf;
 using namespace xstudio;
 using namespace xstudio::ui;
 using namespace xstudio::ui::qt;
+using namespace xstudio::ui::viewport;
 
 namespace fs = std::filesystem;
 
+namespace {
+    static void threaded_memcpy(void * _dst, void * _src, size_t n, int n_threads) {
 
-/* This actor allows other actors to interact with the OffscreenViewport in
-the regular request().then() pattern, which is otherwise not possible with
-QObject/caf::actor mixin class which normally can't have message handlers that
-have a return value */
-class OffscreenViewportMiddlemanActor : public caf::event_based_actor {
-  public:
-    OffscreenViewportMiddlemanActor(caf::actor_config &cfg, caf::actor offscreen_viewport)
-        : caf::event_based_actor(cfg), offscreen_viewport_(std::move(offscreen_viewport)) {
+        std::vector<std::thread> memcpy_threads;
+        size_t step = ((n / n_threads) / 4096) * 4096;
 
-        system().registry().put(offscreen_viewport_registry, this);
+        uint8_t *dst = (uint8_t *)_dst; 
+        uint8_t *src = (uint8_t *)_src;
 
-        behavior_.assign(
-            // incoming request from somewhere in xstudio for a screen render
-            [=](viewport::render_viewport_to_image_atom,
-                caf::actor playhead,
-                const int width,
-                const int height,
-                const int compression,
-                const bool bakeColor,
-                const caf::uri path) -> result<bool> {
-                auto rp = make_response_promise<bool>();
-                request(
-                    offscreen_viewport_,
-                    infinite,
-                    viewport::render_viewport_to_image_atom_v,
-                    playhead,
-                    width,
-                    height,
-                    compression,
-                    bakeColor,
-                    path)
-                    .then(
-                        [=](bool r) mutable { rp.deliver(r); },
-                        [=](caf::error &err) mutable { rp.deliver(err); });
-                return rp;
-            },
-            [=](viewport::render_viewport_to_image_atom,
-                caf::actor media_actor,
-                const int media_frame,
-                const int width,
-                const int height,
-                const caf::uri path) -> result<bool> {
-                auto rp = make_response_promise<bool>();
-                render_to_file(media_actor, media_frame, width, height, path, rp);
-                return rp;
-            },
-            [=](viewport::render_viewport_to_image_atom,
-                caf::actor media_actor,
-                const int media_frame,
-                const thumbnail::THUMBNAIL_FORMAT format,
-                const int width,
-                const bool auto_scale,
-                const bool show_annotations) -> result<thumbnail::ThumbnailBufferPtr> {
-                auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-                render_to_thumbail(
-                    rp, media_actor, media_frame, format, width, auto_scale, show_annotations);
-                return rp;
-            });
+        for (int i = 0; i < n_threads; ++i) {
+            memcpy_threads.emplace_back(memcpy, dst, src, std::min(n, step));
+            dst += step;
+            src += step;
+            n -= step;
+        }
+
+        // ensure any threads still running to copy data to this texture are done
+        for (auto &t : memcpy_threads) {
+            if (t.joinable())
+                t.join();
+        }
+
     }
 
-    ~OffscreenViewportMiddlemanActor() override { offscreen_viewport_ = caf::actor(); }
+    static std::map<viewport::ImageFormat, GLint> format_to_gl_tex_format = {
+        {viewport::ImageFormat::RGBA_8, GL_RGBA8},
+        {viewport::ImageFormat::RGBA_10_10_10_2, GL_RGBA8},
+        {viewport::ImageFormat::RGBA_16, GL_RGBA16},
+        {viewport::ImageFormat::RGBA_16F, GL_RGBA16F},
+        {viewport::ImageFormat::RGBA_32F, GL_RGBA32F}
+    };
 
-    void render_to_thumbail(
-        caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
-        caf::actor media_actor,
-        const int media_frame,
-        const thumbnail::THUMBNAIL_FORMAT format,
-        const int width,
-        const bool auto_scale,
-        const bool show_annotations);
+    static std::map<viewport::ImageFormat, GLint> format_to_gl_pixe_type = {
+        {viewport::ImageFormat::RGBA_8, GL_UNSIGNED_BYTE},
+        {viewport::ImageFormat::RGBA_10_10_10_2,  GL_UNSIGNED_BYTE},
+        {viewport::ImageFormat::RGBA_16, GL_UNSIGNED_SHORT},
+        {viewport::ImageFormat::RGBA_16F, GL_HALF_FLOAT},
+        {viewport::ImageFormat::RGBA_32F, GL_FLOAT}
+    };
 
-    void render_to_file(
-        caf::actor media_actor,
-        const int media_frame,
-        const int width,
-        const int height,
-        const caf::uri path,
-        caf::typed_response_promise<bool> rp);
+    static std::map<viewport::ImageFormat, GLint> format_to_bytes_per_pixel = {
+        {viewport::ImageFormat::RGBA_8, 4},
+        {viewport::ImageFormat::RGBA_10_10_10_2,  4},
+        {viewport::ImageFormat::RGBA_16, 8},
+        {viewport::ImageFormat::RGBA_16F, 8},
+        {viewport::ImageFormat::RGBA_32F, 16}
+    };
 
-    caf::behavior behavior_;
-    caf::actor offscreen_viewport_;
+}
 
-    caf::behavior make_behavior() override { return behavior_; }
-};
-
-OffscreenViewport::OffscreenViewport(QObject *parent) : super(parent) {
-
-    /*thread_ = new QThread(this);
-    moveToThread(thread_);*/
-
-    /*thread_ = new QThread(this);
-    moveToThread(thread_);*/
+OffscreenViewport::OffscreenViewport(const std::string name) : super() {
 
     // This class is a QObject with a caf::actor 'companion' that allows it
     // to receive and send caf messages - here we run necessary initialisation
     // of the companion actor
-    super::init(xstudio::ui::qml::CafSystemObject::get_actor_system());
+    super::init(qml::CafSystemObject::get_actor_system());
 
-    scoped_actor sys{xstudio::ui::qml::CafSystemObject::get_actor_system()};
-    middleman_ = sys->spawn<OffscreenViewportMiddlemanActor>(as_actor());
+    scoped_actor sys{qml::CafSystemObject::get_actor_system()};
 
     // Now we create our OpenGL xSTudio viewport - this has 'Viewport(Module)' as
     // its base class that provides various caf message handlers that are added
@@ -137,28 +95,39 @@ OffscreenViewport::OffscreenViewport(QObject *parent) : super(parent) {
     // to render the viewport into our GLContext
     static int offscreen_idx = -1;
     utility::JsonStore jsn;
-    jsn["base"] = utility::JsonStore();
-    viewport_renderer_.reset(new ui::viewport::Viewport(
+    jsn["base"]        = utility::JsonStore();
+    viewport_renderer_ = new Viewport(
         jsn,
         as_actor(),
         offscreen_idx--,
-        ui::viewport::ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false))));
+        ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false)),
+        name);
+
+    /* Provide a callback so the Viewport can tell this class when some property of the viewport
+    has changed and such events can be propagated to other QT components, for example */
+    auto callback = [this](auto &&PH1) {
+        receive_change_notification(std::forward<decltype(PH1)>(PH1));
+    };
+    //viewport_renderer_->set_change_callback(callback);
+
+    self()->set_down_handler([=](down_msg &msg) {
+        if (msg.source == video_output_actor_) {
+            video_output_actor_ = caf::actor();
+        }
+    });
 
     // Here we set-up the caf message handler for this class by combining the
     // message handler from OpenGLViewportRenderer with our own message handlers for offscreen
     // rendering
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
         return viewport_renderer_->message_handler().or_else(caf::message_handler{
+
             // insert additional message handlers here
-            [=](viewport::render_viewport_to_image_atom,
-                caf::actor playhead,
-                const int width,
-                const int height,
-                const int compression,
-                const bool bakeColor,
-                const caf::uri path) -> result<bool> {
+            [=](viewport::render_viewport_to_image_atom, const int width, const int height)
+                -> result<bool> {
                 try {
-                    renderSnapshot(playhead, width, height, compression, bakeColor, path);
+                    // copies a QImage to the Clipboard
+                    renderSnapshot(width, height);
                     return true;
                 } catch (std::exception &e) {
                     return caf::make_error(xstudio_error::error, e.what());
@@ -166,32 +135,97 @@ OffscreenViewport::OffscreenViewport(QObject *parent) : super(parent) {
             },
 
             [=](viewport::render_viewport_to_image_atom,
-                caf::actor playhead,
-                const thumbnail::THUMBNAIL_FORMAT format,
+                const caf::uri path,
                 const int width,
-                const bool render_annotations,
-                const bool fit_to_annotations_outside_image)
-                -> result<thumbnail::ThumbnailBufferPtr> {
+                const int height) -> result<bool> {
                 try {
-                    return renderToThumbnail(
-                        playhead,
-                        format,
-                        width,
-                        render_annotations,
-                        fit_to_annotations_outside_image);
+                    renderSnapshot(width, height, path);
+                    return true;
                 } catch (std::exception &e) {
                     return caf::make_error(xstudio_error::error, e.what());
                 }
-            }});
+            },
+
+            [=](viewport::render_viewport_to_image_atom,
+                const thumbnail::THUMBNAIL_FORMAT format,
+                const int width,
+                const int height) -> result<thumbnail::ThumbnailBufferPtr> {
+                try {
+                    return renderToThumbnail(format, width, height);
+                } catch (std::exception &e) {
+                    return caf::make_error(xstudio_error::error, e.what());
+                }
+            },
+
+            [=](viewport::render_viewport_to_image_atom,
+                caf::actor media_actor,
+                const int media_frame,
+                const thumbnail::THUMBNAIL_FORMAT format,
+                const int width,
+                const bool auto_scale,
+                const bool show_annotations) -> result<thumbnail::ThumbnailBufferPtr> {
+                thumbnail::ThumbnailBufferPtr r;
+                try {
+                    r = renderMediaFrameToThumbnail(
+                        media_actor, media_frame, format, width, auto_scale, show_annotations);
+                } catch (std::exception &e) {
+                    return caf::make_error(xstudio_error::error, e.what());
+                }
+                return r;
+            },
+            
+            [=](video_output_actor_atom,
+                caf::actor video_output_actor,
+                int outputWidth,
+                int outputHeight,
+                viewport::ImageFormat format) {
+                
+                video_output_actor_ = video_output_actor;
+                vid_out_width_ = outputWidth;
+                vid_out_height_ = outputHeight;
+                vid_out_format_ = format;
+
+            },
+
+            [=](video_output_actor_atom,
+                caf::actor video_output_actor) {                
+                video_output_actor_ = video_output_actor;
+            },
+
+            [=](render_viewport_to_image_atom) {                
+                // force a redraw
+                receive_change_notification(Viewport::ChangeCallbackId::Redraw);
+            }
+                        
+            });
     });
+
+    initGL();
+
 }
 
 OffscreenViewport::~OffscreenViewport() {
 
-    caf::scoped_actor sys(self()->home_system());
-    sys->send_exit(middleman_, caf::exit_reason::user_shutdown);
-    middleman_ = caf::actor();
+    gl_context_->makeCurrent(surface_);
+    delete viewport_renderer_;
+    glDeleteTextures(1, &texId_);
+    glDeleteFramebuffers(1, &fboId_);
+    glDeleteTextures(1, &depth_texId_);
+
+    delete gl_context_;
+    delete surface_;
+
+    video_output_actor_ = caf::actor();
+
 }
+
+
+void OffscreenViewport::autoDelete() {
+
+    delete this;
+
+}
+
 
 void OffscreenViewport::initGL() {
 
@@ -205,8 +239,7 @@ void OffscreenViewport::initGL() {
         format.setAlphaBufferSize(8);
         format.setRenderableType(QSurfaceFormat::OpenGL);
 
-        gl_context_ =
-            new QOpenGLContext(static_cast<QObject *>(this)); // m_window->openglContext();
+        gl_context_ = new QOpenGLContext(nullptr); // m_window->openglContext();
         gl_context_->setFormat(format);
         if (!gl_context_)
             throw std::runtime_error(
@@ -217,56 +250,44 @@ void OffscreenViewport::initGL() {
         }
 
         // we also require a QSurface to use the GL context
-        surface_ = new QOffscreenSurface(nullptr, static_cast<QObject *>(this));
+        surface_ = new QOffscreenSurface(nullptr, nullptr);
         surface_->setFormat(format);
         surface_->create();
 
-        gl_context_->makeCurrent(surface_);
+        // gl_context_->makeCurrent(surface_);
+
+        // we also require a QSurface to use the GL context
+        surface_ = new QOffscreenSurface(nullptr, nullptr);
+        surface_->setFormat(format);
+        surface_->create();
+
+        thread_ = new QThread();
+        gl_context_->moveToThread(thread_);
+        moveToThread(thread_);
+        thread_->start();
+
+        // Note - the only way I seem to be able to 'cleanly' exit is 
+        // delete ourselves when the thread quits. Not 100% sure if this 
+        // is correct approach. I'm still cratching my head as to how
+        // to destroy thread_ ... calling deleteLater() directly or
+        // using finished signal has no effect.
+
+        connect(thread_, SIGNAL(finished()), this, SLOT(autoDelete()));
+
+        // this has no effect!
+        // connect(thread_, SIGNAL(finished()), this, SLOT(deleteLater()));
     }
 }
 
-thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
-    caf::actor playhead,
-    const thumbnail::THUMBNAIL_FORMAT format,
-    const int width,
-    const bool render_annotations,
-    const bool fit_to_annotations_outside_image) {
-
-    initGL();
-    media_reader::ImageBufPtr image = viewport_renderer_->get_image_from_playhead(playhead);
-
-    const Imath::V2i image_dims = image->image_size_in_pixels();
-    if (image_dims.x <= 0 || image_dims.y <= 0) {
-        throw std::runtime_error("On screen image is null.");
-    }
-    viewport_renderer_->update_fit_mode_matrix(
-        image_dims.x, image_dims.y, image->pixel_aspect());
-    viewport_renderer_->set_fit_mode(viewport::FitMode::One2One);
-
-    const int x_size = image_dims.x;
-    const int y_size = (int)round(float(image_dims.y) * image->pixel_aspect());
-
-    thumbnail::ThumbnailBufferPtr r = renderOffscreen(x_size, y_size, image);
-
-    if (width > 0)
-        r->bilin_resize(width, (y_size * width) / x_size);
-
-    r->convert_to(format);
-
-    return r;
+void OffscreenViewport::stop() {
+    thread_->quit();
+    thread_->wait();
 }
 
-void OffscreenViewport::renderSnapshot(
-    caf::actor playhead,
-    const int width,
-    const int height,
-    const int compression,
-    const bool bakeColor,
-    const caf::uri path) {
+void OffscreenViewport::renderSnapshot(const int width, const int height, const caf::uri path) {
 
-    initGL();
+    // initGL();
 
-    media_reader::ImageBufPtr image = viewport_renderer_->get_image_from_playhead(playhead);
     // temp hack - put in a 500ms delay so the playhead can update the
     // annotations plugin with the annotations data.
     // std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -279,7 +300,8 @@ void OffscreenViewport::renderSnapshot(
         throw std::runtime_error("Invalid image dimensions.");
     }
 
-    thumbnail::ThumbnailBufferPtr r = renderOffscreen(width, height, image);
+    media_reader::ImageBufPtr image(new media_reader::ImageBuffer());
+    renderToImageBuffer(width, height, image, viewport::ImageFormat::RGBA_16F);
 
     auto p = fs::path(xstudio::utility::uri_to_posix_path(path));
 
@@ -288,42 +310,62 @@ void OffscreenViewport::renderSnapshot(
         '.'); // yuk!
 
     if (ext == "EXR") {
-        this->exportToEXR(r, path);
+        this->exportToEXR(image, path);
     } else {
-        this->exportToCompressedFormat(r, path, compression, ext);
+        this->exportToCompressedFormat(image, path, ext);
     }
 }
 
-void OffscreenViewport::exportToEXR(thumbnail::ThumbnailBufferPtr r, const caf::uri path) {
-    std::unique_ptr<Imf::Rgba> buf(new Imf::Rgba[r->height() * r->width()]);
-    Imf::Rgba *tbuf = buf.get();
+void OffscreenViewport::setPlayhead(const QString &playheadAddress) {
 
-    // m_image.convertTo(QImage::Format_RGBA64);
-    auto *ff = (float *)r->data().data();
-    int px   = r->height() * r->width();
-    while (px--) {
-        tbuf->r = *(ff++);
-        tbuf->g = *(ff++);
-        tbuf->b = *(ff++);
-        tbuf->a = 1.0f;
-        tbuf++;
+    try {
+
+        scoped_actor sys{as_actor()->home_system()};
+        auto playhead_actor = qml::actorFromQString(as_actor()->home_system(), playheadAddress);
+
+        if (playhead_actor) {
+            viewport_renderer_->set_playhead(playhead_actor);
+
+            if (viewport_renderer_->colour_pipeline()) {
+                // get the current on screen media source
+                auto media_source = utility::request_receive<utility::UuidActor>(
+                    *sys, playhead_actor, playhead::media_source_atom_v, true);
+
+                // update the colour pipeline with the media source so it can
+                // run its logic to update the view/display attributes etc.
+                utility::request_receive<bool>(
+                    *sys,
+                    viewport_renderer_->colour_pipeline(),
+                    playhead::media_source_atom_v,
+                    media_source);
+            }
+        }
+
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {} ", __PRETTY_FUNCTION__, e.what());
     }
+}
 
+void OffscreenViewport::exportToEXR(const media_reader::ImageBufPtr &buf, const caf::uri path) {
     Imf::Header header;
-    header.dataWindow() = header.displayWindow() =
-        Imath::Box2i(Imath::V2i(0, 0), Imath::V2i(r->width() - 1, r->height() - 1));
-    header.compression() = Imf::PIZ_COMPRESSION;
+    const Imath::V2i dim = buf->image_size_in_pixels();
+    Imath::Box2i box;
+    box.min.x           = 0;
+    box.min.y           = 0;
+    box.max.x           = dim.x - 1;
+    box.max.y           = dim.y - 1;
+    header.dataWindow() = header.displayWindow() = box;
+    header.compression()                         = Imf::PIZ_COMPRESSION;
     Imf::RgbaOutputFile outFile(utility::uri_to_posix_path(path).c_str(), header);
-    outFile.setFrameBuffer(buf.get(), 1, r->width());
-    outFile.writePixels(r->height());
+    outFile.setFrameBuffer((Imf::Rgba *)buf->buffer(), 1, dim.x);
+    outFile.writePixels(dim.y);
 }
 
 void OffscreenViewport::exportToCompressedFormat(
-    thumbnail::ThumbnailBufferPtr r,
-    const caf::uri path,
-    int compression,
-    const std::string &ext) {
+    const media_reader::ImageBufPtr &buf, const caf::uri path, const std::string &ext) {
 
+    thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(buf);
     r->convert_to(thumbnail::TF_RGB24);
 
     // N.B. We can't pass our thumnail buffer directly to QImage constructor as
@@ -347,37 +389,68 @@ void OffscreenViewport::exportToCompressedFormat(
 
     QApplication::clipboard()->setImage(im, QClipboard::Clipboard);
 
-    int compLevel =
-        ext == "TIF" || ext == "TIFF" ? std::max(compression, 1) : (10 - compression) * 10;
+    /*int compLevel =
+        ext == "TIF" || ext == "TIFF" ? std::max(compression, 1) : (10 - compression) * 10;*/
     // TODO : check m_filePath for extension, if not, add to it. Do it on QML side after merging
     // with new UI branch
 
+    if (path.empty())
+        return;
+
     QImageWriter writer(xstudio::utility::uri_to_posix_path(path).c_str());
-    writer.setCompression(compLevel);
+    // writer.setCompression(compLevel);
     if (!writer.write(im)) {
         throw std::runtime_error(writer.errorString().toStdString().c_str());
     }
 }
 
-thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
-    const int w, const int h, const media_reader::ImageBufPtr &image) {
-    // ensure our GLContext is current
-    gl_context_->makeCurrent(surface_);
-    if (!gl_context_->isValid()) {
-        throw std::runtime_error(
-            "OffscreenViewport::renderOffscreen - GL Context is not valid.");
+void OffscreenViewport::setupTextureAndFrameBuffer(const int width, const int height, const viewport::ImageFormat format) {
+
+    if (tex_width_ == width && tex_height_ == height && format == vid_out_format_  ) {
+        // bind framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, fboId_);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId_, 0);
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texId_, 0);
+        return;
     }
 
-    // intialises shaders and textures where necessary
-    viewport_renderer_->init();
+    if (texId_) {
+        glDeleteTextures(1, &texId_);
+        glDeleteFramebuffers(1, &fboId_);
+        glDeleteTextures(1, &depth_texId_);
+    }
 
-    unsigned int texId, depth_texId;
-    unsigned int fboId;
+    tex_width_  = width;
+    tex_height_ = height;
+    vid_out_format_ = format;
+
+    utility::JsonStore j;
+    j["pack_rgb_10_bit"] = format == viewport::RGBA_10_10_10_2;
+    viewport_renderer_->set_aux_shader_uniforms(j);
 
     // create texture
-    glGenTextures(1, &texId);
-    glBindTexture(GL_TEXTURE_2D, texId);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glGenTextures(1, &texId_);
+    glBindTexture(GL_TEXTURE_2D, texId_);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        format_to_gl_tex_format[vid_out_format_],
+        tex_width_,
+        tex_height_,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_SHORT,
+        nullptr);
+
+    GLint iTexFormat;
+    glGetTexLevelParameteriv ( GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &iTexFormat);
+    if (iTexFormat != format_to_gl_tex_format[vid_out_format_]) {
+        spdlog::warn("{} offscreen viewport texture internal format is {:#x}, which does not match desired format {:#x}",
+            __PRETTY_FUNCTION__,
+            iTexFormat,
+            format_to_gl_tex_format[vid_out_format_]);
+    }
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -386,8 +459,8 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
 
     {
 
-        glGenTextures(1, &depth_texId);
-        glBindTexture(GL_TEXTURE_2D, depth_texId);
+        glGenTextures(1, &depth_texId_);
+        glBindTexture(GL_TEXTURE_2D, depth_texId_);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -400,8 +473,8 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
             GL_TEXTURE_2D,
             0,
             GL_DEPTH_COMPONENT24,
-            w,
-            h,
+            tex_width_,
+            tex_height_,
             0,
             GL_DEPTH_COMPONENT,
             GL_UNSIGNED_BYTE,
@@ -414,16 +487,36 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
     }
 
     // init framebuffer
-    glGenFramebuffers(1, &fboId);
+    glGenFramebuffers(1, &fboId_);
     // bind framebuffer
-    glBindFramebuffer(GL_FRAMEBUFFER, fboId);
+    glBindFramebuffer(GL_FRAMEBUFFER, fboId_);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texId, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId_, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texId_, 0);
+}
+
+void OffscreenViewport::renderToImageBuffer(
+    const int w, const int h, media_reader::ImageBufPtr &image, const viewport::ImageFormat format)
+{
+    auto t0 = utility::clock::now();
+
+    // ensure our GLContext is current
+    gl_context_->makeCurrent(surface_);
+    if (!gl_context_->isValid()) {
+        throw std::runtime_error(
+            "OffscreenViewport::renderToImageBuffer - GL Context is not valid.");
+    }
+
+    setupTextureAndFrameBuffer(w, h, format);
+
+    // intialises shaders and textures where necessary
+    viewport_renderer_->init();
+
+    auto t1 = utility::clock::now();
 
     // Clearup before render, probably useless for a new buffer
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    //glClearColor(0.0, 1.0, 0.0, 0.0);
+    //glClear(GL_COLOR_BUFFER_BIT);
 
     glViewport(0, 0, w, h);
 
@@ -434,155 +527,238 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderOffscreen(
         Imath::V2f(w, 0.0),
         Imath::V2f(w, h),
         Imath::V2f(0.0f, h),
-        Imath::V2i(w, h));
+        Imath::V2i(w, h),
+        1.0f);
 
-    viewport_renderer_->render(image);
+    viewport_renderer_->render();
 
     // Not sure if this is necessary
-    glFinish();
+    //glFinish();
+
+    auto t2 = utility::clock::now();
+
+    // unbind
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    size_t pix_buf_size = w*h*format_to_bytes_per_pixel[vid_out_format_];
 
     // init RGBA float array
-    thumbnail::ThumbnailBufferPtr r(new thumbnail::ThumbnailBuffer(w, h, thumbnail::TF_RGBF96));
+    image->allocate(pix_buf_size);
+    image->set_image_dimensions(Imath::V2i(w, h));
+    image.when_to_display_ = utility::clock::now();
+    image->params()["pixel_format"] = (int)format;
+    
+    if (!pixel_buffer_object_) {
+        glGenBuffers(1, &pixel_buffer_object_);
+    }
+
+    if (pix_buf_size != pix_buf_size_) {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
+        glBufferData(GL_PIXEL_PACK_BUFFER, pix_buf_size, NULL, GL_STREAM_COPY);
+        pix_buf_size_ = pix_buf_size;
+    }
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texId_);
 
     glPixelStorei(GL_PACK_SKIP_ROWS, 0);
     glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
     glPixelStorei(GL_PACK_ROW_LENGTH, w);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    // read GL pixels to array
-    glReadPixels(0, 0, w, h, GL_RGB, GL_FLOAT, r->data().data());
-    glFinish();
 
-    // unbind and delete
+    auto t3 = utility::clock::now();
+        
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDeleteTextures(1, &texId);
-    glDeleteFramebuffers(1, &fboId);
-    glDeleteTextures(1, &depth_texId);
+
+    glGetTexImage(GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            format_to_gl_pixe_type[vid_out_format_],
+            nullptr);
+    
+
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
+    void* mappedBuffer = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+    auto t4 = utility::clock::now();
+    
+    threaded_memcpy(
+        image->buffer(),
+        mappedBuffer,
+        pix_buf_size,
+        8
+        );
 
 
-    // Thumbanil coord system has y=0 at top of image, whereas GL viewport is
-    // y=0 at bottom.
+    //now mapped buffer contains the pixel data
+    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    auto t5 = utility::clock::now();
+
+    auto tt = utility::clock::now();
+    /*std::cerr << "glBindBuffer " 
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count() << " " 
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " 
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << " "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << " "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count() << " : "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t0).count() << "\n";*/
+
+}
+
+
+void OffscreenViewport::receive_change_notification(
+    Viewport::ChangeCallbackId id) {
+
+    if (id == Viewport::ChangeCallbackId::Redraw) {
+
+        if (video_output_actor_) {
+
+            std::vector<media_reader::ImageBufPtr> output_buffers_;
+            media_reader::ImageBufPtr ready_buf;
+            for (auto &buf : output_buffers_) {
+                if (buf.use_count() == 1) {
+                    ready_buf = buf;
+                    break;
+                }
+            }
+            if (!ready_buf) {
+                ready_buf.reset(new media_reader::ImageBuffer());
+                output_buffers_.push_back(ready_buf);
+            }
+
+            renderToImageBuffer(vid_out_width_, vid_out_height_, ready_buf, vid_out_format_);
+            anon_send(video_output_actor_, ready_buf);
+        }
+    }
+}
+
+void OffscreenViewport::make_conversion_lut() {
+
+    if (half_to_int_32_lut_.empty()) {
+        const double int_max = double(std::numeric_limits<uint32_t>::max());
+        half_to_int_32_lut_.resize(1 << 16);
+        for (size_t i = 0; i < (1 << 16); ++i) {
+            half h;
+            h.setBits(i);
+            half_to_int_32_lut_[i] =
+                uint32_t(round(std::max(0.0, std::min(1.0, double(h))) * int_max));
+        }
+    }
+}
+
+thumbnail::ThumbnailBufferPtr
+OffscreenViewport::rgb96thumbFromHalfFloatImage(const media_reader::ImageBufPtr &image) {
+
+    const Imath::V2i image_size = image->image_size_in_pixels();
+
+    // since we only run this routine ourselves and set-up the image properly
+    // this mismatch can't happen but check anyway just in case. Due to padding
+    // image buffers are usually a bit larger than the tight pixel size.
+    size_t expected_size = image_size.x * image_size.y * sizeof(half) * 4;
+    if (expected_size > image->size()) {
+
+        std::string err(fmt::format(
+            "{} Image buffer size of {} does not agree with image pixels size of {} ({}x{}).",
+            __PRETTY_FUNCTION__,
+            image->size(),
+            expected_size,
+            image_size.x,
+            image_size.y));
+        throw std::runtime_error(err.c_str());
+    }
+
+
+    // init RGBA float array
+    thumbnail::ThumbnailBufferPtr r(
+        new thumbnail::ThumbnailBuffer(image_size.x, image_size.y, thumbnail::TF_RGBF96));
+
+    // note 'image' is (probably) already in a display space. The offscreen
+    // viewport has its own instance of ColourPipeline plugin doing the colour
+    // management. So our colours are normalised to 0-1 range.
+
+    make_conversion_lut();
+
+    const half *in = (half *)image->buffer();
+    float *out     = (float *)r->data().data();
+    size_t sz      = image_size.x * image_size.y;
+    while (sz--) {
+        *(out++) = *(in++);
+        *(out++) = *(in++);
+        *(out++) = *(in++);
+        in++; // skip alpha
+    }
+
     r->flip();
 
     return r;
 }
 
-void OffscreenViewportMiddlemanActor::render_to_thumbail(
-    caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
+thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
+    const thumbnail::THUMBNAIL_FORMAT format,
+    const int width,
+    const bool auto_scale,
+    const bool show_annotations) {
+
+    media_reader::ImageBufPtr image = viewport_renderer_->get_onscreen_image();
+
+    if (!image) {
+        std::string err(fmt::format(
+            "{} Failed to pull images to offscreen renderer.", __PRETTY_FUNCTION__));
+        throw std::runtime_error(err.c_str());
+    }
+
+    const Imath::V2i image_dims = image->image_size_in_pixels();
+    if (image_dims.x <= 0 || image_dims.y <= 0) {
+        std::string err(fmt::format("{} Null image in viewport.", __PRETTY_FUNCTION__));
+        throw std::runtime_error(err.c_str());
+    }
+
+    float effective_image_height = float(image_dims.y) / image->pixel_aspect();
+
+    if (width <= 0 || auto_scale) {
+        viewport_renderer_->set_fit_mode(viewport::FitMode::One2One);
+        return renderToThumbnail(format, image_dims.x, int(round(effective_image_height)));
+    } else {
+        viewport_renderer_->set_fit_mode(viewport::FitMode::Best);
+        return renderToThumbnail(
+            format, width, int(round(width * effective_image_height / image_dims.x)));
+    }
+}
+
+thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
+    const thumbnail::THUMBNAIL_FORMAT format, const int width, const int height) {
+    media_reader::ImageBufPtr image(new media_reader::ImageBuffer());
+    renderToImageBuffer(width, height, image, viewport::ImageFormat::RGBA_16F);
+    thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(image);
+    r->convert_to(format);
+    return r;
+}
+
+
+thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
     caf::actor media_actor,
     const int media_frame,
     const thumbnail::THUMBNAIL_FORMAT format,
     const int width,
     const bool auto_scale,
     const bool show_annotations) {
-    caf::actor playhead_actor;
-    try {
-
-        scoped_actor sys{system()};
-
-        // make a temporary playhead
-        playhead_actor = sys->spawn<playhead::PlayheadActor>("Offscreen Viewport Playhead");
-
-        // set the incoming media actor as the source for the playhead
-        utility::request_receive<bool>(
-            *sys,
-            playhead_actor,
-            playhead::source_atom_v,
-            std::vector<caf::actor>({media_actor}));
-
-        // set the playhead frame
-        utility::request_receive<bool>(
-            *sys, playhead_actor, playhead::jump_atom_v, media_frame);
-
-        // TODO: remove this and find
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-        // send a request to the offscreen viewport to
-        // render an image
-        request(
-            offscreen_viewport_,
-            infinite,
-            viewport::render_viewport_to_image_atom_v,
-            playhead_actor,
-            format,
-            width,
-            auto_scale,
-            show_annotations)
-            .then(
-                [=](thumbnail::ThumbnailBufferPtr buf) mutable {
-                    rp.deliver(buf);
-                    send_exit(playhead_actor, caf::exit_reason::user_shutdown);
-                },
-                [=](caf::error &err) mutable {
-                    rp.deliver(err);
-                    send_exit(playhead_actor, caf::exit_reason::user_shutdown);
-                });
-
-        // add
-
-    } catch (std::exception &e) {
-        if (playhead_actor)
-            send_exit(playhead_actor, caf::exit_reason::user_shutdown);
-        rp.deliver(caf::make_error(xstudio_error::error, e.what()));
+    if (!local_playhead_) {
+        auto a = caf::actor_cast<caf::event_based_actor *>(as_actor());
+        local_playhead_ =
+            a->spawn<playhead::PlayheadActor>("Offscreen Viewport Local Playhead");
+        a->link_to(local_playhead_);
     }
-}
+    // first, set the local playhead to be our image source
+    viewport_renderer_->set_playhead(local_playhead_);
 
-void OffscreenViewportMiddlemanActor::render_to_file(
-    caf::actor media_actor,
-    const int media_frame,
-    const int width,
-    const int height,
-    const caf::uri path,
-    caf::typed_response_promise<bool> rp) {
+    scoped_actor sys{as_actor()->home_system()};
 
-    caf::actor playhead_actor;
-    try {
+    // now set the media source on the local playhead
+    utility::request_receive<bool>(
+        *sys, local_playhead_, playhead::source_atom_v, std::vector<caf::actor>({media_actor}));
 
-        scoped_actor sys{system()};
+    // now move the playhead to requested frame
+    utility::request_receive<bool>(*sys, local_playhead_, playhead::jump_atom_v, media_frame);
 
-        // make a temporary playhead
-        playhead_actor = sys->spawn<playhead::PlayheadActor>("Offscreen Viewport Playhead");
-
-        // set the incoming media actor as the source for the playhead
-        utility::request_receive<bool>(
-            *sys,
-            playhead_actor,
-            playhead::source_atom_v,
-            std::vector<caf::actor>({media_actor}));
-
-        // set the playhead frame
-        utility::request_receive<bool>(
-            *sys, playhead_actor, playhead::jump_atom_v, media_frame);
-
-        // TODO: remove this and find
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-        // send a request to the offscreen viewport to
-        // render an image
-        request(
-            offscreen_viewport_,
-            infinite,
-            viewport::render_viewport_to_image_atom_v,
-            playhead_actor,
-            width,
-            height,
-            10,
-            true,
-            path)
-            .then(
-                [=](bool r) mutable {
-                    rp.deliver(r);
-                    send_exit(playhead_actor, caf::exit_reason::user_shutdown);
-                },
-                [=](caf::error &err) mutable {
-                    rp.deliver(err);
-                    send_exit(playhead_actor, caf::exit_reason::user_shutdown);
-                });
-
-        // add
-
-    } catch (std::exception &e) {
-        if (playhead_actor)
-            send_exit(playhead_actor, caf::exit_reason::user_shutdown);
-        rp.deliver(caf::make_error(xstudio_error::error, e.what()));
-    }
+    return renderToThumbnail(format, auto_scale, show_annotations);
 }

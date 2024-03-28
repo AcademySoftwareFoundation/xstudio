@@ -181,12 +181,26 @@ void ShotgunClientActor::init() {
             return rp;
         },
 
+        [=](shotgun_update_entity_atom atom,
+            const std::string &entity,
+            const int record_id,
+            const JsonStore &body) {
+            delegate(
+                actor_cast<caf::actor>(this),
+                atom,
+                entity,
+                record_id,
+                body,
+                std::vector<std::string>());
+        },
+
         [=](shotgun_update_entity_atom,
             const std::string &entity,
             const int record_id,
-            const JsonStore &body) -> result<JsonStore> {
+            const JsonStore &body,
+            const std::vector<std::string> &fields) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-            // spdlog::warn("shotgun_update_entity_atom");
+
             request(
                 http_,
                 infinite,
@@ -195,6 +209,8 @@ void ShotgunClientActor::init() {
                 std::string("/api/v1/entity/" + entity + "/" + std::to_string(record_id)),
                 base_.get_auth_headers(),
                 body.dump(),
+                httplib::Params(
+                    {{"options[fields]", fields.empty() ? "*" : join_as_string(fields, ",")}}),
                 base_.content_type_json())
                 .then(
                     [=](const httplib::Response &response) mutable {
@@ -217,7 +233,8 @@ void ShotgunClientActor::init() {
                                                     shotgun_update_entity_atom_v,
                                                     entity,
                                                     record_id,
-                                                    body);
+                                                    body,
+                                                    fields);
                                             },
                                             [=](error &err) mutable {
                                                 spdlog::warn(
@@ -292,6 +309,69 @@ void ShotgunClientActor::init() {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                             }
                             rp.deliver(JsonStore(std::move(jsn)));
+                        } catch (const std::exception &err) {
+                            rp.deliver(make_error(sce::response_error, err.what()));
+                        }
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
+        [=](shotgun_delete_entity_atom,
+            const std::string &entity,
+            const int record_id) -> result<JsonStore> {
+            auto rp = make_response_promise<JsonStore>();
+            request(
+                http_,
+                infinite,
+                http_delete_atom_v,
+                base_.scheme_host_port(),
+                std::string("/api/v1/entity/" + entity + "/") + std::to_string(record_id),
+                base_.get_auth_headers(),
+                "",
+                base_.content_type_json())
+                .then(
+                    [=](const httplib::Response &response) mutable {
+                        try {
+                            if (response.body == "")
+                                rp.deliver(JsonStore());
+                            else {
+                                auto jsn = nlohmann::json::parse(response.body);
+
+                                try {
+                                    if (not jsn["errors"][0]["status"].is_null() and
+                                        jsn["errors"][0]["status"].get<int>() == 401) {
+                                        // try and authorise..
+                                        request(
+                                            actor_cast<caf::actor>(this),
+                                            infinite,
+                                            shotgun_acquire_token_atom_v)
+                                            .then(
+                                                [=](const std::pair<
+                                                    std::string,
+                                                    std::string>) mutable {
+                                                    rp.delegate(
+                                                        actor_cast<caf::actor>(this),
+                                                        shotgun_delete_entity_atom_v,
+                                                        entity,
+                                                        record_id);
+                                                },
+                                                [=](error &err) mutable {
+                                                    spdlog::warn(
+                                                        "{} {}",
+                                                        __PRETTY_FUNCTION__,
+                                                        to_string(err));
+                                                    rp.deliver(JsonStore(std::move(jsn)));
+                                                });
+                                        return;
+                                    }
+
+                                } catch (const std::exception &err) {
+                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                                }
+                                rp.deliver(JsonStore(std::move(jsn)));
+                            }
                         } catch (const std::exception &err) {
                             rp.deliver(make_error(sce::response_error, err.what()));
                         }
@@ -606,8 +686,6 @@ void ShotgunClientActor::init() {
                 if (not sort.empty())
                     jsn["sort"] = sort;
                 jsn["filters"] = conditions;
-
-                // spdlog::warn("{}", jsn.dump(2));
 
                 // requires authentication..
                 request(

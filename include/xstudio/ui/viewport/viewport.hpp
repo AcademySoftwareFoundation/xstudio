@@ -37,15 +37,16 @@ namespace ui {
                 const utility::JsonStore &state_data,
                 caf::actor parent_actor,
                 const int viewport_index,
-                ViewportRendererPtr the_renderer);
-            ~Viewport() override;
+                ViewportRendererPtr the_renderer,
+                const std::string & name = std::string());
+            virtual ~Viewport();
 
             bool process_pointer_event(PointerEvent &);
 
             void set_pointer_event_viewport_coords(PointerEvent &pointer_event);
 
             void set_scale(const float scale);
-            void set_size(const float w, const float h);
+            void set_size(const float w, const float h, const float devicePixelRatio);
             void set_pan(const float x_pan, const float y_pan);
             void set_fit_mode(const FitMode md);
             void set_mirror_mode(const MirrorMode md);
@@ -58,6 +59,15 @@ namespace ui {
                 const double refresh_rate);
 
             /**
+             *  @brief Link to another viewport so the zoom, scale and colour
+             *  management settings are shared between the two viewports
+             *
+             *  @details This allows the pop-out viewer to track the primary
+             *  viewer in the main interface, for example
+             */
+            void link_to_viewport(caf::actor other_viewport);
+
+            /**
              *  @brief Switch the fit mode and zoom to it's previous state (usually before
              * some user interaction)
              *
@@ -65,7 +75,7 @@ namespace ui {
              * buttons to toggle the fit/zoom back to what it was before the last
              * interactino started.
              */
-            void revert_fit_zoom_to_previous();
+            void revert_fit_zoom_to_previous(const bool synced = false);
 
             /**
              *  @brief Switch the mirror mode to Flop/Off
@@ -128,7 +138,8 @@ namespace ui {
                 const Imath::V2f topright,
                 const Imath::V2f bottomright,
                 const Imath::V2f bottomleft,
-                const Imath::V2i scene_size);
+                const Imath::V2i scene_size,                
+                const float devicePixelRatio);
 
             /**
              *  @brief Inform the viewport of the size of the image currently on screen to
@@ -178,6 +189,8 @@ namespace ui {
                 return caf::actor_cast<caf::actor>(playhead_addr_);
             }
             [[nodiscard]] const std::string &toolbar_name() const { return toolbar_name_; }
+
+            [[nodiscard]] caf::actor colour_pipeline() { return colour_pipeline_; }
 
             utility::JsonStore serialise() const override;
 
@@ -247,15 +260,36 @@ namespace ui {
 
             typedef std::function<void(ChangeCallbackId)> ChangeCallback;
 
+            /**
+             *  @brief Set whether a viewport will automatically show the
+             *  'active' session playlist/subset/timeline
+             *
+             *  @details When a viewport is set to auto-connect to the playhead,
+             *  this means that when the 'active' playlist/subset/timeline at
+             *  the session level changes (e.g. if the user double cliks on a
+             *  playlist in the playlist panel interface) then the viewport
+             *  will automatically connect to the playhead for that playlist/
+             *  subset/timeline such that it shows the select media therein.
+             *
+             *  Then auto-connect is not set, the viewport remains connected
+             *  to the playhead that was set by calling the 'set_playhead
+             *  function.
+             */
+            void auto_connect_to_playhead(bool auto_connect);
+
             void set_change_callback(ChangeCallback f) { event_callback_ = f; }
 
             void set_playhead(caf::actor playhead, const bool wait_for_refresh = false);
 
             caf::actor fps_monitor() { return fps_monitor_; }
 
-            void framebuffer_swapped();
+            void framebuffer_swapped(const utility::time_point swap_time);
 
             media_reader::ImageBufPtr get_image_from_playhead(caf::actor playhead);
+
+            media_reader::ImageBufPtr get_onscreen_image();
+
+            void set_aux_shader_uniforms(const utility::JsonStore & j, const bool clear_and_overwrite = false);
 
           protected:
             void register_hotkeys() override;
@@ -285,7 +319,7 @@ namespace ui {
              */
             void get_frames_for_display(std::vector<media_reader::ImageBufPtr> &next_images);
 
-            void instance_overlay_plugins(const bool share_plugin_instances);
+            void instance_overlay_plugins();
 
 
           private:
@@ -314,12 +348,16 @@ namespace ui {
             Imath::M44f interact_start_inv_projection_matrix_;
             Imath::M44f viewport_to_canvas_;
             Imath::M44f fit_mode_matrix_;
+            float devicePixelRatio_ = {1.0};
 
             Imath::V4f normalised_pointer_position() const;
 
             void update_matrix();
 
             void get_colour_pipeline();
+
+            void
+            quickview_media(std::vector<caf::actor> &media_items, std::string compare_mode);
 
             utility::JsonStore settings_;
 
@@ -342,23 +380,25 @@ namespace ui {
             caf::actor fps_monitor_;
             caf::actor keypress_monitor_;
             caf::actor viewport_events_actor_;
-            caf::actor other_viewport_;
+            std::vector<caf::actor> other_viewports_;
             caf::actor colour_pipeline_;
             caf::actor keyboard_events_actor_;
+            caf::actor quickview_playhead_;
 
             caf::actor_addr playhead_addr_;
-
-            caf::actor overlay_actor_;
 
             void dummy_evt_callback(ChangeCallbackId) {}
             ChangeCallback event_callback_;
 
           protected:
             utility::Uuid current_playhead_, new_playhead_;
-            bool done_init_     = {false};
-            int viewport_index_ = {0};
-            bool playing_       = {false};
+            bool done_init_       = {false};
+            int viewport_index_   = {0};
+            bool playing_         = {false};
+            bool playhead_pinned_ = {false};
             std::set<int> held_keys_;
+
+            utility::JsonStore aux_shader_uniforms_;
 
             std::map<utility::Uuid, caf::actor> overlay_plugin_instances_;
             std::map<utility::Uuid, caf::actor> hud_plugin_instances_;
