@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import xstudio.qml.models 1.0
 import xStudioReskin 1.0
 

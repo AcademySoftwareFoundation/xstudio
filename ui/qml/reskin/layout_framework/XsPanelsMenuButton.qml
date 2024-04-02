@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 
 import QtQuick 2.15
 import QtQuick.Controls 1.4

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
 

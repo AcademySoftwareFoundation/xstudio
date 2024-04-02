@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import Qt.labs.qmlmodels 1.0
 import QtGraphicalEffects 1.15 //for RadialGradient
 import QtQml 2.15
