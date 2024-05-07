@@ -269,7 +269,6 @@ namespace utility {
             spdlog::debug("Unable to determine executable path from Windows API, falling back "
                           "to standard methods");
         } else {
-            spdlog::warn(std::string(filename));
             auto exePath = fs::path(filename);
 
             // The first parent path gets us to the bin directory, the second gets us to the level above bin.

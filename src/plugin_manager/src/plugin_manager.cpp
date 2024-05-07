@@ -50,14 +50,12 @@ size_t PluginManager::load_plugins() {
     spdlog::warn("Loading Plugins");
 
     for (const auto &path : plugin_paths_) {
-        spdlog::warn(path);
         try {
             // read dir content..
             for (const auto &entry : fs::directory_iterator(path)) {
                 if (not fs::is_regular_file(entry.status()) or
                     not(entry.path().extension() == ".so" || entry.path().extension() == ".dll"))
                     continue;
-                spdlog::warn(entry.path().string());
 
 #ifdef __linux__
                 // only want .so
