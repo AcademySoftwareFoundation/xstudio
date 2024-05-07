@@ -47,7 +47,7 @@ PluginManager::PluginManager(std::list<std::string> plugin_paths)
 size_t PluginManager::load_plugins() {
     // scan for .so or .dll for each path.
     size_t loaded = 0;
-    spdlog::warn("Loading Plugins");
+    spdlog::debug("Loading Plugins");
 
     for (const auto &path : plugin_paths_) {
         try {

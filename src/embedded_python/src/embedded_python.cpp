@@ -30,7 +30,7 @@ EmbeddedPython::EmbeddedPython(const JsonStore &jsn, EmbeddedPythonActor *parent
 void EmbeddedPython::setup() {
     try {
         if (not Py_IsInitialized()) {
-            spdlog::info("py::initialize_interpreter");
+            spdlog::debug("py::initialize_interpreter");
             py::initialize_interpreter();
             inited_ = true;
         }
