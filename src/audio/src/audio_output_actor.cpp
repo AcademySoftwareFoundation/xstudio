@@ -11,6 +11,14 @@
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/helpers.hpp"
 
+// include for system (soundcard) audio output
+#ifdef __linux__
+#include "linux_audio_output_device.hpp"
+#endif
+#ifdef _WIN32
+#include "windows_audio_output_device.hpp"
+#endif
+
 using namespace caf;
 using namespace xstudio::audio;
 using namespace xstudio::utility;

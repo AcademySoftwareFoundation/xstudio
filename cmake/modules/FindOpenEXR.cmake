@@ -130,7 +130,9 @@ if (CMAKE_USE_PTHREADS_INIT)
 endif ()
 
 # Attempt to find OpenEXR with pkgconfig
-find_package(PkgConfig)
+if (UNIX AND NOT APPLE)
+    find_package(PkgConfig)
+endif()
 if (PKG_CONFIG_FOUND)
     if (NOT Ilmbase_ROOT AND NOT ILMBASE_ROOT
         AND NOT DEFINED ENV{Ilmbase_ROOT} AND NOT DEFINED ENV{ILMBASE_ROOT})

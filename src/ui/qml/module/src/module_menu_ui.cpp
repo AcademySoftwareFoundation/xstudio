@@ -61,7 +61,7 @@ QVariant ModuleMenusModel::data(const QModelIndex &index, int role) const {
             rt = attributes_data_[index.row()][role];
         } else {
         }
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
     return rt;
 }
@@ -540,7 +540,7 @@ void ModuleMenusModel::update_attribute_from_backend(
             }
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
 }
 

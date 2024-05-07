@@ -211,7 +211,7 @@ BookmarkModel::getJSONFuture(const QModelIndex &index, const QString &path) cons
 
                 return QStringFromStd(result.dump());
 
-            } catch (const std::exception &err) {
+            } catch ([[maybe_unused]] const std::exception &err) {
                 // spdlog::warn("{} {}", __PRETTY_FUNCTION__,  err.what());
                 return QString(); // QStringFromStd(err.what());
             }
@@ -329,7 +329,7 @@ void BookmarkModel::setBookmarkActorAddr(const QString &addr) {
             try {
                 request_receive<bool>(
                     *sys, backend_events_, broadcast::leave_broadcast_atom_v, as_actor());
-            } catch (const std::exception &e) {
+            } catch ([[maybe_unused]] const std::exception &e) {
             }
             backend_events_ = caf::actor();
         }

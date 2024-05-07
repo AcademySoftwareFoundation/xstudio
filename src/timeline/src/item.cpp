@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <algorithm>
+#include <nlohmann/json.hpp>
 
 #include "xstudio/timeline/item.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -742,8 +743,8 @@ bool Item::process_event(const utility::JsonStore &event) {
         case IT_ACTIVE:
             set_active_range_direct(event.at("value"));
             has_active_range_ = event.at("value2");
-            break;
-        case IT_AVAIL:
+                    break;
+                case IT_AVAIL:
             set_available_range_direct(event.at("value"));
             has_available_range_ = event.at("value2");
             break;
@@ -790,29 +791,29 @@ bool Item::process_event(const utility::JsonStore &event) {
             }
         } break;
 
-        case IT_ADDR:
+                case IT_ADDR:
             if (event.at("value").is_null())
-                set_actor_addr_direct(caf::actor_addr());
-            else
+                        set_actor_addr_direct(caf::actor_addr());
+                    else
                 set_actor_addr_direct(string_to_actor_addr(event.at("value")));
-            break;
-        case IA_NONE:
-        default:
-            break;
-        }
-        if (item_event_callback_)
-            item_event_callback_(event, *this);
-    } else {
+                    break;
+                case IA_NONE:
+                default:
+                    break;
+                }
+                if (item_event_callback_)
+                    item_event_callback_(event, *this);
+            } else {
         // child ?
         for (auto &i : *this) {
             if (i.process_event(event))
                 return true;
-        }
+            }
 
-        return false;
-    }
+            return false;
+        }
     return true;
-}
+    }
 
 void Item::bind_item_event_func(ItemEventFunc fn, const bool recursive) {
     recursive_bind_      = recursive;

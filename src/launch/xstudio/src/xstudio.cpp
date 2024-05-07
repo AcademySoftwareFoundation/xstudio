@@ -5,12 +5,16 @@
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#ifdef __linux__
 #include <execinfo.h>
+#endif
 #include <functional>
 #include <iostream>
 #include <regex>
 #include <thread>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 
 
 #ifndef CPPHTTPLIB_OPENSSL_SUPPORT
@@ -77,6 +81,7 @@ CAF_POP_WARNINGS
 #include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
 #include "xstudio/ui/qt/offscreen_viewport.hpp" //NOLINT
 
+//TODO: Ahead Fix
 #include "QuickFuture"
 
 Q_DECLARE_METATYPE(QUrl)
@@ -133,6 +138,37 @@ struct ExitTimeoutKiller {
 
 } exit_timeout_killer;
 
+#ifdef _WIN32
+#include <DbgHelp.h>
+
+void handler(int sig) {
+    void *stack[10];
+    HANDLE process = GetCurrentProcess();
+    SymInitialize(process, nullptr, TRUE);
+
+    // Capture the call stack
+    WORD frames = CaptureStackBackTrace(0, 10, stack, nullptr);
+
+    // Print out the frames to stderr
+    fprintf(stderr, "Error: signal %d:\n", sig);
+    for (int i = 0; i < frames; ++i) {
+        DWORD64 address = reinterpret_cast<DWORD64>(stack[i]);
+        char symbolBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+        SYMBOL_INFO *symbol  = reinterpret_cast<SYMBOL_INFO *>(symbolBuffer);
+        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+        symbol->MaxNameLen   = MAX_SYM_NAME;
+
+        if (SymFromAddr(process, address, nullptr, symbol)) {
+            fprintf(stderr, "%d: %s\n", i, symbol->Name);
+        } else {
+            fprintf(stderr, "%d: [Unknown Symbol]\n", i);
+        }
+    }
+
+    SymCleanup(process);
+    exit(1);
+}
+#else
 void handler(int sig) {
     void *array[10];
     size_t size;
@@ -143,8 +179,10 @@ void handler(int sig) {
     // print out all the frames to stderr
     fprintf(stderr, "Error: signal %d:\n", sig);
     backtrace_symbols_fd(array, size, STDERR_FILENO);
+
     exit(1);
 }
+#endif
 
 void my_handler(int s) {
     spdlog::warn("Caught signal {}", s);
@@ -252,8 +290,11 @@ struct Launcher {
     Launcher(int argc, char **argv, actor_system &a_system) : system(a_system) {
 
         cli_args.parse_args(argc, argv);
+#ifdef _WIN32
+        _putenv_s("QML_IMPORT_TRACE", "0");
+#else
         setenv("QML_IMPORT_TRACE", "0", true);
-
+#endif
         signal(SIGSEGV, handler);
         start_logger(
             cli_args.debug.Matched() ? spdlog::level::debug : spdlog::level::info,
@@ -658,7 +699,7 @@ struct Launcher {
                             files.push_back(p);
                             continue;
                         }
-                    } catch (const std::exception &err) {
+                    } catch ([[maybe_unused]] const std::exception &err) {
                     }
 
                     // add to scan list..
@@ -855,13 +896,14 @@ int main(int argc, char **argv) {
 
             if (l.actions["headless"]) {
                 system.await_actors_before_shutdown(true);
-                struct sigaction sigIntHandler;
+                //TODO: Ahead Fix
+                //struct sigaction sigIntHandler;
 
-                sigIntHandler.sa_handler = my_handler;
-                sigemptyset(&sigIntHandler.sa_mask);
-                sigIntHandler.sa_flags = 0;
+                //sigIntHandler.sa_handler = my_handler;
+                //sigemptyset(&sigIntHandler.sa_mask);
+                //sigIntHandler.sa_flags = 0;
 
-                sigaction(SIGINT, &sigIntHandler, nullptr);
+                //sigaction(SIGINT, &sigIntHandler, nullptr);
 
                 while (not shutdown_xstudio) {
                     // we should be able to shutdown via a API call..

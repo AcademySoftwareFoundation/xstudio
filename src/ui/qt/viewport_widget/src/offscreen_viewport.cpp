@@ -306,7 +306,11 @@ void OffscreenViewport::renderSnapshot(const int width, const int height, const 
     auto p = fs::path(xstudio::utility::uri_to_posix_path(path));
 
     std::string ext = xstudio::utility::ltrim_char(
+#ifdef _WIN32
+        xstudio::utility::to_upper_path(p.extension()),
+#else
         xstudio::utility::to_upper(p.extension()),
+#endif
         '.'); // yuk!
 
     if (ext == "EXR") {

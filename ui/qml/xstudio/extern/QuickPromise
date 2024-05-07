@@ -1,1 +1,1 @@
-../../../../extern/quickpromise/qml/QuickPromise
+#include "../../../../extern/quickpromise/qml/QuickPromise"

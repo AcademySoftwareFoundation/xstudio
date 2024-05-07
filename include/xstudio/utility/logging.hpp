@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#if defined(_WIN32)
+#if !defined(__PRETTY_FUNCTION__) && !defined(__GNUC__)
+#define __PRETTY_FUNCTION__ __FUNCSIG__
+#endif
+#endif
 /*
     \file logging.h
     Stop and start logging system

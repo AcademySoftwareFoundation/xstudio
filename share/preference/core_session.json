@@ -102,9 +102,9 @@
 				},
 				"path": {
 					"path": "/core/session/autosave/path",
-					"default_value": "${HOME}/xStudio/autosave",
+					"default_value": "${USERPROFILE}/xStudio/autosave",
 					"description": "Path to autosaves.",
-					"value": "${HOME}/xStudio/autosave",
+					"value": "${USERPROFILE}/xStudio/autosave",
 					"datatype": "string",
 					"context": ["APPLICATION"]
 				}

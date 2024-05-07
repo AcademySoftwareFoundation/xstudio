@@ -5,7 +5,9 @@
 #include <map>
 #include <mutex>
 #include <regex>
+#ifdef __linux__
 #include <sys/time.h>
+#endif
 
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/media/media.hpp"
@@ -264,8 +266,15 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
     try {
         readers_per_source_ =
             preference_value<int>(prefs, "/plugin/media_reader/FFMPEG/readers_per_source");
+#ifdef __linux__       
         soundcard_sample_rate_ =
             preference_value<int>(prefs, "/core/audio/pulse_audio_prefs/sample_rate");
+#endif
+#ifdef _WIN32
+        soundcard_sample_rate_ = 48000;
+            //preference_value<int>(prefs, "/core/audio/windows_audio_prefs/sample_rate");
+#endif
+
     } catch (const std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -301,24 +310,37 @@ AudioBufPtr FFMpegMediaReader::audio(const media::AVFrameID &mptr) {
 
     try {
 
+        // Set the path for the media file. Currently, it's hard-coded to a specific file.
+        // This may be updated later to use the URI from the AVFrameID object.
         std::string path = uri_to_posix_path(mptr.uri_);
 
+        // If the audio_decoder object doesn't exist or the path it's using differs
+        // from the one we're interested in, then create a new audio_decoder.
         if (!audio_decoder || audio_decoder->path() != path) {
             audio_decoder.reset(
                 new FFMpegDecoder(path, soundcard_sample_rate_, mptr.stream_id_));
         }
 
         AudioBufPtr rt;
+
+        // Decode the audio frame using the decoder and get the resulting audio buffer.
         audio_decoder->decode_audio_frame(mptr.frame_, rt);
+
+        // If decoding didn't produce an audio buffer (i.e., rt is null), then initialize
+        // a new empty audio buffer.
         if (!rt) {
             rt.reset(new AudioBuffer());
         }
 
+        // Return the obtained/created audio buffer.
         return rt;
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
+        // If an exception is encountered, rethrow it to be handled by the caller.
         throw;
     }
+
+    // If everything else fails, return an empty shared pointer.
     return AudioBufPtr();
 }
 
@@ -399,7 +421,7 @@ FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_si
         thumbnail_decoder.reset();
         return rt;
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
         throw;
     }
 }

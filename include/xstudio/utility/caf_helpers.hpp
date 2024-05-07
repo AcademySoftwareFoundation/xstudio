@@ -30,9 +30,12 @@ namespace utility {
     struct absolute_receive_timeout {
       public:
         using ms         = std::chrono::milliseconds;
+#ifdef _WIN32
+        using clock_type = std::chrono::high_resolution_clock;;
+#else
         using clock_type = std::chrono::system_clock;
         // using clock_type = std::chrono::high_resolution_clock;
-
+#endif
         absolute_receive_timeout(int msec) { x_ = clock_type::now() + ms(msec); }
 
         absolute_receive_timeout()                                 = default;

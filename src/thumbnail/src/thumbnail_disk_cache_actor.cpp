@@ -313,7 +313,11 @@ TDCHelperActor::TDCHelperActor(caf::actor_config &cfg) : caf::event_based_actor(
             try {
                 fs::last_write_time(
                     thumbnail_path(path, thumb), std::filesystem::file_time_type::clock::now());
+#ifdef _WIN32
+                return read_decode_thumb(thumbnail_path(path, thumb).string());
+#else
                 return read_decode_thumb(thumbnail_path(path, thumb));
+#endif
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
             }
@@ -354,8 +358,11 @@ TDCHelperActor::TDCHelperActor(caf::actor_config &cfg) : caf::event_based_actor(
                                 thumb_path.parent_path().string());
                     }
                 }
-
+#ifdef _WIN32
+                return encode_save_thumb(thumbnail_path(path, thumb).string(), buffer);
+#else
                 return encode_save_thumb(thumbnail_path(path, thumb), buffer);
+#endif
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
             }

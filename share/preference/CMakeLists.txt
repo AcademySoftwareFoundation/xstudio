@@ -21,6 +21,13 @@ add_custom_target(
   ${prefs}
 )
 
-install(FILES
-  ${prefs}
-  DESTINATION share/xstudio/preference)
+if(WIN32)
+	install(FILES
+	${prefs}
+	DESTINATION
+	${CMAKE_INSTALL_PREFIX}/preference)
+else()
+	install(FILES
+	  ${prefs}
+	  DESTINATION share/xstudio/preference)
+endif()

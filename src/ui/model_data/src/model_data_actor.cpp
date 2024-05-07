@@ -794,7 +794,7 @@ void GlobalUIModelData::insert_into_menu_model(
                 menu_model_data = find_node_matching_string_field(
                     menu_model_data, "name", parent_menus.front());
                 parent_menus.erase(parent_menus.begin());
-            } catch (std::exception &e) {
+            } catch ([[maybe_unused]] std::exception &e) {
                 // exception is thrown if we fail to find a match
                 break;
             }

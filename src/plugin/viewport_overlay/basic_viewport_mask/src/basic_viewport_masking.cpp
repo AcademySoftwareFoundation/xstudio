@@ -7,8 +7,8 @@
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
 
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;

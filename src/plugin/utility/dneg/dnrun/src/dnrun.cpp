@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef __linux__
 #include <unistd.h>
+#endif
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/poll.h>

@@ -35,10 +35,13 @@ class TrimActor : public caf::event_based_actor {
 };
 
 TrimActor::TrimActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
-
     behavior_.assign([=](unpreserve_atom, const size_t count) {
         // spdlog::stopwatch sw;
+#ifdef _WIN32
+        _heapmin();
+#else
         malloc_trim(64);
+#endif
         // spdlog::warn("Release {:.3f}", sw);
     });
 }

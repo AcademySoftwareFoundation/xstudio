@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#undef NO_ERROR
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/blind_data.hpp"
@@ -62,11 +63,18 @@ namespace media_reader {
             error_state_   = HAS_ERROR;
         }
 
-        struct BufferData {
-            BufferData(byte *d) { data_.reset(d); }
-            BufferData(size_t sz) { data_.reset(new (std::align_val_t(1024)) byte[sz]); }
-            std::unique_ptr<byte> data_{
-                nullptr}; // using long long which should get result byte alignment
+       struct BufferData {
+            struct BufferDeleter {
+                void operator()(byte *ptr) const { operator delete[](ptr); }
+            };
+
+            BufferData(byte *d) : data_(d, BufferDeleter()) {}
+            BufferData(size_t sz) : data_(nullptr, BufferDeleter()) {
+                byte *ptr = static_cast<byte *>(operator new[](sz, std::align_val_t(1024)));
+                data_.reset(ptr);
+            }
+
+            std::unique_ptr<byte, BufferDeleter> data_;
         };
         typedef std::shared_ptr<BufferData> BufferDataPtr;
 

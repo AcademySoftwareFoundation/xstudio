@@ -1,6 +1,48 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#ifndef HELPER_QML_EXPORT_H
+#define HELPER_QML_EXPORT_H
+
+#ifdef HELPER_QML_STATIC_DEFINE
+#define HELPER_QML_EXPORT
+#define HELPER_QML_NO_EXPORT
+#else
+#ifndef HELPER_QML_EXPORT
+#ifdef helper_qml_EXPORTS
+/* We are building this library */
+#define HELPER_QML_EXPORT __declspec(dllexport)
+#else
+/* We are using this library */
+#define HELPER_QML_EXPORT __declspec(dllimport)
+#endif
+#endif
+
+#ifndef HELPER_QML_NO_EXPORT
+#define HELPER_QML_NO_EXPORT
+#endif
+#endif
+
+#ifndef HELPER_QML_DEPRECATED
+#define HELPER_QML_DEPRECATED __declspec(deprecated)
+#endif
+
+#ifndef HELPER_QML_DEPRECATED_EXPORT
+#define HELPER_QML_DEPRECATED_EXPORT HELPER_QML_EXPORT HELPER_QML_DEPRECATED
+#endif
+
+#ifndef HELPER_QML_DEPRECATED_NO_EXPORT
+#define HELPER_QML_DEPRECATED_NO_EXPORT HELPER_QML_NO_EXPORT HELPER_QML_DEPRECATED
+#endif
+
+#if 0 /* DEFINE_NO_DEPRECATED */
+#ifndef HELPER_QML_NO_DEPRECATED
+#define HELPER_QML_NO_DEPRECATED
+#endif
+#endif
+
+#endif /* HELPER_QML_EXPORT_H */
+
 #include <caf/all.hpp>
 
 #include "xstudio/ui/qml/helper_ui.hpp"
@@ -17,7 +59,7 @@ CAF_POP_WARNINGS
 namespace xstudio::ui::qml {
 using namespace caf;
 
-class UIModelData : public caf::mixin::actor_object<JSONTreeModel> {
+class HELPER_QML_EXPORT UIModelData : public caf::mixin::actor_object<JSONTreeModel> {
 
     Q_OBJECT
 
@@ -84,7 +126,7 @@ class UIModelData : public caf::mixin::actor_object<JSONTreeModel> {
     bool foobarred_ = {false};
 };
 
-class MenusModelData : public UIModelData {
+class HELPER_QML_EXPORT MenusModelData : public UIModelData {
 
     Q_OBJECT
 
@@ -92,7 +134,7 @@ class MenusModelData : public UIModelData {
     explicit MenusModelData(QObject *parent = nullptr);
 };
 
-class ViewsModelData : public UIModelData {
+class HELPER_QML_EXPORT ViewsModelData : public UIModelData {
 
     Q_OBJECT
 
@@ -110,7 +152,7 @@ class ViewsModelData : public UIModelData {
     QVariant view_qml_source(QString view_name);
 };
 
-class ReskinPanelsModel : public UIModelData {
+class HELPER_QML_EXPORT ReskinPanelsModel : public UIModelData {
 
     Q_OBJECT
 
@@ -130,7 +172,7 @@ class MediaListColumnsModel : public UIModelData {
     explicit MediaListColumnsModel(QObject *parent = nullptr);
 };
 
-class MenuModelItem : public caf::mixin::actor_object<QObject> {
+class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject> {
 
     Q_OBJECT
 

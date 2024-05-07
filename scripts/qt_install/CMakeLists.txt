@@ -1,0 +1,2 @@
+#After everything else is installed, windeployqt will scan the contents and package up Qt dependencies.
+install(CODE "execute_process(COMMAND ${Qt5_DIR}/../../../bin/windeployqt.exe ${CMAKE_INSTALL_PREFIX}/bin/xstudio.exe --qmldir ${CMAKE_SOURCE_DIR}/ui)" )

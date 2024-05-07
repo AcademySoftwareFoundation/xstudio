@@ -6,11 +6,15 @@ macro(default_compile_options name)
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
-		PRIVATE $<$<CONFIG:Debug>:-Wno-unused-function>
+		PRIVATE $<$<CONFIG:Debug>:
+			$<$<PLATFORM_ID:Linux>:-Wno-unused-function>
+			$<$<PLATFORM_ID:Windows>:/wd4100>
+		>
 		# PRIVATE $<$<CONFIG:Debug>:-Wall>
 		# PRIVATE $<$<CONFIG:Debug>:-Werror>
-		PRIVATE $<$<CONFIG:Debug>:-Wextra>
-		PRIVATE $<$<CONFIG:Debug>:-Wpedantic>
+		$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wno-unused-function>>
+		$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wextra>>
+		$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wpedantic>>
 		# PRIVATE ${GTEST_CFLAGS}
 	)
 
@@ -21,7 +25,9 @@ macro(default_compile_options name)
 	target_compile_definitions(${name}
 		PUBLIC $<$<BOOL:${BUILD_TESTING}>:test_private=public>
 		PUBLIC $<$<NOT:$<BOOL:${BUILD_TESTING}>>:test_private=private>
-		PRIVATE -D__linux__
+		$<$<CXX_COMPILER_ID:GNU>:_GNU_SOURCE> # Define _GNU_SOURCE for Linux
+		$<$<PLATFORM_ID:Linux>:__linux__> # Define __linux__ for Linux
+		$<$<PLATFORM_ID:Windows>:_WIN32> # Define _WIN32 for Windows
 		PRIVATE XSTUDIO_GLOBAL_VERSION=\"${XSTUDIO_GLOBAL_VERSION}\"
 		PRIVATE XSTUDIO_GLOBAL_NAME=\"${XSTUDIO_GLOBAL_NAME}\"
 		PUBLIC PROJECT_VERSION=\"${PROJECT_VERSION}\"
@@ -40,16 +46,16 @@ if (BUILD_TESTING)
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
-			PRIVATE $<$<CONFIG:Debug>:-Wno-unused-function>
+			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wno-unused-function>>
 			# PRIVATE $<$<CONFIG:Debug>:-Wall>
 			# PRIVATE $<$<CONFIG:Debug>:-Werror>
-			PRIVATE $<$<CONFIG:Debug>:-Wextra>
-			PRIVATE $<$<CONFIG:Debug>:-Wpedantic>
+			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wextra>>
+			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wpedantic>>
 			PRIVATE ${GTEST_CFLAGS}
 		)
 
 		target_compile_features(${name}
-			PUBLIC cxx_std_17
+			PUBLIC cxx_std_20
 		)
 
 		target_compile_definitions(${name}
@@ -72,7 +78,7 @@ macro(default_options_local name)
 		find_package(CAF COMPONENTS core io)
 	endif (NOT CAF_FOUND)
 
-	find_package(spdlog REQUIRED)
+	find_package(spdlog CONFIG REQUIRED)
 
 	default_compile_options(${name})
 	target_include_directories(${name}
@@ -106,7 +112,7 @@ macro(default_options_static name)
 		find_package(CAF COMPONENTS core io)
 	endif (NOT CAF_FOUND)
 
-	find_package(spdlog REQUIRED)
+	find_package(spdlog CONFIG REQUIRED)
 
 	default_compile_options(${name})
 	target_include_directories(${name}
@@ -236,6 +242,17 @@ macro(create_plugin_with_alias NAME ALIASNAME VERSION DEPS)
 		PUBLIC ${DEPS}
 	)
 
+	if(WIN32) #TODO: Determine if we need to keep this limited to win32.
+	# We don't want the vcpkg install.
+
+	#This will unfortunately also install the plugin in the /bin directory.  TODO: Figure out how to omit the plugin itself.
+	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
+
+
+	_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin)
+	endif()
+
+
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
 endmacro()
@@ -260,6 +277,10 @@ macro(create_component_with_alias NAME ALIASNAME VERSION DEPS)
 	)
 
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
+
+	# Generate export header
+	include(GenerateExportHeader)
+	generate_export_header(${PROJECT_NAME})
 
 endmacro()
 
@@ -367,6 +388,15 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
+	# Add the directory containing the generated export header to the include directories
+	target_include_directories(${PROJECT_NAME} 
+		PUBLIC ${CMAKE_BINARY_DIR}  # Include the build directory
+	)
+
+	# Generate export header
+    include(GenerateExportHeader)
+    generate_export_header(${PROJECT_NAME})
+
 endmacro()
 
 macro(build_studio_plugins STUDIO)
@@ -386,6 +416,13 @@ macro(build_studio_plugins STUDIO)
 
 	endif()
 
+endmacro()
+
+
+macro(set_python_to_proper_build_type)
+		if(WIN32)
+			target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:Py_DEBUG>")
+		endif()
 endmacro()
 
 

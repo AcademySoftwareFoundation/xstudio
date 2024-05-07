@@ -1,5 +1,6 @@
 SET(LINK_DEPS
 	Qt5::Core
+	Qt5::Quick
 )
 
 SET(EXTRAMOC

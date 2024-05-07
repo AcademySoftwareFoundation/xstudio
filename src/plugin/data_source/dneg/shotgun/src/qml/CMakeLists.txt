@@ -9,9 +9,10 @@ configure_file(.clang-tidy .clang-tidy)
 # find_package(Qt5 COMPONENTS Core Gui Widgets OpenGL QUIET)
 
 # QT5_ADD_RESOURCES(PROTOTYPE_RCS)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic")
-set(DCMAKE_EXE_LINKER_FLAGS "${DCMAKE_EXE_LINKER_FLAGS} -fpic")
-
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic")
+	set(DCMAKE_EXE_LINKER_FLAGS "${DCMAKE_EXE_LINKER_FLAGS} -fpic")
+endif
 
 project(data_source_shotgun_ui VERSION 0.1.0 LANGUAGES CXX)
 

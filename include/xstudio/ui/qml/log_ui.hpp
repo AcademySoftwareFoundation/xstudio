@@ -3,6 +3,49 @@
 
 #include <iostream>
 
+
+#ifndef LOG_QML_EXPORT_H
+#define LOG_QML_EXPORT_H
+
+#ifdef LOG_QML_STATIC_DEFINE
+#define LOG_QML_EXPORT
+#define LOG_QML_NO_EXPORT
+#else
+#ifndef LOG_QML_EXPORT
+#ifdef log_qml_EXPORTS
+/* We are building this library */
+#define LOG_QML_EXPORT __declspec(dllexport)
+#else
+/* We are using this library */
+#define LOG_QML_EXPORT __declspec(dllimport)
+#endif
+#endif
+
+#ifndef LOG_QML_NO_EXPORT
+#define LOG_QML_NO_EXPORT
+#endif
+#endif
+
+#ifndef LOG_QML_DEPRECATED
+#define LOG_QML_DEPRECATED __declspec(deprecated)
+#endif
+
+#ifndef LOG_QML_DEPRECATED_EXPORT
+#define LOG_QML_DEPRECATED_EXPORT LOG_QML_EXPORT LOG_QML_DEPRECATED
+#endif
+
+#ifndef LOG_QML_DEPRECATED_NO_EXPORT
+#define LOG_QML_DEPRECATED_NO_EXPORT LOG_QML_NO_EXPORT LOG_QML_DEPRECATED
+#endif
+
+#if 0 /* DEFINE_NO_DEPRECATED */
+#ifndef LOG_QML_NO_DEPRECATED
+#define LOG_QML_NO_DEPRECATED
+#endif
+#endif
+
+#endif /* LOG_QML_EXPORT_H */
+
 #include "spdlog/common.h"
 #include "spdlog/details/log_msg.h"
 #include "spdlog/details/synchronous_factory.h"
@@ -26,7 +69,7 @@ namespace ui {
         };
 
 
-        class LogModel : public QAbstractListModel {
+        class LOG_QML_EXPORT LogModel : public QAbstractListModel {
             Q_OBJECT
             Q_PROPERTY(QStringList logLevels READ logLevels NOTIFY logLevelsChanged)
 
@@ -70,7 +113,7 @@ namespace ui {
         //  err = SPDLOG_LEVEL_ERROR, critical = SPDLOG_LEVEL_CRITICAL, off =
         //  SPDLOG_LEVEL_OFF
 
-        class LogFilterModel : public QSortFilterProxyModel {
+        class LOG_QML_EXPORT LogFilterModel : public QSortFilterProxyModel {
             Q_OBJECT
             Q_PROPERTY(int logLevel READ logLevel WRITE setLogLevel NOTIFY logLevelChanged)
             Q_PROPERTY(QString logLevelString READ logLevelString NOTIFY logLevelStringChanged)

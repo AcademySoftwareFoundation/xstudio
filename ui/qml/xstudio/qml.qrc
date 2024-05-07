@@ -552,9 +552,11 @@
 		<file>XsStyleGradient.qml</file>
 		<file>xstudio_icon.png</file>
 	    <file>xStudio/qmldir</file>
+        <!-- TODO: Ahead to Fix
         <file>extern/QuickPromise/promise.js</file>
         <file>extern/QuickPromise/Promise.qml</file>
         <file>extern/QuickPromise/PromiseTimer.qml</file>
         <file>extern/QuickPromise/qmldir</file>
-	</qresource>
+         -->
+	</qresource> 
 </RCC>

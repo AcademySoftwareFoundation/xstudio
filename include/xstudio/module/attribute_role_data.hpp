@@ -86,7 +86,7 @@ namespace module {
         template <typename T> [[nodiscard]] const T get() const {
             try {
                 return std::any_cast<T>(data_);
-            } catch (std::exception &e) {
+            } catch ([[maybe_unused]] std::exception &e) {
                 spdlog::warn(
                     "{} Attempt to get AttributeData with type {} as type {}",
                     __PRETTY_FUNCTION__,

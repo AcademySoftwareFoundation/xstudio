@@ -23,6 +23,10 @@
 #include "xstudio/caf_error.hpp"
 #include "xstudio/caf_utility/caf_setup.hpp"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace xstudio {
 namespace utility {
 
@@ -254,30 +258,86 @@ namespace utility {
 
     inline std::string xstudio_root(const std::string &append_path) {
         auto root = get_env("XSTUDIO_ROOT");
+
+        #ifdef _WIN32
+        char filename[MAX_PATH];
+        DWORD nSize  = _countof(filename);
+        DWORD result = GetModuleFileNameA(NULL, filename, nSize);
+
+        std::string fallback_root;
+        if (result == 0) {
+            spdlog::debug("Unable to determine executable path from Windows API, falling back "
+                          "to standard methods");
+        } else {
+            spdlog::warn(std::string(filename));
+            auto exePath = fs::path(filename);
+
+            // The first parent path gets us to the bin directory, the second gets us to the level above bin.
+            auto xstudio_root = exePath.parent_path().parent_path();
+            fallback_root     = xstudio_root.string();
+        }
+        #else
+        fallback_root   = std::string(BINARY_DIR);
+        #endif
+
+
         std::string path =
-            (root ? (*root) + append_path : std::string(BINARY_DIR) + append_path);
+            (root ? (*root) + append_path : fallback_root + append_path);
+
         return path;
     }
 
-    inline std::string remote_session_path() {
-        auto root        = get_env("HOME");
-        std::string path = (root ? (*root) + "/.config/DNEG/xstudio/sessions" : "");
-        return path;
+inline std::string remote_session_path() {
+    const char* root;
+#ifdef _WIN32
+    root = std::getenv("USERPROFILE");
+#else
+    root = std::getenv("HOME");
+#endif
+    std::filesystem::path path;
+    if (root)
+    {
+        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "sessions";
     }
 
-    inline std::string preference_path(const std::string &append_path = "") {
-        auto root = get_env("HOME");
-        std::string path =
-            (root ? (*root) + "/.config/DNEG/xstudio/preferences/" + append_path : "");
-        return path;
+    return path.string();
+}
+
+inline std::string preference_path(const std::string &append_path = "") {
+    const char *root;
+#ifdef _WIN32
+    root = std::getenv("USERPROFILE");
+#else
+    root          = std::getenv("HOME");
+#endif
+    std::filesystem::path path;
+    if (root) {
+        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "preferences";
+        if (!append_path.empty()) {
+            path /= append_path;
+        }
     }
 
-    inline std::string snippets_path(const std::string &append_path = "") {
-        auto root = get_env("HOME");
-        std::string path =
-            (root ? (*root) + "/.config/DNEG/xstudio/snippets/" + append_path : "");
-        return path;
+    return path.string();
+}
+
+inline std::string snippets_path(const std::string &append_path = "") {
+    const char *root;
+#ifdef _WIN32
+    root = std::getenv("USERPROFILE");
+#else
+    root          = std::getenv("HOME");
+#endif
+    std::filesystem::path path;
+    if (root) {
+        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "snippets";
+        if (!append_path.empty()) {
+            path /= append_path;
+        }
     }
+
+    return path.string();
+}
 
     inline std::string preference_path_context(const std::string &context) {
         return preference_path(to_lower(context) + ".json");
@@ -299,7 +359,7 @@ namespace utility {
         try {
             mtim = fs::last_write_time(path);
         } catch (const std::exception &err) {
-            // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            spdlog::debug("{} {}", __PRETTY_FUNCTION__, err.what());
         }
         return mtim;
     }
@@ -311,7 +371,11 @@ namespace utility {
 
     inline bool is_file_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));
+#ifdef _WIN32
+        std::string ext = to_upper(p.extension().string()); // Convert path extension to string
+#else
         std::string ext = to_upper(p.extension());
+#endif
         for (const auto &i : supported_extensions)
             if (i == ext)
                 return true;
@@ -331,7 +395,11 @@ namespace utility {
 
     inline bool is_timeline_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));
+#ifdef _WIN32
+        std::string ext = to_upper_path(p.extension());
+#else
         std::string ext = to_upper(p.extension());
+#endif
         for (const auto &i : supported_timeline_extensions)
             if (i == ext)
                 return true;

@@ -441,7 +441,7 @@ void PlayheadUI::media_changed() {
             media_uuid_ = tmp;
             emit mediaUuidChanged(media_uuid_);
         }
-    } catch (const std::exception &e) {
+    } catch ([[maybe_unused]] const std::exception &e) {
         if (media_uuid_ != QUuid()) {
             media_uuid_ = QUuid();
             emit mediaUuidChanged(media_uuid_);

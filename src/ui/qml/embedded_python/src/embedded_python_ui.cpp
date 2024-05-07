@@ -37,7 +37,7 @@ void EmbeddedPythonUI::set_backend(caf::actor backend) {
         try {
             request_receive<bool>(
                 *sys, backend_events_, broadcast::leave_broadcast_atom_v, as_actor());
-        } catch (const std::exception &e) {
+        } catch ([[maybe_unused]] const std::exception &e) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
         backend_events_ = caf::actor();

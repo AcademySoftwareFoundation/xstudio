@@ -5,7 +5,9 @@
 #include "ffmpeg_decoder.hpp"
 #include "xstudio/media/media_error.hpp"
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 #define MIN_SEEK_FORWARD_FRAMES 16
 
@@ -61,7 +63,7 @@ void FFMpegDecoder::open_handles() {
                 ffmpeg_threads,
                 movie_file_path_);
 
-        } catch (std::exception &e) {
+        } catch ([[maybe_unused]] std::exception &e) {
         }
     }
 
@@ -417,7 +419,7 @@ void FFMpegDecoder::decode_audio_frame(
             last_requested_frame_ = -100;
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
 
         // some error has occurred ... force a fresh seek on next try
         last_requested_frame_ = -100;
@@ -490,7 +492,7 @@ void FFMpegDecoder::decode_video_frame(
 
         last_requested_frame_ = frame_num;
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
 
         // some error has occurred ... force a fresh seek on next try
         last_requested_frame_ = -100;
@@ -537,7 +539,7 @@ FFMpegDecoder::decode_thumbnail_frame(const int64_t frame_num, const size_t size
             rt = decode_stream_->convert_av_frame_to_thumbnail(size_hint);
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
 
         // some error has occurred ... force a fresh seek on next try
         last_requested_frame_ = -100;

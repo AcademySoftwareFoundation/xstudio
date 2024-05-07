@@ -1,6 +1,48 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#ifndef HELPER_QML_EXPORT_H
+#define HELPER_QML_EXPORT_H
+
+#ifdef HELPER_QML_STATIC_DEFINE
+#define HELPER_QML_EXPORT
+#define HELPER_QML_NO_EXPORT
+#else
+#ifndef HELPER_QML_EXPORT
+#ifdef helper_qml_EXPORTS
+/* We are building this library */
+#define HELPER_QML_EXPORT __declspec(dllexport)
+#else
+/* We are using this library */
+#define HELPER_QML_EXPORT __declspec(dllimport)
+#endif
+#endif
+
+#ifndef HELPER_QML_NO_EXPORT
+#define HELPER_QML_NO_EXPORT
+#endif
+#endif
+
+#ifndef HELPER_QML_DEPRECATED
+#define HELPER_QML_DEPRECATED __declspec(deprecated)
+#endif
+
+#ifndef HELPER_QML_DEPRECATED_EXPORT
+#define HELPER_QML_DEPRECATED_EXPORT HELPER_QML_EXPORT HELPER_QML_DEPRECATED
+#endif
+
+#ifndef HELPER_QML_DEPRECATED_NO_EXPORT
+#define HELPER_QML_DEPRECATED_NO_EXPORT HELPER_QML_NO_EXPORT HELPER_QML_DEPRECATED
+#endif
+
+#if 0 /* DEFINE_NO_DEPRECATED */
+#ifndef HELPER_QML_NO_DEPRECATED
+#define HELPER_QML_NO_DEPRECATED
+#endif
+#endif
+
+#endif /* HELPER_QML_EXPORT_H */
+
 #include <caf/all.hpp>
 #include <functional>
 #include <semver.hpp>
@@ -77,7 +119,42 @@ namespace ui {
             int count_{0};
         };
 
-        class ModelProperty : public QObject {
+        class HELPER_QML_EXPORT ModelRowCount : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+            Q_PROPERTY(int count READ count NOTIFY countChanged)
+
+          public:
+            explicit ModelRowCount(QObject *parent = nullptr) : QObject(parent) {}
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] int count() const { return count_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+
+          signals:
+            void indexChanged();
+            void countChanged();
+
+          private slots:
+            void inserted(const QModelIndex &parent, int first, int last);
+            void moved(
+                const QModelIndex &sourceParent,
+                int sourceStart,
+                int sourceEnd,
+                const QModelIndex &destinationParent,
+                int destinationRow);
+            void removed(const QModelIndex &parent, int first, int last);
+
+          private:
+            void setCount(const int count);
+
+            QPersistentModelIndex index_;
+            int count_{0};
+        };
+
+        class HELPER_QML_EXPORT ModelProperty : public QObject {
             Q_OBJECT
 
             Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
@@ -119,7 +196,7 @@ namespace ui {
             QVariant value_;
         };
 
-        class ModelPropertyTree : public JSONTreeModel {
+        class HELPER_QML_EXPORT ModelPropertyTree : public JSONTreeModel {
             Q_OBJECT
 
             Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
@@ -158,7 +235,7 @@ namespace ui {
         };
 
 
-        class ModelPropertyMap : public QObject {
+        class HELPER_QML_EXPORT ModelPropertyMap : public QObject {
             Q_OBJECT
 
             Q_PROPERTY(QQmlPropertyMap *values READ values NOTIFY valuesChanged)
@@ -193,7 +270,7 @@ namespace ui {
             QQmlPropertyMap *values_{nullptr};
         };
 
-        class ModelNestedPropertyMap : public ModelPropertyMap {
+        class HELPER_QML_EXPORT ModelNestedPropertyMap : public ModelPropertyMap {
             Q_OBJECT
 
           public:
@@ -226,7 +303,7 @@ namespace ui {
             std::reference_wrapper<caf::actor_system> system_ref_;
         };
 
-        class QMLActor : public caf::mixin::actor_object<QObject> {
+        class HELPER_QML_EXPORT QMLActor : public caf::mixin::actor_object<QObject> {
             Q_OBJECT
 
           public:
@@ -475,7 +552,7 @@ namespace ui {
             QQmlEngine *engine_;
         };
 
-        class CursorPosProvider : public QObject {
+        class HELPER_QML_EXPORT CursorPosProvider : public QObject {
             Q_OBJECT
 
           public:
@@ -485,7 +562,7 @@ namespace ui {
             Q_INVOKABLE QPointF cursorPos() { return QCursor::pos(); }
         };
 
-        class QMLUuid : public QObject {
+        class HELPER_QML_EXPORT QMLUuid : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString asString READ asString WRITE setFromString NOTIFY changed)
             Q_PROPERTY(QUuid asQuuid READ asQuuid WRITE setFromQuuid NOTIFY changed)
@@ -527,7 +604,7 @@ namespace ui {
             utility::Uuid uuid_;
         };
 
-        class SemVer : public QObject {
+        class HELPER_QML_EXPORT SemVer : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString version READ version WRITE setVersion NOTIFY versionChanged)
             Q_PROPERTY(uint major READ major WRITE setMajor NOTIFY versionChanged)
@@ -573,7 +650,7 @@ namespace ui {
             semver::version version_;
         };
 
-        class ClipboardProxy : public QObject {
+        class HELPER_QML_EXPORT ClipboardProxy : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString text READ dataText WRITE setDataText NOTIFY dataChanged)
             Q_PROPERTY(QString selectionText READ selectionText WRITE setSelectionText NOTIFY

@@ -16,6 +16,13 @@ add_custom_target(
   ${snippets}
 )
 
-install(FILES
-  ${snippets}
-  DESTINATION share/xstudio/snippets)
+if(WIN32)
+	install(FILES
+	  ${snippets}
+	  DESTINATION
+	  ${CMAKE_INSTALL_PREFIX}/snippets)
+else()
+	install(FILES
+	  ${snippets}
+	  DESTINATION share/xstudio/snippets)
+endif()

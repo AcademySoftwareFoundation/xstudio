@@ -94,10 +94,16 @@ set(SOURCES
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
+if(WIN32)
+    set(EXE_EXTENSION ".exe")
+else()
+    set(EXE_EXTENSION ".bin")
+endif()
+
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    OUTPUT_NAME "${PROJECT_NAME}.bin"
+    OUTPUT_NAME "${PROJECT_NAME}${EXE_EXTENSION}"
 	LINK_DEPENDS_NO_SHARED true
 )
 

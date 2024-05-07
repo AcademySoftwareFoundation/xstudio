@@ -27,7 +27,7 @@ namespace audio {
 
         long desired_samples() override;
 
-        void push_samples(const void *sample_data, const long num_samples) override;
+        void push_samples(const void *sample_data, const long num_samples, int channel_count) override;
 
         long latency_microseconds() override;
 

@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+#include <filesystem>
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -11,7 +15,9 @@
 #include <regex>
 #include <sstream>
 #include <string>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 #include <vector>
 #include <cstdarg>
 
@@ -186,6 +192,18 @@ namespace utility {
 
         return result;
     }
+    
+   //TODO: Ahead to refactor
+   inline std::string to_upper_path(const std::filesystem::path &path) {
+        static std::locale loc;
+        std::string result;
+        result.reserve(path.string().size());
+
+        for (auto elem : path.string())
+            result += std::toupper(elem, loc);
+
+        return result;
+    }
 
     inline std::optional<std::string> get_env(const std::string &key) {
         const char *val = std::getenv(key.c_str());
@@ -196,7 +214,7 @@ namespace utility {
 
     inline std::string get_hostname() {
         std::array<char, 4096> buffer;
-        if (not gethostname(buffer.data(), buffer.size())) {
+        if (not gethostname(buffer.data(), (int)buffer.size())) {
             return std::string(buffer.data());
         }
         return std::string();

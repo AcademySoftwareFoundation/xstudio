@@ -119,10 +119,17 @@ void UIModelData::init(caf::actor_system &system) {
                         j[role] = data;
                         for (size_t i = 0; i < role_names_.size(); ++i) {
                             if (role_names_[i] == role) {
+#ifdef _WIN32
+                                emit dataChanged(
+                                    idx,
+                                    idx,
+                                    QVector<int>({static_cast<int>(Roles::LASTROLE + static_cast<int>(i))}));
+#else
                                 emit dataChanged(
                                     idx,
                                     idx,
                                     QVector<int>({Roles::LASTROLE + static_cast<int>(i)}));
+#endif
                                 break;
                             }
                         }

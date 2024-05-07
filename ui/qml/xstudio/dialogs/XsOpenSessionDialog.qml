@@ -20,7 +20,8 @@ FileDialog {
                 // console.log(result)
             }
         )
-        app_window.sessionFunction.newRecentPath(fileUrl)
+        var path = fileUrl
+        app_window.sessionFunction.newRecentPath(path)
         app_window.sessionFunction.defaultSessionFolder(path.slice(0, path.lastIndexOf("/") + 1))
     }
     onRejected: {

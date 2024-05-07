@@ -124,9 +124,27 @@ namespace media_reader {
         ~ImageBufPtr() = default;
 
         bool operator==(const ImageBufPtr &o) const {
-            return this->get() == o.get() &&
-                   colour_pipe_data_->cache_id_ == o.colour_pipe_data_->cache_id_ &&
-                   tts_ == o.tts_ && colour_pipe_uniforms_ == o.colour_pipe_uniforms_;
+            if (this->get() != o.get()) {
+                return false;
+            }
+
+            if (colour_pipe_data_ && o.colour_pipe_data_) {
+                if (colour_pipe_data_->cache_id_ != o.colour_pipe_data_->cache_id_) {
+                    return false;
+                }
+            } else if (colour_pipe_data_ || o.colour_pipe_data_) {
+                return false;
+            }
+
+            if (tts_ != o.tts_) {
+                return false;
+            }
+
+            if (colour_pipe_uniforms_ != o.colour_pipe_uniforms_) {
+                return false;
+            }
+
+            return true;
         }
 
         bool operator<(const ImageBufPtr &o) const { return tts_ < o.tts_; }

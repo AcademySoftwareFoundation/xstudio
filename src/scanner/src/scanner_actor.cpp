@@ -53,7 +53,7 @@ media::MediaStatus check_media_status(const MediaReference &mr) {
             }
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
         ms = media::MediaStatus::MS_UNREADABLE;
     }
 
@@ -176,16 +176,28 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
                     try {
                         if (fs::is_regular_file(entry.status())) {
                             // check we've not alredy got it in cache..
+#ifdef _WIN32
+                            const auto puri = posix_path_to_uri(entry.path().string());
+#else
                             const auto puri = posix_path_to_uri(entry.path());
+#endif
 
                             if (cache_.count(puri)) {
                                 const auto &c = cache_.at(puri);
                                 if (c == pin)
                                     return puri;
                             } else {
+#ifdef _WIN32
+                                auto size = get_file_size(entry.path().string());
+#else
                                 auto size = get_file_size(entry.path());
+#endif
                                 if (size == pin.second) {
+#ifdef _WIN32
+                                    auto checksum = get_checksum(entry.path().string());
+#else
                                     auto checksum = get_checksum(entry.path());
+#endif
                                     cache_[puri]  = std::make_pair(checksum, size);
                                     if (checksum == pin.first)
                                         return puri;

@@ -7,7 +7,9 @@
 #include "ffmpeg_stream.hpp"
 #include "xstudio/media/media_error.hpp"
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 using namespace xstudio::media_reader::ffmpeg;
 using namespace xstudio::media_reader;
@@ -115,7 +117,7 @@ void set_shader_pix_format_info(
 
     // Bit depth
     const int bitdepth      = pixel_desc->comp[0].depth;
-    const int max_cv        = std::pow(2, bitdepth) - 1;
+    const int max_cv        = std::floor(std::pow(2, bitdepth) - 1);
     jsn["bits_per_channel"] = bitdepth;
     jsn["norm_coeff"]       = 1.0f / max_cv;
 
@@ -146,13 +148,13 @@ void set_shader_pix_format_info(
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
         Imath::V3f offset(1, 128, 128);
-        offset *= std::pow(2, bitdepth - 8);
+        offset *= std::powf(2, bitdepth - 8);
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     } break;
     case AVCOL_RANGE_MPEG:
     default: {
         Imath::V4f range(16, 235, 16, 240);
-        range *= std::pow(2, bitdepth - 8);
+        range *= std::powf(2, bitdepth - 8);
 
         Imath::M33f scale;
         scale[0][0] = 1.f * max_cv / (range[1] - range[0]);
@@ -161,7 +163,7 @@ void set_shader_pix_format_info(
         yuv_to_rgb *= scale;
 
         Imath::V3f offset(16, 128, 128);
-        offset *= std::pow(2, bitdepth - 8);
+        offset *= std::powf(2, bitdepth - 8);
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     }
     }
@@ -501,6 +503,8 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
 
 AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_sample_rate) {
 
+    spdlog::info("Entering get_ffmpeg_frame_as_xstudio_audio.");
+
     AudioBufPtr audio_buffer(new AudioBuffer());
     audio_buffer->allocate(
         soundcard_sample_rate,     // sample rate
@@ -508,6 +512,12 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
         0,                         // num samples ... don't know yet
         audio::SampleFormat::INT16 // format
     );
+
+    spdlog::info(
+        "Allocated AudioBuffer with sample rate: {}, channels: {}, format: {}.",
+        soundcard_sample_rate,
+        2,
+        "INT16");
 
     // N.B. We aren't supporting 'planar' audio data in xstudio (yet) - if a source codec_
     // supplies planar audio ffmpeg will convert to interleaved which is what soundcards want
@@ -533,6 +543,10 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     default:
         throw media_corrupt_error("Audio buffer format is not set.");
     }
+
+    spdlog::info(
+    "Determined target sample format: {}.", av_get_sample_fmt_name(target_sample_format_));
+
     target_sample_rate_    = audio_buffer->sample_rate();
     target_audio_channels_ = audio_buffer->num_channels();
 
@@ -540,7 +554,16 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
 
+    spdlog::info(
+        "Calculated display timestamp: {} seconds.",
+        double(frame->pts) * double(avc_stream_->time_base.num) /
+            double(avc_stream_->time_base.den));
+
     resample_audio(frame, audio_buffer, -1);
+    
+    spdlog::info("Resampled audio data size: {} samples.", audio_buffer->num_samples());
+
+    spdlog::info("Exiting get_ffmpeg_frame_as_xstudio_audio.");
 
     return audio_buffer;
 }
@@ -694,6 +717,13 @@ int64_t FFMpegStream::frame_to_pts(int frame) const {
 size_t FFMpegStream::resample_audio(
     AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer) {
 
+    spdlog::info("Resampling audio frame with the following attributes:");
+    spdlog::info("Sample rate: {}", frame->sample_rate);
+    spdlog::info("Format: {}", av_get_sample_fmt_name((AVSampleFormat)frame->format));
+    spdlog::info("Channels: {}", frame->channels);
+    spdlog::info("Number of samples: {}", frame->nb_samples);
+    spdlog::info("Channel layout: {}", frame->channel_layout);
+
     // N.B. this method is based loosely on the audio resampling in ffplay.c in ffmpeg source
     const int64_t target_channel_layout = av_get_default_channel_layout(2);
 
@@ -762,6 +792,33 @@ size_t FFMpegStream::resample_audio(
     if (offset_into_output_buffer == -1) {
         // automatically extend the buffer the exact required amount
         // size_t sz = audio_buffer->size();
+        // The multiplication by 2 * 2 seems to be an assumption based on specific audio data
+        // properties. Here's a possible explanation:
+        //
+        // 2 Channels: The first 2 likely represents the fact that there are 2 channels. This
+        // makes sense given that you've defined the target channel layout to be stereo
+        // (av_get_default_channel_layout(2)). So, for each sample, there's data for both the
+        // left and right channels.
+        //
+        // 2 Bytes per Sample (16-bit audio): The second 2 presumably represents 2 bytes per
+        // sample, which corresponds to 16-bit audio samples. This is a common format for audio,
+        // especially in CD-quality audio.
+        //
+        // By multiplying the number of samples by 2 * 2, is calculating the
+        // offset in bytes to where the new data should be written in the buffer.
+        //
+        // However, this calculation has a couple of assumptions:
+        //
+        // - The audio always has 2 channels.
+        // - The audio samples are always 16 bits.
+        //
+        // If either of these assumptions is violated (for example, if the audio is mono or if
+        // the bit depth is different), then the calculation would be incorrect.
+        //
+        // It would be safer and clearer to derive these values from variables or constants that
+        // explicitly state their purpose (like NUM_CHANNELS and BYTES_PER_SAMPLE), rather than
+        // hardcoding them as 2 and 2. Alternatively, adding a comment to explain this
+        // arithmetic can also help future maintainers understand the intent.
         audio_buffer->extend_size(target_out_size);
         out = (uint8_t *)(audio_buffer->buffer() + audio_buffer->num_samples() * 2 * 2);
 
@@ -777,6 +834,8 @@ size_t FFMpegStream::resample_audio(
     int converted_n_samps =
         swr_convert(audio_resampler_ctx_, &out, out_count, in, frame->nb_samples);
 
+    spdlog::info("Converted {} samples.", converted_n_samps);
+
     if (offset_into_output_buffer == -1) {
         audio_buffer->set_num_samples(audio_buffer->num_samples() + converted_n_samps);
     }
@@ -784,6 +843,11 @@ size_t FFMpegStream::resample_audio(
     if (converted_n_samps < 0) {
         throw media_corrupt_error("swr_convert() failed");
     }
+
+    spdlog::info(
+        "Resampled audio data size: {} bytes",
+        converted_n_samps * target_audio_channels_ *
+            av_get_bytes_per_sample(target_sample_format_));
 
     return converted_n_samps * target_audio_channels_ *
            av_get_bytes_per_sample(target_sample_format_);

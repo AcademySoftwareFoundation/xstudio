@@ -490,7 +490,7 @@ bool dump_json_headers(const Imf::Header &h, nlohmann::json &root) {
                 root[i.name()]["type"]  = i.attribute().typeName();
                 root[i.name()]["value"] = nullptr;
             }
-        } catch (const Iex::TypeExc &e) {
+        } catch ([[maybe_unused]] const Iex::TypeExc &e) {
             root[i.name()]["type"]  = i.attribute().typeName();
             root[i.name()]["value"] = nullptr;
         }

@@ -17,16 +17,27 @@ namespace utility {
     using time_point   = clock::time_point;
     using milliseconds = std::chrono::milliseconds;
 
-    using sysclock          = std::chrono::system_clock;
+#ifdef _WIN32
+    using sysclock = std::chrono::high_resolution_clock;
+#else
+    using sysclock = std::chrono::system_clock
+#endif
     using sys_time_point    = sysclock::time_point;
     using sys_time_duration = sysclock::duration;
 
     inline std::string to_string(const sys_time_point &tp) {
+#ifdef _WIN32
+      std::stringstream ss;
+      //TODO: Ahead Fix
+      //ss << std::put_time(std::localtime(in_time_t), "%Y-%m-%d %X");
+      return ss.str();
+#else    
         auto in_time_t = std::chrono::system_clock::to_time_t(tp);
 
         std::stringstream ss;
         ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %X");
         return ss.str();
+#endif
     }
     // 2021-12-21T10:26:37Z
     utility::sys_time_point to_sys_time_point(const std::string &datetime);

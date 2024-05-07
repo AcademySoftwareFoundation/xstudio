@@ -76,8 +76,13 @@ void blocking_loader(
                 const FrameList &frame_list = i.second;
 
                 const auto uuid = Uuid::generate();
+#ifdef _WIN32
+                std::string ext =
+                    ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#else
                 std::string ext =
                     ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#endif
                 const auto source_uuid = Uuid::generate();
 
                 auto source =
@@ -358,8 +363,13 @@ void PlaylistActor::init() {
             const utility::FrameRate &rate,
             const utility::UuidActor &uuid_before) {
             const auto uuid = Uuid::generate();
+#ifdef _WIN32
             std::string ext =
+                ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#else
+	    std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#endif
             const auto source_uuid = Uuid::generate();
 
             auto source =
@@ -416,8 +426,13 @@ void PlaylistActor::init() {
             //     uuid_before);
 
             const auto uuid = Uuid::generate();
+#ifdef _WIN32
             std::string ext =
+                ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#else
+	    std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#endif
             const auto source_uuid = Uuid::generate();
 
             auto source =

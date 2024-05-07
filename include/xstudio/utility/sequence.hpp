@@ -2,6 +2,15 @@
 // container to handle sequences/mov files etc..
 #pragma once
 
+#ifdef _WIN32
+using uid_t = DWORD; // Use DWORD type for user ID
+using gid_t = DWORD; // Use DWORD type for group ID
+#else
+// For Linux or non-Windows platforms
+using uid_t = uid_t; 
+using gid_t = gid_t;
+#endif
+
 // #include <limits>
 // #include <set>
 #include <ctime>

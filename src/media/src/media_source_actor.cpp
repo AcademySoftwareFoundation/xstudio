@@ -1460,7 +1460,7 @@ void MediaSourceActor::get_media_pointers_for_frames(
                                         result.emplace_back(
                                             std::shared_ptr<const media::AVFrameID>(
                                                 new media::AVFrameID(mptr)));
-                                    } catch (const std::exception &e) {
+                                    } catch ([[maybe_unused]] const std::exception &e) {
                                         result.emplace_back(
                                             media::make_blank_frame(media_type));
                                     }

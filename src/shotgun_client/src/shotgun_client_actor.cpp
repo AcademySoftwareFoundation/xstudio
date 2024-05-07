@@ -1577,40 +1577,43 @@ void ShotgunClientActor::init() {
                     });
 
             return rp;
-        },
+        }
+        
+        //,
+        // TODO: Ahead Fix
+        // [=](shotgun_image_atom,
+        //     const std::string &entity,
+        //     const int record_id,
+        //     const bool thumbnail,
+        //     const bool as_buffer) -> result<thumbnail::ThumbnailBufferPtr> {
+        //     auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
 
-        [=](shotgun_image_atom,
-            const std::string &entity,
-            const int record_id,
-            const bool thumbnail,
-            const bool as_buffer) -> result<thumbnail::ThumbnailBufferPtr> {
-            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+        //     request(
+        //         actor_cast<caf::actor>(this),
+        //         infinite,
+        //         shotgun_image_atom_v,
+        //         entity,
+        //         record_id,
+        //         thumbnail)
+        //         .then(
+        //             [=](const std::string &data) mutable {
+        //                 // request conversion..
+        //                 auto thumbgen = system().registry().template get<caf::actor>(
+        //                     thumbnail_manager_registry);
+        //                 if (thumbgen) {
+        //                     std::vector<std::byte> bytedata(data.size());
+        //                     std::memcpy(bytedata.data(), data.data(), data.size());
+        //                     //rp.delegate(thumbgen, media_reader::get_thumbnail_atom_v, bytedata);
+        //                 } else {
+        //                     rp.deliver(make_error(
+        //                         sce::response_error, "Thumbnail manager not available"));
+        //                 }
+        //             },
+        //             [=](error &err) mutable { rp.deliver(std::move(err)); });
 
-            request(
-                actor_cast<caf::actor>(this),
-                infinite,
-                shotgun_image_atom_v,
-                entity,
-                record_id,
-                thumbnail)
-                .then(
-                    [=](const std::string &data) mutable {
-                        // request conversion..
-                        auto thumbgen = system().registry().template get<caf::actor>(
-                            thumbnail_manager_registry);
-                        if (thumbgen) {
-                            std::vector<std::byte> bytedata(data.size());
-                            std::memcpy(bytedata.data(), data.data(), data.size());
-                            rp.delegate(thumbgen, media_reader::get_thumbnail_atom_v, bytedata);
-                        } else {
-                            rp.deliver(make_error(
-                                sce::response_error, "Thumbnail manager not available"));
-                        }
-                    },
-                    [=](error &err) mutable { rp.deliver(std::move(err)); });
-
-            return rp;
-        });
+        //     return rp;
+        // }
+        );
 }
 
 void ShotgunClientActor::acquire_token(

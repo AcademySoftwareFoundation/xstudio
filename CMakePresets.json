@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "windows",
+      "generator": "Visual Studio 16 2019",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
+	      "FFMPEG_ROOT": "D:/ffmpeg-5.1.2-full_build-shared/",
+	      "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
+	      "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
+        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
+        "BUILD_DOCS": "OFF"
+      }
+    }
+  ]
+}

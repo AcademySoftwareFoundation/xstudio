@@ -172,7 +172,7 @@ void MediaActor::init() {
 
             try {
                 rp.delegate(media_sources_.at(base_.current()), atom);
-            } catch (const std::exception &err) {
+            } catch ([[maybe_unused]] const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
             }
 
@@ -237,7 +237,7 @@ void MediaActor::init() {
             auto rp = make_response_promise<bool>();
             try {
                 rp.delegate(media_sources_.at(base_.current()), atom, status);
-            } catch (const std::exception &err) {
+            } catch ([[maybe_unused]] const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
             }
             return rp;
@@ -247,7 +247,7 @@ void MediaActor::init() {
             auto rp = make_response_promise<MediaStatus>();
             try {
                 rp.delegate(media_sources_.at(base_.current()), atom);
-            } catch (const std::exception &err) {
+            } catch ([[maybe_unused]] const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
             }
 
@@ -330,9 +330,13 @@ void MediaActor::init() {
             const FrameList &frame_list,
             const utility::FrameRate &rate) -> result<UuidActor> {
             auto rp = make_response_promise<UuidActor>();
-
+#ifdef _WIN32
+            std::string ext =
+                ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#else
             std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#endif
             const auto source_uuid = Uuid::generate();
 
             auto source =
@@ -392,7 +396,7 @@ void MediaActor::init() {
 
             try {
                 rp.delegate(media_sources_.at(base_.current()), atom);
-            } catch (const std::exception &err) {
+            } catch ([[maybe_unused]] const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
             }
 
@@ -405,7 +409,7 @@ void MediaActor::init() {
 
             try {
                 rp.delegate(media_sources_.at(base_.current()), atom, params);
-            } catch (const std::exception &err) {
+            } catch ([[maybe_unused]] const std::exception &err) {
                 rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
             }
 

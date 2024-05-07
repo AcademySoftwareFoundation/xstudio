@@ -403,7 +403,7 @@ void OCIOColourPipeline::extend_pixel_info(
                     OCIO::DynamicPropertyValue::AsDouble(property);
                 gamma_prop->setValue(enable_gamma_->value() ? gamma_->value() : 1.0f);
             }
-        } catch (const OCIO::Exception &e) {
+        } catch ([[maybe_unused]] const OCIO::Exception &e) {
             // TODO: ColSci
             // Update when OCIO::CPUProcessor include hasDynamicProperty()
         }
@@ -946,7 +946,7 @@ OCIO::ConstConfigRcPtr OCIOColourPipeline::make_dynamic_display_processor(
 
         return dynamic_config;
 
-    } catch (const OCIO::Exception &ex) {
+    } catch ([[maybe_unused]] const OCIO::Exception &ex) {
         group->appendTransform(display_transform(
             working_space(media_param), display, view, OCIO::TRANSFORM_DIR_FORWARD));
 

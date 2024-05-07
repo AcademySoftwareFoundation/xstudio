@@ -31,7 +31,9 @@ class DebugTimer {
 } // namespace
 
 void GLBlindTex::release() {
-    mutex_.unlock();
+    //if linux
+    //mutex_.unlock();
+    //endif
     when_last_used_ = utility::clock::now();
 }
 
@@ -136,6 +138,7 @@ void GLDoubleBufferedTexture::upload_next(
 void GLDoubleBufferedTexture::release() { current_->release(); }
 
 GLBlindRGBA8bitTex::~GLBlindRGBA8bitTex() {
+    //if linux? TODO: Merged this in but might be problematic for Windows, do check.
     // ensure no copying is in flight
     if (upload_thread_.joinable())
         upload_thread_.join();
@@ -220,19 +223,23 @@ void GLBlindRGBA8bitTex::resize(const size_t required_size_bytes) {
 
 void GLBlindRGBA8bitTex::start_pixel_upload() {
 
-    if (new_source_frame_) {
-        if (upload_thread_.joinable())
-            upload_thread_.join();
-        mutex_.lock();
-        upload_thread_ = std::thread(&GLBlindRGBA8bitTex::pixel_upload, this);
-    }
+    //if (new_source_frame_) {
+        //if (upload_thread_.joinable())
+        //    upload_thread_.join();
+        //std::unique_lock<std::mutex> lck(mutex_);
+        //mutex_.lock();
+        //upload_thread_ = std::thread(&GLBlindRGBA8bitTex::pixel_upload, this);
+    GLBlindRGBA8bitTex::pixel_upload();
+    //}
 }
-
 
 void GLBlindRGBA8bitTex::pixel_upload() {
 
+    //std::unique_lock<std::mutex> lck(mutex_);
     if (!new_source_frame_->size()) {
-        mutex_.unlock();
+        //if linux
+        //mutex_.unlock();
+        //endif
         return;
     }
 
@@ -256,15 +263,18 @@ void GLBlindRGBA8bitTex::pixel_upload() {
         if (t.joinable())
             t.join();
     }
-    mutex_.unlock();
+
+    //cv.notify_one(); // notify the waiting thread
 }
+
 
 void GLBlindRGBA8bitTex::map_buffer_for_upload(media_reader::ImageBufPtr &frame) {
 
     if (!frame)
         return;
     // acquire a write lock,
-    mutex_.lock();
+    //mutex_.lock();
+    //std::lock_guard<std::mutex> lock(mutex_);
 
     new_source_frame_ = frame;
     media_key_        = frame->media_key();
@@ -282,15 +292,19 @@ void GLBlindRGBA8bitTex::map_buffer_for_upload(media_reader::ImageBufPtr &frame)
 
         buffer_io_ptr_ = (uint8_t *)glMapNamedBuffer(pixel_buf_object_id_, GL_WRITE_ONLY);
     }
-
-    mutex_.unlock();
+    // The mutex will be automatically unlocked here when lock goes out of scope.
+    // No need to manually call mutex_.unlock().
+    //mutex_.unlock();
 
     // N.B. threads are probably still running here!
+
 }
 
-void GLBlindRGBA8bitTex::bind(int tex_index, Imath::V2i &dims) {
 
-    mutex_.lock();
+void GLBlindRGBA8bitTex::bind(int tex_index, Imath::V2i &dims) {
+    
+    // mutex_.lock();
+    //std::unique_lock<std::mutex> lck(mutex_);
 
     dims.x = tex_width_;
     dims.y = tex_height_;
@@ -298,9 +312,9 @@ void GLBlindRGBA8bitTex::bind(int tex_index, Imath::V2i &dims) {
     if (new_source_frame_) {
 
         if (new_source_frame_->size()) {
-            if (upload_thread_.joinable()) {
-                upload_thread_.join();
-            }
+            //if (upload_thread_.joinable()) {
+            //    upload_thread_.join();
+            //}
 
             // now the texture data is transferred (on the GPU).
             // Assumption is that this is fast.
