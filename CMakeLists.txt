@@ -171,7 +171,7 @@ if(USE_VCPKG)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install sphinx breathe sphinx-rtd-theme opentimelineio importlib_metadata zipp
+      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)

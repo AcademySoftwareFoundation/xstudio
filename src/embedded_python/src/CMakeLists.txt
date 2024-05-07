@@ -38,3 +38,9 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
+
+if(WIN32)
+install(DIRECTORY ${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/DLLs/ DESTINATION ${CMAKE_INSTALL_PREFIX}/python)
+install(DIRECTORY ${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/Lib/ DESTINATION ${CMAKE_INSTALL_PREFIX}/python)
+install(FILES python310._pth DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+endif()

@@ -34,7 +34,6 @@ void EmbeddedPython::setup() {
             py::initialize_interpreter();
             inited_ = true;
         }
-
         if (Py_IsInitialized() and not setup_) {
             exec(R"(
 import xstudio
