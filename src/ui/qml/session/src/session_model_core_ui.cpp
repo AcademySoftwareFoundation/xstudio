@@ -748,7 +748,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 if (did >= 0 && did <= 9) {
                     const std::string key = fmt::format("metadata_set{}", did);
                     if (j.count(key)) {
-                        if (j.at(key).is_null()) {
+                        if (j.at(key).is_null() && !metadata_sets_.empty()) {
 
                             requestData(
                                 QVariant::fromValue(QUuidFromUuid(j.at("id"))),

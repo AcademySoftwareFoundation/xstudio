@@ -12,9 +12,9 @@ FileSystemItem::FileSystemItem(const fs::directory_entry &entry) : FileSystemIte
     else
         type_ = FSIT_DIRECTORY;
 
-    path_ = posix_path_to_uri(entry.path());
+    path_ = posix_path_to_uri(path_to_string(entry.path()));
     // last_write_ = fs::last_write_time(entry.path());
-    name_ = entry.path().filename();
+    name_ = path_to_string(entry.path().filename());
 }
 
 bool FileSystemItem::scan(const int depth, const bool ignore_last_write) {
@@ -65,7 +65,7 @@ bool FileSystemItem::scan(const int depth, const bool ignore_last_write) {
                         try {
                             if (ignore_entry_callback_ == nullptr or
                                 not ignore_entry_callback_(entry)) {
-                                auto cpath = posix_path_to_uri(entry.path());
+                                auto cpath = posix_path_to_uri(path_to_string(entry.path()));
 
                                 // is new entry ?
                                 FileSystemItems::iterator it = end();
@@ -170,7 +170,7 @@ bool xstudio::utility::ignore_not_session(const fs::directory_entry &entry) {
     auto result = false;
 
     if (fs::is_regular_file(entry.status())) {
-        auto ext = to_lower(entry.path().extension());
+        auto ext = to_lower(path_to_string(entry.path().extension()));
         if (ext != ".xst" and ext != ".xsz")
             result = true;
     }

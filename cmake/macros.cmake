@@ -278,6 +278,11 @@ macro(create_component_with_alias NAME ALIASNAME VERSION DEPS)
 
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
+	if(_WIN32)
+	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+	set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
+	endif(WIN32)
+
 	# Generate export header
 	include(GenerateExportHeader)
 	generate_export_header(${PROJECT_NAME})
@@ -387,11 +392,12 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 	)
 
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
+	set_property(TARGET ${PROJECT_NAME} PROPERTY AUTOMOC ON)
 
-	# Add the directory containing the generated export header to the include directories
-	target_include_directories(${PROJECT_NAME} 
-		PUBLIC ${CMAKE_BINARY_DIR}  # Include the build directory
-	)
+	## Add the directory containing the generated export header to the include directories
+	#target_include_directories(${PROJECT_NAME} 
+	#	PUBLIC ${CMAKE_BINARY_DIR}  # Include the build directory
+	#)
 
 	# Generate export header
     include(GenerateExportHeader)

@@ -242,7 +242,7 @@ void StandardPlugin::current_viewed_playhead_changed(caf::actor_addr viewed_play
             scoped_actor sys{system()};
             playhead_logical_frame_ = utility::request_receive<int>(
                 *sys, viewed_playhead, playhead::logical_frame_atom_v);
-        } catch (std::exception &e) {
+        } catch ([[maybe_unused]] std::exception &e) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
     }

@@ -16,7 +16,7 @@ CAF_POP_WARNINGS
 namespace xstudio::ui::qml {
 using namespace caf;
 
-class SnapshotModel : public JSONTreeModel {
+class HELPER_QML_EXPORT SnapshotModel : public JSONTreeModel {
     Q_OBJECT
 
     Q_PROPERTY(QVariant paths READ paths WRITE setPaths NOTIFY pathsChanged)

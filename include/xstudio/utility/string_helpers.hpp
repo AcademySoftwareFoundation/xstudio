@@ -182,6 +182,17 @@ namespace utility {
         return result;
     }
 
+    inline std::wstring to_upper(const std::wstring& str) {
+        static std::locale loc;
+        std::wstring result;
+        result.reserve(str.size());
+
+        for (auto elem : str)
+            result += std::toupper(elem, loc);
+
+        return result;
+    }
+
     inline std::string to_upper(const std::string &str) {
         static std::locale loc;
         std::string result;

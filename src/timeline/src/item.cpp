@@ -726,7 +726,7 @@ void Item::redo(const utility::JsonStore &event) {
 bool Item::process_event(const utility::JsonStore &event) {
     // spdlog::warn("{}", event.dump(2));
 
-    if (event.at("uuid") == uuid_addr_.first) {
+    if (Uuid(event.at("uuid")) == uuid_addr_.first) {
         switch (static_cast<ItemAction>(event.at("action"))) {
         case IT_ENABLE:
             set_enabled_direct(event.at("value"));

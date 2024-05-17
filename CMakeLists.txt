@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 option(USE_VCPKG "Use Vcpkg for package management" OFF)
 if(WIN32)
     set(USE_VCPKG ON)
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
 endif()
 
 if (USE_VCPKG)
@@ -14,7 +15,7 @@ set(XSTUDIO_GLOBAL_NAME xStudio)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
-cmake_policy(VERSION 3.27)
+cmake_policy(VERSION 3.26)
 
 option(BUILD_TESTING "Build tests" OFF)
 option(INSTALL_PYTHON_MODULE "Install python module" ON)
@@ -73,6 +74,7 @@ set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(WIN32)
   set(CMAKE_CXX_STANDARD 20)
+  add_compile_definitions($<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=0>)
 else()
   set(CMAKE_CXX_STANDARD 17)
 endif()

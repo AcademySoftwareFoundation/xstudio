@@ -1,17 +1,25 @@
 SET(LINK_DEPS
-    pthread
     xstudio::utility
 	Imath::Imath
 	OpenEXR::OpenEXR
+	ui_base
 )
 
-find_package(Freetype)
+if(UNIX)
+    list(APPEND LINK_DEPS pthread)
+endif()
+
+if(WIN32)
+	find_package(freetype CONFIG REQUIRED)
+else()
+	find_package(Freetype)
+	include_directories("${FREETYPE_INCLUDE_DIRS}")
+endif()
+
 find_package(Imath)
 find_package(OpenEXR)
 
 create_component_with_alias(ui_canvas xstudio::ui::canvas 0.1.0 "${LINK_DEPS}")
-
-include_directories("${FREETYPE_INCLUDE_DIRS}")
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE

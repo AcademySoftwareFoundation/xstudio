@@ -107,6 +107,11 @@ bool shutdown_xstudio = false;
 struct ExitTimeoutKiller {
 
     void start() {
+#ifdef _WIN32
+        spdlog::debug("ExitTimeoutKiller start ignored");
+    }
+#else
+
 
         // lock the mutex ...
         clean_actor_system_exit.lock();
@@ -124,17 +129,23 @@ struct ExitTimeoutKiller {
             }
         });
     }
+#endif
 
     void stop() {
-
+#ifdef _WIN32
+            spdlog::debug("ExitTimeoutKiller stop ignored");
+        }
+#else
         // unlock the  mutex so exit_timeout won't time-out
         clean_actor_system_exit.unlock();
         if (exit_timeout.joinable())
             exit_timeout.join();
+
     }
 
     std::timed_mutex clean_actor_system_exit;
     std::thread exit_timeout;
+#endif
 
 } exit_timeout_killer;
 

@@ -4,6 +4,7 @@ SET(LINK_DEPS
 	xstudio::ui::qml::helper
 	xstudio::utility
 	xstudio::session
+	xstudio::ui::qt::viewport_widget
 )
 
 SET(EXTRAMOC

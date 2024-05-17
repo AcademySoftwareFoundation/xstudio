@@ -15,7 +15,7 @@ CAF_POP_WARNINGS
 namespace xstudio::ui::qml {
 using namespace caf;
 
-class ModulesModelData : public UIModelData {
+class HELPER_QML_EXPORT ModulesModelData : public UIModelData {
 
     Q_OBJECT
 

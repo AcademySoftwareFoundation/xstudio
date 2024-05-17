@@ -1561,7 +1561,7 @@ void PlayheadActor::update_duration(caf::typed_response_promise<timebase::flicks
 
     request(key_playhead_, infinite, duration_frames_atom_v)
         .then(
-            [=](const int duration) {
+            [=](const size_t duration) {
                 duration_frames_->set_value(duration);
                 send(event_group_, utility::event_atom_v, duration_frames_atom_v, duration);
             },

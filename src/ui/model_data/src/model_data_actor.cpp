@@ -355,7 +355,7 @@ void GlobalUIModelData::set_data(
             broadcast_whole_model_data(model_name);
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]]std::exception &e) {
         // spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, e.what());
     }
 }
@@ -434,7 +434,7 @@ void GlobalUIModelData::set_data(
             }
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
         // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 }
@@ -493,7 +493,7 @@ void GlobalUIModelData::insert_attribute_data_into_model(
             }
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
         // exception is thrown if we fail to find a match
         if (!sort_role.empty() && attribute_data.contains(sort_role)) {
             const auto &sort_v = attribute_data[sort_role];

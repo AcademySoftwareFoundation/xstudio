@@ -1911,7 +1911,7 @@ void SessionActor::save_json_to(
 
 
         // compress data.
-        if (to_lower(fs::path(save_path).extension()) == ".xsz") {
+        if (to_lower(path_to_string(fs::path(save_path).extension())) == ".xsz") {
             zstr::ofstream o(save_path + ".tmp");
             try {
                 o.exceptions(std::ifstream::failbit | std::ifstream::badbit);

@@ -90,6 +90,16 @@ namespace utility {
 
     namespace fs = std::filesystem;
 
+    // Centralizing the Path to String conversions in case we run into encoding problems down the line.
+    inline std::string path_to_string(fs::path path) {
+#ifdef _WIN32
+        return path.string();
+#else
+        // Implicit cast works fine on Linux
+        return path;
+#endif
+    }
+
 
     inline bool check_create_path(const std::string &path) {
         bool create_path = true;
@@ -276,6 +286,7 @@ namespace utility {
             fallback_root     = xstudio_root.string();
         }
         #else
+        //TODO: This could inspect the current running process and look one directory up.
         fallback_root   = std::string(BINARY_DIR);
         #endif
 
@@ -383,7 +394,7 @@ inline std::string snippets_path(const std::string &append_path = "") {
 
     inline bool is_session(const std::string &path) {
         fs::path p(path);
-        std::string ext = to_upper(p.extension());
+        std::string ext = to_upper(path_to_string(p.extension()));
         for (const auto &i : session_extensions)
             if (i == ext)
                 return true;

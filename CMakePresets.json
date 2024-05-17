@@ -11,7 +11,9 @@
 	      "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
 	      "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF"
+        "BUILD_DOCS": "OFF",
+        "CMAKE_BUILD_PARALLEL_LEVEL": "64",
+        "CMAKE_AUTOGEN_PARALLEL": "64"
       }
     }
   ]

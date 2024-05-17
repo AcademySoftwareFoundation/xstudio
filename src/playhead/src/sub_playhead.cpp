@@ -211,13 +211,13 @@ void SubPlayhead::init() {
             return rp;
         },
 
-        [=](duration_frames_atom atom) -> result<int> {
+        [=](duration_frames_atom atom) -> result<size_t> {
             if (up_to_date_) {
                 return full_timeline_frames_.size() ? full_timeline_frames_.size() - 1 : 0;
             }
             // not up to date, we need to get the timeline frames list from
             // the source
-            auto rp = make_response_promise<int>();
+            auto rp = make_response_promise<size_t>();
             request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
                 .then(
                     [=](caf::actor) mutable {
@@ -372,7 +372,7 @@ void SubPlayhead::init() {
                 }
                 return *(full_timeline_frames_.begin()->second);
             }
-            return make_error(xstudio_error::error, "No Frames");
+            return make_error(xstudio_error::error, "No frames");
         },
 
         [=](last_frame_media_pointer_atom) -> result<media::AVFrameID> {
@@ -386,7 +386,7 @@ void SubPlayhead::init() {
                 }
                 return *(p->second);
             }
-            return make_error(xstudio_error::error, "No Frames");
+            return make_error(xstudio_error::error, "No frames");
         },
 
         [=](media::get_media_pointer_atom) -> result<media::AVFrameID> {

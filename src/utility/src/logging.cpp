@@ -27,7 +27,7 @@ void xstudio::utility::start_logger(
     // sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
     auto logger = std::make_shared<spdlog::logger>("xstudio", sinks.begin(), sinks.end());
     spdlog::set_default_logger(logger);
-    spdlog::set_level(spdlog::level::debug);
+    //spdlog::set_level(spdlog::level::debug);
 
     // spdlog::set_error_handler([](const std::string &msg){
     //     spdlog::warn("{}", msg);

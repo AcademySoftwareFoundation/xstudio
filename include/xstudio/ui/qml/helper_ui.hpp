@@ -1,47 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-#ifndef HELPER_QML_EXPORT_H
-#define HELPER_QML_EXPORT_H
-
-#ifdef HELPER_QML_STATIC_DEFINE
-#define HELPER_QML_EXPORT
-#define HELPER_QML_NO_EXPORT
-#else
-#ifndef HELPER_QML_EXPORT
-#ifdef helper_qml_EXPORTS
-/* We are building this library */
-#define HELPER_QML_EXPORT __declspec(dllexport)
-#else
-/* We are using this library */
-#define HELPER_QML_EXPORT __declspec(dllimport)
-#endif
-#endif
-
-#ifndef HELPER_QML_NO_EXPORT
-#define HELPER_QML_NO_EXPORT
-#endif
-#endif
-
-#ifndef HELPER_QML_DEPRECATED
-#define HELPER_QML_DEPRECATED __declspec(deprecated)
-#endif
-
-#ifndef HELPER_QML_DEPRECATED_EXPORT
-#define HELPER_QML_DEPRECATED_EXPORT HELPER_QML_EXPORT HELPER_QML_DEPRECATED
-#endif
-
-#ifndef HELPER_QML_DEPRECATED_NO_EXPORT
-#define HELPER_QML_DEPRECATED_NO_EXPORT HELPER_QML_NO_EXPORT HELPER_QML_DEPRECATED
-#endif
-
-#if 0 /* DEFINE_NO_DEPRECATED */
-#ifndef HELPER_QML_NO_DEPRECATED
-#define HELPER_QML_NO_DEPRECATED
-#endif
-#endif
-
-#endif /* HELPER_QML_EXPORT_H */
 
 #include <caf/all.hpp>
 #include <functional>
@@ -53,6 +12,8 @@
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
+
+#include "helper_qml_export.h"
 
 CAF_PUSH_WARNINGS
 #include <QCursor>
@@ -83,41 +44,6 @@ namespace ui {
 
         QVariant mapFromValue(const nlohmann::json &value);
         nlohmann::json mapFromValue(const QVariant &value);
-
-        class ModelRowCount : public QObject {
-            Q_OBJECT
-
-            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
-            Q_PROPERTY(int count READ count NOTIFY countChanged)
-
-          public:
-            explicit ModelRowCount(QObject *parent = nullptr) : QObject(parent) {}
-
-            [[nodiscard]] QModelIndex index() const { return index_; }
-            [[nodiscard]] int count() const { return count_; }
-
-            Q_INVOKABLE void setIndex(const QModelIndex &index);
-
-          signals:
-            void indexChanged();
-            void countChanged();
-
-          private slots:
-            void inserted(const QModelIndex &parent, int first, int last);
-            void moved(
-                const QModelIndex &sourceParent,
-                int sourceStart,
-                int sourceEnd,
-                const QModelIndex &destinationParent,
-                int destinationRow);
-            void removed(const QModelIndex &parent, int first, int last);
-
-          private:
-            void setCount(const int count);
-
-            QPersistentModelIndex index_;
-            int count_{0};
-        };
 
         class HELPER_QML_EXPORT ModelRowCount : public QObject {
             Q_OBJECT
@@ -286,7 +212,7 @@ namespace ui {
             QString default_role_ = {"defaultValueRole"};
         };
 
-        class CafSystemObject : public QObject {
+        class HELPER_QML_EXPORT CafSystemObject : public QObject {
 
             Q_OBJECT
 
@@ -397,7 +323,7 @@ namespace ui {
             return jsn;
         }
 
-        class Helpers : public QObject {
+        class HELPER_QML_EXPORT Helpers : public QObject {
             Q_OBJECT
 
           public:
@@ -673,7 +599,7 @@ namespace ui {
             void selectionChanged();
         };
 
-        class Plugin : public QObject {
+        class HELPER_QML_EXPORT Plugin : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString qmlName READ qmlName NOTIFY qmlNameChanged)
             Q_PROPERTY(
