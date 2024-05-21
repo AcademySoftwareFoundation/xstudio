@@ -1,7 +1,7 @@
 {
     "name": "xstudio",
     "version": "1.0.0",
-    "dependencies": [  
+    "dependencies": [
         "stduuid",
         "reproc",
         "nlohmann-json",

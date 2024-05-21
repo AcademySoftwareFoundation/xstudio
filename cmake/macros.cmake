@@ -281,7 +281,7 @@ macro(create_component_with_alias NAME ALIASNAME VERSION DEPS)
 	if(_WIN32)
 	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 	set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
-	endif(WIN32)
+	endif(_WIN32)
 
 	# Generate export header
 	include(GenerateExportHeader)
@@ -387,6 +387,10 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 	add_library(${ALIASNAME} ALIAS ${PROJECT_NAME})
 	default_options_qt(${PROJECT_NAME})
 
+	# Generate export header
+	include(GenerateExportHeader)
+	generate_export_header(${PROJECT_NAME} EXPORT_FILE_NAME "${ROOT_DIR}/include/xstudio/ui/qml/${PROJECT_NAME}_export.h")
+
 	target_link_libraries(${PROJECT_NAME}
 		PUBLIC ${DEPS}
 	)
@@ -399,9 +403,7 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 	#	PUBLIC ${CMAKE_BINARY_DIR}  # Include the build directory
 	#)
 
-	# Generate export header
-    include(GenerateExportHeader)
-    generate_export_header(${PROJECT_NAME})
+
 
 endmacro()
 
