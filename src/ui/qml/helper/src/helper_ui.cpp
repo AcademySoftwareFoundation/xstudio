@@ -52,7 +52,8 @@ QString xstudio::ui::qml::actorToQString(actor_system &sys, const caf::actor &ac
 }
 
 caf::actor xstudio::ui::qml::actorFromQString(actor_system &sys, const QString &addr_str) {
-    return actorFromString(sys, StdFromQString(addr_str));
+    std::string addr = StdFromQString(addr_str);
+    return actorFromString(sys, addr);
 }
 
 

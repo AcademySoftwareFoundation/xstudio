@@ -4,6 +4,8 @@ option(USE_VCPKG "Use Vcpkg for package management" OFF)
 if(WIN32)
     set(USE_VCPKG ON)
     set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
+    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+
 endif()
 
 if (USE_VCPKG)

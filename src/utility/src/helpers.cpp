@@ -240,14 +240,23 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
         }
 #endif
 #ifdef _WIN32
+
+        std::size_t pos = path.find("/");
+        if (pos == 0) {
+            // Remove the leading /
+            path.erase(0, 1);
+        }
+        /*
         // Remove the leading '[protocol]:' part
         std::size_t pos = path.find(":");
         if (pos != std::string::npos) {
             path.erase(0, pos + 1); // +1 to erase the colon
         }
+        
 
         // Now, replace forward slashes with backslashes
         std::replace(path.begin(), path.end(), '/', '\\');
+        */
 #endif
         return path;
     }

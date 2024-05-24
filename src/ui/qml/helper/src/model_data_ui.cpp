@@ -53,9 +53,10 @@ UIModelData::UIModelData(QObject *parent) : super(parent) {
 
 void UIModelData::setModelDataName(QString name) {
 
-    if (model_name_ != StdFromQString(name)) {
+    std::string m_name = StdFromQString(name);
+    if (model_name_ != m_name) {
 
-        model_name_ = StdFromQString(name);
+        model_name_ = m_name;
 
         anon_send(
             central_models_data_actor_,
@@ -119,7 +120,7 @@ void UIModelData::init(caf::actor_system &system) {
                         j[role] = data;
                         for (size_t i = 0; i < role_names_.size(); ++i) {
                             if (role_names_[i] == role) {
-#ifdef _WIN32
+#ifdef false //_WIN32
                                 emit dataChanged(
                                     idx,
                                     idx,
@@ -188,7 +189,8 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
                         .toJson(QJsonDocument::Compact)
                         .constData());
             } else if (std::string(value.typeName()) == "QString") {
-                j = nlohmann::json::parse(StdFromQString(value.toString()));
+                std::string value_string = StdFromQString(value.toString());
+                j = nlohmann::json::parse(value_string);
             } else {
                 j = nlohmann::json::parse(QJsonDocument::fromVariant(value)
                                               .toJson(QJsonDocument::Compact)
@@ -582,10 +584,11 @@ MenuModelItem::~MenuModelItem() {
         global_ui_model_data_registry);
 
     if (central_models_data_actor) {
+        std::string menu_name_string = StdFromQString(menu_name_);
         anon_send(
             central_models_data_actor,
             ui::model_data::remove_node_atom_v,
-            StdFromQString(menu_name_),
+            menu_name_string,
             model_entry_id_);
     }
 }
@@ -658,11 +661,17 @@ void MenuModelItem::insertIntoMenuModel() {
                     global_ui_model_data_registry);
 
             utility::JsonStore menu_item_data;
-            menu_item_data["name"] = StdFromQString(text_);
-            if (!hotkey_.isEmpty())
-                menu_item_data["hotkey"] = StdFromQString(hotkey_);
-            if (!current_choice_.isEmpty())
-                menu_item_data["current_choice"] = StdFromQString(current_choice_);
+            std::string  name_string = StdFromQString(text_);
+            menu_item_data["name"] = name_string;
+            if (!hotkey_.isEmpty()) {
+                std::string hotkey_string = StdFromQString(hotkey_);
+                menu_item_data["hotkey"]  = hotkey_string;
+            }
+            if (!current_choice_.isEmpty()) {
+                std::string current_choice_string = StdFromQString(current_choice_);
+                menu_item_data["current_choice"]  = current_choice_string;
+            }
+
             if (!choices_.empty()) {
                 auto choices = nlohmann::json::parse("[]");
                 for (const auto &c : choices_) {
@@ -674,8 +683,10 @@ void MenuModelItem::insertIntoMenuModel() {
                 menu_item_data["is_checked"] = is_checked_;
             }
             menu_item_data["menu_item_position"] = menu_item_position_;
-            menu_item_data["menu_item_type"]     = StdFromQString(menu_item_type_);
+            std::string menu_item_type_string    = StdFromQString(menu_item_type_);
+            menu_item_data["menu_item_type"]     = menu_item_type_string;
             menu_item_data["uuid"]               = model_entry_id_;
+
 
             anon_send(
                 central_models_data_actor,

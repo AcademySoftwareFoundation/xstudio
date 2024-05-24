@@ -199,6 +199,7 @@ QFuture<QString>
 BookmarkModel::getJSONFuture(const QModelIndex &index, const QString &path) const {
     return QtConcurrent::run([=]() {
         if (bookmark_actor_) {
+            std::string path_string = StdFromQString(path);
             try {
                 scoped_actor sys{system()};
                 auto addr   = UuidFromQUuid(index.data(uuidRole).toUuid());
@@ -207,7 +208,7 @@ BookmarkModel::getJSONFuture(const QModelIndex &index, const QString &path) cons
                     bookmark_actor_,
                     json_store::get_json_atom_v,
                     addr,
-                    StdFromQString(path));
+                    path_string);
 
                 return QStringFromStd(result.dump());
 

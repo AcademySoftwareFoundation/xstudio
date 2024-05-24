@@ -429,7 +429,11 @@ endmacro()
 
 macro(set_python_to_proper_build_type)
 		if(WIN32)
-			target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:Py_DEBUG>")
+			#target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:-DPy_DEBUG")
+			#target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:PYTHON_IS_DEBUG=0>")
+			#add_compile_definitions(PY_NO_LINK_LIB)
+			set_property(TARGET ${PROJECT_NAME} PROPERTY EXCLUDE_FROM_DEFAULT_BUILD_DEBUG TRUE)
+
 		endif()
 endmacro()
 

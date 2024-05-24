@@ -51,10 +51,6 @@ utility::JsonTree *find_node_matching_string_field(
         } catch (...) {
         }
     }
-    std::stringstream ss;
-    ss << "Failed to find field \"" << field_name << "\" with value matching \"" << field_value
-       << "\"";
-    throw std::runtime_error(ss.str().c_str());
     return nullptr;
 }
 
@@ -375,7 +371,9 @@ void GlobalUIModelData::set_data(
 
         utility::JsonTree *node = find_node_matching_string_field(
             &(models_[model_name]->data_), attr_uuid_role_name, to_string(attribute_uuid));
-
+        if (!node) {
+            throw std::runtime_error("Failed to find expected field");
+        }
         auto &j = node->data();
 
         bool changed = false;
@@ -470,8 +468,13 @@ void GlobalUIModelData::insert_attribute_data_into_model(
 
     utility::JsonTree *parent_node = &(models_[model_name]->data_);
     try {
-        parent_node = find_node_matching_string_field(
+        auto found_node = find_node_matching_string_field(
             parent_node, attr_uuid_role_name, to_string(attribute_uuid));
+        if (found_node) {
+            parent_node = found_node;
+        } else {
+            throw std::runtime_error("Failed to find expected field");
+        }
 
         const auto &d = parent_node->data();
 
@@ -793,6 +796,9 @@ void GlobalUIModelData::insert_into_menu_model(
             try {
                 menu_model_data = find_node_matching_string_field(
                     menu_model_data, "name", parent_menus.front());
+                if (!menu_model_data) {
+                    throw std::runtime_error("Failed to find expected field");
+                }
                 parent_menus.erase(parent_menus.begin());
             } catch ([[maybe_unused]] std::exception &e) {
                 // exception is thrown if we fail to find a match

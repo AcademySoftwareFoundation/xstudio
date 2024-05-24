@@ -120,11 +120,12 @@ bool EmbeddedPythonUI::sendInput(const QString &str) {
         try {
             waiting_ = true;
             emit waitingChanged();
+            std::string input_string = StdFromQString(str);
             sys->anon_send(
                 backend_,
                 embedded_python::python_session_input_atom_v,
                 event_uuid_,
-                StdFromQString(str));
+                input_string);
             return true;
         } catch (const std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());

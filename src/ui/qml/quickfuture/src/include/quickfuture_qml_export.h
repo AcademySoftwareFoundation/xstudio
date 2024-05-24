@@ -1,0 +1,42 @@
+
+#ifndef QUICKFUTURE_QML_EXPORT_H
+#define QUICKFUTURE_QML_EXPORT_H
+
+#ifdef QUICKFUTURE_QML_STATIC_DEFINE
+#  define QUICKFUTURE_QML_EXPORT
+#  define QUICKFUTURE_QML_NO_EXPORT
+#else
+#  ifndef QUICKFUTURE_QML_EXPORT
+#    ifdef quickfuture_qml_EXPORTS
+        /* We are building this library */
+#      define QUICKFUTURE_QML_EXPORT __declspec(dllexport)
+#    else
+        /* We are using this library */
+#      define QUICKFUTURE_QML_EXPORT __declspec(dllimport)
+#    endif
+#  endif
+
+#  ifndef QUICKFUTURE_QML_NO_EXPORT
+#    define QUICKFUTURE_QML_NO_EXPORT 
+#  endif
+#endif
+
+#ifndef QUICKFUTURE_QML_DEPRECATED
+#  define QUICKFUTURE_QML_DEPRECATED __declspec(deprecated)
+#endif
+
+#ifndef QUICKFUTURE_QML_DEPRECATED_EXPORT
+#  define QUICKFUTURE_QML_DEPRECATED_EXPORT QUICKFUTURE_QML_EXPORT QUICKFUTURE_QML_DEPRECATED
+#endif
+
+#ifndef QUICKFUTURE_QML_DEPRECATED_NO_EXPORT
+#  define QUICKFUTURE_QML_DEPRECATED_NO_EXPORT QUICKFUTURE_QML_NO_EXPORT QUICKFUTURE_QML_DEPRECATED
+#endif
+
+#if 0 /* DEFINE_NO_DEPRECATED */
+#  ifndef QUICKFUTURE_QML_NO_DEPRECATED
+#    define QUICKFUTURE_QML_NO_DEPRECATED
+#  endif
+#endif
+
+#endif /* QUICKFUTURE_QML_EXPORT_H */
