@@ -503,8 +503,6 @@ FFMpegStream::convert_av_frame_to_thumbnail(const size_t size_hint) {
 
 AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_sample_rate) {
 
-    spdlog::info("Entering get_ffmpeg_frame_as_xstudio_audio.");
-
     AudioBufPtr audio_buffer(new AudioBuffer());
     audio_buffer->allocate(
         soundcard_sample_rate,     // sample rate
@@ -512,12 +510,6 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
         0,                         // num samples ... don't know yet
         audio::SampleFormat::INT16 // format
     );
-
-    spdlog::info(
-        "Allocated AudioBuffer with sample rate: {}, channels: {}, format: {}.",
-        soundcard_sample_rate,
-        2,
-        "INT16");
 
     // N.B. We aren't supporting 'planar' audio data in xstudio (yet) - if a source codec_
     // supplies planar audio ffmpeg will convert to interleaved which is what soundcards want
@@ -544,9 +536,6 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
         throw media_corrupt_error("Audio buffer format is not set.");
     }
 
-    spdlog::info(
-    "Determined target sample format: {}.", av_get_sample_fmt_name(target_sample_format_));
-
     target_sample_rate_    = audio_buffer->sample_rate();
     target_audio_channels_ = audio_buffer->num_channels();
 
@@ -554,16 +543,12 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
 
-    spdlog::info(
-        "Calculated display timestamp: {} seconds.",
-        double(frame->pts) * double(avc_stream_->time_base.num) /
-            double(avc_stream_->time_base.den));
+    //spdlog::info(
+    //    "Calculated display timestamp: {} seconds.",
+    //    double(frame->pts) * double(avc_stream_->time_base.num) /
+    //        double(avc_stream_->time_base.den));
 
     resample_audio(frame, audio_buffer, -1);
-    
-    spdlog::info("Resampled audio data size: {} samples.", audio_buffer->num_samples());
-
-    spdlog::info("Exiting get_ffmpeg_frame_as_xstudio_audio.");
 
     return audio_buffer;
 }
@@ -717,13 +702,6 @@ int64_t FFMpegStream::frame_to_pts(int frame) const {
 size_t FFMpegStream::resample_audio(
     AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer) {
 
-    spdlog::info("Resampling audio frame with the following attributes:");
-    spdlog::info("Sample rate: {}", frame->sample_rate);
-    spdlog::info("Format: {}", av_get_sample_fmt_name((AVSampleFormat)frame->format));
-    spdlog::info("Channels: {}", frame->channels);
-    spdlog::info("Number of samples: {}", frame->nb_samples);
-    spdlog::info("Channel layout: {}", frame->channel_layout);
-
     // N.B. this method is based loosely on the audio resampling in ffplay.c in ffmpeg source
     const int64_t target_channel_layout = av_get_default_channel_layout(2);
 
@@ -834,8 +812,6 @@ size_t FFMpegStream::resample_audio(
     int converted_n_samps =
         swr_convert(audio_resampler_ctx_, &out, out_count, in, frame->nb_samples);
 
-    spdlog::info("Converted {} samples.", converted_n_samps);
-
     if (offset_into_output_buffer == -1) {
         audio_buffer->set_num_samples(audio_buffer->num_samples() + converted_n_samps);
     }
@@ -843,11 +819,6 @@ size_t FFMpegStream::resample_audio(
     if (converted_n_samps < 0) {
         throw media_corrupt_error("swr_convert() failed");
     }
-
-    spdlog::info(
-        "Resampled audio data size: {} bytes",
-        converted_n_samps * target_audio_channels_ *
-            av_get_bytes_per_sample(target_sample_format_));
 
     return converted_n_samps * target_audio_channels_ *
            av_get_bytes_per_sample(target_sample_format_);

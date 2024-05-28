@@ -29,7 +29,7 @@ namespace audio {
 
         long desired_samples() override;
 
-        void push_samples(const void *sample_data, const long num_samples, int channel_count) override;
+        void push_samples(const void *sample_data, const long num_samples) override;
 
         long latency_microseconds() override;
 
@@ -46,6 +46,7 @@ namespace audio {
         SampleFormat sample_format_ = {SampleFormat::INT16};
         CComPtr<IAudioClient3> audio_client_;
         CComPtr<IAudioRenderClient> render_client_;
+        
         const utility::JsonStore config_;
         const utility::JsonStore prefs_;
 

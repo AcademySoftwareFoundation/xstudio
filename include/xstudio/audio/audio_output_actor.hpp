@@ -21,8 +21,8 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
       waiting_for_samples_(false),
       audio_samples_actor_(samples_actor) {
 
-      spdlog::debug("Created {} {}", "AudioOutputDeviceActor", OutputClassType::name());
-      utility::print_on_exit(this, OutputClassType::name());
+      //spdlog::info("Created {} {}", "AudioOutputDeviceActor", OutputClassType::name());
+      //utility::print_on_exit(this, OutputClassType::name());
 
       try {
           auto prefs = global_store::GlobalStoreHelper(system());
@@ -102,7 +102,7 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
           try {
               output_device_ = std::make_unique<OutputClassType>(prefs);
           } catch (std::exception &e) {
-              spdlog::debug(
+              spdlog::error(
                   "{} Failed to connect to an audio device: {}", __PRETTY_FUNCTION__, e.what());
           }
       }
@@ -187,7 +187,7 @@ class GlobalAudioOutputActor : public caf::event_based_actor, module::Module {
 template <typename OutputClassType>
 void AudioOutputActor<OutputClassType>::init() {
 
-    spdlog::debug("Created AudioOutputControlActor {}", OutputClassType::name());
+    //spdlog::debug("Created AudioOutputControlActor {}", OutputClassType::name());
     utility::print_on_exit(this, "AudioOutputControlActor");
 
     audio_output_device_ = spawn<AudioOutputDeviceActor<OutputClassType>>(caf::actor_cast<caf::actor>(this));

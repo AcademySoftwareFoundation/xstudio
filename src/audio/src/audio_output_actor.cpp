@@ -16,7 +16,7 @@
 #include "linux_audio_output_device.hpp"
 #endif
 #ifdef _WIN32
-#include "windows_audio_output_device.hpp"
+#include "xstudio/audio/windows_audio_output_device.hpp"
 #endif
 
 using namespace caf;

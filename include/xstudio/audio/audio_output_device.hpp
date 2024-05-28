@@ -59,7 +59,7 @@ class AudioOutputDevice {
      *  block while the soundcard consumes samples, depending on the implementation of
      *  the subclass.
      */
-    virtual void push_samples(const void *sample_data, const long num_samples, int channel_count) = 0;
+    virtual void push_samples(const void *sample_data, const long num_samples) = 0;
 
     /**
      *  @brief Query the audio pipeline delay from the last sample in the soundcard

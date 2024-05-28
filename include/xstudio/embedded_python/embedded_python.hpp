@@ -66,7 +66,7 @@ namespace embedded_python {
 
         EmbeddedPythonActor *parent_;
 
-        static EmbeddedPython *s_instance_;
+        inline static EmbeddedPython *s_instance_ = nullptr;
         std::set<utility::Uuid> sessions_;
         bool inited_{false};
         bool setup_{false};

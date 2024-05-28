@@ -129,25 +129,15 @@ void AudioOutputControl::prepare_samples_for_soundcard(
     const int num_channels,
     const int sample_rate) {
 
-    spdlog::info("Preparing samples for soundcard.");
-
     try {
 
        v.resize(num_samps_to_push * num_channels);
-        spdlog::info("[xstudio] Resized vector 'v' to size: {}", v.size());
 
         memset(v.data(), 0, v.size() * sizeof(int16_t));
-        spdlog::info(
-            "[xstudio] Set all values in 'v' to 0 using memset for a total size of {} bytes.",
-            v.size() * sizeof(int16_t));
 
         int16_t *d            = v.data();
         long n                = num_samps_to_push;
         long num_samps_pushed = 0;
-        spdlog::info(
-            "[xstudio] Set 'd' pointer to v.data(), 'n' to {}, and 'num_samps_pushed' to {}",
-            n,
-            num_samps_pushed);
 
 
         if (muted())
@@ -156,8 +146,6 @@ void AudioOutputControl::prepare_samples_for_soundcard(
         while (n > 0) {
 
             if (!current_buf_ && sample_data_.size()) {
-
-                spdlog::info("Next buffer for playback is being selected.");
 
                 // when is the next sample that we copy into the buffer going to get played?
                 // We assume there are 'samples_in_soundcard_buffer + num_samps_pushed' audio
@@ -171,7 +159,6 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
                 if (current_buf_) {
 
-                    spdlog::info("Selected a buffer for playback.");
                     current_buf_pos_ = 0;
 
                     // is audio playback stable ? i.e. is the next sample buffer
@@ -186,14 +173,14 @@ void AudioOutputControl::prepare_samples_for_soundcard(
                         current_buf_, next_buf, previous_buf_);
 
                 } else {
-                    spdlog::warn("Break hit because current_buf_ is null after trying to pick "
-                                 "an audio buffer.");
+                    //spdlog::warn("Break hit because current_buf_ is null after trying to pick "
+                    //             "an audio buffer.");
                     fade_in_out_ = DoFadeHeadAndTail;
                     break;
                 }
 
             } else if (!current_buf_ && sample_data_.empty()) {
-                spdlog::warn("Break hit because both current_buf_ and sample_data_ are empty.");
+                //spdlog::warn("Break hit because both current_buf_ and sample_data_ are empty.");
                 break;
             }
 
@@ -208,11 +195,11 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
             if (current_buf_pos_ == (long)current_buf_->num_samples()) {
                 // current buf is exhausted
-                spdlog::info("Current buffer is exhausted.");
+                //spdlog::info("Current buffer is exhausted.");
                 previous_buf_ = current_buf_;
                 current_buf_.reset();
             } else {
-                spdlog::warn("Break hit due to unspecified condition.");
+                //spdlog::warn("Break hit due to unspecified condition.");
                 break;
             }
         }
@@ -239,15 +226,7 @@ void AudioOutputControl::queue_samples_for_playing(
     const bool forwards,
     const float velocity) {
 
-    spdlog::info(
-        "Queueing samples for playing. Playing: {}, Direction: {}, Velocity: {}",
-        playing ? "Yes" : "No",
-        forwards ? "Forwards" : "Backwards",
-        velocity);
-
     if (!playing) {
-        spdlog::info("Not playing, exiting queue_samples_for_playing.");
-
         return;
     }
 
@@ -266,13 +245,13 @@ void AudioOutputControl::queue_samples_for_playing(
             !audio_frame->num_samples())
         {   
 
-            spdlog::info("Audio frame skipped due to either being null, matching "
-                          "previous/current buffer or having no samples.");
+            //spdlog::info("Audio frame skipped due to either being null, matching "
+            //              "previous/current buffer or having no samples.");
             continue;
          }
         
-        spdlog::info("Processing audio frame with media key: {}, num samples: {}, sample rate: {}, num channels: {}",
-                 audio_frame->media_key(), audio_frame->num_samples(), audio_frame->sample_rate(), audio_frame->num_channels());
+        //spdlog::info("Processing audio frame with media key: {}, num samples: {}, sample rate: {}, num channels: {}",
+        //         audio_frame->media_key(), audio_frame->num_samples(), audio_frame->sample_rate(), audio_frame->num_channels());
 
         // xstudio stores a frame of audio samples for every video frame for any
         // given source (if the source has no video it is assigned a 'virtual' video
@@ -288,8 +267,8 @@ void AudioOutputControl::queue_samples_for_playing(
         if (false) {
             for (auto p = sample_data_.begin(); p != sample_data_.end(); ++p) {
                 if (p->second->media_key() == audio_frame->media_key()) {
-                    spdlog::info("Found and erasing existing audio sample from queue with the "
-                                 "same media key.");
+                    //spdlog::info("Found and erasing existing audio sample from queue with the "
+                    //             "same media key.");
                     sample_data_.erase(p);
                     break;
                 }
@@ -299,14 +278,11 @@ void AudioOutputControl::queue_samples_for_playing(
 
 
         if (audio_repitch_ && velocity != 1.0f) {
-            spdlog::info(
-                "Respeeding audio buffer due to audio repitch and non-standard velocity.");
             audio_frame =
                 super_simple_respeed_audio_buffer<int16_t>(audio_frame, fabs(velocity));
         }
 
         if (!forwards) {
-            spdlog::info("Reversing audio buffer for backwards playback.");
 
             media_reader::AudioBufPtr reversed(
                 new media_reader::AudioBuffer(audio_frame->params()));
@@ -329,11 +305,9 @@ void AudioOutputControl::queue_samples_for_playing(
             reversed->set_display_timestamp_seconds(audio_frame->display_timestamp_seconds());
 
         } else {
-            spdlog::info("Queueing audio frame for forwards playback.");
             sample_data_[when_to_sound_audio] = audio_frame;
         }
     }
-    spdlog::info("Finished queueing samples for playing.");
 }
 
 void AudioOutputControl::clear_queued_samples() {
@@ -466,16 +440,6 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     const int num_channels,
     const int fade_in_out) {
 
-    spdlog::info("Starting copy operation.");
-    spdlog::info(
-        "Initial values - Current Buffer Position: {}, Samples to Copy: {}, Samples Pushed: "
-        "{}, Num Channels: {}, Fade Setting: {}",
-        current_buf_position,
-        num_samples_to_copy,
-        num_samps_pushed,
-        num_channels,
-        fade_in_out);
-
     static std::vector<float> fade_coeffs;
     if (fade_coeffs.empty()) {
         fade_coeffs.resize(FADE_FUNC_SAMPS);
@@ -485,7 +449,6 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     }
 
     if (fade_in_out == AudioOutputControl::NoFade) {
-        spdlog::info("Copy operation with no fade.");
 
         if (((long)current_buf->num_samples() - (long)current_buf_position) >
             num_samples_to_copy) {
@@ -500,7 +463,6 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
             current_buf_position += num_samples_to_copy;
             num_samples_to_copy = 0;
         } else {
-            spdlog::info("Copy operation with fading.");
             // fewer samples left in current buffer than the soundcard wants
             memcpy(
                 stream,
@@ -537,7 +499,6 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
                 num_samples_to_copy),
             0l);
 
-        spdlog::info("Copy without fading for {} samples.", bpos);
         memcpy(stream, tt, bpos * num_channels * sizeof(T));
         num_samples_to_copy -= bpos;
         num_samps_pushed += bpos;
@@ -562,12 +523,6 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
             }
         }
     }
-    spdlog::info(
-        "Completed copy operation. New Buffer Position: {}, Samples Left to Copy: {}, Total "
-        "Samples Pushed: {}",
-        current_buf_position,
-        num_samples_to_copy,
-        num_samps_pushed);
 }
 
 

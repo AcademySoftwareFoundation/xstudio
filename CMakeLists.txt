@@ -30,6 +30,7 @@ option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
 option(BUILD_RESKIN "Build xstudio reskin binary" ON)
 
 
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
@@ -99,10 +100,14 @@ set(REPROC++ ON)
 set(OpenGL_GL_PREFERENCE GLVND)
 
 if (USE_SANITIZER STREQUAL "Address")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
+    if(MSVC)
+        target_compile_options(<target> PUBLIC /fsanitize=address)
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+        set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
+    endif()
 elseif (USE_SANITIZER STREQUAL "Thread")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
@@ -156,6 +161,7 @@ endif()
 if(MSVC)
   #Getenv complains, would be good to fix later but tired of seeing this for now.
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
 endif()
 
 # Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
@@ -186,6 +192,11 @@ if(USE_VCPKG)
   list(APPEND CMAKE_PREFIX_PATH "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows")
   # enable UUID System Generator 
   add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
+
+  # Workaround for C++ 20+ comparisons in nlohmann json
+  # https://github.com/nlohmann/json/issues/3868#issuecomment-1563726354
+  add_definitions(-DJSON_HAS_THREE_WAY_COMPARISON=OFF)
+
   # build quickpromise
   add_subdirectory("extern/quickpromise")
   add_subdirectory("extern/quickfuture")
