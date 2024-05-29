@@ -233,8 +233,13 @@ long WindowsAudioOutputDevice::desired_samples() {
         throw std::runtime_error("Failed to get buffer size");
     }
 
-    //TODO: Why 2, because channels?
-    return bufferSize*2;
+    UINT32 pad = 0;
+    hr         = audio_client_->GetCurrentPadding(&pad);
+    if (FAILED(hr)) {
+        throw std::runtime_error("Failed to get current padding from WASAPI");
+    }
+
+    return bufferSize - pad;
 }
 
 long WindowsAudioOutputDevice::latency_microseconds() {
@@ -252,8 +257,7 @@ long WindowsAudioOutputDevice::latency_microseconds() {
 void WindowsAudioOutputDevice::push_samples(
     const void *sample_data, const long num_samples) {
 
-    // TODO: Use actual channel layout.
-    int channel_count = 2;
+    int channel_count = num_channels_;
 
     if (num_samples < 0 || num_samples % channel_count != 0) {
         spdlog::error(
@@ -297,7 +301,7 @@ void WindowsAudioOutputDevice::push_samples(
 
         // Get a buffer from WASAPI for our audio data.
         BYTE *buffer;
-        hr = render_client_->GetBuffer(frames_to_write, &buffer);
+        hr = render_client_->GetBuffer(available_frames, &buffer);
         if (FAILED(hr)) {
             spdlog::error("GetBuffer failed with HRESULT: 0x{:08x}", hr);
             throw std::runtime_error("Failed to get buffer from WASAPI");
@@ -320,6 +324,4 @@ void WindowsAudioOutputDevice::push_samples(
             throw std::runtime_error("Failed to release buffer to WASAPI");
         }
     }
-        
-     std::this_thread::sleep_for(std::chrono::microseconds(4100));
 }

@@ -84,7 +84,7 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                           [=](const std::vector<int16_t> &samples_to_play) mutable {
 
                               output_device_->push_samples(
-                                  (const void *)samples_to_play.data(), num_samps_soundcard_wants);
+                                  (const void *)samples_to_play.data(), samples_to_play.size());
 
                               waiting_for_samples_ = false;
 
