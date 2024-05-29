@@ -59,49 +59,7 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
 
     // If sound_card is not provided, enumerate the devices and pick the first one
     if (sound_card.empty() || sound_card == L"default") {
-        CComPtr<IMMDeviceCollection> device_collection;
-        UINT device_count = 0;
-        hr = device_enumerator->EnumAudioEndpoints(
-            eRender, DEVICE_STATE_ACTIVE, &device_collection);
-        if (FAILED(hr)) {
-            return hr;
-        }
-
-        hr = device_collection->GetCount(&device_count);
-        if (FAILED(hr) || device_count == 0) {
-            return E_FAIL; // or some suitable error
-        }
-
-        // For this example, we're just taking the first device
-        CComPtr<IMMDevice> first_device;
-        hr = device_collection->Item(1, &first_device);
-        if (FAILED(hr)) {
-            return hr;
-        }
-
-        // Print the device name
-        CComPtr<IPropertyStore> property_store;
-        hr = first_device->OpenPropertyStore(STGM_READ, &property_store);
-        if (SUCCEEDED(hr)) {
-            PROPVARIANT var_name;
-            PropVariantInit(&var_name);
-
-            hr = property_store->GetValue(PKEY_Device_FriendlyName, &var_name);
-            if (SUCCEEDED(hr)) {
-                wprintf(L"Device Name: %s\n", var_name.pwszVal);
-                PropVariantClear(&var_name); // always clear the PROPVARIANT to release any
-                                             // memory it might've allocated
-            }
-        }
-
-        LPWSTR device_id = nullptr;
-        hr = first_device->GetId(&device_id);
-        if (FAILED(hr)) {
-            return hr;
-        }
-
-        hr = device_enumerator->GetDevice(device_id, &audio_device);
-        ::CoTaskMemFree(device_id); // free the memory for the ID
+        hr = device_enumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &audio_device);
     } else {
         // Get the audio-render device based on the provided sound_card
         hr = device_enumerator->GetDevice(sound_card.c_str(), &audio_device);
@@ -109,6 +67,21 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
 
     if (FAILED(hr)) {
         return hr;
+    }
+
+    // Print the device name
+    CComPtr<IPropertyStore> property_store;
+    hr = audio_device->OpenPropertyStore(STGM_READ, &property_store);
+    if (SUCCEEDED(hr)) {
+        PROPVARIANT var_name;
+        PropVariantInit(&var_name);
+
+        hr = property_store->GetValue(PKEY_Device_FriendlyName, &var_name);
+        if (SUCCEEDED(hr)) {
+            wprintf(L"Audio Device Name: %s\n", var_name.pwszVal);
+            PropVariantClear(&var_name); // always clear the PROPVARIANT to release any
+                                         // memory it might've allocated
+        }
     }
 
     // Get an IAudioClient3 instance
