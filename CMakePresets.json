@@ -1,12 +1,16 @@
 {
-  "version": 2,
+  "version": 3,
   "configurePresets": [
-    {
-      "name": "windows-ninja (Release)",
+    { "name": "windows-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "hidden": true,
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
         "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
@@ -15,32 +19,26 @@
       }
     },
     {
-      "name": "windows-ninja (RelWithDebInfo)",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "name": "windows (Release)",
+      "inherits": ["windows-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "windows (RelWithDebInfo)",
+      "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "USE_SANITIZER": "address",
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
-        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
-        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF"
+        "USE_SANITIZER": "address"
       }
     },
     {
-      "name": "windows-ninja (Debug)",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "name": "windows (Debug)",
+      "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "USE_SANITIZER": "address",
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "FFMPEG_ROOT": "D:/ffmpeg-5.1.2-full_build-shared/",
-        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
-        "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
-        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF"
+        "USE_SANITIZER": "address"
       }
     }
   ]
