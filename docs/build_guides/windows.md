@@ -1,7 +1,9 @@
-## Windows 10/11
+# Windows 10/11
 
 * Enable long path support (if you haven't already)
   * Find instructions here: [Maximum File Path Limitation](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry)
+* Install git
+  * Get it here: [Git Download](https://git-scm.com/download/win)
 * Install MS Visual Studio 2022
   * Get it here: [Microsoft Visual Studio](https://visualstudio.microsoft.com/vs/)
   * Ensure CMake tools for Windows is included on install. [CMake projects in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=msvc-170#installation)
@@ -22,8 +24,7 @@
 * Clone this project to your local drive.  Tips to consider:
   * The path should not have spaces in it.
   * Ideally, keep the path short
-  * Ensure your drive has a decent amount of space free
-    * TODO: Create a ballpark figure of disk space used by dependencies.
+  * Ensure your drive has a decent amount of space free (at least ~40GB)
   * The rest of this document will refer to this location as ${CLONE_ROOT}
 
 * Before loading the project in Visual Studio, consider modifying ${CLONE_ROOT}/CMakePresets.json
