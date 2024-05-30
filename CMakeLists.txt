@@ -3,9 +3,6 @@ cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 option(USE_VCPKG "Use Vcpkg for package management" OFF)
 if(WIN32)
     set(USE_VCPKG ON)
-    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
-    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
-
 endif()
 
 if (USE_VCPKG)
@@ -30,6 +27,12 @@ option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
 option(BUILD_RESKIN "Build xstudio reskin binary" ON)
 
 
+if(WIN32)
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
+    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+    # enable UUID System Generator 
+    add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
@@ -156,6 +159,21 @@ endif()
 
 if(WIN32)
     ADD_DEFINITIONS(-DNOMINMAX)
+    set(CMAKE_CXX_STANDARD 20)
+    add_compile_options(/permissive-)
+
+  # Workaround for C++ 20+ comparisons in nlohmann json
+  # https://github.com/nlohmann/json/issues/3868#issuecomment-1563726354
+  add_definitions(-DJSON_HAS_THREE_WAY_COMPARISON=OFF)
+
+  # build quickpromise
+  add_subdirectory("extern/quickpromise")
+  add_subdirectory("extern/quickfuture")
+
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+  # When moving to Qt6 or greater, we might be able to use qt_generate_deploy_app_script
+  #set(deploy_script "${Qt5_DIR}/../../../windeployqt.exe  )
 endif()
 
 if(MSVC)
@@ -166,10 +184,8 @@ endif()
 
 # Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
 if(USE_VCPKG)
-  set(CMAKE_CXX_STANDARD 20)
-  add_compile_options(/permissive-)
+
   set(VCPKG_INTEGRATION ON)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
   # Set Python in VCPKG
   set(Python_EXECUTABLE "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/python.exe")  
   # Install pip and sphinx
@@ -181,7 +197,7 @@ if(USE_VCPKG)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
+      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
@@ -190,19 +206,6 @@ if(USE_VCPKG)
   endif()
   # append vcpkg packages
   list(APPEND CMAKE_PREFIX_PATH "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows")
-  # enable UUID System Generator 
-  add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
-
-  # Workaround for C++ 20+ comparisons in nlohmann json
-  # https://github.com/nlohmann/json/issues/3868#issuecomment-1563726354
-  add_definitions(-DJSON_HAS_THREE_WAY_COMPARISON=OFF)
-
-  # build quickpromise
-  add_subdirectory("extern/quickpromise")
-  add_subdirectory("extern/quickfuture")
-
-  # When moving to Qt6 or greater, we might be able to use qt_generate_deploy_app_script
-  #set(deploy_script "${Qt5_DIR}/../../../windeployqt.exe  )
   
 endif()
 

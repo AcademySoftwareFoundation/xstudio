@@ -2,36 +2,16 @@
   "version": 2,
   "configurePresets": [
     {
-      "name": "windows",
-      "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/build",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "_____FFMPEG_ROOT": "D:/ffmpeg-5.1.2-full_build-shared/",
-        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
-        "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
-        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF",
-        "CMAKE_BUILD_PARALLEL_LEVEL": "64",
-        "CMAKE_AUTOGEN_PARALLEL": "64"
-      }
-    },
-    {
       "name": "windows-ninja (Release)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "FFMPEG_ROOT": "D:/ffmpeg-5.1.2-full_build-shared/",
         "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
         "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF",
-        "CMAKE_BUILD_PARALLEL_LEVEL": "64",
-        "CMAKE_AUTOGEN_PARALLEL": "64",
-        "INSTALL_PARALLEL": "ON"
+        "BUILD_DOCS": "OFF"
       }
     },
     {
@@ -42,15 +22,10 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "USE_SANITIZER": "address",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "FFMPEG_ROOT": "D:/ffmpeg-5.1.2-full_build-shared/",
-        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
         "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
+        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF",
-        "CMAKE_BUILD_PARALLEL_LEVEL": "64",
-        "CMAKE_AUTOGEN_PARALLEL": "64",
-        "INSTALL_PARALLEL": "ON",
-        "PARALLEL_LEVEL": "64"
+        "BUILD_DOCS": "OFF"
       }
     },
     {
@@ -65,9 +40,7 @@
         "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
         "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
-        "BUILD_DOCS": "OFF",
-        "CMAKE_BUILD_PARALLEL_LEVEL": "64",
-        "CMAKE_AUTOGEN_PARALLEL": "64"
+        "BUILD_DOCS": "OFF"
       }
     }
   ]

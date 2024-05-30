@@ -1,67 +1,47 @@
-# Build XStudio on Windows
+## Windows 10/11
 
-## Install basic tools
----
+* Enable long path support (if you haven't already)
+  * Find instructions here: [Maximum File Path Limitation](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry)
+* Install MS Visual Studio 2022
+  * Get it here: [Microsoft Visual Studio](https://visualstudio.microsoft.com/vs/)
+  * Ensure CMake tools for Windows is included on install. [CMake projects in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=msvc-170#installation)
+  * Restart your machine after Visual Studio finishes installing
+* Install Ninja (Not required, but highly recommended)
+  * Find Ninja here [Ninja Website](https://ninja-build.org/)
+* Install Qt 5.15
+  * Download the online installer here: [qt.io/download-qt-installer](https://www.qt.io/download-qt-installer-oss)
+  * During installation select the following components: ![Qt Components](/docs/build_guides/media/images/Qt5_select_components.png)
+    * Qt5.15.2
+      * MSVC 2019 64-bit
+    * Developer and Designer Tools
+      * Qt Creator 10.0.1
+      * Qt Creator 10.0.1 CDB Debugger Support
+      * Debugging Tools for Windows
+  * Note: This can take some time; consider manually [setting a mirror if slow](https://wiki.qt.io/Online_Installer_4.x#Selecting_a_mirror_for_opensource).
 
-To build XStudio on Windows, you need to install some basic tools. The Windows build uses VCPKG to install third-party dependencies. Follow these steps to set up the development environment:
+* Clone this project to your local drive.  Tips to consider:
+  * The path should not have spaces in it.
+  * Ideally, keep the path short
+  * Ensure your drive has a decent amount of space free
+    * TODO: Create a ballpark figure of disk space used by dependencies.
+  * The rest of this document will refer to this location as ${CLONE_ROOT}
 
-1. First, ensure that you are using an [administrative](https://www.howtogeek.com/194041/how-to-open-the-command-prompt-as-administrator-in-windows-8.1/) shell.
+* Before loading the project in Visual Studio, consider modifying ${CLONE_ROOT}/CMakePresets.json
+  * Edit the `Qt5_DIR` if you did not install in C:\Qt
+  * Edit the `CMAKE_INSTALL_PREFIX` to your desired output location
+    * This should be outside the build directory in a location where you have permissions to write to.
 
-2. Install MS Visual Studio 2019 (Community Edition is fine) [Visual Studio Legacy Installs](https://visualstudio.microsoft.com/vs/older-downloads/).
+* Open VisualStudio 2022
+  * Use Open Folder to point at the ${CLONE_ROOT}
+  * Visual Studio should start configuring the project, including downloading dependencies via VCPKG (which it bootstraps itself).
+  * Once configured, you can switch to the Solution Explorer's solution view to view CMake targets.
+  * Double-click `CMake Targets View`
+  * Right-click on `xStudio Project` and select `Build All`
+  * One built, right-click on `xStudio Project` and select `Install`
 
-3. Restart your machine after Visual Studio finishes installing
 
-4. Execute the script `setup_dev_env.ps1` located in the [script/setup](/scripts/setup/setup_dev_env.ps1) folder.
+* If the build succeeds, navigate to your ${CMAKE_INSTALL_PREFIX}/bin and double-click the `xstudio.exe` to run xStudio.
 
-## Install Qt 5.15
----
 
-To install Qt 5.15, follow these steps:
-
-1. [Download](https://www.qt.io/download-qt-installer-oss?hsCtaTracking=99d9dd4f-5681-48d2-b096-470725510d34%7C074ddad0-fdef-4e53-8aa8-5e8a876d6ab4) the Qt Windows installer.
-2. Execute the installer.
-3. During the installation, select the components as shown in the following picture:
-
-   ![Qt Components](/docs/build_guides/media/images/Qt5_select_components.png)
-
-4. The installation may take some time. You can grab a cup of coffee while it completes.
-5. Note that you will need a valid username and password to download Qt. The installer allows you to add or remove components in the future.
-
-## Install FFMPEG
----
-**Important**: The current supported version of FFMPEG is 5.1.
-
-There are two options to install FFMPEG:
-
-1. Using VCPKG.
-2. Using a prebuilt binary.
-
-### Install FFMPEG with a prebuilt binary
-You can locate prebuilt FFMPEG binaries that fit your licensing criteria [here](https://ffmpeg.org/download.html#build-windows).
-
-Download and extract the archive to your local machine.
-
-## Build XStudio using CMake GUI and Visual Studio 2019
----
-
-To build XStudio using CMake GUI, follow these steps:
-
-1. Configure the CMakePresets.json to your appropriate paths.
-   ![Qt5 CMake location](/docs/build_guides/media/images/setup_Qt5.png)
-   ![FFMPEG ROOT](/docs/build_guides/media/images/setup_ffmpeg.png)
-2. Launch CMake-GUI.
-3. Select the source root path in CMake-GUI
-4. Select the "windows" preset
-5. Select the build location to be in your source root path in a folder called build
-6. Click on the "Configure" button.
-7. Define Visual Studio 2019 and select the X64 architecture.
-8. Click on the "Generate" button.
-9. Click on the "Open Project" button.
-10. Choose your Build Type (Debug/Release)
-11. Select the INSTALL target and build.
-
-# Known Caveats
-
-* Python interpreter is not set up properly
-* Audio does not work and may have lots of debugging messages still in-tact.
-* Some tools or plugins may not be fully functional.
+# Questions?
+Reach out on the ASWF Slack in the #open-review-initiative channel.
