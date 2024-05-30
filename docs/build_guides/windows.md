@@ -36,6 +36,7 @@
   * Use Open Folder to point at the ${CLONE_ROOT}
   * Visual Studio should start configuring the project, including downloading dependencies via VCPKG (which it bootstraps itself).
   * Once configured, you can switch to the Solution Explorer's solution view to view CMake targets.
+  * Set your target build to `Release` or `ReleaseWithDeb`
   * Double-click `CMake Targets View`
   * Right-click on `xStudio Project` and select `Build All`
   * One built, right-click on `xStudio Project` and select `Install`
