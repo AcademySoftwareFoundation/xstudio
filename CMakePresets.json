@@ -35,6 +35,7 @@
     },
     {
       "name": "windows (Debug)",
+      "hidden":  true,
       "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",

@@ -235,6 +235,7 @@ macro(create_plugin_with_alias NAME ALIASNAME VERSION DEPS)
 
 	file(GLOB SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
+
 	add_library(${PROJECT_NAME} SHARED ${SOURCES})
 	add_library(${ALIASNAME} ALIAS ${PROJECT_NAME})
 	default_plugin_options(${PROJECT_NAME})
@@ -244,13 +245,18 @@ macro(create_plugin_with_alias NAME ALIASNAME VERSION DEPS)
 	)
 
 	if(WIN32) #TODO: Determine if we need to keep this limited to win32.
-	# We don't want the vcpkg install.
 
-	#This will unfortunately also install the plugin in the /bin directory.  TODO: Figure out how to omit the plugin itself.
-	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
+		#This will unfortunately also install the plugin in the /bin directory.  TODO: Figure out how to omit the plugin itself.
+		install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
+		# We don't want the vcpkg install.
+		_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin)
 
-
-	_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin)
+		#For interactive debugging, we want only the output dll to be copied to the build plugins folder.
+		add_custom_command(
+			TARGET ${PROJECT_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_CURRENT_BINARY_DIR}/plugin"
+		)
 	endif()
 
 
@@ -430,10 +436,10 @@ endmacro()
 
 macro(set_python_to_proper_build_type)
 		if(WIN32)
+			#TODO: Debug build fails to find the appropriate Python lib.
 			#target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:-DPy_DEBUG")
 			#target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:PYTHON_IS_DEBUG=0>")
-			#add_compile_definitions(PY_NO_LINK_LIB)
-			set_property(TARGET ${PROJECT_NAME} PROPERTY EXCLUDE_FROM_DEFAULT_BUILD_DEBUG TRUE)
+			# set_property(TARGET ${PROJECT_NAME} PROPERTY EXCLUDE_FROM_DEFAULT_BUILD_DEBUG TRUE)
 
 		endif()
 endmacro()

@@ -1,9 +1,13 @@
+#include "xstudio/audio/windows_spatial_audio_output_device.hpp"
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <Audioclient.h>
+#include <spatialaudioclient.h>
 #include <atlbase.h>
 #include <atlcomcli.h>
 #include <mmdeviceapi.h>
+#include <Ksmedia.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <iostream>
 #include <string>
@@ -19,15 +23,15 @@ using namespace xstudio::audio;
 using namespace xstudio::global_store;
 
 
-WindowsAudioOutputDevice::WindowsAudioOutputDevice(const utility::JsonStore &prefs)
-    : AudioOutputDevice(), prefs_(prefs) {
-}
+WindowsSpatialAudioOutputDevice::WindowsSpatialAudioOutputDevice(
+    const utility::JsonStore &prefs)
+    : AudioOutputDevice(), prefs_(prefs) {}
 
-WindowsAudioOutputDevice::~WindowsAudioOutputDevice() {
+WindowsSpatialAudioOutputDevice::~WindowsSpatialAudioOutputDevice() {
     disconnect_from_soundcard();
 }
 
-void WindowsAudioOutputDevice::disconnect_from_soundcard() {
+void WindowsSpatialAudioOutputDevice::disconnect_from_soundcard() {
     if (render_client_) {
         render_client_ = nullptr;
     }
@@ -37,7 +41,7 @@ void WindowsAudioOutputDevice::disconnect_from_soundcard() {
     }
 }
 
-HRESULT WindowsAudioOutputDevice::initializeAudioClient(
+HRESULT WindowsSpatialAudioOutputDevice::initializeAudioClient(
     const std::wstring &sound_card /* = L"" */,
     long sample_rate /* = 48000 */,
     int num_channels /* = 2 */) {
@@ -82,7 +86,76 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
             PropVariantClear(&var_name); // always clear the PROPVARIANT to release any
                                          // memory it might've allocated
         }
+        PROPVARIANT audio_channel_config;
+        PropVariantInit(&audio_channel_config);
+        hr = property_store->GetValue(KSPROPERTY_AUDIO_CHANNEL_CONFIG, &audio_channel_config);
+        if (SUCCEEDED(hr)) {
+            spdlog::info("Physical Speaker Mask: {}", audio_channel_config.uintVal);
+        }
     }
+
+    
+    hr = audio_device->Activate(
+        __uuidof(ISpatialAudioClient),
+        CLSCTX_INPROC_SERVER,
+        nullptr,
+        (void **)&spatialAudioClient_);
+    if (FAILED(hr)) {
+        spdlog::warn("Unable to activate spatial audio client.");
+        return hr;
+    } else {
+        UINT32 dynamicCount = 0;
+        hr                  = spatialAudioClient_->GetMaxDynamicObjectCount(&dynamicCount);
+        if (FAILED(hr)) {
+            spdlog::warn("Unable to get dynmic object count from spatial audio system");
+        } else {
+            spdlog::info("Found {} dynamic object count in spatial audio system", dynamicCount);
+        }
+
+        AudioObjectType mask;
+        spatialAudioClient_->GetNativeStaticObjectTypeMask(&mask);
+
+        if (FAILED(hr)) {
+            spdlog::warn(
+                "Unable to get statc object position for front-left from spatial audio system");
+        } else {
+            spdlog::info("Found object mask for native static objects: {}", mask);
+
+            spdlog::info(
+                "None {} Dynamic {} FL {} FR {} FC {} LFE {} SR {} SL {}    TBL {}",
+                (bool)(AudioObjectType_None & mask),
+                (bool)(AudioObjectType_Dynamic & mask),
+                (bool)(AudioObjectType_FrontLeft & mask),
+                (bool)(AudioObjectType_FrontRight & mask),
+                (bool)(AudioObjectType_FrontCenter & mask),
+                (bool)(AudioObjectType_LowFrequency & mask),
+                (bool)(AudioObjectType_SideRight & mask),
+                (bool)(AudioObjectType_SideLeft & mask),
+                (bool)(AudioObjectType_TopBackLeft & mask));
+        }
+
+        HANDLE bufferCompletionEvent = CreateEvent(nullptr, false, false, nullptr);
+
+        SpatialAudioObjectRenderStreamActivationParams streamParams;
+        streamParams.StaticObjectTypeMask =
+            AudioObjectType_FrontLeft | AudioObjectType_FrontRight;
+        streamParams.MinDynamicObjectCount = 0;
+        streamParams.MaxDynamicObjectCount = 0;
+        streamParams.Category              = AudioCategory_Movie;
+        streamParams.EventHandle           = bufferCompletionEvent;
+        streamParams.NotifyObject          = nullptr;
+
+        PROPVARIANT pv;
+        PropVariantInit(&pv);
+        pv.vt             = VT_BLOB;
+        pv.blob.cbSize    = sizeof(streamParams);
+        pv.blob.pBlobData = (BYTE *)&streamParams;
+
+        CComPtr<ISpatialAudioObjectRenderStream> spatialAudioStream;
+        hr = spatialAudioClient->ActivateSpatialAudioStream(
+            &pv, __uuidof(spatialAudioStream), (void **)&spatialAudioStream);
+    }
+
 
     // Get an IAudioClient3 instance
     hr = audio_device->Activate(
@@ -115,23 +188,8 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
         WAVEFORMATEXTENSIBLE *pExtensible =
             reinterpret_cast<WAVEFORMATEXTENSIBLE *>(pMixFormat);
         spdlog::info("Valid Bits Per Sample: {}", pExtensible->Samples.wValidBitsPerSample);
-        DWORD channel_mask = pExtensible->dwChannelMask;
-        spdlog::info("Channel Mask: {}", channel_mask);
+        spdlog::info("Channel Mask: {}", pExtensible->dwChannelMask);
         // Add more fields if needed
-
-        spdlog::info(
-            "Channel Layout:\nFL {}  FLOC {} C {}  FROC {}  FR {}     LFE {}\n\n     TFL {}   TFC {}   TFR {}\n",
-            (int)(bool)(SPEAKER_FRONT_LEFT & channel_mask),
-            (int)(bool)(SPEAKER_FRONT_LEFT_OF_CENTER & channel_mask),
-            (int)(bool)(SPEAKER_FRONT_CENTER & channel_mask),
-            (int)(bool)(SPEAKER_FRONT_RIGHT_OF_CENTER & channel_mask),
-            (int)(bool)(SPEAKER_FRONT_RIGHT & channel_mask),
-            (int)(bool)(SPEAKER_LOW_FREQUENCY & channel_mask),
-            (int)(bool)(SPEAKER_TOP_FRONT_LEFT & channel_mask),
-            (int)(bool)(SPEAKER_TOP_FRONT_CENTER & channel_mask),
-            (int)(bool)(SPEAKER_TOP_FRONT_RIGHT & channel_mask)
-            
-        );
     }
 
     // Fetch the currently active shared mode format
@@ -168,12 +226,11 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
     CoTaskMemFree(wavefmt);
 
     return hr;
-
 }
 
-void WindowsAudioOutputDevice::connect_to_soundcard() {
+void WindowsSpatialAudioOutputDevice::connect_to_soundcard() {
 
-    sample_rate_ = 48000; //default values
+    sample_rate_  = 48000; // default values
     num_channels_ = 2;
     std::wstring sound_card(L"default");
     buffer_size_ = 2048; // Adjust to match your preferences
@@ -184,22 +241,24 @@ void WindowsAudioOutputDevice::connect_to_soundcard() {
             preference_value<long>(prefs_, "/core/audio/windows_audio_prefs/sample_rate");
         buffer_size_ =
             preference_value<long>(prefs_, "/core/audio/windows_audio_prefs/buffer_size");
-        num_channels_ = preference_value<int>(prefs_, "/core/audio/windows_audio_prefs/channels");
-        sound_card =
-            preference_value<std::wstring>(prefs_, "/core/audio/windows_audio_prefs/sound_card");
+        num_channels_ =
+            preference_value<int>(prefs_, "/core/audio/windows_audio_prefs/channels");
+        sound_card = preference_value<std::wstring>(
+            prefs_, "/core/audio/windows_audio_prefs/sound_card");
     } catch (std::exception &e) {
         spdlog::warn("{} Failed to retrieve WASAPI prefs : {} ", __PRETTY_FUNCTION__, e.what());
     }
 
     HRESULT hr = initializeAudioClient(sound_card, sample_rate_, num_channels_);
     if (FAILED(hr)) {
-        spdlog::error("{} Failed to initialize audio client: HRESULT=0x{:08x}", __PRETTY_FUNCTION__, hr);
+        spdlog::error(
+            "{} Failed to initialize audio client: HRESULT=0x{:08x}", __PRETTY_FUNCTION__, hr);
         return; // or handle the error as appropriate
     }
 
     // Get an IAudioRenderClient instance
-    hr = audio_client_->GetService(__uuidof(IAudioRenderClient),
-                                   reinterpret_cast<void**>(&render_client_));
+    hr = audio_client_->GetService(
+        __uuidof(IAudioRenderClient), reinterpret_cast<void **>(&render_client_));
     if (FAILED(hr)) {
         spdlog::error("Failed to get IAudioRenderClient: HRESULT=0x{:08x}", hr);
         return; // or handle the error as appropriate
@@ -210,12 +269,12 @@ void WindowsAudioOutputDevice::connect_to_soundcard() {
     spdlog::info("Connected to soundcard");
 }
 
-long WindowsAudioOutputDevice::desired_samples() {
+long WindowsSpatialAudioOutputDevice::desired_samples() {
     // Note: WASAPI works with a fixed buffer size, so this will return the same
     // value for the duration of a playback session
     UINT32 bufferSize = 0; // initialize to 0
     HRESULT hr        = audio_client_->GetBufferSize(&bufferSize);
-    
+
     if (FAILED(hr)) {
         spdlog::error("Failed to get buffer size from WASAPI with HRESULT: 0x{:08x}", hr);
         throw std::runtime_error("Failed to get buffer size");
@@ -230,7 +289,7 @@ long WindowsAudioOutputDevice::desired_samples() {
     return bufferSize - pad;
 }
 
-long WindowsAudioOutputDevice::latency_microseconds() {
+long WindowsSpatialAudioOutputDevice::latency_microseconds() {
     // Note: This will just return the latency that WASAPI reports,
     // which may not include all sources of latency
     REFERENCE_TIME defaultDevicePeriod = 0, minimumDevicePeriod = 0; // initialize to 0
@@ -242,7 +301,7 @@ long WindowsAudioOutputDevice::latency_microseconds() {
     return defaultDevicePeriod / 10; // convert 100-nanosecond units to microseconds
 }
 
-void WindowsAudioOutputDevice::push_samples(
+void WindowsSpatialAudioOutputDevice::push_samples(
     const void *sample_data, const long num_samples) {
 
     int channel_count = num_channels_;

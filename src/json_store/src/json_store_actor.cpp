@@ -38,7 +38,8 @@ JsonStoreActor::JsonStoreActor(
 
         [=](get_json_atom, const std::string &path) -> caf::result<JsonStore> {
             try {
-                return JsonStore(json_store_.get(path));
+                std::string np = path;
+                return JsonStore(json_store_.get(np));
             } catch (const std::exception &e) {
                 return make_error(
                     xstudio_error::error, std::string("get_json_atom ") + e.what());
