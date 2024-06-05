@@ -656,7 +656,9 @@ QFuture<QList<QUuid>> SessionModel::handleContainerIdDropFuture(
 
 
 QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
-    const int proposedAction_, const utility::JsonStore &jdrop, const QModelIndex &index) {
+    const int proposedAction_, const utility::JsonStore &drop, const QModelIndex &idx) {
+    const utility::JsonStore jdrop = drop;
+    const QModelIndex index        = idx;
 
     return QtConcurrent::run([=]() {
         scoped_actor sys{system()};
@@ -679,14 +681,18 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
 
                 spdlog::warn("{}", type);
 
+                std::string actor;
                 if (type == "Playlist") {
-                    target = actorFromString(system(), ij.at("actor"));
+                    actor  = ij.at("actor");
+                    target = actorFromString(system(), actor);
                 } else if (type == "Subset") {
                     target     = actorFromIndex(index.parent(), true);
-                    sub_target = actorFromString(system(), ij.at("actor"));
+                    actor      = ij.at("actor");
+                    sub_target = actorFromString(system(), actor);
                 } else if (type == "Timeline") {
                     target     = actorFromIndex(index.parent(), true);
-                    sub_target = actorFromString(system(), ij.at("actor"));
+                    actor      = ij.at("actor");
+                    sub_target = actorFromString(system(), actor);
                 } else if (
                     type == "Video Track" or type == "Audio Track" or type == "Gap" or
                     type == "Clip") {

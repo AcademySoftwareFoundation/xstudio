@@ -46,12 +46,15 @@ namespace audio {
         SampleFormat sample_format_ = {SampleFormat::INT16};
         CComPtr<IAudioClient3> audio_client_;
         CComPtr<IAudioRenderClient> render_client_;
+        CComPtr<IAudioClockAdjustment> render_clock_adjustment_;
         
         const utility::JsonStore config_;
         const utility::JsonStore prefs_;
 
+        void initialize_sound_card();
+
         HRESULT initializeAudioClient(
-        const std::wstring &sound_card = L"",
+        const std::string &sound_card = "",
         long sample_rate               = 48000,
         int num_channels               = 2);
 

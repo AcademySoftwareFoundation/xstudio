@@ -19,14 +19,14 @@
       }
     },
     {
-      "name": "windows (Release)",
+      "name": "Release",
       "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
-      "name": "windows (RelWithDebInfo)",
+      "name": "RelWithDebInfo",
       "inherits": ["windows-base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
@@ -34,7 +34,7 @@
       }
     },
     {
-      "name": "windows (Debug)",
+      "name": "Debug",
       "hidden":  true,
       "inherits": ["windows-base"],
       "cacheVariables": {

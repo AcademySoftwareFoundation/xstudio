@@ -52,6 +52,7 @@ JsonStoreActor::JsonStoreActor(
         },
 
         [=](erase_json_atom, const std::string &path) -> bool {
+            std::string p = path;
             auto result = json_store_.remove(path);
             if (result)
                 broadcast_change();
@@ -59,13 +60,15 @@ JsonStoreActor::JsonStoreActor(
         },
 
         [=](patch_atom, const JsonStore &json) -> bool {
-            json_store_ = json_store_.patch(json);
+            const JsonStore j = json;
+            json_store_ = json_store_.patch(j);
             broadcast_change();
             return true;
         },
 
         [=](merge_json_atom, const JsonStore &json) -> bool {
-            json_store_.merge(json);
+            const JsonStore j = json;
+            json_store_.merge(j);
             broadcast_change();
             return true;
         },
@@ -73,12 +76,14 @@ JsonStoreActor::JsonStoreActor(
         [=](utility::serialise_atom) -> JsonStore { return json_store_; },
 
         [=](set_json_atom atom, const JsonStore &json, const std::string &path) {
-            delegate(caf::actor_cast<actor>(this), atom, json, path, false);
+            std::string p = path;
+            delegate(caf::actor_cast<actor>(this), atom, json, p, false);
         },
 
         [=](set_json_atom, const JsonStore &json) -> bool {
             // replace all
-            json_store_.set(json);
+            const JsonStore j = json;
+            json_store_.set(j);
             broadcast_change();
             return true;
         },
@@ -86,13 +91,15 @@ JsonStoreActor::JsonStoreActor(
         [=](set_json_atom, const JsonStore &json, const std::string &path, const bool async)
             -> bool {
             // is it a subset
+            std::string p = path;
+            const JsonStore j = json;
             try {
-                json_store_.set(json, path);
+                json_store_.set(j, p);
             } catch (const std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                 return false;
             }
-            broadcast_change(json, path, async);
+            broadcast_change(j, p, async);
             return true;
         },
 
@@ -102,27 +109,30 @@ JsonStoreActor::JsonStoreActor(
             const bool async,
             const bool _broadcast_change) -> bool {
             // is it a subset
+            std::string p     = path;
+            const JsonStore j = json;
             try {
-                json_store_.set(json, path);
+                json_store_.set(j, p);
             } catch (const std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                 return false;
             }
             if (_broadcast_change)
-                broadcast_change(json, path, async);
+                broadcast_change(j, p, async);
             return true;
         },
 
         [=](subscribe_atom, const std::string &path, caf::actor _actor) -> caf::result<bool> {
             // delegate to reader, return promise ?
+            std::string p     = path;
             auto rp = make_response_promise<bool>();
             this->request(_actor, caf::infinite, utility::get_group_atom_v)
                 .then(
-                    [&, path, _actor, rp](
+                    [&, p, _actor, rp](
                         const std::pair<caf::actor, JsonStore> &data) mutable {
                         const auto [grp, json]                       = data;
                         actor_group_[actor_cast<actor_addr>(_actor)] = grp;
-                        group_path_[grp]                             = path;
+                        group_path_[grp]                             = p;
 
                         this->request(grp, caf::infinite, broadcast::join_broadcast_atom_v)
                             .then(
@@ -130,7 +140,7 @@ JsonStoreActor::JsonStoreActor(
                                 [=](const error &err) mutable {
                                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                                 });
-                        json_store_.set(json, path);
+                        json_store_.set(json, p);
                         broadcast_change();
                         rp.deliver(true);
                     },
@@ -181,6 +191,7 @@ caf::message_handler JsonStoreActor::default_event_handler() {
 
 void JsonStoreActor::broadcast_change(
     const JsonStore &change, const std::string &path, const bool async) {
+    std::string p     = path;
     if (broadcast_delay_.count() and async) {
         if (not update_pending_) {
             delayed_anon_send(this, broadcast_delay_, jsonstore_change_atom_v);
@@ -188,6 +199,6 @@ void JsonStoreActor::broadcast_change(
         }
     } else {
         // minor change, send now (DANGER MAYBE CAUSE ASYNC ISSUES)
-        send(broadcast_, update_atom_v, change, path, json_store_);
+        send(broadcast_, update_atom_v, change, p, json_store_);
     }
 }

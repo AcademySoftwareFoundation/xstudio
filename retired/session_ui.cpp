@@ -962,7 +962,7 @@ QUuid SessionUI::duplicateContainer(
 
 void SessionUI::updateItemModel(const bool select_new_items, const bool reset) {
     // spdlog::stopwatch sw;
-    try {
+   try {
         scoped_actor sys{system()};
         std::map<Uuid, caf::actor> uuid_actor;
         std::map<Uuid, QObject *> hold;

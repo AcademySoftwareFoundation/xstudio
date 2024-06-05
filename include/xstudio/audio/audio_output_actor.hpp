@@ -45,6 +45,9 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
               },
               [=](json_store::update_atom, const utility::JsonStore & /*j*/) {
                   // TODO: restart soundcard connection with new prefs
+                  if (output_device_) {
+                      output_device_->initialize_sound_card();
+                  }
               },
               [=](utility::event_atom, playhead::play_atom, const bool is_playing) {
                   if (!is_playing && output_device_) {
@@ -82,11 +85,11 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                       (int)output_device_->sample_rate())
                       .then(
                           [=](const std::vector<int16_t> &samples_to_play) mutable {
-
+                              waiting_for_samples_ = false;
                               output_device_->push_samples(
                                   (const void *)samples_to_play.data(), samples_to_play.size());
 
-                              waiting_for_samples_ = false;
+                              
 
                               if (playing_) {
                                   anon_send(actor_cast<caf::actor>(this), push_samples_atom_v);

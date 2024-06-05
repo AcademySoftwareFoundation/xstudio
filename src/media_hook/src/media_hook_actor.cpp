@@ -94,10 +94,13 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
         },
 
         [=](get_media_hook_atom, caf::actor media_source) -> result<bool> {
-            if (hooks.empty())
-                return true;
+        auto rp = make_response_promise<bool>();
 
-            auto rp = make_response_promise<bool>();
+            if (hooks.empty()){
+            rp.deliver(true);
+                return rp;
+            }
+
 
             request(media_source, infinite, json_store::get_json_atom_v, "")
                 .then(

@@ -386,7 +386,7 @@ void PlaylistUI::init(actor_system &system_) {
             },
 
             [=](utility::event_atom, playlist::add_media_atom, const UuidActor &ua) {
-                // spdlog::warn("media added, emit signal");
+                spdlog::warn("media added, emit signal");
                 emit mediaAdded(QUuidFromUuid(ua.uuid()));
             },
 

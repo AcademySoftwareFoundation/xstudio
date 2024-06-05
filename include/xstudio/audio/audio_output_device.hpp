@@ -29,6 +29,13 @@ class AudioOutputDevice {
     virtual ~AudioOutputDevice() = default;
 
     /**
+     *  @brief Configure the sound card.
+     *
+     *  @details Should be called any time the sound card should be set up or changed
+    */
+    virtual void initialize_sound_card() = 0;
+
+    /**
      *  @brief Open the connection to the sounding device
      *
      *  @details Note this will be called everytime audio playback starts

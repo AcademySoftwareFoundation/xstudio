@@ -153,6 +153,22 @@ macro(default_plugin_options name)
 	)
 	install(TARGETS ${name}
         LIBRARY DESTINATION share/xstudio/plugin)
+
+	if(WIN32) #TODO: Determine if we need to keep this limited to win32.
+
+		#This will unfortunately also install the plugin in the /bin directory.  TODO: Figure out how to omit the plugin itself.
+		install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
+		# We don't want the vcpkg install because it forces dependences; we just want the plugin.
+		_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin)
+
+		#For interactive debugging, we want only the output dll to be copied to the build plugins folder.
+		add_custom_command(
+			TARGET ${PROJECT_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_CURRENT_BINARY_DIR}/plugin"
+		)
+	endif()
+
 endmacro()
 
 if (BUILD_TESTING)
@@ -243,22 +259,6 @@ macro(create_plugin_with_alias NAME ALIASNAME VERSION DEPS)
 	target_link_libraries(${PROJECT_NAME}
 		PUBLIC ${DEPS}
 	)
-
-	if(WIN32) #TODO: Determine if we need to keep this limited to win32.
-
-		#This will unfortunately also install the plugin in the /bin directory.  TODO: Figure out how to omit the plugin itself.
-		install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
-		# We don't want the vcpkg install.
-		_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin)
-
-		#For interactive debugging, we want only the output dll to be copied to the build plugins folder.
-		add_custom_command(
-			TARGET ${PROJECT_NAME}
-			POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_CURRENT_BINARY_DIR}/plugin"
-		)
-	endif()
-
 
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 

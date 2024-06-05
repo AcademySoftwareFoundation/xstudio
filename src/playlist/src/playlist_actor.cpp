@@ -614,12 +614,14 @@ void PlaylistActor::init() {
         },
 
         [=](add_media_atom,
-            std::vector<UuidActor> media_actors,
+            std::vector<UuidActor> ma,
             const utility::Uuid &uuid_before) -> result<bool> {
             // before we can add media actors, we have to make sure the detail has been acquired
             // so that the duration of the media is known. This is because the playhead will
             // update and build a timeline as soon as the playlist notifies of change, so the
             // duration and frame rate must be known up-front
+
+            std::vector<UuidActor> media_actors = ma;
             auto source_count = std::make_shared<int>();
             (*source_count)   = media_actors.size();
             auto rp           = make_response_promise<bool>();
@@ -651,7 +653,6 @@ void PlaylistActor::init() {
                                         // media_[media_actor.first] = media_actor.second;
                                         // link_to(media_actor.second);
                                         // base_.insert_media(media_actor.first, uuid_before);
-
                                         (*source_count)--;
                                         if (!(*source_count)) {
                                             // we're done!
@@ -666,6 +667,7 @@ void PlaylistActor::init() {
                                                     add_media_atom_v,
                                                     i);
                                             }
+                                            send_content_changed_event();
                                         }
                                     },
                                     [=](error &err) mutable {
@@ -674,7 +676,7 @@ void PlaylistActor::init() {
                                         (*source_count)--;
                                         if (!(*source_count)) {
                                             // we're done!
-                                            // send_content_changed_event();
+                                            send_content_changed_event();
                                             if (is_in_viewer_)
                                                 open_media_reader(media_actors[0].actor());
                                             rp.deliver(true);

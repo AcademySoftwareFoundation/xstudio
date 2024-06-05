@@ -155,7 +155,7 @@
                     "context": ["APPLICATION"]
                 },
                 "sound_card": {
-                    "path": "/core/audio/windows_audio_prefs/sound_cards",
+                    "path": "/core/audio/windows_audio_prefs/sound_card",
                     "default_value": "default",
                     "description": "Soundcard name",
                     "value": "default",

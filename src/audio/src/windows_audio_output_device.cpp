@@ -7,6 +7,7 @@
 #include <functiondiscoverykeys_devpkey.h>
 #include <iostream>
 #include <string>
+#include <sstream>
 
 #include <chrono>
 #include <thread>
@@ -28,17 +29,11 @@ WindowsAudioOutputDevice::~WindowsAudioOutputDevice() {
 }
 
 void WindowsAudioOutputDevice::disconnect_from_soundcard() {
-    if (render_client_) {
-        render_client_ = nullptr;
-    }
-    if (audio_client_) {
-        audio_client_->Stop();
-        audio_client_ = nullptr;
-    }
+    return;
 }
 
 HRESULT WindowsAudioOutputDevice::initializeAudioClient(
-    const std::wstring &sound_card /* = L"" */,
+    const std::string &sound_card /* = L"" */,
     long sample_rate /* = 48000 */,
     int num_channels /* = 2 */) {
 
@@ -58,17 +53,22 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
     }
 
     // If sound_card is not provided, enumerate the devices and pick the first one
-    if (sound_card.empty() || sound_card == L"default") {
+    if (sound_card.empty() || sound_card == "default") {
         hr = device_enumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &audio_device);
     } else {
         // Get the audio-render device based on the provided sound_card
-        hr = device_enumerator->GetDevice(sound_card.c_str(), &audio_device);
+        std::wstring sound_card_w = L"";
+        std::wstringstream combiner;
+        combiner << sound_card.c_str();
+        sound_card_w = combiner.str();
+        hr           = device_enumerator->GetDevice(sound_card_w.c_str(), &audio_device);
     }
 
     if (FAILED(hr)) {
         return hr;
     }
 
+    #if false
     // Print the device name
     CComPtr<IPropertyStore> property_store;
     hr = audio_device->OpenPropertyStore(STGM_READ, &property_store);
@@ -83,6 +83,7 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
                                          // memory it might've allocated
         }
     }
+    #endif
 
     // Get an IAudioClient3 instance
     hr = audio_device->Activate(
@@ -102,6 +103,9 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
         return hr;
     }
 
+
+    sample_rate_ = pMixFormat->nSamplesPerSec;
+    #if false
     // Print the mix format details
     spdlog::info("Mix Format Details:");
     spdlog::info("Format Tag: {}", pMixFormat->wFormatTag);
@@ -133,6 +137,7 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
             
         );
     }
+    #endif
 
     // Fetch the currently active shared mode format
     WAVEFORMATEX *wavefmt = NULL;
@@ -156,9 +161,11 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
     }
 
     // Initialize the audio client with the mix format
-    hr = audio_client_->InitializeSharedAudioStream(
+    hr = audio_client_->Initialize(
+        AUDCLNT_SHAREMODE_SHARED,
         0,
         MINP,
+        0,
         wavefmt,
         nullptr // session GUID
     );
@@ -171,11 +178,11 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
 
 }
 
-void WindowsAudioOutputDevice::connect_to_soundcard() {
 
+void WindowsAudioOutputDevice::initialize_sound_card() {
     sample_rate_ = 48000; //default values
     num_channels_ = 2;
-    std::wstring sound_card(L"default");
+    std::string sound_card("default");
     buffer_size_ = 2048; // Adjust to match your preferences
 
     // Replace with your method to get preference values
@@ -186,7 +193,7 @@ void WindowsAudioOutputDevice::connect_to_soundcard() {
             preference_value<long>(prefs_, "/core/audio/windows_audio_prefs/buffer_size");
         num_channels_ = preference_value<int>(prefs_, "/core/audio/windows_audio_prefs/channels");
         sound_card =
-            preference_value<std::wstring>(prefs_, "/core/audio/windows_audio_prefs/sound_card");
+            preference_value<std::string>(prefs_, "/core/audio/windows_audio_prefs/sound_card");
     } catch (std::exception &e) {
         spdlog::warn("{} Failed to retrieve WASAPI prefs : {} ", __PRETTY_FUNCTION__, e.what());
     }
@@ -207,7 +214,10 @@ void WindowsAudioOutputDevice::connect_to_soundcard() {
 
     audio_client_->Start();
 
-    spdlog::info("Connected to soundcard");
+}
+
+void WindowsAudioOutputDevice::connect_to_soundcard() {
+    // We are already playing ;-D
 }
 
 long WindowsAudioOutputDevice::desired_samples() {
@@ -257,7 +267,7 @@ void WindowsAudioOutputDevice::push_samples(
 
     // Ensure we have a valid render_client_
     if (!render_client_) {
-        spdlog::error("Invalid Render Client");
+        //spdlog::error("Invalid Render Client");
         return; // Exit if no render client is set
     }
 
@@ -311,5 +321,13 @@ void WindowsAudioOutputDevice::push_samples(
             spdlog::error("Failed to release buffer to WASAPI with HRESULT: 0x{:08x}", hr);
             throw std::runtime_error("Failed to release buffer to WASAPI");
         }
+        std::this_thread::sleep_for(
+            std::chrono::microseconds((long)(.5 / sample_rate_ * frames_to_write)));
+    } else {
+        // Avoid tight loop thrashing when we are out of samples.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    
+    
+
 }

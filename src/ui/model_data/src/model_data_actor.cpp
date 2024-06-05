@@ -440,10 +440,11 @@ void GlobalUIModelData::set_data(
 void GlobalUIModelData::insert_attribute_data_into_model(
     const std::string &model_name,
     const utility::Uuid &attribute_uuid,
-    const utility::JsonStore &attribute_data,
+    const utility::JsonStore &attr_data,
     const std::string &sort_role,
     caf::actor client) {
 
+    const utility::JsonStore attribute_data = attr_data;
     auto p = models_.find(model_name);
     if (p != models_.end()) {
 

@@ -271,8 +271,7 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
             preference_value<int>(prefs, "/core/audio/pulse_audio_prefs/sample_rate");
 #endif
 #ifdef _WIN32
-        soundcard_sample_rate_ = 48000;
-            //preference_value<int>(prefs, "/core/audio/windows_audio_prefs/sample_rate");
+        soundcard_sample_rate_ = preference_value<int>(prefs, "/core/audio/windows_audio_prefs/sample_rate");
 #endif
 
     } catch (const std::exception &e) {

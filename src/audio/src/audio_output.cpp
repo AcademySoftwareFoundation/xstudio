@@ -204,7 +204,7 @@ void AudioOutputControl::prepare_samples_for_soundcard(
             }
         }
 
-        /*
+
         const float vol       = volume();
         static float last_vol = vol;
         if (last_vol != vol) {
@@ -213,7 +213,6 @@ void AudioOutputControl::prepare_samples_for_soundcard(
             static_volume_adjust(v, vol / 100.0f);
         }
         last_vol = vol;
-        */
 
     } catch (std::exception &e) {
         spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -231,6 +230,32 @@ void AudioOutputControl::queue_samples_for_playing(
     }
 
     playback_velocity_ = audio_repitch_ ? std::max(0.1f, velocity) : 1.0f;
+    
+    /*
+    // Earlier attempt at resampling in queue; needs a more reliable sample rate info and needs sample rate from output device.
+    if (audio_frames.size()) {
+        auto audio_sample_rate = audio_frames.front()->sample_rate();
+        if (audio_sample_rate == 0) {
+            audio_sample_rate = audio_frames.back()->sample_rate();
+        }
+
+        if (audio_sample_rate == 0) {
+            // If we can't get the sample rate from anything, use the last best guess.
+            // This seems to happen 
+            audio_sample_rate = last_sample_rate_;
+        } else {
+            last_sample_rate_ = audio_sample_rate;
+        }
+
+        // If our audio card does not match the source rate, we need to respeed/repitch the samples.
+        if (audio_sample_rate and audio_sample_rate != 96000L) {
+            double sample_respeed = (double)audio_sample_rate / 96000.0;
+            playback_velocity_ *= sample_respeed;
+            audio_repitch_ = true;
+        }
+    }
+    */
+    
 
     for (const auto &a : audio_frames) {
 
@@ -277,9 +302,9 @@ void AudioOutputControl::queue_samples_for_playing(
 
 
 
-        if (audio_repitch_ && velocity != 1.0f) {
-            audio_frame =
-                super_simple_respeed_audio_buffer<int16_t>(audio_frame, fabs(velocity));
+        if (audio_repitch_ && playback_velocity_ != 1.0f) {
+            audio_frame = super_simple_respeed_audio_buffer<int16_t>(
+                audio_frame, fabs(playback_velocity_));
         }
 
         if (!forwards) {
