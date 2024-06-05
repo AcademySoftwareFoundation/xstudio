@@ -154,7 +154,7 @@ macro(default_plugin_options name)
 	install(TARGETS ${name}
         LIBRARY DESTINATION share/xstudio/plugin)
 
-	if(WIN32) #TODO: Determine if we need to keep this limited to win32.
+	if(WIN32)
 
 		#This will unfortunately also install the plugin in the /bin directory.  TODO: Figure out how to omit the plugin itself.
 		install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
@@ -435,13 +435,7 @@ endmacro()
 
 
 macro(set_python_to_proper_build_type)
-		if(WIN32)
-			#TODO: Debug build fails to find the appropriate Python lib.
-			#target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:-DPy_DEBUG")
-			#target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:PYTHON_IS_DEBUG=0>")
-			# set_property(TARGET ${PROJECT_NAME} PROPERTY EXCLUDE_FROM_DEFAULT_BUILD_DEBUG TRUE)
-
-		endif()
+	#TODO Resolve linking error when running debug build: https://github.com/pybind/pybind11/issues/3403
 endmacro()
 
 
