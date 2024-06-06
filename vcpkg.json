@@ -28,6 +28,7 @@
         { "name": "caf", "version": "0.18.5" },
         { "name": "fmt", "version": "8.0.1" },
         { "name": "ffmpeg", "version": "5.1.2#6" },
-        { "name": "python3", "version": "3.10.7#7" }
+        { "name": "python3", "version": "3.10.7#7" },
+        {"name":"boost-modular-build-helper","version":"1.84.0#3"}
     ]
 }

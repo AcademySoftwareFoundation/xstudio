@@ -23,7 +23,7 @@
 
 * Clone this project to your local drive.  Tips to consider:
   * The path should not have spaces in it.
-  * Ideally, keep the path short
+  * Ideally, keep the path short and uncomplicated (IE `D:\xStudio`)
   * Ensure your drive has a decent amount of space free (at least ~40GB)
   * The rest of this document will refer to this location as ${CLONE_ROOT}
 
@@ -34,16 +34,16 @@
 
 * Open VisualStudio 2022
   * Use Open Folder to point at the ${CLONE_ROOT}
-  * Visual Studio should start configuring the project, including downloading dependencies via VCPKG (which it bootstraps itself).
+  * Visual Studio should start configuring the project, including downloading dependencies via VCPKG
+    * This process will likely take awhile as it obtains the required dependences.
   * Once configured, you can switch to the Solution Explorer's solution view to view CMake targets.
   * Set your target build to `Release` or `ReleaseWithDeb`
   * Double-click `CMake Targets View`
   * Right-click on `xStudio Project` and select `Build All`
-  * One built, right-click on `xStudio Project` and select `Install`
-
-
+  * Once built, right-click on `xStudio Project` and select `Install`
 * If the build succeeds, navigate to your ${CMAKE_INSTALL_PREFIX}/bin and double-click the `xstudio.exe` to run xStudio.
 
 
 # Questions?
+
 Reach out on the ASWF Slack in the #open-review-initiative channel.
