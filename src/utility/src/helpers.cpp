@@ -252,10 +252,6 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
         if (pos != std::string::npos) {
             path.erase(0, pos + 1); // +1 to erase the colon
         }
-        
-
-        // Now, replace forward slashes with backslashes
-        std::replace(path.begin(), path.end(), '/', '\\');
         */
 #endif
         return path;
@@ -507,7 +503,8 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
                         items.insert(items.end(), more.begin(), more.end());
                     } else if (fs::is_regular_file(entry))
 #ifdef _WIN32
-                        files.push_back(entry.path().string());
+                        files.push_back(
+                            std::regex_replace(entry.path().string(), std::regex("[\]"), "/"));
 #else
                         files.push_back(entry.path());
 #endif

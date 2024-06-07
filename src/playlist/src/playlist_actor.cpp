@@ -76,9 +76,10 @@ void blocking_loader(
                 const FrameList &frame_list = i.second;
 
                 const auto uuid = Uuid::generate();
+
 #ifdef _WIN32
-                std::string ext =
-                    ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
+                std::string ext = ltrim_char(
+                    get_path_extension(to_upper_path(fs::path(uri_to_posix_path(uri)))), '.');
 #else
                 std::string ext =
                     ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');

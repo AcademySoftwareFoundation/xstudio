@@ -25,6 +25,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <fmt/format.h>
 #endif
 
 namespace xstudio {
@@ -378,14 +379,32 @@ inline std::string snippets_path(const std::string &append_path = "") {
         return get_file_mtime(uri_to_posix_path(path));
     }
 
+    inline std::string get_path_extension(const fs::path p)
+    {
+        const std::string sp = p.string();
+#ifdef _WIN32
+        std::string sanitized;
+
+        try {
+            sanitized = fmt::format(sp, 0);
+
+        } catch (...) {
+            // If we are here, the path likely doesn't have a format string.
+            sanitized = sp;
+        }
+        fs::path pth(sanitized);
+        std::string ext = pth.extension().string(); // Convert path extension to string
+        return ext;
+#else
+        return sp.extension().string();
+#endif
+    }
+
 
     inline bool is_file_supported(const caf::uri &uri) {
-        fs::path p(uri_to_posix_path(uri));
-#ifdef _WIN32
-        std::string ext = to_upper(p.extension().string()); // Convert path extension to string
-#else
-        std::string ext = to_upper(p.extension());
-#endif
+        const std::string sp = uri_to_posix_path(uri);
+        std::string ext      = to_upper(get_path_extension(fs::path(sp)));
+
         for (const auto &i : supported_extensions)
             if (i == ext)
                 return true;
@@ -394,7 +413,7 @@ inline std::string snippets_path(const std::string &append_path = "") {
 
     inline bool is_session(const std::string &path) {
         fs::path p(path);
-        std::string ext = to_upper(path_to_string(p.extension()));
+        std::string ext = to_upper(path_to_string(get_path_extension(p)));
         for (const auto &i : session_extensions)
             if (i == ext)
                 return true;
@@ -405,11 +424,9 @@ inline std::string snippets_path(const std::string &append_path = "") {
 
     inline bool is_timeline_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));
-#ifdef _WIN32
-        std::string ext = to_upper_path(p.extension());
-#else
-        std::string ext = to_upper(p.extension());
-#endif
+        spdlog::error(p.string());
+        std::string ext = to_upper(get_path_extension(p));
+
         for (const auto &i : supported_timeline_extensions)
             if (i == ext)
                 return true;
