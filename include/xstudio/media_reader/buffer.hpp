@@ -65,7 +65,7 @@ namespace media_reader {
 
        struct BufferData {
             struct BufferDeleter {
-                void operator()(byte *ptr) const { operator delete[](ptr); }
+                void operator()(byte *ptr) const { operator delete[](ptr, std::align_val_t(1024)); }
             };
 
             BufferData(byte *d) : data_(d, BufferDeleter()) {}
