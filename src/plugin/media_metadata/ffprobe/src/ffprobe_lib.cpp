@@ -106,7 +106,7 @@ AVDictionary **init_find_stream_opts(AVFormatContext *avfc, AVDictionary *codec_
     if (avfc->nb_streams) {
 #ifdef _WIN32
         result = (AVDictionary **)av_calloc(avfc->nb_streams, sizeof(*result));
-#elif
+#else
         result = (AVDictionary **)av_malloc_array(avfc->nb_streams, sizeof(*result));
 #endif
 

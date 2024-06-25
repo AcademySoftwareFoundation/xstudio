@@ -49,13 +49,19 @@ set(QML_INSTALL_DIR ${INSTALL_ROOT}/bin/QuickPromise)
 # Install the library and qml files
 if(WIN32)
     install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT}/bin)
+    install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin/qml/QuickPromise)
 else()
     install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT})
+    install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickPromise)
 endif()
 
-if(${STATIC})
-# 
-else()
-    install(FILES ${QML_FILES} DESTINATION ${QML_INSTALL_DIR})
-endif()
-
+# QuickPromise needs to be installed somwhere on the QML include search
+# paths. xstudio will add <xstudio bin location>/plugin/qml to the 
+# search paths. Although quickpromise is installed as required when
+# do a 'make install' moving it to the build destination allows us to
+# run xstudio without an install for development environment.
+add_custom_target(COPY_PROMISE_QML)
+add_custom_command(TARGET COPY_PROMISE_QML POST_BUILD
+                  COMMAND ${CMAKE_COMMAND} -E
+                      copy_directory ${PROJECT_SOURCE_DIR}/qml/QuickPromise ${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickPromise)
+add_dependencies(quickpromise COPY_PROMISE_QML)

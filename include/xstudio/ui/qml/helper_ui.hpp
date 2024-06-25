@@ -13,7 +13,8 @@
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-#include "helper_qml_export.h"
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/helper_qml_export.h"
 
 CAF_PUSH_WARNINGS
 #include <QCursor>

@@ -1,7 +1,7 @@
 project(__pybind_xstudio VERSION 0.1.0 LANGUAGES CXX)
 
 find_package(pybind11 CONFIG REQUIRED)
-find_package(caf CONFIG REQUIRED)
+#find_package(caf CONFIG REQUIRED)
 find_package(Python COMPONENTS Interpreter)
 
 set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")

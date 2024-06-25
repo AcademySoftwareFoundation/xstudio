@@ -20,7 +20,7 @@ namespace utility {
 #ifdef _WIN32
     using sysclock = std::chrono::high_resolution_clock;
 #else
-    using sysclock = std::chrono::system_clock
+    using sysclock = std::chrono::system_clock;
 #endif
     using sys_time_point    = sysclock::time_point;
     using sys_time_duration = sysclock::duration;

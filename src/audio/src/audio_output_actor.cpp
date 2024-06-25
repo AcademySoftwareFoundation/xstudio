@@ -13,7 +13,7 @@
 
 // include for system (soundcard) audio output
 #ifdef __linux__
-#include "linux_audio_output_device.hpp"
+#include "xstudio/audio/linux_audio_output_device.hpp"
 #endif
 #ifdef _WIN32
 #include "xstudio/audio/windows_audio_output_device.hpp"

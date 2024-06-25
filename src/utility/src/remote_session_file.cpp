@@ -111,7 +111,14 @@ fs::path RemoteSessionFile::filepath() const {
     return p;
 }
 
-pid_t RemoteSessionFile::get_pid() const { return _getpid(); }
+pid_t RemoteSessionFile::get_pid() const { 
+    
+#ifdef _WIN32
+    return _getpid(); 
+#else
+    return getpid(); 
+#endif    
+}
 
 
 bool RemoteSessionFile::create_session_file() {

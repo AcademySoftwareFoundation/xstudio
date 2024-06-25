@@ -149,7 +149,11 @@ namespace utility {
         [[nodiscard]] bool unlock() {
             if (locked_ and owned_ and not borrowed_) {
                 // unlock we no longer own file.
+#ifdef _WIN32
                 _unlink(uri_to_posix_path(lock_file()).c_str());
+#else
+                unlink(uri_to_posix_path(lock_file()).c_str());
+#endif
                 reset();
                 return true;
             }

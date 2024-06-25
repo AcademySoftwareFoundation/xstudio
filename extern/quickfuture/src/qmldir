@@ -1,3 +1,3 @@
 module QuickFuture
-plugin quickfutureqmlplugin
+plugin quickfuture
 typeinfo quickfuture.qmltypes

@@ -253,6 +253,8 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
 
                 auto new_string =
                     preference_value<std::string>(js, "/core/thumbnail/disk_cache/path");
+                new_string = expand_envvars(new_string);
+                
                 if (cache_path != new_string) {
                     cache_path = new_string;
                     anon_send(

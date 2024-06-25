@@ -11,11 +11,14 @@ then
 		export XSTUDIO_ROOT=$BOB_WORLD_SLOT_dneg_xstudio/share/xstudio
 		export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$XSTUDIO_ROOT/lib
 	else
-		export XSTUDIO_ROOT=${CMAKE_INSTALL_PREFIX}/share/xstudio
-		export LD_LIBRARY_PATH=$XSTUDIO_ROOT/lib:$LD_LIBRARY_PATH
+		export XSTUDIO_ROOT=@CMAKE_INSTALL_PREFIX@/share/xstudio
+		export LD_LIBRARY_PATH=$XSTUDIO_ROOT/lib:/home/ted/Qt/5.15.2/gcc_64/lib:$LD_LIBRARY_PATH
+		export PYTHONPATH=@CMAKE_INSTALL_PREFIX@/lib/python:$PYTHONPATH
 	fi
 fi
 
 xstudio_desktop_integration
 
-exec xstudio.bin "$@"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+exec ${SCRIPT_DIR}/xstudio.bin "$@"

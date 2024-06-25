@@ -2,48 +2,8 @@
 #pragma once
 
 
-#ifndef EMBEDDED_PYTHON_QML_EXPORT_H
-#define EMBEDDED_PYTHON_QML_EXPORT_H
-
-#ifdef EMBEDDED_PYTHON_QML_STATIC_DEFINE
-#  define EMBEDDED_PYTHON_QML_EXPORT
-#  define EMBEDDED_PYTHON_QML_NO_EXPORT
-#else
-#  ifndef EMBEDDED_PYTHON_QML_EXPORT
-#    ifdef embedded_python_qml_EXPORTS
-        /* We are building this library */
-#      define EMBEDDED_PYTHON_QML_EXPORT __declspec(dllexport)
-#    else
-        /* We are using this library */
-#      define EMBEDDED_PYTHON_QML_EXPORT __declspec(dllimport)
-#    endif
-#  endif
-
-#  ifndef EMBEDDED_PYTHON_QML_NO_EXPORT
-#    define EMBEDDED_PYTHON_QML_NO_EXPORT 
-#  endif
-#endif
-
-#ifndef EMBEDDED_PYTHON_QML_DEPRECATED
-#  define EMBEDDED_PYTHON_QML_DEPRECATED __declspec(deprecated)
-#endif
-
-#ifndef EMBEDDED_PYTHON_QML_DEPRECATED_EXPORT
-#  define EMBEDDED_PYTHON_QML_DEPRECATED_EXPORT EMBEDDED_PYTHON_QML_EXPORT EMBEDDED_PYTHON_QML_DEPRECATED
-#endif
-
-#ifndef EMBEDDED_PYTHON_QML_DEPRECATED_NO_EXPORT
-#  define EMBEDDED_PYTHON_QML_DEPRECATED_NO_EXPORT EMBEDDED_PYTHON_QML_NO_EXPORT EMBEDDED_PYTHON_QML_DEPRECATED
-#endif
-
-#if 0 /* DEFINE_NO_DEPRECATED */
-#  ifndef EMBEDDED_PYTHON_QML_NO_DEPRECATED
-#    define EMBEDDED_PYTHON_QML_NO_DEPRECATED
-#  endif
-#endif
-
-#endif /* EMBEDDED_PYTHON_QML_EXPORT_H */
-
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/embedded_python_qml_export.h"
 
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>

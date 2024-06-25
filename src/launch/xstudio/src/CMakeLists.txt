@@ -30,7 +30,7 @@ configure_file(.clang-tidy .clang-tidy)
 if(WIN32)
 	configure_file(xstudio.bat.in xstudio.bat)
 else()
-	configure_file(xstudio.sh.in xstudio.sh)
+	configure_file(xstudio.sh.in xstudio.sh @ONLY)
 endif()
 
 default_options(${PROJECT_NAME})
@@ -49,7 +49,6 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::qml::module
 		xstudio::ui::qml::playhead
 		xstudio::ui::model_data
-		xstudio::ui::qml::quickfuture
 		xstudio::ui::qml::session
 		xstudio::ui::qml::studio
 		xstudio::ui::qml::tag
@@ -69,23 +68,29 @@ target_link_libraries(${PROJECT_NAME}
 		ZLIB::ZLIB
 		#OTIO::opentime
 		#OTIO::opentimelineio
+		quickfuture
 )
 
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)
 endif()
 
-set_target_properties(${PROJECT_NAME}
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    if(WIN32)
+if(WIN32)
+	set_target_properties(${PROJECT_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 		OUTPUT_NAME "${PROJECT_NAME}"
 		VS_DEBUGGER_ENVIRONMENT XSTUDIO_ROOT=${CMAKE_BINARY_DIR}/bin/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>
-	else()
-		OUTPUT_NAME "${PROJECT_NAME}.bin"
-	endif()
-	LINK_DEPENDS_NO_SHARED true
-)
+		LINK_DEPENDS_NO_SHARED true
+	)
+else()
+	set_target_properties(${PROJECT_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+		OUTPUT_NAME "${PROJECT_NAME}.bin"	
+		LINK_DEPENDS_NO_SHARED true
+	)
+endif()
 
 install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION bin)

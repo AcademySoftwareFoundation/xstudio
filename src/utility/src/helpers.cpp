@@ -591,6 +591,17 @@ std::string xstudio::utility::get_user_name() {
 
 std::string xstudio::utility::expand_envvars(
     const std::string &src, const std::map<std::string, std::string> &additional) {
+
+#ifdef _WIN32
+#else
+    // some prefs have ${USERPROFILE} which is MS Windows only, on UNIX we want
+    // ${HOME}
+    if (src.find("${USERPROFILE}") != std::string::npos) {
+        std::string unix_home = utility::replace_once(src, "${USERPROFILE}", "${HOME}");
+        return expand_envvars(unix_home, additional);
+    }
+#endif
+
     // use regex to capture envs and replace.
     std::regex words_regex(R"(\$\{[^\}]+\})");
     auto env_begin = std::sregex_iterator(src.begin(), src.end(), words_regex);

@@ -36,8 +36,10 @@ target_link_libraries(${PROJECT_NAME}
 if(WIN32)
     # Link against Windows Core Audio libraries.
     target_link_libraries(${PROJECT_NAME} PUBLIC "avrt.lib" "mmdevapi.lib")
-elseif(UNIX)
-    list(APPEND LINK_DEPS pulse-simple)
+elseif(APPLE)
+    # TODO: Apple-specific audio libs
+else()
+    target_link_libraries(${PROJECT_NAME} PUBLIC pulse pulse-simple)
 endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)

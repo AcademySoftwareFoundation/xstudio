@@ -651,7 +651,7 @@ void TimelineActor::init() {
 		auto micros = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
 		//using nano_sys = std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 		anon_send(history_, history::log_atom_v, micros, jsn);
-#elif 
+#else 
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
 #endif
             }

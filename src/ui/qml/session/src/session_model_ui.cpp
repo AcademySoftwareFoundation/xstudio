@@ -461,7 +461,7 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
 
                 setData(
                     parent_index.parent(),
-                    QVariant::fromValue(unsigned long(children.size())),
+                    QVariant::fromValue(int(children.size())),
                     mediaCountRole);
 
             } else {

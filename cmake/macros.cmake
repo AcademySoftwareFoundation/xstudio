@@ -7,15 +7,12 @@ macro(default_compile_options name)
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
-		PRIVATE $<$<CONFIG:Debug>:
-			$<$<PLATFORM_ID:Linux>:-Wno-unused-function>
-			$<$<PLATFORM_ID:Windows>:/wd4100>
-		>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wno-unused-function>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Windows>>:/wd4100>
 		# PRIVATE $<$<CONFIG:Debug>:-Wall>
 		# PRIVATE $<$<CONFIG:Debug>:-Werror>
-		$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wno-unused-function>>
-		$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wextra>>
-		$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wpedantic>>
 		# PRIVATE ${GTEST_CFLAGS}
 	)
 
@@ -52,7 +49,7 @@ if (BUILD_TESTING)
 			# PRIVATE $<$<CONFIG:Debug>:-Werror>
 			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wextra>>
 			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wpedantic>>
-			PRIVATE ${GTEST_CFLAGS}
+			$ PRIVATE ${GTEST_CFLAGS}
 		)
 
 		target_compile_features(${name}

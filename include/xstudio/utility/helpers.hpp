@@ -270,12 +270,11 @@ namespace utility {
     inline std::string xstudio_root(const std::string &append_path) {
         auto root = get_env("XSTUDIO_ROOT");
 
+        std::string fallback_root;
         #ifdef _WIN32
         char filename[MAX_PATH];
         DWORD nSize  = _countof(filename);
         DWORD result = GetModuleFileNameA(NULL, filename, nSize);
-
-        std::string fallback_root;
         if (result == 0) {
             spdlog::debug("Unable to determine executable path from Windows API, falling back "
                           "to standard methods");
@@ -396,7 +395,7 @@ inline std::string snippets_path(const std::string &append_path = "") {
         std::string ext = pth.extension().string(); // Convert path extension to string
         return ext;
 #else
-        return sp.extension().string();
+        return p.extension().string();
 #endif
     }
 

@@ -19,7 +19,7 @@ cmake_policy(VERSION 3.26)
 option(BUILD_TESTING "Build tests" OFF)
 option(INSTALL_PYTHON_MODULE "Install python module" ON)
 option(INSTALL_XSTUDIO "Install xstudio" ON)
-option(BUILD_DOCS "Build xStudio documentation" ON)
+option(BUILD_DOCS "Build xStudio documentation" OFF)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
 option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
@@ -272,7 +272,10 @@ if(INSTALL_XSTUDIO)
 
 endif ()
 
+# add extern libs that are build-time dependencies of xstudio
 add_subdirectory("extern/reproc")
+add_subdirectory("extern/quickfuture")
+add_subdirectory("extern/quickpromise")
 
 if(USE_VCPKG)
   # To provide reliable ordering, we need to make this install script happen in a subdirectory.

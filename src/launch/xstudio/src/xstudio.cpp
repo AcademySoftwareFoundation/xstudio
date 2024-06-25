@@ -81,15 +81,6 @@ CAF_POP_WARNINGS
 #include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
 #include "xstudio/ui/qt/offscreen_viewport.hpp" //NOLINT
 
-//TODO: Ahead Fix
-#include "QuickFuture"
-
-Q_DECLARE_METATYPE(QUrl)
-Q_DECLARE_METATYPE(QList<QUuid>)
-Q_DECLARE_METATYPE(QFuture<QUuid>)
-Q_DECLARE_METATYPE(QFuture<QList<QUuid>>)
-Q_DECLARE_METATYPE(QFuture<QUrl>)
-
 using namespace std;
 using namespace caf;
 using namespace std::chrono_literals;
@@ -1020,11 +1011,6 @@ int main(int argc, char **argv) {
                 qmlRegisterType<MenuModelItem>("xstudio.qml.models", 1, 0, "XsMenuModelItem");
 
                 qRegisterMetaType<QQmlPropertyMap *>("QQmlPropertyMap*");
-
-
-                QuickFuture::registerType<QUrl>();
-                QuickFuture::registerType<QUuid>();
-                QuickFuture::registerType<QList<QUuid>>();
 
                 // Add a CafSystemObject to the application - this is QObject that simply
                 // holds a reference to the actor system so that we can access the system

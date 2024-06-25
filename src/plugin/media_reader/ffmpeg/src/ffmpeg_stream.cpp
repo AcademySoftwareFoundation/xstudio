@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <cmath>
 
 #include "ffmpeg_stream.hpp"
 #include "xstudio/media/media_error.hpp"
@@ -148,13 +149,13 @@ void set_shader_pix_format_info(
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
         Imath::V3f offset(1, 128, 128);
-        offset *= std::powf(2, bitdepth - 8);
+        offset *= std::pow(2.0f, float(bitdepth - 8));
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     } break;
     case AVCOL_RANGE_MPEG:
     default: {
         Imath::V4f range(16, 235, 16, 240);
-        range *= std::powf(2, bitdepth - 8);
+        range *= std::pow(2.0f, float(bitdepth - 8));
 
         Imath::M33f scale;
         scale[0][0] = 1.f * max_cv / (range[1] - range[0]);
@@ -163,7 +164,7 @@ void set_shader_pix_format_info(
         yuv_to_rgb *= scale;
 
         Imath::V3f offset(16, 128, 128);
-        offset *= std::powf(2, bitdepth - 8);
+        offset *= std::pow(2.0f, float(bitdepth - 8));
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     }
     }
