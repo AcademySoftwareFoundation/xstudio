@@ -4,6 +4,7 @@ macro(default_compile_options name)
 		# PRIVATE -fvisibility=hidden
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Linux>>:-fno-omit-frame-pointer>
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Windows>>:/Oy>
+		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Windows>>:/showIncludes>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
@@ -32,6 +33,7 @@ macro(default_compile_options name)
 		PUBLIC BINARY_DIR=\"${CMAKE_BINARY_DIR}/bin\"
 		PRIVATE TEST_RESOURCE=\"${TEST_RESOURCE}\"
 		PRIVATE ROOT_DIR=\"${ROOT_DIR}\"
+		$<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>
 		PRIVATE $<$<CONFIG:Debug>:XSTUDIO_DEBUG=1>
 	)
 endmacro()

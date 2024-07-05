@@ -14,7 +14,7 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
-        "CMAKE_INSTALL_PREFIX": "D:/xstudio_install",
+        "CMAKE_INSTALL_PREFIX": "C:/xstudio_install3",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
         "BUILD_DOCS": "OFF"
       }

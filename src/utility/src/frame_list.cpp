@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include "xstudio/utility/helpers.hpp"
+
 #include <filesystem>
 
 #include <limits>
@@ -7,7 +9,6 @@
 #include <fmt/format.h>
 
 #include "xstudio/utility/frame_list.hpp"
-#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 

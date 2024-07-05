@@ -6,6 +6,7 @@
 // #include <caf/all.hpp>
 // #include <caf/config.hpp>
 // #include <caf/io/all.hpp>
+#include "xstudio/utility/helpers.hpp"
 
 #include "py_opaque.hpp"
 
@@ -15,7 +16,6 @@
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/media_reference.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
 #include "xstudio/utility/serialise_headers.hpp"

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include "xstudio/utility/helpers.hpp"
+
 #ifdef __linux__
 #define __USE_POSIX
 #include <unistd.h>
@@ -18,7 +20,6 @@
 //#include <reproc++/reproc.hpp>
 
 #include "xstudio/utility/frame_list.hpp"
-#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/sequence.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 

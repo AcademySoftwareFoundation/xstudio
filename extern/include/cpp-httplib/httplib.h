@@ -153,7 +153,7 @@ using ssize_t = long;
 #endif // NOMINMAX
 
 #include <io.h>
-#include <winsock2.h>
+//#include <winsock2.h>
 #include <ws2tcpip.h>
 
 #ifndef WSA_FLAG_NO_HANDLE_INHERIT

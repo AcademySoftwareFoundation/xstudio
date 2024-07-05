@@ -22,7 +22,6 @@
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/caf_error.hpp"
 #include "xstudio/caf_utility/caf_setup.hpp"
-
 #ifdef _WIN32
 #include <windows.h>
 #include <fmt/format.h>

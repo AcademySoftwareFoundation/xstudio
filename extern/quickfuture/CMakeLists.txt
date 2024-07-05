@@ -19,15 +19,16 @@ set(QML_FILES
     src/quickfuture.qmltypes
 )
 
-set_target_properties(quickfuture
-    PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture"
-)
-
 if(WIN32)
     install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin/qml/QuickFuture)
-    install(TARGETS quickfuture LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin/qml/QuickFuture)
+    install(TARGETS quickfuture RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin/qml)
 else()
+
+    set_target_properties(quickfuture
+        PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/plugin/qml/QuickFuture"
+    )
+
     install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickFuture)
     install(TARGETS quickfuture LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickFuture)
 

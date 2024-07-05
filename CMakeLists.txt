@@ -166,10 +166,6 @@ if(WIN32)
   # https://github.com/nlohmann/json/issues/3868#issuecomment-1563726354
   add_definitions(-DJSON_HAS_THREE_WAY_COMPARISON=OFF)
 
-  # build quickpromise
-  add_subdirectory("extern/quickpromise")
-  add_subdirectory("extern/quickfuture")
-
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
   # When moving to Qt6 or greater, we might be able to use qt_generate_deploy_app_script
@@ -229,6 +225,15 @@ endif()
 add_subdirectory(src)
 
 if(INSTALL_XSTUDIO)
+
+
+    # add extern libs that are build-time dependencies of xstudio
+if (UNIX)
+    add_subdirectory("extern/reproc")
+endif()
+    add_subdirectory("extern/quickfuture")
+    add_subdirectory("extern/quickpromise")
+
   add_subdirectory(share/preference)
   add_subdirectory(share/snippets)
   add_subdirectory(share/fonts)
@@ -271,11 +276,6 @@ if(INSTALL_XSTUDIO)
   )
 
 endif ()
-
-# add extern libs that are build-time dependencies of xstudio
-add_subdirectory("extern/reproc")
-add_subdirectory("extern/quickfuture")
-add_subdirectory("extern/quickpromise")
 
 if(USE_VCPKG)
   # To provide reliable ordering, we need to make this install script happen in a subdirectory.

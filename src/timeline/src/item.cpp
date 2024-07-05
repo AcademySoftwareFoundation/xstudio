@@ -2,8 +2,8 @@
 #include <algorithm>
 #include <nlohmann/json.hpp>
 
-#include "xstudio/timeline/item.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/timeline/item.hpp"
 
 using namespace xstudio;
 using namespace xstudio::timeline;
