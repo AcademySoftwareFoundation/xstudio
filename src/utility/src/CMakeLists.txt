@@ -37,5 +37,4 @@ if(UNIX AND NOT APPLE)
 	list(APPEND STATIC_LINK_DEPS stdc++fs)
 endif()
 
-
 create_component_static(utility 0.1.0 "${LINK_DEPS}" "${STATIC_LINK_DEPS}")
