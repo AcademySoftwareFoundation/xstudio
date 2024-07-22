@@ -544,10 +544,10 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
 
-    //spdlog::info(
-    //    "Calculated display timestamp: {} seconds.",
-    //    double(frame->pts) * double(avc_stream_->time_base.num) /
-    //        double(avc_stream_->time_base.den));
+    // spdlog::info(
+    //     "Calculated display timestamp: {} seconds.",
+    //     double(frame->pts) * double(avc_stream_->time_base.num) /
+    //         double(avc_stream_->time_base.den));
 
     resample_audio(frame, audio_buffer, -1);
 

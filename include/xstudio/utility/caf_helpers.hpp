@@ -29,17 +29,18 @@ namespace utility {
 
     struct absolute_receive_timeout {
       public:
-        using ms         = std::chrono::milliseconds;
+        using ms = std::chrono::milliseconds;
 #ifdef _WIN32
-        using clock_type = std::chrono::high_resolution_clock;;
+        using clock_type = std::chrono::high_resolution_clock;
+        ;
 #else
         using clock_type = std::chrono::system_clock;
         // using clock_type = std::chrono::high_resolution_clock;
 #endif
         absolute_receive_timeout(int msec) { x_ = clock_type::now() + ms(msec); }
 
-        absolute_receive_timeout()                                 = default;
-        absolute_receive_timeout(const absolute_receive_timeout &) = default;
+        absolute_receive_timeout()                                            = default;
+        absolute_receive_timeout(const absolute_receive_timeout &)            = default;
         absolute_receive_timeout &operator=(const absolute_receive_timeout &) = default;
 
         [[nodiscard]] const clock_type::time_point &value() const { return x_; }

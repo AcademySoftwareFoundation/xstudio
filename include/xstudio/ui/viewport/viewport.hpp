@@ -38,7 +38,7 @@ namespace ui {
                 caf::actor parent_actor,
                 const int viewport_index,
                 ViewportRendererPtr the_renderer,
-                const std::string & name = std::string());
+                const std::string &name = std::string());
             virtual ~Viewport();
 
             bool process_pointer_event(PointerEvent &);
@@ -138,7 +138,7 @@ namespace ui {
                 const Imath::V2f topright,
                 const Imath::V2f bottomright,
                 const Imath::V2f bottomleft,
-                const Imath::V2i scene_size,                
+                const Imath::V2i scene_size,
                 const float devicePixelRatio);
 
             /**
@@ -289,7 +289,8 @@ namespace ui {
 
             media_reader::ImageBufPtr get_onscreen_image();
 
-            void set_aux_shader_uniforms(const utility::JsonStore & j, const bool clear_and_overwrite = false);
+            void set_aux_shader_uniforms(
+                const utility::JsonStore &j, const bool clear_and_overwrite = false);
 
           protected:
             void register_hotkeys() override;

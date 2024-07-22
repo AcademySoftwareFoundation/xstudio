@@ -647,11 +647,14 @@ void TimelineActor::init() {
             if (not jsn.is_null()) {
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
 #ifdef _MSC_VER
-		auto tp = sysclock::now();
-		auto micros = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
-		//using nano_sys = std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-		anon_send(history_, history::log_atom_v, micros, jsn);
-#else 
+                auto tp = sysclock::now();
+                auto micros =
+                    std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())
+                        .count();
+                // using nano_sys = std::chrono::time_point<std::chrono::system_clock,
+                // std::chrono::nanoseconds>;
+                anon_send(history_, history::log_atom_v, micros, jsn);
+#else
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
 #endif
             }
@@ -678,12 +681,14 @@ void TimelineActor::init() {
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
 
 #ifdef _MSC_VER
-		auto tp = sysclock::now();
-		auto micros = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
-		anon_send(history_, history::log_atom_v, micros, jsn);
+                auto tp = sysclock::now();
+                auto micros =
+                    std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())
+                        .count();
+                anon_send(history_, history::log_atom_v, micros, jsn);
 #else
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
-#endif 
+#endif
             }
             return jsn;
         },
@@ -705,14 +710,16 @@ void TimelineActor::init() {
             if (not jsn.is_null()) {
                 send(event_group_, event_atom_v, item_atom_v, jsn, false);
 #ifdef _MSC_VER
-		auto tp = sysclock::now();
-		auto micros = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
-		using nano_sys = std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-		anon_send(history_, history::log_atom_v, micros, jsn);
+                auto tp = sysclock::now();
+                auto micros =
+                    std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())
+                        .count();
+                using nano_sys = std::chrono::
+                    time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
+                anon_send(history_, history::log_atom_v, micros, jsn);
 #else
                 anon_send(history_, history::log_atom_v, sysclock::now(), jsn);
-#endif 
-                
+#endif
             }
             return jsn;
         },
@@ -1609,9 +1616,11 @@ void TimelineActor::init() {
 
         //     #ifdef _MSC_VER
         //         auto tp = sysclock::now();
-        //         auto micros = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
-        //         //using nano_sys = std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-        //         anon_send(actor,playhead::playhead_rate_atom_v, caf::make_timestamp(), base_.rate());
+        //         auto micros =
+        //         std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
+        //         //using nano_sys = std::chrono::time_point<std::chrono::system_clock,
+        //         std::chrono::nanoseconds>; anon_send(actor,playhead::playhead_rate_atom_v,
+        //         caf::make_timestamp(), base_.rate());
         //     #else
         //         anon_send(actor, playhead::playhead_rate_atom_v, base_.rate());
         //     #endif
@@ -2013,10 +2022,17 @@ void TimelineActor::init() {
         [=](playhead::get_selection_atom, caf::actor requester) {
 #ifdef _WIN32
             auto tp = sysclock::now();
-            auto micros = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
-            anon_send(requester,playhead::selection_changed_atom_v, micros, UuidList{base_.uuid()});
+            auto micros =
+                std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())
+                    .count();
+            anon_send(
+                requester, playhead::selection_changed_atom_v, micros, UuidList{base_.uuid()});
 #else
-            anon_send(requester, utility::event_atom_v, playhead::selection_changed_atom_v, UuidList{base_.uuid()});
+            anon_send(
+                requester,
+                utility::event_atom_v,
+                playhead::selection_changed_atom_v,
+                UuidList{base_.uuid()});
 #endif
         },
 
@@ -2040,7 +2056,7 @@ void TimelineActor::init() {
 
         [=](session::import_atom, const std::string &data) -> result<bool> {
             auto rp = make_response_promise<bool>();
-            // purge timeline.. ?
+        // purge timeline.. ?
 
 #ifdef BUILD_OTIO
             spawn(

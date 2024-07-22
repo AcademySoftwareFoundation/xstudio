@@ -84,19 +84,25 @@ void PlayheadGlobalEventsActor::init() {
                     playhead);
                 on_screen_playhead_ = playhead;
                 if (playhead) {
-                    // force an event broadcast for the on-screen media and 
+                    // force an event broadcast for the on-screen media and
                     // media source (useful for plugins or anything else who
                     // has joined our event group)
-                    request(playhead, infinite, playhead::media_atom_v).then(
-                        [=](caf::actor media) {
-                            request(playhead, infinite, playhead::media_source_atom_v).then(
-                                [=](caf::actor media_source) {
-                                    send(event_group_, utility::event_atom_v, show_atom_v, media, media_source);
-                                },
-                                [=](caf::error &) {});
-
-                        },
-                        [=](caf::error &) {});                    
+                    request(playhead, infinite, playhead::media_atom_v)
+                        .then(
+                            [=](caf::actor media) {
+                                request(playhead, infinite, playhead::media_source_atom_v)
+                                    .then(
+                                        [=](caf::actor media_source) {
+                                            send(
+                                                event_group_,
+                                                utility::event_atom_v,
+                                                show_atom_v,
+                                                media,
+                                                media_source);
+                                        },
+                                        [=](caf::error &) {});
+                            },
+                            [=](caf::error &) {});
                 }
                 monitor(playhead);
             }

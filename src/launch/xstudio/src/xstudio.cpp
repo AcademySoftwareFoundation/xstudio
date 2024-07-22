@@ -124,14 +124,13 @@ struct ExitTimeoutKiller {
 
     void stop() {
 #ifdef _WIN32
-            spdlog::debug("ExitTimeoutKiller stop ignored");
-        }
+        spdlog::debug("ExitTimeoutKiller stop ignored");
+    }
 #else
         // unlock the  mutex so exit_timeout won't time-out
         clean_actor_system_exit.unlock();
         if (exit_timeout.joinable())
             exit_timeout.join();
-
     }
 
     std::timed_mutex clean_actor_system_exit;
@@ -548,7 +547,7 @@ struct Launcher {
 
         // prefs files *might* be located in a 'preference' subfolder under XSTUDIO_PLUGIN_PATH
         // folders
-        char * plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
+        char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
         if (plugin_path) {
             for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
                 if (fs::is_directory(p + "/preferences"))
@@ -681,10 +680,8 @@ struct Launcher {
                             media_rate);
                     } catch (const std::exception &e) {
                         spdlog::error("Failed to load media '{}'", e.what());
-                    
-                    
                     }
-            
+
                 } else {
                     spdlog::warn("Invalid URI {}", p);
                 }
@@ -898,14 +895,14 @@ int main(int argc, char **argv) {
 
             if (l.actions["headless"]) {
                 system.await_actors_before_shutdown(true);
-                //TODO: Ahead Fix
-                //struct sigaction sigIntHandler;
+                // TODO: Ahead Fix
+                // struct sigaction sigIntHandler;
 
-                //sigIntHandler.sa_handler = my_handler;
-                //sigemptyset(&sigIntHandler.sa_mask);
-                //sigIntHandler.sa_flags = 0;
+                // sigIntHandler.sa_handler = my_handler;
+                // sigemptyset(&sigIntHandler.sa_mask);
+                // sigIntHandler.sa_flags = 0;
 
-                //sigaction(SIGINT, &sigIntHandler, nullptr);
+                // sigaction(SIGINT, &sigIntHandler, nullptr);
 
                 while (not shutdown_xstudio) {
                     // we should be able to shutdown via a API call..
@@ -1051,7 +1048,7 @@ int main(int argc, char **argv) {
                 engine.addImportPath(QStringFromStd(xstudio_root("/plugin/qml")));
                 engine.addPluginPath(QStringFromStd(xstudio_root("/plugin/qml")));
 
-                char * plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
+                char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
                 if (plugin_path) {
                     for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
                         engine.addPluginPath(QStringFromStd(p + "/qml"));

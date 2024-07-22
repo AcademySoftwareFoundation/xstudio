@@ -96,7 +96,6 @@ namespace media {
         const char *name() const override { return NAME.c_str(); }
 
       private:
-      
         void update_media_status();
         void update_media_detail();
 

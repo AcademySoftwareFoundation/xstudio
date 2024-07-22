@@ -276,7 +276,7 @@ xstudio::utility::frame_groups_from_sequence_spec(const caf::uri &from_path) {
 #ifdef _WIN32
             auto entryPath = entry.path().string(); // Convert to std::string
 #else
-	        auto entryPath = entry.path().c_str();
+            auto entryPath = entry.path().c_str();
 #endif
             if (std::regex_match(entryPath, m, path_re)) {
                 int frame = std::atoi(m[1].str().c_str());

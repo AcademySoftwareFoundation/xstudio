@@ -183,7 +183,7 @@ namespace utility {
         return result;
     }
 
-    inline std::wstring to_upper(const std::wstring& str) {
+    inline std::wstring to_upper(const std::wstring &str) {
         static std::locale loc;
         std::wstring result;
         result.reserve(str.size());
@@ -204,9 +204,9 @@ namespace utility {
 
         return result;
     }
-    
-   //TODO: Ahead to refactor
-   inline std::string to_upper_path(const std::filesystem::path &path) {
+
+    // TODO: Ahead to refactor
+    inline std::string to_upper_path(const std::filesystem::path &path) {
         static std::locale loc;
         std::string result;
         result.reserve(path.string().size());

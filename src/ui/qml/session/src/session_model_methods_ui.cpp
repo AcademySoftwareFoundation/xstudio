@@ -713,7 +713,7 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                 if (target) {
                     for (const auto &path : jdrop.at("text/uri-list")) {
                         auto path_string = path.get<std::string>();
-                        auto uri = caf::make_uri(url_clean(path_string));
+                        auto uri         = caf::make_uri(url_clean(path_string));
                         if (uri) {
                             // uri maybe timeline...
                             // hacky...
@@ -1132,11 +1132,7 @@ QFuture<QString> SessionModel::getJSONFuture(const QModelIndex &index, const QSt
                         std::string path_string = StdFromQString(path);
                         if (type == "Media") {
                             auto jsn = request_receive<JsonStore>(
-                                *sys,
-                                actor,
-                                json_store::get_json_atom_v,
-                                Uuid(),
-                                path_string);
+                                *sys, actor, json_store::get_json_atom_v, Uuid(), path_string);
 
                             result = QStringFromStd(jsn.dump());
                         } else {

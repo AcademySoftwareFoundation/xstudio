@@ -232,7 +232,7 @@ namespace global_store {
             const bool broacast_change = true) {
             JsonStoreHelper::set(value, path + "/value", async, broacast_change);
         }
-        
+
         /*If a preference is found at path return the value. Otherwise build
         a preference at path and return default.*/
         utility::JsonStore get_existing_or_create_new_preference(
@@ -240,8 +240,7 @@ namespace global_store {
             const utility::JsonStore &default_,
             const bool async           = true,
             const bool broacast_change = true,
-            const std::string &context="APPLICATION"
-        );
+            const std::string &context = "APPLICATION");
 
         void set(const GlobalStoreDef &gsd, const bool async = true);
         bool save(const std::string &context);

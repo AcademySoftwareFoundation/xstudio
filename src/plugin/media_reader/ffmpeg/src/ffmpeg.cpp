@@ -266,12 +266,13 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
     try {
         readers_per_source_ =
             preference_value<int>(prefs, "/plugin/media_reader/FFMPEG/readers_per_source");
-#ifdef __linux__       
+#ifdef __linux__
         soundcard_sample_rate_ =
             preference_value<int>(prefs, "/core/audio/pulse_audio_prefs/sample_rate");
 #endif
 #ifdef _WIN32
-        soundcard_sample_rate_ = preference_value<int>(prefs, "/core/audio/windows_audio_prefs/sample_rate");
+        soundcard_sample_rate_ =
+            preference_value<int>(prefs, "/core/audio/windows_audio_prefs/sample_rate");
 #endif
 
     } catch (const std::exception &e) {

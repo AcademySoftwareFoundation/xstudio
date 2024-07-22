@@ -40,7 +40,6 @@ namespace audio {
         static std::string name() { return "LinuxAudioOutputDevice"; }
 
       private:
-
         void initialize_sound_card() override {}
 
         long sample_rate_           = {44100};

@@ -53,7 +53,7 @@ inline struct passwd *getpwuid(uid_t uid) {
 }
 #else
 // For Linux or non-Windows platforms
-using uid_t = uid_t; 
+using uid_t = uid_t;
 using gid_t = gid_t;
 #include <pwd.h>
 #endif
@@ -116,7 +116,7 @@ namespace utility {
                 lpath = fs::canonical(lpath);
 
             return posix_path_to_uri(lpath + ".lock");
-#endif       
+#endif
         }
         [[nodiscard]] bool locked() const { return locked_; }
         [[nodiscard]] bool owned() const { return owned_; }

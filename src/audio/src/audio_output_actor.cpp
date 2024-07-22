@@ -25,8 +25,7 @@ using namespace xstudio::utility;
 using namespace xstudio;
 
 GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
-    : caf::event_based_actor(cfg), module::Module("GlobalAudioOutputActor")
-{
+    : caf::event_based_actor(cfg), module::Module("GlobalAudioOutputActor") {
 
     audio_repitch_ = add_boolean_attribute("Audio Repitch", "Audio Repitch", false);
     audio_repitch_->set_role_data(
@@ -58,9 +57,7 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
 
     behavior_.assign(
 
-        [=](utility::get_event_group_atom) -> caf::actor { 
-            return event_group_; 
-        },
+        [=](utility::get_event_group_atom) -> caf::actor { return event_group_; },
 
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
@@ -73,8 +70,8 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
             const bool playing,
             const bool forwards,
             const float velocity) {
-
-            send(event_group_,
+            send(
+                event_group_,
                 utility::event_atom_v,
                 playhead::sound_audio_atom_v,
                 audio_buffers,
@@ -82,15 +79,11 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
                 playing,
                 forwards,
                 velocity);
-
         }
 
     );
 
     connect_to_ui();
-
-    
-
 }
 
 void GlobalAudioOutputActor::on_exit() { system().registry().erase(audio_output_registry); }
@@ -98,7 +91,8 @@ void GlobalAudioOutputActor::on_exit() { system().registry().erase(audio_output_
 void GlobalAudioOutputActor::attribute_changed(const utility::Uuid &attr_uuid, const int role) {
 
     // update and audio output clients with volume, mute etc.
-    send(event_group_,
+    send(
+        event_group_,
         utility::event_atom_v,
         module::change_attribute_event_atom_v,
         volume_->value(),

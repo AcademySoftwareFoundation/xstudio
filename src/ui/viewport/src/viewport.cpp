@@ -109,8 +109,10 @@ Viewport::Viewport(
     ViewportRendererPtr the_renderer,
     const std::string &_name)
     : Module(
-          _name.empty() ? (viewport_index >= 0 ? fmt::format("viewport{0}", viewport_index)
-                              : fmt::format("offscreen_viewport{0}", abs(viewport_index))) : _name),
+          _name.empty() ? (viewport_index >= 0
+                               ? fmt::format("viewport{0}", viewport_index)
+                               : fmt::format("offscreen_viewport{0}", abs(viewport_index)))
+                        : _name),
       parent_actor_(std::move(parent_actor)),
       viewport_index_(viewport_index),
       the_renderer_(std::move(the_renderer)) {
@@ -168,8 +170,12 @@ Viewport::Viewport(
             const Imath::V4f delta_trans =
                 interact_start_state_.pointer_position_ -
                 normalised_pointer_position() * interact_start_projection_matrix_;
-            state_.translate_.x = (state_.mirror_mode_ & MirrorMode::Flip ? -delta_trans.x : delta_trans.x) + interact_start_state_.translate_.x;
-            state_.translate_.y = (state_.mirror_mode_ & MirrorMode::Flop ? -delta_trans.y : delta_trans.y) + interact_start_state_.translate_.y;
+            state_.translate_.x =
+                (state_.mirror_mode_ & MirrorMode::Flip ? -delta_trans.x : delta_trans.x) +
+                interact_start_state_.translate_.x;
+            state_.translate_.y =
+                (state_.mirror_mode_ & MirrorMode::Flop ? -delta_trans.y : delta_trans.y) +
+                interact_start_state_.translate_.y;
             update_matrix();
             return true;
         };
@@ -181,8 +187,8 @@ Viewport::Viewport(
                 normalised_pointer_position() * interact_start_projection_matrix_;
             const float scale_factor = powf(
                 2.0,
-                (state_.mirror_mode_ & MirrorMode::Flip ? delta_trans.x : -delta_trans.x) * state_.size_.x *
-                    settings_["pointer_zoom_senistivity"].get<float>() *
+                (state_.mirror_mode_ & MirrorMode::Flip ? delta_trans.x : -delta_trans.x) *
+                    state_.size_.x * settings_["pointer_zoom_senistivity"].get<float>() *
                     interact_start_state_.scale_ / 1000.0f);
             state_.scale_ = interact_start_state_.scale_ * scale_factor;
             const Imath::V4f anchor_before =
@@ -558,12 +564,8 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
 
         if (pointer_event_handlers_[pointer_event.signature()](pointer_event)) {
             // Send message to other_viewport_ and pass zoom/pan
-            for (auto &o: other_viewports_) {
-                anon_send(
-                    o,
-                    viewport_pan_atom_v,
-                    state_.translate_.x,
-                    state_.translate_.y);
+            for (auto &o : other_viewports_) {
+                anon_send(o, viewport_pan_atom_v, state_.translate_.x, state_.translate_.y);
                 anon_send(o, viewport_scale_atom_v, state_.scale_);
             }
 
@@ -575,7 +577,7 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
                     previous_fit_zoom_state_.scale_     = old_scale;
                     state_.fit_mode_                    = Free;
                     fit_mode_->set_value("Off");
-                    for (auto &o: other_viewports_) {
+                    for (auto &o : other_viewports_) {
                         anon_send(o, fit_mode_atom_v, Free);
                     }
                 }
@@ -620,7 +622,10 @@ bool Viewport::set_scene_coordinates(
     if (vp2c != viewport_to_canvas_ || (bottomright - bottomleft).length() != state_.size_.x ||
         (bottomleft - topleft).length() != state_.size_.y) {
         viewport_to_canvas_ = vp2c;
-        set_size((bottomright - bottomleft).length(), (bottomleft - topleft).length(), devicePixelRatio);
+        set_size(
+            (bottomright - bottomleft).length(),
+            (bottomleft - topleft).length(),
+            devicePixelRatio);
         return true;
     }
     return false;
@@ -670,10 +675,10 @@ void Viewport::update_fit_mode_matrix(
 
     } else if (fit_mode() == One2One && state_.image_size_.x) {
 
-        // for 1:1 to work when we have high DPI display scaling (e.g. with QT_SCALE_FACTOR!=1.0)
-        // we need to account for the pixel ratio
-        int screen_pix_size_x = (int)round(float(size().x)*devicePixelRatio_);
-        int screen_pix_size_y = (int)round(float(size().y)*devicePixelRatio_);
+        // for 1:1 to work when we have high DPI display scaling (e.g. with
+        // QT_SCALE_FACTOR!=1.0) we need to account for the pixel ratio
+        int screen_pix_size_x = (int)round(float(size().x) * devicePixelRatio_);
+        int screen_pix_size_y = (int)round(float(size().y) * devicePixelRatio_);
 
         state_.fit_mode_zoom_ = float(state_.image_size_.x) / screen_pix_size_x;
 
@@ -706,7 +711,7 @@ void Viewport::set_scale(const float scale) {
 }
 
 void Viewport::set_size(const float w, const float h, const float devicePixelRatio) {
-    state_.size_ = Imath::V2f(w, h);
+    state_.size_      = Imath::V2f(w, h);
     devicePixelRatio_ = devicePixelRatio;
     update_matrix();
 }
@@ -815,7 +820,7 @@ void Viewport::revert_fit_zoom_to_previous(const bool synced) {
     event_callback_(Redraw);
 
     if (state_.fit_mode_ == FitMode::Free && !synced) {
-        for (auto &o: other_viewports_) {
+        for (auto &o : other_viewports_) {
             anon_send(o, fit_mode_atom_v, "revert");
         }
     }
@@ -864,8 +869,7 @@ void Viewport::update_matrix() {
 
     inv_projection_matrix_.makeIdentity();
     inv_projection_matrix_.scale(Imath::V3f(1.0f, -1.0f, 1.0f));
-    inv_projection_matrix_.scale(
-        Imath::V3f(1.0, state_.size_.x / state_.size_.y, 1.0f));
+    inv_projection_matrix_.scale(Imath::V3f(1.0, state_.size_.x / state_.size_.y, 1.0f));
     inv_projection_matrix_.scale(Imath::V3f(state_.scale_, state_.scale_, state_.scale_));
     inv_projection_matrix_.translate(
         Imath::V3f(-state_.translate_.x, -state_.translate_.y, 0.0f));
@@ -876,8 +880,7 @@ void Viewport::update_matrix() {
     projection_matrix_.translate(Imath::V3f(state_.translate_.x, state_.translate_.y, 0.0f));
     projection_matrix_.scale(
         Imath::V3f(1.0f / state_.scale_, 1.0f / state_.scale_, 1.0f / state_.scale_));
-    projection_matrix_.scale(
-        Imath::V3f(1.0, state_.size_.y / state_.size_.x, 1.0f));
+    projection_matrix_.scale(Imath::V3f(1.0, state_.size_.y / state_.size_.x, 1.0f));
     projection_matrix_.scale(Imath::V3f(1.0f, -1.0f, 1.0f));
 
     update_fit_mode_matrix();
@@ -941,7 +944,12 @@ caf::message_handler Viewport::message_handler() {
                     const float devicePixelRatio) {
                     float zoom = pixel_zoom();
                     if (set_scene_coordinates(
-                            topleft, topright, bottomright, bottomleft, scene_size, devicePixelRatio)) {
+                            topleft,
+                            topright,
+                            bottomright,
+                            bottomleft,
+                            scene_size,
+                            devicePixelRatio)) {
                         if (zoom != pixel_zoom()) {
                             event_callback_(ZoomChanged);
                         }
@@ -960,9 +968,7 @@ caf::message_handler Viewport::message_handler() {
                     }
                 },
 
-                [=](other_viewport_atom,
-                    caf::actor other_view,
-                    bool link) {
+                [=](other_viewport_atom, caf::actor other_view, bool link) {
                     if (link) {
 
                         auto p = other_viewports_.begin();
@@ -970,7 +976,7 @@ caf::message_handler Viewport::message_handler() {
                             if (*p == other_view) {
                                 return;
                             }
-                            p++;                            
+                            p++;
                         }
 
                         other_viewports_.push_back(other_view);
@@ -987,16 +993,14 @@ caf::message_handler Viewport::message_handler() {
                         }
                         unlink_module(other_view);
                     }
-
                 },
 
                 [=](other_viewport_atom,
                     caf::actor other_view,
                     caf::actor other_colour_pipeline) {
-                    
                     other_viewports_.push_back(other_view);
                     link_to_module(other_view, true, true, true);
-                    
+
                     if (other_colour_pipeline) {
                         // here we link up the colour pipelines of the two viewports
                         anon_send(
@@ -1005,8 +1009,9 @@ caf::message_handler Viewport::message_handler() {
                             other_colour_pipeline,
                             false, // link all attrs
                             true,  // two way link (change in one is synced to other, both ways)
-                            viewport_index_ == 0 // push sync (if we are main viewport, sync the
-                                                // attrs on the other colour pipelin to ourselves)
+                            viewport_index_ ==
+                                0 // push sync (if we are main viewport, sync the
+                                  // attrs on the other colour pipelin to ourselves)
                         );
                     }
                 },
@@ -1087,14 +1092,11 @@ caf::message_handler Viewport::message_handler() {
                     std::string compare_mode) { quickview_media(media_items, compare_mode); },
 
                 [=](ui::fps_monitor::framebuffer_swapped_atom,
-                    const utility::time_point swap_time) {
-                    framebuffer_swapped(swap_time);
-                },
+                    const utility::time_point swap_time) { framebuffer_swapped(swap_time); },
 
                 [=](aux_shader_uniforms_atom,
                     const utility::JsonStore &shader_extras,
-                    const bool overwrite_and_clear) 
-                {
+                    const bool overwrite_and_clear) {
                     set_aux_shader_uniforms(shader_extras, overwrite_and_clear);
                 },
 
@@ -1387,8 +1389,8 @@ void Viewport::framebuffer_swapped(const utility::time_point swap_time) {
         screen_refresh_period_,
         viewport_index_);
 
-        static auto tp = utility::clock::now();
-        auto t0 = utility::clock::now();
+    static auto tp = utility::clock::now();
+    auto t0        = utility::clock::now();
 
     if (about_to_go_on_screen_frame_buffer_ != on_screen_frame_buffer_) {
 
@@ -1408,7 +1410,7 @@ void Viewport::framebuffer_swapped(const utility::time_point swap_time) {
                std::chrono::duration_cast<std::chrono::milliseconds>(t0-tp).count() << "\n";
 
         }
-        
+
         ff[viewport_index_] = f;*/
 
         anon_send(
@@ -1421,11 +1423,9 @@ void Viewport::framebuffer_swapped(const utility::time_point swap_time) {
 
         /*std::cerr << name() << " frame repeated " <<
             std::chrono::duration_cast<std::chrono::milliseconds>(t0-tp).count() << "\n";*/
-
     }
-    
-    tp = t0;
 
+    tp = t0;
 }
 
 media_reader::ImageBufPtr Viewport::get_onscreen_image() {
@@ -1470,7 +1470,6 @@ void Viewport::get_frames_for_display(std::vector<media_reader::ImageBufPtr> &ne
                 std::chrono::milliseconds(1000),
                 colour_pipeline::colour_operation_uniforms_atom_v,
                 image);
-
         }
 
         if (next_images.size()) {
@@ -1821,9 +1820,7 @@ void Viewport::auto_connect_to_playhead(bool auto_connect) {
 }
 
 void Viewport::set_aux_shader_uniforms(
-    const utility::JsonStore & j,
-    const bool clear_and_overwrite) 
-{
+    const utility::JsonStore &j, const bool clear_and_overwrite) {
     if (clear_and_overwrite) {
         aux_shader_uniforms_ = j;
     } else if (j.is_object()) {
@@ -1832,11 +1829,11 @@ void Viewport::set_aux_shader_uniforms(
         }
     } else {
         spdlog::warn(
-            "{} Invalid shader uniforms data:\n\"{}\".\n\nIt must be a dictionary of key/value pairs.",
+            "{} Invalid shader uniforms data:\n\"{}\".\n\nIt must be a dictionary of key/value "
+            "pairs.",
             __PRETTY_FUNCTION__,
             j.dump(2));
     }
 
     the_renderer_->set_aux_shader_uniforms(aux_shader_uniforms_);
-
 }

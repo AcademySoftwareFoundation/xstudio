@@ -175,7 +175,7 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
                 for (const auto &entry : fs::recursive_directory_iterator(path)) {
                     try {
                         if (fs::is_regular_file(entry.status())) {
-                            // check we've not alredy got it in cache..
+                        // check we've not alredy got it in cache..
 #ifdef _WIN32
                             const auto puri = posix_path_to_uri(entry.path().string());
 #else
@@ -198,7 +198,7 @@ ScanHelperActor::ScanHelperActor(caf::actor_config &cfg) : caf::event_based_acto
 #else
                                     auto checksum = get_checksum(entry.path());
 #endif
-                                    cache_[puri]  = std::make_pair(checksum, size);
+                                    cache_[puri] = std::make_pair(checksum, size);
                                     if (checksum == pin.first)
                                         return puri;
                                 }

@@ -411,7 +411,8 @@ void OCIOColourPipeline::setup_ui() {
 
     // Source colour space mode
 
-    adjust_source_ = add_boolean_attribute(ui_text_.SOURCE_CS_MODE, ui_text_.SOURCE_CS_MODE_SHORT, true);
+    adjust_source_ =
+        add_boolean_attribute(ui_text_.SOURCE_CS_MODE, ui_text_.SOURCE_CS_MODE_SHORT, true);
 
     adjust_source_->set_redraw_viewport_on_change(true);
     adjust_source_->set_role_data(
@@ -607,12 +608,13 @@ OCIOColourPipeline::parse_all_colourspaces(OCIO::ConstConfigRcPtr ocio_config) c
     return colourspaces;
 }
 
-void OCIOColourPipeline::update_cs_from_view(const MediaParams &media_param, const std::string &view) {
+void OCIOColourPipeline::update_cs_from_view(
+    const MediaParams &media_param, const std::string &view) {
 
     const auto new_cs = input_space_for_view(media_param, view_->value());
 
     if (!new_cs.empty() && new_cs != source_colour_space_->value()) {
-        MediaParams update_media_param = media_param;
+        MediaParams update_media_param   = media_param;
         update_media_param.user_input_cs = new_cs;
         set_media_params(update_media_param);
 

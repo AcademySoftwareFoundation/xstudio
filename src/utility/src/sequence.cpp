@@ -110,7 +110,8 @@ Sequence::Sequence(const Entry &entry)
       ctim_(entry.stat_.st_ctim.tv_sec),
 #endif
       name_(entry.name_),
-      frames_() {}
+      frames_() {
+}
 Sequence::Sequence(const std::string name) : name_(std::move(name)), frames_() {}
 
 std::string make_frame_sequence(

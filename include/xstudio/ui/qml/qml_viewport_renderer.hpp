@@ -79,7 +79,7 @@ namespace ui {
             [[nodiscard]] QString name() const {
                 return QStringFromStd(viewport_renderer_->name());
             }
-            
+
             void linkToViewport(QMLViewportRenderer *other_viewport);
 
             void renderImageToFile(

@@ -333,8 +333,8 @@ class DNegMediaHook : public MediaHook {
                 r["active_views"] = active_views;
             }
             const auto views = utility::split(active_views, ':');
-            const bool has_untonemapped_view = std::find(
-                views.begin(), views.end(), "Un-tone-mapped") != views.end();
+            const bool has_untonemapped_view =
+                std::find(views.begin(), views.end(), "Un-tone-mapped") != views.end();
 
 
             // Input media category detection
@@ -474,7 +474,7 @@ class DNegMediaHook : public MediaHook {
             r["viewing_rules"] = true;
 
         } else {
-            r["ocio_config"] = "__raw__";
+            r["ocio_config"]   = "__raw__";
             r["working_space"] = "raw";
         }
 

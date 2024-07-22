@@ -40,24 +40,21 @@ namespace audio {
         [[nodiscard]] SampleFormat sample_format() const override { return sample_format_; }
 
       private:
-        long sample_rate_ = {48000};
-        int num_channels_ = {2};
-        long buffer_size_ = {2048};
+        long sample_rate_           = {48000};
+        int num_channels_           = {2};
+        long buffer_size_           = {2048};
         SampleFormat sample_format_ = {SampleFormat::INT16};
         CComPtr<IAudioClient3> audio_client_;
         CComPtr<IAudioRenderClient> render_client_;
         CComPtr<IAudioClockAdjustment> render_clock_adjustment_;
-        
+
         const utility::JsonStore config_;
         const utility::JsonStore prefs_;
 
         void initialize_sound_card();
 
         HRESULT initializeAudioClient(
-        const std::string &sound_card = "",
-        long sample_rate               = 48000,
-        int num_channels               = 2);
-
+            const std::string &sound_card = "", long sample_rate = 48000, int num_channels = 2);
     };
 } // namespace audio
 } // namespace xstudio

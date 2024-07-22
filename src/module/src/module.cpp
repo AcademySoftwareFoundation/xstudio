@@ -146,10 +146,9 @@ void Module::link_to_module(
     }
 }
 
-void Module::unlink_module(caf::actor other_module)
-{
+void Module::unlink_module(caf::actor other_module) {
     auto addr = caf::actor_cast<caf::actor_addr>(other_module);
-    auto p = std::find(fully_linked_modules_.begin(), fully_linked_modules_.end(), addr);
+    auto p    = std::find(fully_linked_modules_.begin(), fully_linked_modules_.end(), addr);
     bool found_link = false;
     if (p != fully_linked_modules_.end()) {
         fully_linked_modules_.erase(p);
@@ -162,8 +161,7 @@ void Module::unlink_module(caf::actor other_module)
     }
 
     if (found_link) {
-        anon_send(
-                other_module, module::link_module_atom_v, self(), false);
+        anon_send(other_module, module::link_module_atom_v, self(), false);
     }
 }
 
@@ -305,13 +303,10 @@ bool Module::remove_attribute(const utility::Uuid &attribute_uuid) {
     } else {
         throw std::runtime_error(
             fmt::format(
-                "{}: No attribute with id {}",
-                __PRETTY_FUNCTION__,
-                to_string(attribute_uuid)).c_str()
-                );
+                "{}: No attribute with id {}", __PRETTY_FUNCTION__, to_string(attribute_uuid))
+                .c_str());
     }
     return true;
-
 }
 
 utility::JsonStore Module::serialise() const {
@@ -636,17 +631,14 @@ caf::message_handler Module::message_handler() {
              }
          },
 
-         [=](remove_attribute_atom,
-            const utility::Uuid & uuid) -> result<bool> {
-
-            try {
-                remove_attribute(uuid);
-            } catch (std::exception &e) {
-                return caf::make_error(xstudio_error::error, e.what());
-            }
-            return true;
-
-        },
+         [=](remove_attribute_atom, const utility::Uuid &uuid) -> result<bool> {
+             try {
+                 remove_attribute(uuid);
+             } catch (std::exception &e) {
+                 return caf::make_error(xstudio_error::error, e.what());
+             }
+             return true;
+         },
 
 
          [=](attribute_uuids_atom) -> std::vector<xstudio::utility::Uuid> {
@@ -693,12 +685,10 @@ caf::message_handler Module::message_handler() {
              link_to_module(linkwith, all_attrs, both_ways, intial_push_sync);
          },
 
-         [=](link_module_atom,
-             caf::actor linkwith,
-             bool unlink) {
-            if (unlink) {
-                unlink_module(linkwith);
-            }
+         [=](link_module_atom, caf::actor linkwith, bool unlink) {
+             if (unlink) {
+                 unlink_module(linkwith);
+             }
          },
 
          [=](connect_to_ui_atom) { connect_to_ui(); },
@@ -922,30 +912,24 @@ void Module::notify_change(
     }
 
     if (role == Attribute::PreferencePath) {
-        
-        // looks like the preference path is being set on the attribute. Note 
+
+        // looks like the preference path is being set on the attribute. Note
         // we might get here before ser_parent_actor_addr' has been called so
         // we don't have 'self()' which is why I use the ActorSystemSingleton
         // to get to the caf system to get a GlobalStoreHelper
         auto prefs = global_store::GlobalStoreHelper(
-            xstudio::utility::ActorSystemSingleton::actor_system_ref()
-            );
+            xstudio::utility::ActorSystemSingleton::actor_system_ref());
 
         std::string pref_path;
         try {
 
-            pref_path =  attr->get_role_data<std::string>(Attribute::PreferencePath);
+            pref_path = attr->get_role_data<std::string>(Attribute::PreferencePath);
             attr->set_role_data(
                 Attribute::Value,
                 prefs.get_existing_or_create_new_preference(
-                    pref_path,
-                    attr->role_data_as_json(Attribute::Value),
-                    true,
-                    false
-                    )
-                );
+                    pref_path, attr->role_data_as_json(Attribute::Value), true, false));
 
-        } catch (std::exception & e) {
+        } catch (std::exception &e) {
 
             spdlog::warn("{} : {} {}", name(), __PRETTY_FUNCTION__, e.what());
         }

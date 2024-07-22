@@ -94,10 +94,10 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
         },
 
         [=](get_media_hook_atom, caf::actor media_source) -> result<bool> {
-        auto rp = make_response_promise<bool>();
+            auto rp = make_response_promise<bool>();
 
-            if (hooks.empty()){
-            rp.deliver(true);
+            if (hooks.empty()) {
+                rp.deliver(true);
                 return rp;
             }
 

@@ -1578,7 +1578,7 @@ void ShotgunClientActor::init() {
 
             return rp;
         }
-        
+
         //,
         // TODO: Ahead Fix
         // [=](shotgun_image_atom,
@@ -1603,7 +1603,8 @@ void ShotgunClientActor::init() {
         //                 if (thumbgen) {
         //                     std::vector<std::byte> bytedata(data.size());
         //                     std::memcpy(bytedata.data(), data.data(), data.size());
-        //                     //rp.delegate(thumbgen, media_reader::get_thumbnail_atom_v, bytedata);
+        //                     //rp.delegate(thumbgen, media_reader::get_thumbnail_atom_v,
+        //                     bytedata);
         //                 } else {
         //                     rp.deliver(make_error(
         //                         sce::response_error, "Thumbnail manager not available"));
@@ -1613,7 +1614,7 @@ void ShotgunClientActor::init() {
 
         //     return rp;
         // }
-        );
+    );
 }
 
 void ShotgunClientActor::acquire_token(

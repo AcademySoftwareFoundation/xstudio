@@ -133,13 +133,13 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     link_to(thumbnail);
     link_to(ui_models);
 
-    
+
     // Make default audio output
 #ifdef __linux__
     auto audio_out = spawn<audio::AudioOutputActor<audio::LinuxAudioOutputDevice>>();
     link_to(audio_out);
 #elif __APPLE__
-        // TO DO
+    // TO DO
 #elif _WIN32
     auto audio_out = spawn<audio::AudioOutputActor<audio::WindowsAudioOutputDevice>>();
     link_to(audio_out);

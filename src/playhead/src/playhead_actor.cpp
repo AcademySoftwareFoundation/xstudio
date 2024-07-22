@@ -1350,7 +1350,7 @@ void PlayheadActor::switch_key_playhead(int idx) {
             // pass the uuid of the new key playhead to the broadcast group
             const Uuid uuid    = request_receive<Uuid>(*sys, key_playhead_, uuid_atom_v);
             key_playhead_uuid_ = uuid;
-            
+
             // if 'switch_key_playhead' is called rapidly, the broadcast made below
             // can reach the receiver out of order, so we need to give it a timestamp
             // so they can know if they have got an out-of-order notification and ignore it

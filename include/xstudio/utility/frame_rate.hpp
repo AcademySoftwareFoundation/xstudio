@@ -39,7 +39,7 @@ namespace utility {
         [[nodiscard]] timebase::flicks to_flicks() const { return *this; }
 
         FrameRate &operator=(const FrameRate &) = default;
-        FrameRate &operator=(FrameRate &&) = default;
+        FrameRate &operator=(FrameRate &&)      = default;
 
         // Rational& operator+= (const Rational& other);
         // Rational& operator-= (const Rational& other);

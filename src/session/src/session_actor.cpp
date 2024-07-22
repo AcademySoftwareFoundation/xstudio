@@ -335,7 +335,8 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
             fs::path p(uri_to_posix_path(i));
             if (fs::is_directory(p)) {
 #ifdef _WIN32
-                request(session_, infinite, add_playlist_atom_v, std::string(p.filename().string()))
+                request(
+                    session_, infinite, add_playlist_atom_v, std::string(p.filename().string()))
 #else
                 request(session_, infinite, add_playlist_atom_v, std::string(p.filename()))
 #endif

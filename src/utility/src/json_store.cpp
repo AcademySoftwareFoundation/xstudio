@@ -11,9 +11,7 @@ JsonStore::JsonStore(nlohmann::json json) : nlohmann::json(std::move(json)) {}
 
 // JsonStore::JsonStore(const JsonStore &other) : json_(other) {}
 
-nlohmann::json JsonStore::get(const std::string &path) const {
-    return at(json_pointer(path));
-}
+nlohmann::json JsonStore::get(const std::string &path) const { return at(json_pointer(path)); }
 
 void JsonStore::set(const nlohmann::json &json, const std::string &path) {
     (*this)[json_pointer(path)] = json;

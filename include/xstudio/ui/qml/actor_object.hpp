@@ -54,9 +54,10 @@ class actor_object : public Base {
         }
     };
 
-  //TODO: Ahead This is a bad hack for windows to make it compile currently, possible solution is to pass
-  // JsonTreeModel as a reference or a pointer.	
-  template <
+    // TODO: Ahead This is a bad hack for windows to make it compile currently, possible
+    // solution is to pass
+    //  JsonTreeModel as a reference or a pointer.
+    template <
         typename... Ts,
         std::enable_if_t<(std::is_move_constructible_v<Ts> && ...), int> = 0>
     actor_object(Ts &&...xs) : Base(std::forward<Ts>(xs)...) {

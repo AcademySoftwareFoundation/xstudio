@@ -13,7 +13,7 @@ namespace ui {
         class OpenGLOffscreenRenderer {
           public:
             explicit OpenGLOffscreenRenderer(GLint color_format);
-            OpenGLOffscreenRenderer(const OpenGLOffscreenRenderer &) = delete;
+            OpenGLOffscreenRenderer(const OpenGLOffscreenRenderer &)            = delete;
             OpenGLOffscreenRenderer &operator=(const OpenGLOffscreenRenderer &) = delete;
             ~OpenGLOffscreenRenderer();
 

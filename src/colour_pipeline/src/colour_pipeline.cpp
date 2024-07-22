@@ -65,9 +65,9 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         if (worker) {
             link_to_module(
                 worker,
-                true,   // link_all_attrs
-                false,  // both_ways
-                true    // initial_push_sync
+                true,  // link_all_attrs
+                false, // both_ways
+                true   // initial_push_sync
             );
             workers_.push_back(worker);
         }

@@ -201,7 +201,7 @@ bool GlobalStoreModel::updateProperty(
 
 // convert to internal representation.
 nlohmann::json GlobalStoreModel::storeToTree(const nlohmann::json &src) {
-    
+
     auto result = R"([])"_json;
     for (const auto &[k, v] : src.items()) {
         if (v.count("datatype")) {

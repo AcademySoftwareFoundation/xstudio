@@ -81,7 +81,6 @@ namespace ui {
             std::vector<xstudio::ui::qt::OffscreenViewport *> offscreen_viewports_;
             std::vector<caf::actor> video_output_plugins_;
             xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
-
         };
     } // namespace qml
 } // namespace ui

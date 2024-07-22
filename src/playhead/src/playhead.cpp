@@ -160,7 +160,6 @@ void PlayheadBase::add_attributes() {
         add_integer_attribute("Audio Delay Millisecs", "Audio Delay Millisecs", 0, -1000, 1000);
     audio_delay_millisecs_->set_role_data(
         module::Attribute::PreferencePath, "/core/audio/audio_latency_millisecs");
-
 }
 
 

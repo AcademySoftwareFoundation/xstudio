@@ -458,7 +458,7 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
     if (!playhead_)
         return timebase::flicks(0);
 
-    const timebase::flicks video_refresh_period     = compute_video_refresh();
+    const timebase::flicks video_refresh_period = compute_video_refresh();
 
     const utility::time_point next_video_refresh_tp = next_video_refresh(video_refresh_period);
 
@@ -502,7 +502,7 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
             timebase::to_seconds(video_refresh_period);
 
         if (phase < 0.1 || phase > 0.9) {
-            
+
             playhead_vid_sync_phase_adjust_ = timebase::flicks(
                 video_refresh_period.count() / 2 -
                 estimate_playhead_position_at_next_redraw.count() +
@@ -524,7 +524,6 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
                 const double phase =
                     timebase::to_seconds(phase_adjusted_tp - rounded_phase_adjusted_tp) /
                     timebase::to_seconds(video_refresh_period);
-
             }
         }
         return rounded_phase_adjusted_tp;
@@ -551,9 +550,9 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
 
     } else if (video_refresh_data_.refresh_history_.size() > 64) {
 
-        // refresh_history_ is a list of recent timepoints (system steady clock) when we were 
-        // told (utlimately by Qt or graphics driver) that the video frame buffer was swapped. 
-        // We're using this data to predict when the video buffer will be swapped to the 
+        // refresh_history_ is a list of recent timepoints (system steady clock) when we were
+        // told (utlimately by Qt or graphics driver) that the video frame buffer was swapped.
+        // We're using this data to predict when the video buffer will be swapped to the
         // screen NEXT time and therefore pick the correct frame to go up on the screen.
         //
         // We might know the video refresh exactly, or we might have been lied to, but either
@@ -566,15 +565,15 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
         // average cadence of video refresh...
         const double expected_video_refresh_period = average_video_refresh_period();
 
-        // Here we are essentially fitting a straight line to the video refresh event 
+        // Here we are essentially fitting a straight line to the video refresh event
         // timepoints - we use the line to predict when the next video refresh is
         // going to happen.
-        auto now = utility::clock::now();
-        double next_refresh = 0.0;
+        auto now                   = utility::clock::now();
+        double next_refresh        = 0.0;
         double refresh_event_index = 1.0;
-        double estimate_count = 0.0;
-        auto p = video_refresh_data_.refresh_history_.rbegin();
-        auto p2 = p;
+        double estimate_count      = 0.0;
+        auto p                     = video_refresh_data_.refresh_history_.rbegin();
+        auto p2                    = p;
         p2++;
         while (p2 != video_refresh_data_.refresh_history_.rend()) {
 
@@ -585,9 +584,12 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
             // a redraw doesn't happen within the video refresh period. We need to take
             // account of that when using the timepoints of video refreshes to predict
             // the next refresh
-            double n_refreshes_between_events = round(timebase::to_seconds(delta)/expected_video_refresh_period);
+            double n_refreshes_between_events =
+                round(timebase::to_seconds(delta) / expected_video_refresh_period);
 
-            auto estimate_refresh = timebase::to_seconds(std::chrono::duration_cast<timebase::flicks>(*p-now)) + refresh_event_index*expected_video_refresh_period;
+            auto estimate_refresh =
+                timebase::to_seconds(std::chrono::duration_cast<timebase::flicks>(*p - now)) +
+                refresh_event_index * expected_video_refresh_period;
             next_refresh += estimate_refresh;
             estimate_count++;
             p++;
@@ -595,8 +597,9 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
             refresh_event_index += n_refreshes_between_events;
         }
 
-        next_refresh *= 1.0/estimate_count;
-        auto offset = std::chrono::duration_cast<std::chrono::microseconds>(timebase::to_flicks(next_refresh));
+        next_refresh *= 1.0 / estimate_count;
+        auto offset = std::chrono::duration_cast<std::chrono::microseconds>(
+            timebase::to_flicks(next_refresh));
         auto result = now + offset;
         return result;
 
@@ -633,7 +636,8 @@ timebase::flicks ViewportFrameQueueActor::compute_video_refresh() const {
         // Here we try to match out measurement with commong video refresh rates:
 
         // Assume 24fps is the minimum refresh we'll ever encounter
-        const int hertz_refresh = std::max(24, int(round(1.0/average_video_refresh_period())));
+        const int hertz_refresh =
+            std::max(24, int(round(1.0 / average_video_refresh_period())));
 
         static const std::vector<int> common_refresh_rates(
             {24, 25, 30, 48, 60, 75, 90, 120, 144, 240, 360});
@@ -671,6 +675,5 @@ double ViewportFrameQueueActor::average_video_refresh_period() const {
         t += *(r++);
     }
 
-    return timebase::to_seconds(t)/(double(deltas.size() - 16));
-
+    return timebase::to_seconds(t) / (double(deltas.size() - 16));
 }

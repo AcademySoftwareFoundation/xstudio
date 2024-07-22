@@ -55,7 +55,7 @@ namespace plugin {
             const Imath::M44f &transform_viewport_to_image_space,
             const float viewport_du_dpixel,
             const xstudio::media_reader::ImageBufPtr &frame,
-            const bool have_alpha_buffer){};
+            const bool have_alpha_buffer) {};
 
         [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
     };

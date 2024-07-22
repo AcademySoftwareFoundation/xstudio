@@ -124,7 +124,8 @@ void UIModelData::init(caf::actor_system &system) {
                                 emit dataChanged(
                                     idx,
                                     idx,
-                                    QVector<int>({static_cast<int>(Roles::LASTROLE + static_cast<int>(i))}));
+                                    QVector<int>({static_cast<int>(
+                                        Roles::LASTROLE + static_cast<int>(i))}));
 
                                 break;
                             }
@@ -185,7 +186,7 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
                         .constData());
             } else if (std::string(value.typeName()) == "QString") {
                 std::string value_string = StdFromQString(value.toString());
-                j = nlohmann::json::parse(value_string);
+                j                        = nlohmann::json::parse(value_string);
             } else {
                 j = nlohmann::json::parse(QJsonDocument::fromVariant(value)
                                               .toJson(QJsonDocument::Compact)
@@ -656,8 +657,8 @@ void MenuModelItem::insertIntoMenuModel() {
                     global_ui_model_data_registry);
 
             utility::JsonStore menu_item_data;
-            std::string  name_string = StdFromQString(text_);
-            menu_item_data["name"] = name_string;
+            std::string name_string = StdFromQString(text_);
+            menu_item_data["name"]  = name_string;
             if (!hotkey_.isEmpty()) {
                 std::string hotkey_string = StdFromQString(hotkey_);
                 menu_item_data["hotkey"]  = hotkey_string;

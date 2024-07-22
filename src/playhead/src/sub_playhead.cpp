@@ -421,24 +421,23 @@ void SubPlayhead::init() {
         },
 
         [=](media_source_atom) -> result<caf::actor> {
-
             // MediaSourceActor at current playhead position
 
             auto rp = make_response_promise<caf::actor>();
             // we have to have run the 'source_atom' handler first (to have
             // built full_timeline_frames_) before we can fetch the media on
             // the current frame
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v).then(
-                [=](caf::actor) mutable {
-
-                    auto frame = full_timeline_frames_.lower_bound(position_flicks_);
-                    caf::actor result;
-                    if (frame != full_timeline_frames_.end() && frame->second) {
-                        result = caf::actor_cast<caf::actor>(frame->second->actor_addr_);
-                    }
-                    rp.deliver(result);
-                },
-                [=](const error &err) mutable { rp.deliver(err); });            
+            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+                .then(
+                    [=](caf::actor) mutable {
+                        auto frame = full_timeline_frames_.lower_bound(position_flicks_);
+                        caf::actor result;
+                        if (frame != full_timeline_frames_.end() && frame->second) {
+                            result = caf::actor_cast<caf::actor>(frame->second->actor_addr_);
+                        }
+                        rp.deliver(result);
+                    },
+                    [=](const error &err) mutable { rp.deliver(err); });
             return rp;
         },
 
@@ -479,23 +478,24 @@ void SubPlayhead::init() {
         },
 
         [=](media_atom) -> result<caf::actor> {
-
             // MediaActor at current playhead position
 
             auto rp = make_response_promise<caf::actor>();
-            request(caf::actor_cast<caf::actor>(this), infinite, media_source_atom_v).then(
-                [=](caf::actor media_source) mutable {
-                    if (!media_source)
-                        rp.deliver(caf::actor());
-                    else {
-                        request(media_source, infinite, utility::parent_atom_v)
-                            .then(
-                                [=](caf::actor media_actor) mutable { rp.deliver(media_actor); },
-                                [=](const error &err) mutable { rp.deliver(err); });
-                    }
-
-                },
-                [=](const error &err) mutable { rp.deliver(err); });            
+            request(caf::actor_cast<caf::actor>(this), infinite, media_source_atom_v)
+                .then(
+                    [=](caf::actor media_source) mutable {
+                        if (!media_source)
+                            rp.deliver(caf::actor());
+                        else {
+                            request(media_source, infinite, utility::parent_atom_v)
+                                .then(
+                                    [=](caf::actor media_actor) mutable {
+                                        rp.deliver(media_actor);
+                                    },
+                                    [=](const error &err) mutable { rp.deliver(err); });
+                        }
+                    },
+                    [=](const error &err) mutable { rp.deliver(err); });
             return rp;
         },
 

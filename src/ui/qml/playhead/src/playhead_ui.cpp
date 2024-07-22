@@ -97,7 +97,7 @@ void PlayheadUI::set_backend(caf::actor backend) {
             loop_start_ =
                 request_receive<int>(*sys, backend_, playhead::simple_loop_start_atom_v);
             loop_end_ = request_receive<int>(*sys, backend_, playhead::simple_loop_end_atom_v);
-            frames_   = request_receive<size_t>(*sys, backend_, playhead::duration_frames_atom_v);
+            frames_ = request_receive<size_t>(*sys, backend_, playhead::duration_frames_atom_v);
             use_loop_range_ =
                 request_receive<bool>(*sys, backend_, playhead::use_loop_range_atom_v);
             key_playhead_index_ =

@@ -204,11 +204,7 @@ BookmarkModel::getJSONFuture(const QModelIndex &index, const QString &path) cons
                 scoped_actor sys{system()};
                 auto addr   = UuidFromQUuid(index.data(uuidRole).toUuid());
                 auto result = request_receive<JsonStore>(
-                    *sys,
-                    bookmark_actor_,
-                    json_store::get_json_atom_v,
-                    addr,
-                    path_string);
+                    *sys, bookmark_actor_, json_store::get_json_atom_v, addr, path_string);
 
                 return QStringFromStd(result.dump());
 

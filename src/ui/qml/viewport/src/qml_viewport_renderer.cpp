@@ -74,8 +74,8 @@ void QMLViewportRenderer::paint() {
     }
 }
 
-void QMLViewportRenderer::frameSwapped() { 
-    viewport_renderer_->framebuffer_swapped(utility::clock::now()); 
+void QMLViewportRenderer::frameSwapped() {
+    viewport_renderer_->framebuffer_swapped(utility::clock::now());
 }
 
 void QMLViewportRenderer::setWindow(QQuickWindow *window) { m_window = window; }
@@ -396,10 +396,7 @@ void QMLViewportRenderer::renderImageToFile(
 
             std::cerr << "A\n";
             utility::request_receive<bool>(
-                *sys,
-                offscreen_viewport,
-                viewport::viewport_playhead_atom_v,
-                playhead);
+                *sys, offscreen_viewport, viewport::viewport_playhead_atom_v, playhead);
             std::cerr << "B\n";
 
             utility::request_receive<bool>(
@@ -414,7 +411,7 @@ void QMLViewportRenderer::renderImageToFile(
         } else {
             emit snapshotRequestResult(QString("Offscreen viewport renderer was not found."));
         }
-    } catch (std::exception & e) {
+    } catch (std::exception &e) {
         emit snapshotRequestResult(QString(e.what()));
     }
 }

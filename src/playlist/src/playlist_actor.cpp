@@ -368,7 +368,7 @@ void PlaylistActor::init() {
             std::string ext =
                 ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
 #else
-	    std::string ext =
+            std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
 #endif
             const auto source_uuid = Uuid::generate();
@@ -431,7 +431,7 @@ void PlaylistActor::init() {
             std::string ext =
                 ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
 #else
-	    std::string ext =
+            std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
 #endif
             const auto source_uuid = Uuid::generate();
@@ -623,9 +623,9 @@ void PlaylistActor::init() {
             // duration and frame rate must be known up-front
 
             std::vector<UuidActor> media_actors = ma;
-            auto source_count = std::make_shared<int>();
-            (*source_count)   = media_actors.size();
-            auto rp           = make_response_promise<bool>();
+            auto source_count                   = std::make_shared<int>();
+            (*source_count)                     = media_actors.size();
+            auto rp                             = make_response_promise<bool>();
 
             // add to lis first, then lazy update..
 
@@ -1938,7 +1938,8 @@ void PlaylistActor::add_media(
                     open_media_reader(ua.actor());
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, to_string(err), to_string(ua.actor()));
+                spdlog::warn(
+                    "{} {} {}", __PRETTY_FUNCTION__, to_string(err), to_string(ua.actor()));
                 send_content_changed_event();
                 base_.send_changed(event_group_, this);
                 rp.deliver(ua);

@@ -97,7 +97,8 @@ namespace ui {
 
             void push_to_prefs(const std::string &model_name, const bool actually_push = false);
 
-            void remove_attribute_from_model(const std::string &model_name, const utility::Uuid &attr_uuid);
+            void remove_attribute_from_model(
+                const std::string &model_name, const utility::Uuid &attr_uuid);
 
             void node_activated(const std::string &model_name, const std::string &path);
 

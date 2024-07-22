@@ -63,9 +63,11 @@ namespace media_reader {
             error_state_   = HAS_ERROR;
         }
 
-       struct BufferData {
+        struct BufferData {
             struct BufferDeleter {
-                void operator()(byte *ptr) const { operator delete[](ptr, std::align_val_t(1024)); }
+                void operator()(byte *ptr) const {
+                    operator delete[](ptr, std::align_val_t(1024));
+                }
             };
 
             BufferData(byte *d) : data_(d, BufferDeleter()) {}

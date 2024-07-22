@@ -123,8 +123,7 @@ namespace module {
             const bool both_ways,
             const bool initial_push_sync);
 
-        void unlink_module(
-            caf::actor other_module);
+        void unlink_module(caf::actor other_module);
 
         /* If this Module instance is linked to another Module instance, only
         attributes that have been registered with this function will be synced

@@ -25,7 +25,9 @@ using namespace xstudio::ffprobe;
 
 namespace {
 
-const auto av_time_base_q = av_get_time_base_q(); // READ https://libav-devel.libav.narkive.com/ZQCWfTun/patch-0-2-fix-avutil-h-usage-from-c
+const auto av_time_base_q =
+    av_get_time_base_q(); // READ
+                          // https://libav-devel.libav.narkive.com/ZQCWfTun/patch-0-2-fix-avutil-h-usage-from-c
 
 int check_stream_specifier(AVFormatContext *avfs, AVStream *avs, const char *spec) {
     auto result = avformat_match_stream_specifier(avfs, avs, spec);

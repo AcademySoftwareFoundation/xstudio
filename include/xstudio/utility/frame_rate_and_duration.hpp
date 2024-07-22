@@ -27,7 +27,7 @@ namespace utility {
         // const int den) : rate_(num, den), count_(timebase_ * frames) {}
 
         FrameRateDuration &operator=(const FrameRateDuration &) = default;
-        FrameRateDuration &operator=(FrameRateDuration &&) = default;
+        FrameRateDuration &operator=(FrameRateDuration &&)      = default;
 
         FrameRateDuration operator-(const FrameRateDuration &);
 

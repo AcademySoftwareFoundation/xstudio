@@ -131,7 +131,7 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
     try {
 
-       v.resize(num_samps_to_push * num_channels);
+        v.resize(num_samps_to_push * num_channels);
 
         memset(v.data(), 0, v.size() * sizeof(int16_t));
 
@@ -173,14 +173,16 @@ void AudioOutputControl::prepare_samples_for_soundcard(
                         current_buf_, next_buf, previous_buf_);
 
                 } else {
-                    //spdlog::warn("Break hit because current_buf_ is null after trying to pick "
-                    //             "an audio buffer.");
+                    // spdlog::warn("Break hit because current_buf_ is null after trying to pick
+                    // "
+                    //              "an audio buffer.");
                     fade_in_out_ = DoFadeHeadAndTail;
                     break;
                 }
 
             } else if (!current_buf_ && sample_data_.empty()) {
-                //spdlog::warn("Break hit because both current_buf_ and sample_data_ are empty.");
+                // spdlog::warn("Break hit because both current_buf_ and sample_data_ are
+                // empty.");
                 break;
             }
 
@@ -195,11 +197,11 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
             if (current_buf_pos_ == (long)current_buf_->num_samples()) {
                 // current buf is exhausted
-                //spdlog::info("Current buffer is exhausted.");
+                // spdlog::info("Current buffer is exhausted.");
                 previous_buf_ = current_buf_;
                 current_buf_.reset();
             } else {
-                //spdlog::warn("Break hit due to unspecified condition.");
+                // spdlog::warn("Break hit due to unspecified condition.");
                 break;
             }
         }
@@ -230,32 +232,30 @@ void AudioOutputControl::queue_samples_for_playing(
     }
 
     playback_velocity_ = audio_repitch_ ? std::max(0.1f, velocity) : 1.0f;
-    
+
     /*
-    // Earlier attempt at resampling in queue; needs a more reliable sample rate info and needs sample rate from output device.
-    if (audio_frames.size()) {
-        auto audio_sample_rate = audio_frames.front()->sample_rate();
-        if (audio_sample_rate == 0) {
-            audio_sample_rate = audio_frames.back()->sample_rate();
+    // Earlier attempt at resampling in queue; needs a more reliable sample rate info and needs
+    sample rate from output device. if (audio_frames.size()) { auto audio_sample_rate =
+    audio_frames.front()->sample_rate(); if (audio_sample_rate == 0) { audio_sample_rate =
+    audio_frames.back()->sample_rate();
         }
 
         if (audio_sample_rate == 0) {
             // If we can't get the sample rate from anything, use the last best guess.
-            // This seems to happen 
+            // This seems to happen
             audio_sample_rate = last_sample_rate_;
         } else {
             last_sample_rate_ = audio_sample_rate;
         }
 
-        // If our audio card does not match the source rate, we need to respeed/repitch the samples.
-        if (audio_sample_rate and audio_sample_rate != 96000L) {
-            double sample_respeed = (double)audio_sample_rate / 96000.0;
-            playback_velocity_ *= sample_respeed;
-            audio_repitch_ = true;
+        // If our audio card does not match the source rate, we need to respeed/repitch the
+    samples. if (audio_sample_rate and audio_sample_rate != 96000L) { double sample_respeed =
+    (double)audio_sample_rate / 96000.0; playback_velocity_ *= sample_respeed; audio_repitch_ =
+    true;
         }
     }
     */
-    
+
 
     for (const auto &a : audio_frames) {
 
@@ -267,16 +267,17 @@ void AudioOutputControl::queue_samples_for_playing(
         if (!audio_frame ||
             (previous_buf_ && previous_buf_->media_key() == audio_frame->media_key()) ||
             (current_buf_ && current_buf_->media_key() == audio_frame->media_key()) ||
-            !audio_frame->num_samples())
-        {   
+            !audio_frame->num_samples()) {
 
-            //spdlog::info("Audio frame skipped due to either being null, matching "
-            //              "previous/current buffer or having no samples.");
+            // spdlog::info("Audio frame skipped due to either being null, matching "
+            //               "previous/current buffer or having no samples.");
             continue;
-         }
-        
-        //spdlog::info("Processing audio frame with media key: {}, num samples: {}, sample rate: {}, num channels: {}",
-        //         audio_frame->media_key(), audio_frame->num_samples(), audio_frame->sample_rate(), audio_frame->num_channels());
+        }
+
+        // spdlog::info("Processing audio frame with media key: {}, num samples: {}, sample
+        // rate: {}, num channels: {}",
+        //          audio_frame->media_key(), audio_frame->num_samples(),
+        //          audio_frame->sample_rate(), audio_frame->num_channels());
 
         // xstudio stores a frame of audio samples for every video frame for any
         // given source (if the source has no video it is assigned a 'virtual' video
@@ -292,14 +293,14 @@ void AudioOutputControl::queue_samples_for_playing(
         if (false) {
             for (auto p = sample_data_.begin(); p != sample_data_.end(); ++p) {
                 if (p->second->media_key() == audio_frame->media_key()) {
-                    //spdlog::info("Found and erasing existing audio sample from queue with the "
-                    //             "same media key.");
+                    // spdlog::info("Found and erasing existing audio sample from queue with the
+                    // "
+                    //              "same media key.");
                     sample_data_.erase(p);
                     break;
                 }
             }
         }
-
 
 
         if (audio_repitch_ && playback_velocity_ != 1.0f) {

@@ -83,7 +83,6 @@ void ShotgunMediaWorker::add_media_step_3(
     request(media, infinite, media::add_media_source_atom_v, srcs)
         .then(
             [=](const bool) mutable {
-
                 rp.deliver(true);
                 // push metadata to media actor.
                 anon_send(

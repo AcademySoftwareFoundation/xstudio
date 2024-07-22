@@ -521,23 +521,23 @@ std::string OCIOColourPipeline::input_space_for_view(
 
     std::string new_colourspace;
 
-    auto colourspace_or = [media_param](const std::string &cs, const std::string &fallback){
+    auto colourspace_or = [media_param](const std::string &cs, const std::string &fallback) {
         const bool has_cs = bool(media_param.ocio_config->getColorSpace(cs.c_str()));
         return has_cs ? cs : fallback;
     };
 
     if (media_param.metadata.contains("input_category")) {
         const auto is_untonemapped = view == "Un-tone-mapped";
-        const auto category = media_param.metadata["input_category"];
+        const auto category        = media_param.metadata["input_category"];
         if (category == "internal_movie") {
-            new_colourspace = is_untonemapped ?
-                "disp_Rec709-G24" : colourspace_or("DNEG_Rec709", "Film_Rec709");
+            new_colourspace = is_untonemapped ? "disp_Rec709-G24"
+                                              : colourspace_or("DNEG_Rec709", "Film_Rec709");
         } else if (category == "edit_ref" or category == "movie_media") {
-            new_colourspace = is_untonemapped ?
-                "disp_Rec709-G24" : colourspace_or("Client_Rec709", "Film_Rec709");
+            new_colourspace = is_untonemapped ? "disp_Rec709-G24"
+                                              : colourspace_or("Client_Rec709", "Film_Rec709");
         } else if (category == "still_media") {
-            new_colourspace = is_untonemapped ?
-                "disp_sRGB" : colourspace_or("DNEG_sRGB", "Film_sRGB");
+            new_colourspace =
+                is_untonemapped ? "disp_sRGB" : colourspace_or("DNEG_sRGB", "Film_sRGB");
         }
 
         // Double check the new colourspace actually exists
@@ -1041,8 +1041,8 @@ void OCIOColourPipeline::setup_textures(
                                                                 : LUTDescriptor::NEAREST;
         auto xs_lut      = std::make_shared<ColourLUT>(
             height > 1
-                     ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
-                     : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
+                ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
+                : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
             samplerName);
 
         const int channels = channel == OCIO::GpuShaderCreator::TEXTURE_RED_CHANNEL ? 1 : 3;

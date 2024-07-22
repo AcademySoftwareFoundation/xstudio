@@ -121,7 +121,6 @@ void StudioUI::init(actor_system &system_) {
                 // create a new offscreen viewport and return the actor handle
                 offscreen_viewports_.push_back(new xstudio::ui::qt::OffscreenViewport(name));
                 return offscreen_viewports_.back()->as_actor();
-                    
             },
 
             [=](ui::offscreen_viewport_atom, const std::string name, caf::actor requester) {
@@ -134,15 +133,12 @@ void StudioUI::init(actor_system &system_) {
                     requester,
                     ui::offscreen_viewport_atom_v,
                     offscreen_viewports_.back()->as_actor());
-                    
             },
-            [=](std::string) { 
-
-                loadVideoOutputPlugins(); 
-                
+            [=](std::string) {
+                loadVideoOutputPlugins();
             }
-            
-            };
+
+        };
     });
 
     // here we tell the studio that we're up and running so it can send us
@@ -155,15 +151,13 @@ void StudioUI::init(actor_system &system_) {
     // create the offscreen viewport used for rendering snapshots
     snapshot_offscreen_viewport_ = new xstudio::ui::qt::OffscreenViewport("snapshot_viewport");
     system().registry().template put<caf::actor>(
-        offscreen_viewport_registry,
-        snapshot_offscreen_viewport_->as_actor()
-        );
+        offscreen_viewport_registry, snapshot_offscreen_viewport_->as_actor());
 
     // we need to delay loading video output plugins by a couple of seconds
     // to make sure the UI is up and running before we create offscreen viewports
     // etc. that the video output plugin probably wants
-    delayed_anon_send(as_actor(), std::chrono::seconds(5), std::string("load video output plugins"));
-
+    delayed_anon_send(
+        as_actor(), std::chrono::seconds(5), std::string("load video output plugins"));
 }
 
 void StudioUI::setSessionActorAddr(const QString &addr) {
@@ -361,7 +355,7 @@ void StudioUI::loadVideoOutputPlugins() {
 
         for (const auto &i : details) {
             try {
-                
+
                 auto video_output_plugin = request_receive<caf::actor>(
                     *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
                 video_output_plugins_.push_back(video_output_plugin);

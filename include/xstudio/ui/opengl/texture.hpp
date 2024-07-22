@@ -10,7 +10,7 @@
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-//#define USE_SSBO
+// #define USE_SSBO
 
 namespace xstudio {
 namespace ui {

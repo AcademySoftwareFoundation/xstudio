@@ -26,7 +26,7 @@ using namespace nlohmann;
 using namespace caf;
 using namespace pybind11::literals;
 
-namespace py   = pybind11;
+namespace py = pybind11;
 
 #ifdef BUILD_OTIO
 namespace otio = opentimelineio::OPENTIMELINEIO_VERSION;

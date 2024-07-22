@@ -335,7 +335,7 @@ void OpenGLViewportRenderer::render(
         }
 
         // coordinate system set-up
-        utility::JsonStore shader_params = shader_uniforms_;
+        utility::JsonStore shader_params        = shader_uniforms_;
         shader_params["to_coord_system"]        = transform_viewport_to_image_space;
         shader_params["to_canvas"]              = to_scene_matrix;
         shader_params["use_bilinear_filtering"] = use_bilinear_filtering;

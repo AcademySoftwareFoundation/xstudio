@@ -75,16 +75,14 @@ class AudioOutputControl {
         const float volume,
         const bool muted,
         const bool audio_repitch,
-        const bool audio_scrubbing) 
-    {
-      volume_ = volume;
-      muted_ = muted;
-      audio_repitch_ = audio_repitch;
-      audio_scrubbing_ = audio_scrubbing;
+        const bool audio_scrubbing) {
+        volume_          = volume;
+        muted_           = muted;
+        audio_repitch_   = audio_repitch;
+        audio_scrubbing_ = audio_scrubbing;
     }
 
   private:
-
     media_reader::AudioBufPtr
     pick_audio_buffer(const utility::clock::time_point &tp, const bool drop_old_buffers);
 
@@ -101,10 +99,9 @@ class AudioOutputControl {
 
     int fade_in_out_ = {NoFade};
 
-    bool audio_repitch_ = {false};
+    bool audio_repitch_   = {false};
     bool audio_scrubbing_ = {false};
-    float volume_ = {100.0f};
-    bool muted_ = {false};
-
+    float volume_         = {100.0f};
+    bool muted_           = {false};
 };
 } // namespace xstudio::audio

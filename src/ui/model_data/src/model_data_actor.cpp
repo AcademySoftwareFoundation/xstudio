@@ -214,9 +214,8 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
 
         [=](remove_rows_atom,
             const std::string &model_name,
-            const utility::Uuid &attribute_uuid) 
-        { 
-            remove_attribute_from_model(model_name, attribute_uuid); 
+            const utility::Uuid &attribute_uuid) {
+            remove_attribute_from_model(model_name, attribute_uuid);
         },
 
         [=](remove_rows_atom,
@@ -351,7 +350,7 @@ void GlobalUIModelData::set_data(
             broadcast_whole_model_data(model_name);
         }
 
-    } catch ([[maybe_unused]]std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
         // spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, e.what());
     }
 }
@@ -445,7 +444,7 @@ void GlobalUIModelData::insert_attribute_data_into_model(
     caf::actor client) {
 
     const utility::JsonStore attribute_data = attr_data;
-    auto p = models_.find(model_name);
+    auto p                                  = models_.find(model_name);
     if (p != models_.end()) {
 
         // model with this name already exists. Simply add client and send the
@@ -693,8 +692,8 @@ void GlobalUIModelData::remove_rows(
     }
 }
 
-void GlobalUIModelData::remove_attribute_from_model(const std::string &model_name, const utility::Uuid &attr_uuid)
-{
+void GlobalUIModelData::remove_attribute_from_model(
+    const std::string &model_name, const utility::Uuid &attr_uuid) {
     try {
 
         check_model_is_registered(model_name);
@@ -707,7 +706,6 @@ void GlobalUIModelData::remove_attribute_from_model(const std::string &model_nam
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-
 }
 
 void GlobalUIModelData::push_to_prefs(const std::string &model_name, const bool actually_push) {

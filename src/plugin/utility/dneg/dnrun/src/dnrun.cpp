@@ -402,7 +402,7 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                     quickview = jsn.at("args").at("quickview") == "true";
                                 }
                             }
-                            
+
                             bool ab_compare = jsn.at("args").contains("compare") &&
                                               jsn.at("args").at("compare") == "ab";
 

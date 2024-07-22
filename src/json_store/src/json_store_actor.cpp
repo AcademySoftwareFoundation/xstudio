@@ -53,7 +53,7 @@ JsonStoreActor::JsonStoreActor(
 
         [=](erase_json_atom, const std::string &path) -> bool {
             std::string p = path;
-            auto result = json_store_.remove(path);
+            auto result   = json_store_.remove(path);
             if (result)
                 broadcast_change();
             return result;
@@ -61,7 +61,7 @@ JsonStoreActor::JsonStoreActor(
 
         [=](patch_atom, const JsonStore &json) -> bool {
             const JsonStore j = json;
-            json_store_ = json_store_.patch(j);
+            json_store_       = json_store_.patch(j);
             broadcast_change();
             return true;
         },
@@ -91,7 +91,7 @@ JsonStoreActor::JsonStoreActor(
         [=](set_json_atom, const JsonStore &json, const std::string &path, const bool async)
             -> bool {
             // is it a subset
-            std::string p = path;
+            std::string p     = path;
             const JsonStore j = json;
             try {
                 json_store_.set(j, p);
@@ -124,12 +124,11 @@ JsonStoreActor::JsonStoreActor(
 
         [=](subscribe_atom, const std::string &path, caf::actor _actor) -> caf::result<bool> {
             // delegate to reader, return promise ?
-            std::string p     = path;
-            auto rp = make_response_promise<bool>();
+            std::string p = path;
+            auto rp       = make_response_promise<bool>();
             this->request(_actor, caf::infinite, utility::get_group_atom_v)
                 .then(
-                    [&, p, _actor, rp](
-                        const std::pair<caf::actor, JsonStore> &data) mutable {
+                    [&, p, _actor, rp](const std::pair<caf::actor, JsonStore> &data) mutable {
                         const auto [grp, json]                       = data;
                         actor_group_[actor_cast<actor_addr>(_actor)] = grp;
                         group_path_[grp]                             = p;
@@ -191,7 +190,7 @@ caf::message_handler JsonStoreActor::default_event_handler() {
 
 void JsonStoreActor::broadcast_change(
     const JsonStore &change, const std::string &path, const bool async) {
-    std::string p     = path;
+    std::string p = path;
     if (broadcast_delay_.count() and async) {
         if (not update_pending_) {
             delayed_anon_send(this, broadcast_delay_, jsonstore_change_atom_v);

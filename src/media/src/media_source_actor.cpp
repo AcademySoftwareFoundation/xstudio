@@ -439,15 +439,17 @@ void MediaSourceActor::init() {
 
         [=](current_media_stream_atom, const MediaType media_type) -> result<UuidActor> {
             auto rp = make_response_promise<UuidActor>();
-            request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v).then(
-                [=](bool) mutable {
-                    if (media_streams_.count(base_.current(media_type)))
-                        rp.deliver(UuidActor(
-                            base_.current(media_type), media_streams_.at(base_.current(media_type))));
-                    rp.deliver(make_error(xstudio_error::error, "No streams"));
-                },
-                [=](const error &err) mutable { rp.deliver(err); });
-            return rp;            
+            request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v)
+                .then(
+                    [=](bool) mutable {
+                        if (media_streams_.count(base_.current(media_type)))
+                            rp.deliver(UuidActor(
+                                base_.current(media_type),
+                                media_streams_.at(base_.current(media_type))));
+                        rp.deliver(make_error(xstudio_error::error, "No streams"));
+                    },
+                    [=](const error &err) mutable { rp.deliver(err); });
+            return rp;
         },
 
         [=](current_media_stream_atom, const MediaType media_type, const Uuid &uuid) -> bool {
@@ -518,27 +520,26 @@ void MediaSourceActor::init() {
         [=](get_edit_list_atom,
             const MediaType media_type,
             const Uuid &uuid) -> result<utility::EditList> {
-
             auto rp = make_response_promise<utility::EditList>();
-            request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v).then(
-                [=](bool) mutable {
-                    if (base_.current(media_type).is_null()) {
-                        rp.deliver(make_error(xstudio_error::error, "No streams"));
-                    }
+            request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v)
+                .then(
+                    [=](bool) mutable {
+                        if (base_.current(media_type).is_null()) {
+                            rp.deliver(make_error(xstudio_error::error, "No streams"));
+                        }
 
-                    if (uuid.is_null())
-                        rp.deliver(utility::EditList({EditListSection(
-                            base_.uuid(),
+                        if (uuid.is_null())
+                            rp.deliver(utility::EditList({EditListSection(
+                                base_.uuid(),
+                                base_.media_reference(base_.current(media_type)).duration(),
+                                base_.media_reference(base_.current(media_type)).timecode())}));
+                        return rp.deliver(utility::EditList({EditListSection(
+                            uuid,
                             base_.media_reference(base_.current(media_type)).duration(),
                             base_.media_reference(base_.current(media_type)).timecode())}));
-                    return rp.deliver(utility::EditList({EditListSection(
-                        uuid,
-                        base_.media_reference(base_.current(media_type)).duration(),
-                        base_.media_reference(base_.current(media_type)).timecode())}));
-                },
-                [=](const error &err) mutable { rp.deliver(err); });
-            return rp;            
-            
+                    },
+                    [=](const error &err) mutable { rp.deliver(err); });
+            return rp;
         },
 
         [=](get_media_pointer_atom,

@@ -331,8 +331,8 @@ void MediaActor::init() {
             const utility::FrameRate &rate) -> result<UuidActor> {
             auto rp = make_response_promise<UuidActor>();
 
-            std::string ext = ltrim_char(
-                to_upper(get_path_extension(fs::path(uri_to_posix_path(uri)))), '.');
+            std::string ext =
+                ltrim_char(to_upper(get_path_extension(fs::path(uri_to_posix_path(uri)))), '.');
             const auto source_uuid = Uuid::generate();
 
             auto source =
@@ -1467,7 +1467,7 @@ void MediaActor::auto_set_current_source(const media::MediaType media_type) {
 
     // TODO: do these requests asynchronously, as it could be heavy and slow
     // loading of big playlists etc
-    
+
     std::set<utility::Uuid> sources_matching_media_type;
     caf::scoped_actor sys(system());
 
@@ -1477,16 +1477,13 @@ void MediaActor::auto_set_current_source(const media::MediaType media_type) {
 
         try {
             auto stream_details = request_receive<std::vector<ContainerDetail>>(
-                *sys,
-                source_actor,
-                detail_atom_v,
-                media_type);
+                *sys, source_actor, detail_atom_v, media_type);
 
             if (stream_details.size())
                 sources_matching_media_type.insert(source_uuid);
-        } catch (...) {}
+        } catch (...) {
+        }
     }
 
     auto_set_sources_mt(sources_matching_media_type);
-
 }

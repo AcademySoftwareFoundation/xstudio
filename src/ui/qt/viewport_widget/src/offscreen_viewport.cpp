@@ -30,54 +30,50 @@ using namespace xstudio::ui::viewport;
 namespace fs = std::filesystem;
 
 namespace {
-    static void threaded_memcpy(void * _dst, void * _src, size_t n, int n_threads) {
+static void threaded_memcpy(void *_dst, void *_src, size_t n, int n_threads) {
 
-        std::vector<std::thread> memcpy_threads;
-        size_t step = ((n / n_threads) / 4096) * 4096;
+    std::vector<std::thread> memcpy_threads;
+    size_t step = ((n / n_threads) / 4096) * 4096;
 
-        uint8_t *dst = (uint8_t *)_dst; 
-        uint8_t *src = (uint8_t *)_src;
+    uint8_t *dst = (uint8_t *)_dst;
+    uint8_t *src = (uint8_t *)_src;
 
-        for (int i = 0; i < n_threads; ++i) {
-            memcpy_threads.emplace_back(memcpy, dst, src, std::min(n, step));
-            dst += step;
-            src += step;
-            n -= step;
-        }
-
-        // ensure any threads still running to copy data to this texture are done
-        for (auto &t : memcpy_threads) {
-            if (t.joinable())
-                t.join();
-        }
-
+    for (int i = 0; i < n_threads; ++i) {
+        memcpy_threads.emplace_back(memcpy, dst, src, std::min(n, step));
+        dst += step;
+        src += step;
+        n -= step;
     }
 
-    static std::map<viewport::ImageFormat, GLint> format_to_gl_tex_format = {
-        {viewport::ImageFormat::RGBA_8, GL_RGBA8},
-        {viewport::ImageFormat::RGBA_10_10_10_2, GL_RGBA8},
-        {viewport::ImageFormat::RGBA_16, GL_RGBA16},
-        {viewport::ImageFormat::RGBA_16F, GL_RGBA16F},
-        {viewport::ImageFormat::RGBA_32F, GL_RGBA32F}
-    };
-
-    static std::map<viewport::ImageFormat, GLint> format_to_gl_pixe_type = {
-        {viewport::ImageFormat::RGBA_8, GL_UNSIGNED_BYTE},
-        {viewport::ImageFormat::RGBA_10_10_10_2,  GL_UNSIGNED_BYTE},
-        {viewport::ImageFormat::RGBA_16, GL_UNSIGNED_SHORT},
-        {viewport::ImageFormat::RGBA_16F, GL_HALF_FLOAT},
-        {viewport::ImageFormat::RGBA_32F, GL_FLOAT}
-    };
-
-    static std::map<viewport::ImageFormat, GLint> format_to_bytes_per_pixel = {
-        {viewport::ImageFormat::RGBA_8, 4},
-        {viewport::ImageFormat::RGBA_10_10_10_2,  4},
-        {viewport::ImageFormat::RGBA_16, 8},
-        {viewport::ImageFormat::RGBA_16F, 8},
-        {viewport::ImageFormat::RGBA_32F, 16}
-    };
-
+    // ensure any threads still running to copy data to this texture are done
+    for (auto &t : memcpy_threads) {
+        if (t.joinable())
+            t.join();
+    }
 }
+
+static std::map<viewport::ImageFormat, GLint> format_to_gl_tex_format = {
+    {viewport::ImageFormat::RGBA_8, GL_RGBA8},
+    {viewport::ImageFormat::RGBA_10_10_10_2, GL_RGBA8},
+    {viewport::ImageFormat::RGBA_16, GL_RGBA16},
+    {viewport::ImageFormat::RGBA_16F, GL_RGBA16F},
+    {viewport::ImageFormat::RGBA_32F, GL_RGBA32F}};
+
+static std::map<viewport::ImageFormat, GLint> format_to_gl_pixe_type = {
+    {viewport::ImageFormat::RGBA_8, GL_UNSIGNED_BYTE},
+    {viewport::ImageFormat::RGBA_10_10_10_2, GL_UNSIGNED_BYTE},
+    {viewport::ImageFormat::RGBA_16, GL_UNSIGNED_SHORT},
+    {viewport::ImageFormat::RGBA_16F, GL_HALF_FLOAT},
+    {viewport::ImageFormat::RGBA_32F, GL_FLOAT}};
+
+static std::map<viewport::ImageFormat, GLint> format_to_bytes_per_pixel = {
+    {viewport::ImageFormat::RGBA_8, 4},
+    {viewport::ImageFormat::RGBA_10_10_10_2, 4},
+    {viewport::ImageFormat::RGBA_16, 8},
+    {viewport::ImageFormat::RGBA_16F, 8},
+    {viewport::ImageFormat::RGBA_32F, 16}};
+
+} // namespace
 
 OffscreenViewport::OffscreenViewport(const std::string name) : super() {
 
@@ -108,7 +104,7 @@ OffscreenViewport::OffscreenViewport(const std::string name) : super() {
     auto callback = [this](auto &&PH1) {
         receive_change_notification(std::forward<decltype(PH1)>(PH1));
     };
-    //viewport_renderer_->set_change_callback(callback);
+    // viewport_renderer_->set_change_callback(callback);
 
     self()->set_down_handler([=](down_msg &msg) {
         if (msg.source == video_output_actor_) {
@@ -173,35 +169,31 @@ OffscreenViewport::OffscreenViewport(const std::string name) : super() {
                 }
                 return r;
             },
-            
+
             [=](video_output_actor_atom,
                 caf::actor video_output_actor,
                 int outputWidth,
                 int outputHeight,
                 viewport::ImageFormat format) {
-                
                 video_output_actor_ = video_output_actor;
-                vid_out_width_ = outputWidth;
-                vid_out_height_ = outputHeight;
-                vid_out_format_ = format;
-
+                vid_out_width_      = outputWidth;
+                vid_out_height_     = outputHeight;
+                vid_out_format_     = format;
             },
 
-            [=](video_output_actor_atom,
-                caf::actor video_output_actor) {                
+            [=](video_output_actor_atom, caf::actor video_output_actor) {
                 video_output_actor_ = video_output_actor;
             },
 
-            [=](render_viewport_to_image_atom) {                
+            [=](render_viewport_to_image_atom) {
                 // force a redraw
                 receive_change_notification(Viewport::ChangeCallbackId::Redraw);
             }
-                        
-            });
+
+        });
     });
 
     initGL();
-
 }
 
 OffscreenViewport::~OffscreenViewport() {
@@ -216,15 +208,10 @@ OffscreenViewport::~OffscreenViewport() {
     delete surface_;
 
     video_output_actor_ = caf::actor();
-
 }
 
 
-void OffscreenViewport::autoDelete() {
-
-    delete this;
-
-}
+void OffscreenViewport::autoDelete() { delete this; }
 
 
 void OffscreenViewport::initGL() {
@@ -266,8 +253,8 @@ void OffscreenViewport::initGL() {
         moveToThread(thread_);
         thread_->start();
 
-        // Note - the only way I seem to be able to 'cleanly' exit is 
-        // delete ourselves when the thread quits. Not 100% sure if this 
+        // Note - the only way I seem to be able to 'cleanly' exit is
+        // delete ourselves when the thread quits. Not 100% sure if this
         // is correct approach. I'm still cratching my head as to how
         // to destroy thread_ ... calling deleteLater() directly or
         // using finished signal has no effect.
@@ -408,9 +395,10 @@ void OffscreenViewport::exportToCompressedFormat(
     }
 }
 
-void OffscreenViewport::setupTextureAndFrameBuffer(const int width, const int height, const viewport::ImageFormat format) {
+void OffscreenViewport::setupTextureAndFrameBuffer(
+    const int width, const int height, const viewport::ImageFormat format) {
 
-    if (tex_width_ == width && tex_height_ == height && format == vid_out_format_  ) {
+    if (tex_width_ == width && tex_height_ == height && format == vid_out_format_) {
         // bind framebuffer
         glBindFramebuffer(GL_FRAMEBUFFER, fboId_);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId_, 0);
@@ -425,8 +413,8 @@ void OffscreenViewport::setupTextureAndFrameBuffer(const int width, const int he
         glDeleteTextures(1, &depth_texId_);
     }
 
-    tex_width_  = width;
-    tex_height_ = height;
+    tex_width_      = width;
+    tex_height_     = height;
     vid_out_format_ = format;
 
     utility::JsonStore j;
@@ -448,9 +436,11 @@ void OffscreenViewport::setupTextureAndFrameBuffer(const int width, const int he
         nullptr);
 
     GLint iTexFormat;
-    glGetTexLevelParameteriv ( GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &iTexFormat);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &iTexFormat);
     if (iTexFormat != format_to_gl_tex_format[vid_out_format_]) {
-        spdlog::warn("{} offscreen viewport texture internal format is {:#x}, which does not match desired format {:#x}",
+        spdlog::warn(
+            "{} offscreen viewport texture internal format is {:#x}, which does not match "
+            "desired format {:#x}",
             __PRETTY_FUNCTION__,
             iTexFormat,
             format_to_gl_tex_format[vid_out_format_]);
@@ -500,8 +490,10 @@ void OffscreenViewport::setupTextureAndFrameBuffer(const int width, const int he
 }
 
 void OffscreenViewport::renderToImageBuffer(
-    const int w, const int h, media_reader::ImageBufPtr &image, const viewport::ImageFormat format)
-{
+    const int w,
+    const int h,
+    media_reader::ImageBufPtr &image,
+    const viewport::ImageFormat format) {
     auto t0 = utility::clock::now();
 
     // ensure our GLContext is current
@@ -519,8 +511,8 @@ void OffscreenViewport::renderToImageBuffer(
     auto t1 = utility::clock::now();
 
     // Clearup before render, probably useless for a new buffer
-    //glClearColor(0.0, 1.0, 0.0, 0.0);
-    //glClear(GL_COLOR_BUFFER_BIT);
+    // glClearColor(0.0, 1.0, 0.0, 0.0);
+    // glClear(GL_COLOR_BUFFER_BIT);
 
     glViewport(0, 0, w, h);
 
@@ -537,21 +529,21 @@ void OffscreenViewport::renderToImageBuffer(
     viewport_renderer_->render();
 
     // Not sure if this is necessary
-    //glFinish();
+    // glFinish();
 
     auto t2 = utility::clock::now();
 
     // unbind
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    size_t pix_buf_size = w*h*format_to_bytes_per_pixel[vid_out_format_];
+    size_t pix_buf_size = w * h * format_to_bytes_per_pixel[vid_out_format_];
 
     // init RGBA float array
     image->allocate(pix_buf_size);
     image->set_image_dimensions(Imath::V2i(w, h));
-    image.when_to_display_ = utility::clock::now();
+    image.when_to_display_          = utility::clock::now();
     image->params()["pixel_format"] = (int)format;
-    
+
     if (!pixel_buffer_object_) {
         glGenBuffers(1, &pixel_buffer_object_);
     }
@@ -571,47 +563,36 @@ void OffscreenViewport::renderToImageBuffer(
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
     auto t3 = utility::clock::now();
-        
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    glGetTexImage(GL_TEXTURE_2D,
-            0,
-            GL_RGBA,
-            format_to_gl_pixe_type[vid_out_format_],
-            nullptr);
-    
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, format_to_gl_pixe_type[vid_out_format_], nullptr);
+
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pixel_buffer_object_);
-    void* mappedBuffer = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    void *mappedBuffer = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 
     auto t4 = utility::clock::now();
-    
-    threaded_memcpy(
-        image->buffer(),
-        mappedBuffer,
-        pix_buf_size,
-        8
-        );
+
+    threaded_memcpy(image->buffer(), mappedBuffer, pix_buf_size, 8);
 
 
-    //now mapped buffer contains the pixel data
+    // now mapped buffer contains the pixel data
     glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     auto t5 = utility::clock::now();
 
     auto tt = utility::clock::now();
-    /*std::cerr << "glBindBuffer " 
-        << std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count() << " " 
-        << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " 
+    /*std::cerr << "glBindBuffer "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count() << " "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
         << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << " "
         << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << " "
         << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count() << " : "
         << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t0).count() << "\n";*/
-
 }
 
 
-void OffscreenViewport::receive_change_notification(
-    Viewport::ChangeCallbackId id) {
+void OffscreenViewport::receive_change_notification(Viewport::ChangeCallbackId id) {
 
     if (id == Viewport::ChangeCallbackId::Redraw) {
 

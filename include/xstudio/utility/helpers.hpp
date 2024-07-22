@@ -90,7 +90,8 @@ namespace utility {
 
     namespace fs = std::filesystem;
 
-    // Centralizing the Path to String conversions in case we run into encoding problems down the line.
+    // Centralizing the Path to String conversions in case we run into encoding problems down
+    // the line.
     inline std::string path_to_string(fs::path path) {
 #ifdef _WIN32
         return path.string();
@@ -270,7 +271,7 @@ namespace utility {
         auto root = get_env("XSTUDIO_ROOT");
 
         std::string fallback_root;
-        #ifdef _WIN32
+#ifdef _WIN32
         char filename[MAX_PATH];
         DWORD nSize  = _countof(filename);
         DWORD result = GetModuleFileNameA(NULL, filename, nSize);
@@ -280,73 +281,72 @@ namespace utility {
         } else {
             auto exePath = fs::path(filename);
 
-            // The first parent path gets us to the bin directory, the second gets us to the level above bin.
+            // The first parent path gets us to the bin directory, the second gets us to the
+            // level above bin.
             auto xstudio_root = exePath.parent_path().parent_path();
             fallback_root     = xstudio_root.string();
         }
-        #else
-        //TODO: This could inspect the current running process and look one directory up.
-        fallback_root   = std::string(BINARY_DIR);
-        #endif
+#else
+        // TODO: This could inspect the current running process and look one directory up.
+        fallback_root = std::string(BINARY_DIR);
+#endif
 
 
-        std::string path =
-            (root ? (*root) + append_path : fallback_root + append_path);
+        std::string path = (root ? (*root) + append_path : fallback_root + append_path);
 
         return path;
     }
 
-inline std::string remote_session_path() {
-    const char* root;
+    inline std::string remote_session_path() {
+        const char *root;
 #ifdef _WIN32
-    root = std::getenv("USERPROFILE");
+        root = std::getenv("USERPROFILE");
 #else
-    root = std::getenv("HOME");
+        root = std::getenv("HOME");
 #endif
-    std::filesystem::path path;
-    if (root)
-    {
-        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "sessions";
-    }
-
-    return path.string();
-}
-
-inline std::string preference_path(const std::string &append_path = "") {
-    const char *root;
-#ifdef _WIN32
-    root = std::getenv("USERPROFILE");
-#else
-    root          = std::getenv("HOME");
-#endif
-    std::filesystem::path path;
-    if (root) {
-        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "preferences";
-        if (!append_path.empty()) {
-            path /= append_path;
+        std::filesystem::path path;
+        if (root) {
+            path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "sessions";
         }
+
+        return path.string();
     }
 
-    return path.string();
-}
-
-inline std::string snippets_path(const std::string &append_path = "") {
-    const char *root;
+    inline std::string preference_path(const std::string &append_path = "") {
+        const char *root;
 #ifdef _WIN32
-    root = std::getenv("USERPROFILE");
+        root = std::getenv("USERPROFILE");
 #else
-    root          = std::getenv("HOME");
+        root = std::getenv("HOME");
 #endif
-    std::filesystem::path path;
-    if (root) {
-        path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "snippets";
-        if (!append_path.empty()) {
-            path /= append_path;
+        std::filesystem::path path;
+        if (root) {
+            path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "preferences";
+            if (!append_path.empty()) {
+                path /= append_path;
+            }
         }
+
+        return path.string();
     }
 
-    return path.string();
-}
+    inline std::string snippets_path(const std::string &append_path = "") {
+        const char *root;
+#ifdef _WIN32
+        root = std::getenv("USERPROFILE");
+#else
+        root = std::getenv("HOME");
+#endif
+        std::filesystem::path path;
+        if (root) {
+            path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "snippets";
+            if (!append_path.empty()) {
+                path /= append_path;
+            }
+        }
+
+        return path.string();
+    }
 
     inline std::string preference_path_context(const std::string &context) {
         return preference_path(to_lower(context) + ".json");
@@ -377,8 +377,7 @@ inline std::string snippets_path(const std::string &append_path = "") {
         return get_file_mtime(uri_to_posix_path(path));
     }
 
-    inline std::string get_path_extension(const fs::path p)
-    {
+    inline std::string get_path_extension(const fs::path p) {
         const std::string sp = p.string();
 #ifdef _WIN32
         std::string sanitized;

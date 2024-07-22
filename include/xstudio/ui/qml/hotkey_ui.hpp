@@ -24,7 +24,8 @@ namespace utility {
 namespace ui {
     namespace qml {
 
-        class VIEWPORT_QML_EXPORT HotkeysUI : public caf::mixin::actor_object<QAbstractListModel> {
+        class VIEWPORT_QML_EXPORT HotkeysUI
+            : public caf::mixin::actor_object<QAbstractListModel> {
 
             Q_OBJECT
 

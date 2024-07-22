@@ -54,7 +54,8 @@ size_t PluginManager::load_plugins() {
             // read dir content..
             for (const auto &entry : fs::directory_iterator(path)) {
                 if (not fs::is_regular_file(entry.status()) or
-                    not(entry.path().extension() == ".so" || entry.path().extension() == ".dll"))
+                    not(entry.path().extension() == ".so" ||
+                        entry.path().extension() == ".dll"))
                     continue;
 
 #ifdef __linux__

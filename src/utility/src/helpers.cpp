@@ -16,8 +16,8 @@
 
 #include <fmt/format.h>
 
-//#include <reproc++/drain.hpp>
-//#include <reproc++/reproc.hpp>
+// #include <reproc++/drain.hpp>
+// #include <reproc++/reproc.hpp>
 
 #include "xstudio/utility/frame_list.hpp"
 #include "xstudio/utility/sequence.hpp"
@@ -458,7 +458,7 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 #ifdef _WIN32
             p = (fs::path(*pwd) / path).lexically_normal().string();
         else
-	    p = (std::filesystem::current_path() / path).lexically_normal().string();
+            p = (std::filesystem::current_path() / path).lexically_normal().string();
 #else
             p = fs::path(fs::path(*pwd) / path).lexically_normal();
         else
