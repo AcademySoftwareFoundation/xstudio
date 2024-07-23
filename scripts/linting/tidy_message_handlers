@@ -152,7 +152,7 @@ def parse_behaviour_assign(original_code, position, reordered_code):
 
 
         if not lambda_returns_something and lambda_contents.find("response_promise") != -1:
-            print ("\n\ndodgy mothafucka {0}\n\n".format(lambda_contents));
+            print ("\n\nResponse promise used in lambda not returning a value:\n {0}\n\n".format(lambda_contents));
 
         if lambda_contents.count("\n") > 8:
             num_overlength_lambdas += 1

@@ -10,6 +10,7 @@
 #include "xstudio/utility/frame_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
+#include "xstudio/global_store/global_store.hpp"
 
 using namespace caf;
 using namespace xstudio::studio;
@@ -56,6 +57,8 @@ void StudioActor::init() {
 
         [=](session::session_atom) -> caf::actor { return session_; },
 
+        [=](bookmark::get_bookmark_atom atom) { delegate(session_, atom); },
+
         [=](session::session_atom, caf::actor session) -> bool {
             unlink_from(session_);
             send_exit(session_, caf::exit_reason::user_shutdown);
@@ -72,6 +75,28 @@ void StudioActor::init() {
             send(
                 event_group_, utility::event_atom_v, session::session_request_atom_v, path, js);
             return true;
+        },
+
+        [=](ui::show_message_box_atom,
+            const std::string &message_title,
+            const std::string &message_body,
+            const bool close_button,
+            const int timeout_seconds) {
+            caf::actor studio_ui_actor =
+                system().registry().template get<caf::actor>(studio_ui_registry);
+
+            // Request (from somewhere) to open light viewers for list of media items.
+            // Forward to UI via event group so UI can handle it.
+            if (studio_ui_actor) {
+                anon_send(
+                    studio_ui_actor,
+                    utility::event_atom_v,
+                    ui::show_message_box_atom_v,
+                    message_title,
+                    message_body,
+                    close_button,
+                    timeout_seconds);
+            }
         },
 
         // [&](session::create_player_atom atom, const std::string &name) {// delegate(session_,
@@ -96,6 +121,61 @@ void StudioActor::init() {
             jsn["base"]    = base_.serialise();
             jsn["session"] = nullptr;
             return result<JsonStore>(jsn);
+        },
+        [=](ui::open_quickview_window_atom atom,
+            const utility::UuidActorVector &media_items,
+            std::string compare_mode) {
+            delegate(actor_cast<caf::actor>(this), atom, media_items, compare_mode, false);
+        },
+        [=](ui::open_quickview_window_atom,
+            const utility::UuidActorVector &media_items,
+            std::string compare_mode,
+            bool force) {
+            bool do_quickview = force;
+            if (!do_quickview) {
+                try {
+                    auto prefs = global_store::GlobalStoreHelper(system());
+                    do_quickview =
+                        prefs.value<bool>("/core/session/quickview_all_incoming_media");
+                } catch (...) {
+                }
+            }
+
+            if (do_quickview) {
+
+                caf::actor studio_ui_actor =
+                    system().registry().template get<caf::actor>(studio_ui_registry);
+
+                if (studio_ui_actor) {
+                    // forward to StudioUI instance
+                    anon_send(
+                        studio_ui_actor,
+                        utility::event_atom_v,
+                        ui::open_quickview_window_atom_v,
+                        media_items,
+                        compare_mode);
+                } else {
+                    // UI hasn't started up yet, store the request
+                    QuickviewRequest request;
+                    request.media_actors = media_items;
+                    request.compare_mode = compare_mode;
+                    quickview_requests_.push_back(request);
+                }
+            }
+        },
+        [=](ui::open_quickview_window_atom, caf::actor studio_ui_actor) {
+            // the StudioUI instance has started up and pinged us with itself
+            // so we can send it any pending requests for quickviewers
+
+            for (const auto &r : quickview_requests_) {
+                anon_send(
+                    studio_ui_actor,
+                    utility::event_atom_v,
+                    ui::open_quickview_window_atom_v,
+                    r.media_actors,
+                    r.compare_mode);
+            }
+            quickview_requests_.clear();
         });
 }
 

@@ -32,6 +32,10 @@ PlayheadUI::PlayheadUI(QObject *parent)
 // helper ?
 
 void PlayheadUI::set_backend(caf::actor backend) {
+
+    if (backend_ == backend)
+        return;
+
     scoped_actor sys{system()};
 
     bool had_backend = bool(backend_);
@@ -54,6 +58,7 @@ void PlayheadUI::set_backend(caf::actor backend) {
         self()->demonitor(backend_events_);
         backend_events_ = caf::actor();
     }
+
 
     if (!backend_) {
         looping_              = playhead::LoopMode::LM_LOOP;
@@ -92,7 +97,7 @@ void PlayheadUI::set_backend(caf::actor backend) {
             loop_start_ =
                 request_receive<int>(*sys, backend_, playhead::simple_loop_start_atom_v);
             loop_end_ = request_receive<int>(*sys, backend_, playhead::simple_loop_end_atom_v);
-            frames_   = request_receive<int>(*sys, backend_, playhead::duration_frames_atom_v);
+            frames_ = request_receive<size_t>(*sys, backend_, playhead::duration_frames_atom_v);
             use_loop_range_ =
                 request_receive<bool>(*sys, backend_, playhead::use_loop_range_atom_v);
             key_playhead_index_ =
@@ -176,7 +181,6 @@ void PlayheadUI::init(actor_system &system_) {
     // 	if(msg.source == store)
     // 		unsubscribe();
     // });
-    scoped_actor sys{system()};
 
     // media_uuid_ = QUuid();
     // emit mediaUuidChanged(media_uuid_);
@@ -228,7 +232,7 @@ void PlayheadUI::init(actor_system &system_) {
                 emit bookmarkedFramesChanged();
             },
 
-            [=](utility::event_atom, playhead::duration_frames_atom, const int frames) {
+            [=](utility::event_atom, playhead::duration_frames_atom, const size_t frames) {
                 // something changed in the playhead...
                 // use this for media changes, which impact timeline
                 if (frames_ != frames) {
@@ -437,7 +441,7 @@ void PlayheadUI::media_changed() {
             media_uuid_ = tmp;
             emit mediaUuidChanged(media_uuid_);
         }
-    } catch (const std::exception &e) {
+    } catch ([[maybe_unused]] const std::exception &e) {
         if (media_uuid_ != QUuid()) {
             media_uuid_ = QUuid();
             emit mediaUuidChanged(media_uuid_);

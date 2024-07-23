@@ -278,6 +278,7 @@ void OpenGLTextRendererSDF::render_text(
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     glBindTexture(GL_TEXTURE_RECTANGLE, texture_);
+
     // update content of vbo_ memory
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
@@ -473,8 +474,6 @@ void OpenGLTextRendererVector::render_text(
         glUniform1f(location2, y);
 
         {
-
-
             for (const auto &shape_details : character.negative_shapes_) {
 
                 uint8_t *v = nullptr;
@@ -503,9 +502,8 @@ void OpenGLTextRendererVector::render_text(
 
         glUniform1f(location, x);
         glUniform1f(location2, y);
+
         {
-
-
             for (const auto &shape_details : character.positive_shapes_) {
 
                 uint8_t *v = nullptr;

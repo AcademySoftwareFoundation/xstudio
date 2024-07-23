@@ -102,25 +102,6 @@ ApplicationWindow {
         }
     }
 
-    function fitWindowToImage() {
-
-        if (visibility === Window.FullScreen) return
-
-        // get the bdb of the image (in viewport pixel coordinates)
-        // and adjust position and size of window so it hugs the
-        // image
-        var img_dbd = viewport.imageCoordsOnScreen()
-        y = y+img_dbd.y
-        height = height-(viewport.height-img_dbd.height)
-        x = x+img_dbd.x
-        width = width-(viewport.width-img_dbd.width)
-        if (viewport.fitMode === "Off") {
-            viewport.scale = 1.0
-            viewport.translate = Qt.vector2d(0.0,0.0)
-        }
-
-    }
-
     XsPopoutViewerWidget {
         anchors.fill: parent
         id: sessionWidget
@@ -128,7 +109,7 @@ ApplicationWindow {
         window_name: "second_window" // this is important for picking up window settings for the 2nd window
         is_main_window: false
         focus: true
-        Keys.forwardTo: viewport
+        //
     }
     property alias sessionWidget: sessionWidget
     property var viewport: sessionWidget.viewport

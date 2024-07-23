@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/embedded_python_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -86,7 +90,7 @@ namespace ui {
             QList<QObject *> snippets_;
         };
 
-        class EmbeddedPythonUI : public QMLActor {
+        class EMBEDDED_PYTHON_QML_EXPORT EmbeddedPythonUI : public QMLActor {
 
             Q_OBJECT
             Q_PROPERTY(bool waiting READ waiting NOTIFY waitingChanged)

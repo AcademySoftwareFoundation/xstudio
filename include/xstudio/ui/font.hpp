@@ -294,9 +294,14 @@ namespace ui {
 
         ~SDFBitmapFont() = default;
 
+        static std::map<std::string, std::shared_ptr<SDFBitmapFont>> available_fonts();
+
+        static std::shared_ptr<SDFBitmapFont> font_by_name(const std::string &name);
+
       protected:
         void generate_atlas(const std::string &font_path, const int glyph_pixel_size) override;
     };
+
 
 } // namespace ui
 } // namespace xstudio

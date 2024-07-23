@@ -253,7 +253,7 @@ DelegateChoice {
                 text: " "+nameRole
                 isClickable: false
                 onTextClicked: createPreset("Twig Name", twigNameRole)
-                Layout.columnSpan: 3
+                Layout.columnSpan: stepDisplay.visible? 3 : 4
 
                 Layout.alignment: Qt.AlignLeft
                 Layout.fillWidth: true
@@ -270,6 +270,7 @@ DelegateChoice {
             }
 
             XsTextButton{ id: stepDisplay
+                visible: text != ""
                 text: pipelineStepRole ? pipelineStepRole : ""
                 isClickable: false
                 textDiv.font.pixelSize: fontSize*1.2
@@ -312,7 +313,7 @@ DelegateChoice {
                         model: siteModel //["chn","lon","mtl","mum","syd",van"]
 
                         XsButton{ id: onDiskDisplay
-                            property bool onDisk: {
+                            property int onDisk: {
                                 if(index==0) onSiteChn
                                 else if(index==1) onSiteLon
                                 else if(index==2) onSiteMtl
@@ -329,7 +330,7 @@ DelegateChoice {
                             focus: false
                             enabled: false
                             borderWidth: 0
-                            bgColorNormal: onDisk ? siteColour : palette.base
+                            bgColorNormal: onDisk ? Qt.darker(siteColour, onDisk == 1 ? 1.5:1.0) : palette.base
                             textDiv.topPadding: 2
                         }
                     }
@@ -350,7 +351,7 @@ DelegateChoice {
 
             Text{ id: dateDisplay
                 Layout.alignment: Qt.AlignLeft
-                property var dateFormatted: createdDateRole.toLocaleString().split(" ") 
+                property var dateFormatted: createdDateRole.toLocaleString().split(" ")
                 text: typeof dateFormatted !== 'undefined'? dateFormatted[1].substr(0,3)+" "+dateFormatted[2]+" "+dateFormatted[3] : ""
                 font.pixelSize: fontSize
                 font.family: fontFamily
@@ -371,7 +372,7 @@ DelegateChoice {
                     hoverEnabled: true
                     propagateComposedEvents: true
                 }
-                
+
             }
             // Component.onCompleted: {
             //     console.log("############# locale", createdDateRole.toLocaleString(Qt.locale(),{dateSty;e:"medium"}))

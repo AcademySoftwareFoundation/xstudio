@@ -1,7 +1,6 @@
 
 SET(LINK_DEPS
 	xstudio::json_store
-	xstudio::media
 	xstudio::playhead
 	xstudio::utility
 	caf::core

@@ -8,12 +8,12 @@ import xStudio 1.0
 FileDialog {
     title: "Save selected as session"
     folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
-    defaultSuffix: "xst"
+    defaultSuffix: preferences.session_compression.value ? "xsz" : "xst"
 
     signal saved
     signal cancelled
 
-    nameFilters:  ["XStudio (*.xst)"]
+    nameFilters:  ["xStudio (*.xst *.xsz)"]
     selectExisting: false
     selectMultiple: false
 
@@ -22,7 +22,7 @@ FileDialog {
         var path = fileUrl.toString()
         var ext = path.split('.').pop()
         if(path == ext) {
-            path = path + ".xst"
+            path = path + (preferences.session_compression.value ? ".xsz" : ".xst")
         }
         app_window.sessionFunction.saveSelectedSession(path).then(function(result){
             if (result != "") {

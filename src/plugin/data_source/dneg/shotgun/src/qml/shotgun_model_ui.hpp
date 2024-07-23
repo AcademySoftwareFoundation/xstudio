@@ -39,6 +39,9 @@ namespace ui {
             data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
             static nlohmann::json flatToTree(const nlohmann::json &src);
+
+          private:
+            static nlohmann::json sortByName(const nlohmann::json &json);
         };
 
         class ShotgunTreeModel : public JSONTreeModel {
@@ -51,7 +54,8 @@ namespace ui {
             Q_PROPERTY(int activePreset READ activePreset WRITE setActivePreset NOTIFY
                            activePresetChanged)
 
-            Q_PROPERTY(QString activeSeqShot READ activeSeqShot NOTIFY activeSeqShotChanged)
+            Q_PROPERTY(QString activeShot READ activeShot NOTIFY activeShotChanged)
+            Q_PROPERTY(QString activeSeq READ activeSeq NOTIFY activeSeqChanged)
 
           public:
             enum Roles {
@@ -106,7 +110,8 @@ namespace ui {
 
             [[nodiscard]] int length() const { return rowCount(); }
             [[nodiscard]] int activePreset() const { return active_preset_; }
-            [[nodiscard]] QString activeSeqShot() const { return active_seq_shot_; }
+            [[nodiscard]] QString activeSeq() const { return active_seq_; }
+            [[nodiscard]] QString activeShot() const { return active_shot_; }
 
             [[nodiscard]] QVariant
             data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -185,7 +190,8 @@ namespace ui {
             void hasActiveFilterChanged();
             void hasActiveLiveLinkChanged();
             void activePresetChanged();
-            void activeSeqShotChanged();
+            void activeShotChanged();
+            void activeSeqChanged();
 
           private:
             void checkForActiveFilter();
@@ -197,7 +203,8 @@ namespace ui {
             bool has_active_live_link_{false};
             const QMap<int, ShotgunListModel *> *sequence_map_{nullptr};
             int active_preset_{-1};
-            QString active_seq_shot_{};
+            QString active_seq_{};
+            QString active_shot_{};
         };
 
 
@@ -254,6 +261,7 @@ namespace ui {
                 stalkUuidRole,
                 subjectRole,
                 submittedToDailiesRole,
+                tagRole,
                 thumbRole,
                 twigNameRole,
                 twigTypeRole,
@@ -309,6 +317,7 @@ namespace ui {
                 {stalkUuidRole, "stalkUuidRole"},
                 {subjectRole, "subjectRole"},
                 {submittedToDailiesRole, "submittedToDailiesRole"},
+                {tagRole, "tagRole"},
                 {thumbRole, "thumbRole"},
                 {twigNameRole, "twigNameRole"},
                 {twigTypeRole, "twigTypeRole"},
@@ -352,7 +361,8 @@ namespace ui {
             [[nodiscard]] QVariant
             data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
             Q_INVOKABLE void clear() { populate(utility::JsonStore(R"([])"_json)); }
-            // protected:
+
+            Q_INVOKABLE void append(const QVariant &data);
 
             [[nodiscard]] QHash<int, QByteArray> roleNames() const override {
                 QHash<int, QByteArray> roles;

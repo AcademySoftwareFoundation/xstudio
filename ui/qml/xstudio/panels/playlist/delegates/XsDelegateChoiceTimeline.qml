@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import Qt.labs.qmlmodels 1.0
 import QtGraphicalEffects 1.15 //for RadialGradient
 import QtQml 2.15
@@ -41,7 +42,18 @@ DelegateChoice {
 
 	    Component.onCompleted: {
 	    	// grab children
-        	control.DelegateModel.model.srcModel.get(modelIndex(), "childrenRole")
+        	control.DelegateModel.model.srcModel.fetchMore(modelIndex())
+        	control.DelegateModel.model.srcModel.fetchMore(control.DelegateModel.model.srcModel.index(2, 0, modelIndex()))
+
+        	// just in case it's not ready yet.
+			delayTimer.setTimeout(function() {
+		       	control.DelegateModel.model.srcModel.fetchMore(control.DelegateModel.model.srcModel.index(2, 0, modelIndex()))
+            }, 200)
+
+	    }
+
+	    XsTimer {
+	    	id: delayTimer
 	    }
 
 	    function modelIndex() {
@@ -86,7 +98,7 @@ DelegateChoice {
 		   	anchors.top: parent.top
 		   	anchors.left: parent.left
 		   	anchors.right: parent.right
-	        tint: flagRole != undefined ? flagRole : ""
+	        tint: flagColourRole != undefined ? flagColourRole : ""
 
 			type_icon_source: "qrc:///feather_icons/align-left.svg"
 			type_icon_color: XsStyle.highlightColor
@@ -148,8 +160,8 @@ DelegateChoice {
 	        fakeDisabled: true
 
 	        XsFlagMenu {
-	            flag:  flagRole != undefined ? flagRole : ""
-	            onFlagHexChanged: flagRole = flagHex
+	            flag:  flagColourRole != undefined ? flagColourRole : ""
+	            onFlagHexChanged: flagColourRole = flagHex
 	        }
 
 	        XsMenuSeparator {}

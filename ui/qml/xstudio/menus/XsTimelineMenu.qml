@@ -23,6 +23,12 @@ XsMenu {
         mytext: qsTr("Focus Mode")
         enabled: false
     }
+
+    XsFlagMenu {
+        showChecked: false
+        onFlagSet: app_window.flagSelectedItems(hex)
+    }
+
     XsMenu {
           title: "Tracks"
           fakeDisabled: true

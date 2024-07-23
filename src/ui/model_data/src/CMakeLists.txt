@@ -1,5 +1,7 @@
 SET(LINK_DEPS
 	${CAF_LIBRARY_core}
+	xstudio::json_store
+	xstudio::global_store
     xstudio::utility
 )
 

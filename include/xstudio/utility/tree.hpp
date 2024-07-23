@@ -219,14 +219,15 @@ namespace utility {
         return result;
     }
 
-    inline nlohmann::json tree_to_json(const JsonTree &node, const std::string &childname) {
+    inline nlohmann::json
+    tree_to_json(const JsonTree &node, const std::string &childname, const int depth = -1) {
         // unroll..
         auto jsn = node.data();
 
-        if (not node.empty()) {
+        if (depth and not node.empty()) {
             jsn[childname] = R"([])"_json;
             for (const auto &i : node)
-                jsn[childname].push_back(tree_to_json(i, childname));
+                jsn[childname].push_back(tree_to_json(i, childname, depth - 1));
         }
 
         return jsn;

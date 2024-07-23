@@ -1,4 +1,4 @@
-find_package(OpenColorIO CONFIG)
+find_package(OpenColorIO)
 find_package(OpenEXR)
 find_package(Imath)
 find_package(GLEW REQUIRED)

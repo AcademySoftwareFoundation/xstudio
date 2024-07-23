@@ -32,7 +32,10 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
         auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
         scoped_actor sys{system()};
         auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys, pm, utility::detail_atom_v, plugin_manager::PluginType::PT_MEDIA_HOOK);
+            *sys,
+            pm,
+            utility::detail_atom_v,
+            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_MEDIA_HOOK));
 
         for (const auto &i : details) {
             if (i.enabled_) {
@@ -91,10 +94,13 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
         },
 
         [=](get_media_hook_atom, caf::actor media_source) -> result<bool> {
-            if (hooks.empty())
-                return true;
-
             auto rp = make_response_promise<bool>();
+
+            if (hooks.empty()) {
+                rp.deliver(true);
+                return rp;
+            }
+
 
             request(media_source, infinite, json_store::get_json_atom_v, "")
                 .then(
@@ -194,7 +200,10 @@ GlobalMediaHookActor::GlobalMediaHookActor(caf::actor_config &cfg)
             // which lets us know if we need to re-reun media hook plugins
             auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
             request(
-                pm, infinite, utility::detail_atom_v, plugin_manager::PluginType::PT_MEDIA_HOOK)
+                pm,
+                infinite,
+                utility::detail_atom_v,
+                plugin_manager::PluginType(plugin_manager::PluginFlags::PF_MEDIA_HOOK))
                 .then(
                     [=](const std::vector<plugin_manager::PluginDetail> &details) mutable {
                         utility::JsonStore result;
@@ -216,7 +225,10 @@ GlobalMediaHookActor::GlobalMediaHookActor(caf::actor_config &cfg)
             // which lets us know if we need to re-reun media hook plugins
             auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
             request(
-                pm, infinite, utility::detail_atom_v, plugin_manager::PluginType::PT_MEDIA_HOOK)
+                pm,
+                infinite,
+                utility::detail_atom_v,
+                plugin_manager::PluginType(plugin_manager::PluginFlags::PF_MEDIA_HOOK))
                 .then(
                     [=](const std::vector<plugin_manager::PluginDetail> &details) mutable {
                         bool matched = true;

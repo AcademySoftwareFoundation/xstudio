@@ -11,6 +11,7 @@ namespace xstudio {
 namespace timeline {
     class StackActor : public caf::event_based_actor {
       public:
+        StackActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
         StackActor(caf::actor_config &cfg, const utility::JsonStore &jsn, Item &item);
         StackActor(
             caf::actor_config &cfg,
@@ -31,6 +32,27 @@ namespace timeline {
         caf::actor
         deserialise(const utility::JsonStore &value, const bool replace_item = false);
         void item_event_callback(const utility::JsonStore &event, Item &item);
+        void insert_items(
+            const int index,
+            const utility::UuidActorVector &uav,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void remove_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<
+                std::pair<utility::JsonStore, std::vector<timeline::Item>>> rp);
+
+        void erase_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void move_items(
+            const int src_index,
+            const int count,
+            const int dst_index,
+            caf::typed_response_promise<utility::JsonStore> rp);
 
       private:
         caf::behavior behavior_;

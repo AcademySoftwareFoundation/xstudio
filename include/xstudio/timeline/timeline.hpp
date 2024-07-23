@@ -14,6 +14,17 @@
 
 namespace xstudio {
 namespace timeline {
+    static const std::set<std::string> TIMELINE_TYPES(
+        {"Clip",
+         "Track",
+         "Video Track",
+         "Audio Track",
+         "Gap",
+         "Stack",
+         "TimelineItem",
+         "Timeline"});
+
+
     class Timeline : public utility::Container {
       public:
         Timeline(
@@ -25,6 +36,7 @@ namespace timeline {
         ~Timeline() override = default;
 
         [[nodiscard]] utility::JsonStore serialise() const override;
+        [[nodiscard]] Timeline duplicate() const;
 
         [[nodiscard]] const Item &item() const { return item_; }
         [[nodiscard]] Item &item() { return item_; }
@@ -67,6 +79,13 @@ namespace timeline {
             return media_list_.contains(uuid);
         }
 
+        [[nodiscard]] utility::UuidSet &focus_list() { return focus_list_; }
+        [[nodiscard]] utility::UuidSet focus_list() const { return focus_list_; }
+
+        void set_focus_list(const utility::UuidSet &list) { focus_list_ = list; }
+        void set_focus_list(const utility::UuidVector &list) {
+            focus_list_ = utility::UuidSet(list.begin(), list.end());
+        }
 
         // [[nodiscard]] utility::UuidList tracks() const { return tracks_.uuids(); }
         // void insert_track(
@@ -95,6 +114,7 @@ namespace timeline {
       private:
         Item item_;
         utility::UuidListContainer media_list_;
+        utility::UuidSet focus_list_;
 
         // utility::UuidListContainer tracks_;
         // utility::FrameRateDuration start_time_;

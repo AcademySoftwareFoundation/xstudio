@@ -1,0 +1,9 @@
+module Grading
+
+GradingButton 1.0 GradingButton.qml
+GradingDialog 1.0 GradingDialog/GradingDialog.qml
+GradingHSlider 1.0 GradingDialog/GradingHSlider.qml
+GradingVSlider 1.0 GradingDialog/GradingVSlider.qml
+GradingSliderGroup 1.0 GradingDialog/GradingSliderGroup.qml
+GradingSliderSimple 1.0 GradingDialog/GradingSliderSimple.qml
+GradingWheel 1.0 GradingDialog/GradingWheel.qml

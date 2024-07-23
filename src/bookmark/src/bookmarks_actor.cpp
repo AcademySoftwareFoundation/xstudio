@@ -429,8 +429,34 @@ void BookmarksActor::init() {
             }
             return rp;
         },
+        [=](bookmark_detail_atom,
+            const utility::UuidSet associated_uuids) -> result<std::vector<BookmarkDetail>> {
+            if (bookmarks_.empty())
+                return std::vector<BookmarkDetail>();
 
-        [=](bookmark_detail_atom, const std::vector<utility::Uuid> &associated_uuids)
+            auto rp = make_response_promise<std::vector<BookmarkDetail>>();
+
+            fan_out_request<policy::select_all>(
+                map_value_to_vec(bookmarks_), infinite, bookmark_detail_atom_v)
+                .then(
+                    [=](const std::vector<BookmarkDetail> details) mutable {
+                        std::vector<BookmarkDetail> results;
+                        for (const auto &i : details) {
+
+                            if (associated_uuids.empty() or
+                                associated_uuids.count((*(i.owner_)).uuid())) {
+                                results.push_back(i);
+                            }
+                        }
+
+                        rp.deliver(results);
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
+        [=](bookmark_detail_atom, const std::vector<utility::Uuid> associated_uuids)
             -> result<std::vector<BookmarkDetail>> {
             if (bookmarks_.empty())
                 return std::vector<BookmarkDetail>();

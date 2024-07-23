@@ -1,0 +1,34 @@
+{
+    "name": "xstudio",
+    "version": "1.0.0",
+    "dependencies": [
+        "stduuid",
+        "reproc",
+        "nlohmann-json",
+        "glew",
+        "freetype",
+        "pybind11",
+        "python3",
+        "spdlog",
+        "fmt",
+        "lcms",
+        "caf",
+        "opencolorio",
+        "openimageio",
+        { 
+            "name": "ffmpeg",
+            "features": ["all"]
+
+        }
+    ],
+    "builtin-baseline": "dafef74af53669ef1cc9015f55e0ce809ead62aa",
+    "overrides": [
+        { "name": "openimageio", "version": "2.4.14.0#3" },       
+        { "name": "opencolorio", "version": "2.2.1#1" },
+        { "name": "caf", "version": "0.18.5" },
+        { "name": "fmt", "version": "8.0.1" },
+        { "name": "ffmpeg", "version": "5.1.2#6" },
+        { "name": "python3", "version": "3.10.7#7" },
+        { "name":"boost-modular-build-helper","version":"1.84.0#3" }
+    ]
+}

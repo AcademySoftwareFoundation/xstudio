@@ -36,11 +36,11 @@ namespace playhead {
 
         caf::behavior make_behavior() override { return behavior_; }
 
-
       protected:
         caf::behavior behavior_;
         caf::actor event_group_;
         caf::actor on_screen_playhead_;
+        std::map<std::string, caf::actor_addr> viewports_;
     };
 } // namespace playhead
 } // namespace xstudio

@@ -3,7 +3,6 @@
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/caf_utility/caf_setup.hpp"
-#include "xstudio/utility/logging.hpp"
 
 using namespace xstudio;
 using namespace xstudio::caf_utility;

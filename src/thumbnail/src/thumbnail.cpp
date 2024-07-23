@@ -18,7 +18,7 @@ void DiskCacheStat::populate(const std::string &path) {
         if (fs::is_regular_file(entry.status())) {
             auto mtime = fs::last_write_time(entry.path());
             add_thumbnail(
-                std::stoul(entry.path().stem().string(), nullptr, 16),
+                std::stoull(entry.path().stem().string(), nullptr, 16),
                 fs::file_size(entry.path()),
                 mtime);
         }

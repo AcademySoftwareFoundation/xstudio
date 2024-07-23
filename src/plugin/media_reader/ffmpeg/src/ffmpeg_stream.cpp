@@ -3,11 +3,14 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <cmath>
 
 #include "ffmpeg_stream.hpp"
 #include "xstudio/media/media_error.hpp"
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 using namespace xstudio::media_reader::ffmpeg;
 using namespace xstudio::media_reader;
@@ -115,7 +118,7 @@ void set_shader_pix_format_info(
 
     // Bit depth
     const int bitdepth      = pixel_desc->comp[0].depth;
-    const int max_cv        = std::pow(2, bitdepth) - 1;
+    const int max_cv        = std::floor(std::pow(2, bitdepth) - 1);
     jsn["bits_per_channel"] = bitdepth;
     jsn["norm_coeff"]       = 1.0f / max_cv;
 
@@ -146,13 +149,13 @@ void set_shader_pix_format_info(
     switch (color_range) {
     case AVCOL_RANGE_JPEG: {
         Imath::V3f offset(1, 128, 128);
-        offset *= std::pow(2, bitdepth - 8);
+        offset *= std::pow(2.0f, float(bitdepth - 8));
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     } break;
     case AVCOL_RANGE_MPEG:
     default: {
         Imath::V4f range(16, 235, 16, 240);
-        range *= std::pow(2, bitdepth - 8);
+        range *= std::pow(2.0f, float(bitdepth - 8));
 
         Imath::M33f scale;
         scale[0][0] = 1.f * max_cv / (range[1] - range[0]);
@@ -161,7 +164,7 @@ void set_shader_pix_format_info(
         yuv_to_rgb *= scale;
 
         Imath::V3f offset(16, 128, 128);
-        offset *= std::pow(2, bitdepth - 8);
+        offset *= std::pow(2.0f, float(bitdepth - 8));
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     }
     }
@@ -533,12 +536,18 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     default:
         throw media_corrupt_error("Audio buffer format is not set.");
     }
+
     target_sample_rate_    = audio_buffer->sample_rate();
     target_audio_channels_ = audio_buffer->num_channels();
 
     audio_buffer->set_display_timestamp_seconds(
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
+
+    // spdlog::info(
+    //     "Calculated display timestamp: {} seconds.",
+    //     double(frame->pts) * double(avc_stream_->time_base.num) /
+    //         double(avc_stream_->time_base.den));
 
     resample_audio(frame, audio_buffer, -1);
 
@@ -600,6 +609,13 @@ FFMpegStream::FFMpegStream(
         frame->height = avc_stream_->codecpar->height;
         frame->format = codec_context_->pix_fmt;
 
+        // store resolution and pixel aspect
+        resolution_ = Imath::V2f(avc_stream_->codecpar->width, avc_stream_->codecpar->height);
+        auto sar    = av_guess_sample_aspect_ratio(format_context_, avc_stream_, nullptr);
+        if (sar.num && sar.den) {
+            pixel_aspect_ = float(sar.num) / float(sar.den);
+        }
+
         if (codec_->capabilities & AV_CODEC_CAP_DR1) {
 
             // See Note 1 below
@@ -626,6 +642,11 @@ FFMpegStream::FFMpegStream(
     if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
         fpsNum_     = avc_stream_->avg_frame_rate.num;
         fpsDen_     = avc_stream_->avg_frame_rate.den;
+        frame_rate_ = xstudio::utility::FrameRate(
+            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+    } else if (avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
+        fpsNum_     = avc_stream_->r_frame_rate.num;
+        fpsDen_     = avc_stream_->r_frame_rate.den;
         frame_rate_ = xstudio::utility::FrameRate(
             static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
     } else {
@@ -750,6 +771,33 @@ size_t FFMpegStream::resample_audio(
     if (offset_into_output_buffer == -1) {
         // automatically extend the buffer the exact required amount
         // size_t sz = audio_buffer->size();
+        // The multiplication by 2 * 2 seems to be an assumption based on specific audio data
+        // properties. Here's a possible explanation:
+        //
+        // 2 Channels: The first 2 likely represents the fact that there are 2 channels. This
+        // makes sense given that you've defined the target channel layout to be stereo
+        // (av_get_default_channel_layout(2)). So, for each sample, there's data for both the
+        // left and right channels.
+        //
+        // 2 Bytes per Sample (16-bit audio): The second 2 presumably represents 2 bytes per
+        // sample, which corresponds to 16-bit audio samples. This is a common format for audio,
+        // especially in CD-quality audio.
+        //
+        // By multiplying the number of samples by 2 * 2, is calculating the
+        // offset in bytes to where the new data should be written in the buffer.
+        //
+        // However, this calculation has a couple of assumptions:
+        //
+        // - The audio always has 2 channels.
+        // - The audio samples are always 16 bits.
+        //
+        // If either of these assumptions is violated (for example, if the audio is mono or if
+        // the bit depth is different), then the calculation would be incorrect.
+        //
+        // It would be safer and clearer to derive these values from variables or constants that
+        // explicitly state their purpose (like NUM_CHANNELS and BYTES_PER_SAMPLE), rather than
+        // hardcoding them as 2 and 2. Alternatively, adding a comment to explain this
+        // arithmetic can also help future maintainers understand the intent.
         audio_buffer->extend_size(target_out_size);
         out = (uint8_t *)(audio_buffer->buffer() + audio_buffer->num_samples() * 2 * 2);
 

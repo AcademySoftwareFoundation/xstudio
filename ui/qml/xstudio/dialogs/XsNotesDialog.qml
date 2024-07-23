@@ -716,7 +716,7 @@ XsWindow {
                         Layout.topMargin: 4
                         Layout.bottomMargin: 4
                         Layout.preferredHeight: note.height
-                        model: ["Media", "Media List", "Playlist"]
+                        model: ["Media", "Media List", "Playlist", "Session"]
                         currentIndex: preferences.note_depth.value
                         onCurrentIndexChanged: preferences.note_depth.value = currentIndex
                     }

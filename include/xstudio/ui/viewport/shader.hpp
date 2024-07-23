@@ -10,14 +10,14 @@ namespace xstudio {
 namespace ui {
     namespace viewport {
 
-        /* Virtual base class for shader data. Subclass for OpenGL, Metal,
+        /* Base class for shader data. Subclass for OpenGL, Metal,
         Vulkan, DirectX etc. */
 
         class GPUShader {
           public:
             GPUShader(utility::Uuid id, GraphicsAPI api) : shader_id_(id), graphics_api_(api) {}
 
-            [[nodiscard]] const utility::Uuid shader_id() const { return shader_id_; }
+            [[nodiscard]] utility::Uuid shader_id() const { return shader_id_; }
             [[nodiscard]] GraphicsAPI graphics_api() const { return graphics_api_; }
 
           private:

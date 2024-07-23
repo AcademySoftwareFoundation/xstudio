@@ -81,13 +81,20 @@ bool BookmarkFilterModel::filterAcceptsRow(
     bool result = true;
 
     QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
-    auto owner        = sourceModel()->data(index, BookmarkModel::Roles::ownerRole).toString();
+    auto visible      = sourceModel()->data(index, BookmarkModel::Roles::visibleRole).toBool();
+
+    if (not visible)
+        return false;
+
+    auto owner = sourceModel()->data(index, BookmarkModel::Roles::ownerRole).toString();
 
     if (StdFromQString(index.data(BookmarkModel::Roles::startTimecodeRole).toString()) ==
         "--:--:--:--")
         return false;
 
     switch (depth_) {
+    case 3:
+        break;
     case 2:
     case 1:
         result = media_order_.contains(owner);
@@ -176,7 +183,8 @@ BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
          "objectRole",
          "startRole",
          "durationRole",
-         "durationFrameRole"}));
+         "durationFrameRole",
+         "visibleRole"}));
 }
 
 // don't optimise yet.
@@ -191,19 +199,16 @@ QFuture<QString>
 BookmarkModel::getJSONFuture(const QModelIndex &index, const QString &path) const {
     return QtConcurrent::run([=]() {
         if (bookmark_actor_) {
+            std::string path_string = StdFromQString(path);
             try {
                 scoped_actor sys{system()};
                 auto addr   = UuidFromQUuid(index.data(uuidRole).toUuid());
                 auto result = request_receive<JsonStore>(
-                    *sys,
-                    bookmark_actor_,
-                    json_store::get_json_atom_v,
-                    addr,
-                    StdFromQString(path));
+                    *sys, bookmark_actor_, json_store::get_json_atom_v, addr, path_string);
 
                 return QStringFromStd(result.dump());
 
-            } catch (const std::exception &err) {
+            } catch ([[maybe_unused]] const std::exception &err) {
                 // spdlog::warn("{} {}", __PRETTY_FUNCTION__,  err.what());
                 return QString(); // QStringFromStd(err.what());
             }
@@ -230,9 +235,7 @@ void BookmarkModel::init(caf::actor_system &_system) {
                 // spdlog::warn("bookmark::bookmark_change_atom {}", to_string(ua.uuid()) );
                 auto ind = search_recursive(QUuidFromUuid(ua.uuid()), "uuidRole");
 
-                if (not ind.isValid()) {
-                    spdlog::warn("new bookmark ??");
-                } else {
+                if (ind.isValid()) {
                     try {
 
                         auto detail = getDetail(ua.actor());
@@ -323,7 +326,7 @@ void BookmarkModel::setBookmarkActorAddr(const QString &addr) {
             try {
                 request_receive<bool>(
                     *sys, backend_events_, broadcast::leave_broadcast_atom_v, as_actor());
-            } catch (const std::exception &e) {
+            } catch ([[maybe_unused]] const std::exception &e) {
             }
             backend_events_ = caf::actor();
         }
@@ -450,6 +453,11 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
             case uuidRole:
                 result = QVariant::fromValue(QUuidFromUuid(detail.uuid_));
                 break;
+
+            case visibleRole:
+                result = QVariant::fromValue(*(detail.visible_));
+                break;
+
 
             case enabledRole:
                 result = QVariant::fromValue(*(detail.enabled_));

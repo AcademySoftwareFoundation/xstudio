@@ -3,7 +3,7 @@
 
 #include "xstudio/colour_pipeline/colour_operation.hpp"
 #include "xstudio/utility/logging.hpp"
-#include "xstudio/media/media.hpp"
+#include "xstudio/media_reader/image_buffer.hpp"
 #include "xstudio/plugin_manager/plugin_base.hpp"
 
 using namespace xstudio::colour_pipeline;
@@ -12,12 +12,10 @@ caf::message_handler ColourOpPlugin::message_handler_extensions() {
     return caf::message_handler(
 
         [=](colour_operation_uniforms_atom,
-            const media::AVFrameID &media_ptr) -> result<utility::JsonStore> {
+            const media_reader::ImageBufPtr &image) -> result<utility::JsonStore> {
             try {
-                utility::JsonStore r;
-                update_shader_uniforms(r, media_ptr.source_uuid_, media_ptr.params_);
 
-                return r;
+                return update_shader_uniforms(image);
 
             } catch (std::exception &e) {
 
@@ -40,7 +38,8 @@ caf::message_handler ColourOpPlugin::message_handler_extensions() {
                     [=](caf::actor media_actor) mutable {
                         auto media = utility::UuidActor(media_ptr.media_uuid_, media_actor);
 
-                        ColourOperationDataPtr result = data(media_source, media_ptr.params_);
+                        ColourOperationDataPtr result =
+                            colour_op_graphics_data(media_source, media_ptr.params_);
 
                         rp.deliver(result);
                     },

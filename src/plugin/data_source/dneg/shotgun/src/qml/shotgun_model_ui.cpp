@@ -17,113 +17,181 @@ using namespace xstudio::ui::qml;
 using namespace std::chrono_literals;
 using namespace xstudio::global_store;
 
+namespace {
+void dumpNames(const nlohmann::json &jsn, const int depth) {
+    if (jsn.is_array()) {
+        for (const auto &item : jsn) {
+            dumpNames(item, depth);
+        }
+    } else {
+        spdlog::warn("{:>{}} {}", " ", depth * 4, jsn.value("name", "unnamed"));
+        if (jsn.count("children") and jsn.at("children").is_array()) {
+            for (const auto &item : jsn.at("children")) {
+                dumpNames(item, depth + 1);
+            }
+        }
+    }
+}
+} // namespace
+
+nlohmann::json ShotgunSequenceModel::sortByName(const nlohmann::json &jsn) {
+    // this needs
+    auto result = sort_by(jsn, nlohmann::json::json_pointer("/name"));
+    for (auto &item : result) {
+        if (item.count("children")) {
+            item["children"] = sortByName(item.at("children"));
+        }
+    }
+
+    return result;
+}
+
 nlohmann::json ShotgunSequenceModel::flatToTree(const nlohmann::json &src) {
     // manipulate data into tree structure.
+    // spdlog::warn("{}", src.size());
+
     auto result = R"([])"_json;
     std::map<size_t, nlohmann::json::json_pointer> seqs;
+
+    // spdlog::warn("{}", src.dump(2));
 
     try {
 
         if (src.is_array()) {
-            auto done    = false;
-            auto changed = false;
+            auto done = false;
 
             while (not done) {
-                changed = false;
-                done    = true;
+                done = true;
 
                 for (auto seq : src) {
-                    auto id = seq.at("id").get<int>();
-                    // already logged ?
-                    if (not seqs.count(id)) {
-                        auto parent_id =
-                            seq["relationships"]["sg_parent"]["data"]["id"].get<int>();
-                        // no parent
-                        if (parent_id == id) {
-                            auto &shots = seq["relationships"]["shots"]["data"];
-                            if (shots.is_array())
-                                seq["children"] = seq["relationships"]["shots"]["data"];
-                            else
-                                seq["children"] = R"([])"_json;
-
-                            seq["parent_id"] = seq["relationships"]["sg_parent"]["data"]["id"];
-                            seq["relationships"].erase("shots");
-                            seq["relationships"].erase("sg_parent");
-                            result.emplace_back(seq);
-                            seqs.emplace(std::make_pair(
-                                id,
-                                nlohmann::json::json_pointer(
-                                    std::string("/") + std::to_string(result.size() - 1))));
-                            changed = true;
-                        } else if (seqs.count(parent_id)) {
-                            // parent exists
-                            auto parent_pointer = seqs[parent_id];
-
-                            auto &shots = seq["relationships"]["shots"]["data"];
-                            if (shots.is_array())
-                                seq["children"] = seq["relationships"]["shots"]["data"];
-                            else
-                                seq["children"] = R"([])"_json;
-
-                            seq["parent_id"] = seq["relationships"]["sg_parent"]["data"]["id"];
-                            seq["relationships"].erase("shots");
-                            seq["relationships"].erase("sg_parent");
-
-                            result[parent_pointer]["children"].emplace_back(seq);
-                            // spdlog::warn("{}", result[parent_pointer].dump(2));
-
-                            seqs.emplace(std::make_pair(
-                                id,
-                                parent_pointer /
-                                    nlohmann::json::json_pointer(
-                                        std::string("/") +
-                                        std::to_string(
-                                            result[parent_pointer]["children"].size() - 1))));
-                            changed = true;
-                        } else {
-                            done = false;
-                        }
-                    }
-                }
-
-                if (not changed)
-                    done = true;
-
-                if (done) {
-                    auto count = 0;
-                    // unresolved..
-                    for (auto unseq : src) {
-                        auto id = unseq.at("id").get<int>();
+                    try {
+                        auto id = seq.at("id").get<int>();
                         // already logged ?
-                        if (not seqs.count(id)) {
-                            auto parent_id =
-                                unseq["relationships"]["sg_parent"]["data"]["id"].get<int>();
-                            // no parent
-                            auto &shots = unseq["relationships"]["shots"]["data"];
-                            if (shots.is_array())
-                                unseq["children"] = unseq["relationships"]["shots"]["data"];
-                            else
-                                unseq["children"] = R"([])"_json;
+                        // if already there then skip
 
-                            unseq["parent_id"] =
-                                unseq["relationships"]["sg_parent"]["data"]["id"];
-                            unseq["relationships"].erase("shots");
-                            unseq["relationships"].erase("sg_parent");
-                            result.emplace_back(unseq);
-                            seqs.emplace(std::make_pair(
-                                id,
-                                nlohmann::json::json_pointer(
-                                    std::string("/") + std::to_string(result.size() - 1))));
-                            count++;
+                        if (not seqs.count(id)) {
+                            seq["name"]    = seq.at("attributes").at("code");
+                            auto parent_id = seq.at("relationships")
+                                                 .at("sg_parent")
+                                                 .at("data")
+                                                 .at("id")
+                                                 .get<int>();
+
+                            // no parent add to results. and store pointer to results entry.
+                            if (parent_id == id) {
+                                // spdlog::warn("new root level item {}",
+                                // seq["name"].get<std::string>());
+
+                                auto &shots = seq["relationships"]["shots"]["data"];
+                                if (shots.is_array())
+                                    seq["children"] =
+                                        sort_by(shots, nlohmann::json::json_pointer("/name"));
+                                else
+                                    seq["children"] = R"([])"_json;
+
+                                seq["parent_id"] = parent_id;
+                                seq["relationships"].erase("shots");
+                                seq["relationships"].erase("sg_parent");
+
+                                // store in result
+                                // and pointer to entry.
+                                result.emplace_back(seq);
+
+                                seqs.emplace(std::make_pair(
+                                    id,
+                                    nlohmann::json::json_pointer(
+                                        std::string("/") + std::to_string(result.size() - 1))));
+
+                                done = false;
+
+                            } else if (seqs.count(parent_id)) {
+                                // parent exists
+                                // spdlog::warn("add to parent {} {}", parent_id,
+                                // seq["name"].get<std::string>());
+
+                                auto parent_pointer = seqs[parent_id];
+
+                                auto &shots = seq["relationships"]["shots"]["data"];
+                                if (shots.is_array())
+                                    seq["children"] =
+                                        sort_by(shots, nlohmann::json::json_pointer("/name"));
+                                else
+                                    seq["children"] = R"([])"_json;
+
+                                seq["parent_id"] = parent_id;
+                                seq["relationships"].erase("shots");
+                                seq["relationships"].erase("sg_parent");
+
+                                result[parent_pointer]["children"].emplace_back(seq);
+                                // spdlog::warn("{}", result[parent_pointer].dump(2));
+
+                                // add path to new entry..
+                                seqs.emplace(std::make_pair(
+                                    id,
+                                    parent_pointer /
+                                        nlohmann::json::json_pointer(
+                                            std::string("/children/") +
+                                            std::to_string(
+                                                result[parent_pointer]["children"].size() -
+                                                1))));
+                                done = false;
+                            }
                         }
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                     }
-                    if (count)
-                        spdlog::warn("{} unresolved sequences.", count);
                 }
             }
+
+            // un parented sequences
+            auto count = 0;
+            // unresolved..
+            for (auto unseq : src) {
+                try {
+                    auto id = unseq.at("id").get<int>();
+                    // already logged ?
+                    if (not seqs.count(id)) {
+                        unseq["name"] = unseq.at("attributes").at("code");
+
+                        auto parent_id =
+                            unseq["relationships"]["sg_parent"]["data"]["id"].get<int>();
+                        // no parent
+                        auto &shots = unseq["relationships"]["shots"]["data"];
+
+                        spdlog::warn("{} {}", id, parent_id);
+
+                        if (shots.is_array())
+                            unseq["children"] =
+                                sort_by(shots, nlohmann::json::json_pointer("/name"));
+                        else
+                            unseq["children"] = R"([])"_json;
+
+                        unseq["parent_id"] = parent_id;
+                        unseq["relationships"].erase("shots");
+                        unseq["relationships"].erase("sg_parent");
+                        result.emplace_back(unseq);
+                        seqs.emplace(std::make_pair(
+                            id,
+                            nlohmann::json::json_pointer(
+                                std::string("/") + std::to_string(result.size() - 1))));
+                        count++;
+                    }
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+
+                if (count)
+                    spdlog::warn("{} unresolved sequences.", count);
+            }
+
+            result = sortByName(result);
+            // dumpNames(result, 0);
         }
-    } catch (...) {
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
+
+    // sort results..
 
     // spdlog::warn("{}", result.dump(2));
 
@@ -187,6 +255,9 @@ QVariant ShotgunSequenceModel::data(const QModelIndex &index, int role) const {
 
 bool ShotgunFilterModel::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
+
+    static const QString qtrue("true");
+    static const QString qfalse("false");
     // check level
     if (not selection_filter_.empty() and sourceModel()) {
         QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
@@ -202,7 +273,14 @@ bool ShotgunFilterModel::filterAcceptsRow(
                     continue;
                 try {
                     auto qv = sourceModel()->data(index, k).toString();
-                    if (v != qv)
+
+                    if (v == qtrue or v == qfalse) {
+                        if (v == qtrue and not sourceModel()->data(index, k).toBool())
+                            return false;
+                        else if (v == qfalse and sourceModel()->data(index, k).toBool())
+                            return false;
+
+                    } else if (v != qv)
                         return false;
                 } catch (...) {
                 }
@@ -306,6 +384,21 @@ utility::JsonStore ShotgunListModel::getQueryValue(
     return mapped_value;
 }
 
+void ShotgunListModel::append(const QVariant &data) {
+    auto jsn = mapFromValue(data);
+
+    // no exact duplicates..
+    for (const auto &i : data_)
+        if (i == jsn)
+            return;
+
+    auto rows = rowCount();
+    beginInsertRows(QModelIndex(), rows, rows);
+    data_.push_back(jsn);
+    endInsertRows();
+}
+
+
 int ShotgunListModel::search(const QVariant &value, const QString &role, const int start) {
     int role_id = -1;
     auto row    = -1;
@@ -343,7 +436,9 @@ QVariant ShotgunListModel::data(const QModelIndex &index, int role) const {
             switch (role) {
             case Roles::nameRole:
             case Qt::DisplayRole:
-                if (data.count("name"))
+                if (data.count("nameRole"))
+                    result = QString::fromStdString(data.at("nameRole"));
+                else if (data.count("name"))
                     result = QString::fromStdString(data.at("name"));
                 else
                     result = QString::fromStdString(
@@ -605,63 +700,57 @@ QVariant ShotModel::data(const QModelIndex &index, int role) const {
 
             case Roles::onSiteMum:
                 try {
-                    result = data.at("attributes").at("sg_on_disk_mum") == "Full" or
-                                     data.at("attributes").at("sg_on_disk_mum") == "Partial"
-                                 ? true
-                                 : false;
+                    result = data.at("attributes").at("sg_on_disk_mum") == "Full"      ? 2
+                             : data.at("attributes").at("sg_on_disk_mum") == "Partial" ? 1
+                                                                                       : 0;
                 } catch (...) {
-                    result = false;
+                    result = 0;
                 }
                 break;
             case Roles::onSiteMtl:
                 try {
-                    result = data.at("attributes").at("sg_on_disk_mtl") == "Full" or
-                                     data.at("attributes").at("sg_on_disk_mtl") == "Partial"
-                                 ? true
-                                 : false;
+                    result = data.at("attributes").at("sg_on_disk_mtl") == "Full"      ? 2
+                             : data.at("attributes").at("sg_on_disk_mtl") == "Partial" ? 1
+                                                                                       : 0;
                 } catch (...) {
-                    result = false;
+                    result = 0;
                 }
                 break;
             case Roles::onSiteVan:
                 try {
-                    result = data.at("attributes").at("sg_on_disk_van") == "Full" or
-                                     data.at("attributes").at("sg_on_disk_van") == "Partial"
-                                 ? true
-                                 : false;
+                    result = data.at("attributes").at("sg_on_disk_van") == "Full"      ? 2
+                             : data.at("attributes").at("sg_on_disk_van") == "Partial" ? 1
+                                                                                       : 0;
                 } catch (...) {
-                    result = false;
+                    result = 0;
                 }
                 break;
             case Roles::onSiteChn:
                 try {
-                    result = data.at("attributes").at("sg_on_disk_chn") == "Full" or
-                                     data.at("attributes").at("sg_on_disk_chn") == "Partial"
-                                 ? true
-                                 : false;
+                    result = data.at("attributes").at("sg_on_disk_chn") == "Full"      ? 2
+                             : data.at("attributes").at("sg_on_disk_chn") == "Partial" ? 1
+                                                                                       : 0;
                 } catch (...) {
-                    result = false;
+                    result = 0;
                 }
                 break;
             case Roles::onSiteLon:
                 try {
-                    result = data.at("attributes").at("sg_on_disk_lon") == "Full" or
-                                     data.at("attributes").at("sg_on_disk_lon") == "Partial"
-                                 ? true
-                                 : false;
+                    result = data.at("attributes").at("sg_on_disk_lon") == "Full"      ? 2
+                             : data.at("attributes").at("sg_on_disk_lon") == "Partial" ? 1
+                                                                                       : 0;
                 } catch (...) {
-                    result = false;
+                    result = 0;
                 }
                 break;
 
             case Roles::onSiteSyd:
                 try {
-                    result = data.at("attributes").at("sg_on_disk_syd") == "Full" or
-                                     data.at("attributes").at("sg_on_disk_syd") == "Partial"
-                                 ? true
-                                 : false;
+                    result = data.at("attributes").at("sg_on_disk_syd") == "Full"      ? 2
+                             : data.at("attributes").at("sg_on_disk_syd") == "Partial" ? 1
+                                                                                       : 0;
                 } catch (...) {
-                    result = false;
+                    result = 0;
                 }
                 break;
 
@@ -670,6 +759,16 @@ QVariant ShotModel::data(const QModelIndex &index, int role) const {
                 result =
                     QString::fromStdString(data.at("attributes").value("sg_twig_name", ""));
                 break;
+
+            case Roles::tagRole: {
+                auto tmp = QStringList();
+                for (const auto &i : data.at("relationships").at("tags").at("data")) {
+                    auto name = QStringFromStd(i.at("name").get<std::string>());
+                    name.replace(QRegExp("\\.REFERENCE$"), "");
+                    tmp.append(name);
+                }
+                result = tmp;
+            } break;
 
             case Roles::twigTypeRole:
                 result =
@@ -703,7 +802,7 @@ QVariant ShotModel::data(const QModelIndex &index, int role) const {
                 break;
             }
         }
-    } catch (const std::exception & /*err*/) {
+    } catch (const std::exception &err) {
         // spdlog::warn("{}", err.what());
     }
 
@@ -1376,10 +1475,27 @@ bool ShotgunTreeModel::setData(const QModelIndex &index, const QVariant &value, 
 
 void ShotgunTreeModel::updateLiveLinks(const utility::JsonStore &data) {
     live_link_data_ = data;
+
+    auto shot = QStringFromStd(
+        applyLiveLinkValue(JsonStore(R"({"term":"Shot"})"_json), live_link_data_));
+    auto sequence = QStringFromStd(
+        applyLiveLinkValue(JsonStore(R"({"term":"Sequence"})"_json), live_link_data_));
+
+    if (active_shot_ != shot) {
+        active_shot_ = shot;
+        emit activeShotChanged();
+    }
+
+    if (active_seq_ != sequence) {
+        active_seq_ = sequence;
+        emit activeSeqChanged();
+    }
+
     refreshLiveLinks();
 }
 
 void ShotgunTreeModel::refreshLiveLinks() {
+
     try {
         auto i_ind = 0;
         for (const auto &i : data_) {
@@ -1445,6 +1561,21 @@ int ShotgunTreeModel::getProjectId(const QVariant &livelink) const {
 JsonStore ShotgunTreeModel::applyLiveLink(const JsonStore &preset, const JsonStore &livelink) {
     JsonStore result = preset;
 
+    auto shot =
+        QStringFromStd(applyLiveLinkValue(JsonStore(R"({"term":"Shot"})"_json), livelink));
+    auto sequence =
+        QStringFromStd(applyLiveLinkValue(JsonStore(R"({"term":"Sequence"})"_json), livelink));
+
+    if (active_shot_ != shot) {
+        active_shot_ = shot;
+        emit activeShotChanged();
+    }
+
+    if (active_seq_ != sequence) {
+        active_seq_ = sequence;
+        emit activeSeqChanged();
+    }
+
     try {
         if (not result.is_null()) {
             for (int j = 0; j < static_cast<int>(result.at(children_).size()); j++) {
@@ -1463,95 +1594,71 @@ JsonStore ShotgunTreeModel::applyLiveLink(const JsonStore &preset, const JsonSto
 
 JsonStore
 ShotgunTreeModel::applyLiveLinkValue(const JsonStore &query, const JsonStore &livelink) {
-    auto term  = query["term"];
-    auto value = query["value"];
     JsonStore result("");
 
     try {
-        if (livelink.count("metadata") and livelink.at("metadata").count("shotgun") and
-            livelink.at("metadata").at("shotgun").count("version")) {
-            if (term == "Version Name") {
-                result = livelink.at("metadata")
-                             .at("shotgun")
-                             .at("version")
-                             .at("attributes")
-                             .at("code");
-            } else if (term == "Older Version") {
-                result = nlohmann::json(std::to_string(livelink.at("metadata")
-                                                           .at("shotgun")
-                                                           .at("version")
-                                                           .at("attributes")
-                                                           .at("sg_dneg_version")
-                                                           .get<int>()));
-            } else if (term == "Newer Version") {
-                result = nlohmann::json(std::to_string(livelink.at("metadata")
-                                                           .at("shotgun")
-                                                           .at("version")
-                                                           .at("attributes")
-                                                           .at("sg_dneg_version")
-                                                           .get<int>()));
-            } else if (term == "Author" || term == "Recipient") {
-                result = livelink.at("metadata")
-                             .at("shotgun")
-                             .at("version")
-                             .at("relationships")
-                             .at("user")
-                             .at("data")
-                             .at("name");
-            } else if (term == "Shot") {
-                result = livelink.at("metadata")
-                             .at("shotgun")
-                             .at("version")
-                             .at("relationships")
-                             .at("entity")
-                             .at("data")
-                             .at("name");
-            } else if (term == "Twig Name") {
-                result = nlohmann::json(
-                    std::string("^") +
-                    livelink.at("metadata")
-                        .at("shotgun")
-                        .at("version")
-                        .at("attributes")
-                        .at("sg_twig_name")
-                        .get<std::string>() +
-                    std::string("$"));
-            } else if (term == "Pipeline Step") {
-                result = livelink.at("metadata")
-                             .at("shotgun")
-                             .at("version")
-                             .at("attributes")
-                             .at("sg_pipeline_step");
-            } else if (term == "Twig Type") {
-                result = livelink.at("metadata")
-                             .at("shotgun")
-                             .at("version")
-                             .at("attributes")
-                             .at("sg_twig_type");
-            } else if (term == "Sequence") {
-                auto project_id = livelink.at("metadata")
-                                      .at("shotgun")
-                                      .at("version")
-                                      .at("relationships")
-                                      .at("project")
-                                      .at("data")
-                                      .at("id")
-                                      .get<int>();
-                auto shot_id = livelink.at("metadata")
-                                   .at("shotgun")
-                                   .at("version")
-                                   .at("relationships")
-                                   .at("entity")
-                                   .at("data")
-                                   .at("id")
-                                   .get<int>();
-                auto seq_data = getSequence(project_id, shot_id);
-                result        = seq_data.at("attributes").at("code");
+        if (not query.is_null() and not livelink.is_null()) {
+            auto term = query.value("term", "");
+
+            if (livelink.contains(json::json_pointer("/metadata/shotgun/version"))) {
+                if (term == "Version Name") {
+                    result = livelink.at(
+                        json::json_pointer("/metadata/shotgun/version/attributes/code"));
+                } else if (term == "Older Version" or term == "Newer Version") {
+                    auto val = livelink
+                                   .at(json::json_pointer(
+                                       "/metadata/shotgun/version/attributes/sg_dneg_version"))
+                                   .get<long>();
+                    result = nlohmann::json(std::to_string(val));
+                } else if (term == "Author" or term == "Recipient") {
+                    result = livelink.at(json::json_pointer(
+                        "/metadata/shotgun/version/relationships/user/data/name"));
+                } else if (term == "Shot") {
+                    result = livelink.at(json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/name"));
+                } else if (term == "Twig Name") {
+                    result = nlohmann::json(
+                        std::string("^") +
+                        livelink
+                            .at(json::json_pointer(
+                                "/metadata/shotgun/version/attributes/sg_twig_name"))
+                            .get<std::string>() +
+                        std::string("$"));
+                } else if (term == "Pipeline Step") {
+                    result = livelink.at(json::json_pointer(
+                        "/metadata/shotgun/version/attributes/sg_pipeline_step"));
+                } else if (term == "Twig Type") {
+                    result = livelink.at(json::json_pointer(
+                        "/metadata/shotgun/version/attributes/sg_twig_type"));
+                } else if (term == "Sequence") {
+                    auto type = livelink.at(json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/type"));
+                    if (type == "Sequence") {
+                        result = livelink.at(json::json_pointer(
+                            "/metadata/shotgun/version/relationships/entity/data/name"));
+                    } else {
+                        auto project_id =
+                            livelink
+                                .at(json::json_pointer(
+                                    "/metadata/shotgun/version/relationships/project/data/id"))
+                                .get<int>();
+                        auto shot_id =
+                            livelink
+                                .at(json::json_pointer(
+                                    "/metadata/shotgun/version/relationships/entity/data/id"))
+                                .get<int>();
+                        auto seq_data = getSequence(project_id, shot_id);
+                        if (not seq_data.is_null())
+                            result = seq_data.at("attributes").at("code");
+                    }
+                }
             }
         }
     } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        spdlog::warn(
+            "{} {} {} {}", __PRETTY_FUNCTION__, err.what(), query.dump(2), livelink.dump(2));
     }
+
     return result;
 }
 
@@ -1570,9 +1677,14 @@ void ShotgunTreeModel::setActivePreset(const int row) {
                     if (not row->empty()) {
                         auto jsn = row->front().data();
                         if (jsn.at("term") == "Shot" and jsn.value("livelink", false) and
-                            active_seq_shot_ != QStringFromStd(jsn.at("value"))) {
-                            active_seq_shot_ = QStringFromStd(jsn.at("value"));
-                            emit activeSeqShotChanged();
+                            active_shot_ != QStringFromStd(jsn.at("value"))) {
+                            active_shot_ = QStringFromStd(jsn.at("value"));
+                            emit activeShotChanged();
+                        } else if (
+                            jsn.at("term") == "Sequence" and jsn.value("livelink", false) and
+                            active_seq_ != QStringFromStd(jsn.at("value"))) {
+                            active_seq_ = QStringFromStd(jsn.at("value"));
+                            emit activeSeqChanged();
                         }
                     }
                 }
@@ -1585,9 +1697,8 @@ void ShotgunTreeModel::setActivePreset(const int row) {
 void ShotgunTreeModel::updateLiveLink(const QModelIndex &index) {
     // spdlog::warn("updateLiveLink {}", live_link_data_.dump(2));
     try {
-        auto jsn   = indexToData(index);
-        auto value = jsn.at("value");
-
+        auto jsn    = indexToData(index);
+        auto value  = jsn.at("value");
         auto result = applyLiveLinkValue(jsn, live_link_data_);
 
         if (result != value) {
@@ -1595,16 +1706,9 @@ void ShotgunTreeModel::updateLiveLink(const QModelIndex &index) {
                 QVariant::fromValue(QStringFromStd(result)),
                 QStringFromStd("argRole"),
                 index.parent());
-
-            if (index.parent().row() == active_preset_ && jsn.at("term") == "Shot") {
-
-                if (active_seq_shot_ != QStringFromStd(result)) {
-                    active_seq_shot_ = QStringFromStd(result);
-                    emit activeSeqShotChanged();
-                }
-            }
         }
-    } catch (...) {
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         set(index.row(),
             QVariant::fromValue(QString("")),
             QStringFromStd("argRole"),

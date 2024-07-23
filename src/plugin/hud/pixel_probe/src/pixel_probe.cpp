@@ -85,6 +85,7 @@ void PixelProbeHUDRenderer::set_mouse_pointer_position(const Imath::V2f p)
 
 PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : HUDPluginBase(cfg, "Pixel Probe", init_settings) {
+
     pixel_info_text_ = add_string_attribute("Pixel Info", "Pixel Info", "");
     pixel_info_text_->expose_in_ui_attrs_group("pixel_info_attributes");
 
@@ -167,28 +168,37 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
     value_precision_->set_preference_path("/plugin/pixel_probe/decimals");
 }
 
-PixelProbeHUD::~PixelProbeHUD() { colour_pipeline_ = caf::actor(); }
+PixelProbeHUD::~PixelProbeHUD() {
+    colour_pipelines_.clear();
+    colour_pipeline_ = caf::actor();
+}
 
 
 bool PixelProbeHUD::pointer_event(const ui::PointerEvent &e) {
 
     last_pointer_pos_ = e.position_in_viewport_coord_sys();
-    update_onscreen_info();
+    update_onscreen_info(e.context());
     return true;
 }
 
-void PixelProbeHUD::update_onscreen_info() {
+void PixelProbeHUD::update_onscreen_info(const std::string &viewport_name) {
 
     if (is_enabled_ != enabled_->value()) {
         is_enabled_ = enabled_->value();
         if (is_enabled_) {
-            listen_to_playhead_events();
             connect_to_ui();
         } else {
-            listen_to_playhead_events(false);
             current_onscreen_image_ = media_reader::ImageBufPtr();
-            // disconnect_from_ui();
         }
+    }
+
+    if (is_enabled_ && not viewport_name.empty()) {
+        if (current_onscreen_images_.find(viewport_name) != current_onscreen_images_.end()) {
+            current_onscreen_image_ = current_onscreen_images_[viewport_name];
+        } else {
+            current_onscreen_image_ = media_reader::ImageBufPtr();
+        }
+        colour_pipeline_ = get_colour_pipeline_actor(viewport_name);
     }
 
     static Imath::V2i image_dims(1920, 1080);
@@ -206,9 +216,6 @@ void PixelProbeHUD::update_onscreen_info() {
             int(round((last_pointer_pos_.y / image_aspect + 1.0f) * 0.5f * image_dims.y)));
 
         const auto pixel_info = current_onscreen_image_->pixel_info(image_coord);
-
-        if (!colour_pipeline_)
-            get_colour_pipeline_actor();
 
         if (colour_pipeline_) {
 
@@ -332,16 +339,26 @@ void PixelProbeHUD::make_pixel_info_onscreen_text(const media_reader::PixelInfo 
 }
 
 
-void PixelProbeHUD::get_colour_pipeline_actor() {
+caf::actor PixelProbeHUD::get_colour_pipeline_actor(const std::string &viewport_name) {
 
+    if (colour_pipelines_.find(viewport_name) != colour_pipelines_.end()) {
+        return colour_pipelines_[viewport_name];
+    }
     auto colour_pipe_manager = system().registry().get<caf::actor>(colour_pipeline_registry);
     caf::scoped_actor sys(system());
-    colour_pipeline_ = utility::request_receive<caf::actor>(
-        *sys,
-        colour_pipe_manager,
-        xstudio::colour_pipeline::colour_pipeline_atom_v,
-        "viewport0");
-    link_to(colour_pipeline_);
+    caf::actor r;
+    try {
+        r = utility::request_receive<caf::actor>(
+            *sys,
+            colour_pipe_manager,
+            xstudio::colour_pipeline::colour_pipeline_atom_v,
+            viewport_name);
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+    colour_pipelines_[viewport_name] = r;
+    return r;
 }
 
 void PixelProbeHUD::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
@@ -349,8 +366,15 @@ void PixelProbeHUD::attribute_changed(const utility::Uuid &attribute_uuid, const
     HUDPluginBase::attribute_changed(attribute_uuid, role);
 }
 
-void PixelProbeHUD::on_screen_image(const media_reader::ImageBufPtr &buf) {
-    current_onscreen_image_ = buf;
+void PixelProbeHUD::images_going_on_screen(
+    const std::vector<media_reader::ImageBufPtr> &images,
+    const std::string viewport_name,
+    const bool playhead_playing) {
+
+    if (images.size())
+        current_onscreen_images_[viewport_name] = images.front();
+    else
+        current_onscreen_images_[viewport_name].reset();
     update_onscreen_info();
 }
 
@@ -361,7 +385,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<PixelProbeHUD>>(
                 utility::Uuid("9437e200-80da-4725-97d7-02d5a11b3af1"),
                 "PixelProbeHUD",
-                plugin_manager::PluginType::PT_HEAD_UP_DISPLAY,
+                plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY,
                 true,
                 "Ted Waine",
                 "Viewport HUD Plugin")}));

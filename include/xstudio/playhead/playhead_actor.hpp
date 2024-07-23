@@ -67,7 +67,6 @@ namespace playhead {
             const media::MediaKeyVector &new_keys    = media::MediaKeyVector(),
             const media::MediaKeyVector &remove_keys = media::MediaKeyVector());
         void rebuild_cached_frames_status();
-        void rebuild_bookmark_frames_ranges();
         void
         select_media(const utility::UuidList &selection, caf::typed_response_promise<bool> &rp);
         void align_clip_frame_numbers();
@@ -112,7 +111,6 @@ namespace playhead {
         caf::actor image_cache_;
         caf::actor pre_reader_;
         caf::actor_addr playlist_selection_addr_;
-        utility::Uuid current_media_uuid_;
         utility::Uuid previous_source_uuid_;
         utility::Uuid current_source_uuid_;
         utility::Uuid key_playhead_uuid_;

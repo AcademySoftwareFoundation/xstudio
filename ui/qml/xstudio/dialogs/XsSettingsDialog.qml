@@ -438,7 +438,6 @@ XsDialogModal {
                 }
             }
 
-
             XsLabel {
                 text: "Image Cache (MB)"
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -579,6 +578,18 @@ XsDialogModal {
                     }
                 }
             }
+
+            XsLabel {
+                text: "Launch QuickView window for all incoming media"
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+            }
+            XsCheckboxOld {
+                checked: preferences.quickview_all_incoming_media.value
+                onTriggered: {
+                    preferences.quickview_all_incoming_media.value = !preferences.quickview_all_incoming_media.value
+                }
+            }
+
         }
         DialogButtonBox {
 

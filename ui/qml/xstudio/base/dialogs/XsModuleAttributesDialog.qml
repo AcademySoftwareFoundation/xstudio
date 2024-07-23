@@ -7,6 +7,7 @@ import Qt.labs.qmlmodels 1.0
 
 import xStudio 1.1
 import xstudio.qml.module 1.0
+import xstudio.qml.models 1.0
 
 XsWindow {
 
@@ -21,6 +22,11 @@ XsWindow {
         id: attribute_set
         attributesGroupNames: dialog.attributesGroupNames
     }
+
+    /*XsModuleData {
+        id: attribute_set
+        modelDataName: dialog.attributesGroupNames
+    }*/
 
     RowLayout {
 

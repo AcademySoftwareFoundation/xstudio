@@ -1,6 +1,8 @@
 #include <QGuiApplication>
 #include <QtQml>
 #include <QQmlComponent>
+#include <QUrl>
+#include <QUuid>
 
 #include "qffuture.h"
 #include "quickfuture.h"
@@ -14,6 +16,11 @@ Q_DECLARE_METATYPE(QFuture<QByteArray>)
 Q_DECLARE_METATYPE(QFuture<QVariant>)
 Q_DECLARE_METATYPE(QFuture<QVariantMap>)
 Q_DECLARE_METATYPE(QFuture<QSize>)
+Q_DECLARE_METATYPE(QUrl)
+Q_DECLARE_METATYPE(QList<QUuid>)
+Q_DECLARE_METATYPE(QFuture<QUuid>)
+Q_DECLARE_METATYPE(QFuture<QList<QUuid>>)
+Q_DECLARE_METATYPE(QFuture<QUrl>)
 
 namespace QuickFuture {
 
@@ -263,6 +270,11 @@ static void init() {
     Future::registerType<QVariant>();
     Future::registerType<QVariantMap>();
     Future::registerType<QSize>();
+
+    Future::registerType<QUrl>();
+    Future::registerType<QUuid>();
+    Future::registerType<QList<QUuid>>();
+
 }
 
 #ifndef QUICK_FUTURE_BUILD_PLUGIN

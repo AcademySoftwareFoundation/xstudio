@@ -20,6 +20,8 @@ class CafResponse : public QObject {
   signals:
     //  Search value, search role,  search hint, set role, set value
     void received(QVariant, int, QPersistentModelIndex, int, QString);
+    //  Search value, search role,  set role
+    void finished(QVariant, int, int);
 
   public:
     CafResponse(
@@ -30,6 +32,17 @@ class CafResponse : public QObject {
         int role,
         const std::string &role_name,
         QThreadPool *pool);
+
+    CafResponse(
+        const QVariant search_value,
+        const int search_role,
+        const QPersistentModelIndex search_hint,
+        const nlohmann::json &data,
+        int role,
+        const std::string &role_name,
+        const std::map<int, std::string> &metadata_paths,
+        QThreadPool *pool);
+
 
   private:
     void handleFinished();

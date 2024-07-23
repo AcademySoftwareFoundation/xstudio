@@ -19,7 +19,7 @@ Rectangle {
     XsModuleAttributesModel {
         
         id: text_times
-        attributesGroupNames: "annotations_text_items"
+        attributesGroupNames: "annotations_text_items_0"
 
     }
 

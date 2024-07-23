@@ -17,7 +17,7 @@ XsMenu {
     XsFlagMenu {
         title: qsTr("Flag Media")
         showChecked: false
-        onFlagSet: app_window.sessionFunction.flagSelectedMedia(hex)
+        onFlagSet: app_window.sessionFunction.flagSelectedMedia(hex, text)
     }
 
     XsMenu {
@@ -53,7 +53,6 @@ XsMenu {
     XsMenuItem {
         mytext: qsTr("Select All")
         shortcut: "Ctrl+A"
-
         onTriggered: app_window.sessionFunction.selectAllMedia()
     }
 
@@ -106,6 +105,27 @@ XsMenu {
             onTriggered: app_window.sessionFunction.revealSelectedSources()
         }
     }
+
+    // XsMenuSeparator {}
+    // XsMenu {
+
+    //     id: conform_menu
+    //     title: "Conform"
+    //     fakeDisabled: false
+    //     Repeater {
+    //         model: app_window.sessionModel.conformTasks
+    //         onItemAdded: conform_menu.insertItem(index, item)
+    //         onItemRemoved: conform_menu.removeItem(item)
+
+    //         XsMenuItem {
+    //             mytext: modelData
+    //             enabled: true
+    //             onTriggered: {
+    //                 app_window.sessionFunction.conformInsertSelectedMedia(modelData)
+    //             }
+    //         }
+    //     }
+    // }
 
     XsMenuSeparator {}
 
@@ -199,7 +219,22 @@ XsMenu {
         parent_menu: menu
         root_menu_name: "Plugins"
     }
-    XsMenuSeparator {}
+
+    XsMenuSeparator {
+        id: after_plugins_separator
+        visible: !extras_menu.empty
+        height: visible ? implicitHeight : 0
+    }
+
+    XsModuleMenuBuilder {
+        id: extras_menu
+        parent_menu: menu
+        root_menu_name: "media_menu_extras"
+        insert_after: after_plugins_separator
+    }
+
+    XsMenuSeparator {
+    }
 
     // XsButtonDialog {
     //     id: removeMedia

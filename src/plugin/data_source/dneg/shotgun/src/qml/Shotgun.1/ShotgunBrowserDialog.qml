@@ -31,6 +31,7 @@ XsWindow { id: shotgunBrowser
     property var pipelineStatusModel: null
     property var boolModel: null
     property var reviewLocationModel: null
+    property var referenceTagModel: null
     property var resultLimitModel: null
     property var orderByModel: null
     property var primaryLocationModel: null
@@ -657,6 +658,7 @@ XsWindow { id: shotgunBrowser
             primaryLocationModel: shotgunBrowser.primaryLocationModel
             orderByModel: shotgunBrowser.orderByModel
             resultLimitModel: shotgunBrowser.resultLimitModel
+            referenceTagModel: shotgunBrowser.referenceTagModel
             reviewLocationModel: shotgunBrowser.reviewLocationModel
             boolModel: shotgunBrowser.boolModel
             lookbackModel: shotgunBrowser.lookbackModel

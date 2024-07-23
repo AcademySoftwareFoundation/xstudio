@@ -1,1 +1,1 @@
-../quickfuture/src/QuickFuture
+#include "quickfuture.h"

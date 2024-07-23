@@ -9,7 +9,7 @@
 
 namespace xstudio {
 namespace ui {
-    namespace frontend_model {
+    namespace ui_layouts_model {
 
         class WindowsAndPanelsModel : public JsonStoreActor {
 

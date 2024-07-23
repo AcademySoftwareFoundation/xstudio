@@ -7,7 +7,6 @@
 #include "xstudio/ui/qt/viewport_widget.hpp"
 #include "xstudio/ui/viewport/viewport.hpp"
 #include "xstudio/utility/logging.hpp"
-#include "xstudio/ui/qt/offscreen_viewport.hpp"
 
 CAF_PUSH_WARNINGS
 #include <QDebug>
@@ -61,9 +60,6 @@ int qtModifierToOurs(const Qt::KeyboardModifiers qt_modifiers) {
 
 } // namespace
 
-qt::OffscreenViewport *QMLViewport::offscreen_viewport_ = nullptr;
-
-
 QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::ArrowCursor) {
 
     playhead_ = new PlayheadUI(this);
@@ -72,7 +68,7 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
     connect(this, &QQuickItem::windowChanged, this, &QMLViewport::handleWindowChanged);
     static int index = 0;
     viewport_index_  = index++;
-    renderer_actor   = new QMLViewportRenderer(static_cast<QObject *>(this), viewport_index_);
+    renderer_actor   = new QMLViewportRenderer(this, viewport_index_);
     connect(renderer_actor, SIGNAL(zoomChanged(float)), this, SIGNAL(zoomChanged(float)));
     connect(
         renderer_actor,
@@ -114,18 +110,35 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
         this,
         SLOT(setNoAlphaChannel(bool)));
 
+    connect(
+        this,
+        SIGNAL(quickViewSource(QStringList, QString)),
+        renderer_actor,
+        SLOT(quickViewSource(QStringList, QString)));
+
+    connect(
+        renderer_actor,
+        SIGNAL(quickViewBackendRequest(QStringList, QString)),
+        this,
+        SIGNAL(quickViewBackendRequest(QStringList, QString)));
+
+    connect(
+        renderer_actor,
+        SIGNAL(quickViewBackendRequestWithSize(QStringList, QString, QPoint, QSize)),
+        this,
+        SIGNAL(quickViewBackendRequestWithSize(QStringList, QString, QPoint, QSize)));
+
+    connect(
+        renderer_actor,
+        SIGNAL(snapshotRequestResult(QString)),
+        this,
+        SIGNAL(snapshotRequestResult(QString)));
+
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
-
-    if (!offscreen_viewport_) {
-        try {
-            offscreen_viewport_ =
-                new xstudio::ui::qt::OffscreenViewport(static_cast<QObject *>(this));
-        } catch (std::exception &e) {
-            spdlog::debug("Unable to create offscreen viewport renderer: {}", e.what());
-        }
-    }
 }
+
+QMLViewport::~QMLViewport() { delete renderer_actor; }
 
 void QMLViewport::handleWindowChanged(QQuickWindow *win) {
     spdlog::debug("QMLViewport::handleWindowChanged");
@@ -140,12 +153,14 @@ void QMLViewport::handleWindowChanged(QQuickWindow *win) {
             this,
             &QMLViewport::sync,
             Qt::DirectConnection);
+
         connect(
             win,
             &QQuickWindow::sceneGraphInvalidated,
             this,
             &QMLViewport::cleanup,
             Qt::DirectConnection);
+
         connect(
             win,
             &QQuickWindow::frameSwapped,
@@ -171,6 +186,18 @@ void QMLViewport::handleWindowChanged(QQuickWindow *win) {
     }
 }
 
+void QMLViewport::linkToViewport(QObject *other_viewport) {
+
+    auto other = dynamic_cast<QMLViewport *>(other_viewport);
+    if (other) {
+        QMLViewportRenderer *otherActor = other->viewportActor();
+        renderer_actor->linkToViewport(otherActor);
+    } else {
+        qDebug() << "QMLViewport::linkToViewport failed because " << other_viewport
+                 << " is not derived from QMLViewport.";
+    }
+}
+
 void QMLViewport::handleScreenChanged(QScreen *screen) {
 
     spdlog::debug("QMLViewport::handleScreenChanged");
@@ -181,6 +208,7 @@ void QMLViewport::handleScreenChanged(QScreen *screen) {
         screen->serialNumber(),
         screen->refreshRate());
 }
+
 
 PointerEvent
 QMLViewport::makePointerEvent(Signature::EventType t, QMouseEvent *event, int force_modifiers) {
@@ -238,7 +266,8 @@ void QMLViewport::sync() {
         mapToScene(boundingRect().topRight()),
         mapToScene(boundingRect().bottomRight()),
         mapToScene(boundingRect().bottomLeft()),
-        window()->size());
+        window()->size(),
+        window()->devicePixelRatio());
 
     /*static bool share = false;
     if (window() && !share) {
@@ -258,16 +287,33 @@ void QMLViewport::sync() {
 }
 
 void QMLViewport::cleanup() {
+
+    spdlog::debug("QMLViewport::cleanup");
     if (renderer_actor) {
         // delete renderer_actor;
-        renderer_actor->deleteLater();
-        renderer_actor = nullptr;
-    }
-    if (offscreen_viewport_) {
-        offscreen_viewport_->deleteLater();
+        delete renderer_actor;
         renderer_actor = nullptr;
     }
 }
+
+void QMLViewport::deleteRendererActor() {
+
+    delete renderer_actor;
+    renderer_actor = nullptr;
+}
+
+void QMLViewport::hoverEnterEvent(QHoverEvent *event) {
+
+    emit pointerEntered();
+    QQuickItem::hoverEnterEvent(event);
+}
+
+void QMLViewport::hoverLeaveEvent(QHoverEvent *event) {
+
+    emit pointerExited();
+    QQuickItem::hoverLeaveEvent(event);
+}
+
 
 void QMLViewport::mousePressEvent(QMouseEvent *event) {
 
@@ -431,15 +477,6 @@ void QMLViewport::setScale(const float s) { renderer_actor->setScale(s); }
 
 void QMLViewport::setTranslate(const QVector2D &t) { renderer_actor->setTranslate(t); }
 
-void QMLViewport::setColourUnderCursor(const QVector3D &c) {
-
-    colour_under_cursor = QStringList(
-        {QString("%1").arg(c.x(), 3, 'f', 3, '0'),
-         QString("%1").arg(c.y(), 3, 'f', 3, '0'),
-         QString("%1").arg(c.z(), 3, 'f', 3, '0')});
-    emit(colourUnderCursorChanged());
-}
-
 void QMLViewport::wheelEvent(QWheelEvent *event) {
 
     // make a mouse wheel event and pass to viewport to process
@@ -516,21 +553,28 @@ void QMLViewport::setNoAlphaChannel(bool no_alpha_channel) {
 
 class CleanupJob : public QRunnable {
   public:
-    CleanupJob(QMLViewportRenderer *renderer) : m_renderer(renderer) {}
-    void run() override { delete m_renderer; }
+    /* N.B. - we use a shared_ptr to manage the deletion of the viewport. The
+    reason is that sometimes (on xstudio shotdown) the CleanupJob instance
+    is created but run does NOT get executed. */
+    CleanupJob(QMLViewportRenderer *vp) : renderer(vp) {}
+    void run() override { renderer.reset(); }
 
   private:
-    QMLViewportRenderer *m_renderer;
+    std::shared_ptr<QMLViewportRenderer> renderer;
 };
 
 void QMLViewport::releaseResources() {
-    spdlog::debug("QMLViewport::releaseResources");
+
+    /* This is the recommended way to delete the object that manages OpenGL
+    resources. Scheduling a render job means that it is run when the OpenGL
+    context is valid and as such in the destructor of the ViewportRenderer
+    we can do the appropriare release of OpenGL resources*/
     window()->scheduleRenderJob(
         new CleanupJob(renderer_actor), QQuickWindow::BeforeSynchronizingStage);
     renderer_actor = nullptr;
 }
 
-QString QMLViewport::renderImageToFile(
+void QMLViewport::renderImageToFile(
     const QUrl filePath,
     const int format,
     const int compression,
@@ -538,25 +582,8 @@ QString QMLViewport::renderImageToFile(
     const int height,
     const bool bakeColor) {
 
-    if (!offscreen_viewport_) {
-        return QString("Offscreen viewport renderer was not found.");
-    }
-
-    QString error_message;
-    try {
-
-        offscreen_viewport_->renderSnapshot(
-            playhead_->backend(), width, height, compression, bakeColor, UriFromQUrl(filePath));
-
-        spdlog::info(
-            "Snapshot successfully generated: {}",
-            xstudio::utility::uri_to_posix_path(UriFromQUrl(filePath)));
-
-    } catch (std::exception &e) {
-
-        error_message = QStringFromStd(e.what());
-    }
-    return error_message;
+    renderer_actor->renderImageToFile(
+        filePath, playhead_->backend(), format, compression, width, height, bakeColor);
 }
 
 
@@ -603,3 +630,11 @@ void QMLViewport::setRegularCursor(const Qt::CursorShape cname) {
 }
 
 QString QMLViewport::name() const { return renderer_actor->name(); }
+
+void QMLViewport::setIsQuickViewer(bool is_quick_viewer) {
+    if (is_quick_viewer != is_quick_viewer_) {
+        renderer_actor->setIsQuickViewer(is_quick_viewer);
+        is_quick_viewer_ = is_quick_viewer;
+        emit isQuickViewerChanged();
+    }
+}

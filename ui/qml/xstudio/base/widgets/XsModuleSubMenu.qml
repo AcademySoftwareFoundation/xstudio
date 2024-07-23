@@ -22,6 +22,7 @@ XsMenu {
     XsModuleMenu {
         id: module_menu_shim2
         root_menu_name: submenu_.root_menu_name ? submenu_.root_menu_name : ""
+
     }
 
     Instantiator {
@@ -46,6 +47,7 @@ XsMenu {
             XsModuleMenu {
                 id: module_menu_shim3
                 root_menu_name: submenu2_.root_menu_name
+        
             }
 
             Instantiator {
@@ -70,6 +72,7 @@ XsMenu {
                     XsModuleMenu {
                         id: module_menu_shim4
                         root_menu_name: submenu3_.root_menu_name
+                
                     }
 
                     Instantiator {
@@ -94,6 +97,7 @@ XsMenu {
                             XsModuleMenu {
                                 id: module_menu_shim5
                                 root_menu_name: submenu4_.root_menu_name
+                        
                             }
 
                             Instantiator {
@@ -118,6 +122,7 @@ XsMenu {
                                     XsModuleMenu {
                                         id: module_menu_shim6
                                         root_menu_name: submenu5_.root_menu_name
+                                
                                     }
 
                                     Instantiator {
@@ -142,6 +147,7 @@ XsMenu {
                                             XsModuleMenu {
                                                 id: module_menu_shim7
                                                 root_menu_name: submenu6_.root_menu_name
+                                        
                                             }
                                         }
                                         

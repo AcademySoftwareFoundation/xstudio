@@ -21,8 +21,10 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
     link_to(hotkey_config_events_group_);
 
     set_down_handler([=](down_msg &msg) {
-        if (msg.source == actor_grabbing_all_mouse_input_) {
-            actor_grabbing_all_mouse_input_ = caf::actor();
+        if (actor_grabbing_all_mouse_input_.find(caf::actor_cast<caf::actor>(msg.source)) !=
+            actor_grabbing_all_mouse_input_.end()) {
+            actor_grabbing_all_mouse_input_.erase(
+                actor_grabbing_all_mouse_input_.find(caf::actor_cast<caf::actor>(msg.source)));
         }
         if (msg.source == actor_grabbing_all_keyboard_input_) {
             actor_grabbing_all_keyboard_input_ = caf::actor();
@@ -65,8 +67,10 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             }
         },
         [=](mouse_event_atom, const PointerEvent &e) {
-            if (actor_grabbing_all_mouse_input_) {
-                anon_send(actor_grabbing_all_mouse_input_, mouse_event_atom_v, e);
+            if (actor_grabbing_all_mouse_input_.size()) {
+                for (auto &a : actor_grabbing_all_mouse_input_) {
+                    anon_send(a, mouse_event_atom_v, e);
+                }
             } else {
                 send(keyboard_events_group_, mouse_event_atom_v, e);
             }
@@ -80,9 +84,12 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
         },
         [=](module::grab_all_mouse_input_atom, caf::actor actor, const bool grab) {
             if (grab) {
-                actor_grabbing_all_mouse_input_ = actor;
-            } else if (actor_grabbing_all_mouse_input_ == actor) {
-                actor_grabbing_all_mouse_input_ = caf::actor();
+                actor_grabbing_all_mouse_input_.insert(actor);
+            } else if (
+                actor_grabbing_all_mouse_input_.find(actor) !=
+                actor_grabbing_all_mouse_input_.end()) {
+                actor_grabbing_all_mouse_input_.erase(
+                    actor_grabbing_all_mouse_input_.find(actor));
             }
         },
 
@@ -125,7 +132,7 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
 void KeypressMonitor::on_exit() {
     system().registry().erase(keyboard_events);
     actor_grabbing_all_keyboard_input_ = caf::actor();
-    actor_grabbing_all_mouse_input_    = caf::actor();
+    actor_grabbing_all_mouse_input_.clear();
 }
 
 void KeypressMonitor::held_keys_changed(const std::string &context, const bool auto_repeat) {

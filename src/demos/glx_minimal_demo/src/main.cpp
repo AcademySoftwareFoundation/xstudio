@@ -21,7 +21,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <GL/gl.h>
@@ -127,7 +129,7 @@ class GLXWindowViewportActor : public caf::event_based_actor {
 
             // this is crucial for video refresh sync, the viewport
             // needs to know when the image was put on the screen
-            viewport_renderer->framebuffer_swapped();
+            viewport_renderer->framebuffer_swapped(utility::clock::now());
         }
 
         glXMakeCurrent(display, 0, 0); // releases the context so that this function can be
@@ -215,7 +217,8 @@ void GLXWindowViewportActor::resizeGL(int w, int h) {
         Imath::V2f(w, 0),
         Imath::V2f(w, h),
         Imath::V2f(0, h),
-        Imath::V2i(w, h));
+        Imath::V2i(w, h),
+        1.0f);
 }
 
 int main(int argc, char *argv[]) {

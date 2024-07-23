@@ -43,6 +43,7 @@ Bookmark::Bookmark(const JsonStore &jsn)
     duration_ = jsn.value("duration", timebase::k_flicks_max);
     enabled_  = jsn.value("enabled", true);
     owner_    = jsn.value("owner", utility::Uuid());
+    visible_  = jsn.value("visible", true);
 
     // N.B. AnnotationBase creation requires caf api comms with plugins and
     // is handled by the bookmark actor
@@ -75,6 +76,7 @@ JsonStore Bookmark::serialise() const {
     jsn["duration"] = duration_;
     jsn["enabled"]  = enabled_;
     jsn["owner"]    = owner_;
+    jsn["visible"]  = visible_;
 
     return jsn;
 }
@@ -90,6 +92,11 @@ bool Bookmark::update(const BookmarkDetail &detail) {
     if (detail.has_focus_) {
         has_focus_ = *(detail.has_focus_);
         changed    = true;
+    }
+
+    if (detail.visible_) {
+        visible_ = *(detail.visible_);
+        changed  = true;
     }
 
     if (detail.start_) {
@@ -199,6 +206,7 @@ BookmarkDetail &BookmarkDetail::operator=(const Bookmark &other) {
     uuid_      = other.uuid();
     enabled_   = other.enabled_;
     has_focus_ = other.has_focus_;
+    visible_   = other.visible_;
     start_     = other.start_;
     duration_  = other.duration_;
 

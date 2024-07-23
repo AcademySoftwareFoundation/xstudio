@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # if already installed.
-grep -qs Version=1.4.0 ~/.local/share/applications/xstudio.desktop && exit 0
+grep -qs Version=1.6.0 ~/.local/share/applications/xstudio.desktop && exit 0
 
 # Desktop file.
 mkdir -p ~/.local/share/applications
@@ -11,7 +11,7 @@ mkdir -p ~/.local/share/icons
 
 cat <<EOF > ~/.local/share/applications/xstudio.desktop
 [Desktop Entry]
-Version=1.2.0
+Version=1.6.0
 Type=Application
 Name=xStudio
 Exec=xstudio %U
@@ -34,6 +34,11 @@ cat <<EOF > ~/.local/share/mime/packages/xstudio.xml
        <match value="xStudio" type="string" offset="0:100"/>
      </magic>
      <glob pattern="*.xst"/>
+     <icon name="xstudio_file"/>
+   </mime-type>
+   <mime-type type="x-scheme-handler/xstudio">
+     <comment>xStudio Project File (compressed)</comment>
+     <glob pattern="*.xsz"/>
      <icon name="xstudio_file"/>
    </mime-type>
 </mime-info>

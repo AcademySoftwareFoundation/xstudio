@@ -68,7 +68,7 @@ DelegateChoice {
             anchors.fill: parent
             anchors.margins: framePadding
             rows: 2
-            columns: 7
+            columns: 8
             rowSpacing: itemSpacing
 
             Rectangle{ id: indicators
@@ -212,50 +212,11 @@ DelegateChoice {
                 }
             }
 
-            // XsButton{ id: versionsButton
-            //     Layout.preferredWidth: pipeStatusDisplay.width
-            //     Layout.preferredHeight: parent.height
-            //     Layout.rowSpan: 2
-
-            //     text: "History"
-            //     textDiv.width: parent.height
-            //     textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
-            //     textDiv.rotation: -90
-            //     textDiv.topPadding: 2.5
-            //     textDiv.rightPadding: 3
-            //     font.pixelSize: fontSize
-            //     font.weight: Font.DemiBold
-            //     padding: 0
-            //     bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
-            //     onClicked: {
-            //         if(roleValue=="Reference") currentCategory = "Versions"
-            //         rightDiv.popupMenuAction("Related Versions", index) //createPresetType("Live Versions")
-            //     }
-            // }
-
-            // XsButton{ id: allVersionsButton
-            //     Layout.preferredWidth: pipeStatusDisplay.width
-            //     Layout.preferredHeight: parent.height
-            //     Layout.rowSpan: 2
-
-            //     text: "Latest"
-            //     textDiv.width: parent.height
-            //     textDiv.opacity: hovered ? 1 : isMouseHovered? 0.8 : 0.6
-            //     textDiv.rotation: -90
-            //     textDiv.topPadding: 2.5
-            //     textDiv.rightPadding: 3
-            //     font.pixelSize: fontSize
-            //     font.weight: Font.DemiBold
-            //     padding: 0
-            //     bgDiv.border.color: down || hovered ? bgColorPressed: Qt.darker(bgColorNormal,1.5)
-            //     onClicked: rightDiv.popupMenuAction("Latest Versions", index)
-            // }
-
             XsTextButton{ id: nameDisplay
                 text: " "+nameRole
                 isClickable: false
                 onTextClicked: createPreset("Twig Name", twigNameRole)
-                Layout.columnSpan: 3
+                Layout.columnSpan: stepDisplay.visible? 3 : 5
 
                 Layout.alignment: Qt.AlignLeft
                 Layout.fillWidth: true
@@ -272,6 +233,7 @@ DelegateChoice {
             }
 
             XsTextButton{ id: stepDisplay
+                visible: text != ""
                 text: pipelineStepRole ? pipelineStepRole : ""
                 isClickable: false
                 textDiv.font.pixelSize: fontSize*1.2
@@ -285,7 +247,7 @@ DelegateChoice {
                 Layout.minimumWidth: 65
                 Layout.preferredWidth: 70
                 Layout.maximumWidth: 92
-                Layout.columnSpan: 1
+                Layout.columnSpan: 2
 
                 ToolTip.text: text
                 ToolTip.visible: hovered && textDiv.truncated
@@ -314,7 +276,7 @@ DelegateChoice {
                         model: siteModel //["chn","lon","mtl","mum","syd",van"]
 
                         XsButton{ id: onDiskDisplay
-                            property bool onDisk: {
+                            property int onDisk: {
                                 if(index==0) onSiteChn
                                 else if(index==1) onSiteLon
                                 else if(index==2) onSiteMtl
@@ -331,18 +293,18 @@ DelegateChoice {
                             focus: false
                             enabled: false
                             borderWidth: 0
-                            bgColorNormal: onDisk ? siteColour : palette.base
+                            bgColorNormal: onDisk ? Qt.darker(siteColour, onDisk == 1 ? 1.5:1.0) : palette.base
                             textDiv.topPadding: 2
                         }
                     }
                     ListModel{
                         id: siteModel
-                        ListElement{siteName:"chn"; siteColour:"#508f00"} //"#6a9140"}
-                        ListElement{siteName:"lon"; siteColour:"#2b7ffc"} //"#143390"}
-                        ListElement{siteName:"mtl"; siteColour:"#979700"} //"#b1a350"}
+                        ListElement{siteName:"chn"; siteColour:"#508f00"}
+                        ListElement{siteName:"lon"; siteColour:"#2b7ffc"}
+                        ListElement{siteName:"mtl"; siteColour:"#979700"}
                         ListElement{siteName:"mum"; siteColour:"#ef9526"}
-                        ListElement{siteName:"syd"; siteColour:"#008a46"} //"#7f082f"}
-                        ListElement{siteName:"van"; siteColour:"#7a1a39"} //"#7f082f"}
+                        ListElement{siteName:"syd"; siteColour:"#008a46"}
+                        ListElement{siteName:"van"; siteColour:"#7a1a39"}
                     }
                 }
 
@@ -414,6 +376,23 @@ DelegateChoice {
                 onTextClicked: createPreset("Author", textDiv.text)
 
                 ToolTip.text: authorRole
+                ToolTip.visible: hovered && textDiv.truncated
+            }
+
+
+            XsTextButton{
+                text: tagRole ? ""+tagRole : ""
+                isClickable: false
+                textDiv.font.pixelSize: fontSize
+                opacity: 0.6
+                textDiv.elide: Text.ElideRight
+                textDiv.horizontalAlignment: Text.AlignLeft
+                forcedMouseHover: isMouseHovered
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignLeft
+                // Layout.columnSpan:
+                // ToolTip.text: tagRole
+                ToolTip.text: tagRole ? tagRole.join("\n") : ""
                 ToolTip.visible: hovered && textDiv.truncated
             }
 

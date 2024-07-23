@@ -113,7 +113,7 @@ Rectangle {
             moveTimer.stop()
             if(drop.hasUrls) {
                 for(var i=0; i < drop.urls.length; i++) {
-                    if(drop.urls[i].toLowerCase().endsWith('.xst')) {
+                    if(drop.urls[i].toLowerCase().endsWith('.xst') || drop.urls[i].toLowerCase().endsWith('.xsz')) {
                         Future.promise(studio.loadSessionRequestFuture(drop.urls[i])).then(function(result){})
                         app_window.sessionFunction.newRecentPath(drop.urls[i])
                         return;

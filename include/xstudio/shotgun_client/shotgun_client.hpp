@@ -38,7 +38,7 @@ namespace shotgun_client {
         IS_NOT,
         LESS_THAN,
         GREATER_THAN,
-        IN,
+        IN_OPERATOR,
         NOT_IN,
         BETWEEN,
         NOT_BETWEEN,
@@ -70,7 +70,7 @@ namespace shotgun_client {
         {ConditionalOperator::IS_NOT, "is_not"},
         {ConditionalOperator::LESS_THAN, "less_than"},
         {ConditionalOperator::GREATER_THAN, "greater_than"},
-        {ConditionalOperator::IN, "in"},
+        {ConditionalOperator::IN_OPERATOR, "in"},
         {ConditionalOperator::NOT_IN, "not_in"},
         {ConditionalOperator::BETWEEN, "between"},
         {ConditionalOperator::NOT_BETWEEN, "not_between"},
@@ -431,7 +431,7 @@ namespace shotgun_client {
         }
 
         Field &in(const std::vector<T> value) {
-            condition_ = ConditionalOperator::IN;
+            condition_ = ConditionalOperator::IN_OPERATOR;
             value_     = std::move(value);
             null_      = false;
             return *this;
@@ -704,7 +704,7 @@ namespace shotgun_client {
         }
 
         Field &in(const std::vector<int32_t> value) {
-            condition_ = ConditionalOperator::IN;
+            condition_ = ConditionalOperator::IN_OPERATOR;
             value_     = std::move(value);
             null_      = false;
             return *this;
@@ -1184,19 +1184,37 @@ namespace shotgun_client {
         RelationType(const utility::JsonStore &jsn) : Field<utility::JsonStore>(jsn) {}
         ~RelationType() override = default;
 
-        RelationType &is(const utility::JsonStore value) {
+        RelationType &is(const utility::JsonStore &value) {
             Field<utility::JsonStore>::is(value);
             return *this;
         }
-        RelationType &is_not(const utility::JsonStore value) {
+        RelationType &is_not(const utility::JsonStore &value) {
             Field<utility::JsonStore>::is_not(value);
             return *this;
         }
-        RelationType &in(const std::vector<utility::JsonStore> value) {
+        RelationType &name_is(const std::string &value) {
+            nlohmann::json jvalue;
+            jvalue = value;
+            Field<utility::JsonStore>::name_is(utility::JsonStore(jvalue));
+            return *this;
+        }
+        RelationType &name_contains(const std::string &value) {
+            nlohmann::json jvalue;
+            jvalue = value;
+            Field<utility::JsonStore>::name_contains(utility::JsonStore(jvalue));
+            return *this;
+        }
+        RelationType &name_not_contains(const std::string &value) {
+            nlohmann::json jvalue;
+            jvalue = value;
+            Field<utility::JsonStore>::name_not_contains(utility::JsonStore(jvalue));
+            return *this;
+        }
+        RelationType &in(const std::vector<utility::JsonStore> &value) {
             Field<utility::JsonStore>::in(value);
             return *this;
         }
-        RelationType &not_in(const std::vector<utility::JsonStore> value) {
+        RelationType &not_in(const std::vector<utility::JsonStore> &value) {
             Field<utility::JsonStore>::not_in(value);
             return *this;
         }

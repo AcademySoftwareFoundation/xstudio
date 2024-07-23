@@ -38,12 +38,14 @@ Item{ id: widget
         }
     }
     property var valuesModel
+
     property int valuesCount: valuesModel ? valuesModel.length: 0
     onValuesCountChanged:{
         valuesPopup.currentIndex=-1
     }
     property int checkedCount: sourceSelectionModel.selectedIndexes.length
     property alias checkedIndexes: sourceSelectionModel.selectedIndexes
+    property alias theSelection: sourceSelectionModel.selection
 
     property alias popup: valuesPopup
     signal close()
@@ -74,13 +76,8 @@ Item{ id: widget
         model: valuesModel
     }
 
-
-
-    anchors.verticalCenter: parent.verticalCenter
-    width: parent.width
-    height: itemHeight
-
-
+    // width: parent.width
+    // height: itemHeight
 
     Rectangle{ id: searchField
         width: parent.width
@@ -92,7 +89,7 @@ Item{ id: widget
 
         XsTextField { id: searchTextField
             width: parent.width
-            height: itemHeight
+            height: widget.height
             font.pixelSize: fontSize*1.2
             placeholderText: hint
             forcedHover: arrowButton.hovered
@@ -145,7 +142,7 @@ Item{ id: widget
             text: ""
             imgSrc: isActive?"qrc:/feather_icons/chevron-up.svg": "qrc:/feather_icons/chevron-down.svg"
             width: height
-            height: itemHeight - framePadding
+            height: widget.height - framePadding
             anchors.verticalCenter: parent.verticalCenter
             anchors.right: searchTextField.right
             anchors.rightMargin: framePadding/2
@@ -159,7 +156,7 @@ Item{ id: widget
                     valuesPopup.visible = false
                     arrowButton.isArrowBtnClicked = false
                 }
-                else{ 
+                else{
                     valuesPopup.visible = true
                     arrowButton.isArrowBtnClicked = true
                 }
@@ -172,7 +169,7 @@ Item{ id: widget
             imgSrc: "qrc:/feather_icons/x.svg"
             visible: searchTextField.length!=0
             width: height
-            height: itemHeight - framePadding
+            height: widget.height - framePadding
             anchors.verticalCenter: parent.verticalCenter
             anchors.right: checkedCount>0 && countDisplay.visible? countDisplay.left: arrowButton.left
             anchors.rightMargin: framePadding/2
@@ -188,7 +185,7 @@ Item{ id: widget
             font.pixelSize: text.length==1? 10 : 9
             visible: checkedCount>0
             width: height
-            height: itemHeight - framePadding*1.10
+            height: widget.height - framePadding*1.10
             borderRadius: width/1.2
             isActive: isCountBtnClicked //isFiltered
             textColorNormal: isActive? "light grey": palette.highlight
@@ -205,7 +202,7 @@ Item{ id: widget
 
                     countDisplay.isCountBtnClicked = false
                 }
-                else{ 
+                else{
                     isFiltered = true
                     valuesPopup.visible = true
 
@@ -222,7 +219,7 @@ Item{ id: widget
     }
     ListView{ id: valuesPopup
         z: 10
-        property real valuesItemHeight: itemHeight/1.3
+        property real valuesItemHeight: widget.height/1.3
         model: valuesModel
 
         Rectangle{ anchors.fill: parent; color: "transparent";

@@ -61,7 +61,7 @@ namespace data_source {
             : plugin_manager::PluginFactoryTemplate<T>(
                   uuid,
                   name,
-                  plugin_manager::PluginType::PT_DATA_SOURCE,
+                  plugin_manager::PluginFlags::PF_DATA_SOURCE,
                   true,
                   author,
                   description,

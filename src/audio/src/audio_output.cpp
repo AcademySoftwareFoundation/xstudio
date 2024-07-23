@@ -122,37 +122,6 @@ template <typename T>
 media_reader::AudioBufPtr
 super_simple_respeed_audio_buffer(const media_reader::AudioBufPtr in, const float velocity);
 
-AudioOutputControl::AudioOutputControl(const utility::JsonStore &jsn)
-    : Module("AudioOutputControl"), prefs_(jsn) {
-
-
-    audio_delay_millisecs_ =
-        add_integer_attribute("Audio Delay Millisecs", "Audio Delay Millisecs", 0, -1000, 1000);
-    audio_delay_millisecs_->set_role_data(
-        module::Attribute::PreferencePath, "/core/audio/audio_latency_millisecs");
-
-    audio_repitch_ = add_boolean_attribute("Audio Repitch", "Audio Repitch", false);
-    audio_repitch_->set_role_data(
-        module::Attribute::PreferencePath, "/core/audio/audio_repitch");
-
-    audio_scrubbing_ = add_boolean_attribute("Audio Scrubbing", "Audio Scrubbing", false);
-    audio_repitch_->set_role_data(
-        module::Attribute::PreferencePath, "/core/audio/audio_scrubbing");
-
-
-    volume_ = add_float_attribute("volume", "volume", 100.0f, 0.0f, 100.0f, 0.05f);
-    volume_->set_role_data(module::Attribute::PreferencePath, "/core/audio/volume");
-
-    // by setting static UUIDs on these module we only create them once in the UI
-    volume_->set_role_data(module::Attribute::UuidRole, "d1545257-5540-4f2e-9c90-9012232fedb8");
-    volume_->set_role_data(module::Attribute::Groups, nlohmann::json{"audio_output"});
-
-    muted_ = add_boolean_attribute("muted", "muted", false);
-    muted_->set_role_data(module::Attribute::UuidRole, "59b08f8c-8d86-433e-82f3-ee9c2bc7a27e");
-    muted_->set_role_data(module::Attribute::Groups, nlohmann::json{"audio_output"});
-    muted_->set_role_data(module::Attribute::PreferencePath, "/core/audio/muted");
-}
-
 void AudioOutputControl::prepare_samples_for_soundcard(
     std::vector<int16_t> &v,
     const long num_samps_to_push,
@@ -163,11 +132,13 @@ void AudioOutputControl::prepare_samples_for_soundcard(
     try {
 
         v.resize(num_samps_to_push * num_channels);
+
         memset(v.data(), 0, v.size() * sizeof(int16_t));
 
         int16_t *d            = v.data();
         long n                = num_samps_to_push;
         long num_samps_pushed = 0;
+
 
         if (muted())
             return;
@@ -182,8 +153,7 @@ void AudioOutputControl::prepare_samples_for_soundcard(
                 // new buffer ready to be pushed into the soundcard buffer
                 auto next_sample_play_time =
                     utility::clock::now() + std::chrono::microseconds(microseconds_delay) +
-                    std::chrono::microseconds((num_samps_pushed * 1000000) / sample_rate) -
-                    std::chrono::milliseconds(audio_delay_millisecs_->value());
+                    std::chrono::microseconds((num_samps_pushed * 1000000) / sample_rate);
 
                 current_buf_ = pick_audio_buffer(next_sample_play_time, true);
 
@@ -203,11 +173,16 @@ void AudioOutputControl::prepare_samples_for_soundcard(
                         current_buf_, next_buf, previous_buf_);
 
                 } else {
+                    // spdlog::warn("Break hit because current_buf_ is null after trying to pick
+                    // "
+                    //              "an audio buffer.");
                     fade_in_out_ = DoFadeHeadAndTail;
                     break;
                 }
 
             } else if (!current_buf_ && sample_data_.empty()) {
+                // spdlog::warn("Break hit because both current_buf_ and sample_data_ are
+                // empty.");
                 break;
             }
 
@@ -222,12 +197,15 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
             if (current_buf_pos_ == (long)current_buf_->num_samples()) {
                 // current buf is exhausted
+                // spdlog::info("Current buffer is exhausted.");
                 previous_buf_ = current_buf_;
                 current_buf_.reset();
             } else {
+                // spdlog::warn("Break hit due to unspecified condition.");
                 break;
             }
         }
+
 
         const float vol       = volume();
         static float last_vol = vol;
@@ -250,11 +228,34 @@ void AudioOutputControl::queue_samples_for_playing(
     const float velocity) {
 
     if (!playing) {
-
         return;
     }
 
     playback_velocity_ = audio_repitch_ ? std::max(0.1f, velocity) : 1.0f;
+
+    /*
+    // Earlier attempt at resampling in queue; needs a more reliable sample rate info and needs
+    sample rate from output device. if (audio_frames.size()) { auto audio_sample_rate =
+    audio_frames.front()->sample_rate(); if (audio_sample_rate == 0) { audio_sample_rate =
+    audio_frames.back()->sample_rate();
+        }
+
+        if (audio_sample_rate == 0) {
+            // If we can't get the sample rate from anything, use the last best guess.
+            // This seems to happen
+            audio_sample_rate = last_sample_rate_;
+        } else {
+            last_sample_rate_ = audio_sample_rate;
+        }
+
+        // If our audio card does not match the source rate, we need to respeed/repitch the
+    samples. if (audio_sample_rate and audio_sample_rate != 96000L) { double sample_respeed =
+    (double)audio_sample_rate / 96000.0; playback_velocity_ *= sample_respeed; audio_repitch_ =
+    true;
+        }
+    }
+    */
+
 
     for (const auto &a : audio_frames) {
 
@@ -266,9 +267,17 @@ void AudioOutputControl::queue_samples_for_playing(
         if (!audio_frame ||
             (previous_buf_ && previous_buf_->media_key() == audio_frame->media_key()) ||
             (current_buf_ && current_buf_->media_key() == audio_frame->media_key()) ||
-            !audio_frame->num_samples())
-            continue;
+            !audio_frame->num_samples()) {
 
+            // spdlog::info("Audio frame skipped due to either being null, matching "
+            //               "previous/current buffer or having no samples.");
+            continue;
+        }
+
+        // spdlog::info("Processing audio frame with media key: {}, num samples: {}, sample
+        // rate: {}, num channels: {}",
+        //          audio_frame->media_key(), audio_frame->num_samples(),
+        //          audio_frame->sample_rate(), audio_frame->num_channels());
 
         // xstudio stores a frame of audio samples for every video frame for any
         // given source (if the source has no video it is assigned a 'virtual' video
@@ -281,16 +290,22 @@ void AudioOutputControl::queue_samples_for_playing(
 
         // have we already got these audio samples in our queue? If so erase and
         // add back in to update the key
-        for (auto p = sample_data_.begin(); p != sample_data_.end(); ++p) {
-            if (p->second->media_key() == audio_frame->media_key()) {
-                sample_data_.erase(p);
-                break;
+        if (false) {
+            for (auto p = sample_data_.begin(); p != sample_data_.end(); ++p) {
+                if (p->second->media_key() == audio_frame->media_key()) {
+                    // spdlog::info("Found and erasing existing audio sample from queue with the
+                    // "
+                    //              "same media key.");
+                    sample_data_.erase(p);
+                    break;
+                }
             }
         }
 
-        if (audio_repitch_ && velocity != 1.0f) {
-            audio_frame =
-                super_simple_respeed_audio_buffer<int16_t>(audio_frame, fabs(velocity));
+
+        if (audio_repitch_ && playback_velocity_ != 1.0f) {
+            audio_frame = super_simple_respeed_audio_buffer<int16_t>(
+                audio_frame, fabs(playback_velocity_));
         }
 
         if (!forwards) {
@@ -491,7 +506,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
         T *tt = ((T *)current_buf->buffer()) + current_buf_position * num_channels;
 
         if (fade_in_out & AudioOutputControl::DoFadeHead) {
-            while (current_buf_position < 32 && num_samples_to_copy &&
+            while (current_buf_position < FADE_FUNC_SAMPS && num_samples_to_copy &&
                    current_buf_position < current_buf->num_samples()) {
 
                 for (int chn = 0; chn < num_channels; ++chn) {
@@ -522,7 +537,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
             while (num_samples_to_copy && current_buf_position < current_buf->num_samples()) {
 
                 const int i   = current_buf->num_samples() - current_buf_position - 1;
-                const float f = i < 32 ? fade_coeffs[i] : 1.0f;
+                const float f = i < FADE_FUNC_SAMPS ? fade_coeffs[i] : 1.0f;
 
                 for (int chn = 0; chn < num_channels; ++chn) {
                     (*stream++) = T(round((*tt++) * f));

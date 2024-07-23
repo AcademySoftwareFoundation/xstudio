@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/viewport_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -21,7 +24,8 @@ namespace utility {
 namespace ui {
     namespace qml {
 
-        class HotkeysUI : public caf::mixin::actor_object<QAbstractListModel> {
+        class VIEWPORT_QML_EXPORT HotkeysUI
+            : public caf::mixin::actor_object<QAbstractListModel> {
 
             Q_OBJECT
 
@@ -63,7 +67,7 @@ namespace ui {
         };
 
 
-        class HotkeyUI : public QMLActor {
+        class VIEWPORT_QML_EXPORT HotkeyUI : public QMLActor {
 
             Q_OBJECT
 
@@ -149,7 +153,7 @@ namespace ui {
             utility::Uuid hotkey_uuid_;
         };
 
-        class HotkeyReferenceUI : public QMLActor {
+        class VIEWPORT_QML_EXPORT HotkeyReferenceUI : public QMLActor {
 
             Q_OBJECT
 

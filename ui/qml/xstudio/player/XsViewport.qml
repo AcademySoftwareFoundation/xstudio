@@ -19,8 +19,34 @@ Viewport {
 
     id: viewport
     objectName: "viewport"
-    property bool is_popout_viewport: false
     property bool viewing_alpha_channel: false
+
+    onPointerEntered: {
+        focus = true;
+        forceActiveFocus()
+    }
+
+    XsButtonDialog {
+        id: snapshotResultDialog
+        // parent: sessionWidget
+        width: text.width + 20
+        title: "Snapshot export fail"
+        text: {
+            return "The snapshot could not be exported. Please check the parameters"
+        }
+        buttonModel: ["Ok"]
+        onSelected: {
+            snapshotResultDialog.close()
+        }
+    }
+
+    onSnapshotRequestResult: {
+        if (resultMessage != "") {
+            snapshotResultDialog.title = "Snapshot export failed"
+            snapshotResultDialog.text = resultMessage
+            snapshotResultDialog.open()
+        }
+    }
 
     XsOutOfRangeOverlay {
         visible: viewport.frameOutOfRange
@@ -54,7 +80,15 @@ Viewport {
 
         id: blank_viewport_card
         anchors.fill: parent
-        visible: playhead.mediaUuid == "{00000000-0000-0000-0000-000000000000}"
+        visible: false//playhead.mediaUuid == "{00000000-0000-0000-0000-000000000000}"
+    }
+
+    onQuickViewBackendRequest: {
+        app_window.launchQuickViewer(mediaActors, compareMode)
+    }
+
+    onQuickViewBackendRequestWithSize: {
+        app_window.launchQuickViewerWithSize(mediaActors, compareMode, position, size)
     }
 
     DropArea {
@@ -68,7 +102,7 @@ Viewport {
         onDropped: {
            if(drop.hasUrls) {
                 for(var i=0; i < drop.urls.length; i++) {
-                    if(drop.urls[i].toLowerCase().endsWith('.xst')) {
+                    if(drop.urls[i].toLowerCase().endsWith('.xst') || drop.urls[i].toLowerCase().endsWith('.xsz')) {
                         Future.promise(studio.loadSessionRequestFuture(drop.urls[i])).then(function(result){})
                         app_window.sessionFunction.newRecentPath(drop.urls[i])
                         return;
@@ -101,7 +135,6 @@ Viewport {
 
     XsViewerContextMenu {
         id: viewerContextMenu
-        is_popout_viewport: viewport.is_popout_viewport
     }
 
     XsModelProperty {
@@ -133,6 +166,29 @@ Viewport {
             viewerContextMenu.x = mouse.x
             viewerContextMenu.y = mouse.y
             viewerContextMenu.visible = true
+        }
+    }
+
+    Repeater {
+
+        id: viewport_overlay_plugins
+        anchors.fill: parent
+        model: viewport_overlays
+
+        delegate: Item {
+
+            id: parent_item
+            anchors.fill: parent
+
+            property var dynamic_widget
+
+            property var type_: type ? type : null
+
+            onType_Changed: {
+                if (type == "QmlCode") {
+                    dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                }
+            }
         }
     }
 
@@ -353,26 +409,4 @@ Viewport {
         }
     }
 
-    Repeater {
-
-        id: viewport_overlay_plugins
-        anchors.fill: parent
-        model: viewport_overlays
-
-        delegate: Item {
-
-            id: parent_item
-            anchors.fill: parent
-
-            property var dynamic_widget
-
-            property var type_: type ? type : null
-
-            onType_Changed: {
-                if (type == "QmlCode") {
-                    dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
-                }
-            }
-        }
-    }
 }

@@ -60,6 +60,8 @@ class OCIOColourPipeline : public ColourPipeline {
     explicit OCIOColourPipeline(
         caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
+    void on_exit() override;
+
     std::string fast_display_transform_hash(const media::AVFrameID &media_ptr) override;
 
     [[nodiscard]] std::string linearise_op_hash(
@@ -84,10 +86,8 @@ class OCIOColourPipeline : public ColourPipeline {
         const utility::JsonStore &media_source_colour_metadata) override;
 
     // Update colour pipeline shader dynamic parameters.
-    void update_shader_uniforms(
-        utility::JsonStore &uniforms,
-        const utility::Uuid &source_uuid,
-        std::any &user_data) override;
+    utility::JsonStore update_shader_uniforms(
+        const media_reader::ImageBufPtr &image, std::any &user_data) override;
 
     thumbnail::ThumbnailBufferPtr process_thumbnail(
         const media::AVFrameID &media_ptr, const thumbnail::ThumbnailBufferPtr &buf) override;
@@ -108,9 +108,9 @@ class OCIOColourPipeline : public ColourPipeline {
     void register_hotkeys() override;
 
     void connect_to_viewport(
-        caf::actor viewport,
-        const std::string viewport_name,
-        const int viewport_index) override;
+        const std::string &viewport_name,
+        const std::string &viewport_toolbar_name,
+        bool connect) override;
 
     void extend_pixel_info(
         media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) override;
@@ -129,10 +129,12 @@ class OCIOColourPipeline : public ColourPipeline {
         const utility::Uuid &source_uuid,
         const utility::JsonStore &colour_params = utility::JsonStore()) const;
 
-    void
-    set_media_params(const utility::Uuid &source_uuid, const MediaParams &media_param) const;
+    void set_media_params(const MediaParams &media_param) const;
 
     // OCIO logic
+
+    std::string
+    input_space_for_view(const MediaParams &media_param, const std::string &view) const;
 
     std::string
     preferred_ocio_view(const MediaParams &media_param, const std::string &view) const;
@@ -210,6 +212,8 @@ class OCIOColourPipeline : public ColourPipeline {
 
     std::vector<std::string> parse_all_colourspaces(OCIO::ConstConfigRcPtr ocio_config) const;
 
+    void update_cs_from_view(const MediaParams &media_param, const std::string &view);
+
     void update_views(OCIO::ConstConfigRcPtr ocio_config);
 
     void update_bypass(module::StringChoiceAttribute *viewer, bool bypass);
@@ -233,6 +237,7 @@ class OCIOColourPipeline : public ColourPipeline {
     module::BooleanAttribute *colour_bypass_;
     module::StringChoiceAttribute *preferred_view_;
     module::BooleanAttribute *global_view_;
+    module::BooleanAttribute *adjust_source_;
     module::BooleanAttribute *enable_gamma_;
     module::BooleanAttribute *enable_saturation_;
 
@@ -249,7 +254,6 @@ class OCIOColourPipeline : public ColourPipeline {
 
     // Holds data on display screen option
     std::string monitor_name_;
-    std::string viewport_name_;
 
     // Pixel probe
     std::string last_pixel_probe_source_hash_;

@@ -24,6 +24,7 @@ namespace timeline {
         ~Stack() override = default;
 
         [[nodiscard]] utility::JsonStore serialise() const override;
+        [[nodiscard]] Stack duplicate() const;
 
         [[nodiscard]] const Item &item() const { return item_; }
         [[nodiscard]] Item &item() { return item_; }

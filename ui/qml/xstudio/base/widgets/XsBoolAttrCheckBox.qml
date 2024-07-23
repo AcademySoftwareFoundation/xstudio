@@ -63,6 +63,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         onClicked: {
+            console.log("clicked", value)
             value = !value
         }
     }

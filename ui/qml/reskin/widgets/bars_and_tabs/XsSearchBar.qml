@@ -35,8 +35,8 @@ TextField { id: widget
     activeFocusOnTab: true
     opacity: widget.enabled? 1 : 0.3
     horizontalAlignment: TextInput.AlignLeft
-    leftPadding: searchIcon.sourceSize.width + searchIcon.anchors.leftMargin*2
     rightPadding: clearBtn.width + clearBtn.anchors.rightMargin*2
+
 
     onEditingFinished: {
         // focus = false
@@ -72,33 +72,25 @@ TextField { id: widget
         }
     }
 
-    Image { id: searchIcon
-        source: "qrc:/assets/icons/new/search.svg"
-        // width: parent.height-6
-        // height: parent.height-6
-        sourceSize.width: 16
-        sourceSize.height: 16
-        anchors.left: parent.left
-        anchors.leftMargin: 6
-        anchors.verticalCenter: parent.verticalCenter
-        smooth: true
-        antialiasing: true
-        layer {
-            enabled: true
-            effect: ColorOverlay { color: iconOverlayColor }
-        }
-    }
     XsSecondaryButton{ id: clearBtn
         width: 16 
         height: 16
         anchors.right: parent.right
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
-        imgSrc: "qrc:/assets/icons/new/close.svg"
+        imgSrc: "qrc:/icons/close.svg"
         visible: widget.length!=0
-        smooth: true
-        antialiasing: true
         
-        onClicked: widget.text=""
+        onClicked: {
+            clearSearch()
+            widget.focus = true
+        }
     }
+
+
+    function clearSearch()
+    {
+        widget.text=""
+    }
+    
 }

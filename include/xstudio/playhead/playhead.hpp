@@ -41,7 +41,7 @@ namespace playhead {
         [[nodiscard]] bool playing() const { return playing_->value(); }
         [[nodiscard]] bool forward() const { return forward_->value(); }
         [[nodiscard]] AutoAlignMode auto_align_mode() const;
-        [[nodiscard]] LoopMode loop() const { return loop_; }
+        [[nodiscard]] int loop() const { return loop_mode_->value(); }
         [[nodiscard]] CompareMode compare_mode() const;
         [[nodiscard]] float velocity() const { return velocity_->value(); }
         [[nodiscard]] float velocity_multiplier() const {
@@ -49,25 +49,25 @@ namespace playhead {
         }
         [[nodiscard]] utility::TimeSourceMode play_rate_mode() const { return play_rate_mode_; }
         [[nodiscard]] utility::FrameRate playhead_rate() const { return playhead_rate_; }
-        [[nodiscard]] utility::Uuid source() const { return source_uuid_; }
         [[nodiscard]] timebase::flicks loop_start() const {
-            return use_loop_range_
+            return use_loop_range()
                        ? loop_start_
                        : timebase::flicks(std::numeric_limits<timebase::flicks::rep>::lowest());
         }
         [[nodiscard]] timebase::flicks loop_end() const {
-            return use_loop_range_
+            return use_loop_range()
                        ? loop_end_
                        : timebase::flicks(std::numeric_limits<timebase::flicks::rep>::max());
         }
-        [[nodiscard]] bool use_loop_range() const { return use_loop_range_; }
+        [[nodiscard]] bool use_loop_range() const { return do_looping_->value(); }
         [[nodiscard]] timebase::flicks duration() const { return duration_; }
         [[nodiscard]] timebase::flicks effective_frame_period() const;
         timebase::flicks clamp_timepoint_to_loop_range(const timebase::flicks pos) const;
 
         void set_forward(const bool forward = true) { forward_->set_value(forward); }
-        void set_loop(const LoopMode loop = LM_LOOP) { loop_ = loop; }
+        void set_loop(const LoopMode loop = LM_LOOP) { loop_mode_->set_value(loop); }
         void set_playing(const bool play = true);
+        timebase::flicks adjusted_position() const;
         void set_play_rate_mode(const utility::TimeSourceMode play_rate_mode) {
             play_rate_mode_ = play_rate_mode;
         }
@@ -76,7 +76,6 @@ namespace playhead {
             velocity_multiplier_->set_value(velocity_multiplier);
         }
         void set_playhead_rate(const utility::FrameRate &rate) { playhead_rate_ = rate; }
-        void set_source(const utility::Uuid &uuid) { source_uuid_ = uuid; }
         void set_duration(const timebase::flicks duration);
         void set_compare_mode(const CompareMode mode);
 
@@ -91,11 +90,13 @@ namespace playhead {
         void
         hotkey_pressed(const utility::Uuid &hotkey_uuid, const std::string &context) override;
 
+        void connect_to_viewport(
+            const std::string &viewport_name,
+            const std::string &viewport_toolbar_name,
+            bool connect) override;
+
         inline static const std::chrono::milliseconds playback_step_increment =
             std::chrono::milliseconds(5);
-
-      private:
-        void play_faster(const bool forwards);
 
         inline static const std::vector<std::tuple<CompareMode, std::string, std::string, bool>>
             compare_mode_names = {
@@ -106,6 +107,9 @@ namespace playhead {
                 {CM_GRID, "Grid", "Grid", false},
                 {CM_OFF, "Off", "Off", true}};
 
+      private:
+        void play_faster(const bool forwards);
+
         inline static const std::vector<
             std::tuple<AutoAlignMode, std::string, std::string, bool>>
             auto_align_mode_names = {
@@ -113,16 +117,13 @@ namespace playhead {
                 {AAM_ALIGN_FRAMES, "On", "On", true},
                 {AAM_ALIGN_TRIM, "On (Trim)", "Trim", true}};
 
-        LoopMode loop_{LM_LOOP};
         utility::TimeSourceMode play_rate_mode_{utility::TimeSourceMode::DYNAMIC};
         utility::FrameRate playhead_rate_;
-        utility::Uuid source_uuid_;
 
         timebase::flicks position_;
         timebase::flicks duration_;
         timebase::flicks loop_start_;
         timebase::flicks loop_end_;
-        bool use_loop_range_{false};
 
         utility::Uuid play_hotkey_;
         utility::Uuid play_forwards_hotkey_;
@@ -152,6 +153,19 @@ namespace playhead {
         module::IntegerAttribute *max_compare_sources_;
         module::BooleanAttribute *restore_play_state_after_scrub_;
         module::IntegerAttribute *viewport_scrub_sensitivity_;
+
+        module::IntegerAttribute *loop_mode_;
+        module::IntegerAttribute *loop_start_frame_;
+        module::IntegerAttribute *loop_end_frame_;
+        module::IntegerAttribute *playhead_logical_frame_;
+        module::IntegerAttribute *playhead_media_logical_frame_;
+        module::IntegerAttribute *playhead_media_frame_;
+        module::IntegerAttribute *duration_frames_;
+        module::StringAttribute *current_source_frame_timecode_;
+        module::StringAttribute *current_media_uuid_;
+        module::StringAttribute *current_media_source_uuid_;
+        module::BooleanAttribute *do_looping_;
+        module::IntegerAttribute *audio_delay_millisecs_;
 
         bool was_playing_when_scrub_started_ = {false};
     };

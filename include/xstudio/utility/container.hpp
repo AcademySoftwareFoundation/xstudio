@@ -87,6 +87,8 @@ namespace utility {
         [[nodiscard]] virtual utility::JsonStore serialise() const;
         virtual void deserialise(const utility::JsonStore &);
 
+        [[nodiscard]] Container duplicate() const;
+
         void send_changed(
             caf::actor grp,
             caf::event_based_actor *act,

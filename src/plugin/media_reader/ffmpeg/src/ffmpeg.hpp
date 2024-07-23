@@ -46,6 +46,7 @@ namespace media_reader {
 
         int readers_per_source_;
         int soundcard_sample_rate_ = {4000};
+        int channels_ = 2;
 
         ImageBufPtr last_decoded_image_;
     };

@@ -22,6 +22,24 @@ using namespace xstudio::utility;
 using namespace xstudio::ui::qml;
 
 
+void SessionModel::updateMedia() {
+    mediaStatusChangePending_ = false;
+    emit mediaStatusChanged(mediaStatusIndex_);
+    mediaStatusIndex_ = QModelIndex();
+}
+
+void SessionModel::triggerMediaStatusChange(const QModelIndex &index) {
+    if (mediaStatusChangePending_ and mediaStatusIndex_ == index) {
+        // no op
+    } else if (mediaStatusChangePending_) {
+        emit mediaStatusChanged(index);
+    } else {
+        mediaStatusChangePending_ = true;
+        mediaStatusIndex_         = index;
+        QTimer::singleShot(100, this, SLOT(updateMedia()));
+    }
+}
+
 void SessionModel::init(caf::actor_system &_system) {
     super::init(_system);
 
@@ -34,11 +52,58 @@ void SessionModel::init(caf::actor_system &_system) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
+    conform_actor_ = system().registry().template get<caf::actor>(conform_registry);
+    if (conform_actor_) {
+        scoped_actor sys{system()};
+        try {
+            auto conform_events_ = request_receive<caf::actor>(
+                *sys, conform_actor_, utility::get_event_group_atom_v);
+
+            request_receive<bool>(
+                *sys, conform_events_, broadcast::join_broadcast_atom_v, as_actor());
+
+            updateConformTasks(request_receive<std::vector<std::string>>(
+                *sys, conform_actor_, conform::conform_tasks_atom_v));
+        } catch (const std::exception &e) {
+        }
+    }
+
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
         return {
 
-            [=](utility::event_atom, timeline::item_atom, const timeline::Item &) {},
-            [=](utility::event_atom, timeline::item_atom, const JsonStore &, const bool) {},
+            [=](utility::event_atom,
+                conform::conform_tasks_atom,
+                const std::vector<std::string> &tasks) { updateConformTasks(tasks); },
+
+            [=](utility::event_atom, timeline::item_atom, const timeline::Item &) {
+                // spdlog::info("utility::event_atom, timeline::item_atom, const timeline::Item
+                // &");
+            },
+            [=](utility::event_atom,
+                timeline::item_atom,
+                const JsonStore &event,
+                const bool silent) {
+                try {
+                    // spdlog::info("utility::event_atom, timeline::item_atom, {}, {}",
+                    // event.dump(2), silent);
+                    auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
+                    auto src_str = actorToString(system(), src);
+
+                    if (timeline_lookup_.count(src)) {
+                        // spdlog::warn("update timeline");
+                        if (timeline_lookup_[src].update(event)) {
+                            // refresh ?
+                            // timeline_lookup_[src].refresh(-1);
+                            // spdlog::warn("state changed");
+                            // spdlog::warn("{}", timeline_lookup_[src].serialise(-1).dump(2));
+                        }
+                    } else {
+                        // spdlog::warn("failed update timeline");
+                    }
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            },
 
             [=](json_store::update_atom,
                 const utility::JsonStore & /*change*/,
@@ -47,7 +112,7 @@ void SessionModel::init(caf::actor_system &_system) {
 
             [=](utility::event_atom,
                 media_metadata::get_metadata_atom,
-                const utility::JsonStore &) {},
+                const utility::JsonStore &jsn) {},
 
             [=](utility::event_atom,
                 media::media_status_atom,
@@ -55,7 +120,6 @@ void SessionModel::init(caf::actor_system &_system) {
                 try {
                     auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
                     auto src_str = actorToString(system(), src);
-                    // spdlog::info("event_atom name_atom {} {} {}", name, to_string(src),
                     // src_str); search from index..
                     receivedData(
                         json(src_str), actorRole, QModelIndex(), mediaStatusRole, json(status));
@@ -366,7 +430,7 @@ void SessionModel::init(caf::actor_system &_system) {
                 const std::string &value) {
                 // spdlog::info("reflag_container_atom {} {}", to_string(uuid), value);
                 receivedData(
-                    json(uuid), containerUuidRole, QModelIndex(), flagRole, json(value));
+                    json(uuid), containerUuidRole, QModelIndex(), flagColourRole, json(value));
             },
 
             [=](utility::event_atom,
@@ -376,7 +440,10 @@ void SessionModel::init(caf::actor_system &_system) {
                 // spdlog::info("reflag_container_atom {}", to_string(uuid));
 
                 const auto [flag, text] = value;
-                receivedData(json(uuid), actorUuidRole, QModelIndex(), flagRole, json(flag));
+                receivedData(
+                    json(uuid), actorUuidRole, QModelIndex(), flagColourRole, json(flag));
+                receivedData(
+                    json(uuid), actorUuidRole, QModelIndex(), flagTextRole, json(text));
             },
 
             [=](utility::event_atom,
@@ -391,6 +458,8 @@ void SessionModel::init(caf::actor_system &_system) {
                 media::current_media_source_atom,
                 const utility::UuidActor &ua,
                 const media::MediaType mt) {
+                START_SLOW_WATCHER()
+
                 // comes from media actor..
                 auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
                 auto src_str = actorToString(system(), src);
@@ -400,7 +469,6 @@ void SessionModel::init(caf::actor_system &_system) {
                 //     to_string(ua.uuid()),
                 //     mt,
                 //     src_str);
-
 
                 // find first instance of media
                 auto media_source_variant =
@@ -420,6 +488,7 @@ void SessionModel::init(caf::actor_system &_system) {
 
                 if (media_index.isValid()) {
                     auto plindex = getPlaylistIndex(media_index);
+
                     // trigger model update.
                     if (mt == media::MediaType::MT_IMAGE) {
                         receivedData(
@@ -448,14 +517,14 @@ void SessionModel::init(caf::actor_system &_system) {
 
                     // get playlist..
                     if (plindex.isValid()) {
-                        // notify playlist that it's media might have changed.
-                        emit mediaStatusChanged(plindex);
+                        triggerMediaStatusChange(plindex);
 
                         // for each instance of this media emit a source change event.
                         for (const auto &i : media_indexes) {
                             if (i.isValid()) {
                                 auto media_source_index =
                                     search(media_source_variant, actorRole, i);
+
                                 if (media_source_index.isValid()) {
                                     emit mediaSourceChanged(
                                         i, media_source_index, static_cast<int>(mt));
@@ -464,6 +533,7 @@ void SessionModel::init(caf::actor_system &_system) {
                         }
                     }
                 }
+                CHECK_SLOW_WATCHER()
             },
 
             [=](utility::event_atom, bookmark::bookmark_change_atom, const utility::Uuid &) {},
@@ -617,7 +687,6 @@ void SessionModel::init(caf::actor_system &_system) {
                 const std::vector<caf::actor> &actors) {
                 // update media selection model.
                 // PlayheadSelectionActor
-
                 try {
                     auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
                     auto src_str = actorToString(system(), src);

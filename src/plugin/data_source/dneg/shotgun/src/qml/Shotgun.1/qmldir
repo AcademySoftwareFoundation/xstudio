@@ -19,6 +19,7 @@ ShotgunMenu 1.0 ShotgunMenu.qml
 ShotgunPreferences 1.0 ShotgunPreferences.qml
 ShotgunPublishNotes 1.0 ShotgunPublishNotes.qml
 ShotgunRoot 1.0 ShotgunRoot.qml
+ShotgunTagDialog 1.0 ShotgunTagDialog.qml
 ShotgunUpdatePlaylist 1.0 ShotgunUpdatePlaylist.qml
 ShotsTreeView 1.0 ShotsTreeView.qml
 TreeDelegateModel 1.0 TreeDelegateModel.qml

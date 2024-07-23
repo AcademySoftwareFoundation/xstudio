@@ -26,7 +26,7 @@ Item{
     // in the backend.
     XsModuleAttributesModel {
         id: anno_draw_mode_backend
-        attributesGroupNames: "anno_scribble_mode_backend"
+        attributesGroupNames: "anno_scribble_mode_backend_0"
     }
 
     // we have to use a repeater to hook the model into the ListView

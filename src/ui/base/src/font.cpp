@@ -711,6 +711,39 @@ void VectorFont::glyph_shape_decomposition_complete() {
     }
 }
 
+std::map<std::string, std::shared_ptr<SDFBitmapFont>> SDFBitmapFont::available_fonts() {
+
+    static std::map<std::string, std::shared_ptr<SDFBitmapFont>> res;
+
+    if (res.empty()) {
+        for (const auto &f : Fonts::available_fonts()) {
+            try {
+                res[f.first] = std::make_shared<SDFBitmapFont>(f.second, 96);
+            } catch (std::exception &e) {
+                spdlog::warn("Failed to load font: {}.", e.what());
+            }
+        }
+    }
+
+    return res;
+}
+
+std::shared_ptr<SDFBitmapFont> SDFBitmapFont::font_by_name(const std::string &name) {
+
+    for (auto &[fontName, fontPtr] : available_fonts()) {
+        if (name == fontName) {
+            return fontPtr;
+        }
+    }
+
+    const auto &fonts = SDFBitmapFont::available_fonts();
+    if (!fonts.empty()) {
+        return fonts.begin()->second;
+    }
+
+    return std::shared_ptr<SDFBitmapFont>();
+}
+
 void SDFBitmapFont::generate_atlas(const std::string &font_path, const int glyph_pixel_size) {
     auto t0 = xstudio::utility::clock::now();
 

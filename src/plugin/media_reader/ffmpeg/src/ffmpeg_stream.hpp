@@ -111,6 +111,10 @@ namespace media_reader {
                 return is_drop_frame_timecode_;
             }
 
+            [[nodiscard]] Imath::V2i resolution() const { return resolution_; }
+
+            [[nodiscard]] float pixel_aspect() const { return pixel_aspect_; }
+
             [[nodiscard]] double duration_seconds() const;
 
             [[nodiscard]] AVDictionary *tags() { return avc_stream_->metadata; }
@@ -148,6 +152,8 @@ namespace media_reader {
             bool using_own_frame_allocation       = {false};
             bool nothing_decoded_yet_             = {true};
             int current_frame_                    = {CURRENT_FRAME_UNKNOWN};
+            Imath::V2i resolution_                = {Imath::V2i(0, 0)};
+            float pixel_aspect_                   = 1.0f;
 
             // for video rescaling
             SwsContext *sws_context_ = {nullptr};

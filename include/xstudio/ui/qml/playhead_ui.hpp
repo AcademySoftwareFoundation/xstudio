@@ -185,8 +185,6 @@ namespace ui {
             QString compareLayerName();
             [[nodiscard]] QString name() const { return name_; }
 
-            [[nodiscard]] const utility::Uuid &sourceUuid() const { return source_uuid_; }
-
           signals:
             void uuidChanged();
             void frameChanged();
@@ -241,7 +239,6 @@ namespace ui {
             bool jumpToNextSource();
             bool jumpToPreviousSource();
             void jumpToSource(const QUuid media_uuid);
-            void setSourceUuid(const utility::Uuid uuid) { source_uuid_ = std::move(uuid); }
             void setFitMode(const QString mode);
 
             void connectToUI();
@@ -297,7 +294,6 @@ namespace ui {
             int source_offset_frames_;
             QVariant compare_mode_options_;
 
-            utility::Uuid source_uuid_;
             QList<QPoint> cache_detail_;
             QList<TimesliderMarker *> bookmark_detail_ui_;
             std::vector<std::tuple<utility::Uuid, std::string, int, int>> bookmark_detail_;

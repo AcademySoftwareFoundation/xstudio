@@ -49,6 +49,22 @@ namespace timeline {
             const utility::Uuid &before_uuid = utility::Uuid());
         bool remove_media(caf::actor actor, const utility::Uuid &uuid);
 
+        void insert_items(
+            const int index,
+            const utility::UuidActorVector &uav,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void remove_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<
+                std::pair<utility::JsonStore, std::vector<timeline::Item>>> rp);
+
+        void erase_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
         void sort_alphabetically();
 
         void on_exit() override;

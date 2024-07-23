@@ -76,8 +76,14 @@ void blocking_loader(
                 const FrameList &frame_list = i.second;
 
                 const auto uuid = Uuid::generate();
+
+#ifdef _WIN32
+                std::string ext = ltrim_char(
+                    get_path_extension(to_upper_path(fs::path(uri_to_posix_path(uri)))), '.');
+#else
                 std::string ext =
                     ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#endif
                 const auto source_uuid = Uuid::generate();
 
                 auto source =
@@ -222,6 +228,7 @@ PlaylistActor::PlaylistActor(
             try {
                 auto actor = system().spawn<timeline::TimelineActor>(
                     static_cast<utility::JsonStore>(value), caf::actor_cast<caf::actor>(this));
+
                 container_[key] = actor;
                 link_to(actor);
                 join_event_group(this, actor);
@@ -357,8 +364,13 @@ void PlaylistActor::init() {
             const utility::FrameRate &rate,
             const utility::UuidActor &uuid_before) {
             const auto uuid = Uuid::generate();
+#ifdef _WIN32
+            std::string ext =
+                ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#else
             std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#endif
             const auto source_uuid = Uuid::generate();
 
             auto source =
@@ -415,8 +427,13 @@ void PlaylistActor::init() {
             //     uuid_before);
 
             const auto uuid = Uuid::generate();
+#ifdef _WIN32
+            std::string ext =
+                ltrim_char(to_upper_path(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#else
             std::string ext =
                 ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension()), '.');
+#endif
             const auto source_uuid = Uuid::generate();
 
             auto source =
@@ -598,15 +615,17 @@ void PlaylistActor::init() {
         },
 
         [=](add_media_atom,
-            std::vector<UuidActor> media_actors,
+            std::vector<UuidActor> ma,
             const utility::Uuid &uuid_before) -> result<bool> {
             // before we can add media actors, we have to make sure the detail has been acquired
             // so that the duration of the media is known. This is because the playhead will
             // update and build a timeline as soon as the playlist notifies of change, so the
             // duration and frame rate must be known up-front
-            auto source_count = std::make_shared<int>();
-            (*source_count)   = media_actors.size();
-            auto rp           = make_response_promise<bool>();
+
+            std::vector<UuidActor> media_actors = ma;
+            auto source_count                   = std::make_shared<int>();
+            (*source_count)                     = media_actors.size();
+            auto rp                             = make_response_promise<bool>();
 
             // add to lis first, then lazy update..
 
@@ -635,7 +654,6 @@ void PlaylistActor::init() {
                                         // media_[media_actor.first] = media_actor.second;
                                         // link_to(media_actor.second);
                                         // base_.insert_media(media_actor.first, uuid_before);
-
                                         (*source_count)--;
                                         if (!(*source_count)) {
                                             // we're done!
@@ -650,6 +668,7 @@ void PlaylistActor::init() {
                                                     add_media_atom_v,
                                                     i);
                                             }
+                                            send_content_changed_event();
                                         }
                                     },
                                     [=](error &err) mutable {
@@ -658,7 +677,7 @@ void PlaylistActor::init() {
                                         (*source_count)--;
                                         if (!(*source_count)) {
                                             // we're done!
-                                            // send_content_changed_event();
+                                            send_content_changed_event();
                                             if (is_in_viewer_)
                                                 open_media_reader(media_actors[0].actor());
                                             rp.deliver(true);
@@ -1919,7 +1938,8 @@ void PlaylistActor::add_media(
                     open_media_reader(ua.actor());
             },
             [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                spdlog::warn(
+                    "{} {} {}", __PRETTY_FUNCTION__, to_string(err), to_string(ua.actor()));
                 send_content_changed_event();
                 base_.send_changed(event_group_, this);
                 rp.deliver(ua);
@@ -2000,13 +2020,13 @@ void PlaylistActor::notify_tree(const utility::UuidTree<utility::PlaylistItem> &
 void PlaylistActor::duplicate_tree(utility::UuidTree<utility::PlaylistItem> &tree) {
     tree.value().set_name(tree.value().name() + " - copy");
 
-    if (tree.value().type() == "ContainerDivider") {
+    auto type = tree.value().type();
+
+    if (type == "ContainerDivider") {
         tree.value().set_uuid(Uuid::generate());
-    } else if (tree.value().type() == "ContainerGroup") {
+    } else if (type == "ContainerGroup") {
         tree.value().set_uuid(Uuid::generate());
-    } else if (
-        tree.value().type() == "Subset" || tree.value().type() == "ContactSheet" ||
-        tree.value().type() == "Timeline") {
+    } else if (type == "Subset" || type == "ContactSheet" || type == "Timeline") {
         // need to issue a duplicate action, as we actors are blackboxes..
         // try not to confuse this with duplicating a container, as opposed to the actor..
         // we need to insert the new playlist in to the session and update the UUID
@@ -2014,6 +2034,14 @@ void PlaylistActor::duplicate_tree(utility::UuidTree<utility::PlaylistItem> &tre
             caf::scoped_actor sys(system());
             auto result = request_receive<utility::UuidActor>(
                 *sys, container_[tree.value().uuid()], duplicate_atom_v);
+
+            if (type == "Timeline")
+                anon_send(
+                    result.actor(),
+                    playhead::source_atom_v,
+                    caf::actor_cast<caf::actor>(this),
+                    UuidUuidMap());
+
             tree.value().set_uuid(result.uuid());
             container_[result.uuid()] = result.actor();
             link_to(result.actor());

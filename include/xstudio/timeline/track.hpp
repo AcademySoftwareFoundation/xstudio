@@ -29,6 +29,7 @@ namespace timeline {
 
         [[nodiscard]] utility::JsonStore serialise() const override;
 
+        [[nodiscard]] Track duplicate() const;
 
         void set_media_type(const media::MediaType media_type);
         [[nodiscard]] media::MediaType media_type() const { return media_type_; }

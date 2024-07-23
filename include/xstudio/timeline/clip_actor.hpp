@@ -14,6 +14,7 @@ namespace xstudio {
 namespace timeline {
     class ClipActor : public caf::event_based_actor {
       public:
+        ClipActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
         ClipActor(caf::actor_config &cfg, const utility::JsonStore &jsn, Item &item);
         ClipActor(
             caf::actor_config &cfg,

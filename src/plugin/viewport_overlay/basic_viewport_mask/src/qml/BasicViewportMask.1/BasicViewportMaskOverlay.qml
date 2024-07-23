@@ -76,17 +76,18 @@ Rectangle {
     }
 
     Rectangle {
-        id: bottom_masking_rect
+        id: top_masking_rect
         opacity: mask_opacity
         color: "black"
         x: 0
         y: 0
+        z: -1
         width: control.width
         height: b
     }
 
     Rectangle {
-        id: top_masking_rect
+        id: bottom_masking_rect
         opacity: mask_opacity
         color: "black"
         x: 0

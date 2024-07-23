@@ -214,12 +214,12 @@ void PlayheadSelectionActor::init() {
             return result<JsonStore>(jsn);
         },
 
-        [=](get_selected_sources_atom) -> std::vector<caf::actor> {
-            std::vector<caf::actor> result;
+        [=](get_selected_sources_atom) -> utility::UuidActorVector {
+            utility::UuidActorVector r;
             for (const auto &p : base_.items()) {
-                result.push_back(source_actors_[p]);
+                r.emplace_back(p, source_actors_[p]);
             }
-            return result;
+            return r;
         },
         [=](utility::event_atom, playlist::move_media_atom, const UuidVector &, const Uuid &) {
         },

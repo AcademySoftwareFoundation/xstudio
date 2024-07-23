@@ -1,10 +1,60 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import session_atom, join_broadcast_atom
 from xstudio.core import colour_pipeline_atom, get_actor_from_registry_atom
-from xstudio.core import viewport_playhead_atom
+from xstudio.core import viewport_playhead_atom, quickview_media_atom
+from xstudio.core import UuidActorVec, UuidActor
 from xstudio.api.session import Session, Container
 from xstudio.api.module import ModuleBase
 from xstudio.api.auxiliary import ActorConnection
+
+class Viewport(ModuleBase):
+    """Viewport object, represents a viewport in the UI or offscreen."""
+
+    def __init__(self, connection):
+        """Create Viewport object.
+
+        Args:
+            connection(Connection): Connection object
+            remote(actor): Remote actor object
+
+        Kwargs:
+            uuid(Uuid): Uuid of remote actor.
+        """
+        ModuleBase.__init__(
+            self,
+            connection,
+            connection.request_receive(
+                connection.remote(),
+                get_actor_from_registry_atom(),
+                "MAIN_VIEWPORT"
+                )[0]
+            )
+
+    def quickview(self, media_items, compare_mode="Off", position=(100,100), size=(1280,720)):
+        """Connect this playhead to the viewport.
+
+        Args:
+            media_items(list(Media)): A list of Media objects to be shown in quickview
+                                windows
+            compare_mode(str): Remote actor object
+            position(tuple(int,int)): X/Y Position of new window (default=(100,100))
+            size(tuple(int,int)): X/Y Size of new window (default=(1280,720))
+
+        """
+
+        media_actors = UuidActorVec()
+        for m in media_items:
+            media_actors.push_back(UuidActor(m.uuid, m.remote))
+
+        self.connection.request_receive(
+            self.remote,
+            quickview_media_atom(),
+            media_actors,
+            compare_mode,
+            position[0],
+            position[1],
+            size[0],
+            size[1])
 
 class App(Container):
     """App access. """
@@ -41,7 +91,7 @@ class App(Container):
 
         Returns:
             viewport(ModuleBase): Viewport module."""
-        return ModuleBase(self.connection, self.connection.request_receive(self.connection.remote(), get_actor_from_registry_atom(), "MAIN_VIEWPORT")[0])
+        return Viewport(self.connection)
 
     @property
     def global_playhead_events(self):

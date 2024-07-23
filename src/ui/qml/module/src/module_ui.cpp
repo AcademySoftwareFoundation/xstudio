@@ -32,7 +32,7 @@ bool attr_is_in_group(
                 break;
             }
         }
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
 
     return match;
@@ -54,6 +54,8 @@ ModuleAttrsDirect::ModuleAttrsDirect(QObject *parent)
     new ModuleAttrsToQMLShim(this);
     emit roleNameChanged();
 }
+
+ModuleAttrsDirect::~ModuleAttrsDirect() {}
 
 void ModuleAttrsDirect::add_attributes_from_backend(
     const module::AttributeSet &attrs, bool check_group) {
@@ -203,6 +205,8 @@ ModuleAttrsModel::ModuleAttrsModel(QObject *parent) : QAbstractListModel(parent)
     new ModuleAttrsToQMLShim(this);
 }
 
+ModuleAttrsModel::~ModuleAttrsModel() {}
+
 QHash<int, QByteArray> ModuleAttrsModel::roleNames() const {
     QHash<int, QByteArray> roles;
     for (const auto &p : Attribute::role_names) {
@@ -261,29 +265,31 @@ void ModuleAttrsModel::add_attributes_from_backend(
             }
         }
 
-        beginInsertRows(
-            QModelIndex(),
-            attributes_data_.size(),
-            static_cast<int>(attributes_data_.size() + new_attrs.size()) - 1);
+        if (!new_attrs.empty()) {
+            beginInsertRows(
+                QModelIndex(),
+                attributes_data_.size(),
+                static_cast<int>(attributes_data_.size() + new_attrs.size()) - 1);
 
-        for (const auto &attr : new_attrs) {
+            for (const auto &attr : new_attrs) {
 
-            QMap<int, QVariant> attr_qt_data;
-            const nlohmann::json json = attr->as_json();
+                QMap<int, QVariant> attr_qt_data;
+                const nlohmann::json json = attr->as_json();
 
-            for (auto p = json.begin(); p != json.end(); ++p) {
-                const int role = Attribute::role_index(p.key());
-                if (role == Attribute::UuidRole) {
-                    attr_qt_data[role] = QUuidFromUuid(p.value().get<utility::Uuid>());
-                } else {
-                    attr_qt_data[role] = json_to_qvariant(p.value());
+                for (auto p = json.begin(); p != json.end(); ++p) {
+                    const int role = Attribute::role_index(p.key());
+                    if (role == Attribute::UuidRole) {
+                        attr_qt_data[role] = QUuidFromUuid(p.value().get<utility::Uuid>());
+                    } else {
+                        attr_qt_data[role] = json_to_qvariant(p.value());
+                    }
                 }
+                attributes_data_.push_back(attr_qt_data);
             }
-            attributes_data_.push_back(attr_qt_data);
-        }
 
-        endInsertRows();
-        emit rowCountChanged();
+            endInsertRows();
+            emit rowCountChanged();
+        }
     }
 }
 
@@ -395,7 +401,7 @@ void ModuleAttrsModel::update_attribute_from_backend(
             }
             row++;
         }
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
 }
 
@@ -408,12 +414,22 @@ void ModuleAttrsModel::setattributesGroupNames(QStringList group_name) {
 }
 
 ModuleAttrsToQMLShim::~ModuleAttrsToQMLShim() {
+
+    // wipe the message handler, because it seems to be possible that messages
+    // come in before our actor companion has exited but AFTER this object
+    // (ModuleAttrsToQMLShim) has been destroyed - if we don't wipe the message
+    // handler it gets a bit 'crashy' as it tries to execute a function in
+    // the handler declared in 'ModuleAttrsToQMLShim::init' when the object is deleted.
+    set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
+        return caf::message_handler();
+    });
+
     if (attrs_events_actor_group_) {
         caf::scoped_actor sys(CafSystemObject::get_actor_system());
         try {
             request_receive<bool>(
                 *sys, attrs_events_actor_group_, broadcast::leave_broadcast_atom_v, as_actor());
-        } catch (const std::exception &e) {
+        } catch ([[maybe_unused]] const std::exception &e) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
     }
@@ -511,13 +527,12 @@ void ModuleAttrsToQMLShim::init(caf::actor_system &system) {
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
         return {
             [=](utility::serialise_atom) -> utility::JsonStore { return utility::JsonStore(); },
-            [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {
-
+            [=](broadcast::broadcast_down_atom, const caf::actor_addr &addr) {
+                if (addr == caf::actor_cast<caf::actor_addr>(attrs_events_actor_group_)) {
+                    attrs_events_actor_group_ = caf::actor();
+                }
             },
-            [=](const group_down_msg &g) {
-                // caf::aout(self()) << "ModuleAttrsToQMLShim down: " << to_string(g.source) <<
-                // std::endl;
-            },
+            [=](const group_down_msg &g) {},
             [=](full_attributes_description_atom,
                 const AttributeSet &attrs,
                 const utility::Uuid &requester_uuid) {

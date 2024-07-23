@@ -22,7 +22,7 @@ namespace colour_pipeline {
     class GlobalColourPipelineActor : public caf::event_based_actor, public module::Module {
       public:
         GlobalColourPipelineActor(caf::actor_config &cfg);
-        ~GlobalColourPipelineActor() override = default;
+        virtual ~GlobalColourPipelineActor();
 
         caf::behavior make_behavior() override;
 
@@ -48,7 +48,7 @@ namespace colour_pipeline {
         std::vector<plugin_manager::PluginDetail> colour_pipe_plugin_details_;
         std::string default_plugin_name_;
         utility::JsonStore prefs_jsn_;
-        caf::actor viewport0_colour_pipeline_;
+        std::map<std::string, caf::actor> colour_piplines_;
     };
 
 

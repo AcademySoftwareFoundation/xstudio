@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/module_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -21,7 +24,7 @@ namespace xstudio {
 namespace ui {
     namespace qml {
 
-        class ModuleAttrsDirect : public QQmlPropertyMap {
+        class MODULE_QML_EXPORT ModuleAttrsDirect : public QQmlPropertyMap {
 
             Q_OBJECT
 
@@ -31,7 +34,7 @@ namespace ui {
             Q_PROPERTY(QString roleName READ roleName WRITE setRoleName NOTIFY roleNameChanged)
 
             ModuleAttrsDirect(QObject *parent = nullptr);
-            ~ModuleAttrsDirect() override = default;
+            virtual ~ModuleAttrsDirect();
 
             void add_attributes_from_backend(
                 const module::AttributeSet &attrs, const bool check_group = false);
@@ -70,7 +73,7 @@ namespace ui {
         };
 
 
-        class OrderedModuleAttrsModel : public QSortFilterProxyModel {
+        class MODULE_QML_EXPORT OrderedModuleAttrsModel : public QSortFilterProxyModel {
             Q_OBJECT
 
             Q_PROPERTY(QStringList attributesGroupNames READ attributesGroupNames WRITE
@@ -89,7 +92,7 @@ namespace ui {
         };
 
 
-        class ModuleAttrsModel : public QAbstractListModel {
+        class MODULE_QML_EXPORT ModuleAttrsModel : public QAbstractListModel {
 
             Q_OBJECT
 
@@ -100,7 +103,7 @@ namespace ui {
                            setattributesGroupNames NOTIFY attributesGroupNamesChanged)
 
             ModuleAttrsModel(QObject *parent = nullptr);
-            ~ModuleAttrsModel() override = default;
+            virtual ~ModuleAttrsModel();
 
             [[nodiscard]] int rowCount() { return rowCount(QModelIndex()); }
 

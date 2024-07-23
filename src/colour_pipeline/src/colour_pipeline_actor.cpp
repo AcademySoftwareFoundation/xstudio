@@ -36,7 +36,18 @@ GlobalColourPipelineActor::GlobalColourPipelineActor(caf::actor_config &cfg)
     load_colour_pipe_details();
 
     set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
+
+    set_down_handler([=](down_msg &msg) {
+        for (auto p = colour_piplines_.begin(); p != colour_piplines_.end(); ++p) {
+            if (p->second == msg.source) {
+                colour_piplines_.erase(p);
+                break;
+            }
+        }
+    });
 }
+
+GlobalColourPipelineActor::~GlobalColourPipelineActor() { colour_piplines_.clear(); }
 
 caf::behavior GlobalColourPipelineActor::make_behavior() {
     return caf::message_handler{
@@ -52,8 +63,8 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
         },
         [=](get_thumbnail_colour_pipeline_atom) -> result<caf::actor> {
             auto rp = make_response_promise<caf::actor>();
-            if (viewport0_colour_pipeline_) {
-                rp.deliver(viewport0_colour_pipeline_);
+            if (colour_piplines_.find("viewport0") != colour_piplines_.end()) {
+                rp.deliver(colour_piplines_["viewport0"]);
             } else {
                 request(
                     caf::actor_cast<caf::actor>(this),
@@ -61,10 +72,7 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
                     colour_pipeline_atom_v,
                     "viewport0")
                     .then(
-                        [=](caf::actor colour_pipe) mutable {
-                            viewport0_colour_pipeline_ = colour_pipe;
-                            rp.deliver(viewport0_colour_pipeline_);
-                        },
+                        [=](caf::actor colour_pipe) mutable { rp.deliver(colour_pipe); },
                         [=](caf::error &err) mutable { rp.deliver(err); });
             }
             return rp;
@@ -80,9 +88,9 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
             const media::AVFrameID &mptr,
             const thumbnail::ThumbnailBufferPtr &buf) -> result<thumbnail::ThumbnailBufferPtr> {
             auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-            if (viewport0_colour_pipeline_) {
+            if (colour_piplines_.find("viewport0") != colour_piplines_.end()) {
                 rp.delegate(
-                    viewport0_colour_pipeline_,
+                    colour_piplines_["viewport0"],
                     media_reader::process_thumbnail_atom_v,
                     mptr,
                     buf);
@@ -113,7 +121,7 @@ void GlobalColourPipelineActor::load_colour_pipe_details() {
                 *sys,
                 pm,
                 utility::detail_atom_v,
-                plugin_manager::PluginType::PT_COLOUR_MANAGEMENT);
+                plugin_manager::PluginType(plugin_manager::PluginFlags::PF_COLOUR_MANAGEMENT));
 
         for (const auto &pd : colour_pipe_plugin_details_) {
             if (pd.enabled_ && pd.name_ == default_plugin_name_) {
@@ -146,24 +154,32 @@ void GlobalColourPipelineActor::make_colour_pipeline(
         }
     }
 
+
     if (uuid.is_null()) {
         rp.deliver(make_error(
             xstudio_error::error,
             "create_colour_pipeline failed, invalid colour pipeline name."));
     } else {
+
+        const std::string viewport_name = jsn["viewport_name"];
+        if (colour_piplines_.find(viewport_name) != colour_piplines_.end()) {
+            rp.deliver(colour_piplines_[viewport_name]);
+            return;
+        }
+
         auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
         request(pm, infinite, plugin_manager::spawn_plugin_atom_v, uuid, jsn)
             .await(
                 [=](caf::actor colour_pipe) mutable {
                     // link_to(colour_pipe);
-                    if (jsn["viewport_name"] == "viewport0") {
-                        if (viewport0_colour_pipeline_) {
-                            rp.deliver(viewport0_colour_pipeline_);
-                        } else {
-                            viewport0_colour_pipeline_ = colour_pipe;
-                            rp.deliver(colour_pipe);
-                        }
+                    if (colour_piplines_.find(viewport_name) != colour_piplines_.end()) {
+                        // woopsie - colour pipeline already created while we were
+                        // waiting the response here
+                        rp.deliver(colour_piplines_[viewport_name]);
+                        send_exit(colour_pipe, caf::exit_reason::user_shutdown);
                     } else {
+                        colour_piplines_[viewport_name] = colour_pipe;
+                        monitor(colour_pipe);
                         rp.deliver(colour_pipe);
                     }
                 },

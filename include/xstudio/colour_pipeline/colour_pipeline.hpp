@@ -3,6 +3,7 @@
 #pragma once
 
 #include "colour_lut.hpp"
+#include "colour_texture.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/module/module.hpp"
@@ -25,10 +26,14 @@ namespace colour_pipeline {
     struct ColourOperationData {
         ColourOperationData()                             = default;
         ColourOperationData(const ColourOperationData &o) = default;
+        ColourOperationData(const utility::Uuid &uuid, const std::string name)
+            : uuid_(uuid), name_(name) {}
         ColourOperationData(const std::string name) : name_(name) {}
+        utility::Uuid uuid_;
         std::string name_;
         std::string cache_id_;
         std::vector<ColourLUTPtr> luts_;
+        std::vector<ColourTexture> textures_;
         ui::viewport::GPUShaderPtr shader_;
         float order_index_;
         [[nodiscard]] size_t size() const;
@@ -38,6 +43,9 @@ namespace colour_pipeline {
     typedef std::shared_ptr<ColourOperationData> ColourOperationDataPtr;
 
     struct ColourPipelineData {
+
+        ColourPipelineData()                            = default;
+        ColourPipelineData(const ColourPipelineData &o) = default;
 
         std::string cache_id_;
 
@@ -50,6 +58,23 @@ namespace colour_pipeline {
                     return o->order_index_ < v;
                 });
             ordered_colour_operations_.insert(p, op);
+        }
+
+        void overwrite_operation_data(const ColourOperationDataPtr &op) {
+            for (auto &op_data : ordered_colour_operations_) {
+                if (op_data->uuid_ == op->uuid_) {
+                    op_data = op;
+                    break;
+                }
+            }
+        }
+
+        ColourOperationDataPtr get_operation_data(const utility::Uuid &uuid) {
+            for (auto &op_data : ordered_colour_operations_) {
+                if (op_data->uuid_ == uuid)
+                    return op_data;
+            }
+            return ColourOperationDataPtr();
         }
 
         // user_data can be used by colour pipeline plugin to add any data specific
@@ -79,7 +104,7 @@ namespace colour_pipeline {
 
         ColourPipeline(caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
-        ~ColourPipeline() override = default;
+        virtual ~ColourPipeline();
 
         /* Given the colour related metadata of a media source, evaluate a hash
         that is unique for any unique set of LUTs and/or GPU shaders necessary
@@ -103,12 +128,6 @@ namespace colour_pipeline {
             const utility::Uuid &source_uuid,
             const utility::JsonStore &media_source_colour_metadata) = 0;
 
-        /* When the ColourPipeline is instanced by the parent Viewport this
-        method will be called. It gives an opportunity to query the name of
-        the viewport toolbar, for example, which is unqique for each viewport */
-        virtual void connect_to_viewport(
-            caf::actor viewport, const std::string viewport_name, const int viewport_index) = 0;
-
         /* Create the ColourOperationDataPtr containing the necessary LUT and
         shader data for linearising the source colourspace RGB data from the
         given media source on the screen */
@@ -131,10 +150,13 @@ namespace colour_pipeline {
             const utility::Uuid &source_uuid,
             const utility::JsonStore &media_source_colour_metadata) = 0;
 
-        virtual void update_shader_uniforms(
-            utility::JsonStore &uniforms,
-            const utility::Uuid &source_uuid,
-            std::any &user_data) = 0;
+        /* For the given image build a dictionary of shader uniform names and
+        their corresponding values to be used to set the uniform values in your
+        shader at draw-time - keys should match the names of uniforms in your
+        shader and values should match the type of your uniform.
+        For vec3 types etc us Imath::V3f for example.*/
+        virtual utility::JsonStore
+        update_shader_uniforms(const media_reader::ImageBufPtr &image, std::any &user_data) = 0;
 
         virtual void media_source_changed(
             const utility::Uuid &source_uuid,
@@ -183,6 +205,9 @@ namespace colour_pipeline {
         virtual std::string fast_display_transform_hash(const media::AVFrameID &media_ptr) = 0;
 
       protected:
+        void make_pre_draw_gpu_hook(
+            caf::typed_response_promise<plugin::GPUPreDrawHookPtr> rp, const int viewer_index);
+
         void attribute_changed(const utility::Uuid &attr_uuid, const int role) override;
 
         caf::message_handler message_handler_extensions() override;
@@ -190,7 +215,6 @@ namespace colour_pipeline {
         bool is_worker() const { return is_worker_; }
 
         utility::Uuid uuid_;
-        std::string viewport_name_;
 
       private:
         bool make_colour_pipe_data_from_cached_data(
@@ -222,6 +246,8 @@ namespace colour_pipeline {
             const std::string &linearise_transform_cache_id,
             const std::string &display_transform_cache_id);
 
+        void load_colour_op_plugins();
+
         std::map<std::string, std::vector<caf::typed_response_promise<ColourPipelineDataPtr>>>
             in_flight_requests_;
         std::map<std::string, std::pair<std::string, std::string>> cache_keys_cache_;
@@ -232,10 +258,12 @@ namespace colour_pipeline {
         caf::actor pixel_probe_worker_;
         caf::actor cache_;
         std::vector<caf::actor> workers_;
-        bool is_worker_ = false;
+        bool is_worker_         = false;
+        bool colour_ops_loaded_ = false;
 
-        void load_colour_op_plugins();
         std::vector<caf::actor> colour_op_plugins_;
+        std::vector<std::pair<caf::typed_response_promise<plugin::GPUPreDrawHookPtr>, int>>
+            hook_requests_;
     };
 
 } // namespace colour_pipeline

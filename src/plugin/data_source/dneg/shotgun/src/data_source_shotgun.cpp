@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include "data_source_shotgun.tcc"
 #include <fmt/format.h>
 #include <caf/policy/select_all.hpp>
 
@@ -3397,7 +3398,6 @@ void ShotgunDataSourceActor<T>::do_add_media_sources_from_ivy(
                 continue_processing_job_queue();
             });
 }
-
 
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {

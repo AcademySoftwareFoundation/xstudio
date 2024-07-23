@@ -77,6 +77,8 @@ namespace history {
 
         std::optional<V> undo() { return undo_redo_.undo(); }
         std::optional<V> redo() { return undo_redo_.redo(); }
+        std::optional<K> peek_undo() { return undo_redo_.peek_undo(); }
+        std::optional<K> peek_redo() { return undo_redo_.peek_redo(); }
         std::optional<V> undo(const K &key) { return undo_redo_.undo(key); }
         std::optional<V> redo(const K &key) { return undo_redo_.redo(key); }
         void clear() { undo_redo_.clear(); }

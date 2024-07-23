@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+
 #include <caf/all.hpp>
 #include <map>
 #include <vector>
@@ -13,9 +14,11 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/tree.hpp"
 
+#include "helper_qml_export.h"
+
 namespace xstudio::ui::qml {
 
-class JSONTreeModel : public QAbstractItemModel {
+class HELPER_QML_EXPORT JSONTreeModel : public QAbstractItemModel {
     Q_OBJECT
 
     Q_PROPERTY(int count READ length NOTIFY lengthChanged)
@@ -35,6 +38,8 @@ class JSONTreeModel : public QAbstractItemModel {
         {Qt::DisplayRole, "display"}, {JSONRole, "jsonRole"}, {JSONTextRole, "jsonTextRole"}};
 
     JSONTreeModel(QObject *parent = nullptr);
+
+    [[nodiscard]] bool canFetchMore(const QModelIndex &parent) const override;
 
     [[nodiscard]] int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     [[nodiscard]] int columnCount(const QModelIndex &parent = QModelIndex()) const override {
@@ -75,6 +80,8 @@ class JSONTreeModel : public QAbstractItemModel {
     insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 
     bool insertRows(int row, int count, const QModelIndex &parent, const nlohmann::json &data);
+
+    Q_INVOKABLE QModelIndex invalidIndex() const { return QModelIndex(); }
 
     Q_INVOKABLE int
     countExpandedChildren(const QModelIndex parent, const QModelIndexList &expanded);
@@ -149,7 +156,7 @@ class JSONTreeModel : public QAbstractItemModel {
 
     nlohmann::json &indexToData(const QModelIndex &index);
     const nlohmann::json &indexToData(const QModelIndex &index) const;
-    nlohmann::json indexToFullData(const QModelIndex &index) const;
+    nlohmann::json indexToFullData(const QModelIndex &index, const int depth = -1) const;
 
     utility::JsonTree *indexToTree(const QModelIndex &index) const;
     nlohmann::json::json_pointer getIndexPath(const QModelIndex &index = QModelIndex()) const;
@@ -170,7 +177,7 @@ class JSONTreeModel : public QAbstractItemModel {
     utility::JsonTree data_;
 };
 
-class JSONTreeFilterModel : public QSortFilterProxyModel {
+class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
     Q_OBJECT
 
     Q_PROPERTY(int length READ length NOTIFY lengthChanged)

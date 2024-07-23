@@ -13,6 +13,9 @@ CAF_PUSH_WARNINGS
 // #include <QQmlEngine>
 CAF_POP_WARNINGS
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/bookmark_qml_export.h"
+
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/bookmark/bookmark.hpp"
@@ -20,7 +23,7 @@ CAF_POP_WARNINGS
 
 namespace xstudio::ui::qml {
 
-class BookmarkCategoryModel : public JSONTreeModel {
+class BOOKMARK_QML_EXPORT BookmarkCategoryModel : public JSONTreeModel {
     Q_OBJECT
 
     Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
@@ -44,7 +47,7 @@ class BookmarkCategoryModel : public JSONTreeModel {
 };
 
 
-class BookmarkFilterModel : public QSortFilterProxyModel {
+class BOOKMARK_QML_EXPORT BookmarkFilterModel : public QSortFilterProxyModel {
     Q_OBJECT
 
     Q_PROPERTY(
@@ -93,7 +96,7 @@ class BookmarkFilterModel : public QSortFilterProxyModel {
 };
 
 
-class BookmarkModel : public caf::mixin::actor_object<JSONTreeModel> {
+class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTreeModel> {
     Q_OBJECT
 
     Q_PROPERTY(QString bookmarkActorAddr READ bookmarkActorAddr WRITE setBookmarkActorAddr
@@ -125,7 +128,8 @@ class BookmarkModel : public caf::mixin::actor_object<JSONTreeModel> {
         objectRole,
         startRole,
         durationRole,
-        durationFrameRole
+        durationFrameRole,
+        visibleRole
     };
 
     using super = caf::mixin::actor_object<JSONTreeModel>;

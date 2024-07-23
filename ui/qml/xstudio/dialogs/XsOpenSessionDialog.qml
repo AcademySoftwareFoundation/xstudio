@@ -11,7 +11,7 @@ FileDialog {
     folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
     defaultSuffix: "xst"
 
-    nameFilters:  ["Xstudio (*.xst)"]
+    nameFilters:  ["xStudio (*.xst *.xsz)"]
     selectExisting: true
     selectMultiple: false
     onAccepted: {
@@ -20,7 +20,8 @@ FileDialog {
                 // console.log(result)
             }
         )
-        app_window.sessionFunction.newRecentPath(fileUrl)
+        var path = fileUrl
+        app_window.sessionFunction.newRecentPath(path)
         app_window.sessionFunction.defaultSessionFolder(path.slice(0, path.lastIndexOf("/") + 1))
     }
     onRejected: {

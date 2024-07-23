@@ -1,0 +1,14 @@
+{
+	"core": {
+		"snapshot":{
+			"paths": {
+				"path": "/core/snapshot/paths",
+				"default_value": [],
+				"description": "Snashot scan paths.",
+				"value": [],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

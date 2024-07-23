@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+
+#include <filesystem>
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -11,7 +16,9 @@
 #include <regex>
 #include <sstream>
 #include <string>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 #include <vector>
 #include <cstdarg>
 
@@ -176,12 +183,35 @@ namespace utility {
         return result;
     }
 
+    inline std::wstring to_upper(const std::wstring &str) {
+        static std::locale loc;
+        std::wstring result;
+        result.reserve(str.size());
+
+        for (auto elem : str)
+            result += std::toupper(elem, loc);
+
+        return result;
+    }
+
     inline std::string to_upper(const std::string &str) {
         static std::locale loc;
         std::string result;
         result.reserve(str.size());
 
         for (auto elem : str)
+            result += std::toupper(elem, loc);
+
+        return result;
+    }
+
+    // TODO: Ahead to refactor
+    inline std::string to_upper_path(const std::filesystem::path &path) {
+        static std::locale loc;
+        std::string result;
+        result.reserve(path.string().size());
+
+        for (auto elem : path.string())
             result += std::toupper(elem, loc);
 
         return result;
@@ -196,7 +226,7 @@ namespace utility {
 
     inline std::string get_hostname() {
         std::array<char, 4096> buffer;
-        if (not gethostname(buffer.data(), buffer.size())) {
+        if (not gethostname(buffer.data(), (int)buffer.size())) {
             return std::string(buffer.data());
         }
         return std::string();

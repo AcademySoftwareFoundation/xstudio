@@ -99,6 +99,8 @@ namespace ui {
 
             timebase::flicks predicted_playhead_position_at_next_video_refresh();
 
+            double average_video_refresh_period() const;
+
             bool playing_          = {false};
             bool playing_forwards_ = {true};
 

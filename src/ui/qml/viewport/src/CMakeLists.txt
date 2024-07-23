@@ -6,9 +6,10 @@ SET(LINK_DEPS
 	Qt5::Quick
 	Qt5::Widgets
 	xstudio::module
+	xstudio::playhead
 	xstudio::ui::opengl::viewport
-	xstudio::ui::qt::viewport_widget
 	xstudio::ui::viewport
+	xstudio::ui::qml::helper
 	xstudio::ui::qml::playhead
 	xstudio::utility
 )

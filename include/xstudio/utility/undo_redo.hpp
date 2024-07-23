@@ -99,6 +99,10 @@ namespace utility {
         std::optional<V> redo();
         std::optional<V> undo(const K &key);
         std::optional<V> redo(const K &key);
+
+        std::optional<K> peek_undo();
+        std::optional<K> peek_redo();
+
         void clear();
 
       private:
@@ -128,6 +132,22 @@ namespace utility {
     void UndoRedoMap<K, V>::push(const K &key, const V &value) {
         undo_.emplace(key, value);
         redo_.clear();
+    }
+
+    template <typename K, typename V> std::optional<K> UndoRedoMap<K, V>::peek_undo() {
+        if (undo_.empty())
+            return {};
+
+        auto it = undo_.rbegin();
+        return it->first;
+    }
+
+    template <typename K, typename V> std::optional<K> UndoRedoMap<K, V>::peek_redo() {
+        if (redo_.empty())
+            return {};
+
+        auto it = redo_.begin();
+        return it->first;
     }
 
     template <typename K, typename V> std::optional<V> UndoRedoMap<K, V>::undo() {

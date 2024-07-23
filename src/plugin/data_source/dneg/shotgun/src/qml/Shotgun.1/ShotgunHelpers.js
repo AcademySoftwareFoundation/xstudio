@@ -19,12 +19,12 @@ function handle_response(result_string, title, only_on_error=true, body = "", di
             }
 
             if("error" in data) {
-                throw "Shotgun error."
+                throw "ShotGrid error."
             }
 
             if("errors" in data) {
                 if(data["errors"][0]["status"] !== null)
-                    throw "Shotgun error."
+                    throw "ShotGrid error."
             }
 
             // if("status" in data["data"] && data["data"]["status"] !== null && data["data"]["status"] !== "success" ) {

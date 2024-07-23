@@ -1,0 +1,47 @@
+{
+  "version": 3,
+  "configurePresets": [
+    { 
+      "name": "windows-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/",
+        "CMAKE_INSTALL_PREFIX": "C:/xstudio_install",
+        "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
+        "BUILD_DOCS": "OFF"
+      }
+    },
+    {
+      "name": "Release",
+      "inherits": ["windows-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "RelWithDebInfo",
+      "inherits": ["windows-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "USE_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "Debug",
+      "hidden":  true,
+      "inherits": ["windows-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "address"
+      }
+    }
+  ]
+}

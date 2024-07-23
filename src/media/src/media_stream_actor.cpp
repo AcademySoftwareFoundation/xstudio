@@ -33,15 +33,8 @@ MediaStreamActor::MediaStreamActor(caf::actor_config &cfg, const JsonStore &jsn)
 }
 
 MediaStreamActor::MediaStreamActor(
-    caf::actor_config &cfg,
-    const std::string &name,
-    const utility::FrameRateDuration &duration,
-    const MediaType media_type,
-    const std::string &key_format,
-    const utility::Uuid &uuid
-
-    )
-    : caf::event_based_actor(cfg), base_(name, duration, media_type, key_format) {
+    caf::actor_config &cfg, const StreamDetail &detail, const utility::Uuid &uuid)
+    : caf::event_based_actor(cfg), base_(detail) {
     if (not uuid.is_null())
         base_.set_uuid(uuid);
 
@@ -78,10 +71,9 @@ void MediaStreamActor::init() {
 
         [=](get_media_type_atom) -> MediaType { return base_.media_type(); },
 
-        [=](get_stream_detail_atom) -> StreamDetail {
-            return StreamDetail(
-                base_.duration(), base_.name(), base_.media_type(), base_.key_format());
-        },
+        [=](get_stream_detail_atom) -> StreamDetail { return base_.detail(); },
+
+        [=](const StreamDetail &detail) { base_.set_detail(detail); },
 
         [=](json_store::get_json_atom _get_atom, const std::string &path) {
             return delegate(json_store_, _get_atom, path);
@@ -90,8 +82,7 @@ void MediaStreamActor::init() {
         [=](utility::duplicate_atom) -> UuidActor {
             // clone ourself..
             const auto uuid  = utility::Uuid::generate();
-            const auto actor = spawn<MediaStreamActor>(
-                base_.name(), base_.duration(), base_.media_type(), base_.key_format(), uuid);
+            const auto actor = spawn<MediaStreamActor>(base_.detail(), uuid);
             return UuidActor(uuid, actor);
         },
 

@@ -6,7 +6,7 @@ from xstudio.core import attribute_value_atom, register_hotkey_atom
 from xstudio.core import get_global_playhead_events_atom, join_broadcast_atom
 from xstudio.core import viewport_playhead_atom, hotkey_event_atom
 from xstudio.core import attribute_uuids_atom, request_full_attributes_description_atom
-from xstudio.core import AttributeRole
+from xstudio.core import AttributeRole, remove_attribute_atom
 from xstudio.api.auxiliary import ActorConnection
 from xstudio.core import JsonStore, Uuid
 from xstudio.api.auxiliary.helpers import get_event_group
@@ -49,7 +49,7 @@ class ModuleAttribute:
                 parent_remote,
                 add_attribute_atom(),
                 attribute_name,
-                JsonStore(attribute_value),
+                attribute_value if type(attribute_value) == type(JsonStore()) else JsonStore(attribute_value),
                 JsonStore(attribute_role_data)
             )[0]
 
@@ -99,6 +99,20 @@ class ModuleAttribute:
             attribute_value_atom(),
             self.uuid,
             JsonStore(value))
+
+    def set_role_data(self, role_name, data):
+
+        r = self.connection.request_receive(
+            self.parent_remote,
+            attribute_role_data_atom(),
+            self.uuid,
+            role_name,
+            JsonStore(data))[0]
+        if r != True:
+            raise Exception("set_role_data with rolename: {0}, data: {1} failed with error {2}:",
+                role_name,
+                data,
+                r)
 
 
 class ModuleBase(ActorConnection):
@@ -167,7 +181,8 @@ class ModuleBase(ActorConnection):
         self,
         attribute_name,
         attribute_value,
-        attribute_role_data={}
+        attribute_role_data={},
+        preference_path=None
     ):
         """Add an attribute to your plugin class. Attributes provide a flexible
         way to store data and/or pass data between your plugin and the xStudio
@@ -179,6 +194,9 @@ class ModuleBase(ActorConnection):
             attribute_value(int,float,bool,str, list(str)): The value of the
                 attribute
             attribute_role_data(dict): Other role data of the attribute
+            preference_path(str): If provided the attribute value will be
+                recorded in the users preferences data when xstudio closes and 
+                the value restored next time xstudio starts up.
         """
 
         new_attr = ModuleAttribute(
@@ -190,7 +208,25 @@ class ModuleBase(ActorConnection):
 
         self.attrs_by_name_[attribute_name] = new_attr
 
+        if preference_path:
+            new_attr.set_role_data("preference_path", preference_path)
+
         return new_attr
+
+    def remove_attribute(
+        self,
+        attribute_uuid
+    ):
+        """Remove (and delete) an attribute from your plugin class..
+
+        Args:
+            attribute_uuid(Uuid): Uuid of the attribute to be removed
+        """
+        return self.connection.request_receive(
+                self.remote,
+                remove_attribute_atom(),
+                attribute_uuid
+            )[0]
 
     def set_attribute(self, attr_name, value):
         """Set the value on the named attribute
@@ -341,17 +377,23 @@ class ModuleBase(ActorConnection):
                 if role == AttributeRole.Value:
                     attr_uuid = str(message_content[2]) if len(
                         message_content) > 2 else ""
-                    if self.__attribute_changed:
-                        self.__attribute_changed(attr_uuid)
+                    if self.__attribute_changed:                        
+                        for attr in self.attrs_by_name_.values():
+                            if attr.uuid == Uuid(attr_uuid):
+                                self.__attribute_changed(attr)
                     if attr_uuid in self.menu_trigger_callbacks:
                         self.menu_trigger_callbacks[attr_uuid]()
+
             elif isinstance(atom, type(hotkey_event_atom())):
                 hotkey_uuid = str(message_content[1]) if len(
                     message_content) > 1 else ""                
                 activated = bool(message_content[2]) if len(
                     message_content) > 2 else False
+                context = str(message_content[3]) if len(
+                    message_content) > 3 else ""                
                 if hotkey_uuid in self.hotkey_callbacks:
-                    self.hotkey_callbacks[hotkey_uuid](activated)
+                    self.hotkey_callbacks[hotkey_uuid](activated, context)
+                
         except Exception as err:
             print (err)
             print (traceback.format_exc())

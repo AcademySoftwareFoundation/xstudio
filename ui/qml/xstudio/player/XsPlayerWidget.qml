@@ -188,9 +188,8 @@ Rectangle {
                 XsViewport {
                     id: viewport
                     objectName: "viewport"
-                    is_popout_viewport: !playerWidget.is_main_window
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.fillHeight: true            
                 }
 
                 XsToolBar {

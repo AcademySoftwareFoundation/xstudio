@@ -24,6 +24,12 @@ namespace studio {
         caf::behavior behavior_;
         Studio base_;
         caf::actor session_;
+
+        struct QuickviewRequest {
+            utility::UuidActorVector media_actors;
+            std::string compare_mode;
+        };
+        std::vector<QuickviewRequest> quickview_requests_;
     };
 } // namespace studio
 } // namespace xstudio

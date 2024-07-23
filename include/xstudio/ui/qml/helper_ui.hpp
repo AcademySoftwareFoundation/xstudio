@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+
 #include <caf/all.hpp>
 #include <functional>
 #include <semver.hpp>
@@ -11,6 +12,9 @@
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
+
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/helper_qml_export.h"
 
 CAF_PUSH_WARNINGS
 #include <QCursor>
@@ -42,7 +46,42 @@ namespace ui {
         QVariant mapFromValue(const nlohmann::json &value);
         nlohmann::json mapFromValue(const QVariant &value);
 
-        class ModelProperty : public QObject {
+        class HELPER_QML_EXPORT ModelRowCount : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+            Q_PROPERTY(int count READ count NOTIFY countChanged)
+
+          public:
+            explicit ModelRowCount(QObject *parent = nullptr) : QObject(parent) {}
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] int count() const { return count_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+
+          signals:
+            void indexChanged();
+            void countChanged();
+
+          private slots:
+            void inserted(const QModelIndex &parent, int first, int last);
+            void moved(
+                const QModelIndex &sourceParent,
+                int sourceStart,
+                int sourceEnd,
+                const QModelIndex &destinationParent,
+                int destinationRow);
+            void removed(const QModelIndex &parent, int first, int last);
+
+          private:
+            void setCount(const int count);
+
+            QPersistentModelIndex index_;
+            int count_{0};
+        };
+
+        class HELPER_QML_EXPORT ModelProperty : public QObject {
             Q_OBJECT
 
             Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
@@ -84,7 +123,7 @@ namespace ui {
             QVariant value_;
         };
 
-        class ModelPropertyTree : public JSONTreeModel {
+        class HELPER_QML_EXPORT ModelPropertyTree : public JSONTreeModel {
             Q_OBJECT
 
             Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
@@ -123,7 +162,7 @@ namespace ui {
         };
 
 
-        class ModelPropertyMap : public QObject {
+        class HELPER_QML_EXPORT ModelPropertyMap : public QObject {
             Q_OBJECT
 
             Q_PROPERTY(QQmlPropertyMap *values READ values NOTIFY valuesChanged)
@@ -136,6 +175,7 @@ namespace ui {
             [[nodiscard]] QQmlPropertyMap *values() const { return values_; }
 
             Q_INVOKABLE void setIndex(const QModelIndex &index);
+            Q_INVOKABLE void dump();
 
           signals:
             void indexChanged();
@@ -157,7 +197,7 @@ namespace ui {
             QQmlPropertyMap *values_{nullptr};
         };
 
-        class ModelNestedPropertyMap : public ModelPropertyMap {
+        class HELPER_QML_EXPORT ModelNestedPropertyMap : public ModelPropertyMap {
             Q_OBJECT
 
           public:
@@ -173,7 +213,7 @@ namespace ui {
             QString default_role_ = {"defaultValueRole"};
         };
 
-        class CafSystemObject : public QObject {
+        class HELPER_QML_EXPORT CafSystemObject : public QObject {
 
             Q_OBJECT
 
@@ -190,12 +230,14 @@ namespace ui {
             std::reference_wrapper<caf::actor_system> system_ref_;
         };
 
-        class QMLActor : public caf::mixin::actor_object<QObject> {
+        class HELPER_QML_EXPORT QMLActor : public caf::mixin::actor_object<QObject> {
             Q_OBJECT
 
           public:
             using super = caf::mixin::actor_object<QObject>;
-            explicit QMLActor(QObject *parent = nullptr) : super(parent) {}
+            explicit QMLActor(QObject *parent = nullptr);
+
+            virtual ~QMLActor();
             virtual void init(caf::actor_system &system) { super::init(system); }
 
           public:
@@ -282,7 +324,7 @@ namespace ui {
             return jsn;
         }
 
-        class Helpers : public QObject {
+        class HELPER_QML_EXPORT Helpers : public QObject {
             Q_OBJECT
 
           public:
@@ -394,12 +436,50 @@ namespace ui {
                     s.select(i, i);
                 return s;
             }
+            Q_INVOKABLE [[nodiscard]] bool itemSelectionContains(
+                const QItemSelection &selection, const QModelIndex &item) const {
+                return selection.contains(item);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            saturate(const QColor &color, const double factor = 1.5) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                s = std::max(0.0, std::min(1.0, s * factor));
+                return QColor::fromHslF(h, s, l, a);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            luminate(const QColor &color, const double factor = 1.5) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                l = std::max(0.0, std::min(1.0, l * factor));
+                return QColor::fromHslF(h, s, l, a);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            alphate(const QColor &color, const double alpha) const {
+                auto result = color;
+                result.setAlphaF(std::max(0.0, std::min(1.0, alpha)));
+                return result;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor saturateLuminate(
+                const QColor &color,
+                const double sfactor = 1.0,
+                const double lfactor = 1.0) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                s = std::max(0.0, std::min(1.0, s * sfactor));
+                l = std::max(0.0, std::min(1.0, l * lfactor));
+                return QColor::fromHslF(h, s, l, a);
+            }
 
           private:
             QQmlEngine *engine_;
         };
 
-        class CursorPosProvider : public QObject {
+        class HELPER_QML_EXPORT CursorPosProvider : public QObject {
             Q_OBJECT
 
           public:
@@ -409,7 +489,7 @@ namespace ui {
             Q_INVOKABLE QPointF cursorPos() { return QCursor::pos(); }
         };
 
-        class QMLUuid : public QObject {
+        class HELPER_QML_EXPORT QMLUuid : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString asString READ asString WRITE setFromString NOTIFY changed)
             Q_PROPERTY(QUuid asQuuid READ asQuuid WRITE setFromQuuid NOTIFY changed)
@@ -451,7 +531,7 @@ namespace ui {
             utility::Uuid uuid_;
         };
 
-        class SemVer : public QObject {
+        class HELPER_QML_EXPORT SemVer : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString version READ version WRITE setVersion NOTIFY versionChanged)
             Q_PROPERTY(uint major READ major WRITE setMajor NOTIFY versionChanged)
@@ -497,7 +577,7 @@ namespace ui {
             semver::version version_;
         };
 
-        class ClipboardProxy : public QObject {
+        class HELPER_QML_EXPORT ClipboardProxy : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString text READ dataText WRITE setDataText NOTIFY dataChanged)
             Q_PROPERTY(QString selectionText READ selectionText WRITE setSelectionText NOTIFY
@@ -520,7 +600,7 @@ namespace ui {
             void selectionChanged();
         };
 
-        class Plugin : public QObject {
+        class HELPER_QML_EXPORT Plugin : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString qmlName READ qmlName NOTIFY qmlNameChanged)
             Q_PROPERTY(

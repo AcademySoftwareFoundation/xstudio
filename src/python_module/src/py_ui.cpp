@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wattributes"
+#endif
 #include "py_opaque.hpp"
 
 // CAF_PUSH_WARNINGS

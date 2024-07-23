@@ -9,7 +9,6 @@ XsMenu {
 
     title: qsTr("Viewer")
     id: viewer_context_menu
-    property bool is_popout_viewport: false
 
     XsMenuItem {
         mytext: qsTr("Presentation Mode")

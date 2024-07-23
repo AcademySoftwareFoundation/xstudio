@@ -22,6 +22,10 @@
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/caf_error.hpp"
 #include "xstudio/caf_utility/caf_setup.hpp"
+#ifdef _WIN32
+#include <windows.h>
+#include <fmt/format.h>
+#endif
 
 namespace xstudio {
 namespace utility {
@@ -46,6 +50,7 @@ namespace utility {
     class ActorSystemSingleton {
 
       public:
+        static caf::actor_system &actor_system_ref();
         static caf::actor_system &actor_system_ref(caf::actor_system &sys);
 
       private:
@@ -62,6 +67,8 @@ namespace utility {
                                           ".TIF",  ".TIFF", ".WAV", ".WEBM"};
 
     const std::array supported_timeline_extensions{".OTIO", ".XML", ".EDL"};
+
+    const std::array session_extensions{".XST", ".XSZ"};
 
 
     std::string actor_to_string(caf::actor_system &sys, const caf::actor &actor);
@@ -82,6 +89,17 @@ namespace utility {
     }
 
     namespace fs = std::filesystem;
+
+    // Centralizing the Path to String conversions in case we run into encoding problems down
+    // the line.
+    inline std::string path_to_string(fs::path path) {
+#ifdef _WIN32
+        return path.string();
+#else
+        // Implicit cast works fine on Linux
+        return path;
+#endif
+    }
 
 
     inline bool check_create_path(const std::string &path) {
@@ -177,27 +195,10 @@ namespace utility {
         spdlog::debug("{} created {}", name, to_string(hdl));
     }
 
-    inline void print_on_exit(const caf::actor &hdl, const Container &cont) {
-        hdl->attach_functor([=](const caf::error &reason) {
-            spdlog::debug(
-                "{} {} {} exited: {}",
-                cont.type(),
-                cont.name(),
-                to_string(cont.uuid()),
-                to_string(reason));
-        });
-    }
+    void print_on_exit(const caf::actor &hdl, const Container &cont);
 
-    inline void print_on_exit(
-        const caf::actor &hdl, const std::string &name, const Uuid &uuid = utility::Uuid()) {
-        hdl->attach_functor([=](const caf::error &reason) {
-            spdlog::debug(
-                "{} {} exited: {}",
-                name,
-                uuid.is_null() ? "" : to_string(uuid),
-                to_string(reason));
-        });
-    }
+    void print_on_exit(
+        const caf::actor &hdl, const std::string &name, const Uuid &uuid = utility::Uuid());
 
     std::string exec(const std::vector<std::string> &cmd, int &exit_code);
 
@@ -268,29 +269,83 @@ namespace utility {
 
     inline std::string xstudio_root(const std::string &append_path) {
         auto root = get_env("XSTUDIO_ROOT");
-        std::string path =
-            (root ? (*root) + append_path : std::string(BINARY_DIR) + append_path);
+
+        std::string fallback_root;
+#ifdef _WIN32
+        char filename[MAX_PATH];
+        DWORD nSize  = _countof(filename);
+        DWORD result = GetModuleFileNameA(NULL, filename, nSize);
+        if (result == 0) {
+            spdlog::debug("Unable to determine executable path from Windows API, falling back "
+                          "to standard methods");
+        } else {
+            auto exePath = fs::path(filename);
+
+            // The first parent path gets us to the bin directory, the second gets us to the
+            // level above bin.
+            auto xstudio_root = exePath.parent_path().parent_path();
+            fallback_root     = xstudio_root.string();
+        }
+#else
+        // TODO: This could inspect the current running process and look one directory up.
+        fallback_root = std::string(BINARY_DIR);
+#endif
+
+
+        std::string path = (root ? (*root) + append_path : fallback_root + append_path);
+
         return path;
     }
 
     inline std::string remote_session_path() {
-        auto root        = get_env("HOME");
-        std::string path = (root ? (*root) + "/.config/DNEG/xstudio/sessions" : "");
-        return path;
+        const char *root;
+#ifdef _WIN32
+        root = std::getenv("USERPROFILE");
+#else
+        root = std::getenv("HOME");
+#endif
+        std::filesystem::path path;
+        if (root) {
+            path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "sessions";
+        }
+
+        return path.string();
     }
 
     inline std::string preference_path(const std::string &append_path = "") {
-        auto root = get_env("HOME");
-        std::string path =
-            (root ? (*root) + "/.config/DNEG/xstudio/preferences/" + append_path : "");
-        return path;
+        const char *root;
+#ifdef _WIN32
+        root = std::getenv("USERPROFILE");
+#else
+        root = std::getenv("HOME");
+#endif
+        std::filesystem::path path;
+        if (root) {
+            path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "preferences";
+            if (!append_path.empty()) {
+                path /= append_path;
+            }
+        }
+
+        return path.string();
     }
 
     inline std::string snippets_path(const std::string &append_path = "") {
-        auto root = get_env("HOME");
-        std::string path =
-            (root ? (*root) + "/.config/DNEG/xstudio/snippets/" + append_path : "");
-        return path;
+        const char *root;
+#ifdef _WIN32
+        root = std::getenv("USERPROFILE");
+#else
+        root = std::getenv("HOME");
+#endif
+        std::filesystem::path path;
+        if (root) {
+            path = std::filesystem::path(root) / ".config" / "DNEG" / "xstudio" / "snippets";
+            if (!append_path.empty()) {
+                path /= append_path;
+            }
+        }
+
+        return path.string();
     }
 
     inline std::string preference_path_context(const std::string &context) {
@@ -313,7 +368,7 @@ namespace utility {
         try {
             mtim = fs::last_write_time(path);
         } catch (const std::exception &err) {
-            // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            spdlog::debug("{} {}", __PRETTY_FUNCTION__, err.what());
         }
         return mtim;
     }
@@ -322,19 +377,53 @@ namespace utility {
         return get_file_mtime(uri_to_posix_path(path));
     }
 
+    inline std::string get_path_extension(const fs::path p) {
+        const std::string sp = p.string();
+#ifdef _WIN32
+        std::string sanitized;
+
+        try {
+            sanitized = fmt::format(sp, 0);
+
+        } catch (...) {
+            // If we are here, the path likely doesn't have a format string.
+            sanitized = sp;
+        }
+        fs::path pth(sanitized);
+        std::string ext = pth.extension().string(); // Convert path extension to string
+        return ext;
+#else
+        return p.extension().string();
+#endif
+    }
+
 
     inline bool is_file_supported(const caf::uri &uri) {
-        fs::path p(uri_to_posix_path(uri));
-        std::string ext = to_upper(p.extension());
+        const std::string sp = uri_to_posix_path(uri);
+        std::string ext      = to_upper(get_path_extension(fs::path(sp)));
+
         for (const auto &i : supported_extensions)
             if (i == ext)
                 return true;
         return false;
     }
 
+    inline bool is_session(const std::string &path) {
+        fs::path p(path);
+        std::string ext = to_upper(path_to_string(get_path_extension(p)));
+        for (const auto &i : session_extensions)
+            if (i == ext)
+                return true;
+        return false;
+    }
+
+    inline bool is_session(const caf::uri &path) { return is_session(uri_to_posix_path(path)); }
+
     inline bool is_timeline_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));
-        std::string ext = to_upper(p.extension());
+        spdlog::error(p.string());
+        std::string ext = to_upper(get_path_extension(p));
+
         for (const auto &i : supported_timeline_extensions)
             if (i == ext)
                 return true;

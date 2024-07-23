@@ -112,7 +112,7 @@ plugin::ViewportOverlayRendererPtr ImageBoundaryHUD::make_overlay_renderer(const
 
 ImageBoundaryHUD::~ImageBoundaryHUD() = default;
 
-utility::BlindDataObjectPtr ImageBoundaryHUD::prepare_render_data(
+utility::BlindDataObjectPtr ImageBoundaryHUD::prepare_overlay_data(
     const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
 
     auto r = utility::BlindDataObjectPtr();
@@ -146,7 +146,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<ImageBoundaryHUD>>(
                 utility::Uuid("95268f7c-88d1-48da-8543-c5275ef5b2c5"),
                 "ImageBoundaryHUD",
-                plugin_manager::PluginType::PT_HEAD_UP_DISPLAY,
+                plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY,
                 true,
                 "Clement Jovet",
                 "Viewport HUD Plugin")}));

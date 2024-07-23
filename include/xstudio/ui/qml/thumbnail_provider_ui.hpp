@@ -71,7 +71,6 @@ class ThumbnailReader : public ControllableJob<std::pair<QImage, QString>> {
 
             AVFrameID mp;
             // super dirty...
-
             for (auto i = 1; i < 5; i++) {
                 try {
                     mp = request_receive<AVFrameID>(
@@ -167,7 +166,7 @@ class ThumbnailResponse : public QQuickImageResponse {
         // spdlog::warn("{}", StdFromQString(id));
         if (bad_thumbs_.contains(id_) and
             bad_thumbs_[id_].secsTo(QDateTime::currentDateTime()) < 60 * 20) {
-            error_ = "Thumbnail does not exist.";
+            error_ = "Thumbnail does not exist 1.";
             emit finished();
         } else {
 
@@ -198,7 +197,8 @@ class ThumbnailResponse : public QQuickImageResponse {
             auto [i, e] = watcher_.result();
 
             if (not e.isEmpty()) {
-                error_ = "Thumbnail does not exist.";
+                qDebug() << e;
+                error_ = "Thumbnail does not exist 2.";
                 bad_thumbs_.insert(id_, QDateTime::currentDateTime());
             } else {
                 bad_thumbs_.remove(id_);
@@ -228,7 +228,7 @@ class ThumbnailResponse : public QQuickImageResponse {
     }
 
     void handleFailed(QString error) {
-        error_ = "Thumbnail does not exist.";
+        error_ = "Thumbnail does not exist 3.";
         emit finished();
         bad_thumbs_.insert(id_, QDateTime::currentDateTime());
     }

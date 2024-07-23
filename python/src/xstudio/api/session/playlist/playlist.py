@@ -70,7 +70,7 @@ class Playlist(Container):
             result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse, Uuid())[0]
         else:
             result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse, media_rate, Uuid())[0]
-
+            
         return [Media(self.connection, i.actor, i.uuid) for i in result]
 
     def add_media_with_audio(self, image_path, audio_path, audio_offset=0):

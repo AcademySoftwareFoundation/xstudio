@@ -215,7 +215,7 @@ void FpsMonitor::connect_to_playhead(caf::actor &playhead) {
         } catch (...) {
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
     anon_send(this, update_actual_fps_atom_v);
 }

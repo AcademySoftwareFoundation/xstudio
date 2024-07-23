@@ -62,10 +62,12 @@ TEST(StackTest, Test) {
     it++;
     EXPECT_EQ(it->uuid(), g2.item().uuid());
 
-    // move first entry to end
-    auto it2 = s.item().cbegin();
-    it2++;
-    auto ru5 = s.item().splice(s.item().cend(), s.item().children(), s.item().cbegin(), it2);
+
+    auto start = std::next(s.item().begin(), 0);
+    auto end   = std::next(s.item().begin(), 1);
+    auto pos   = std::next(s.item().begin(), 3);
+
+    auto ru5 = s.item().splice(pos, s.item().children(), start, end);
 
     it = s.item().begin();
     EXPECT_EQ(it->uuid(), g2.item().uuid());
@@ -73,8 +75,6 @@ TEST(StackTest, Test) {
     EXPECT_EQ(it->uuid(), g3.item().uuid());
     it++;
     EXPECT_EQ(it->uuid(), g1.item().uuid());
-
-    // spdlog::warn("{}", ru5.dump(2));
 
     s.item().undo(ru5);
     it = s.item().begin();
@@ -83,6 +83,51 @@ TEST(StackTest, Test) {
     EXPECT_EQ(it->uuid(), g2.item().uuid());
     it++;
     EXPECT_EQ(it->uuid(), g3.item().uuid());
+
+    // move / undo
+    start = std::next(s.item().begin(), 0);
+    end   = std::next(s.item().begin(), 2);
+    pos   = std::next(s.item().begin(), 3);
+
+    ru5 = s.item().splice(pos, s.item().children(), start, end);
+
+    it = s.item().begin();
+    EXPECT_EQ(it->uuid(), g3.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g1.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g2.item().uuid());
+
+    s.item().undo(ru5);
+    it = s.item().begin();
+    EXPECT_EQ(it->uuid(), g1.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g2.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g3.item().uuid());
+
+    // move / undo
+    start = std::next(s.item().begin(), 0);
+    end   = std::next(s.item().begin(), 2);
+    pos   = std::next(s.item().begin(), 3);
+
+    ru5 = s.item().splice(pos, s.item().children(), start, end);
+
+    it = s.item().begin();
+    EXPECT_EQ(it->uuid(), g3.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g1.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g2.item().uuid());
+
+    s.item().undo(ru5);
+    it = s.item().begin();
+    EXPECT_EQ(it->uuid(), g1.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g2.item().uuid());
+    it++;
+    EXPECT_EQ(it->uuid(), g3.item().uuid());
+
 
     // do nested changes work ?
     auto ru6 = s.item().children().front().set_enabled(false);

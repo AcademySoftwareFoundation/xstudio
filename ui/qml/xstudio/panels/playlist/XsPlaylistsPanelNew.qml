@@ -118,7 +118,7 @@ Rectangle {
            moveTimer.stop()
            if(drop.hasUrls) {
                 for(var i=0; i < drop.urls.length; i++) {
-                    if(drop.urls[i].toLowerCase().endsWith('.xst')) {
+                    if(drop.urls[i].toLowerCase().endsWith('.xst') || drop.urls[i].toLowerCase().endsWith('.xsz')) {
                         Future.promise(studio.loadSessionRequestFuture(drop.urls[i])).then(function(result){})
                         app_window.sessionFunction.newRecentPath(drop.urls[i])
                         return;
@@ -180,42 +180,9 @@ Rectangle {
         }
     }
 
-    XsButtonDialog {
+    XsMediaMoveCopyDialog {
         id: media_move_copy_dialog
-        // parent: sessionWidget.media_list
-        text: "Selected Media"
-        width: 300
-        buttonModel: ["Cancel", "Move", "Copy"]
-        property var data: null
-        property var index: null
-
-        onSelected: {
-            if(button_index == 1) {
-                // is selection still valid ?
-                let items = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes).sort((a,b) => b.row - a.row )
-                app_window.sessionFunction.setActiveMedia(app_window.sessionFunction.mediaIndexAfterRemoved(items))
-                if(index == null)
-                    Future.promise(
-                        app_window.sessionModel.handleDropFuture(Qt.MoveAction, data)
-                    ).then(function(quuids){})
-                else
-                    Future.promise(
-                        app_window.sessionModel.handleDropFuture(Qt.MoveAction, data, index)
-                    ).then(function(quuids){})
-
-            } else if(button_index == 2) {
-                if(index == null)
-                    Future.promise(
-                        app_window.sessionModel.handleDropFuture(Qt.CopyAction, data)
-                    ).then(function(quuids){})
-                else
-                    Future.promise(
-                        app_window.sessionModel.handleDropFuture(Qt.CopyAction, data, index)
-                    ).then(function(quuids){})
-            }
-        }
     }
-
 
     Label {
         anchors.centerIn: parent

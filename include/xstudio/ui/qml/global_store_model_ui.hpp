@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/global_store_qml_export.h"
+
 #include <caf/all.hpp>
 
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
@@ -18,7 +22,8 @@ class GlobalStoreHelper;
 namespace xstudio::ui::qml {
 using namespace caf;
 
-class GlobalStoreModel : public caf::mixin::actor_object<JSONTreeModel> {
+class GLOBAL_STORE_QML_EXPORT GlobalStoreModel
+    : public caf::mixin::actor_object<JSONTreeModel> {
     Q_OBJECT
 
     Q_PROPERTY(bool autosave READ autosave WRITE setAutosave NOTIFY autosaveChanged)

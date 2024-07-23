@@ -1,19 +1,38 @@
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
+option(USE_VCPKG "Use Vcpkg for package management" OFF)
+if(WIN32)
+    set(USE_VCPKG ON)
+endif()
+
+if (USE_VCPKG)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
+endif()
+
 set(XSTUDIO_GLOBAL_VERSION "0.11.2" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
+cmake_policy(VERSION 3.26)
+
 option(BUILD_TESTING "Build tests" OFF)
 option(INSTALL_PYTHON_MODULE "Install python module" ON)
 option(INSTALL_XSTUDIO "Install xstudio" ON)
-option(BUILD_DOCS "Build xStudio documentation" ON)
+option(BUILD_DOCS "Build xStudio documentation" OFF)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
 option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
 option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
 option(BUILD_RESKIN "Build xstudio reskin binary" ON)
+
+
+if(WIN32)
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
+    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+    # enable UUID System Generator 
+    add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
@@ -30,7 +49,9 @@ if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "
 endif()
 
 set(CXXOPTS_BUILD_TESTS OFF CACHE BOOL "Enable or disable cxxopts' tests")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always")
+endif()
 
 if (${OPTIMIZE_FOR_NATIVE})
   include(CheckCXXCompilerFlag)
@@ -50,18 +71,27 @@ if (NOT ${GCC_MARCH_OVERRIDE} STREQUAL "")
   endif()
 endif()
 
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU") 
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
+endif()
 
 set(TEST_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/test_resource")
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-set(CMAKE_CXX_STANDARD 17)
+if(WIN32)
+  set(CMAKE_CXX_STANDARD 20)
+  add_compile_definitions($<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=0>)
+else()
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_LINK_DEPENDS_NO_SHARED true)
 
-set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+endif()
 set(CMAKE_HAVE_THREADS_LIBRARY 1)
 set(CMAKE_USE_WIN32_THREADS_INIT 0)
 set(CMAKE_USE_PTHREADS_INIT 1)
@@ -73,10 +103,14 @@ set(REPROC++ ON)
 set(OpenGL_GL_PREFERENCE GLVND)
 
 if (USE_SANITIZER STREQUAL "Address")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
+    if(MSVC)
+        target_compile_options(<target> PUBLIC /fsanitize=address)
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+        set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fsanitize=address")
+    endif()
 elseif (USE_SANITIZER STREQUAL "Thread")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
@@ -123,7 +157,55 @@ if(ENABLE_CLANG_TIDY)
 
 endif()
 
-find_package(nlohmann_json REQUIRED)
+if(WIN32)
+    ADD_DEFINITIONS(-DNOMINMAX)
+    set(CMAKE_CXX_STANDARD 20)
+    add_compile_options(/permissive-)
+
+  # Workaround for C++ 20+ comparisons in nlohmann json
+  # https://github.com/nlohmann/json/issues/3868#issuecomment-1563726354
+  add_definitions(-DJSON_HAS_THREE_WAY_COMPARISON=OFF)
+
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+  # When moving to Qt6 or greater, we might be able to use qt_generate_deploy_app_script
+  #set(deploy_script "${Qt5_DIR}/../../../windeployqt.exe  )
+endif()
+
+if(MSVC)
+  #Getenv complains, would be good to fix later but tired of seeing this for now.
+  add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
+endif()
+
+# Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
+if(USE_VCPKG)
+
+  set(VCPKG_INTEGRATION ON)
+  # Set Python in VCPKG
+  set(Python_EXECUTABLE "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/python.exe")  
+  # Install pip and sphinx
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m ensurepip --upgrade
+    RESULT_VARIABLE ENSUREPIP_RESULT
+  )
+  if(ENSUREPIP_RESULT)
+    message(FATAL_ERROR "Failed to ensurepip.")
+  else()
+    execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
+      RESULT_VARIABLE PIP_RESULT
+    )
+    if(PIP_RESULT)
+      message(FATAL_ERROR "Failed to install Sphinx using pip.")
+    endif()
+  endif()
+  # append vcpkg packages
+  list(APPEND CMAKE_PREFIX_PATH "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows")
+  
+endif()
+
+find_package(nlohmann_json CONFIG REQUIRED)
 include(CTest)
 
 if(ENABLE_CLANG_FORMAT)
@@ -136,7 +218,6 @@ if(ENABLE_CLANG_FORMAT)
   clangformat_setup(${FORMAT_ITEMS})
 endif()
 
-
 if(INSTALL_PYTHON_MODULE)
   add_subdirectory(python)
 endif()
@@ -144,9 +225,23 @@ endif()
 add_subdirectory(src)
 
 if(INSTALL_XSTUDIO)
+
+
+    # add extern libs that are build-time dependencies of xstudio
+if (UNIX)
+    add_subdirectory("extern/reproc")
+endif()
+    add_subdirectory("extern/quickfuture")
+    add_subdirectory("extern/quickpromise")
+
   add_subdirectory(share/preference)
   add_subdirectory(share/snippets)
   add_subdirectory(share/fonts)
+
+  install(DIRECTORY include/xstudio
+          DESTINATION include)
+
+  INSTALL(DIRECTORY extern/ DESTINATION extern)
 
   if(BUILD_DOCS)
     if(NOT INSTALL_PYTHON_MODULE)
@@ -157,6 +252,33 @@ if(INSTALL_XSTUDIO)
     install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
   endif ()
 
+  include(CMakePackageConfigHelpers)
+
+  configure_package_config_file(xStudioConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
+    INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
+  )
+  write_basic_package_version_file("xStudioConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+  )
+
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfigVersion.cmake
+      DESTINATION lib/cmake/${PROJECT_NAME}
+  )
+
+  install(EXPORT xstudio
+    DESTINATION lib/cmake/${PROJECT_NAME}
+    FILE ${PROJECT_NAME}Targets.cmake
+    NAMESPACE xstudio::
+    EXPORT_LINK_INTERFACE_LIBRARIES
+  )
+
 endif ()
 
-add_subdirectory("extern/reproc")
+if(USE_VCPKG)
+  # To provide reliable ordering, we need to make this install script happen in a subdirectory.
+  # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
+  add_subdirectory("scripts/qt_install")
+endif()
