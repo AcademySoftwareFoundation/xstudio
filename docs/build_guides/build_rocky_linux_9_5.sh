@@ -204,7 +204,7 @@ cd ${TMP_XSTUDIO_BUILD_DIR}
 git clone --branch ${VER_x264} --depth 1 https://code.videolan.org/videolan/x264.git
 cd x264/
 ./configure --enable-shared
-make -j  $JOBS
+make -j${MAKE_JOBS}
 sudo make install
 cd ${TMP_XSTUDIO_BUILD_DIR}
 
@@ -214,7 +214,7 @@ wget https://bitbucket.org/multicoreware/x265_git/downloads/x265_${VER_x265}.tar
 tar -xf x265_${VER_x265}.tar.gz
 cd x265_${VER_x265}/build/linux/
 cmake -G "Unix Makefiles" ../../source
-make -j  $JOBS
+make -j${MAKE_JOBS}
 sudo make install
 cd ${TMP_XSTUDIO_BUILD_DIR}
 
@@ -224,7 +224,7 @@ git clone --depth 1 https://github.com/mstorsjo/fdk-aac
 cd fdk-aac
 autoreconf -fiv
 ./configure
-make -j  $JOBS
+make -j${MAKE_JOBS}
 sudo make install
 cd ${TMP_XSTUDIO_BUILD_DIR}
 
@@ -238,7 +238,7 @@ export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
     --enable-libfdk_aac --enable-libfreetype --enable-libmp3lame \
     --enable-libopus --enable-libvpx --enable-libx264 --enable-libx265 \
     --enable-shared --enable-nonfree
-make -j  $JOBS
+make -j${MAKE_JOBS}
 sudo make install
 cd ${TMP_XSTUDIO_BUILD_DIR}
 
@@ -257,4 +257,5 @@ export QV4_FORCE_INTERPRETER=1
 export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64
 export PYTHONPATH=./bin/python/lib/python${VER_PYTHON}/site-packages:/home/xstudio/.local/lib/python${VER_PYTHON}/site-packages:
 
+cd ${TMP_XSTUDIO_BUILD_DIR}/xstudio/build
 ./bin/xstudio.bin
