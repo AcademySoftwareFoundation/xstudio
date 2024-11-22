@@ -270,6 +270,7 @@ sudo ldconfig
 ##### Create launch shortcut
 cd ${TMP_XSTUDIO_BUILD_DIR}
 cat << EOF > start_xstudio.sh
+sudo setenforce 0
 export QV4_FORCE_INTERPRETER=1
 export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64
 export PYTHONPATH=./bin/python/lib/python${VER_PYTHON}/site-packages:/home/xstudio/.local/lib/python${VER_PYTHON}/site-packages:
