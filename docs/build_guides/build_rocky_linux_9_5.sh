@@ -60,19 +60,19 @@ sudo dnf install qt5 qt5-devel -y
 sudo dnf install libXmu-devel libXi-devel libGL-devel -y
 pip install --user sphinx_rtd_theme breathe
 
+#### Qt6
+# sudo dnf install epel-release -y
+# sudo dnf install qt6-qtbase-devel -y
 
-### pybind11
+### Local installs
+
+#### pybind11
 # cd ${TMP_XSTUDIO_BUILD_DIR}
 # git clone https://github.com/pybind/pybind11.git
 # cd pybind11
 # sudo python setup.py install
 # cd ${TMP_XSTUDIO_BUILD_DIR}
 
-### Qt6
-# sudo dnf install epel-release -y
-# sudo dnf install qt6-qtbase-devel -y
-
-### Local installs
 #### libGLEW
 cd ${TMP_XSTUDIO_BUILD_DIR}
 wget https://github.com/nigels-com/glew/releases/download/glew-${VER_libGLEW}/glew-${VER_libGLEW}.tgz
@@ -241,7 +241,7 @@ make -j${MAKE_JOBS}
 sudo make install
 cd ${TMP_XSTUDIO_BUILD_DIR}
 
-### xStudio
+##### xStudio
 cd ${TMP_XSTUDIO_BUILD_DIR}
 git clone https://github.com/AcademySoftwareFoundation/xstudio.git
 cd xstudio
