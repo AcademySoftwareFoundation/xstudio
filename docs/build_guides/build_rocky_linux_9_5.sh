@@ -1,3 +1,11 @@
+#!/bin/bash
+
+#Log stdout and stderr to file
+TMP_XSTUDIO_BUILD_TIME=$(date +%Y%m%d%H%M%S)
+TMP_XSTUDIO_BUILD_LOG=xstudiobuild-${TMP_XSTUDIO_BUILD_TIME}.log
+exec >  >(tee -ia ${TMP_XSTUDIO_BUILD_LOG})
+exec 2> >(tee -ia ${TMP_XSTUDIO_BUILD_LOG} >&2)
+
 ## Rocky Linux 9.x
 #[Download](https://rockylinux.org/download "Download")
 
