@@ -253,7 +253,13 @@ cmake .. -DBUILD_DOCS=Off
 make -j${MAKE_JOBS}
 cd ${TMP_XSTUDIO_BUILD_DIR}
 
-#Create launch shortcut
+##### Ensure /usr/local/lib is in ldconf
+cat << EOF | sudo tee /etc/ld.so.conf.d/usr-local-lib.conf
+/usr/local/lib
+EOF
+sudo ldconfig
+
+##### Create launch shortcut
 cd ${TMP_XSTUDIO_BUILD_DIR}
 cat << EOF > start_xstudio.sh
 export QV4_FORCE_INTERPRETER=1
