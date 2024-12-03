@@ -74,6 +74,7 @@ HTTPWorker::HTTPWorker(
             const httplib::Headers &headers,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
+            // spdlog::warn("http_delete_atom {}", path);
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -133,6 +134,8 @@ HTTPWorker::HTTPWorker(
             const std::string &path,
             const httplib::Headers &headers,
             const httplib::Params &params) -> result<httplib::Response> {
+            // spdlog::warn("http_get_atom {}", path);
+
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -202,6 +205,8 @@ HTTPWorker::HTTPWorker(
             const httplib::Params &params,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
+            // spdlog::warn("http_post_atom {}", path);
+
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
@@ -265,6 +270,8 @@ HTTPWorker::HTTPWorker(
             const httplib::Params &params,
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
+            // spdlog::warn("http_put_atom {}", path);
+
             try {
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);

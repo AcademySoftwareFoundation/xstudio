@@ -31,7 +31,8 @@ namespace thumbnail {
 
         // std::vector<std::byte> read_thumb(const std::string &path);
 
-        std::vector<std::byte> encode_thumb(const ThumbnailBufferPtr &buffer);
+        std::vector<std::byte>
+        encode_thumb(const ThumbnailBufferPtr &buffer, const int quality = 75);
         ThumbnailBufferPtr decode_thumb(const std::vector<std::byte> &buffer);
 
         inline static const std::string NAME = "TDCHelperActor";

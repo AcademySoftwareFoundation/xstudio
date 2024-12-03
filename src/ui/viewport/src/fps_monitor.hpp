@@ -8,8 +8,8 @@
 #include <caf/io/all.hpp>
 #include <caf/type_id.hpp>
 
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/chrono.hpp"
+#include "xstudio/utility/frame_rate.hpp"
 
 using namespace caf;
 

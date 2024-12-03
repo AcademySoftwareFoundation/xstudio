@@ -49,6 +49,20 @@ void py_link(py::module_ &m) {
             "tuple_from_message",
             &caf::python::py_context::py_tuple_from_wrapped_message,
             "Convert an XStudioExtensions.CafMessage to tuple")
+        .def(
+            "run_xstudio_message_loop",
+            &caf::python::py_context::py_run_xstudio_message_loop,
+            "Starts an indefinite loop listening for messages from xstudio and running Python "
+            "message callbacks where they have been set. See Module base class.")
+        .def(
+            "add_message_callback",
+            &caf::python::py_context::py_add_message_callback,
+            "Add a python callback function, called every time the given Actor's event group "
+            "generates a message. ")
+        .def(
+            "remove_message_callback",
+            &caf::python::py_context::py_remove_message_callback,
+            "Remove a python callback function. ")
         .def("spawn", &caf::python::py_context::py_spawn, "Spawn actor")
         .def("remote_spawn", &caf::python::py_context::py_remote_spawn, "Spawn remote actor")
         .def("join", &caf::python::py_context::py_join, "Join event group")

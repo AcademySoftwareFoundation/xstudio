@@ -4,7 +4,6 @@
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/uuid.hpp"
@@ -27,7 +26,7 @@ std::string make_fps_display_string(
     // FPS is 23.976 then we ideally need 3 decimal places, but to fit the values into the
     // box in the UI we're truncating to 2 decimal places
 
-    if (!target) {
+    if (!target.count()) {
         return std::string("--/--");
     }
 
@@ -39,7 +38,7 @@ std::string make_fps_display_string(
 
     std::array<char, 1024> rbuf;
 
-    if (actual) {
+    if (actual.count()) {
         if (round(target_fps) == target_fps) {
             // one decimal place
             sprintf(rbuf.data(), "%.1f/%.1f", rounded_actual, target_fps);
@@ -53,7 +52,7 @@ std::string make_fps_display_string(
             sprintf(rbuf.data(), "--.-/%.1f", target_fps);
 
         } else {
-            sprintf(rbuf.data(), "--.-/%.2f", target_fps);
+            sprintf(rbuf.data(), "--.--/%.2f", target_fps);
         }
     }
     return std::string(rbuf.data());

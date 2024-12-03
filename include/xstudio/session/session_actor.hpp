@@ -122,15 +122,18 @@ namespace session {
         check_media_hook_plugin_version(const utility::JsonStore &jsn, const caf::uri &path);
 
         caf::behavior behavior_;
-        caf::actor event_group_;
         Session base_;
         caf::actor json_store_;
         caf::actor bookmarks_;
-        caf::actor tags_;
         std::map<utility::Uuid, caf::actor> playlists_;
-        caf::actor_addr current_playlist_;
         std::map<caf::actor_addr, std::string> serialise_targets_;
         // std::map<utility::Uuid, caf::actor> players_;
+
+        // store gui conext information
+        utility::UuidActor viewedContainer_;
+        utility::UuidActor inspectedContainer_;
+
+        std::vector<utility::UuidActorAddr> selectedMedia_;
     };
 } // namespace session
 } // namespace xstudio

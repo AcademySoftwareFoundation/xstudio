@@ -29,7 +29,7 @@ namespace thumbnail {
             : std::string(fmt::format("{}/{}", o, size)) {}
         ThumbnailKey(
             const media::AVFrameID &mptr, const size_t hash = 0, const size_t size = 256)
-            : std::string(fmt::format("{}/{}/{}", mptr.key_, std::to_string(hash), size)) {}
+            : std::string(fmt::format("{}/{}/{}", mptr.key(), std::to_string(hash), size)) {}
 
         using std::string::empty;
         using std::string::substr;
@@ -57,7 +57,7 @@ namespace thumbnail {
         }
         [[nodiscard]] std::string hash_str() const {
             return fmt::format(
-                fmt_format(),
+                fmt::runtime(fmt_format()),
                 std::hash<std::string>{}(static_cast<const std::string &>(*this)));
         }
         [[nodiscard]] size_t hash() const {
@@ -71,7 +71,8 @@ namespace thumbnail {
     };
 
     inline std::string to_hash_string(const size_t hash) {
-        return fmt::format("{:0" + std::to_string(sizeof(size_t) * 2) + "x}", hash);
+        return fmt::format(
+            fmt::runtime("{:0" + std::to_string(sizeof(size_t) * 2) + "x}"), hash);
     }
     inline std::string to_string(const ThumbnailKey &v) {
         return static_cast<const std::string>(v);

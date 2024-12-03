@@ -51,7 +51,7 @@ SolariseOp::SolariseOp(caf::actor_config &cfg, const utility::JsonStore &init_se
     gamma_ = add_float_attribute("Solarise", "Solarise", 0.0f, 0.0f, 6.0f, 0.005f);
     gamma_->set_redraw_viewport_on_change(true);
     gamma_->set_role_data(module::Attribute::ToolbarPosition, 4.5f);
-    gamma_->set_role_data(module::Attribute::Groups, nlohmann::json{"any_toolbar"});
+    gamma_->set_role_data(module::Attribute::UIDataModels, nlohmann::json{"any_toolbar"});
     gamma_->set_role_data(module::Attribute::Activated, false);
     gamma_->set_role_data(module::Attribute::DefaultValue, 1.0f);
     gamma_->set_role_data(module::Attribute::ToolTip, "Set the viewport gamma");

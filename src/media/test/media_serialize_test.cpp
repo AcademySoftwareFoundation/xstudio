@@ -5,7 +5,6 @@
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/media/media.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 
@@ -23,7 +22,14 @@ TEST(StreamDetailSerializerTest, Test) {
 
     binary_serializer::container_type buf;
     binary_serializer bs{f.system, buf};
-    StreamDetail u1(FrameRateDuration(10, 1.0), "test_stream", MT_IMAGE, "{0}@{1}/{2}");
+    StreamDetail u1(
+        FrameRateDuration(10, 1.0),
+        "test_stream",
+        MT_IMAGE,
+        "{0}@{1}/{2}",
+        Imath::V2f(1920, 1080),
+        1.0f,
+        1.0);
     StreamDetail u2;
 
     EXPECT_EQ(u1, u1) << "Creation from string should be equal";

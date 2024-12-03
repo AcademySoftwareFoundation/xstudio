@@ -21,11 +21,14 @@
       * Debugging Tools for Windows
   * Note: This can take some time; consider manually [setting a mirror if slow](https://wiki.qt.io/Online_Installer_4.x#Selecting_a_mirror_for_opensource).
 
-* Clone this project to your local drive.  Tips to consider:
+* Clone this project to your local drive. Tips to consider:
   * The path should not have spaces in it.
   * Ideally, keep the path short and uncomplicated (IE `D:\xStudio`)
   * Ensure your drive has a decent amount of space free (at least ~40GB)
   * The rest of this document will refer to this location as ${CLONE_ROOT}
+
+* After cloning, from ${CLONE_ROOT} run 'git submodule init'
+* Now run 'git submodule update'
 
 * Before loading the project in Visual Studio, consider modifying ${CLONE_ROOT}/CMakePresets.json
   * Edit the `Qt5_DIR` if you did not install in C:\Qt

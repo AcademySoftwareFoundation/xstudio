@@ -15,7 +15,8 @@ void register_actor_class(py::module &m, const std::string &name);
 
 void py_config::add_types() {
     // allow CAF to convert native Python types to C++ types
-    add_py<int>("int");
+    // add_py<int>("int");
+    add_int_py();
     add_py<bool>("bool");
     add_py<float>("float");
     add_py<double>("double");
@@ -35,6 +36,8 @@ void py_config::add_types() {
     add_cpp<double>("double", "double", nullptr);
     add_cpp<int32_t>("int32_t", "int32_t", nullptr);
     add_cpp<uint64_t>("uint64_t", "uint64_t", nullptr);
+    add_cpp<int64_t>("int64_t", "int64_t", nullptr);
+    add_cpp<int>("int", "int", nullptr);
     add_cpp<std::string>("str", "std::string", nullptr);
     add_cpp<std::vector<std::string>>("strvec", "std::vector<std::string>", nullptr);
 }

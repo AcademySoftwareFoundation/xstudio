@@ -18,7 +18,7 @@ Attribute::Attribute(
     role_data_[Title].set(title);
     role_data_[AbbrTitle].set(abbr_title);
     role_data_[UuidRole].set(utility::Uuid::generate());
-    role_data_[Groups].set(std::vector<std::string>());
+    role_data_[UIDataModels].set(std::vector<std::string>());
 }
 
 void Attribute::set_owner(Module *owner) { owner_ = owner; }
@@ -38,6 +38,13 @@ nlohmann::json Attribute::role_data_as_json(const int role) const {
         throw std::runtime_error(msg.str().c_str());
     }
     return p->second.to_json();
+}
+
+void Attribute::update_role_data_from_json(
+    const int role, const nlohmann::json &data, const bool notify) {
+
+    if (role != UuidRole)
+        set_role_data(role, data, notify);
 }
 
 void Attribute::notify_change(
@@ -73,7 +80,7 @@ void Attribute::update_from_json(const nlohmann::json &data, const bool notify) 
 bool Attribute::belongs_to_groups(const std::vector<std::string> &group_names) const {
 
     bool rt                     = false;
-    const auto attr_group_names = get_role_data<std::vector<std::string>>(Groups);
+    const auto attr_group_names = get_role_data<std::vector<std::string>>(UIDataModels);
     for (const auto &p : attr_group_names) {
         if (std::find(group_names.begin(), group_names.end(), p) != group_names.end()) {
             rt = true;
@@ -116,23 +123,24 @@ void Attribute::set_preference_path(const std::string &preference_path) {
 
 void Attribute::expose_in_ui_attrs_group(const std::string &group_name, bool expose) {
     if (expose) {
-        if (!has_role_data(Groups)) {
-            set_role_data(Groups, std::vector<std::string>({"group_name"}));
+        if (!has_role_data(UIDataModels)) {
+            set_role_data(UIDataModels, std::vector<std::string>({group_name}));
             return;
         }
-        auto n = role_data_[Groups].get<std::vector<std::string>>();
+        auto n = role_data_[UIDataModels].get<std::vector<std::string>>();
         for (const auto &g : n) {
             if (g == group_name)
                 return;
         }
         n.push_back(group_name);
-        set_role_data(Groups, n);
-    } else if (has_role_data(Groups)) {
-        auto n = role_data_[Groups].get<std::vector<std::string>>();
+        set_role_data(UIDataModels, n);
+
+    } else if (has_role_data(UIDataModels)) {
+        auto n = role_data_[UIDataModels].get<std::vector<std::string>>();
         for (auto p = n.begin(); p != n.end(); ++p) {
             if (*p == group_name) {
                 n.erase(p);
-                set_role_data(Groups, n);
+                set_role_data(UIDataModels, n);
                 return;
             }
         }

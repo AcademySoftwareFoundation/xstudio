@@ -107,7 +107,8 @@ class ThumbnailReader : public ControllableJob<std::pair<QImage, QString>> {
                         mp,
                         static_cast<size_t>(std::max(requestedSize_.width(), 128)),
                         hash,
-                        cache_to_disk ? true : false);
+                        cache_to_disk ? true : false,
+                        utility::clock::now());
                     break;
                 } catch (const std::exception &err) {
                     // give up

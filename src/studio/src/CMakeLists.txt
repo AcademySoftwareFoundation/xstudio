@@ -1,7 +1,6 @@
 SET(LINK_DEPS
 	xstudio::utility
 	xstudio::session
-	xstudio::broadcast
 	caf::core
 )
 

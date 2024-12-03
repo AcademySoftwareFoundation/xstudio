@@ -3,13 +3,18 @@ from xstudio.core import get_playlists_atom, get_playlist_atom, add_playlist_ato
 from xstudio.core import get_container_atom, create_group_atom, remove_container_atom, path_atom, get_media_atom
 from xstudio.core import rename_container_atom, create_divider_atom, media_rate_atom, playhead_rate_atom
 from xstudio.core import reflag_container_atom, merge_playlist_atom, copy_container_to_atom
-from xstudio.core import get_bookmark_atom, save_atom, current_playlist_atom
+from xstudio.core import get_bookmark_atom, save_atom, active_media_container_atom, current_media_atom, name_atom
+from xstudio.core import viewport_active_media_container_atom
 from xstudio.core import URI, Uuid, UuidVec
 
 from xstudio.api.session.container import Container, PlaylistTree, PlaylistItem
 from xstudio.api.session.playlist import Playlist
 from xstudio.api.session.media.media import Media
 from xstudio.api.session.bookmark import Bookmarks
+from xstudio.api.session.playlist.subset import Subset
+from xstudio.api.session.playlist.contact_sheet import ContactSheet
+from xstudio.api.session.playlist.timeline import Timeline
+
 
 class Session(Container):
     """Session object."""
@@ -27,6 +32,98 @@ class Session(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+
+    @property
+    def selected_media(self):
+        """Get currently selected media.
+
+        Returns:
+            Media(): Media.
+        """
+
+        result = self.connection.request_receive(self.remote, current_media_atom())[0]
+        media = []
+        for i in result:
+            media.append(Media(self.connection, i.actor, i.uuid))
+
+        return media
+
+    @property
+    def viewed_playlist(self):
+        """Get currently viewed (Playlist,Subset,Timelime,ContactSheet).
+
+        Returns:
+            Playlist(): Playlist.
+        """
+        return self.viewed_container
+
+    @property
+    def viewed_container(self):
+        """Get currently viewed container.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+
+        result = self.connection.request_receive(self.remote, viewport_active_media_container_atom())[0]
+        c = Container(self.connection, result.actor)
+
+        if c.type == "Timeline":
+            return Timeline(self.connection, result.actor, result.uuid)
+        elif c.type == "Subset":
+            return Subset(self.connection, result.actor, result.uuid)
+        elif c.type == "ContactSheet":
+            return ContactSheet(self.connection, result.actor, result.uuid)
+
+        return Playlist(self.connection, result.actor, result.uuid)
+
+    @viewed_container.setter
+    def viewed_container(self, container):
+        """Set the current, on-screen playlist
+
+        Args:
+            container(Playlist,Subset,Timelime,ContactSheet): playlist, subset or timeline(sequence)
+        """
+        self.connection.send(self.remote, viewport_active_media_container_atom(), container.uuid)
+
+    @property
+    def inspected_playlist(self):
+        """Get currently inspected playlist/subset/timeline etc.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+        return self.inspected_container
+
+
+    @property
+    def inspected_container(self):
+        """Get currently inspected container.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+
+        result = self.connection.request_receive(self.remote, active_media_container_atom())[0]
+        c = Container(self.connection, result.actor)
+
+        if c.type == "Timeline":
+            return Timeline(self.connection, result.actor, result.uuid)
+        elif c.type == "Subset":
+            return Subset(self.connection, result.actor, result.uuid)
+        elif c.type == "ContactSheet":
+            return ContactSheet(self.connection, result.actor, result.uuid)
+
+        return Playlist(self.connection, result.actor, result.uuid)
+
+    @inspected_container.setter
+    def inspected_container(self, container):
+        """Set the current, *inspected* playlist
+
+        Args:
+            container(Playlist,Subset,Timelime,ContactSheet): playlist, subset or timeline(sequence)
+        """
+        self.connection.send(self.remote, active_media_container_atom(), container.uuid)
 
     @property
     def path(self):
@@ -218,7 +315,7 @@ class Session(Container):
         """
         self.connection.send(
             self.remote,
-            current_playlist_atom(),
+            active_media_container_atom(),
             src.uuid_actor().actor
             )
 

@@ -10,7 +10,6 @@
 
 #include "xstudio/enums.hpp"
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/frame_list.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/media_reference.hpp"
@@ -108,7 +107,8 @@ namespace media {
 
     inline std::string to_string(const StreamDetail &v) {
         return v.name_ + " " + to_readable_string(v.media_type_) + " " + v.key_format_ + " " +
-               to_string(v.duration_);
+               to_string(v.duration_) + " " + std::to_string(v.resolution_.x) + "x" +
+               std::to_string(v.resolution_.y) + " " + std::to_string(v.pixel_aspect_);
     }
 
     class MediaDetail {
@@ -144,32 +144,26 @@ namespace media {
       public:
         MediaKey()                  = default;
         MediaKey(const MediaKey &o) = default;
-        MediaKey(const std::string &o) : std::string(o) {}
+        MediaKey(const std::string &o);
         MediaKey(
             const std::string &key_format,
             const caf::uri &uri,
             const int frame,
-            const std::string &stream_id)
-            : std::string(fmt::format(
-                  key_format,
-                  to_string(uri),
-                  (frame == std::numeric_limits<int>::min() ? 0 : frame),
-                  stream_id)) {}
-
-        bool operator==(const MediaKey &o) const {
-            return static_cast<const std::string &>(o) ==
-                   static_cast<const std::string &>(*this);
-        }
+            const std::string &stream_id);
 
         bool operator!=(const MediaKey &o) const {
-            return static_cast<const std::string &>(o) !=
-                   static_cast<const std::string &>(*this);
+            return (hash_ == o.hash_) ? static_cast<const std::string&>(*this) != static_cast<const std::string &>(o) : true;
+        }
+
+        bool operator==(const MediaKey &o) const {
+            return (hash_ == o.hash_) ? static_cast<const std::string&>(*this) == static_cast<const std::string &>(o) : false;
         }
 
         bool operator<(const MediaKey &o) const {
-            return static_cast<const std::string &>(o) <
-                   static_cast<const std::string &>(*this);
+            return (hash_ != o.hash_) ? hash_ < o.hash_ : static_cast<const std::string&>(*this) < static_cast<const std::string &>(o);
         }
+
+        [[nodiscard]] size_t hash() const { return hash_; }
 
         friend std::string to_string(const MediaKey &value);
         friend fmt::string_view to_string_view(const MediaKey &value);
@@ -177,6 +171,10 @@ namespace media {
         template <class Inspector> friend bool inspect(Inspector &f, MediaKey &x) {
             return f.object(x).fields(f.field("data", static_cast<std::string &>(x)));
         }
+
+        private:
+
+        size_t hash_;
     };
 
     inline std::string to_string(const MediaKey &v) {
@@ -193,15 +191,38 @@ namespace media {
         const int frame,
         const std::string &stream_id) {
         return MediaKey(fmt::format(
-            key_format,
+            fmt::runtime(key_format),
             to_string(uri),
             (frame == std::numeric_limits<int>::min() ? 0 : frame),
             stream_id));
     }
 
 
+    // class AVFrameID
+    //
+    // This class contains all detail needed to read a single video/audio frame
+    // into an Image or Audio data buffer. It is used primarily by the playhead,
+    // media reader and media components of xstudio.
+    //
+    // AVFrameIDs are evaluated and stored for each frame in any timeline that
+    // will be played. As such, we use shared_ptr both internally and to manage
+    // instances that are passed around the messaging system to minimise
+    // copy and data footprint
     class AVFrameID {
       public:
+
+        AVFrameID(
+            const AVFrameID &shared,
+            const caf::uri &uri,
+            const int frame,
+            const std::string &key_format,
+            const utility::Timecode time_code = utility::Timecode()) :
+            fixed_media_data_(shared.fixed_media_data_),
+            uri_(uri == shared.fixed_media_data_->fixed_uri_ ? caf::uri() : uri),
+            frame_(frame),
+            key_(key_format, uri, frame, shared.fixed_media_data_->stream_id_),
+            timecode_(time_code) {}
+
         AVFrameID(
             const caf::uri &uri               = caf::uri(),
             const int frame                   = std::numeric_limits<int>::min(),
@@ -214,80 +235,87 @@ namespace media {
             const utility::JsonStore &params  = utility::JsonStore(),
             const utility::Uuid &source_uuid  = utility::Uuid(),
             const utility::Uuid &media_uuid   = utility::Uuid(),
+            const utility::Uuid &clip_uuid    = utility::Uuid(),
             const MediaType media_type        = MT_IMAGE,
-            const int playhead_logical_frame  = 0,
             const utility::Timecode time_code = utility::Timecode())
             : uri_(uri),
               frame_(frame),
-              first_frame_(first_frame),
-              rate_(std::move(rate)),
-              stream_id_(stream_id),
               key_(key_format, uri, frame, stream_id),
-              reader_(std::move(reader)),
-              actor_addr_(addr),
-              params_(params),
-              source_uuid_(source_uuid),
-              media_uuid_(media_uuid),
-              media_type_(media_type),
-              playhead_logical_frame_(playhead_logical_frame),
-              timecode_(time_code) {}
+              timecode_(time_code) {
+                FixedMediaData * md = new FixedMediaData;
+                md->first_frame_ = first_frame;
+                md->rate_ = rate;
+                md->stream_id_ = stream_id;
+                md->reader_ = reader;
+                md->actor_addr_ = addr;
+                md->params_ = params;
+                md->source_uuid_ = source_uuid;
+                md->media_uuid_ = media_uuid;
+                md->clip_uuid_ = clip_uuid;
+                md->media_type_ = media_type;
+                fixed_media_data_.reset(md);
+              }
 
         virtual ~AVFrameID() = default;
 
         AVFrameID(const AVFrameID &o) = default;
 
-        [[nodiscard]] bool is_nil() const { return uri_.empty(); }
+        [[nodiscard]] bool is_nil() const { return uri().empty(); }
 
         bool operator==(const AVFrameID &other) const {
             return (
                 uri_ == other.uri_ and frame_ == other.frame_ and
-                first_frame_ == other.first_frame_ and rate_ == other.rate_ and
-                stream_id_ == other.stream_id_ and key_ == other.key_ and
-                reader_ == other.reader_ and actor_addr_ == other.actor_addr_ and
-                params_ == other.params_ and source_uuid_ == other.source_uuid_ and
-                media_uuid_ == other.media_uuid_ and media_type_ == other.media_type_ and
-                playhead_logical_frame_ == other.playhead_logical_frame_ and
+                fixed_media_data_ == other.fixed_media_data_ and key_ == other.key_ and
                 timecode_ == other.timecode_ and error_ == other.error_);
         }
-        template <class Inspector> friend bool inspect(Inspector &f, AVFrameID &x) {
-            return f.object(x).fields(
-                f.field("uri", x.uri_),
-                f.field("frm", x.frame_),
-                f.field("ffrm", x.first_frame_),
-                f.field("rat", x.rate_),
-                f.field("strid", x.stream_id_),
-                f.field("key", x.key_),
-                f.field("rdr", x.reader_),
-                f.field("actad", x.actor_addr_),
-                f.field("prms", x.params_),
-                f.field("suuid", x.source_uuid_),
-                f.field("skpky", x.media_uuid_),
-                f.field("mt", x.media_type_),
-                f.field("plc", x.playhead_logical_frame_),
-                f.field("tc", x.timecode_),
-                f.field("err", x.error_));
-        }
+
+        [[nodiscard]] const caf::uri & uri() const { return uri_.empty() ? fixed_media_data_->fixed_uri_ : uri_; }
+        [[nodiscard]] int frame() const { return frame_; }
+        [[nodiscard]] int first_frame() const { return fixed_media_data_->first_frame_; }
+        [[nodiscard]] const utility::FrameRate & rate() const { return fixed_media_data_->rate_; }
+        [[nodiscard]] const std::string & stream_id() const { return fixed_media_data_->stream_id_; }
+        [[nodiscard]] const MediaKey & key() const { return key_; }
+        [[nodiscard]] const std::string & reader() const { return fixed_media_data_->reader_; }
+        [[nodiscard]] const caf::actor_addr & actor_addr() const { return fixed_media_data_->actor_addr_; }
+        [[nodiscard]] const utility::JsonStore & params() const { return fixed_media_data_->params_; }
+        [[nodiscard]] const utility::Uuid & source_uuid() const { return fixed_media_data_->source_uuid_; }
+        [[nodiscard]] const utility::Uuid & media_uuid() const { return fixed_media_data_->media_uuid_; }
+        [[nodiscard]] const utility::Uuid & clip_uuid() const { return fixed_media_data_->clip_uuid_; }
+        [[nodiscard]] MediaType media_type() const { return fixed_media_data_->media_type_; }
+        [[nodiscard]] const utility::Timecode & timecode() const { return timecode_; }
+        [[nodiscard]] const std::string & error() const { return error_; }
+
+        private:
 
         caf::uri uri_;
         int frame_;
-        int first_frame_;
-        utility::FrameRate rate_;
-        std::string stream_id_;
         MediaKey key_;
-        std::string reader_;
-        caf::actor_addr actor_addr_;
-        utility::JsonStore params_;
-        utility::Uuid source_uuid_;
-        utility::Uuid media_uuid_;
-        MediaType media_type_;
-        int playhead_logical_frame_;
         utility::Timecode timecode_;
         std::string error_;
+
+        struct FixedMediaData {
+            caf::uri fixed_uri_;
+            int first_frame_;
+            utility::FrameRate rate_;
+            std::string stream_id_;
+            std::string reader_;
+            caf::actor_addr actor_addr_;
+            utility::JsonStore params_;
+            utility::Uuid source_uuid_;
+            utility::Uuid media_uuid_;
+            utility::Uuid clip_uuid_;
+            MediaType media_type_;
+        };
+
+        std::shared_ptr<const FixedMediaData> fixed_media_data_;
+
     };
 
     typedef std::pair<utility::time_point, std::shared_ptr<const AVFrameID>>
         MediaPointerAndTimePoint;
     typedef std::vector<MediaPointerAndTimePoint> AVFrameIDsAndTimePoints;
+    typedef std::map<timebase::flicks, std::shared_ptr<const AVFrameID>> FrameTimeMap;
+    typedef std::shared_ptr<const std::map<timebase::flicks, std::shared_ptr<const AVFrameID>>> FrameTimeMapPtr;
 
     class Media : public utility::Container {
       public:
@@ -318,7 +346,6 @@ namespace media {
         void set_flag(const std::string &flag) { flag_ = flag; }
         [[nodiscard]] std::string flag_text() const { return flag_text_; }
         void set_flag_text(const std::string &flag_text) { flag_text_ = flag_text; }
-
 
       private:
         // will need extending.., tagging ?
@@ -432,7 +459,35 @@ namespace media {
         StreamDetail detail_;
     };
 
-    inline std::shared_ptr<const AVFrameID> make_blank_frame(const MediaType media_type) {
+    inline std::shared_ptr<const AVFrameID> make_blank_frame(
+        const utility::FrameRate rate,
+        const MediaType media_type) {
+        utility::JsonStore js;
+        js["BLANK_FRAME"] = true;
+
+        return std::shared_ptr<const AVFrameID>(new AVFrameID(
+            *caf::make_uri("xstudio://blank/?colour=gray"),
+            0,
+            0,
+            rate,
+            "",
+            "{0}@{1}/{2}",
+            "Blank",
+            caf::actor_addr(),
+            js,
+            utility::Uuid(),
+            utility::Uuid(),
+            utility::Uuid(),
+            media_type));
+        }
+
+    inline std::shared_ptr<const AVFrameID> make_blank_frame(
+        const MediaType media_type,
+        const utility::Uuid media_uuid = utility::Uuid(),
+        const utility::Uuid source_uuid= utility::Uuid(),
+        const utility::Uuid clip_uuid= utility::Uuid(),
+        const caf::actor_addr actor_addr = caf::actor_addr()
+        ) {
         utility::JsonStore js;
         js["BLANK_FRAME"] = true;
 
@@ -444,10 +499,11 @@ namespace media {
             "",
             "{0}@{1}/{2}",
             "Blank",
-            actor_addr(),
+            actor_addr,
             js,
-            utility::Uuid(),
-            utility::Uuid(),
+            media_uuid,
+            source_uuid,
+            clip_uuid,
             media_type));
     }
 } // namespace media
@@ -456,7 +512,7 @@ namespace media {
 namespace std {
 template <> struct hash<xstudio::media::MediaKey> {
     size_t operator()(const xstudio::media::MediaKey &k) const {
-        return hash<std::string>()(to_string(k));
+        return k.hash();
     }
 };
 } // namespace std

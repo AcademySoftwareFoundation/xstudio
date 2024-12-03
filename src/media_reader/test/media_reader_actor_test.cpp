@@ -118,7 +118,7 @@ media::AVFrameID(badpath)).receive(
 //   media::AVFrameID mptr(path);
 
 //   for (int i = 1; i < 2000; ++i) {
-//     mptr.frame_ = i;
+//     mptr.frame() = i;
 //  	  f.self->request(tmp, std::chrono::seconds(10), get_image_atom_v, mptr).receive(
 //       [&](ImageBufPtrbuf) {
 //       EXPECT_TRUE(buf);

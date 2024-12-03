@@ -23,23 +23,14 @@
 			},
 			"max_compare_sources": {
 				"path": "/core/playhead/max_compare_sources",
-				"default_value": 9,
+				"default_value": 48,
 				"description": "Maximum number of media sources that can be compared via xstudio compare modes. Playback performance will suffer if you try and compare many sources.",
-				"value": 9,
+				"value": 48,
 				"minimum": 2,
 				"maximum": 64,
 				"datatype": "int",
 				"context": ["APPLICATION"]
-			},
-			"align_mode": {
-				"path": "/core/playhead/align_mode",
-				"default_value": "On (Trim)",
-				"description": "Compare mode behaviour for media with different but overlapping frame ranges. 'Off' means line up first logical frames, 'Frames' mean align on the first frame number, 'Frames & Trim' means trim to the overlapping frame range only.",
-				"value": "On (Trim)",
-				"datatype": "string",
-				"context": ["APPLICATION"]
 			}
-
 		}
 	}
 }

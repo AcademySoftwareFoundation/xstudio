@@ -2,7 +2,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "xstudio/ui/opengl/texture.hpp"
+#include "xstudio/ui/opengl/opengl_texture_base.hpp"
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/string_helpers.hpp"
@@ -66,20 +66,19 @@ const char *vertex_shader_base = R"(
 layout (location = 0) in vec4 aPos;
 out vec2 texPosition;
 uniform ivec2 image_dims;
+uniform mat4 image_transform_matrix;
 uniform mat4 to_coord_system;
 uniform mat4 to_canvas;
-uniform float pixel_aspect;
+uniform float image_aspect;
 
 vec2 calc_pixel_coordinate(vec2 viewport_coordinate);
 
 void main()
 {
-    vec4 rpos = aPos*to_coord_system;
-    gl_Position = aPos*to_canvas;
-    texPosition = vec2(
-        (rpos.x + 1.0f) * float(image_dims.x),
-        (rpos.y * pixel_aspect * float(image_dims.x)) + float(image_dims.y)
-    ) * 0.5f;
+    vec4 rpos = aPos;
+    rpos.y = rpos.y/image_aspect;
+    gl_Position = rpos*image_transform_matrix*to_coord_system*to_canvas;
+    texPosition = vec2((aPos.x + 1.0f) * float(image_dims.x), (aPos.y + 1.0f) * float(image_dims.y))*0.5f;
 }
 )";
 
@@ -326,8 +325,7 @@ void main(void)
             rgb_frag_value.a = 1.0;
         }
 
-        FragColor = rgb_frag_value;
-
+        FragColor = vec4(rgb_frag_value.rgb, 1.0);
     }
 }
 )";
@@ -528,8 +526,8 @@ vec4 pack_RGB_10_10_10_2(vec4 rgb)
 
 void main(void)
 {
-    if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
-    else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,0.0,0.0,1.0);
+    if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(1.0,0.0,0.0,1.0);
+    else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,.0,1.0,1.0);
     else {
 
         // For now, disabling bilinear filtering as it is too expensive and slowing refresh badly
@@ -550,7 +548,7 @@ void main(void)
             rgb_frag_value.a = 1.0;
         }
 
-        FragColor = rgb_frag_value;
+        FragColor = vec4(rgb_frag_value.rgb, 1.0);
     }
 }
 )";
@@ -802,6 +800,12 @@ void GLShaderProgram::compile() {
         // Use the infoLog as you see fit.
         std::stringstream e;
         e << "Shader link error:\n\n" << infoLog.data();
+
+        std::for_each(
+            fragment_shaders_.begin(),
+            fragment_shaders_.end(),
+            [=](const std::string &shader_code) { std::cerr << shader_code << "\n\n"; });
+
         throw std::runtime_error(e.str().c_str());
     }
 

@@ -32,18 +32,21 @@ class GradingColourOperator : public ColourOpPlugin {
 
     utility::JsonStore update_shader_uniforms(const media_reader::ImageBufPtr &image) override;
 
-    plugin::GPUPreDrawHookPtr make_pre_draw_gpu_hook(const int /*viewer_index*/) override;
+    plugin::GPUPreDrawHookPtr make_pre_draw_gpu_hook() override;
 
   protected:
     caf::message_handler message_handler_extensions() override;
 
   private:
-    void build_shader_data();
+    std::shared_ptr<ColourOperationData>
+    setup_shader_data(const utility::JsonStore &media_source_colour_metadata);
 
-    void setup_colourop_shader();
-
-    OCIO::ConstGpuShaderDescRcPtr
-    setup_ocio_shader(const std::string &function_name, const std::string &resource_prefix);
+    OCIO::ConstGpuShaderDescRcPtr setup_ocio_shader(
+        const std::string &function_name,
+        const std::string &resource_prefix,
+        const utility::JsonStore &metadata,
+        const std::string &src,
+        const std::string &dst);
 
     std::vector<ColourLUTPtr> setup_ocio_textures(OCIO::ConstGpuShaderDescRcPtr &shader);
 
@@ -55,15 +58,7 @@ class GradingColourOperator : public ColourOpPlugin {
 
     ui::viewport::GPUShaderPtr gradingop_shader_;
 
-    struct LayerShaderData {
-        OCIO::ConstGpuShaderDescRcPtr shader_desc;
-        std::vector<ColourLUTPtr> luts;
-    };
-    using GradingShaderData = std::vector<LayerShaderData>;
-
-    GradingShaderData shader_data_;
-
-    ColourOperationDataPtr colour_op_data_;
+    std::map<size_t, ColourOperationDataPtr> colour_op_data_cache_;
 
     bool bypass_ = {false};
 };

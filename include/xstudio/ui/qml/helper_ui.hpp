@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-
 #include <caf/all.hpp>
 #include <functional>
 #include <semver.hpp>
+#include <filesystem>
 
 #include "xstudio/ui/qml/actor_object.hpp"
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/timecode.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
@@ -17,34 +18,168 @@
 #include "xstudio/ui/qml/helper_qml_export.h"
 
 CAF_PUSH_WARNINGS
+#include <QClipboard>
 #include <QCursor>
 #include <QDesktopServices>
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QPointF>
-#include <QClipboard>
-#include <QQmlApplicationEngine>
-#include <QQuickItem>
-#include <QQmlPropertyMap>
-#include <QString>
+#include <QImage>
+#include <QPixmap>
 #include <QItemSelection>
-#include <QUrl>
-#include <QUuid>
+#include <QItemSelectionModel>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QModelIndex>
 #include <QPersistentModelIndex>
+#include <QPointF>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQmlProperty>
 #include <QQmlPropertyMap>
+#include <QQuickItem>
+#include <QQuickPaintedItem>
+#include <QString>
+#include <QtConcurrent>
+#include <QUrl>
+#include <QUuid>
 
 CAF_POP_WARNINGS
+
 
 namespace xstudio {
 namespace ui {
     namespace qml {
         using namespace caf;
 
+        namespace fs = std::filesystem;
 
         QVariant mapFromValue(const nlohmann::json &value);
         nlohmann::json mapFromValue(const QVariant &value);
+
+        inline QString QStringFromStd(const std::string &str) {
+            return QString::fromUtf8(str.c_str());
+        }
+        inline std::string StdFromQString(const QString &str) {
+            return str.toUtf8().constData();
+        }
+
+        /* Get the name of the window that this QObject belongs to (if any)*/
+        inline QString item_window_name(QObject *obj) {
+
+            if (qmlContext(obj)) {
+                QQmlContext *c = qmlContext(obj);
+                QObject *pobj  = obj;
+                while (c) {
+                    QObject *cobj = c->contextObject();
+                    if (cobj && cobj->isWindowType()) {
+                        return cobj->objectName();
+                    }
+                    pobj = cobj;
+                    c    = c->parentContext();
+                }
+            }
+            return QString();
+        }
+
+        class HELPER_QML_EXPORT TimeCode : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(unsigned int hours READ hours WRITE setHours NOTIFY timeCodeChanged)
+            Q_PROPERTY(
+                unsigned int minutes READ minutes WRITE setMinutes NOTIFY timeCodeChanged)
+            Q_PROPERTY(
+                unsigned int seconds READ seconds WRITE setSeconds NOTIFY timeCodeChanged)
+            Q_PROPERTY(unsigned int frames READ frames WRITE setFrames NOTIFY timeCodeChanged)
+            Q_PROPERTY(
+                double frameRate READ frameRate WRITE setFrameRate NOTIFY timeCodeChanged)
+            Q_PROPERTY(bool dropFrame READ dropFrame WRITE setDropFrame NOTIFY timeCodeChanged)
+            Q_PROPERTY(unsigned int totalFrames READ totalFrames WRITE setTotalFrames NOTIFY
+                           timeCodeChanged)
+            Q_PROPERTY(QString timeCode READ timeCode NOTIFY timeCodeChanged)
+
+          public:
+            explicit TimeCode(QObject *parent = nullptr) : QObject(parent) {}
+
+            [[nodiscard]] unsigned int hours() const { return timecode_.hours(); }
+            [[nodiscard]] unsigned int minutes() const { return timecode_.minutes(); }
+            [[nodiscard]] unsigned int seconds() const { return timecode_.seconds(); }
+            [[nodiscard]] unsigned int frames() const { return timecode_.frames(); }
+            [[nodiscard]] double frameRate() const { return timecode_.framerate(); }
+            [[nodiscard]] bool dropFrame() const { return timecode_.dropframe(); }
+            [[nodiscard]] unsigned int totalFrames() const { return timecode_.total_frames(); }
+            [[nodiscard]] QString timeCode() const {
+                return QStringFromStd(timecode_.to_string());
+            }
+
+            void setHours(const unsigned int value) {
+                timecode_.hours(value);
+                emit timeCodeChanged();
+            }
+
+            void setMinutes(const unsigned int value) {
+                timecode_.minutes(value);
+                emit timeCodeChanged();
+            }
+
+            void setSeconds(const unsigned int value) {
+                timecode_.seconds(value);
+                emit timeCodeChanged();
+            }
+
+            void setFrames(const unsigned int value) {
+                timecode_.frames(value);
+                emit timeCodeChanged();
+            }
+
+            void setFrameRate(const double value) {
+                timecode_.framerate(value);
+                emit timeCodeChanged();
+            }
+
+            void setDropFrame(const bool value) {
+                timecode_.dropframe(value);
+                emit timeCodeChanged();
+            }
+
+            void setTotalFrames(const unsigned int value) {
+                timecode_.total_frames(value);
+                emit timeCodeChanged();
+            }
+
+            Q_INVOKABLE void setTimeCodeFromString(
+                const QString &code,
+                const double frameRate = 30.0,
+                const bool dropFrame   = false) {
+                timecode_ = utility::Timecode(StdFromQString(code), frameRate, dropFrame);
+                emit timeCodeChanged();
+            }
+
+            Q_INVOKABLE void setTimeCodeFromFrames(
+                const unsigned int frames,
+                const double frameRate = 30.0,
+                const bool dropFrame   = false) {
+                timecode_ = utility::Timecode(frames, frameRate, dropFrame);
+                emit timeCodeChanged();
+            }
+
+            Q_INVOKABLE void setTimeCode(
+                const unsigned int hour,
+                const unsigned int minute,
+                const unsigned int second,
+                const unsigned int frame,
+                const double frameRate = 30.0,
+                const bool dropFrame   = false) {
+                timecode_ =
+                    utility::Timecode(hour, minute, second, frame, frameRate, dropFrame);
+                emit timeCodeChanged();
+            }
+
+
+          signals:
+            void timeCodeChanged();
+
+          private:
+            utility::Timecode timecode_;
+        };
 
         class HELPER_QML_EXPORT ModelRowCount : public QObject {
             Q_OBJECT
@@ -112,6 +247,8 @@ namespace ui {
                 const QModelIndex &topLeft,
                 const QModelIndex &bottomRight,
                 const QVector<int> &roles = QVector<int>());
+            void removed(const QModelIndex &parent, int first, int last);
+
 
           private:
             bool updateValue();
@@ -180,6 +317,7 @@ namespace ui {
           signals:
             void indexChanged();
             void valuesChanged();
+            void contentChanged();
 
           protected slots:
             void dataChanged(
@@ -190,11 +328,51 @@ namespace ui {
 
           protected:
             virtual void valueChanged(const QString &key, const QVariant &value);
-            virtual void updateValues(const QVector<int> &roles = {});
+            virtual bool updateValues(const QVector<int> &roles = {});
             [[nodiscard]] int getRoleId(const QString &role) const;
 
             QPersistentModelIndex index_;
             QQmlPropertyMap *values_{nullptr};
+        };
+
+        class HELPER_QML_EXPORT PreferencePropertyMap : public ModelPropertyMap {
+            Q_OBJECT
+
+            Q_PROPERTY(QVariant value READ value WRITE setMyValue NOTIFY myValueChanged)
+
+            Q_PROPERTY(QVariant dataType READ dataType NOTIFY dataTypeChanged)
+            Q_PROPERTY(QVariant context READ context NOTIFY contextChanged)
+            Q_PROPERTY(QVariant name READ name NOTIFY nameChanged)
+            Q_PROPERTY(QVariant defaultValue READ defaultValue NOTIFY defaultValueChanged)
+            Q_PROPERTY(QVariant jsonString READ jsonString NOTIFY jsonStringChanged)
+
+          public:
+            explicit PreferencePropertyMap(QObject *parent = nullptr)
+                : ModelPropertyMap(parent) {}
+            [[nodiscard]] QVariant value() const { return values_->value("valueRole"); }
+            [[nodiscard]] QVariant dataType() const { return values_->value("datatypeRole"); }
+            [[nodiscard]] QVariant context() const { return values_->value("contextRole"); }
+            [[nodiscard]] QVariant name() const { return values_->value("nameRole"); }
+            [[nodiscard]] QVariant defaultValue() const {
+                return values_->value("defaultValueRole");
+            }
+            [[nodiscard]] QVariant jsonString() const { return values_->value("jsonTextRole"); }
+
+            void setMyValue(const QVariant &value);
+
+          signals:
+            void myValueChanged();
+            void dataTypeChanged();
+            void contextChanged();
+            void nameChanged();
+            void defaultValueChanged();
+            void jsonStringChanged();
+
+          protected:
+            void valueChanged(const QString &key, const QVariant &value) override;
+
+          private:
+            void emitChange(const QString &key);
         };
 
         class HELPER_QML_EXPORT ModelNestedPropertyMap : public ModelPropertyMap {
@@ -206,7 +384,7 @@ namespace ui {
 
 
           protected:
-            void updateValues(const QVector<int> &roles = {}) override;
+            bool updateValues(const QVector<int> &roles = {}) override;
             void valueChanged(const QString &key, const QVariant &value) override;
 
             QString data_role_    = {"valueRole"};
@@ -229,27 +407,6 @@ namespace ui {
           private:
             std::reference_wrapper<caf::actor_system> system_ref_;
         };
-
-        class HELPER_QML_EXPORT QMLActor : public caf::mixin::actor_object<QObject> {
-            Q_OBJECT
-
-          public:
-            using super = caf::mixin::actor_object<QObject>;
-            explicit QMLActor(QObject *parent = nullptr);
-
-            virtual ~QMLActor();
-            virtual void init(caf::actor_system &system) { super::init(system); }
-
-          public:
-            caf::actor_system &system() { return self()->home_system(); }
-        };
-
-        inline QString QStringFromStd(const std::string &str) {
-            return QString::fromUtf8(str.c_str());
-        }
-        inline std::string StdFromQString(const QString &str) {
-            return str.toUtf8().constData();
-        }
 
         inline QUrl QUrlFromUri(const caf::uri &uri) {
             if (uri.empty())
@@ -319,7 +476,11 @@ namespace ui {
             auto jsn = qvariant_to_json(drop);
             std::regex rgx(R"(\r\n|\n)"); //, std::regex::extended);
             for (auto i : jsn.items()) {
-                jsn[i.key()] = utility::resplit(i.value(), rgx);
+                if (i.value().is_string()) {
+                    jsn[i.key()] = utility::resplit(i.value(), rgx);
+                } else {
+                    jsn[i.key()] = i.value();
+                }
             }
             return jsn;
         }
@@ -333,13 +494,71 @@ namespace ui {
             ~Helpers() override = default;
 
             Q_INVOKABLE [[nodiscard]] bool openURL(const QUrl &url) const {
-                return QDesktopServices::openUrl(url);
+                return openURLFuture(url).result();
             }
-            Q_INVOKABLE [[nodiscard]] QString ShowURIS(const QList<QUrl> &urls) const {
-                std::vector<caf::uri> uris;
+
+            Q_INVOKABLE [[nodiscard]] QFuture<bool> openURLFuture(const QUrl &url) const {
+                return QtConcurrent::run([=]() { return QDesktopServices::openUrl(url); });
+            }
+
+            Q_INVOKABLE [[nodiscard]] QModelIndex qModelIndex() const { return QModelIndex(); }
+
+            Q_INVOKABLE [[nodiscard]] bool showURIS(const QList<QUrl> &urls) const {
+                auto uris = QStringList();
                 for (const auto &i : urls)
-                    uris.emplace_back(UriFromQUrl(i));
-                return QStringFromStd(utility::filemanager_show_uris(uris));
+                    uris.push_back(i.toString());
+
+                auto arguments = QStringList(
+                    {"--session",
+                     "--print-reply",
+                     "--dest=org.freedesktop.FileManager1",
+                     "--type=method_call",
+                     "/org/freedesktop/FileManager1",
+                     "org.freedesktop.FileManager1.ShowItems",
+                     QString("array:string:") + uris.join(','),
+                     "string:"});
+
+                return startDetachedProcess("dbus-send", arguments);
+            }
+
+            Q_INVOKABLE void setOverrideCursor(const QString &name = "") {
+                const static auto cursors = std::map<QString, Qt::CursorShape>(
+                    {{"Qt.ArrowCursor", Qt::ArrowCursor},
+                     {"Qt.UpArrowCursor", Qt::UpArrowCursor},
+                     {"Qt.CrossCursor", Qt::CrossCursor},
+                     {"Qt.WaitCursor", Qt::WaitCursor},
+                     {"Qt.IBeamCursor", Qt::IBeamCursor},
+                     {"Qt.SizeVerCursor", Qt::SizeVerCursor},
+                     {"Qt.SizeHorCursor", Qt::SizeHorCursor},
+                     {"Qt.SizeBDiagCursor", Qt::SizeBDiagCursor},
+                     {"Qt.SizeFDiagCursor", Qt::SizeFDiagCursor},
+                     {"Qt.SizeAllCursor", Qt::SizeAllCursor},
+                     {"Qt.BlankCursor", Qt::BlankCursor},
+                     {"Qt.SplitVCursor", Qt::SplitVCursor},
+                     {"Qt.SplitHCursor", Qt::SplitHCursor},
+                     {"Qt.PointingHandCursor", Qt::PointingHandCursor},
+                     {"Qt.ForbiddenCursor", Qt::ForbiddenCursor},
+                     {"Qt.OpenHandCursor", Qt::OpenHandCursor},
+                     {"Qt.ClosedHandCursor", Qt::ClosedHandCursor},
+                     {"Qt.WhatsThisCursor", Qt::WhatsThisCursor},
+                     {"Qt.BusyCursor", Qt::BusyCursor},
+                     {"Qt.DragMoveCursor", Qt::DragMoveCursor},
+                     {"Qt.DragCopyCursor", Qt::DragCopyCursor},
+                     {"Qt.DragLinkCursor", Qt::DragLinkCursor}});
+
+                if (name == "")
+                    restoreOverrideCursor();
+                else {
+                    if (cursors.count(name))
+                        QGuiApplication::setOverrideCursor(QCursor(cursors.at(name)));
+                    else
+                        QGuiApplication::setOverrideCursor(
+                            QCursor(QPixmap(name).scaledToWidth(32, Qt::SmoothTransformation)));
+                }
+            }
+
+            Q_INVOKABLE void restoreOverrideCursor() {
+                QGuiApplication::restoreOverrideCursor();
             }
 
             Q_INVOKABLE [[nodiscard]] QString getUserName() const {
@@ -355,6 +574,19 @@ namespace ui {
                 return QPersistentModelIndex(index);
             }
 
+            Q_INVOKABLE [[nodiscard]] QUrl QUrlFromQString(const QString &str) const {
+                return QUrl(str);
+            }
+
+            Q_INVOKABLE [[nodiscard]] bool urlExists(const QUrl &url) const {
+                auto path   = fs::path(utility::uri_to_posix_path(UriFromQUrl(url)));
+                auto result = false;
+                try {
+                    result = fs::exists(path);
+                } catch (...) {
+                }
+                return result;
+            }
 
             Q_INVOKABLE [[nodiscard]] QString fileFromURL(const QUrl &url) const {
                 static const std::regex as_hash_pad(R"(\{:0(\d+)d\})");
@@ -363,7 +595,8 @@ namespace ui {
                 // convert padding spec to #'s
                 // {:04d}
                 try {
-                    tmp = fmt::format(std::regex_replace(tmp, as_hash_pad, R"({:#<$1})"), "");
+                    tmp = fmt::format(
+                        fmt::runtime(std::regex_replace(tmp, as_hash_pad, R"({:#<$1})")), "");
                 } catch (...) {
                     tmp = std::regex_replace(tmp, as_hash_pad, "#");
                 }
@@ -397,13 +630,17 @@ namespace ui {
             &name); Q_INVOKABLE QQuickItem* findItemByName(const QString& name) { return
             findItemByName(engine_->rootObjects(), name);
             }*/
-            Q_INVOKABLE [[nodiscard]] [[nodiscard]] QString
+            Q_INVOKABLE [[nodiscard]] QString
             getEnv(const QString &key, const QString &fallback = "") const {
                 QString result = fallback;
                 auto value     = utility::get_env(StdFromQString(key));
                 if (value)
                     result = QStringFromStd(*value);
                 return result;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QString expandEnvVars(const QString &value) const {
+                return QStringFromStd(xstudio::utility::expand_envvars(StdFromQString(value)));
             }
 
             Q_INVOKABLE [[nodiscard]] bool startDetachedProcess(
@@ -418,6 +655,15 @@ namespace ui {
             QVariantFromUuidString(const QString &uuid) const {
                 return QVariant::fromValue(QUuidFromUuid(utility::Uuid(StdFromQString(uuid))));
             }
+
+            Q_INVOKABLE [[nodiscard]] QUuid makeQUuid() const {
+                return QUuidFromUuid(utility::Uuid::generate());
+            }
+
+            Q_INVOKABLE [[nodiscard]] QUuid QUuidFromUuidString(const QString &uuid) const {
+                return QUuidFromUuid(utility::Uuid(StdFromQString(uuid)));
+            }
+
             Q_INVOKABLE [[nodiscard]] QString QUuidToQString(const QUuid &uuid) const {
                 return uuid.toString(QUuid::WithoutBraces);
             }
@@ -429,6 +675,12 @@ namespace ui {
             createItemSelection(const QModelIndex &tl, const QModelIndex &br) const {
                 return QItemSelection(tl, br);
             }
+
+            Q_INVOKABLE [[nodiscard]] QModelIndexList
+            createListFromRange(const QItemSelectionRange &r) const {
+                return r.indexes();
+            }
+
             Q_INVOKABLE [[nodiscard]] QItemSelection
             createItemSelection(const QModelIndexList &l) const {
                 auto s = QItemSelection();
@@ -436,6 +688,31 @@ namespace ui {
                     s.select(i, i);
                 return s;
             }
+
+            Q_INVOKABLE [[nodiscard]] QItemSelection
+            intersectItemSelection(const QItemSelection &a, const QItemSelection &b) const {
+                auto s = QItemSelection();
+                for (const auto &i : a.indexes()) {
+                    if (b.contains(i))
+                        s.select(i, i);
+                }
+                return s;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QItemSelection
+            createItemSelectionFromList(const QVariantList &l) const {
+                auto s = QItemSelection();
+                for (const auto &i : l)
+                    s.select(i.toModelIndex(), i.toModelIndex());
+                return s;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QModelIndexList
+            getParentIndexes(const QModelIndexList &l) const;
+
+            Q_INVOKABLE [[nodiscard]] QModelIndexList
+            getParentIndexesFromRange(const QItemSelection &l) const;
+
             Q_INVOKABLE [[nodiscard]] bool itemSelectionContains(
                 const QItemSelection &selection, const QModelIndex &item) const {
                 return selection.contains(item);
@@ -475,19 +752,58 @@ namespace ui {
                 return QColor::fromHslF(h, s, l, a);
             }
 
+            Q_INVOKABLE [[nodiscard]] QObject *contextPanel(QObject *obj) const;
+
+            Q_INVOKABLE [[nodiscard]] QString contextPanelAddress(QObject *obj) const {
+                return objPtrTostring(contextPanel(obj));
+            }
+
+            Q_INVOKABLE void setMenuPathPosition(
+                const QString &menu_path, const QString &menu_name, const float position) const;
+
+            static inline QString objPtrTostring(QObject *obj) {
+                if (!obj)
+                    return QString();
+                return QString("0x%1").arg(
+                    reinterpret_cast<qlonglong>(obj), QT_POINTER_SIZE * 2, 16, QChar('0'));
+            }
+
+            Q_INVOKABLE void inhibitScreenSaver(const bool inhibit = true) const;
+
           private:
             QQmlEngine *engine_;
         };
 
-        class HELPER_QML_EXPORT CursorPosProvider : public QObject {
+        class HELPER_QML_EXPORT KeyEventsItem : public QQuickItem {
             Q_OBJECT
 
-          public:
-            CursorPosProvider(QObject *parent = nullptr) : QObject(parent) {}
-            ~CursorPosProvider() override = default;
+            Q_PROPERTY(QString context READ context WRITE setContext NOTIFY contextChanged)
 
-            Q_INVOKABLE QPointF cursorPos() { return QCursor::pos(); }
+          public:
+            explicit KeyEventsItem(QQuickItem *parent = nullptr);
+
+            [[nodiscard]] QString context() const { return QStringFromStd(context_); }
+
+            void setContext(const QString &context) {
+                if (context_ != StdFromQString(context)) {
+                    context_ = StdFromQString(context);
+                    emit contextChanged();
+                }
+            }
+          signals:
+            void contextChanged();
+
+          protected:
+            bool event(QEvent *event) override;
+            void keyPressEvent(QKeyEvent *event) override;
+            void keyReleaseEvent(QKeyEvent *event) override;
+
+          private:
+            std::string context_;
+            caf::actor keypress_monitor_;
+            std::string window_name_;
         };
+
 
         class HELPER_QML_EXPORT QMLUuid : public QObject {
             Q_OBJECT
@@ -676,6 +992,133 @@ namespace ui {
             caf::actor backend_;
             caf::actor_id backend_id_;
         };
+
+        class HELPER_QML_EXPORT ImagePainter : public QQuickPaintedItem {
+
+            Q_OBJECT
+
+            Q_PROPERTY(QVariant image READ image WRITE setImage NOTIFY imageChanged)
+            Q_PROPERTY(bool fill READ fill WRITE setFill NOTIFY fillChanged)
+
+          public:
+            ImagePainter(QQuickItem *parent = nullptr);
+            ~ImagePainter() override = default;
+
+            [[nodiscard]] const QVariant &image() const { return image_property_; }
+            [[nodiscard]] bool fill() const { return fill_; }
+
+            void setImage(QVariant &image) {
+                image_property_ = image;
+                if (image_property_.canConvert<QImage>()) {
+                    image_ = image_property_.value<QImage>();
+                } else {
+                    image_ = QImage();
+                }
+                emit imageChanged();
+                update();
+            }
+
+            void setFill(const bool fill) {
+                if (fill != fill_) {
+                    fill_ = fill;
+                    emit fillChanged();
+                    update();
+                }
+            }
+
+            void paint(QPainter *painter) override;
+
+          signals:
+
+            void imageChanged();
+            void fillChanged();
+
+          private:
+            QVariant image_property_;
+            QImage image_;
+            bool fill_ = {false};
+        };
+
+
+        class HELPER_QML_EXPORT MarkerModel : public JSONTreeModel {
+            Q_OBJECT
+
+            Q_PROPERTY(QVariant markerData READ markerData WRITE setMarkerData NOTIFY
+                           markerDataChanged)
+
+          public:
+            enum Roles {
+                commentRole = JSONTreeModel::Roles::LASTROLE,
+                durationRole,
+                flagRole,
+                layerRole,
+                nameRole,
+                rateRole,
+                startRole
+            };
+            explicit MarkerModel(QObject *parent = nullptr);
+
+            Q_INVOKABLE bool setMarkerData(const QVariant &data);
+
+            Q_INVOKABLE QModelIndex addMarker(
+                const int frame,
+                const double rate,
+                const QString &name      = "Marker",
+                const QString &flag      = "#FFFF0000",
+                const QVariant &metadata = mapFromValue(R"({})"_json));
+
+            [[nodiscard]] QVariant markerData() const;
+
+            QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+            bool setData(
+                const QModelIndex &index,
+                const QVariant &value,
+                int role = Qt::EditRole) override;
+
+          signals:
+            void markerDataChanged();
+
+
+          private:
+        };
+
+        /* Surprisingly, QML does not provide any facility to bind to a named
+        property, where you name the property value as a string.
+        This class will allow us to do this.*/
+        class HELPER_QML_EXPORT PropertyFollower : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(QVariant propertyValue READ propertyValue NOTIFY propertyValueChanged)
+            Q_PROPERTY(QObject *target READ target WRITE setTarget NOTIFY targetChanged)
+            Q_PROPERTY(QString propertyName READ propertyName WRITE setPropertyName NOTIFY
+                           propertyNameChanged)
+
+          public:
+            PropertyFollower(QObject *parent = nullptr) : QObject(parent) {}
+
+            Q_INVOKABLE void setTarget(QObject *target);
+
+            Q_INVOKABLE void setPropertyName(const QString propertyName);
+
+            QVariant propertyValue() { return the_property_.read(); }
+
+            QString propertyName() { return property_name_; }
+
+            QObject *target() { return target_; }
+
+          signals:
+
+            void propertyValueChanged();
+            void targetChanged();
+            void propertyNameChanged();
+
+          private:
+            QQmlProperty the_property_;
+            QString property_name_;
+            QObject *target_ = {nullptr};
+        };
+
 
     } // namespace qml
 } // namespace ui

@@ -37,6 +37,7 @@ namespace utility {
         using clock_type = std::chrono::system_clock;
         // using clock_type = std::chrono::high_resolution_clock;
 #endif
+
         absolute_receive_timeout(int msec) { x_ = clock_type::now() + ms(msec); }
 
         absolute_receive_timeout()                                            = default;

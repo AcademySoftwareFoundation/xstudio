@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <Audioclient.h>
 #include <atlbase.h>
@@ -173,6 +174,8 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
 
 
 void WindowsAudioOutputDevice::initialize_sound_card() {
+
+
     sample_rate_  = 48000; // default values
     num_channels_ = 2;
     std::string sound_card("default");
@@ -191,6 +194,7 @@ void WindowsAudioOutputDevice::initialize_sound_card() {
     } catch (std::exception &e) {
         spdlog::warn("{} Failed to retrieve WASAPI prefs : {} ", __PRETTY_FUNCTION__, e.what());
     }
+    spdlog::critical("DOING {} {}", __PRETTY_FUNCTION__, sample_rate_);
 
     HRESULT hr = initializeAudioClient(sound_card, sample_rate_, num_channels_);
     if (FAILED(hr)) {
@@ -208,10 +212,14 @@ void WindowsAudioOutputDevice::initialize_sound_card() {
     }
 
     audio_client_->Start();
+
+    spdlog::critical("DONE {} {}", __PRETTY_FUNCTION__, audio_client_);
+
 }
 
 void WindowsAudioOutputDevice::connect_to_soundcard() {
     // We are already playing ;-D
+    if (!audio_client_) initialize_sound_card();
 }
 
 long WindowsAudioOutputDevice::desired_samples() {
@@ -237,16 +245,29 @@ long WindowsAudioOutputDevice::desired_samples() {
 long WindowsAudioOutputDevice::latency_microseconds() {
     // Note: This will just return the latency that WASAPI reports,
     // which may not include all sources of latency
-    REFERENCE_TIME defaultDevicePeriod = 0, minimumDevicePeriod = 0; // initialize to 0
+    /*REFERENCE_TIME defaultDevicePeriod = 0, minimumDevicePeriod = 0; // initialize to 0
     HRESULT hr = audio_client_->GetDevicePeriod(&defaultDevicePeriod, &minimumDevicePeriod);
     if (FAILED(hr)) {
         spdlog::error("Failed to get device period from WASAPI with HRESULT: 0x{:08x}", hr);
         throw std::runtime_error("Failed to get device period");
     }
-    return defaultDevicePeriod / 10; // convert 100-nanosecond units to microseconds
+    return defaultDevicePeriod / 10; // convert 100-nanosecond units to microseconds*/
+
+    UINT32 pad = 0;
+    HRESULT hr = audio_client_->GetCurrentPadding(&pad);
+    if (FAILED(hr)) {
+        throw std::runtime_error("Failed to get current padding from WASAPI");
+    }
+    /*std::cerr << pad
+              << " " << (long(pad) * long(1000000)) /
+                     long(sample_rate_)
+              << " ";*/
+    return (long(pad)*long(1000000))/long(sample_rate_);
 }
 
-void WindowsAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {
+bool WindowsAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {
+
+    auto t0 = utility::clock::now();
 
     int channel_count = num_channels_;
 
@@ -255,13 +276,13 @@ void WindowsAudioOutputDevice::push_samples(const void *sample_data, const long 
             "Invalid number of samples provided: {}. Expected a multiple of {}",
             num_samples,
             channel_count);
-        return;
+        return false;
     }
 
     // Ensure we have a valid render_client_
     if (!render_client_) {
         // spdlog::error("Invalid Render Client");
-        return; // Exit if no render client is set
+        return false; // Exit if no render client is set
     }
 
     // Retrieve the size (maximum capacity) of the endpoint buffer.
@@ -269,7 +290,7 @@ void WindowsAudioOutputDevice::push_samples(const void *sample_data, const long 
     HRESULT hr               = audio_client_->GetBufferSize(&buffer_framecount);
     if (FAILED(hr)) {
         spdlog::error("Failed to get buffer size from WASAPI");
-        return;
+        return false;
     }
 
 
@@ -278,7 +299,7 @@ void WindowsAudioOutputDevice::push_samples(const void *sample_data, const long 
     hr         = audio_client_->GetCurrentPadding(&pad);
     if (FAILED(hr)) {
         spdlog::error("Failed to get current padding from WASAPI");
-        return;
+        return false;
     }
 
     // Calculate the number of frames we can safely write into the buffer without overflow.
@@ -295,7 +316,7 @@ void WindowsAudioOutputDevice::push_samples(const void *sample_data, const long 
         hr = render_client_->GetBuffer(available_frames, &buffer);
         if (FAILED(hr)) {
             spdlog::error("GetBuffer failed with HRESULT: 0x{:08x}", hr);
-            throw std::runtime_error("Failed to get buffer from WASAPI");
+            return false;
         }
 
         // Convert int16_t PCM data to float samples considering the interleaved format.
@@ -312,12 +333,12 @@ void WindowsAudioOutputDevice::push_samples(const void *sample_data, const long 
         hr = render_client_->ReleaseBuffer(frames_to_write, 0);
         if (FAILED(hr)) {
             spdlog::error("Failed to release buffer to WASAPI with HRESULT: 0x{:08x}", hr);
-            throw std::runtime_error("Failed to release buffer to WASAPI");
+            return false;
         }
-        std::this_thread::sleep_for(
-            std::chrono::microseconds((long)(.5 / sample_rate_ * frames_to_write)));
     } else {
         // Avoid tight loop thrashing when we are out of samples.
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(pad * 500 / sample_rate_));
     }
+
+    return true;
 }

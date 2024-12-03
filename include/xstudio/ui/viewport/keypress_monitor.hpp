@@ -24,14 +24,17 @@ namespace ui {
 
           private:
             caf::behavior make_behavior() override { return behavior_; }
-            void held_keys_changed(const std::string &context, const bool auto_repeat = false);
+            void held_keys_changed(
+                const std::string &context,
+                const bool auto_repeat    = false,
+                const std::string &window = std::string());
 
           protected:
             caf::actor keyboard_events_group_, hotkey_config_events_group_;
             caf::behavior behavior_;
             std::set<int> held_keys_;
             std::map<utility::Uuid, ui::Hotkey> active_hotkeys_;
-            std::set<caf::actor> actor_grabbing_all_mouse_input_;
+            std::vector<caf::actor> actor_grabbing_all_mouse_input_;
             caf::actor actor_grabbing_all_keyboard_input_;
         };
     } // namespace keypress_monitor

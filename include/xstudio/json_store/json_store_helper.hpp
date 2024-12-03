@@ -39,6 +39,7 @@ namespace json_store {
             const bool broadcast_change = true);
 
         caf::actor get_group(utility::JsonStore &V) const;
+        caf::actor get_jsonactor() const;
 
         [[nodiscard]] caf::actor get_actor() const {
             return caf::actor_cast<caf::actor>(store_actor_);

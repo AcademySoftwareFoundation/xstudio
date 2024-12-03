@@ -19,6 +19,11 @@ namespace utility {
         FrameRange(const FrameRateDuration &duration)
             : rate_(duration.rate()), duration_(duration.duration()) {}
 
+        FrameRange(const FrameRate start, const FrameRate duration, const FrameRate rate)
+            : start_(std::move(start)),
+              duration_(std::move(duration)),
+              rate_(std::move(rate)) {}
+
         FrameRange(const FrameRateDuration &start, const FrameRateDuration &duration)
             : rate_(duration.rate()),
               start_(start.duration()),
@@ -35,6 +40,30 @@ namespace utility {
         [[nodiscard]] FrameRate rate() const { return rate_; }
         [[nodiscard]] FrameRate start() const { return start_; }
         [[nodiscard]] FrameRate duration() const { return duration_; }
+
+        // ignoring rate...
+        [[nodiscard]] FrameRange intersect(const FrameRange &fr) const {
+            auto result = fr;
+
+            // adjust start
+            if (result.start_ < start_) {
+                result.duration_ -=
+                    std::max((start_ - result.start_), timebase::k_flicks_zero_seconds);
+                result.start_ = start_;
+            }
+
+            if (result.start_ >= start_ + duration_) {
+                result.duration_ = timebase::k_flicks_zero_seconds;
+                result.start_    = start_ + duration_;
+            }
+
+            // adjust end
+            if (result.start_ + result.duration_ > start_ + duration_) {
+                result.duration_ -= (result.start_ + result.duration_) - (start_ + duration_);
+            }
+
+            return result;
+        }
 
         void set_rate(const FrameRate &rate) { rate_ = rate; }
         void set_start(const FrameRate &start) { start_ = start; }

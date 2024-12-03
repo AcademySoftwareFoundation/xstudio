@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "xstudio/session/session_actor.hpp"
-#include "xstudio/tag/tag.hpp"
 #include "xstudio/timeline/track_actor.hpp"
 #include "xstudio/timeline/stack_actor.hpp"
 #include "xstudio/timeline/gap_actor.hpp"
@@ -37,7 +36,7 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
             if (index.isValid()) {
                 nlohmann::json &j = indexToData(index);
                 if (j.at("type") == "ContainerDivider" or j.at("type") == "Subset" or
-                    j.at("type") == "Timeline") {
+                    j.at("type") == "Timeline" or j.at("type") == "ContactSheet") {
                     auto pactor = actorFromIndex(index.parent(), true);
                     if (pactor) {
                         if (j.at("type") == "ContainerDivider" and pactor == session_actor_) {
@@ -177,7 +176,7 @@ bool SessionModel::duplicateRows(int row, int count, const QModelIndex &parent) 
                     nlohmann::json &j = indexToData(index);
 
                     if (j.at("type") == "ContainerDivider" or j.at("type") == "Subset" or
-                        j.at("type") == "Timeline" or j.at("type") == "Playlist") {
+                        j.at("type") == "Timeline" or j.at("type") == "Playlist" or j.at("type") == "ContactSheet") {
                         auto pactor = actorFromIndex(index.parent(), true);
 
                         if (pactor) {
@@ -230,86 +229,158 @@ QModelIndexList SessionModel::copyRows(
     // make sure indexes are valid.. count..
     // if parent is playlist the media needs to be inserted in the media child.
     QModelIndexList result;
+
     try {
-        UuidVector media_uuids;
-        Uuid target;
-
-        auto media_parent = parent;
-        if (parent.isValid()) {
-            nlohmann::json &j = indexToData(parent);
-            // spdlog::warn("copyRows {}", j.dump(2));
-
-            media_parent = index(0, 0, parent);
-            target       = j.at("actor_uuid");
-
-            if (j.at("type") == "Playlist")
-                emit playlistsChanged();
-        } else {
+        if (not parent.isValid())
             throw std::runtime_error("invalid parent index");
-        }
 
-        for (auto &i : indexes) {
-            if (i.isValid()) {
-                nlohmann::json &j = indexToData(i);
-                if (j.at("type") == "Media")
-                    media_uuids.emplace_back(j.at("actor_uuid"));
+        auto parent_type = StdFromQString(parent.data(typeRole).toString());
+
+        if (parent_type == "Video Track" or parent_type == "Audio Track") {
+            // clone indexes and insert..
+
+            std::set<std::string> timeline_types(
+                {"Gap", "Clip", "Stack", "Video Track", "Audio Track"});
+
+            scoped_actor sys{system()};
+
+            nlohmann::json &pj = indexToData(parent);
+
+            auto pactor = pj.count("actor") and not pj.at("actor").is_null()
+                              ? actorFromString(system(), pj.at("actor"))
+                              : caf::actor();
+
+            if (pactor) {
+                // timeline item duplication.
+                auto insertion_row = row;
+                for (const auto &i : indexes) {
+                    if (i.isValid()) {
+                        auto item_type    = StdFromQString(i.data(typeRole).toString());
+                        nlohmann::json &j = indexToData(i);
+                        auto actor        = j.count("actor") and not j.at("actor").is_null()
+                                                ? actorFromString(system(), j.at("actor"))
+                                                : caf::actor();
+
+                        if (actor) {
+                            auto actor_uuid = request_receive<UuidActor>(
+                                *sys, actor, utility::duplicate_atom_v);
+
+                            // reset state..
+                            anon_send(actor_uuid.actor(), timeline::item_lock_atom_v, false);
+                            anon_send(actor_uuid.actor(), plugin_manager::enable_atom_v, true);
+                            // anon_send(actor_uuid.actor(), timeline::item_flag_atom_v, "");
+
+                            auto insertion_json =
+                                R"({"type": null, "id": null,  "placeholder": true, "actor": null})"_json;
+                            insertion_json["type"] = item_type;
+                            insertion_json["id"]   = actor_uuid.uuid();
+
+                            insertion_json["actor"] =
+                                actorToString(system(), actor_uuid.actor());
+
+                            // spdlog::warn("{}", insertion_json.dump(2));
+
+                            JSONTreeModel::insertRows(insertion_row, 1, parent, insertion_json);
+
+                            anon_send(
+                                pactor,
+                                timeline::insert_item_atom_v,
+                                insertion_row,
+                                UuidActorVector({actor_uuid}));
+
+                            result.push_back(index(insertion_row, 0, parent));
+
+                            insertion_row++;
+                        }
+                    }
+                }
             }
+        } else {
+            UuidVector media_uuids;
+            Uuid target;
+
+            auto media_parent = parent;
+            if (parent.isValid()) {
+                nlohmann::json &j = indexToData(parent);
+                media_parent      = index(0, 0, parent);
+                target            = j.at("actor_uuid");
+
+                if (j.at("type") == "Playlist")
+                    emit playlistsChanged();
+            }
+
+            for (auto &i : indexes) {
+                if (i.isValid()) {
+                    nlohmann::json &j = indexToData(i);
+                    if (j.at("type") == "Media")
+                        media_uuids.emplace_back(j.at("actor_uuid"));
+                }
+            }
+
+            // insert dummy entries.
+            auto before    = Uuid();
+            auto insertrow = index(row, 0, media_parent);
+            if (insertrow.isValid()) {
+                nlohmann::json &irj = indexToData(insertrow);
+                before              = irj.at("actor_uuid");
+            }
+
+            JSONTreeModel::insertRows(
+                row,
+                media_uuids.size(),
+                media_parent,
+                R"({"type": "Media", "placeholder": true})"_json);
+            for (size_t i = 0; i < media_uuids.size(); i++) {
+                result.push_back(index(row + i, 0, media_parent));
+            }
+
+            // send action to backend.
+            anon_send(
+                session_actor_,
+                playlist::copy_media_atom_v,
+                target,
+                media_uuids,
+                false,
+                before,
+                false);
         }
 
-        // insert dummy entries.
-        auto before    = Uuid();
-        auto insertrow = index(row, 0, media_parent);
-        if (insertrow.isValid()) {
-            nlohmann::json &irj = indexToData(insertrow);
-            before              = irj.at("actor_uuid");
-        }
-
-        JSONTreeModel::insertRows(
-            row,
-            media_uuids.size(),
-            media_parent,
-            R"({"type": "Media", "placeholder": true})"_json);
-        for (size_t i = 0; i < media_uuids.size(); i++) {
-            result.push_back(index(row + i, 0, media_parent));
-        }
-
-        // send action to backend.
-        anon_send(
-            session_actor_,
-            playlist::copy_media_atom_v,
-            target,
-            media_uuids,
-            false,
-            before,
-            false);
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    // wait for them to be valid..
+    for (const auto &i : result) {
+        while (i.data(SessionModel::Roles::placeHolderRole).toBool() == true) {
+            QCoreApplication::processEvents(
+                QEventLoop::WaitForMoreEvents | QEventLoop::ExcludeUserInputEvents, 50);
+        }
     }
 
     return result;
 }
 
 QModelIndexList SessionModel::moveRows(
-    const QModelIndexList &indexes, const int row, const QModelIndex &parent) {
+    const QModelIndexList &indexes,
+    const int q_row,
+    const QModelIndex &parent,
+    const bool doCopy) {
 
     QModelIndexList result;
     try {
         UuidVector media_uuids;
         Uuid target;
         Uuid source;
+        auto row = q_row;
 
         auto media_parent = parent;
         nlohmann::json &j = indexToData(parent);
+
         // spdlog::warn("moveRows {}", j.dump(2));
 
-        if (j.at("type") == "Playlist") {
-            media_parent = index(0, 0, parent);
-            target       = j.at("actor_uuid");
-            // emit playlistsChanged();
-        } else {
-            target = j.at("container_uuid");
-        }
+        media_parent = index(0, 0, parent);
+        target       = j.at("actor_uuid");
 
         for (auto &i : indexes) {
             if (i.isValid()) {
@@ -324,8 +395,10 @@ QModelIndexList SessionModel::moveRows(
                 }
             }
         }
+        if (row == -1) {
+            row = rowCount(media_parent);
+        }
 
-        // insert dummy entries.
         auto before    = Uuid();
         auto insertrow = index(row, 0, media_parent);
         if (insertrow.isValid()) {
@@ -333,29 +406,56 @@ QModelIndexList SessionModel::moveRows(
             before              = irj.at("actor_uuid");
         }
 
-        JSONTreeModel::insertRows(
-            row,
-            media_uuids.size(),
-            media_parent,
-            R"({"type": "Media", "placeholder": true})"_json);
-        for (size_t i = 0; i < media_uuids.size(); i++) {
-            result.push_back(index(row + i, 0, media_parent));
+        if (not media_uuids.empty()) {
+            scoped_actor sys{system()};
+            auto new_media = utility::UuidVector();
+            // send action to backend.
+            if (doCopy) {
+                new_media = request_receive<utility::UuidVector>(
+                    *sys,
+                    session_actor_,
+                    playlist::copy_media_atom_v,
+                    target,
+                    media_uuids,
+                    false,
+                    before,
+                    false);
+
+            } else {
+                new_media = request_receive<utility::UuidVector>(
+                    *sys,
+                    session_actor_,
+                    playlist::move_media_atom_v,
+                    target,
+                    source,
+                    media_uuids,
+                    before,
+                    false);
+            }
+
+            if (not new_media.empty()) {
+                // can't tell if it's already in there..
+                // so we end up with duff entries.
+                // wait for the new media to appear so we can capture the indexes.
+                for (const auto &i : new_media) {
+                    while (true) {
+                        auto mindex = search(
+                            QVariant::fromValue(QUuidFromUuid(i)),
+                            actorUuidRole,
+                            media_parent,
+                            0);
+                        if (mindex.isValid()) {
+                            result.push_back(mindex);
+                            break;
+                        }
+
+                        QCoreApplication::processEvents(
+                            QEventLoop::WaitForMoreEvents | QEventLoop::ExcludeUserInputEvents,
+                            50);
+                    }
+                }
+            }
         }
-
-        // move media
-        // spdlog::warn("moveRows {}", j.dump(2));
-        // spdlog::warn("moveRows target {} source {}", to_string(target), to_string(source));
-
-        // send action to backend.
-        anon_send(
-            session_actor_,
-            playlist::move_media_atom_v,
-            target,
-            source,
-            media_uuids,
-            before,
-            false);
-
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -386,7 +486,7 @@ QModelIndexList SessionModel::insertRows(
             // spdlog::warn("{}", j.dump(2));
 
             if (type == "ContainerDivider" or type == "Subset" or type == "Timeline" or
-                type == "Playlist") {
+                type == "Playlist" or type == "ContactSheet") {
                 auto before    = Uuid();
                 auto insertrow = index(row, 0, parent);
                 auto actor     = caf::actor();
@@ -422,28 +522,9 @@ QModelIndexList SessionModel::insertRows(
                             R"({"type": "ContainerDivider", "placeholder": true, "container_uuid": null})"_json);
 
                         for (auto i = 0; i < count; i++) {
-                            if (not sync) {
-                                anon_send(
-                                    actor,
-                                    playlist::create_divider_atom_v,
-                                    name,
-                                    before,
-                                    false);
-                            } else {
-                                auto new_item = request_receive<Uuid>(
-                                    *sys,
-                                    actor,
-                                    playlist::create_divider_atom_v,
-                                    name,
-                                    before,
-                                    false);
-
-                                setData(
-                                    index(row + i, 0, parent),
-                                    QUuidFromUuid(new_item),
-                                    containerUuidRole);
-                                // container_uuid
-                            }
+                            // if (not sync) {
+                            anon_send(
+                                actor, playlist::create_divider_atom_v, name, before, false);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -469,31 +550,35 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            if (not sync) {
-                                anon_send(
-                                    actor, playlist::create_subset_atom_v, name, before, false);
-                            } else {
-                                auto new_item = request_receive<UuidUuidActor>(
-                                    *sys,
-                                    actor,
-                                    playlist::create_subset_atom_v,
-                                    name,
-                                    before,
-                                    false);
+                            anon_send(
+                                actor, playlist::create_subset_atom_v, name, before, false);
+                            result.push_back(index(row + i, 0, parent));
+                        }
+                    }
+                } else if (type == "ContactSheet") {
+                    actor = j.count("actor_owner") and not j.at("actor_owner").is_null()
+                                ? actorFromString(system(), j.at("actor_owner"))
+                                : caf::actor();
 
-                                setData(
-                                    index(row + i, 0, parent),
-                                    QUuidFromUuid(new_item.first),
-                                    containerUuidRole);
-                                setData(
-                                    index(row + i, 0, parent),
-                                    QUuidFromUuid(new_item.second.uuid()),
-                                    actorUuidRole);
-                                setData(
-                                    index(row + i, 0, parent),
-                                    actorToQString(system(), new_item.second.actor()),
-                                    actorRole);
-                            }
+                    if (actor) {
+                        if (before.is_null())
+                            row = rowCount(parent);
+
+                        JSONTreeModel::insertRows(
+                            row,
+                            count,
+                            parent,
+                            R"({
+                                "type": "ContactSheet", "placeholder": true, "container_uuid": null, "actor_uuid": null, "actor": null
+                            })"_json);
+
+                        // spdlog::warn(
+                        //     "JSONTreeModel::insertRows Subset ({}, {}, parent);", row,
+                        //     count);
+
+                        for (auto i = 0; i < count; i++) {
+                            anon_send(
+                                actor, playlist::create_contact_sheet_atom_v, name, before, false);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -519,35 +604,13 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            if (not sync) {
-                                anon_send(
-                                    actor,
-                                    playlist::create_timeline_atom_v,
-                                    name,
-                                    before,
-                                    false);
-                            } else {
-                                auto new_item = request_receive<UuidUuidActor>(
-                                    *sys,
-                                    actor,
-                                    playlist::create_timeline_atom_v,
-                                    name,
-                                    before,
-                                    false);
-
-                                setData(
-                                    index(row + i, 0, parent),
-                                    QUuidFromUuid(new_item.first),
-                                    containerUuidRole);
-                                setData(
-                                    index(row + i, 0, parent),
-                                    QUuidFromUuid(new_item.second.uuid()),
-                                    actorUuidRole);
-                                setData(
-                                    index(row + i, 0, parent),
-                                    actorToQString(system(), new_item.second.actor()),
-                                    actorRole);
-                            }
+                            anon_send(
+                                actor,
+                                playlist::create_timeline_atom_v,
+                                name,
+                                before,
+                                false,
+                                true);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -571,32 +634,7 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            if (not sync) {
-                                anon_send(
-                                    actor, session::add_playlist_atom_v, name, before, false);
-                            } else {
-                                auto new_item = request_receive<UuidUuidActor>(
-                                    *sys,
-                                    actor,
-                                    session::add_playlist_atom_v,
-                                    name,
-                                    before,
-                                    false);
-
-                                setData(
-                                    index(row + i, 0, parent),
-                                    QUuidFromUuid(new_item.first),
-                                    containerUuidRole);
-                                setData(
-                                    index(row + i, 0, parent),
-                                    QUuidFromUuid(new_item.second.uuid()),
-                                    actorUuidRole);
-                                setData(
-                                    index(row + i, 0, parent),
-                                    actorToQString(system(), new_item.second.actor()),
-                                    actorRole);
-                            }
-                            // spdlog::warn("ROW {}, {}", row + i, data_.dump(2));
+                            anon_send(actor, session::add_playlist_atom_v, name, before, false);
                             result.push_back(index(row + i, 0, parent));
                         }
                         emit playlistsChanged();
@@ -613,6 +651,11 @@ QModelIndexList SessionModel::insertRows(
                         R"({"type": null, "id": null,  "placeholder": true, "actor": null})"_json;
                     insertion_json["type"] = type;
 
+                    // get timeline rate from parent.
+                    auto rate = request_receive<FrameRate>(*sys, parent_actor, rate_atom_v);
+
+                    // spdlog::warn("{}", rate.to_fps());
+
                     JSONTreeModel::insertRows(row, count, parent, insertion_json);
 
                     for (auto i = 0; i < count; i++) {
@@ -621,21 +664,26 @@ QModelIndexList SessionModel::insertRows(
 
                         if (type == "Video Track") {
                             new_item = self()->spawn<timeline::TrackActor>(
-                                "New Video Track", media::MediaType::MT_IMAGE, new_uuid);
+                                name.empty() ? "New Video Track" : name,
+                                rate,
+                                media::MediaType::MT_IMAGE,
+                                new_uuid);
                         } else if (type == "Audio Track") {
                             new_item = self()->spawn<timeline::TrackActor>(
-                                "New Audio Track", media::MediaType::MT_AUDIO, new_uuid);
+                                name.empty() ? "New Audio Track" : name,
+                                rate,
+                                media::MediaType::MT_AUDIO,
+                                new_uuid);
                         } else if (type == "Stack") {
-                            new_item =
-                                self()->spawn<timeline::StackActor>("New Stack", new_uuid);
+                            new_item = self()->spawn<timeline::StackActor>(
+                                name.empty() ? "New Stack" : name, rate, new_uuid);
                         } else if (type == "Gap") {
-                            auto duration = utility::FrameRateDuration(
-                                24, FrameRate(timebase::k_flicks_24fps));
-                            new_item = self()->spawn<timeline::GapActor>(
-                                "New Gap", duration, new_uuid);
+                            auto duration = utility::FrameRateDuration(24, rate);
+                            new_item      = self()->spawn<timeline::GapActor>(
+                                name.empty() ? "Gap" : name, duration, new_uuid);
                         } else if (type == "Clip") {
                             new_item = self()->spawn<timeline::ClipActor>(
-                                UuidActor(), "New Clip", new_uuid);
+                                UuidActor(), name.empty() ? "New Clip" : name, new_uuid);
                         }
 
                         // hopefully add to parent..
@@ -664,9 +712,20 @@ QModelIndexList SessionModel::insertRows(
                 spdlog::warn("insertRows: unsupported type {}", type);
             }
         }
+
+        if (sync) {
+            for (const auto &i : result) {
+                while (i.data(placeHolderRole).toBool() == true) {
+                    QCoreApplication::processEvents(
+                        QEventLoop::WaitForMoreEvents | QEventLoop::ExcludeUserInputEvents, 50);
+                }
+            }
+        }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
+
+    qDebug() << "result " << result << "\n";
 
     return result;
 }
@@ -693,6 +752,7 @@ void SessionModel::mergeRows(const QModelIndexList &indexes, const QString &name
 }
 
 void SessionModel::updateErroredCount(const QModelIndex &media_index) {
+    return;
     try {
         if (media_index.isValid()) {
             auto media_list_index = media_index.parent();

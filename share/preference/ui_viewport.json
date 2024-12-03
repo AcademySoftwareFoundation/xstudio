@@ -4,35 +4,44 @@
 			"filter_mode": {
 				"path": "/ui/viewport/filter_mode",
 				"default_value": "Auto Nearest/Bilinear",
-				"description": "Viewport Pixel Filter Mode",
+				"description": "Choose how pixels are sampled when displayed. 'Nearest' plots individual pixels to the screen, 'Biliniear' smoothly joins pixels. The 'Auto' mode will switch to Bilinear when you are zooming out from 1:1 zoom, reducing aliasing, but will show whole pixels when you are zooming closer to the image.",
 				"value": "Auto Nearest/Bilinear",
-				"datatype": "string",
-				"context": ["APPLICATION"]
+				"datatype": "multichoice string",
+				"display_name": "Pixel Interpolation",
+				"options": ["Nearest Pixel", "Auto Nearest/Bilinear", "Bilinear"],
+				"context": ["APPLICATION"],
+				"category": "Viewport"
 			},
 			"texture_mode": {
 				"path": "/ui/viewport/texture_mode",
 				"default_value": "Image Texture",
-				"description": "Viewport Low Level Texture mode - SSBO can give better performance on some systems but not all",
+				"description": "Set the way that image data is loaded onto your graphics processor. For playing high resolution formats this can affect playback performance in some cases. On some systems 'Texture' gives better performance. On others (generally modern and high end graphics cards) SSBO may give a better throughput.",
 				"value": "Image Texture",
-				"value_range": ["Image Texture", "SSBO"],
-				"datatype": "string",
-				"context": ["APPLICATION"]
+				"options": ["Image Texture", "SSBO"],
+				"display_name": "GPU Texture Mode",
+				"datatype": "multichoice string",
+				"context": ["APPLICATION"],
+				"category": "Viewport"
 			},
 			"viewport_mouse_wheel_behaviour": {
 				"path": "/ui/viewport/viewport_mouse_wheel_behaviour",
 				"default_value": "Scrub Timeline",
-				"description": "Use mouse scroll wheel to scrub timeline (default) or zoom",
+				"description": "Choose wether rolling the mouse wheel in the viewport will scrub the playhead or zoom in/out of the image.",
 				"value": "Scrub Timeline",
-				"datatype": "string",
-				"context": ["QML_UI"]
+				"options": ["Scrub Timeline", "Zoom Viewer"],
+				"display_name": "Mouse Wheel Action",
+				"datatype": "multichoice string",
+				"context": ["QML_UI"],
+				"category": "Viewport"
 			},
 			"viewport_scrub_sensitivity": {
 				"path": "/ui/viewport/viewport_scrub_sensitivity",
 				"default_value": 2,
-				"description": "Set value to change the scrub pixel step for each frame",
+				"description": "When clicking and dragging left/right in the viewport, the playhead is 'scrubbed'. The sensitivity of this action (number of frames per pixel moved by the mouse) is set by this preference.",
 				"value": 2,
 				"datatype": "int",
-				"context": ["QML_UI"]
+				"context": ["QML_UI"],
+				"category": "Viewport"
 			},
 			"enable_hud": {
 				"path": "/ui/viewport/enable_hud",
@@ -40,6 +49,14 @@
 				"description": "Enables the HUD overlays",
 				"value": false,
 				"datatype": "bool",
+				"context": ["QML_UI"]
+			},
+			"hidden_toolbar_items": {
+				"path": "/ui/viewport/hidden_toolbar_items",
+				"default_value": false,
+				"description": "Hides items from the viewport toolbar",
+				"value": ["Gamma", "Saturation", "Rate", "Mirror"],
+				"datatype": "json",
 				"context": ["QML_UI"]
 			}
 		}

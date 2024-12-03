@@ -7,8 +7,10 @@
 #include "xstudio/media/media.hpp"
 #include "xstudio/utility/time_cache.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/logging.hpp"
 
 using namespace xstudio::utility;
+using namespace xstudio::media;
 
 TEST(TimeCacheTest, Test) {
     using namespace std::chrono_literals;
@@ -178,4 +180,91 @@ TEST(TimeCacheTest2, Test) {
 
     // new
     EXPECT_TRUE(mc.store_check("test", 1000));
+}
+
+
+TEST(TimeCacheSpeedTest, Test) {
+    using namespace std::chrono_literals;
+    TimeCache<int, std::shared_ptr<std::string>> mc;
+
+    spdlog::stopwatch sw;
+    start_logger(spdlog::level::info);
+
+    auto buffer     = std::make_shared<std::string>("testing");
+    auto futuretime = clock::now();
+
+    sw.reset();
+    for (int i = 0; i < 100000; i++)
+        mc.store(i, buffer, futuretime);
+    spdlog::info("store {:.3} seconds.", sw);
+
+    sw.reset();
+    for (int i = 0; i < 100000; i++)
+        mc.retrieve(i);
+    spdlog::info("retrieve {:.3} seconds.", sw);
+}
+
+
+TEST(TimeCacheSpeedTestmk, Test) {
+    using namespace std::chrono_literals;
+    TimeCache<MediaKey, std::shared_ptr<std::string>> mc;
+
+    spdlog::stopwatch sw;
+    start_logger(spdlog::level::info);
+
+    auto buffer     = std::make_shared<std::string>("testing");
+    auto futuretime = clock::now();
+
+    sw.reset();
+    for (int i = 0; i < 100000; i++)
+        mc.store(MediaKey(std::to_string(i)), buffer, futuretime);
+    spdlog::info("store {:.3} seconds.", sw);
+
+    sw.reset();
+    for (int i = 0; i < 100000; i++)
+        mc.retrieve(MediaKey(std::to_string(i)));
+    spdlog::info("retrieve {:.3} seconds.", sw);
+}
+
+
+TEST(TimeCacheSpeedTest2, Test) {
+    using namespace std::chrono_literals;
+    TimeCache<int, std::shared_ptr<std::string>> mc;
+
+    mc.set_max_count(5000);
+
+    spdlog::stopwatch sw;
+    start_logger(spdlog::level::info);
+
+    auto buffer     = std::make_shared<std::string>("testing");
+    auto futuretime = clock::now();
+
+    sw.reset();
+    for (int i = 0; i < 10000; i++)
+        mc.store(i, buffer, futuretime);
+    spdlog::info("store {:.3} seconds.", sw);
+
+    sw.reset();
+    for (int i = 0; i < 10000; i++)
+        mc.retrieve(i);
+    spdlog::info("retrieve {:.3} seconds.", sw);
+}
+
+TEST(TimeCacheSpeedTest3, Test) {
+    using namespace std::chrono_literals;
+    TimeCache<int, std::shared_ptr<std::string>> mc;
+
+    mc.set_max_count(5000);
+
+    spdlog::stopwatch sw;
+    start_logger(spdlog::level::info);
+
+    auto buffer     = std::make_shared<std::string>("testing");
+    auto futuretime = clock::now();
+    auto uuid       = Uuid();
+
+    sw.reset();
+    for (int i = 0; i < 10000; i++)
+        mc.store(i, buffer, futuretime, uuid, futuretime);
+    spdlog::info("store {:.3} seconds.", sw);
 }
