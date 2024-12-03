@@ -3,12 +3,12 @@
 		"session":{
 			"play_rate": {
 				"path": "/core/session/play_rate",
-				"default_value": 24.0,
+				"default_value": "24.0",
 				"description": "Default playback rate.",
-				"value": 24.0,
-				"minimum": 1.0,
-				"maximum": 120.0,
-				"datatype": "double",
+				"value": "24.0",
+				"minimum": "1.0",
+				"maximum": "120.0",
+				"datatype": "string",
 				"context": ["NEW_SESSION"]
 			},
 			"session_link_prefix": {
@@ -21,14 +21,15 @@
 			},
 			"media_rate": {
 				"path": "/core/session/media_rate",
-				"default_value": 24.0,
-				"description": "Default media rate.",
-				"value": 24.0,
-				"minimum": 1.0,
-				"maximum": 120.0,
-				"datatype": "double",
-				"context": ["NEW_SESSION"]
-			},
+				"default_value": "24.0",
+				"description": "Default media rate for new sessions - sets the timeline frame rate and play rate of frame based media.",
+				"value": "24.0",
+				"context": ["NEW_SESSION"],
+				"datatype": "multichoice string",
+				"options": ["23.976", "24.0", "25.0", "29.97", "30.0", "48.0", "50.0", "59.94", "60.0", "90.0", "100.0", "119.88", "120.0"],
+				"category": "General",
+				"display_name": "Default media rate for new sessions."
+			},		
 			"compression": {
 				"path": "/core/session/compression",
 				"default_value": false,

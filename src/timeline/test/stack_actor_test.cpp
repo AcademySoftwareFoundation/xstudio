@@ -130,7 +130,7 @@ TEST(NestedStackActorTest, Test) {
     auto s = f.self->spawn<StackActor>("Stack");
 
     auto cuuid = Uuid::generate();
-    auto c     = f.self->spawn<StackActor>("ChildStack", cuuid);
+    auto c     = f.self->spawn<StackActor>("ChildStack", utility::FrameRate(), cuuid);
     {
         auto result = request_receive<JsonStore>(
             *(f.self), s, insert_item_atom_v, -1, UuidActorVector({UuidActor(cuuid, c)}));
@@ -195,7 +195,8 @@ TEST(NestedTrackStackActorTest, Test) {
     auto s = f.self->spawn<StackActor>("Stack");
 
     auto cuuid = Uuid::generate();
-    auto c     = f.self->spawn<TrackActor>("ChildTrack", media::MediaType::MT_IMAGE, cuuid);
+    auto c     = f.self->spawn<TrackActor>(
+        "ChildTrack", utility::FrameRate(), media::MediaType::MT_IMAGE, cuuid);
     {
         auto result = request_receive<JsonStore>(
             *(f.self), s, insert_item_atom_v, -1, UuidActorVector({UuidActor(cuuid, c)}));
@@ -257,8 +258,9 @@ TEST(StackActorAddTest, Test) {
     auto t = f.self->spawn<StackActor>("Test Stack");
 
     {
-        auto uuid    = utility::Uuid::generate();
-        auto invalid = f.self->spawn<TimelineActor>("Invalid Timeline", uuid);
+        auto uuid = utility::Uuid::generate();
+        auto invalid =
+            f.self->spawn<TimelineActor>("Invalid Timeline", utility::FrameRate(), uuid);
         EXPECT_THROW(
             request_receive<JsonStore>(
                 *(f.self),
@@ -271,14 +273,15 @@ TEST(StackActorAddTest, Test) {
     }
     {
         auto uuid  = utility::Uuid::generate();
-        auto valid = f.self->spawn<TrackActor>("Valid Track", media::MediaType::MT_IMAGE, uuid);
+        auto valid = f.self->spawn<TrackActor>(
+            "Valid Track", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
         EXPECT_NO_THROW(request_receive<JsonStore>(
             *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
     }
 
     {
         auto uuid  = utility::Uuid::generate();
-        auto valid = f.self->spawn<StackActor>("Valid Stack", uuid);
+        auto valid = f.self->spawn<StackActor>("Valid Stack", utility::FrameRate(), uuid);
         EXPECT_NO_THROW(request_receive<JsonStore>(
             *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
     }
@@ -315,25 +318,29 @@ TEST(StackActorMoveTest2, Test) {
 
     {
         auto uuid  = utility::Uuid::generate();
-        auto valid = f.self->spawn<TrackActor>("Track 4", media::MediaType::MT_IMAGE, uuid);
+        auto valid = f.self->spawn<TrackActor>(
+            "Track 4", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
         EXPECT_NO_THROW(request_receive<JsonStore>(
             *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
     }
     {
         auto uuid  = utility::Uuid::generate();
-        auto valid = f.self->spawn<TrackActor>("Track 3", media::MediaType::MT_IMAGE, uuid);
+        auto valid = f.self->spawn<TrackActor>(
+            "Track 3", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
         EXPECT_NO_THROW(request_receive<JsonStore>(
             *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
     }
     {
         auto uuid  = utility::Uuid::generate();
-        auto valid = f.self->spawn<TrackActor>("Track 2", media::MediaType::MT_IMAGE, uuid);
+        auto valid = f.self->spawn<TrackActor>(
+            "Track 2", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
         EXPECT_NO_THROW(request_receive<JsonStore>(
             *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
     }
     {
         auto uuid  = utility::Uuid::generate();
-        auto valid = f.self->spawn<TrackActor>("Track 1", media::MediaType::MT_IMAGE, uuid);
+        auto valid = f.self->spawn<TrackActor>(
+            "Track 1", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
         EXPECT_NO_THROW(request_receive<JsonStore>(
             *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
     }

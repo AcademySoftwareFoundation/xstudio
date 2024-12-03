@@ -6,6 +6,7 @@
 
 #include "xstudio/playlist/playlist.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 
 namespace xstudio {
 
@@ -26,7 +27,8 @@ namespace playlist {
             const std::string &name,
             const utility::Uuid &uuid = utility::Uuid(),
             const caf::actor &session = caf::actor());
-        ~PlaylistActor() override = default;
+
+        ~PlaylistActor();
 
         void on_exit() override;
         const char *name() const override { return NAME.c_str(); }
@@ -38,12 +40,24 @@ namespace playlist {
 
         void init();
 
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::message_handler message_handler();
+
+        caf::behavior make_behavior() override {
+            return message_handler()
+                .or_else(base_.container_message_handler(this))
+                .or_else(notification_.message_handler(this, base_.event_group()));
+        }
 
         void add_media(
             utility::UuidActor &ua,
             const utility::Uuid &uuid_before,
+            const bool delayed,
             caf::typed_response_promise<utility::UuidActor> rp);
+
+        void recursive_add_media_with_subsets(
+            caf::typed_response_promise<std::vector<utility::UuidActor>> rp,
+            const caf::uri &path,
+            const utility::Uuid &uuid_before);
 
         void create_container(
             caf::actor actor,
@@ -71,14 +85,27 @@ namespace playlist {
         void open_media_readers();
         void open_media_reader(caf::actor media_actor);
         void send_content_changed_event(const bool queue = true);
-        void sort_alphabetically();
+        void sort_by_media_display_info(const int sort_column_index, const bool ascending);
+
+        void duplicate(
+            caf::typed_response_promise<utility::UuidActor> rp,
+            caf::actor src_bookmarks,
+            caf::actor dst_bookmarks);
+
+        void duplicate_containers(
+            caf::typed_response_promise<utility::UuidActor> rp,
+            const utility::UuidActor &new_playlist,
+            const utility::UuidUuidMap &media_map);
 
       private:
         caf::behavior behavior_;
         Playlist base_;
+        utility::NotificationHandler notification_;
+
         caf::actor_addr session_;
         utility::UuidActor playhead_;
-        caf::actor event_group_, change_event_group_;
+        caf::actor change_event_group_;
+        caf::actor global_prefs_actor_;
         std::map<utility::Uuid, caf::actor> media_;
         std::map<utility::Uuid, caf::actor> container_;
         bool is_in_viewer_ = {false};
@@ -87,6 +114,8 @@ namespace playlist {
         caf::actor playlist_broadcast_;
         caf::actor selection_actor_;
         bool auto_gather_sources_{false};
+
+        utility::UuidActorVector delayed_add_media_;
     };
 } // namespace playlist
 } // namespace xstudio

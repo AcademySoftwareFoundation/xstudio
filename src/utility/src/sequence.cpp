@@ -74,6 +74,7 @@ std::vector<UriSequence> uri_from_file(const std::string &path) {
 Entry::Entry(const std::string path) : name_(std::move(path)) {
     std::memset(&stat_, 0, sizeof stat_);
 }
+
 #ifdef _WIN32
 uint64_t get_block_size_windows(const xstudio::utility::Entry &entry) {
     const std::string &path = entry.name_; // Assuming 'name_' contains the path

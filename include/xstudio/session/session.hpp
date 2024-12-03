@@ -8,10 +8,10 @@
 
 
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/lock_file.hpp"
+#include "xstudio/utility/frame_rate.hpp"
 
 namespace xstudio {
 namespace session {
@@ -67,6 +67,20 @@ namespace session {
         [[nodiscard]] utility::FrameRate media_rate() const { return media_rate_; }
         [[nodiscard]] utility::FrameRate playhead_rate() const { return playhead_rate_; }
 
+        [[nodiscard]] utility::Uuid current_playlist_uuid() const {
+            return current_playlist_uuid_;
+        }
+        void set_current_playlist_uuid(const utility::Uuid &uuid) {
+            current_playlist_uuid_ = uuid;
+        }
+
+        [[nodiscard]] utility::Uuid viewed_playlist_uuid() const {
+            return viewed_playlist_uuid_;
+        }
+        void set_viewed_playlist_uuid(const utility::Uuid &uuid) {
+            viewed_playlist_uuid_ = uuid;
+        }
+
         void set_media_rate(const utility::FrameRate &rate) { media_rate_ = rate; }
         void set_playhead_rate(const utility::FrameRate &rate) { playhead_rate_ = rate; }
         void set_filepath(const caf::uri &path);
@@ -82,6 +96,8 @@ namespace session {
         utility::PlaylistTree playlists_;
         utility::FrameRate media_rate_;
         utility::FrameRate playhead_rate_;
+        utility::Uuid current_playlist_uuid_;
+        utility::Uuid viewed_playlist_uuid_;
         caf::uri filepath_;
         fs::file_time_type session_file_mtime_{fs::file_time_type::min()};
     };

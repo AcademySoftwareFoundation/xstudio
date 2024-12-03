@@ -1,7 +1,7 @@
 project(__pybind_xstudio VERSION 0.1.0 LANGUAGES CXX)
 
-find_package(pybind11 CONFIG REQUIRED)
-#find_package(caf CONFIG REQUIRED)
+find_package(Python COMPONENTS Interpreter Development)
+find_package(pybind11 CONFIG)
 find_package(Python COMPONENTS Interpreter)
 
 set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
@@ -41,6 +41,7 @@ target_link_libraries(
 		xstudio::global_store_static
 		xstudio::json_store_static
 		xstudio::timeline_static
+		xstudio::media_static
 		caf::core
 		caf::io
 )
@@ -69,4 +70,3 @@ endif(INSTALL_XSTUDIO)
 if(WIN32)
 install(TARGETS ${PROJECT_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/python/xstudio/core")
 endif()
-

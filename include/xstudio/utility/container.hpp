@@ -66,6 +66,8 @@ namespace utility {
         explicit Container(const utility::JsonStore &jsn);
         virtual ~Container() = default;
 
+        static caf::message_handler default_event_handler();
+
         [[nodiscard]] utility::Uuid uuid() const { return uuid_; }
         [[nodiscard]] std::string name() const { return name_; }
         [[nodiscard]] std::string type() const { return type_; }
@@ -88,6 +90,17 @@ namespace utility {
         virtual void deserialise(const utility::JsonStore &);
 
         [[nodiscard]] Container duplicate() const;
+
+        caf::message_handler container_message_handler(caf::event_based_actor *act);
+
+        caf::actor event_group() const { return event_group_; }
+
+        void send_changed(const time_point last_changed = utility::clock::now()) {
+            if (last_changed > last_changed_) {
+                last_changed_ = std::move(last_changed);
+                actor_->send(event_group_, event_atom_v, last_changed_atom_v, last_changed_);
+            }
+        }
 
         void send_changed(
             caf::actor grp,
@@ -116,13 +129,13 @@ namespace utility {
             return [=](name_atom, const std::string &name) { name_ = name; };
         }
 
-        auto make_set_name_handler(caf::actor grp, caf::event_based_actor *act) {
-            return [=](name_atom, const std::string &name) {
-                name_ = name;
-                act->send(grp, event_atom_v, name_atom_v, name);
-                send_changed(grp, act);
-            };
-        }
+        // auto make_set_name_handler(caf::actor grp, caf::event_based_actor *act) {
+        //     return [=](name_atom, const std::string &name) {
+        //         name_ = name;
+        //         act->send(grp, event_atom_v, name_atom_v, name);
+        //         send_changed(grp, act);
+        //     };
+        // }
         auto make_set_name_handler(caf::actor grp, caf::blocking_actor *act) {
             return [=](name_atom, const std::string &name) {
                 name_ = name;
@@ -134,22 +147,25 @@ namespace utility {
         auto make_last_changed_getter() {
             return [=](last_changed_atom) -> time_point { return last_changed_; };
         }
-        auto make_last_changed_setter(caf::actor grp, caf::event_based_actor *act) {
-            return [=](last_changed_atom, const time_point &last_changed) {
-                if (last_changed > last_changed_ or last_changed == time_point()) {
-                    last_changed_ = last_changed;
-                    act->send(grp, utility::event_atom_v, last_changed_atom_v, last_changed_);
-                }
-            };
-        }
-        auto make_last_changed_event_handler(caf::actor grp, caf::event_based_actor *act) {
-            return [=](utility::event_atom, last_changed_atom, const time_point &last_changed) {
-                if (last_changed > last_changed_) {
-                    last_changed_ = last_changed;
-                    act->send(grp, utility::event_atom_v, last_changed_atom_v, last_changed_);
-                }
-            };
-        }
+        // auto make_last_changed_setter(caf::actor grp, caf::event_based_actor *act) {
+        //     return [=](last_changed_atom, const time_point &last_changed) {
+        //         if (last_changed > last_changed_ or last_changed == time_point()) {
+        //             last_changed_ = last_changed;
+        //             act->send(grp, utility::event_atom_v, last_changed_atom_v,
+        //             last_changed_);
+        //         }
+        //     };
+        // }
+        // auto make_last_changed_event_handler(caf::actor grp, caf::event_based_actor *act) {
+        //     return [=](utility::event_atom, last_changed_atom, const time_point
+        //     &last_changed) {
+        //         if (last_changed > last_changed_) {
+        //             last_changed_ = last_changed;
+        //             act->send(grp, utility::event_atom_v, last_changed_atom_v,
+        //             last_changed_);
+        //         }
+        //     };
+        // }
 
         auto make_last_changed_setter(caf::actor grp, caf::blocking_actor *act) {
             return [=](last_changed_atom, const time_point &last_changed) {
@@ -168,10 +184,6 @@ namespace utility {
             };
         }
 
-        auto make_ignore_error_handler() {
-            return [=](const caf::error) {};
-        }
-
         auto make_get_uuid_handler() {
             return [=](uuid_atom) -> Uuid { return uuid_; };
         }
@@ -179,10 +191,11 @@ namespace utility {
             return [=](type_atom) -> std::string { return type_; };
         }
 
-        auto
-        make_get_detail_handler(caf::event_based_actor *act, caf::actor group = caf::actor()) {
-            return [=](detail_atom) -> ContainerDetail { return detail(act, group); };
-        }
+        // auto
+        // make_get_detail_handler(caf::event_based_actor *act, caf::actor group = caf::actor())
+        // {
+        //     return [=](detail_atom) -> ContainerDetail { return detail(act, group); };
+        // }
         auto
         make_get_detail_handler(caf::blocking_actor *act, caf::actor group = caf::actor()) {
             return [=](detail_atom) -> ContainerDetail { return detail(act, group); };
@@ -204,6 +217,8 @@ namespace utility {
         }
 
       private:
+        caf::event_based_actor *actor_{nullptr};
+        caf::actor event_group_;
         std::string name_;
         std::string type_;
         utility::Uuid uuid_;

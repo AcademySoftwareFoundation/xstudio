@@ -484,6 +484,18 @@ nlohmann::json populate_streams(MediaFile &src) {
 
     return result;
 }
+
+std::string uri_convert(const caf::uri &uri) {
+
+    // This may be a kettle of fish.
+
+    // uri like https://aswf.s3-accelerate.amazonaws.com/ALab_h264_MOVs/mk020_0220.mov
+    // can be passed through.
+    // uri like file://localhost/user_data/my_vid.mov needs the 'localhost' removed.
+    auto path = to_string(uri);
+    utility::replace_string_in_place(path, "file://localhost", "file:");
+    return path;
+}
 } // namespace
 
 
@@ -496,7 +508,8 @@ FFProbe::~FFProbe() { avformat_network_deinit(); }
 
 utility::JsonStore FFProbe::probe_file(const caf::uri &uri_path) {
     auto result = R"({})"_json;
-    auto ptr    = open_file(utility::uri_to_posix_path(uri_path));
+
+    auto ptr = open_file(uri_convert(uri_path));
 
     if (ptr) {
         try {

@@ -43,6 +43,7 @@ namespace utility {
         void frames(const unsigned int f) { frames_ = f; }
         void framerate(const double fr) { frame_rate_ = fr; }
         void dropframe(const bool df) { drop_frame_ = df; }
+        void total_frames(const unsigned int f);
 
         [[nodiscard]] std::string to_string() const;
         operator int() const { return total_frames(); }

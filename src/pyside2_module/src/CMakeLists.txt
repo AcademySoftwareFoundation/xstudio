@@ -124,7 +124,6 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::qml::studio
 		xstudio::ui::qml::viewport
 		xstudio::ui::qml::quickfuture
-		xstudio::ui::qml::tag
 		xstudio::utility
 		xstudio::module
 	PRIVATE

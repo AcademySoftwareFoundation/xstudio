@@ -12,6 +12,7 @@
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/csv.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
+#include "xstudio/thumbnail/thumbnail.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -53,69 +54,26 @@ caf::message_handler BookmarksActor::default_event_handler() {
         [=](utility::event_atom, bookmark_change_atom, const utility::UuidActor &) {}};
 }
 
+void BookmarksActor::on_exit() {
+    for (auto &it : bookmarks_) {
+        send_exit(it.second, caf::exit_reason::user_shutdown);
+    }
+}
 
-void BookmarksActor::init() {
-    print_on_create(this, base_);
-    print_on_exit(this, base_);
+caf::message_handler BookmarksActor::message_handler() {
+    return caf::message_handler{
+        make_ignore_error_handler(),
 
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-
-    // JsonStore category;
-
-    // try {
-    //     auto prefs = GlobalStoreHelper(system());
-    //     JsonStore j;
-    //     join_broadcast(this, prefs.get_group(j));
-    //     category = preference_value<JsonStore>(j, "/core/bookmark/category");
-    // } catch (...) {
-    // }
-
-
-    set_down_handler([=](down_msg &msg) {
-        // find in playhead list..
-        for (auto it = std::begin(bookmarks_); it != std::end(bookmarks_); ++it) {
-            if (msg.source == it->second) {
-                demonitor(it->second);
-                // spdlog::warn("bookmark exited {}", to_string(it->first));
-                base_.send_changed(event_group_, this);
-                send(event_group_, utility::event_atom_v, remove_bookmark_atom_v, it->first);
-                bookmarks_.erase(it);
-                break;
-            }
-        }
-    });
-
-    behavior_.assign(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        base_.make_ignore_error_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        // [=](json_store::update_atom,
-        //     const JsonStore & /*change*/,
-        //     const std::string & /*path*/,
-        //     const JsonStore &full) {
-        //     delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
-        // },
+        // json events from bookmarks
+        [=](json_store::update_atom,
+            const JsonStore & /*change*/,
+            const std::string & /*path*/,
+            const JsonStore &full) {},
 
-        // [=](json_store::update_atom, const JsonStore &js) {
-        //     try {
-        //         auto new_category = preference_value<JsonStore>(js,
-        //         "/core/bookmark/category"); if (new_category != category){
-        //             category = new_category;
-        //         }
-        //     } catch (const std::exception &err) {
-        //         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        //     }
-        // },
+        // json events from bookmarks
+        [=](json_store::update_atom, const JsonStore &js) {},
 
         [=](json_store::get_json_atom atom,
             const utility::UuidVector &uuids,
@@ -173,12 +131,25 @@ void BookmarksActor::init() {
             auto clients = std::vector<caf::actor>();
 
             // check for dead bookmarks
-            for (const auto &i : bookmarks_) {
+            {
+                auto i = bookmarks_.begin();
+                while (i != bookmarks_.end()) {
+                    if (not i->second) {
+                        i = bookmarks_.erase(i);
+                    } else {
+                        clients.push_back(i->second);
+                        i++;
+                    }
+                }
+            }
+
+            // Big NOPE, you can't erase with an iterator in a loop like this
+            /*for (auto i = bookmarks_) {
                 if (not i.second)
                     bookmarks_.erase(i.first);
                 else
                     clients.push_back(i.second);
-            }
+            }*/
 
             if (not clients.empty()) {
                 fan_out_request<policy::select_all>(clients, infinite, serialise_atom_v)
@@ -316,13 +287,6 @@ void BookmarksActor::init() {
                             BookmarkDetail bd;
                             bd.owner_ = src;
                             anon_send(ua.actor(), bookmark_detail_atom_v, bd);
-                            // add to manager.
-                            bookmarks_[ua.uuid()] = ua.actor();
-                            monitor(ua.actor());
-                            join_event_group(this, ua.actor());
-                            base_.send_changed(event_group_, this);
-                            send(event_group_, utility::event_atom_v, add_bookmark_atom_v, ua);
-
                             rp.deliver(ua);
                         },
                         [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -336,9 +300,9 @@ void BookmarksActor::init() {
                 bookmarks_[i.uuid()] = i.actor();
                 monitor(i.actor());
                 join_event_group(this, i.actor());
-                send(event_group_, utility::event_atom_v, add_bookmark_atom_v, i);
+                send(base_.event_group(), utility::event_atom_v, add_bookmark_atom_v, i);
             }
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
             return true;
         },
 
@@ -362,7 +326,7 @@ void BookmarksActor::init() {
         // change to bookmark
         [=](utility::event_atom, bookmark_change_atom, const utility::Uuid &uuid) {
             send(
-                event_group_,
+                base_.event_group(),
                 utility::event_atom_v,
                 bookmark_change_atom_v,
                 UuidActor(uuid, bookmarks_[uuid]));
@@ -376,9 +340,9 @@ void BookmarksActor::init() {
             monitor(actor);
             join_event_group(this, actor);
 
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
             send(
-                event_group_,
+                base_.event_group(),
                 utility::event_atom_v,
                 add_bookmark_atom_v,
                 UuidActor(uuid, actor));
@@ -418,9 +382,9 @@ void BookmarksActor::init() {
                 bookmarks_[bookmark_uuid] = actor;
                 monitor(actor);
                 join_event_group(this, actor);
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     add_bookmark_atom_v,
                     UuidActor(bookmark_uuid, actor));
@@ -581,7 +545,73 @@ void BookmarksActor::init() {
             default_category_ = category;
         },
 
-        [=](default_category_atom) -> std::string { return default_category_; });
+        [=](default_category_atom) -> std::string { return default_category_; },
+
+        [=](media_reader::get_thumbnail_atom,
+            const BookmarkDetail detail,
+            int width,
+            caf::actor receiver) {
+            auto offscreen_renderer =
+                system().registry().template get<caf::actor>(offscreen_viewport_registry);
+            if (!offscreen_renderer) {
+                spdlog::warn("{} : Offscreen viewport not found.", __PRETTY_FUNCTION__);
+                return;
+            }
+            if (!detail.owner_ || !detail.start_ | !detail.owner_->actor())
+                return;
+
+            request(
+                offscreen_renderer,
+                infinite,
+                ui::viewport::render_viewport_to_image_atom_v,
+                detail.owner_->actor(),
+                *(detail.start_),
+                thumbnail::THUMBNAIL_FORMAT::TF_RGB24,
+                width,
+                false, // autoscale (renders at source imate fomat if true)
+                true /*show annotations*/)
+                .then(
+                    [=](const thumbnail::ThumbnailBufferPtr &thumbnail) {
+                        if (thumbnail)
+                            anon_send(
+                                receiver,
+                                media_reader::get_thumbnail_atom_v,
+                                detail,
+                                thumbnail);
+                        else
+                            spdlog::warn(
+                                "{} {}",
+                                __PRETTY_FUNCTION__,
+                                "Null thumbanil returned by offscreen renderer.");
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        }};
+}
+
+
+void BookmarksActor::init() {
+    print_on_create(this, base_);
+    print_on_exit(this, base_);
+
+    set_down_handler([=](down_msg &msg) {
+        // find in playhead list..
+        for (auto it = std::begin(bookmarks_); it != std::end(bookmarks_); ++it) {
+            if (msg.source == it->second) {
+                demonitor(it->second);
+                // spdlog::warn("bookmark exited {}", to_string(it->first));
+                base_.send_changed();
+                send(
+                    base_.event_group(),
+                    utility::event_atom_v,
+                    remove_bookmark_atom_v,
+                    it->first);
+                bookmarks_.erase(it);
+                break;
+            }
+        }
+    });
 }
 
 void BookmarksActor::csv_export(

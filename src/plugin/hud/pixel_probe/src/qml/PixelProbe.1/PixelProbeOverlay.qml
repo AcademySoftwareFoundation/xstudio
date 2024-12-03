@@ -5,7 +5,7 @@ import QtQuick 2.14
 import QuickFuture 1.0
 import QuickPromise 1.0
 import xStudio 1.0
-import xstudio.qml.module 1.0
+import xstudio.qml.models 1.0
 
 Rectangle {
 
@@ -14,13 +14,54 @@ Rectangle {
     color: "transparent"
 
     id: control
-    visible: pixel_info_string != ""//pixel_info_attributes.enabled ? pixel_info_attributes.enabled : false
+    visible: pixel_info_string != "" && pixel_info_viewport == view.name//pixel_info_attributes.enabled ? pixel_info_attributes.enabled : false
 
-    XsModuleAttributes {
-
-        id: pixel_info_attributes
-        attributesGroupNames: "pixel_info_attributes"
+    XsModuleData {
+        id: pixel_info_model_data
+        modelDataName: "pixel_info_attributes"
     }
+
+    XsAttributeValue {
+        id: __pixel_info_string
+        attributeTitle: "Pixel Info"
+        model: pixel_info_model_data
+    }
+    property alias pixel_info_string: __pixel_info_string.value
+
+    XsAttributeValue {
+        id: __pixel_info_title
+        attributeTitle: "Pixel Info Title"
+        model: pixel_info_model_data
+    }
+    property alias pixel_info_title: __pixel_info_title.value
+
+    XsAttributeValue {
+        id: __pixel_info_viewport
+        attributeTitle: "Current Viewport"
+        model: pixel_info_model_data
+    }
+    property alias pixel_info_viewport: __pixel_info_viewport.value
+
+    XsAttributeValue {
+        id: __font_size
+        attributeTitle: "Font Size"
+        model: pixel_info_model_data
+    }
+    property alias font_size: __font_size.value
+
+    XsAttributeValue {
+        id: __font_opacity
+        attributeTitle: "Font Opacity"
+        model: pixel_info_model_data
+    }
+    property alias font_opacity: __font_opacity.value
+
+    XsAttributeValue {
+        id: __bg_opacity
+        attributeTitle: "Bg Opacity"
+        model: pixel_info_model_data
+    }
+    property alias bg_opacity: __bg_opacity.value
 
     Rectangle {
         anchors.fill: parent
@@ -28,17 +69,8 @@ Rectangle {
         color: "black"
         opacity: bg_opacity
         border.color: "white"
-        border.width: 2        
+        border.width: 2
     }
-
-    // Properties on the XsModuleAttributes items are created at runtime after
-    // this item is 'completed' and therefore we need to map to local variables
-    // with checks as follows:
-    property var pixel_info_string: pixel_info_attributes.pixel_info ? pixel_info_attributes.pixel_info : ""
-    property var pixel_info_title: pixel_info_attributes.pixel_info_title ? pixel_info_attributes.pixel_info_title : ""
-    property var font_size: pixel_info_attributes.font_size ? pixel_info_attributes.font_size : 8.0
-    property var font_opacity: pixel_info_attributes.font_opacity ? pixel_info_attributes.font_opacity : 0.8
-    property var bg_opacity: pixel_info_attributes.bg_opacity ? pixel_info_attributes.bg_opacity : 0.4
 
     Column {
 
@@ -52,8 +84,8 @@ Rectangle {
             text: pixel_info_title
             color: "white"
             font.pixelSize: font_size
-            font.family: XsStyle.fixWidthFontFamily
-            opacity: font_opacity 
+            font.family: XsStyleSheet.fixedWidthFontFamily
+            opacity: font_opacity
         }
 
         Rectangle {
@@ -67,8 +99,8 @@ Rectangle {
             text: pixel_info_string
             color: "white"
             font.pixelSize: font_size
-            font.family: XsStyle.fixWidthFontFamily
-            opacity: font_opacity 
+            font.family: XsStyleSheet.fixedWidthFontFamily
+            opacity: font_opacity
         }
     }
 

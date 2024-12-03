@@ -7,4 +7,3 @@ SET(LINK_DEPS
 )
 
 create_component(caf_utility 0.1.0 "${LINK_DEPS}")
-

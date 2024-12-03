@@ -28,8 +28,7 @@ class ThumbnailManagerActor : public caf::event_based_actor {
         const media::AVFrameID &mptr,
         const size_t thumb_size,
         const size_t hash,
-        const bool cache_to_disk,
-        const utility::Uuid &job_uuid);
+        const bool cache_to_disk);
 
     void request_buffer(
         caf::typed_response_promise<ThumbnailBufferPtr> rp,
@@ -38,20 +37,38 @@ class ThumbnailManagerActor : public caf::event_based_actor {
 
     void process_queue();
 
+    void queue_thumbnail_request(
+        caf::typed_response_promise<ThumbnailBufferPtr> rp,
+        const media::AVFrameID &mptr,
+        const size_t thumb_size,
+        const size_t hash,
+        const bool cache_to_disk);
+
     inline static const std::string NAME = "ThumbnailManagerActor";
     caf::behavior behavior_;
 
     caf::actor mem_cache_;
     caf::actor dsk_cache_;
 
-    std::deque<std::tuple<
-        caf::typed_response_promise<ThumbnailBufferPtr>,
-        media::AVFrameID,
-        size_t,
-        size_t,
-        bool,
-        utility::Uuid>>
-        request_queue_;
+    struct ThumbnailRequest {
+        std::vector<caf::typed_response_promise<ThumbnailBufferPtr>> response_promises;
+        media::AVFrameID mptr;
+        size_t size;
+        size_t hash;
+        bool cache_to_disk;
+        bool in_flight = false;
+        void deliver(const ThumbnailBufferPtr &buf) {
+            for (auto &rp : response_promises)
+                rp.deliver(buf);
+        }
+        void deliver(const caf::error &err) {
+            for (auto &rp : response_promises)
+                rp.deliver(err);
+        }
+    };
+
+    typedef std::shared_ptr<ThumbnailRequest> ThumbnailRequestPtr;
+    std::vector<ThumbnailRequestPtr> request_queue_;
 };
 
 } // namespace xstudio::thumbnail

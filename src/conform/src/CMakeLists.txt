@@ -1,8 +1,8 @@
 SET(LINK_DEPS
 	xstudio::utility
-	xstudio::broadcast
 	xstudio::json_store
 	xstudio::global_store
+	xstudio::timeline
 	caf::core
 )
 

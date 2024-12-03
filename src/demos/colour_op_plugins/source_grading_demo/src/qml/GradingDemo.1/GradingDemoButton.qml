@@ -5,7 +5,6 @@ import QtGraphicalEffects 1.12
 
 import xStudio 1.0
 
-import xstudio.qml.module 1.0
 
 XsTrayButton {
     // prototype: true

@@ -17,21 +17,23 @@ namespace {
 const char *vertex_shader = R"(
     #version 330 core
     layout (location = 0) in vec4 aPos;
-    out vec2 viewportCoordinate;
+    out vec2 normImageCoordinate;
     uniform mat4 to_coord_system;
     uniform mat4 to_canvas;
+    uniform float image_aspect;
 
     void main()
     {
-        vec4 rpos = aPos*to_coord_system;
-        gl_Position = aPos*to_canvas;
-        viewportCoordinate = rpos.xy;
+        vec4 rpos = aPos;
+        rpos.y = rpos.y/image_aspect;
+        gl_Position = (rpos*to_coord_system*to_canvas);
+        normImageCoordinate = rpos.xy;
     }
     )";
 
 const char *frag_shader = R"(
     #version 330 core
-    in vec2 viewportCoordinate;
+    in vec2 normImageCoordinate;
     out vec4 FragColor;
     uniform float image_aspect;
     uniform float mask_safety;
@@ -74,7 +76,7 @@ const char *frag_shader = R"(
 
     void main(void)
     {
-        vec2 uv = vec2(viewportCoordinate.x, viewportCoordinate.y);
+        vec2 uv = vec2(normImageCoordinate.x, normImageCoordinate.y);
 
         // here the maske is 'fitted' to the image width ... the image is always
         // fitted into the viewport coordinates -1.0 to 1.0
@@ -106,9 +108,11 @@ void BasicMaskRenderer::render_opengl(
     }
 
     utility::JsonStore shader_params;
-    shader_params["to_coord_system"] = transform_viewport_to_image_space;
+    shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
     shader_params["to_canvas"]       = transform_window_to_viewport_space;
     shader_params["viewport_du_dx"]  = viewport_du_dpixel;
+    shader_params["image_transform_matrix"]  = frame.layout_transform();
+    shader_params["image_aspect"]  = frame ? frame->image_aspect() : 16.0f/9.0f;
     shader_->set_shader_parameters(shader_params);
 
     shader_->use();
@@ -142,7 +146,7 @@ void BasicMaskRenderer::render_opengl(
                     (viewport_du_dpixel * 24.0f)) *
             ((100.0f - mask_safety) / 100.0f);
 
-        text_renderer_->precompute_text_rendering_vertex_layout(
+        std::ignore = text_renderer_->precompute_text_rendering_vertex_layout(
             precomputed_text_vertex_buffer_,
             text_,
             text_position,
@@ -202,17 +206,11 @@ void BasicMaskRenderer::init_overlay_opengl() {
 
 BasicViewportMasking::BasicViewportMasking(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)
-    : plugin::StandardPlugin(cfg, "BasicViewportMasking", init_settings) {
-    // The function Attribute::expose_in_ui_attrs_group allows you to declare
-    // a XsModuleAttributes or XsModuleAttributesModel item in QML code - by
-    // setting the 'attributesGroupNames' attrubte on these items to match the
-    // group name that we set here, we get a connection between QML and this
-    // class that allows us to update QML when the backend attribute (owned by
-    // this class) changes or vice/versa.
+    : plugin::HUDPluginBase(cfg, "Mask", init_settings, 0.0f) {
 
     mask_aspect_ratio_ =
         add_float_attribute("Mask Aspect Ratio", "Aspect Ratio", 1.78f, 1.33f, 2.40f, 0.01f);
-    mask_aspect_ratio_->expose_in_ui_attrs_group("viewport_mask_settings");
+    add_hud_settings_attribute(mask_aspect_ratio_);
     mask_aspect_ratio_->set_tool_tip("Sets the mask aspect ratio");
 
     aspect_ratio_presets_ = add_string_choice_attribute(
@@ -224,33 +222,33 @@ BasicViewportMasking::BasicViewportMasking(
 
     line_thickness_ =
         add_float_attribute("Line Thickness", "Thickness", 0.0f, 1.0f, 20.0f, 0.25f);
-    line_thickness_->expose_in_ui_attrs_group("viewport_mask_settings");
+    add_hud_settings_attribute(line_thickness_);
     line_thickness_->set_tool_tip("Sets the thickness of the masking lines");
     line_thickness_->set_redraw_viewport_on_change(true);
 
     line_opacity_ = add_float_attribute("Line Opacity", "Line Opac.", 1.0f, 0.0f, 1.0f, 0.1f);
-    line_opacity_->expose_in_ui_attrs_group("viewport_mask_settings");
+    add_hud_settings_attribute(line_opacity_);
     line_opacity_->set_tool_tip(
         "Sets the opacity of the masking lines. Set to zero to hide the lines");
 
     mask_opacity_ = add_float_attribute("Mask Opacity", "Opac.", 1.0f, 0.0f, 1.0f, 0.1f);
-    mask_opacity_->expose_in_ui_attrs_group("viewport_mask_settings");
+    add_hud_settings_attribute(mask_opacity_);
     mask_opacity_->set_tool_tip("Sets the opacity of the black masking overlay. Set to zero to "
                                 "hids the mask completely.");
 
     safety_percent_ = add_float_attribute("Safety Percent", "Safety", 0.0f, 0.0f, 20.0f, 0.1f);
-    safety_percent_->expose_in_ui_attrs_group("viewport_mask_settings");
+    add_hud_settings_attribute(safety_percent_);
     safety_percent_->set_tool_tip(
         "Sets the percentage of the image that is outside the mask area.");
 
     mask_label_size_ =
         add_float_attribute("Label Size", "Label Size", 16.0f, 10.0f, 40.0f, 1.0f);
-    mask_label_size_->expose_in_ui_attrs_group("viewport_mask_settings");
+    add_hud_settings_attribute(mask_label_size_);
     mask_label_size_->set_tool_tip("Sets the font size of the mask label.");
 
 
     show_mask_label_ = add_boolean_attribute("Show Mask Label", "Label", true);
-    show_mask_label_->expose_in_ui_attrs_group("viewport_mask_settings");
+    add_hud_settings_attribute(show_mask_label_);
     show_mask_label_->set_tool_tip(
         "Toggles a text label indicating the name of the current masking.");
 
@@ -259,44 +257,11 @@ BasicViewportMasking::BasicViewportMasking(
         "Render Method",
         "QML",
         std::vector<std::string>({"QML", "OpenGL"}));
-    mask_render_method_->expose_in_ui_attrs_group("viewport_mask_settings");
-
-    // The 'any_toolbar' attribute group is referenced
-    // by the xStudio toolbar - for every attribute in these groups, a toolbar
-    // widget is added to control that attribute. Only certain attribute types
-    // are supported in this way, however: StringChoice, Float and Boolean.
-    // But, as below, you can always code your own toolbox widget to control
-    // your attribute
-    mask_selection_ =
-        add_string_choice_attribute("Mask", "Mk", "Off", {"Off", "On"}, {"Off", "On"});
-    mask_selection_->set_tool_tip("Toggles the mask on / off, use the settings to customize "
-                                  "the mask. You can use the M hotkey to toggle on / off");
-    mask_selection_->expose_in_ui_attrs_group("viewport_mask_settings");
-
-    make_attribute_visible_in_viewport_toolbar(mask_selection_);
-
-    // here we set custom QML code to implement a custom widget that is inserted
-    // into the viewer toolbox. In this case, we have extended the widget for
-    // a stringChoice attribute to include an extra 'Mask Settings ...' option
-    // that then opens a custom dialog to change some of our attributes declared
-    // here
-    mask_selection_->set_role_data(
-        module::Attribute::QmlCode,
-        R"(
-            import BasicViewportMask 1.0
-            BasicViewportMaskButton {
-                id: control
-                anchors.fill: parent
-            }
-        )");
-
-    // This value is used to order the positions of the toolbox widgets by the
-    // toolbox
-    mask_selection_->set_role_data(module::Attribute::ToolbarPosition, 1.0f);
+    add_hud_settings_attribute(mask_render_method_);
 
     // Here we declare QML code to instantiate the actual item that draws
     // the overlay on the viewport.
-    qml_viewport_overlay_code(
+    hud_element_qml(
         R"(
             import BasicViewportMask 1.0
             BasicViewportMaskOverlay {
@@ -314,7 +279,7 @@ BasicViewportMasking::BasicViewportMasking(
     show_mask_label_->set_preference_path("/plugin/basic_masking/show_mask_label");
     safety_percent_->set_preference_path("/plugin/basic_masking/safety_percent");
     mask_label_size_->set_preference_path("/plugin/basic_masking/mask_label_size");
-    mask_selection_->set_preference_path("/plugin/basic_masking/mask_selection");
+    mask_render_method_->set_preference_path("/plugin/basic_masking/mask_render_method");
 }
 
 BasicViewportMasking::~BasicViewportMasking() = default;
@@ -325,15 +290,16 @@ void BasicViewportMasking::register_hotkeys() {
         int('M'),
         ui::NoModifier,
         "Toggle Mask",
-        "Toggles viewport masking. Find mask settings in the toolbar under the 'Mask' button");
+        "Toggles viewport masking. Find mask settings in the toolbar under the 'Mask' button",
+        false,
+        "Viewer");
 }
 
-utility::BlindDataObjectPtr BasicViewportMasking::prepare_overlay_data(
-    const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
+utility::BlindDataObjectPtr BasicViewportMasking::onscreen_render_data(
+    const media_reader::ImageBufPtr &image, const std::string & /*viewport_name*/) const {
 
     auto r = utility::BlindDataObjectPtr();
-
-    if (render_opengl_ && image && mask_selection_->value() == "On") {
+    if (visible() && mask_render_method_->value() == "OpenGL" && image) {
 
         try {
 
@@ -364,9 +330,7 @@ void BasicViewportMasking::attribute_changed(
     const utility::Uuid &attribute_uuid, const int /*role*/
 ) {
 
-    if (attribute_uuid == mask_render_method_->uuid()) {
-        render_opengl_ = mask_render_method_->value() == "OpenGL";
-    } else if (attribute_uuid == aspect_ratio_presets_->uuid()) {
+    if (attribute_uuid == aspect_ratio_presets_->uuid()) {
         if (aspect_ratio_presets_->value() != "...") {
             mask_aspect_ratio_->set_value(std::stof(aspect_ratio_presets_->value()));
         }
@@ -385,9 +349,9 @@ void BasicViewportMasking::attribute_changed(
 }
 
 void BasicViewportMasking::hotkey_pressed(
-    const utility::Uuid &hotkey_uuid, const std::string &) {
+    const utility::Uuid &hotkey_uuid, const std::string &, const std::string &) {
     if (hotkey_uuid == mask_hotkey_) {
-        mask_selection_->set_value(mask_selection_->value() == "On" ? "Off" : "On");
+        hud_data_->set_value(!hud_data_->value());
     }
 }
 
@@ -398,7 +362,8 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<BasicViewportMasking>>(
                 utility::Uuid("4006826a-6ff2-41ec-8ef2-d7a40bfd65e4"),
                 "BasicViewportMasking",
-                plugin_manager::PluginFlags::PF_VIEWPORT_OVERLAY,
+                plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY |
+                    plugin_manager::PluginFlags::PF_VIEWPORT_OVERLAY,
                 true,
                 "Ted Waine",
                 "Basic Viewport Masking Plugin")}));

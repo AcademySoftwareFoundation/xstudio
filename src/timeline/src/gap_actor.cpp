@@ -26,7 +26,7 @@ GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
     base_.item().set_actor_addr(this);
     base_.item().set_system(&system());
 
-    pitem = base_.item();
+    pitem = base_.item().clone();
     init();
 }
 
@@ -42,58 +42,90 @@ GapActor::GapActor(
     init();
 }
 
-void GapActor::init() {
-    print_on_create(this, base_.name());
-    print_on_exit(this, base_.name());
+GapActor::GapActor(caf::actor_config &cfg, const Item &item)
+    : caf::event_based_actor(cfg), base_(item, this) {
+    base_.item().set_system(&system());
+    init();
+}
 
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
+GapActor::GapActor(caf::actor_config &cfg, const Item &item, Item &nitem)
+    : GapActor(cfg, item) {
+    nitem = base_.item().clone();
+}
 
-    // monitor changes in media..
-    behavior_.assign(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
+caf::message_handler GapActor::message_handler() {
+    return caf::message_handler{
+        [=](item_lock_atom, const bool value) -> JsonStore {
+            auto jsn = base_.item().set_locked(value);
+            if (not jsn.is_null())
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
         [=](item_name_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
 
         [=](item_flag_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_flag(value);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
 
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
 
         [=](active_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_active_range(fr);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
 
         [=](available_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_available_range(fr);
             if (not jsn.is_null())
-                send(event_group_, event_atom_v, item_atom_v, jsn, false);
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
+
+        [=](item_prop_atom, const utility::JsonStore &value) -> JsonStore {
+            auto jsn = base_.item().set_prop(value);
+            if (not jsn.is_null())
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+
+        [=](item_prop_atom,
+            const utility::JsonStore &value,
+            const std::string &path) -> JsonStore {
+            auto prop = base_.item().prop();
+            try {
+                auto ptr = nlohmann::json::json_pointer(path);
+                prop.at(ptr).update(value);
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
+            auto jsn = base_.item().set_prop(prop);
+            if (not jsn.is_null())
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
+        [=](utility::rate_atom) -> FrameRate { return base_.item().rate(); },
+
+        [=](utility::rate_atom atom, const media::MediaType media_type) {
+            delegate(caf::actor_cast<caf::actor>(this), atom);
+        },
+
+        [=](item_prop_atom) -> JsonStore { return base_.item().prop(); },
 
         [=](active_range_atom) -> std::optional<utility::FrameRange> {
             return base_.item().active_range();
@@ -105,16 +137,30 @@ void GapActor::init() {
 
         [=](trimmed_range_atom) -> utility::FrameRange { return base_.item().trimmed_range(); },
 
-        [=](link_media_atom, const UuidActorMap &) -> bool { return true; },
+        [=](trimmed_range_atom,
+            const FrameRange &avail,
+            const FrameRange &active) -> JsonStore {
+            auto jsn = base_.item().set_range(avail, active);
+            if (not jsn.is_null())
+                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+            return jsn;
+        },
 
-        [=](item_atom) -> Item { return base_.item(); },
+        [=](trimmed_range_atom,
+            const FrameRange &avail,
+            const FrameRange &active,
+            const bool silent) -> JsonStore { return base_.item().set_range(avail, active); },
+
+        [=](link_media_atom, const UuidActorMap &, const bool) -> bool { return true; },
+
+        [=](item_atom) -> Item { return base_.item().clone(); },
 
         [=](item_atom, const bool with_state) -> result<std::pair<JsonStore, Item>> {
             auto rp = make_response_promise<std::pair<JsonStore, Item>>();
             request(caf::actor_cast<caf::actor>(this), infinite, utility::serialise_atom_v)
                 .then(
                     [=](const JsonStore &jsn) mutable {
-                        rp.deliver(std::make_pair(jsn, base_.item()));
+                        rp.deliver(std::make_pair(jsn, base_.item().clone()));
                     },
                     [=](const caf::error &err) mutable { rp.deliver(err); });
             return rp;
@@ -142,9 +188,19 @@ void GapActor::init() {
             return UuidActor(dup.uuid(), actor);
         },
 
+        [=](playhead::source_atom,
+            const UuidUuidMap &swap,
+            const utility::UuidActorMap &media) -> result<bool> { return true; },
+
         [=](utility::serialise_atom) -> JsonStore {
             JsonStore jsn;
             jsn["base"] = base_.serialise();
             return jsn;
-        });
+        }};
+}
+
+
+void GapActor::init() {
+    print_on_create(this, base_.name());
+    print_on_exit(this, base_.name());
 }

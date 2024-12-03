@@ -8,6 +8,7 @@
 
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/utility/time_cache.hpp"
+#include "xstudio/utility/chrono.hpp"
 
 namespace xstudio {
 namespace media_cache {
@@ -29,9 +30,11 @@ namespace media_cache {
 
         caf::behavior behavior_;
         utility::TimeCache<media::MediaKey, media_reader::ImageBufPtr> cache_;
-        std::set<media::MediaKey> new_keys_;
-        std::set<media::MediaKey> erased_keys_;
+        std::unordered_set<media::MediaKey> new_keys_;
+        std::unordered_set<media::MediaKey> erased_keys_;
         bool update_pending_;
+        std::chrono::minutes reset_idle_{0};
+        utility::time_point last_activity_{utility::clock::now()};
     };
 
     class GlobalAudioCacheActor : public caf::event_based_actor {
@@ -52,9 +55,11 @@ namespace media_cache {
 
         caf::behavior behavior_;
         utility::TimeCache<media::MediaKey, media_reader::AudioBufPtr> cache_;
-        std::set<media::MediaKey> new_keys_;
-        std::set<media::MediaKey> erased_keys_;
+        std::unordered_set<media::MediaKey> new_keys_;
+        std::unordered_set<media::MediaKey> erased_keys_;
         bool update_pending_;
+        std::chrono::minutes reset_idle_{0};
+        utility::time_point last_activity_{utility::clock::now()};
     };
 } // namespace media_cache
 } // namespace xstudio

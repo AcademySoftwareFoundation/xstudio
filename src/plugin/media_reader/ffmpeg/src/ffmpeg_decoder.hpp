@@ -12,7 +12,10 @@ namespace media_reader {
         class FFMpegDecoder {
           public:
             FFMpegDecoder(
-                std::string path, const int soundcard_sample_rate, std::string stream_id = "");
+                std::string path,
+                const int soundcard_sample_rate,
+                const utility::FrameRate default_rate,
+                std::string stream_id = "");
 
             ~FFMpegDecoder();
 
@@ -79,6 +82,7 @@ namespace media_reader {
             const int soundcard_sample_rate_;
             int64_t duration_frames_;
             const std::string stream_id_;
+            const utility::FrameRate default_rate_;
         };
     } // namespace ffmpeg
 } // namespace media_reader

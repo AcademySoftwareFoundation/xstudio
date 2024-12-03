@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/grading_icons">
+		<file alias="brightness_low.svg">icons/brightness_low.svg</file>
+		<file alias="brightness_high.svg">icons/brightness_high.svg</file>
+		<file alias="hexagon.svg">icons/hexagon.svg</file>
+		<file alias="mask_domino.svg">icons/mask_domino.svg</file>
+	</qresource>
+</RCC>

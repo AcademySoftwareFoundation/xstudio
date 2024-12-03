@@ -1,0 +1,62 @@
+module ShotBrowser
+
+ShotBrowserHelpers          1.0 ShotBrowserHelpers.js
+ShotBrowserMediaListMenu    1.0 ShotBrowserMediaListMenu.qml
+
+XsSBPublishNotesFeedback.qml 1.0 dialogs/XsSBPublishNotesFeedback.qml
+XsSBPublishNotesDialog      1.0 dialogs/XsSBPublishNotesDialog.qml
+XsSBPublishPlaylistToShotGridDialog 1.0 dialogs/XsSBPublishPlaylistToShotGridDialog.qml
+XsSBSyncPlaylistToShotGridDialog 1.0 dialogs/XsSBSyncPlaylistToShotGridDialog.qml
+
+ShotHistory                 1.0 shot_history/ShotHistory.qml
+ShotHistoryActionDiv        1.0 shot_history/ShotHistoryActionDiv.qml
+ShotHistoryListDelegate     1.0 shot_history/ShotHistoryListDelegate.qml
+ShotHistoryListDiv          1.0 shot_history/ShotHistoryListDiv.qml
+ShotHistoryResultPopup      1.0 shot_history/ShotHistoryResultPopup.qml
+ShotHistorySection1         1.0 shot_history/sections/ShotHistorySection1.qml
+ShotHistorySection2         1.0 shot_history/sections/ShotHistorySection2.qml
+ShotHistorySection3         1.0 shot_history/sections/ShotHistorySection3.qml
+ShotHistoryTextRow          1.0 shot_history/dataItems/ShotHistoryTextRow.qml
+ShotHistoryTitleDiv         1.0 shot_history/ShotHistoryTitleDiv.qml
+
+NotesHistory                1.0 notes_history/NotesHistory.qml
+NotesHistoryActionDiv       1.0 notes_history/NotesHistoryActionDiv.qml
+NotesHistoryDetailRow       1.0 notes_history/dataItems/NotesHistoryDetailRow.qml
+NotesHistoryListDelegate    1.0 notes_history/NotesHistoryListDelegate.qml
+NotesHistoryListDiv         1.0 notes_history/NotesHistoryListDiv.qml
+NotesHistoryResultPopup     1.0 notes_history/NotesHistoryResultPopup.qml
+NotesHistorySection1        1.0 notes_history/sections/NotesHistorySection1.qml
+NotesHistorySection2        1.0 notes_history/sections/NotesHistorySection2.qml
+NotesHistoryTextRow         1.0 notes_history/dataItems/NotesHistoryTextRow.qml
+NotesHistoryTitleDiv        1.0 notes_history/NotesHistoryTitleDiv.qml
+
+ShotBrowserRoot             1.0 shot_browser/XsShotBrowser.qml
+XsSBCountDisplay            1.0 shot_browser/widgets/XsSBCountDisplay.qml
+XsSBL1Tools                 1.0 shot_browser/left_sections/XsSBL1Tools.qml
+XsSBL2V1Tree                1.0 shot_browser/left_sections/XsSBL2V1Tree.qml
+XsSBL2V2Presets             1.0 shot_browser/left_sections/XsSBL2V2Presets.qml
+XsSBL2Views                 1.0 shot_browser/left_sections/XsSBL2Views.qml
+XsSBL3Actions               1.0 shot_browser/left_sections/XsSBL3Actions.qml
+XsSBLeftSection             1.0 shot_browser/XsSBLeftSection.qml
+XsSBLoginDialog             1.0 shot_browser/left_sections/viewItems/XsSBLoginDialog.qml
+XsSBPresetEditItem          1.0 shot_browser/left_sections/viewItems/XsSBPresetEditItem.qml
+XsSBPresetEditNewItem       1.0 shot_browser/left_sections/viewItems/XsSBPresetEditNewItem.qml
+XsSBPresetEditPopup         1.0 shot_browser/left_sections/viewItems/XsSBPresetEditPopup.qml
+XsSBPresetsView             1.0 shot_browser/left_sections/viewItems/XsSBPresetsView.qml
+XsSBPresetGroupDelegate 	1.0 shot_browser/left_sections/viewItems/XsSBPresetGroupDelegate.qml
+XsSBPresetDelegate 			1.0 shot_browser/left_sections/viewItems/XsSBPresetDelegate.qml
+XsSBR1Tools                 1.0 shot_browser/right_sections/XsSBR1Tools.qml
+XsSBR2Views                 1.0 shot_browser/right_sections/XsSBR2Views.qml
+XsSBR3Actions               1.0 shot_browser/right_sections/XsSBR3Actions.qml
+XsSBRightSection            1.0 shot_browser/XsSBRightSection.qml
+XsSBRPlaylistResultPopup    1.0 shot_browser/right_sections/XsSBRPlaylistResultPopup.qml
+XsSBRPlaylistViewDelegate   1.0 shot_browser/right_sections/viewItems/XsSBRPlaylistViewDelegate.qml
+XsSBTreeSearchButton        1.0 shot_browser/widgets/XsSBTreeSearchButton.qml
+XsSBSequenceDelegate        1.0 shot_browser/left_sections/viewItems/XsSBSequenceDelegate.qml
+XsSBShotDelegate            1.0 shot_browser/left_sections/viewItems/XsSBShotDelegate.qml
+
+plugin shotbrowser
+classname ShotBrowserEngine
+classname ShotBrowserResultModel
+classname ShotBrowserSequenceFilterModel
+classname ShotBrowserPresetTreeFilterModel

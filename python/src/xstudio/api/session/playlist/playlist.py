@@ -6,7 +6,7 @@ from xstudio.core import move_container_atom, remove_container_atom, type_atom, 
 from xstudio.core import create_divider_atom, media_rate_atom, playhead_rate_atom, URI, FrameRate
 from xstudio.core import remove_media_atom, UuidVec, move_media_atom, create_playhead_atom, selection_actor_atom
 from xstudio.core import convert_to_timeline_atom, convert_to_subset_atom, convert_to_contact_sheet_atom
-from xstudio.core import reflag_container_atom
+from xstudio.core import reflag_container_atom, expanded_atom, session_atom, copy_media_atom
 from xstudio.core import FrameList, FrameRate, MediaType
 from xstudio.core import get_json_atom, set_json_atom, JsonStore
 
@@ -70,7 +70,7 @@ class Playlist(Container):
             result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse, Uuid())[0]
         else:
             result = self.connection.request_receive(self.remote, add_media_atom(), path, recurse, media_rate, Uuid())[0]
-            
+
         return [Media(self.connection, i.actor, i.uuid) for i in result]
 
     def add_media_with_audio(self, image_path, audio_path, audio_offset=0):
@@ -461,6 +461,56 @@ class Playlist(Container):
 
         return self.connection.request_receive(self.remote, move_media_atom(), media, before)[0]
 
+    def copy_media(self, media, before=Uuid()):
+        """Copy media into playlist.
+
+        Args:
+            media(Media/Uuid): Media to copy.
+
+        Kwargs:
+            before(Uuid): Insert before this item.
+
+        Returns:
+            success(UuidList): Returns result.
+        """
+
+        # get session actor..
+        #
+        if isinstance(before, Media):
+            before = before.uuid
+
+        media_list = UuidVec()
+
+        if isinstance(media, Media):
+            media_list.push_back(media.uuid)
+
+        if isinstance(media, Uuid):
+            media_list.push_back(media)
+
+        if isinstance(media, list):
+            for m in media:
+                if isinstance(m, Media):
+                    media_list.push_back(m.uuid)
+                else:
+                    media_list.push_back(m)
+
+        session = self.connection.request_receive(self.remote, session_atom())[0]
+
+        uuids = self.connection.request_receive(session, copy_media_atom(), self.uuid, media_list, True, before, False)[0]
+
+        current_media = self.media
+        new_media = []
+
+        for u in uuids:
+            print(u)
+            for m in current_media:
+                if m.uuid == u:
+                    new_media.append(m)
+                    break
+
+
+        return new_media
+
     def convert_to_subset(self, src, name="Converted", before=Uuid()):
         """Convert src to Subset.
 
@@ -575,5 +625,30 @@ class Playlist(Container):
         """
 
         return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(data), path)[0]
+
+    @property
+    def expanded(self):
+        """Expanded.
+
+        Returns:
+            expanded(bool): Playlist expanded state (whether it's subsets, timelines are visible
+            in the playlists panel)
+        """
+
+        return self.connection.request_receive(self.remote, expanded_atom())[0]
+
+    @expanded.setter
+    def expanded(self, is_expanded):
+        """Set playlist expanded state
+
+        Args:
+            is_expanded(bool): Expanded state
+
+        Returns:
+            None
+
+        """
+        self.connection.request_receive(self.remote, expanded_atom(), is_expanded)
+
 
 from xstudio.api.auxiliary.otio import import_timeline_from_file

@@ -71,7 +71,6 @@ namespace utility {
             return it;
         }
 
-
         void splice(typename TreeList<T>::const_iterator pos, TreeList<T> &other) {
             TreeList<T>::splice(pos, other);
             reparent();
@@ -135,6 +134,7 @@ namespace utility {
             return result;
         }
 
+        template <class C> void do_sort(C compare) { TreeList<T>::sort(compare); }
 
       protected:
         void reparent() {
@@ -219,8 +219,8 @@ namespace utility {
         return result;
     }
 
-    inline nlohmann::json
-    tree_to_json(const JsonTree &node, const std::string &childname, const int depth = -1) {
+    inline nlohmann::json tree_to_json(
+        const JsonTree &node, const std::string &childname = "children", const int depth = -1) {
         // unroll..
         auto jsn = node.data();
 

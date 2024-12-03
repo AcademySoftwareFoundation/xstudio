@@ -1,0 +1,36 @@
+<RCC>
+    <qresource prefix="/shotbrowser_icons">
+		<file alias="keyboard_return.svg">icons/keyboard_return.svg</file>
+	    <file alias="account_tree.svg">icons/account_tree.svg</file>
+	    <file alias="arrow_right.svg">icons/arrow_right.svg</file>
+	    <file alias="attach_file.svg">icons/attach_file.svg</file>
+	    <file alias="bookmark_heart.svg">icons/bookmark_heart.svg</file>
+	    <file alias="calendar_month.svg">icons/calendar_month.svg</file>
+	    <file alias="cloud.svg">icons/cloud.svg</file>
+	    <file alias="drag_indicator.svg">icons/drag_indicator.svg</file>
+	    <file alias="edit.svg">icons/edit.svg</file>
+	    <file alias="equal.svg">icons/equal.svg</file>
+	    <file alias="exclamation.svg">icons/exclamation.svg</file>
+	    <file alias="favorite.svg">icons/favorite.svg</file>
+	    <file alias="globe.svg">icons/globe.svg</file>
+	    <file alias="heart_plus.svg">icons/heart_plus.svg</file>
+	    <file alias="key.svg">icons/key.svg</file>
+	    <file alias="left_panel_open.svg">icons/left_panel_open.svg</file>
+	    <file alias="lock.svg">icons/lock.svg</file>
+	    <file alias="lock_open.svg">icons/lock_open.svg</file>
+	    <file alias="manage_accounts.svg">icons/manage_accounts.svg</file>
+	    <file alias="nature.svg">icons/nature.svg</file>
+	    <file alias="park.svg">icons/park.svg</file>
+	    <file alias="right_panel_open.svg">icons/right_panel_open.svg</file>
+	    <file alias="schedule.svg">icons/schedule.svg</file>
+	    <file alias="segment.svg">icons/segment.svg</file>
+	    <file alias="settings.svg">icons/settings.svg</file>
+	    <file alias="tree_plus.svg">icons/tree_plus.svg</file>
+	    <file alias="unfold_more.svg">icons/unfold_more.svg</file>
+	    <file alias="up_arrow.svg">icons/up_arrow.svg</file>
+        <file alias="note_history.svg">icons/note_history.svg</file>
+        <file alias="shot_history.svg">icons/shot_history.svg</file>
+        <file alias="shot_grid.svg">icons/shot_grid.svg</file>
+        <file alias="shotgun.png">icons/shotgun.png</file>
+	</qresource>
+</RCC>

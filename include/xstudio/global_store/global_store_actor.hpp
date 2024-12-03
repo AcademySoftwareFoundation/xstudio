@@ -29,8 +29,11 @@ namespace global_store {
             std::string reg_value = global_store_registry);
         void on_exit() override;
         const char *name() const override { return NAME.c_str(); }
+        caf::message_handler message_handler();
 
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
 
       private:
         inline static const std::string NAME = "GlobalStoreActor";
@@ -38,8 +41,8 @@ namespace global_store {
 
       private:
         const std::string reg_value_;
-        caf::behavior behavior_;
         GlobalStore base_;
+        caf::actor jsonactor_;
     };
 } // namespace global_store
 } // namespace xstudio

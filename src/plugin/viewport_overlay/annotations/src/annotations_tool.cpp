@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include <filesystem>
+
 #include "xstudio/plugin_manager/plugin_base.hpp"
-#include "xstudio/media_reader/image_buffer.hpp"
+#include "xstudio/media_reader/image_buffer_set.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/utility/blind_data.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -16,6 +18,8 @@ using namespace xstudio;
 using namespace xstudio::bookmark;
 using namespace xstudio::ui::canvas;
 using namespace xstudio::ui::viewport;
+
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -47,41 +51,13 @@ AnnotationsTool::AnnotationsTool(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : plugin::StandardPlugin(cfg, fmt::format("AnnotationsTool{}", __a_idx++), init_settings) {
 
-    module::QmlCodeAttribute *button = add_qml_code_attribute(
-        "MyCode",
-        R"(
-import AnnotationsTool 1.0
-AnnotationsButton {
-    anchors.fill: parent
-}
-)");
-
-    // TODO: remove the use of viewport index - this became obsolete when the
-    // design was changes so there's only one instance of the plugin.
-    int viewport_index = 0;
-
-    const std::string media_buttons_group =
-        viewport_index ? fmt::format("media_tools_buttons_{}", viewport_index)
-                       : "media_tools_buttons";
-    const std::string fonts_group = fmt::format("annotations_tool_fonts_{}", viewport_index);
-    const std::string tools_group = fmt::format("annotations_tool_settings_{}", viewport_index);
-    const std::string scribble_mode_group =
-        fmt::format("anno_scribble_mode_backend_{}", viewport_index);
-    const std::string tool_types_group =
-        fmt::format("annotations_tool_types_{}", viewport_index);
-    const std::string draw_mode_group =
-        fmt::format("annotations_tool_draw_mode_{}", viewport_index);
-
-    button->expose_in_ui_attrs_group(media_buttons_group);
-    button->set_role_data(module::Attribute::ToolbarPosition, 1000.0);
-
     const auto &fonts_ = Fonts::available_fonts();
     font_choice_       = add_string_choice_attribute(
         "font_choices",
         "font_choices",
         fonts_.size() ? fonts_.begin()->first : std::string(""),
         utility::map_key_to_vec(fonts_));
-    font_choice_->expose_in_ui_attrs_group(fonts_group);
+    font_choice_->expose_in_ui_attrs_group("annotations_tool_fonts");
 
     draw_pen_size_ = add_integer_attribute("Draw Pen Size", "Draw Pen Size", 10, 1, 300);
 
@@ -104,14 +80,14 @@ AnnotationsButton {
     text_bgr_opacity_ = add_integer_attribute(
         "Text Background Opacity", "Text Background Opacity", 100, 0, 100);
 
-    draw_pen_size_->expose_in_ui_attrs_group(tools_group);
-    shapes_pen_size_->expose_in_ui_attrs_group(tools_group);
-    erase_pen_size_->expose_in_ui_attrs_group(tools_group);
-    pen_colour_->expose_in_ui_attrs_group(tools_group);
-    pen_opacity_->expose_in_ui_attrs_group(tools_group);
-    text_size_->expose_in_ui_attrs_group(tools_group);
-    text_bgr_colour_->expose_in_ui_attrs_group(tools_group);
-    text_bgr_opacity_->expose_in_ui_attrs_group(tools_group);
+    draw_pen_size_->expose_in_ui_attrs_group("annotations_tool_settings");
+    shapes_pen_size_->expose_in_ui_attrs_group("annotations_tool_settings");
+    erase_pen_size_->expose_in_ui_attrs_group("annotations_tool_settings");
+    pen_colour_->expose_in_ui_attrs_group("annotations_tool_settings");
+    pen_opacity_->expose_in_ui_attrs_group("annotations_tool_settings");
+    text_size_->expose_in_ui_attrs_group("annotations_tool_settings");
+    text_bgr_colour_->expose_in_ui_attrs_group("annotations_tool_settings");
+    text_bgr_opacity_->expose_in_ui_attrs_group("annotations_tool_settings");
 
     draw_pen_size_->set_preference_path("/plugin/annotations/draw_pen_size");
     shapes_pen_size_->set_preference_path("/plugin/annotations/shapes_pen_size");
@@ -129,45 +105,19 @@ AnnotationsButton {
 
 
     active_tool_ = add_string_choice_attribute(
-        "Active Tool",
-        "Active Tool",
-        utility::map_value_to_vec(tool_names_).front(),
-        utility::map_value_to_vec(tool_names_));
-
-    active_tool_->expose_in_ui_attrs_group(tools_group);
-    active_tool_->expose_in_ui_attrs_group(tool_types_group);
-
-    shape_tool_ = add_integer_attribute("Shape Tool", "Shape Tool", 0, 0, 2);
-    shape_tool_->expose_in_ui_attrs_group(tools_group);
-    shape_tool_->set_preference_path("/plugin/annotations/shape_tool");
-
-    draw_mode_ = add_string_choice_attribute(
-        "Draw Mode",
-        "Draw Mode",
-        utility::map_value_to_vec(draw_mode_names_).front(),
-        utility::map_value_to_vec(draw_mode_names_));
-    draw_mode_->expose_in_ui_attrs_group(scribble_mode_group);
-    draw_mode_->set_preference_path("/plugin/annotations/draw_mode");
-    draw_mode_->set_role_data(
-        module::Attribute::StringChoicesEnabled, std::vector<bool>({true, true, false}));
-
-    tool_is_active_ =
-        add_boolean_attribute("annotations_tool_active", "annotations_tool_active", false);
-
-    tool_is_active_->expose_in_ui_attrs_group(tools_group);
-    tool_is_active_->set_role_data(
-        module::Attribute::MenuPaths,
-        std::vector<std::string>({"panels_main_menu_items|Draw Tools"}));
+        "Active Tool", "Active Tool", "None", utility::map_value_to_vec(tool_names_));
+    active_tool_->expose_in_ui_attrs_group("annotations_tool_settings");
+    active_tool_->expose_in_ui_attrs_group("annotations_tool_types");
 
     action_attribute_ = add_string_attribute("action_attribute", "action_attribute", "");
-    action_attribute_->expose_in_ui_attrs_group(tools_group);
+    action_attribute_->expose_in_ui_attrs_group("annotations_tool_settings");
 
     display_mode_attribute_ = add_string_choice_attribute(
         "Display Mode",
         "Disp. Mode",
         "With Drawing Tools",
         {"Only When Paused", "Always", "With Drawing Tools"});
-    display_mode_attribute_->expose_in_ui_attrs_group(draw_mode_group);
+    display_mode_attribute_->expose_in_ui_attrs_group("annotations_tool_draw_mode");
     display_mode_attribute_->set_preference_path("/plugin/annotations/display_mode");
 
     // this attr is used to implement the blinking cursor for caption edit mode
@@ -176,13 +126,64 @@ AnnotationsButton {
 
     moving_scaling_text_attr_ =
         add_integer_attribute("moving_scaling_text", "moving_scaling_text", 0);
-    moving_scaling_text_attr_->expose_in_ui_attrs_group(tools_group);
+    moving_scaling_text_attr_->expose_in_ui_attrs_group("annotations_tool_settings");
 
     // setting the active tool to -1 disables drawing via 'attribute_changed'
     attribute_changed(active_tool_->uuid(), module::Attribute::Value);
 
     make_behavior();
+    connect_to_ui();
+
     listen_to_playhead_events(true);
+
+    // here's the code for the 'reskin' UI (xSTUDIO v2) where we declare the
+    // drawing tools panel creation code.
+
+    register_ui_panel_qml(
+        "Drawing Tools",
+        R"(
+            import AnnotationsTool 2.0
+            import QtGraphicalEffects 1.15
+            import QtQuick 2.15
+            Rectangle {
+                anchors.fill: parent
+                XsDrawingTools {
+                    anchors.top: parent.top
+                    anchors.topMargin: 20
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 140
+                }
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#5C5C5C" }
+                    GradientStop { position: 1.0; color: "#474747" }
+                }
+            }
+        )",
+        7.0f);
+
+    dockable_widget_attr_ = register_viewport_dockable_widget(
+        "Annotate",
+        "qrc:/icons/stylus_note.svg",   // icon for the button to activate the tool
+        "Show/Hide Annotation Toolbox", // tooltip for the button,
+        3.0f,                           // button position in the buttons bar
+        true,
+        // qml code to create the left/right dockable widget
+        R"(
+            import AnnotationsTool 2.0
+            import QtQuick 2.15
+            XsDrawingToolsLR {
+            }
+            )",
+        // qml code to create the top/bottom dockable widget (left empty here as we don't have
+        // one)
+        R"(
+            import AnnotationsTool 2.0
+            import QtQuick 2.15
+            XsDrawingToolsTB {
+            }
+            )",
+        toggle_active_hotkey_);
 }
 
 AnnotationsTool::~AnnotationsTool() {}
@@ -203,7 +204,7 @@ caf::message_handler AnnotationsTool::message_handler_extensions() {
             // note Annotation::fade_all_strokes() returns false when all strokes have vanished
             if (is_laser_mode() &&
                 interaction_canvas_.fade_all_strokes(pen_opacity_->value() / 100.f)) {
-                delayed_anon_send(this, std::chrono::milliseconds(25), utility::event_atom_v);
+                delayed_anon_send(this, std::chrono::milliseconds(100), utility::event_atom_v);
             } else {
                 fade_looping_ = false;
             }
@@ -211,39 +212,29 @@ caf::message_handler AnnotationsTool::message_handler_extensions() {
         });
 }
 
-void AnnotationsTool::attribute_changed(
-    const utility::Uuid &attribute_uuid, const int /*role*/) {
+void AnnotationsTool::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
 
     const std::string active_tool = active_tool_->value();
 
-    if (attribute_uuid == tool_is_active_->uuid()) {
+    if (attribute_uuid == active_tool_->uuid()) {
 
-        if (tool_is_active_->value()) {
-            if (active_tool == "None")
-                active_tool_->set_value("Draw");
-            grab_mouse_focus();
-        } else {
+        if (active_tool == "None") {
             release_mouse_focus();
             release_keyboard_focus();
             end_drawing();
             clear_caption_handle();
-        }
+            set_viewport_cursor("");
 
-    } else if (attribute_uuid == active_tool_->uuid()) {
-
-        if (tool_is_active_->value()) {
-
-            if (active_tool == "None") {
-                release_mouse_focus();
-            } else {
-                grab_mouse_focus();
-            }
-
-            if (active_tool == "Text") {
-            } else {
+        } else {
+            last_tool_ = active_tool;
+            grab_mouse_focus();
+            if (active_tool != "Text") {
+                set_viewport_cursor("Qt.CrossCursor");
                 end_drawing();
                 release_keyboard_focus();
                 clear_caption_handle();
+            } else {
+                set_viewport_cursor("Qt.IBeamCursor");
             }
         }
 
@@ -326,9 +317,9 @@ void AnnotationsTool::attribute_changed(
         }
     }
 
-    if (attribute_uuid == active_tool_->uuid() || attribute_uuid == draw_mode_->uuid()) {
+    if (attribute_uuid == active_tool_->uuid()) {
 
-        if (active_tool_->value() == "Draw" && draw_mode_->value() == "Laser") {
+        if (active_tool_->value() == "Laser") {
 
             // switching INTO laser draw mode ... save any annotation to the
             // bookmark if required
@@ -357,37 +348,57 @@ void AnnotationsTool::register_hotkeys() {
         int('D'),
         ui::NoModifier,
         "Toggle Annotations Tool",
-        "Show or hide the annotations toolbox. You can start drawing annotations immediately "
-        "whenever the toolbox is visible.");
+        "Show or hide the Annotate toolbox. You can start drawing annotations immediately "
+        "whenever the toolbox is visible.",
+        false,
+        "Drawing Tools");
 
     undo_hotkey_ = register_hotkey(
         int('Z'),
         ui::ControlModifier,
         "Undo (Annotation edit)",
-        "Undoes your last edits to an annotation");
+        "Undoes your last edits to an annotation",
+        false,
+        "Drawing Tools");
 
     redo_hotkey_ = register_hotkey(
         int('Z'),
         ui::ControlModifier | ui::ShiftModifier,
         "Redo (Annotation edit)",
-        "Redoes your last undone edit on an annotation");
+        "Redoes your last undone edit on an annotation",
+        false,
+        "Drawing Tools");
+
+    clear_hotkey_ = register_hotkey(
+        int('X'),
+        ui::ShiftModifier,
+        "Clear all strokes",
+        "Clears the entire current drawing. If there is no text in the assicated note it will "
+        "also be removed.",
+        false,
+        "Drawing Tools");
 }
 
 void AnnotationsTool::hotkey_pressed(
-    const utility::Uuid &hotkey_uuid, const std::string & /*context*/) {
+    const utility::Uuid &hotkey_uuid,
+    const std::string & /*context*/,
+    const std::string & /*window*/) {
     if (hotkey_uuid == toggle_active_hotkey_) {
 
-        tool_is_active_->set_value(!tool_is_active_->value());
+        // tool_is_active_->set_value(!tool_is_active_->value());
 
-    } else if (hotkey_uuid == undo_hotkey_ && tool_is_active_->value()) {
+    } else if (hotkey_uuid == undo_hotkey_ && active_tool_->value() != "None") {
 
         undo();
         redraw_viewport();
 
-    } else if (hotkey_uuid == redo_hotkey_ && tool_is_active_->value()) {
+    } else if (hotkey_uuid == redo_hotkey_ && active_tool_->value() != "None") {
 
         redo();
         redraw_viewport();
+    } else if (hotkey_uuid == clear_hotkey_ && active_tool_->value() != "None") {
+
+        clear_onscreen_annotations();
     }
 }
 
@@ -396,51 +407,54 @@ void AnnotationsTool::hotkey_released(
 
 bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
 
-    if (!tool_is_active_->value())
+    if (active_tool_->value() == "None")
         return false;
 
     bool redraw = true;
 
     const Imath::V2f pointer_pos = e.position_in_viewport_coord_sys();
 
-    if (active_tool_->value() == "Draw" || active_tool_->value() == "Erase") {
+    if (active_tool_->value() == "Draw" || active_tool_->value() == "Erase" ||
+        is_laser_mode()) {
         if (e.type() == ui::Signature::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
-            start_editing(e.context());
-            start_stroke(pointer_pos);
+            start_editing(e.context(), pointer_pos);
+            start_stroke(image_transformed_ptr_pos(pointer_pos));
         } else if (
             e.type() == ui::Signature::EventType::Drag &&
             e.buttons() == ui::Signature::Button::Left) {
-            update_stroke(pointer_pos);
+            update_stroke(image_transformed_ptr_pos(pointer_pos));
         } else if (e.type() == ui::Signature::EventType::ButtonRelease) {
             end_drawing();
         }
-    } else if (active_tool_->value() == "Shapes") {
+    } else if (
+        active_tool_->value() == "Square" || active_tool_->value() == "Circle" ||
+        active_tool_->value() == "Arrow" || active_tool_->value() == "Line") {
         if (e.type() == ui::Signature::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
-            start_editing(e.context());
-            start_shape(pointer_pos);
+            start_editing(e.context(), pointer_pos);
+            start_shape(image_transformed_ptr_pos(pointer_pos));
         } else if (
             e.type() == ui::Signature::EventType::Drag &&
             e.buttons() == ui::Signature::Button::Left) {
-            update_shape(pointer_pos);
+            update_shape(image_transformed_ptr_pos(pointer_pos));
         } else if (e.type() == ui::Signature::EventType::ButtonRelease) {
             end_drawing();
         }
     } else if (active_tool_->value() == "Text") {
         if (e.type() == ui::Signature::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
-            start_editing(e.context());
-            start_or_edit_caption(pointer_pos, e.viewport_pixel_scale());
+            start_editing(e.context(), pointer_pos);
+            start_or_edit_caption(image_transformed_ptr_pos(pointer_pos), e.viewport_pixel_scale());
             grab_mouse_focus();
         } else if (
             e.type() == ui::Signature::EventType::Drag &&
             e.buttons() == ui::Signature::Button::Left) {
-            start_editing(e.context());
-            update_caption_action(pointer_pos);
+            start_editing(e.context(), pointer_pos);
+            update_caption_action(image_transformed_ptr_pos(pointer_pos));
             update_caption_handle();
         } else if (e.buttons() == ui::Signature::Button::None) {
-            redraw = update_caption_hovered(pointer_pos, e.viewport_pixel_scale());
+            redraw = update_caption_hovered(image_transformed_ptr_pos(pointer_pos), e.viewport_pixel_scale());
         }
     } else {
         redraw = false;
@@ -450,6 +464,15 @@ bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
         redraw_viewport();
 
     return false;
+}
+
+Imath::V2f AnnotationsTool::image_transformed_ptr_pos(const Imath::V2f &p) const {
+    if (image_being_annotated_) {
+        Imath::V4f pt(p.x, p.y, 0.0f, 1.0f);
+        pt *= image_being_annotated_.layout_transform().inverse();
+        return Imath::V2f(pt.x/pt.w, pt.y/pt.w);
+    }
+    return p;
 }
 
 void AnnotationsTool::text_entered(const std::string &text, const std::string &context) {
@@ -489,33 +512,34 @@ utility::BlindDataObjectPtr AnnotationsTool::onscreen_render_data(
     // and don't pass in pointers to member data of AnnotationsTool - with the
     // exception of the Canvas class which has been made thread safe)
 
-    if (!((display_mode_ == Always) ||
-          (display_mode_ == WithDrawTool && tool_is_active_->value()) ||
-          (display_mode_ == OnlyWhenPaused && !playhead_is_playing_))) {
-        // don't draw annotations, return empty data
-        return utility::BlindDataObjectPtr();
+    if (viewport_name != "snapshot_viewport") {
+        // snapshot viewport must always draw annotations
+        if (!((display_mode_ == Always) ||
+              (display_mode_ == WithDrawTool && active_tool_->value() != "None") ||
+              (display_mode_ == OnlyWhenPaused && !playhead_is_playing_))) {
+            // don't draw annotations, return empty data
+            return utility::BlindDataObjectPtr();
+        }
     }
 
-    std::string onscreen_interaction_frame;
-    auto p = viewport_current_images_.find(current_interaction_viewport_name_);
-    if (p != viewport_current_images_.end() && p->second.size()) {
-        onscreen_interaction_frame = to_string(p->second.front().frame_id().key_);
+    if (image_being_annotated_ == image) {
+        // As noted elsewhere, interaction_canvas_ (class = Canvas) is read/write
+        // thread safe so we take a reference to it ready for render time.
+        auto immediate_render_data = new AnnotationRenderDataSet(
+            interaction_canvas_, // note a reference is taken here
+            current_bookmark_uuid_,
+            handle_state_,
+            image_being_annotated_ ? to_string(image_being_annotated_->media_key()) : "");
+
+        return utility::BlindDataObjectPtr(
+            static_cast<utility::BlindDataObject *>(immediate_render_data));
     }
-
-    // As noted elsewhere, interaction_canvas_ (class = Canvas) is read/write
-    // thread safe so we take a reference to it ready for render time.
-    auto immediate_render_data = new AnnotationRenderDataSet(
-        interaction_canvas_, // note a reference is taken here
-        current_bookmark_uuid_,
-        handle_state_,
-        onscreen_interaction_frame);
-
-    return utility::BlindDataObjectPtr(
-        static_cast<utility::BlindDataObject *>(immediate_render_data));
+    return utility::BlindDataObjectPtr();
+        
 }
 
 void AnnotationsTool::images_going_on_screen(
-    const std::vector<media_reader::ImageBufPtr> &images,
+    const media_reader::ImageBufDisplaySetPtr &images,
     const std::string viewport_name,
     const bool playhead_playing) {
 
@@ -535,22 +559,31 @@ void AnnotationsTool::images_going_on_screen(
     if (!playhead_playing)
         viewport_current_images_[viewport_name] = images;
     else
-        viewport_current_images_[viewport_name].clear();
+        viewport_current_images_[viewport_name].reset();
 
     if (!interaction_canvas_.empty() && !current_bookmark_uuid_.is_null() &&
         current_interaction_viewport_name_ == viewport_name) {
 
         bool edited_anno_is_onscreen = false;
-        // looks like we are editing an annotation. Is the annotation
-        for (auto &image : images) {
-            for (auto &bookmark : image.bookmarks()) {
+        // looks like we are editing an annotation. Is the annotation still on
+        // screen (i.e. has the user scrubbed away from it)
+        if (images && images->layout_data()) {
+            const auto & im_idx = images->layout_data()->image_draw_order_hint_;
+            for (auto &idx: im_idx) {
+                // loop over onscreen images. Check if the current bookmark is
+                // visible on any of them.
+                const auto & cim = images->onscreen_image(idx);
+                for (auto &bookmark : cim.bookmarks()) {
 
-                auto anno = dynamic_cast<Annotation *>(bookmark->annotation_.get());
-                if (bookmark->detail_.uuid_ == current_bookmark_uuid_) {
-                    edited_anno_is_onscreen = true;
+                    auto anno = dynamic_cast<Annotation *>(bookmark->annotation_.get());
+                    if (bookmark->detail_.uuid_ == current_bookmark_uuid_) {
+                        edited_anno_is_onscreen = true;
+                        break;
+                    }
                 }
             }
         }
+
         if (!edited_anno_is_onscreen) {
             // the annotation that we were editing is no longer on-screen. The
             // user must have scrubbed away from it in the timeline. Thus we
@@ -566,8 +599,7 @@ void AnnotationsTool::images_going_on_screen(
     }
 }
 
-plugin::ViewportOverlayRendererPtr
-AnnotationsTool::make_overlay_renderer(const int /*viewer_index*/) {
+plugin::ViewportOverlayRendererPtr AnnotationsTool::make_overlay_renderer() {
     return plugin::ViewportOverlayRendererPtr(new AnnotationsRenderer());
 }
 
@@ -576,14 +608,85 @@ AnnotationBasePtr AnnotationsTool::build_annotation(const utility::JsonStore &an
         static_cast<bookmark::AnnotationBase *>(new Annotation(anno_data)));
 }
 
-bool AnnotationsTool::is_laser_mode() const {
-    return active_tool_->value() == "Draw" && draw_mode_->value() == "Laser";
+bool AnnotationsTool::is_laser_mode() const { return active_tool_->value() == "Laser"; }
+
+void AnnotationsTool::viewport_dockable_widget_activated(std::string &widget_name) {
+
+    if (widget_name == "Annotate") {
+        active_tool_->set_value(last_tool_);
+    }
 }
 
-void AnnotationsTool::start_editing(const std::string &viewport_name) {
+void AnnotationsTool::viewport_dockable_widget_deactivated(std::string &widget_name) {
+
+    if (widget_name == "Annotate") {
+        active_tool_->set_value("None");
+    }
+}
+
+void AnnotationsTool::turn_off_overlay_interaction() { active_tool_->set_value("None"); }
+
+void AnnotationsTool::start_editing(const std::string &viewport_name, const Imath::V2f &pointer_position) {
+
+    // ensure playback is stopped
+    start_stop_playback(viewport_name, false);
 
     if (is_laser_mode())
         return;
+
+
+    // if the viewport is in grid mode, with multiple images laid out, which one
+    // was clicked in ?
+    auto before = image_being_annotated_;
+    media_reader::ImageBufPtr new_image_to_annotate;
+    auto p = viewport_current_images_.find(viewport_name);
+    if (p != viewport_current_images_.end() && p->second) {
+
+        // first, check if pointer_position lands on one of the images in
+        // the viewport
+        bool curr_im_is_onscreen = false;
+        const media_reader::ImageBufDisplaySetPtr &onscreen_image_set = p->second;
+        const auto & im_idx = onscreen_image_set->layout_data()->image_draw_order_hint_;
+        for (auto &idx: im_idx) {
+            // loop over onscreen images. translate pointer position to image
+            // space coords
+            const auto & cim = onscreen_image_set->onscreen_image(idx);
+
+            if (cim) {
+
+                Imath::V4f pt(pointer_position.x, pointer_position.y, 0.0f, 1.0f);
+                pt *= cim.layout_transform().inverse();
+
+                // does the pointer land on the image?
+                float a = 1.0f/cim->image_aspect();
+                if (pt.x/pt.w >= -1.0f && pt.x/pt.w <= 1.0f && 
+                    pt.y/pt.w >= -a && pt.y/pt.w <= a) {
+                    new_image_to_annotate = cim;
+                }
+                // check if image_being_annotated_ (from last time we entered this
+                // method) is in the onscreen set
+                if (image_being_annotated_ == cim) curr_im_is_onscreen = true;
+            }
+
+        }
+
+        if (new_image_to_annotate) {
+            image_being_annotated_ = new_image_to_annotate;
+        } else if (!curr_im_is_onscreen) {
+            image_being_annotated_ = onscreen_image_set->hero_image();
+        } else {
+            // image_being_annotated_ is unchanged, as it belongs in the
+            // onscreen iamge set but we just haven't clicked inside any
+            // other images
+        }
+    } else {
+        image_being_annotated_ = media_reader::ImageBufPtr();
+    }
+
+    if (image_being_annotated_ != before) {
+        // looks like we are starting a new annotation
+        current_bookmark_uuid_ = utility::Uuid();
+    }
 
     if (!current_bookmark_uuid_.is_null() &&
         current_interaction_viewport_name_ == viewport_name) {
@@ -595,25 +698,21 @@ void AnnotationsTool::start_editing(const std::string &viewport_name) {
     Annotation *to_edit    = nullptr;
     current_bookmark_uuid_ = utility::Uuid();
     utility::Uuid first_bookmark_uuid;
-    auto p = viewport_current_images_.find(viewport_name);
-    if (p != viewport_current_images_.end()) {
-        for (auto &image : p->second) {
-            for (auto &bookmark : image.bookmarks()) {
+    if (image_being_annotated_) {
 
-                auto anno = dynamic_cast<Annotation *>(bookmark->annotation_.get());
-                if (anno) {
-                    to_edit                = anno;
-                    current_bookmark_uuid_ = bookmark->detail_.uuid_;
-                    break;
-                } else if (first_bookmark_uuid.is_null() && !bookmark->annotation_) {
-                    // note if bookmark->annotation_ is set then its annotation data
-                    // from some other plugin (like grading tool) so we only use
-                    // existing empty bookmark if there's not annotation data on it
-                    first_bookmark_uuid = bookmark->detail_.uuid_;
-                }
-            }
-            if (to_edit)
+        for (auto &bookmark : image_being_annotated_.bookmarks()) {
+
+            auto anno = dynamic_cast<Annotation *>(bookmark->annotation_.get());
+            if (anno) {
+                to_edit                = anno;
+                current_bookmark_uuid_ = bookmark->detail_.uuid_;
                 break;
+            } else if (first_bookmark_uuid.is_null() && !bookmark->annotation_) {
+                // note if bookmark->annotation_ is set then its annotation data
+                // from some other plugin (like grading tool) so we only use
+                // existing empty bookmark if there's not annotation data on it
+                first_bookmark_uuid = bookmark->detail_.uuid_;
+            }
         }
     }
 
@@ -633,15 +732,15 @@ void AnnotationsTool::start_editing(const std::string &viewport_name) {
 
 void AnnotationsTool::start_stroke(const Imath::V2f &point) {
 
-    if (active_tool_->value() == "Draw") {
+    if (active_tool_->value() == "Erase") {
+        interaction_canvas_.start_erase_stroke(
+            erase_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE);
+    } else {
         interaction_canvas_.start_stroke(
             pen_colour_->value(),
             draw_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             0.0f,
             pen_opacity_->value() / 100.0);
-    } else if (active_tool_->value() == "Erase") {
-        interaction_canvas_.start_erase_stroke(
-            erase_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE);
     }
 
     update_stroke(point);
@@ -656,28 +755,28 @@ void AnnotationsTool::start_shape(const Imath::V2f &p) {
 
     shape_anchor_ = p;
 
-    if (shape_tool_->value() == Square) {
+    if (active_tool_->value() == "Square") {
 
         interaction_canvas_.start_square(
             pen_colour_->value(),
             shapes_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_opacity_->value() / 100.0f);
 
-    } else if (shape_tool_->value() == Circle) {
+    } else if (active_tool_->value() == "Circle") {
 
         interaction_canvas_.start_circle(
             pen_colour_->value(),
             shapes_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_opacity_->value() / 100.0f);
 
-    } else if (shape_tool_->value() == Arrow) {
+    } else if (active_tool_->value() == "Arrow") {
 
         interaction_canvas_.start_arrow(
             pen_colour_->value(),
             shapes_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_opacity_->value() / 100.0f);
 
-    } else if (shape_tool_->value() == Line) {
+    } else if (active_tool_->value() == "Line") {
 
         interaction_canvas_.start_line(
             pen_colour_->value(),
@@ -690,20 +789,20 @@ void AnnotationsTool::start_shape(const Imath::V2f &p) {
 
 void AnnotationsTool::update_shape(const Imath::V2f &pointer_pos) {
 
-    if (shape_tool_->value() == Square) {
+    if (active_tool_->value() == "Square") {
 
         interaction_canvas_.update_square(shape_anchor_, pointer_pos);
 
-    } else if (shape_tool_->value() == Circle) {
+    } else if (active_tool_->value() == "Circle") {
 
         interaction_canvas_.update_circle(
             shape_anchor_, (shape_anchor_ - pointer_pos).length());
 
-    } else if (shape_tool_->value() == Arrow) {
+    } else if (active_tool_->value() == "Arrow") {
 
         interaction_canvas_.update_arrow(shape_anchor_, pointer_pos);
 
-    } else if (shape_tool_->value() == Line) {
+    } else if (active_tool_->value() == "Line") {
 
         interaction_canvas_.update_line(shape_anchor_, pointer_pos);
     }
@@ -847,7 +946,6 @@ void AnnotationsTool::end_drawing() {
         anon_send(caf::actor_cast<caf::actor>(this), utility::event_atom_v, true);
 
     } else {
-
         update_bookmark_annotation_data();
     }
 }
@@ -882,13 +980,22 @@ void AnnotationsTool::update_bookmark_annotation_data() {
         // there is no bookmark, meaning the user started annotating a frame
         // with no bookmark. Here the base class creates a new bookmark on the
         // current frame for us
-        current_bookmark_uuid_ = StandardPlugin::create_bookmark_on_current_media(
-            current_interaction_viewport_name_,
-            "Annotated Frame",
-            bookmark::BookmarkDetail(),
-            false);
+
+        std::string note_name = "Annotated Frame";
+        if (image_being_annotated_) {
+            const media::AVFrameID &id = image_being_annotated_.frame_id();
+            note_name = fs::path(utility::uri_to_posix_path(id.uri())).stem().string();
+            if (note_name.find(".") != std::string::npos) {
+                note_name = std::string(note_name, 0, note_name.find("."));
+            }
+            current_bookmark_uuid_ = StandardPlugin::create_bookmark_on_frame(
+                image_being_annotated_.frame_id(), note_name, bookmark::BookmarkDetail(), false);
+
+        }
+
         if (!current_bookmark_uuid_.is_null())
             update_bookmark_annotation_data();
+
     }
 }
 

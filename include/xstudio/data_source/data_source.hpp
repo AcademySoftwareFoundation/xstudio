@@ -92,11 +92,27 @@ namespace data_source {
                     return utility::JsonStore();
                 },
 
-                [=](data_source::use_data_atom,
+                [=](use_data_atom, const caf::uri &) -> utility::UuidActorVector {
+                    return utility::UuidActorVector();
+                },
+
+                [=](use_data_atom,
                     const caf::actor &media,
                     const utility::FrameRate &media_rate) -> result<utility::UuidActorVector> {
                     return utility::UuidActorVector();
                 },
+
+                [=](use_data_atom, const utility::JsonStore &js) -> result<utility::JsonStore> {
+                    try {
+                        return data_source_.use_data(js);
+                    } catch (const std::exception &err) {
+                        return make_error(xstudio_error::error, err.what());
+                    }
+                    return utility::JsonStore();
+                },
+
+                [=](use_data_atom, const utility::JsonStore &, const bool)
+                    -> result<utility::UuidActorVector> { return utility::UuidActorVector(); },
 
                 [=](put_data_atom, const utility::JsonStore &js) -> result<utility::JsonStore> {
                     try {
@@ -110,19 +126,6 @@ namespace data_source {
                     const utility::JsonStore &js) -> result<utility::JsonStore> {
                     try {
                         return data_source_.post_data(js);
-                    } catch (const std::exception &err) {
-                        return make_error(xstudio_error::error, err.what());
-                    }
-                    return utility::JsonStore();
-                },
-                [=](use_data_atom, const caf::uri &) -> utility::UuidActorVector {
-                    return utility::UuidActorVector();
-                },
-                [=](use_data_atom, const utility::JsonStore &, const bool)
-                    -> result<utility::UuidActorVector> { return utility::UuidActorVector(); },
-                [=](use_data_atom, const utility::JsonStore &js) -> result<utility::JsonStore> {
-                    try {
-                        return data_source_.use_data(js);
                     } catch (const std::exception &err) {
                         return make_error(xstudio_error::error, err.what());
                     }

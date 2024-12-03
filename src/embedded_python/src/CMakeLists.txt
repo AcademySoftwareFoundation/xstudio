@@ -1,12 +1,12 @@
-cmake_minimum_required(VERSION 3.12)
 project(embedded_python VERSION 0.1.0 LANGUAGES CXX)
 
+find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)  # or `add_subdirectory(pybind11)`
 find_package(spdlog CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Imath)
-#find_package(OpenTime REQUIRED)
-#find_package(OpenTimelineIO REQUIRED)
+
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
 
 set(SOURCES
 	embedded_python.cpp
@@ -17,13 +17,16 @@ add_library(${PROJECT_NAME} SHARED ${SOURCES})
 add_library(xstudio::embedded_python ALIAS ${PROJECT_NAME})
 default_options(${PROJECT_NAME})
 
-if(UNIX)
-target_compile_options(${PROJECT_NAME}
-	PRIVATE -fvisibility=hidden
-)
+if(NOT ${OTIO_SUBMODULE})
+	find_package(OpenTime REQUIRED)
+	find_package(OpenTimelineIO REQUIRED)
 endif()
 
-set_python_to_proper_build_type()
+if(UNIX)
+	target_compile_options(${PROJECT_NAME}
+		PRIVATE -fvisibility=hidden
+	)
+endif()
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
@@ -31,11 +34,15 @@ target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		Imath::Imath
 		xstudio::utility
-		xstudio::broadcast
-		pybind11::embed
-		#OTIO::opentime
-		#OTIO::opentimelineio
+		xstudio::global_store
+		xstudio::media
+		Python::Python
+		OTIO::opentime
+		OTIO::opentimelineio
 )
+	
+
+set_python_to_proper_build_type()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 

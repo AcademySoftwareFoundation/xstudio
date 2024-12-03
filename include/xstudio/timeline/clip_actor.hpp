@@ -21,6 +21,9 @@ namespace timeline {
             const utility::UuidActor &media,
             const std::string &name   = "ClipActor",
             const utility::Uuid &uuid = utility::Uuid::generate());
+        ClipActor(caf::actor_config &cfg, const Item &item);
+        ClipActor(caf::actor_config &cfg, const Item &item, Item &nitem);
+
         ~ClipActor() override = default;
 
         const char *name() const override { return NAME.c_str(); }
@@ -29,12 +32,16 @@ namespace timeline {
         inline static const std::string NAME = "ClipActor";
         void init();
 
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::message_handler message_handler();
+
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
+
+        void link_media(caf::typed_response_promise<bool> rp, const utility::UuidActor &media);
 
       private:
-        caf::behavior behavior_;
         Clip base_;
-        caf::actor event_group_;
         caf::actor_addr media_;
 
         std::map<int, std::shared_ptr<const media::AVFrameID>> audio_ptr_cache_;

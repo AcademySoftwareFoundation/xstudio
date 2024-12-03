@@ -62,15 +62,21 @@ void register_abs_class(py::module &m, const std::string &name) {
 }
 
 void register_uuid_class(py::module &m, const std::string &name) {
-    auto str_impl = [](const utility::Uuid &x) { return to_string(x); };
+    auto str_impl  = [](const utility::Uuid &x) { return to_string(x); };
+    auto hash_impl = [](const utility::Uuid &x) {
+        std::hash<utility::Uuid> h;
+        return h(x);
+    };
     py::class_<utility::Uuid>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const std::string &>())
         .def("generate", &utility::Uuid::generate)
         .def("generate_in_place", &utility::Uuid::generate_in_place)
+        .def("generate_from_name", &utility::Uuid::generate_in_place_from_name)
         .def("is_null", &utility::Uuid::is_null)
         .def(py::self == py::self)
         .def(py::self != py::self)
+        .def("__hash__", hash_impl)
         .def("__str__", str_impl);
 }
 
@@ -194,8 +200,10 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("set_rate", &utility::MediaReference::set_rate)
         .def(
             "uri",
-            py::overload_cast<>(&utility::MediaReference::uri, py::const_),
-            "URI of mediareference")
+            py::overload_cast<utility::MediaReference::FramePadFormat>(
+                &utility::MediaReference::uri, py::const_),
+            "URI of mediareference",
+            py::arg("fpf") = utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
 
         .def("uri_from_frame", &utility::MediaReference::uri_from_frame)
         .def("timecode", &utility::MediaReference::timecode)
@@ -220,6 +228,7 @@ void register_bookmark_detail_class(py::module &m, const std::string &name) {
         .def_readwrite("visible", &bookmark::BookmarkDetail::visible_)
         .def_readwrite("start", &bookmark::BookmarkDetail::start_)
         .def_readwrite("duration", &bookmark::BookmarkDetail::duration_)
+        //.def_readwrite("user_data", &bookmark::BookmarkDetail::user_data_)
         .def_readwrite("author", &bookmark::BookmarkDetail::author_)
         .def_readwrite("owner", &bookmark::BookmarkDetail::owner_)
         .def_readwrite("note", &bookmark::BookmarkDetail::note_)
@@ -239,7 +248,9 @@ void register_mediakey_class(py::module &m, const std::string &name) {
 }
 
 void register_jsonstore_class(py::module &m, const std::string &name) {
-    auto str_impl             = [](const utility::JsonStore &x) { return to_string(x); };
+    auto str_impl = [](const utility::JsonStore &x) -> std::string {
+        return x.dump();
+    };
     auto get_preferences_impl = [](const utility::JsonStore &x,
                                    const std::set<std::string> &context =
                                        std::set<std::string>()) {
@@ -323,7 +334,10 @@ void register_FrameRateDuration_class(py::module &m, const std::string &name) {
 
 void register_actor_class(py::module &m, const std::string &name) {
     auto str_impl = [](const caf::actor &x) { return to_string(x); };
-    py::class_<caf::actor>(m, name.c_str()).def(py::init()).def("__str__", str_impl);
+    py::class_<caf::actor>(m, name.c_str())
+        .def(py::init())
+        .def("__bool__", [](const caf::actor &x) { return bool(x); })
+        .def("__str__", str_impl);
 }
 
 void register_group_class(py::module &m, const std::string &name) {
@@ -408,11 +422,11 @@ void register_item_class(py::module &m, const std::string &name) {
         .def("uuid_actor", &timeline::Item::uuid_actor)
         .def("enabled", &timeline::Item::enabled)
         .def("transparent", &timeline::Item::transparent)
-
         .def("rate", &timeline::Item::rate)
         .def("name", &timeline::Item::name)
         .def("flag", &timeline::Item::flag)
         .def("prop", &timeline::Item::prop)
+        .def("locked", &timeline::Item::locked)
 
         .def("active_range", &timeline::Item::active_range)
         .def("active_duration", &timeline::Item::active_duration)
@@ -425,13 +439,25 @@ void register_item_class(py::module &m, const std::string &name) {
         .def("trimmed_range", &timeline::Item::trimmed_range)
         .def("trimmed_duration", &timeline::Item::trimmed_duration)
         .def("trimmed_start", &timeline::Item::trimmed_start)
-
+        .def(
+            "frame_at_index",
+            [](timeline::Item &v, const int frame) { return v.frame_at_index(frame); })
+        .def("range_at_index", &timeline::Item::range_at_index)
+        .def(
+            "item_at_frame",
+            [](timeline::Item &v, const int frame) {
+                auto tmp = v.item_at_frame(frame);
+                if (tmp)
+                    return std::optional<timeline::Item>(*(tmp->first));
+                return std::optional<timeline::Item>();
+            })
         .def(
             "resolve_time",
             &timeline::Item::resolve_time,
-            py::arg("time")       = utility::FrameRate(),
-            py::arg("media_type") = media::MediaType::MT_IMAGE,
-            py::arg("focus")      = utility::UuidSet())
+            py::arg("time")            = utility::FrameRate(),
+            py::arg("media_type")      = media::MediaType::MT_IMAGE,
+            py::arg("focus")           = utility::UuidSet(),
+            py::arg("must_have_focus") = false)
 
         .def("children", py::overload_cast<>(&timeline::Item::children), "Get children")
         .def("__len__", [](timeline::Item &v) { return v.size(); });

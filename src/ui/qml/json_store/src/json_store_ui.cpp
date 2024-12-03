@@ -63,9 +63,9 @@ void JsonStoreUI::subscribe(caf::actor actor) {
     scoped_actor sys{system()};
     sys->request(actor, infinite, utility::get_group_atom_v)
         .receive(
-            [&](const std::pair<caf::actor, utility::JsonStore> &data) {
-                const auto [grp, json] = data;
-                store_events           = grp;
+            [&](const std::tuple<caf::actor, caf::actor, utility::JsonStore> &data) {
+                const auto [js, grp, json] = data;
+                store_events               = grp;
 
                 scoped_actor sys{system()};
                 request_receive<bool>(
