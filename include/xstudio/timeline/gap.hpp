@@ -20,6 +20,7 @@ namespace timeline {
             const utility::Uuid &uuid                  = utility::Uuid::generate(),
             const caf::actor &actor                    = caf::actor());
         Gap(const utility::JsonStore &jsn);
+        Gap(const Item &item, const caf::actor &actor);
 
         ~Gap() override = default;
 

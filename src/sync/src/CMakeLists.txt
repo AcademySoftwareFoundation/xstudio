@@ -1,6 +1,7 @@
 SET(LINK_DEPS
 	xstudio::utility
 	xstudio::global_store
+	xstudio::media
 	caf::core
 	caf::io
 )

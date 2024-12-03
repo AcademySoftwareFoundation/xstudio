@@ -1,0 +1,19 @@
+{
+    "plugin": {
+        "conformer": {
+            "shotbrowser": {
+                "purge_sequence_on_import": {
+                    "context": [
+                        "APPLICATION"
+                    ],
+                    "datatype": "bool",
+                    "default_value": true,
+                    "description": "Purge additional tracks on import.",
+                    "path": "/plugin/conformer/shotbrowser/purge_sequence_on_import",
+                    "value": true,
+                    "category": "Pipeline"
+                }
+            }
+        }
+    }
+}

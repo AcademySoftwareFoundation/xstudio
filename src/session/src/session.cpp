@@ -18,10 +18,12 @@ Session::Session(const JsonStore &jsn, caf::uri filepath)
     : Container(static_cast<utility::JsonStore>(jsn["container"])),
       filepath_(std::move(filepath)) {
 
-    session_file_mtime_ = get_file_mtime(filepath_);
-    media_rate_         = jsn["media_rate"];
-    playhead_rate_      = jsn["playhead_rate"];
-    playlists_          = PlaylistTree(static_cast<utility::JsonStore>(jsn["playlists"]));
+    session_file_mtime_    = get_file_mtime(filepath_);
+    media_rate_            = jsn["media_rate"];
+    playhead_rate_         = jsn["playhead_rate"];
+    playlists_             = PlaylistTree(static_cast<utility::JsonStore>(jsn["playlists"]));
+    current_playlist_uuid_ = jsn.value("current_playlist_uuid", utility::Uuid());
+    viewed_playlist_uuid_  = jsn.value("viewed_playlist_uuid", utility::Uuid());
 }
 
 JsonStore Session::serialise() const {
@@ -32,7 +34,9 @@ JsonStore Session::serialise() const {
     jsn["playhead_rate"] = playhead_rate_;
 
     // identify actors that are media..
-    jsn["playlists"] = playlists_.serialise();
+    jsn["playlists"]             = playlists_.serialise();
+    jsn["current_playlist_uuid"] = current_playlist_uuid_;
+    jsn["viewed_playlist_uuid"]  = viewed_playlist_uuid_;
 
     return jsn;
 }

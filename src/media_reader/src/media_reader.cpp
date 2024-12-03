@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "xstudio/media_reader/media_reader.hpp"
+#include "xstudio/media_reader/image_buffer_set.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -45,78 +46,78 @@ namespace fs = std::filesystem;
  *  reader down while it waits for the cache to re-cycle image buffers, we are
  *  going to do it at a lower level within the ImageBuffer allocate method
  */
-class ImageBufferRecyclerCache {
-  public:
-    void store_unwanted_buffer(Buffer::BufferDataPtr &buf, const size_t size) {
+void ImageBufferRecyclerCache::store_unwanted_buffer(
+    Buffer::BufferDataPtr &buf, const size_t size) {
 
-        // uncomment this to turn the whole thing off
-        // return;
+    // uncomment this to turn the whole thing off
+    // return;
+    mutex_.lock();
+    while ((total_size_ + size) > max_size_) {
 
-        mutex_.lock();
-        while ((total_size_ + size) > max_size_) {
-
-            // simply delete oldest buffers - if user is playing through a timeline
-            // of mixed formats it's likely that the cache is deleting frames
-            // of a different size to the one that the readers are currently asking
-            // for. However, it's going to be quite complex to address that
-            // problem and we have to fallback on the OS memory managment coping
-            // with rapid allocation/deallocation ok. The general case is that
-            // the xStudio session is loaded with common format sources, though.
-            auto p = size_by_time_.begin();
-            if (p == size_by_time_.end())
-                break;
-            const size_t s = p->second;
-            if (!recycle_buffer_bin_[s].empty()) {
-                recycle_buffer_bin_[s].pop_back();
-                if (recycle_buffer_bin_[s].empty()) {
-                    recycle_buffer_bin_.erase(recycle_buffer_bin_.find(s));
-                }
-                total_size_ -= s;
+        // simply delete oldest buffers - if user is playing through a timeline
+        // of mixed formats it's likely that the cache is deleting frames
+        // of a different size to the one that the readers are currently asking
+        // for. However, it's going to be quite complex to address that
+        // problem and we have to fallback on the OS memory managment coping
+        // with rapid allocation/deallocation ok. The general case is that
+        // the xStudio session is loaded with common format sources, though.
+        auto p = size_by_time_.begin();
+        if (p == size_by_time_.end())
+            break;
+        const size_t s = p->second;
+        if (!recycle_buffer_bin_[s].empty()) {
+            recycle_buffer_bin_[s].pop_back();
+            if (recycle_buffer_bin_[s].empty()) {
+                recycle_buffer_bin_.erase(recycle_buffer_bin_.find(s));
             }
-            size_by_time_.erase(p);
+            total_size_ -= s;
         }
-        auto tp = utility::clock::now();
-        recycle_buffer_bin_[size].push_back(buf);
-        total_size_ += size;
-        size_by_time_[tp] = size;
-        mutex_.unlock();
+        size_by_time_.erase(p);
     }
+    auto tp = utility::clock::now();
+    recycle_buffer_bin_[size].push_back(buf);
+    total_size_ += size;
+    size_by_time_[tp] = size;
+    mutex_.unlock();
+}
 
-    Buffer::BufferDataPtr fetch_recycled_buffer(const size_t required_size) {
+Buffer::BufferDataPtr
+ImageBufferRecyclerCache::fetch_recycled_buffer(const size_t required_size) {
 
-        Buffer::BufferDataPtr r;
-        mutex_.lock();
-        auto p = recycle_buffer_bin_.find(required_size);
-        if (p != recycle_buffer_bin_.end() && !p->second.empty()) {
-            r = p->second.back();
-            p->second.pop_back();
-            if (p->second.empty())
-                recycle_buffer_bin_.erase(p);
-            total_size_ -= required_size;
+    Buffer::BufferDataPtr r;
+    mutex_.lock();
+    auto p = recycle_buffer_bin_.find(required_size);
+    if (p != recycle_buffer_bin_.end() && !p->second.empty()) {
+
+        auto q = size_by_time_.begin();
+        while (q != size_by_time_.end()) {
+            if (q->second == required_size) {
+                size_by_time_.erase(q);
+                break;
+            }
+            q++;
         }
-        mutex_.unlock();
 
-        return r;
+        r = p->second.back();
+        p->second.pop_back();
+        if (p->second.empty())
+            recycle_buffer_bin_.erase(p);
+        total_size_ -= required_size;
     }
+    mutex_.unlock();
 
-    size_t max_size_ = {
-        512 * 1024 *
-        1024}; // 0.5GB - probably doesn't need to be that big, and need to set this with a pref
-    size_t total_size_ = {0};
-    typedef std::vector<Buffer::BufferDataPtr> Buffers;
-    std::map<size_t, Buffers> recycle_buffer_bin_;
-    std::map<utility::time_point, size_t> size_by_time_;
-    std::mutex mutex_;
-};
+    return r;
+}
 
-static ImageBufferRecyclerCache s_buffer_recycler_;
+std::shared_ptr<ImageBufferRecyclerCache> Buffer::s_buf_cache =
+    std::make_shared<ImageBufferRecyclerCache>();
 
-Buffer::~Buffer() { s_buffer_recycler_.store_unwanted_buffer(buffer_, size_); }
+Buffer::~Buffer() { s_buf_cache->store_unwanted_buffer(buffer_, size_); }
 
 xstudio::media_reader::byte *Buffer::allocate(const size_t size) {
     if (size_ != size) {
 
-        buffer_ = s_buffer_recycler_.fetch_recycled_buffer(size);
+        buffer_ = s_buf_cache->fetch_recycled_buffer(size);
         if (!buffer_) {
             buffer_.reset(new BufferData(size));
         }
@@ -131,7 +132,7 @@ void Buffer::resize(const size_t size) {
     allocate(size);
     if (old_buffer) {
         memcpy(buffer(), old_buffer->data_.get(), std::min(old_size, size_));
-        s_buffer_recycler_.store_unwanted_buffer(old_buffer, old_size);
+        s_buf_cache->store_unwanted_buffer(old_buffer, old_size);
     }
 }
 
@@ -154,6 +155,30 @@ xstudio::media_reader::byte *ImageBuffer::allocate(const size_t _size) {
     return Buffer::allocate(padded_size);
 }
 
+void ImageBufDisplaySet::finalise() {
+    
+    utility::JsonStore image_info = nlohmann::json::parse("[]");
+    images_hash_ = 0;
+    for (int i = 0; i < num_onscreen_images(); ++i) {
+        const auto & im = onscreen_image(i);
+        nlohmann::json r;
+        if (im) {
+            r["image_size_in_pixels"] = im->image_size_in_pixels();
+            //r["image_pixels_bounding_box"] = im->image_pixels_bounding_box();
+            r["pixel_aspect"] = im->pixel_aspect();
+            images_hash_ += im.frame_id().key().hash();
+        }
+        image_info.push_back(r);
+    }
+
+    as_json_.clear();
+    as_json_["image_info"] = image_info;
+    as_json_["hero_image_index"] = hero_sub_playhead_index_;
+    as_json_["prev_hero_image_index"] = previous_hero_sub_playhead_index_;
+    hash_ = int64_t(std::hash<std::string>{}(as_json_.dump()));
+
+}
+
 MediaReader::MediaReader(std::string name, const utility::JsonStore &)
     : name_(std::move(name)) {}
 
@@ -165,7 +190,7 @@ AudioBufPtr MediaReader::audio(const media::AVFrameID &) { return AudioBufPtr();
 
 thumbnail::ThumbnailBufferPtr MediaReader::thumbnail(const media::AVFrameID &mp, const size_t) {
     throw std::runtime_error(
-        "Thumbnail generation not supported for this format. " + mp.reader_);
+        "Thumbnail generation not supported for this format. " + mp.reader());
     return thumbnail::ThumbnailBufferPtr();
 }
 

@@ -4,28 +4,34 @@
             "audio_latency_millisecs": {
                 "path": "/core/audio/audio_latency_millisecs",
                 "default_value": 0,
-                "description": "Adjustable latency to overcome fixed latency in the audio playback pipeline",
+                "description": "Adjustable latency to overcome fixed latency in the audio playback pipeline. If you find the audio is playling ahead of the video, try reducing this number (and vice versa).",
                 "value": 0,
                 "minimum": -1000,
                 "maximum": 1000,
                 "datatype": "int",
-                "context": ["APPLICATION"]
+                "context": ["APPLICATION"],
+                "category": "Audio",
+                "display_name": "Audio Delay / ms"
             },
             "audio_repitch": {
                 "path": "/core/audio/audio_repitch",
                 "default_value": false,
-                "description": "Adjustable latency to overcome fixed latency in the audio playback pipeline",
+                "description": "Audio will be re-pitched to match your playback 'velocity' if this is enabled.",
                 "value": false,
                 "datatype": "bool",
-                "context": ["APPLICATION"]
+                "context": ["APPLICATION"],
+                "category": "Audio",
+                "display_name": "Audio Re-pitch"
             },
             "audio_scrubbing": {
                 "path": "/core/audio/audio_scrubbing",
                 "default_value": false,
-                "description": "Sound audio when not playing but the user is scrubbing frames",
+                "description": "Enable this to hear audio when the playhead/timeline is being scrubbed.",
                 "value": false,
                 "datatype": "bool",
-                "context": ["APPLICATION"]
+                "context": ["APPLICATION"],
+                "category": "Audio",
+                "display_name": "Audio Scrubbing"
             },
 			"volume": {
 				"path": "/core/audio/volume",

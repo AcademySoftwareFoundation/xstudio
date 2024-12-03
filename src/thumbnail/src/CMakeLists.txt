@@ -2,6 +2,7 @@ SET(LINK_DEPS
 	caf::core
 	JPEG::JPEG
 	xstudio::global_store
+	xstudio::media
 )
 
 find_package(JPEG REQUIRED)

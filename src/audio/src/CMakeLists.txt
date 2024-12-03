@@ -30,6 +30,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC
         xstudio::utility
         xstudio::media_reader
+        xstudio::module
         caf::core
 )
 

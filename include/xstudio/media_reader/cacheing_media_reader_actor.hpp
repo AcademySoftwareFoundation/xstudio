@@ -30,8 +30,9 @@ namespace media_reader {
             ImmediateImageReqest(
                 const media::AVFrameID mptr,
                 caf::actor &playhead,
-                const utility::time_point &time)
-                : mptr_(mptr), playhead_(playhead), time_point_(time) {}
+                const utility::time_point &time,
+                timebase::flicks playhead_position)
+                : mptr_(mptr), playhead_(playhead), time_point_(time), playhead_position_(playhead_position) {}
 
             ImmediateImageReqest(const ImmediateImageReqest &) = default;
             ImmediateImageReqest()                             = default;
@@ -41,6 +42,7 @@ namespace media_reader {
             media::AVFrameID mptr_;
             caf::actor playhead_;
             utility::time_point time_point_;
+            timebase::flicks playhead_position_;
         };
 
         void do_urgent_get_image();
@@ -48,7 +50,8 @@ namespace media_reader {
             const media::AVFrameID &mptr,
             caf::actor playhead,
             const utility::Uuid playhead_uuid,
-            const utility::time_point &tp);
+            const utility::time_point &tp,
+            const timebase::flicks playhead_position);
 
         std::map<const utility::Uuid, ImmediateImageReqest> pending_get_image_requests_;
 

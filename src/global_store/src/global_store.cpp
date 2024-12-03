@@ -21,8 +21,9 @@ namespace fs = std::filesystem;
 GlobalStoreHelper::GlobalStoreHelper(caf::actor_system &sys, const std::string &reg_name)
     : JsonStoreHelper(sys, caf::actor()) {
     auto gs_actor = sys.registry().get<caf::actor>(reg_name);
-    if (not gs_actor)
+    if (not gs_actor) {
         throw std::runtime_error("GlobalStore is not registered");
+    }
 
     store_actor_ = caf::actor_cast<caf::actor_addr>(gs_actor);
 }
@@ -71,6 +72,7 @@ bool xstudio::global_store::preference_load_defaults(
     bool result = false;
     try {
         for (const auto &entry : fs::directory_iterator(path)) {
+
             if (not fs::is_regular_file(entry.status()) or
                 not(get_path_extension(entry.path()) == ".json")) {
                 continue;
@@ -139,7 +141,6 @@ void load_from_list(const std::string &path, std::vector<fs::path> &overrides) {
     }
 }
 // parse json, should be jsonpointers and values..
-// parse json, should be jsonpointers and values..
 void load_override(utility::JsonStore &json, const fs::path &path) {
     std::ifstream i(path);
     nlohmann::json j;
@@ -150,7 +151,8 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
     // should be dict ..
     for (auto it : j.items()) {
         try {
-            if (not ends_with(it.key(), "/value") and not ends_with(it.key(), "/locked")) {
+            if (not ends_with(it.key(), "/value") and not ends_with(it.key(), "/locked") and
+                not ends_with(it.key(), "/default_value")) {
                 spdlog::warn("Property key is restricted {} {}", it.key(), path.string());
                 continue;
             }
@@ -187,8 +189,9 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
             // override it.
             json.set(it.value(), it.key());
 
-            spdlog::debug(
-                "Property overriden {} {} {}", it.key(), to_string(it.value()), path.string());
+            // spdlog::debug(
+            //     "Property overriden {} {} {}", it.key(), to_string(it.value()),
+            //     path.string());
             // tag it.
             set_preference_overridden_path(json, path.string(), property);
             if (set_as_overridden)
@@ -199,6 +202,7 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
         }
     }
 }
+
 void xstudio::global_store::preference_load_overrides(
     utility::JsonStore &js, const std::vector<std::string> &paths) {
     // we get a collection of JSONPOINTERS and values.
@@ -295,6 +299,7 @@ utility::JsonStore xstudio::global_store::get_preference_values(
     std::set<std::string> prefs = get_preferences(json, context);
 
     for (auto i : prefs) {
+
         try {
             /*
             // For now putting the get(i + "/overridden_value") in a try
@@ -312,7 +317,6 @@ utility::JsonStore xstudio::global_store::get_preference_values(
                 tmp_path = preference_overridden_path(json, i);
             } catch (...) {
             }
-
 
             if (not only_changed or is_overridden or override_path == tmp_path)
                 js[i + "/value"] = json.get(i + "/value");
@@ -362,7 +366,7 @@ utility::JsonStore GlobalStoreHelper::get_existing_or_create_new_preference(
     const std::string &path,
     const utility::JsonStore &default_,
     const bool async,
-    const bool broacast_change,
+    const bool broadcast_change,
     const std::string &context) {
     try {
 
@@ -371,18 +375,17 @@ utility::JsonStore GlobalStoreHelper::get_existing_or_create_new_preference(
             v["overridden_value"] = default_;
             v["path"]             = path;
             v["context"]          = std::vector<std::string>({"APPLICATION"});
-            JsonStoreHelper::set(v, path, async, broacast_change);
+            JsonStoreHelper::set(v, path, async, broadcast_change);
         }
         return v["value"];
 
     } catch (...) {
-
         utility::JsonStore v;
         v["value"]            = default_;
         v["overridden_value"] = default_;
         v["path"]             = path;
         v["context"]          = std::vector<std::string>({"APPLICATION"});
-        JsonStoreHelper::set(v, path, async, broacast_change);
+        JsonStoreHelper::set(v, path, async, broadcast_change);
     }
     return default_;
 }

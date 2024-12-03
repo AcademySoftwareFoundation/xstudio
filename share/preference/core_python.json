@@ -13,9 +13,9 @@
 			"snippets":{
 				"path": {
 					"path": "/core/python/snippets/path",
-					"default_value": [],
+					"default_value": ["${XSTUDIO_ROOT}/snippets","${HOME}/xStudio/snippets"],
 					"description": "Paths to snippet dirs",
-					"value": [],
+					"value": null,
 					"datatype": "json",
 					"context": ["APPLICATION"]
 				}

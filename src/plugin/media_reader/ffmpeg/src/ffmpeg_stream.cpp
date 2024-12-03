@@ -3,7 +3,6 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <cmath>
 
 #include "ffmpeg_stream.hpp"
 #include "xstudio/media/media_error.hpp"
@@ -22,8 +21,13 @@ void xstudio::media_reader::ffmpeg::AVC_CHECK_THROW(int errorNum, const char *av
     std::array<char, 4096> buf;
 
     if (!av_strerror(errorNum, buf.data(), buf.size())) {
-        throw media_corrupt_error(
-            std::string() + avc_command + " " + buf.data() + " (ffmpeg reader).");
+        if (-errorNum == ENOENT) {
+            throw media_missing_error(
+                std::string() + avc_command + " " + buf.data() + " (ffmpeg reader).");
+        } else {
+            throw media_corrupt_error(
+                std::string() + avc_command + " " + buf.data() + " (ffmpeg reader).");
+        }
     } else {
         throw media_corrupt_error(
             std::string("FFMPEG reader: ") + avc_command + " unknown error num " +
@@ -164,23 +168,13 @@ void set_shader_pix_format_info(
         yuv_to_rgb *= scale;
 
         Imath::V3f offset(16, 128, 128);
-        offset *= std::pow(2.0f, float(bitdepth - 8));
+        offset *= std::pow(2, bitdepth - 8);
         jsn["yuv_offsets"] = {"ivec3", 1, offset[0], offset[1], offset[2]};
     }
     }
 
-    jsn["yuv_conv"] = {
-        "mat3",
-        1,
-        yuv_to_rgb[0][0],
-        yuv_to_rgb[0][1],
-        yuv_to_rgb[0][2],
-        yuv_to_rgb[1][0],
-        yuv_to_rgb[1][1],
-        yuv_to_rgb[1][2],
-        yuv_to_rgb[2][0],
-        yuv_to_rgb[2][1],
-        yuv_to_rgb[2][2]};
+    jsn["yuv_conv"] = yuv_to_rgb.transposed();
+
 }
 
 
@@ -274,6 +268,10 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
     if (shader_supported_pix_formats.find(ffmpeg_pixel_format) ==
         shader_supported_pix_formats.end()) {
 
+        if (ffmpeg_pixel_format == -1) {
+            throw media_corrupt_error("FFMPEG could not decode the image.");
+        }
+
         if (!format_conversion_warning_issued) {
             format_conversion_warning_issued = true;
             spdlog::warn(
@@ -286,6 +284,7 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         image_buffer.reset(new ImageBuffer());
         auto buffer = (uint8_t *)image_buffer->allocate(4 * frame->width * frame->height);
         // not one of the ffmpeg pixel formats that our shader can deal with, so convert to
+
         // something we can
         sws_context_ = sws_getCachedContext(
             sws_context_,
@@ -521,7 +520,7 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     case audio::SampleFormat::INT16:
         target_sample_format_ = AV_SAMPLE_FMT_S16;
         break;
-    case audio::SampleFormat::INT32:
+    case audio::SampleFormat::SFINT32:
         target_sample_format_ = AV_SAMPLE_FMT_S32;
         break;
     case audio::SampleFormat::FLOAT32:
@@ -536,18 +535,12 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     default:
         throw media_corrupt_error("Audio buffer format is not set.");
     }
-
     target_sample_rate_    = audio_buffer->sample_rate();
     target_audio_channels_ = audio_buffer->num_channels();
 
     audio_buffer->set_display_timestamp_seconds(
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
-
-    // spdlog::info(
-    //     "Calculated display timestamp: {} seconds.",
-    //     double(frame->pts) * double(avc_stream_->time_base.num) /
-    //         double(avc_stream_->time_base.den));
 
     resample_audio(frame, audio_buffer, -1);
 

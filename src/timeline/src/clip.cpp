@@ -29,6 +29,7 @@ Clip::Clip(const utility::JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
       item_(static_cast<utility::JsonStore>(jsn.at("item"))) {
 
+    // hack for old data
     if (jsn.count("media_uuid")) {
         media_uuid_       = jsn.at("media_uuid");
         auto jsn          = R"({"media_uuid": null})"_json;
@@ -38,6 +39,13 @@ Clip::Clip(const utility::JsonStore &jsn)
         media_uuid_ = item_.prop().at("media_uuid");
     }
 }
+
+Clip::Clip(const Item &item, const caf::actor &actor)
+    : Container(item.name(), "Clip", item.uuid()), item_(item.clone()) {
+    media_uuid_ = item_.prop().value("media_uuid", utility::Uuid());
+    item_.set_actor_addr(caf::actor_cast<caf::actor_addr>(actor));
+}
+
 
 Clip Clip::duplicate() const {
     utility::JsonStore jsn;

@@ -6,6 +6,7 @@
 #include "xstudio/ui/keyboard.hpp"
 
 struct UiText {
+
     std::string RED       = "Red";
     std::string GREEN     = "Green";
     std::string BLUE      = "Blue";
@@ -61,8 +62,8 @@ struct UiText {
     std::string DISPLAY                 = "Display";
     std::string DISPLAY_SHORT           = "Disp";
     std::string VIEW                    = "View";
-    std::string EXPOSURE                = "Exposure";
-    std::string EXPOSURE_SHORT          = "Exp";
+    std::string EXPOSURE                = "Exposure (E)";
+    std::string EXPOSURE_SHORT          = "Exp (E)";
     std::string GAMMA                   = "Gamma";
     std::string GAMMA_SHORT             = "Gam";
     std::string ENABLE_GAMMA            = "Gamma Control";
@@ -78,9 +79,9 @@ struct UiText {
     std::string CMS_OFF                 = "Bypass Colour Management";
     std::string CMS_OFF_SHORT           = "CMS OFF";
     std::string CMS_OFF_ICON            = "--";
-    std::string PREF_VIEW               = "Preferred View";
-    std::string VIEW_MODE               = "Global View Control";
-    std::string GLOBAL_VIEW_SHORT       = "Global View";
+    std::string PREF_VIEW               = "OCIO Preferred View";
+    std::string VIEW_MODE               = "Global OCIO View";
+    std::string GLOBAL_VIEW_SHORT       = "Global view";
     std::string SOURCE_CS_MODE          = "Auto adjust source";
     std::string SOURCE_CS_MODE_SHORT    = "Adjust source";
 
@@ -111,8 +112,8 @@ struct UiText {
 
     std::string CS_MSG_CMS_SELECT_CLR_TIP =
         "Select colour channel to display. You can also use R,G,B,A,Ctrl+L hotkeys.";
-    std::string CS_MSG_CMS_SET_EXP_TIP = "Set viewer Exposure in f-stops. Double click to "
-                                         "toggle between last set value and default of 0.0.";
+    std::string CS_MSG_CMS_SET_EXP_TIP   = "Set viewer Exposure in f-stops. Double click to "
+                                           "toggle between last set value and default of 0.0.";
     std::string CS_MSG_CMS_SET_GAMMA_TIP = "Set viewer Gamma. Double click to "
                                            "toggle between last set value and default of 1.0.";
     std::string CS_MSG_CMS_SET_SATURATION_TIP =

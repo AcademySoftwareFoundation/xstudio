@@ -39,7 +39,7 @@ class IvyDataSource : public DataSource, public module::Module {
         return utility::JsonStore();
     }
 
-    std::string url() const { return "http://pipequery.zro"; }
+    std::string url() const { return "http://pipequery"; }
     std::string path() const { return "/v1/graphql"; }
     std::string show() const { return show_; }
     std::string content_type() const { return "application/graphql"; }
@@ -103,9 +103,12 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         const utility::JsonStore &jsn,
         const utility::FrameRate &media_rate);
 
+    void update_preferences(const utility::JsonStore &js);
+
     caf::behavior behavior_;
     T data_source_;
     caf::actor http_;
     caf::actor pool_;
+    bool enable_audio_autoload_{true};
     utility::Uuid uuid_ = {utility::Uuid::generate()};
 };

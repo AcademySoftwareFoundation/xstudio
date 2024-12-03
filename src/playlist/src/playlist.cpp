@@ -23,6 +23,7 @@ Playlist::Playlist(const JsonStore &jsn)
     media_rate_     = jsn["media_rate"];
     playhead_rate_  = jsn["playhead_rate"];
     container_tree_ = PlaylistTree(static_cast<utility::JsonStore>(jsn["container_tree"]));
+    expanded_       = jsn.value("expanded", false);
 
     set_version(PROJECT_VERSION);
     set_file_version(PLAYLIST_FILE_VERSION, true);
@@ -38,6 +39,7 @@ JsonStore Playlist::serialise() const {
     // identify actors that are media..
     jsn["media"]          = media_list_.serialise();
     jsn["container_tree"] = container_tree_.serialise();
+    jsn["expanded"]       = expanded_;
     return jsn;
 }
 

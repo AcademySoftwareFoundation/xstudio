@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import monitored_atom, Uuid, MT_IMAGE, MT_AUDIO
 from xstudio.core import move_atom, remove_atom, actor, select_all_media_atom
-from xstudio.core import select_media_atom
+from xstudio.core import select_media_atom, get_selected_sources_atom
 
 from xstudio.api.session import Container
+from xstudio.api.session.media.media import Media
 
 class PlayheadSelection(Container):
     """Playhead selection object, what the playhead plays."""
@@ -53,7 +54,7 @@ class PlayheadSelection(Container):
         result = self.connection.request_receive(self.remote, get_selected_sources_atom())[0]
 
         for i in result:
-            clips.append(Media(self.connection, i))
+            clips.append(Media(self.connection, i.actor, i.uuid))
 
         return clips
 

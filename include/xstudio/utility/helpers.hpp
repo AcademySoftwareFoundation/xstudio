@@ -22,6 +22,7 @@
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/caf_error.hpp"
 #include "xstudio/caf_utility/caf_setup.hpp"
+
 #ifdef _WIN32
 #include <windows.h>
 #include <fmt/format.h>
@@ -50,8 +51,8 @@ namespace utility {
     class ActorSystemSingleton {
 
       public:
-        static caf::actor_system &actor_system_ref();
         static caf::actor_system &actor_system_ref(caf::actor_system &sys);
+        static caf::actor_system &actor_system_ref();
 
       private:
         ActorSystemSingleton(caf::actor_system &provided_sys) : system_ref_(provided_sys) {}
@@ -84,6 +85,10 @@ namespace utility {
 
     std::vector<std::byte> read_file(const std::string &path);
 
+    inline auto make_ignore_error_handler() {
+        return [=](const caf::error) {};
+    }
+
     inline auto make_get_event_group_handler(caf::actor grp) {
         return [=](get_event_group_atom) -> caf::actor { return grp; };
     }
@@ -100,7 +105,6 @@ namespace utility {
         return path;
 #endif
     }
-
 
     inline bool check_create_path(const std::string &path) {
         bool create_path = true;
@@ -200,9 +204,9 @@ namespace utility {
     void print_on_exit(
         const caf::actor &hdl, const std::string &name, const Uuid &uuid = utility::Uuid());
 
-    std::string exec(const std::vector<std::string> &cmd, int &exit_code);
+    // std::string exec(const std::vector<std::string> &cmd, int &exit_code);
 
-    std::string filemanager_show_uris(const std::vector<caf::uri> &uris);
+    // std::string filemanager_show_uris(const std::vector<caf::uri> &uris);
 
     caf::uri posix_path_to_uri(const std::string &path, const bool abspath = false);
 
@@ -267,7 +271,7 @@ namespace utility {
         return sig;
     }
 
-    inline std::string xstudio_root(const std::string &append_path) {
+    inline std::string xstudio_root(const std::string &append_path = "") {
         auto root = get_env("XSTUDIO_ROOT");
 
         std::string fallback_root;
@@ -291,10 +295,10 @@ namespace utility {
         fallback_root = std::string(BINARY_DIR);
 #endif
 
-
         std::string path = (root ? (*root) + append_path : fallback_root + append_path);
-
-        return path;
+        const auto p = fs::path(path).string();
+        return p;
+        
     }
 
     inline std::string remote_session_path() {
@@ -302,7 +306,7 @@ namespace utility {
 #ifdef _WIN32
         root = std::getenv("USERPROFILE");
 #else
-        root = std::getenv("HOME");
+        root          = std::getenv("HOME");
 #endif
         std::filesystem::path path;
         if (root) {
@@ -317,7 +321,7 @@ namespace utility {
 #ifdef _WIN32
         root = std::getenv("USERPROFILE");
 #else
-        root = std::getenv("HOME");
+        root          = std::getenv("HOME");
 #endif
         std::filesystem::path path;
         if (root) {
@@ -335,7 +339,7 @@ namespace utility {
 #ifdef _WIN32
         root = std::getenv("USERPROFILE");
 #else
-        root = std::getenv("HOME");
+        root          = std::getenv("HOME");
 #endif
         std::filesystem::path path;
         if (root) {
@@ -349,7 +353,13 @@ namespace utility {
     }
 
     inline std::string preference_path_context(const std::string &context) {
-        return preference_path(to_lower(context) + ".json");
+        auto major = std::string(XSTUDIO_GLOBAL_VERSION);
+        // spdlog::warn("{}", major);
+        major = major.substr(0, major.find_first_of('.'));
+        if (major == "0" or major == "1")
+            return preference_path(to_lower(context) + ".json");
+
+        return preference_path(to_lower(context) + "-v" + major + ".json");
     }
 
     inline bool are_same(float a, float b, int decimals) {
@@ -358,6 +368,8 @@ namespace utility {
 
     std::vector<std::pair<caf::uri, FrameList>>
     scan_posix_path(const std::string &path, const int depth = -1);
+
+    std::vector<caf::uri> uri_subfolders(const caf::uri parent_uri);
 
     std::string get_host_name();
     std::string get_user_name();
@@ -397,7 +409,6 @@ namespace utility {
 #endif
     }
 
-
     inline bool is_file_supported(const caf::uri &uri) {
         const std::string sp = uri_to_posix_path(uri);
         std::string ext      = to_upper(get_path_extension(fs::path(sp)));
@@ -421,7 +432,7 @@ namespace utility {
 
     inline bool is_timeline_supported(const caf::uri &uri) {
         fs::path p(uri_to_posix_path(uri));
-        spdlog::error(p.string());
+        // spdlog::error(p.string());
         std::string ext = to_upper(get_path_extension(p));
 
         for (const auto &i : supported_timeline_extensions)
@@ -503,6 +514,15 @@ namespace utility {
         return result;
     }
 
+    template <typename V>
+    std::vector<typename V::value_type> concatenate_vector(const V &a, const V &b) {
+        std::vector<typename V::value_type> result;
+        result.reserve(a.size() + b.size());
+        result.insert(result.end(), a.begin(), a.end());
+        result.insert(result.end(), b.begin(), b.end());
+        return result;
+    }
+
     //  this is annoying.. we now have to create all these silly UuidActor functions..
 
 
@@ -542,6 +562,7 @@ namespace utility {
         }
         return result;
     }
+
 
 } // namespace utility
 } // namespace xstudio
