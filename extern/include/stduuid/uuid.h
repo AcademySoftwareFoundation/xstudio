@@ -20,9 +20,8 @@
 #ifdef _WIN32
 #include <objbase.h>
 
-#ifndef NOMINMAX
+#define WIN32_LEAN_AND_MEAN        
 #define NOMINMAX
-#endif
 #include <windows.h>
 #include <intrin.h>       
 #include <iphlpapi.h> 

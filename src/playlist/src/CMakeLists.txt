@@ -1,7 +1,6 @@
 SET(LINK_DEPS
 	caf::core
 	xstudio::audio_output
-	xstudio::broadcast
 	xstudio::contact_sheet
 	xstudio::media
 	xstudio::playhead

@@ -4,7 +4,6 @@
 #include "xstudio/atoms.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline_actor.hpp"
 #include "xstudio/global_store/global_store.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -54,23 +53,33 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {
             // nop
         },
-        [=](colour_pipeline_atom, const std::string &viewport_name) -> result<caf::actor> {
+        [=](colour_pipeline_atom, const std::string &viewport_name) -> caf::actor {
+            if (colour_piplines_.find(viewport_name) != colour_piplines_.end()) {
+                return colour_piplines_[viewport_name];
+            }
+            return caf::actor();
+        },
+        [=](colour_pipeline_atom,
+            const std::string &viewport_name,
+            const std::string &window_id) -> result<caf::actor> {
             auto rp                    = make_response_promise<caf::actor>();
             auto init_data             = prefs_jsn_;
             init_data["viewport_name"] = viewport_name;
+            init_data["window_id"]     = window_id;
             make_colour_pipeline(default_plugin_name_, init_data, rp);
             return rp;
         },
         [=](get_thumbnail_colour_pipeline_atom) -> result<caf::actor> {
             auto rp = make_response_promise<caf::actor>();
-            if (colour_piplines_.find("viewport0") != colour_piplines_.end()) {
-                rp.deliver(colour_piplines_["viewport0"]);
+            if (colour_piplines_.find("thumbnail_processor") != colour_piplines_.end()) {
+                rp.deliver(colour_piplines_["thumbnail_processor"]);
             } else {
                 request(
                     caf::actor_cast<caf::actor>(this),
                     infinite,
                     colour_pipeline_atom_v,
-                    "viewport0")
+                    "thumbnail_processor",
+                    "offscreen")
                     .then(
                         [=](caf::actor colour_pipe) mutable { rp.deliver(colour_pipe); },
                         [=](caf::error &err) mutable { rp.deliver(err); });
@@ -88,9 +97,9 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
             const media::AVFrameID &mptr,
             const thumbnail::ThumbnailBufferPtr &buf) -> result<thumbnail::ThumbnailBufferPtr> {
             auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
-            if (colour_piplines_.find("viewport0") != colour_piplines_.end()) {
+            if (colour_piplines_.find("thumbnail_processor") != colour_piplines_.end()) {
                 rp.delegate(
-                    colour_piplines_["viewport0"],
+                    colour_piplines_["thumbnail_processor"],
                     media_reader::process_thumbnail_atom_v,
                     mptr,
                     buf);

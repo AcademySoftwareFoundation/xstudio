@@ -1,0 +1,18 @@
+{
+	"core": {
+		"sequence":{
+			"create_tracks": {
+				"path": "/core/sequence/create_tracks",
+				"default_value": [
+					{"name": "ABC", "video tracks": ["A","B","C"], "audio tracks": ["A", "B","C"]}
+				],
+				"description": "Create default tracks quickly",
+				"value": [
+					{"name": "ABC", "video tracks": ["A","B","C"], "audio tracks": ["A", "B","C"]}
+				],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

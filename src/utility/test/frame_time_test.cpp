@@ -1,9 +1,97 @@
 // SPDX-License-Identifier: Apache-2.0
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/frame_range.hpp"
 #include <gtest/gtest.h>
 
 using namespace xstudio::utility;
+
+TEST(FrameRangeIntersect, Test) {
+    auto fr1 = FrameRange(
+        24 * timebase::k_flicks_24fps, 24 * timebase::k_flicks_24fps, timebase::k_flicks_24fps);
+
+    // auto fr2 = FrameRange();
+
+    EXPECT_EQ(fr1.intersect(fr1), fr1);
+
+    // no overlap front
+    EXPECT_EQ(
+        fr1.intersect(FrameRange(
+                          timebase::k_flicks_zero_seconds,
+                          24 * timebase::k_flicks_24fps,
+                          timebase::k_flicks_24fps))
+            .duration(),
+        timebase::k_flicks_zero_seconds);
+
+    // no overlap end
+    EXPECT_EQ(
+        fr1.intersect(FrameRange(
+                          48 * timebase::k_flicks_24fps,
+                          24 * timebase::k_flicks_24fps,
+                          timebase::k_flicks_24fps))
+            .duration(),
+        timebase::k_flicks_zero_seconds);
+
+
+    // one frame
+    EXPECT_EQ(
+        fr1.intersect(FrameRange(
+                          timebase::k_flicks_zero_seconds,
+                          25 * timebase::k_flicks_24fps,
+                          timebase::k_flicks_24fps))
+            .duration(),
+        timebase::k_flicks_24fps);
+
+    // one frame
+    EXPECT_EQ(
+        fr1.intersect(FrameRange(
+                          timebase::k_flicks_zero_seconds,
+                          25 * timebase::k_flicks_24fps,
+                          timebase::k_flicks_24fps))
+            .start(),
+        24 * timebase::k_flicks_24fps);
+
+    // check duration truncation.
+
+    EXPECT_EQ(
+        fr1.intersect(FrameRange(
+            timebase::k_flicks_zero_seconds,
+            48 * timebase::k_flicks_24fps,
+            timebase::k_flicks_24fps)),
+        fr1);
+
+    EXPECT_EQ(
+        fr1.intersect(FrameRange(
+            timebase::k_flicks_zero_seconds,
+            49 * timebase::k_flicks_24fps,
+            timebase::k_flicks_24fps)),
+        fr1);
+
+    auto avail = FrameRange(
+        24 * timebase::k_flicks_24fps, 24 * timebase::k_flicks_24fps, timebase::k_flicks_24fps);
+    auto active = FrameRange(
+        0 * timebase::k_flicks_24fps, 48 * timebase::k_flicks_24fps, timebase::k_flicks_24fps);
+
+    EXPECT_FALSE(avail.intersect(active) == active);
+
+    auto fr_actjvn = FrameRange();
+    from_json(
+        R"({
+        "duration": 3057600000,
+        "rate": 29400000,
+        "start": 30723000000
+    })"_json,
+        fr_actjvn);
+
+    auto fr_avajvn = FrameRange();
+    from_json(
+        R"({
+        "duration": 3057600000,
+        "rate": 29400000,
+        "start": 30723000000
+    })"_json,
+        fr_actjvn);
+
+    EXPECT_FALSE(fr_avajvn.intersect(fr_actjvn) == fr_actjvn);
+}
 
 TEST(FrameRateTest, Test) {
 
@@ -159,294 +247,3 @@ TEST(FrameRateDurationTest3, Test) {
 
 // }
 
-TEST(EditListTest1, Test) {
-    FrameRateDuration r12_24(12l, 24.0);
-    FrameRateDuration r6_12(6l, 12.0);
-    FrameRateDuration r24_48(24l, 48.0);
-    FrameRate r24(timebase::k_flicks_24fps);
-
-    EditList edit_list(
-        {EditListSection(Uuid(), r12_24, Timecode()),
-         EditListSection(Uuid(), r6_12, Timecode()),
-         EditListSection(Uuid(), r24_48, Timecode())});
-
-    EXPECT_EQ(edit_list.duration_frames(TimeSourceMode::FIXED, r24), unsigned(42));
-    EXPECT_EQ(edit_list.duration_frames(TimeSourceMode::DYNAMIC, r24), unsigned(42));
-    EXPECT_EQ(edit_list.duration_frames(TimeSourceMode::REMAPPED, r24), unsigned(36));
-
-    EXPECT_EQ(edit_list.duration_seconds(TimeSourceMode::FIXED, r24), 42.0 / 24.0);
-    EXPECT_EQ(edit_list.duration_seconds(TimeSourceMode::DYNAMIC, r24), 1.5f);
-    EXPECT_EQ(edit_list.duration_seconds(TimeSourceMode::REMAPPED, r24), 1.5f);
-
-    EXPECT_EQ(
-        timebase::to_seconds(edit_list.duration_flicks(TimeSourceMode::FIXED, r24)),
-        42.0 / 24.0);
-    EXPECT_EQ(
-        timebase::to_seconds(edit_list.duration_flicks(TimeSourceMode::DYNAMIC, r24)), 1.5f);
-    EXPECT_EQ(
-        timebase::to_seconds(edit_list.duration_flicks(TimeSourceMode::REMAPPED, r24)), 1.5f);
-}
-
-TEST(EditListTest2, Test) {
-    FrameRateDuration r30_30(30l, 30.0);
-    FrameRateDuration r30_60(30l, 60.0);
-    FrameRateDuration r30_15(30l, 15.0);
-    FrameRate r24(timebase::k_flicks_24fps);
-
-    EditList edit_list(
-        {EditListSection(Uuid(), r30_30, Timecode()),
-         EditListSection(Uuid(), r30_60, Timecode()),
-         EditListSection(Uuid(), r30_15, Timecode())});
-
-    FrameRate fr30(timebase::k_flicks_one_thirtieth_second);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(0, 24.0)), 0);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(1, 24.0)), 1);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(29, 24.0)),
-        29);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(30, 24.0)),
-        30);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(31, 24.0)),
-        32);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(32, 24.0)),
-        34);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(45, 24.0)),
-        60);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(46, 24.0)),
-        61);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(47, 24.0)),
-        61);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30, FrameRateDuration(104, 24.0)),
-        89);
-}
-
-TEST(EditListTest3, Test) {
-    FrameRateDuration r30_30(30l, 30.0);
-    FrameRateDuration r30_60(30l, 60.0);
-    FrameRateDuration r30_15(30l, 15.0);
-    FrameRate r24(timebase::k_flicks_24fps);
-
-    EditList edit_list(
-        {EditListSection(Uuid(), r30_30, Timecode()),
-         EditListSection(Uuid(), r30_60, Timecode()),
-         EditListSection(Uuid(), r30_15, Timecode())});
-
-    FrameRate fr15(timebase::k_flicks_one_fifteenth_second);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr15, FrameRateDuration(0, 24.0)), 0);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr15, FrameRateDuration(1, 24.0)), 2);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr15, FrameRateDuration(14, 24.0)),
-        28);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr15, FrameRateDuration(15, 24.0)),
-        30);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr15, FrameRateDuration(16, 24.0)),
-        34);
-    // EXPECT_EQ(edit_list.logical_frame(TimeSourceMode::REMAPPED, fr15,
-    // FrameRateDuration(16, 24.0)), 34);
-    EXPECT_EQ(edit_list.duration_frames(TimeSourceMode::REMAPPED, fr15), unsigned(52));
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, fr15, FrameRateDuration(51, 24.0)),
-        89);
-}
-
-/*TEST(EditListTest4, Test) {
-    FrameRateDuration r30_30(static_cast<int>(30), timebase::k_flicks_one_thirtieth_second);
-    FrameRateDuration r30_60(static_cast<int>(30), timebase::k_flicks_one_sixtieth_second);
-    FrameRateDuration r30_15(static_cast<int>(30), timebase::k_flicks_one_fifteenth_second);
-    FrameRate r24(timebase::k_flicks_24fps);
-
-    EditList edit_list(
-        {EditListSection(Uuid(), r30_30, Timecode()),
-         EditListSection(Uuid(), r30_60, Timecode()),
-         EditListSection(Uuid(), r30_15, Timecode())});
-
-    FrameRate fr15(timebase::k_flicks_one_fifteenth_second);
-
-    EXPECT_EQ(
-        edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 30).frames(),
-        FrameRateDuration(static_cast<int>(30), r24).frames());
-
-    // EXPECT_EQ(edit_list.logical_frame(TimeSourceMode::REMAPPED, fr30,
-    // FrameRateDuration(36, 24.0)), 42);
-
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 45).frames(),
-    // FrameRateDuration(static_cast<int>(36), r24).frames());
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 30),
-    // FrameRateDuration(static_cast<int>(30), r24));
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 31).frames(),
-    // FrameRateDuration(static_cast<int>(31), r24).frames());
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 32).frames(),
-    // FrameRateDuration(static_cast<int>(32), r24).frames());
-
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::FIXED, fr15, r24, 1),
-    // FrameRateDuration(static_cast<int>(1), r24));
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::DYNAMIC, fr15, r24, 1),
-    // FrameRateDuration(static_cast<int>(1), r24));
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr15, r24, 4).seconds(),
-    // FrameRateDuration(static_cast<int>(4), r24).seconds());
-
-
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::FIXED, fr15, r24, 34),
-    // FrameRateDuration(static_cast<int>(34), r24));
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::DYNAMIC, fr15, r24, 34),
-    // FrameRateDuration(static_cast<int>(34), r24)); EXPECT_EQ(
-    // 	edit_list.frame(TimeSourceMode::REMAPPED, fr15, r24, 29).frames(),
-    // 	FrameRateDuration(static_cast<int>(15), r24).frames()
-    // );
-
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 1),
-    // FrameRateDuration(static_cast<int>(1), r24));
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 30),
-    // FrameRateDuration(static_cast<int>(30), r24));
-    // EXPECT_EQ(edit_list.frame(TimeSourceMode::REMAPPED, fr30, r24, 31),
-    // FrameRateDuration(static_cast<int>(32), r24));
-}*/
-
-TEST(EditListTest5, Test) {
-
-    FrameRateDuration r30_24(30l, 24.0);
-    FrameRateDuration r30_60(30l, 60.0);
-    FrameRateDuration r30_30(30l, 30.0);
-
-    FrameRate fr24(timebase::k_flicks_24fps);
-    FrameRate fr30(timebase::k_flicks_one_thirtieth_second);
-    FrameRate fr60(timebase::k_flicks_one_sixtieth_second);
-
-    EditList edit_list(
-        {EditListSection(Uuid(), r30_24, Timecode()),
-         EditListSection(Uuid(), r30_60, Timecode()),
-         EditListSection(Uuid(), r30_30, Timecode())});
-
-    FrameRate fr15(timebase::k_flicks_one_fifteenth_second);
-
-    EXPECT_EQ(edit_list.frame_rate_at_frame(15), fr24);
-    EXPECT_EQ(edit_list.frame_rate_at_frame(45), fr60);
-    EXPECT_EQ(edit_list.frame_rate_at_frame(75), fr30);
-
-    try {
-
-        static_cast<void>(edit_list.frame_rate_at_frame(150));
-        FAIL() << "frame_rate_at_frame() should throw an out of frames error\n";
-
-    } catch (...) {
-    }
-
-    EXPECT_EQ(edit_list.flicks_from_frame(TimeSourceMode::FIXED, 0, fr24), timebase::flicks(0));
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::REMAPPED, 0, fr24), timebase::flicks(0));
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::DYNAMIC, 0, fr24), timebase::flicks(0));
-
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::FIXED, 10, fr24),
-        10 * timebase::k_flicks_24fps);
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::REMAPPED, 10, fr24),
-        10 * timebase::k_flicks_24fps);
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::DYNAMIC, 10, fr24),
-        10 * timebase::k_flicks_24fps);
-
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::FIXED, 40, fr24),
-        40.0 * timebase::k_flicks_24fps);
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::REMAPPED, 40, fr24),
-        40.0 * timebase::k_flicks_24fps);
-    EXPECT_EQ(
-        edit_list.flicks_from_frame(TimeSourceMode::DYNAMIC, 40, fr24),
-        30.0 * timebase::k_flicks_24fps + 10.0 * timebase::k_flicks_one_sixtieth_second);
-
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::FIXED, 10 * timebase::k_flicks_24fps, fr24),
-        10);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::REMAPPED, 10 * timebase::k_flicks_24fps, fr24),
-        10);
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::DYNAMIC, 10 * timebase::k_flicks_24fps, fr24),
-        10);
-
-    EXPECT_EQ(
-        edit_list.logical_frame(TimeSourceMode::FIXED, 40 * timebase::k_flicks_24fps, fr24),
-        40);
-    EXPECT_EQ(
-        edit_list.logical_frame(
-            TimeSourceMode::REMAPPED,
-            30 * timebase::k_flicks_24fps + 10 * timebase::k_flicks_24fps,
-            fr24),
-        55); // 10 frames @ 24fps = (60/24)*10 @ 60fps = 25 @ 60fps
-    EXPECT_EQ(
-        edit_list.logical_frame(
-            TimeSourceMode::DYNAMIC,
-            30 * timebase::k_flicks_24fps + 10 * timebase::k_flicks_one_sixtieth_second,
-            fr24),
-        40);
-
-    try {
-
-        static_cast<void>(edit_list.logical_frame(
-            TimeSourceMode::DYNAMIC,
-            30 * timebase::k_flicks_24fps + 30 * timebase::k_flicks_one_sixtieth_second +
-                30 * timebase::k_flicks_one_thirtieth_second +
-                15 * timebase::k_flicks_one_thirtieth_second,
-            fr24));
-        FAIL() << "logical_frame() should throw an out of frames error\n";
-
-    } catch (...) {
-    }
-
-    auto frames_max = std::numeric_limits<int>::max();
-    auto frames_min = std::numeric_limits<int>::min();
-
-    timebase::flicks step_period(0);
-    EXPECT_EQ(
-        edit_list.step(
-            TimeSourceMode::FIXED, fr24, true, 1.0, 10, frames_min, frames_max, step_period),
-        11);
-    EXPECT_EQ(step_period, timebase::k_flicks_24fps);
-
-    // step from last frame back to first
-    step_period = timebase::flicks(0);
-    EXPECT_EQ(
-        edit_list.step(
-            TimeSourceMode::FIXED, fr24, true, 1.0, 90, frames_min, frames_max, step_period),
-        0);
-    EXPECT_EQ(step_period, timebase::k_flicks_24fps);
-
-    // 30fps rate remapping should step two frames in 60fps source at frame 40
-    step_period = timebase::flicks(0);
-    EXPECT_EQ(
-        edit_list.step(
-            TimeSourceMode::REMAPPED, fr30, true, 1.0, 40, frames_min, frames_max, step_period),
-        42);
-    EXPECT_EQ(step_period, timebase::k_flicks_one_thirtieth_second);
-
-    //
-    step_period = timebase::flicks(0);
-    EXPECT_EQ(
-        edit_list.step(
-            TimeSourceMode::DYNAMIC, fr30, true, 1.0, 40, frames_min, frames_max, step_period),
-        41);
-    EXPECT_EQ(step_period, timebase::k_flicks_one_sixtieth_second);
-
-    step_period = timebase::flicks(0);
-    EXPECT_EQ(
-        edit_list.step(
-            TimeSourceMode::DYNAMIC, fr30, true, 1.0, 60, frames_min, frames_max, step_period),
-        61);
-    EXPECT_EQ(step_period, timebase::k_flicks_one_thirtieth_second);
-}

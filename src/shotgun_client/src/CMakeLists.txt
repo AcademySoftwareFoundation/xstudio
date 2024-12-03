@@ -1,6 +1,5 @@
 SET(LINK_DEPS
 	xstudio::utility
-	xstudio::broadcast
 	xstudio::http_client
 	caf::core
 )

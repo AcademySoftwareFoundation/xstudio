@@ -4,7 +4,6 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #endif
-
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
@@ -56,6 +55,23 @@ namespace utility {
         size_t start_pos = str.find(from);
         if (start_pos != std::string::npos)
             str.replace(start_pos, from.length(), to);
+        return str;
+    }
+
+    static inline std::string title_case(std::string str) {
+        static std::regex whitespace(R"([_\s]+)");
+        static std::regex specials(R"([^\sa-zA-Z0-9])");
+        str = std::regex_replace(str, whitespace, " ");
+        str = std::regex_replace(str, specials, "");
+
+        char last = ' ';
+        for (auto it = str.begin(); it != str.end(); ++it) {
+            if (last == ' ')
+                *it = toupper(*it);
+            else
+                *it = tolower(*it);
+            last = *it;
+        }
         return str;
     }
 
@@ -165,63 +181,70 @@ namespace utility {
             result = items[0];
             if (items.size() > 1) {
                 for (size_t i = 1; i < items.size(); i++)
-                    result += separator + items[i];
+                        result += separator + items[i];
+                }
             }
+
+            return result;
         }
 
-        return result;
-    }
+        inline std::string to_lower(const std::string &str) {
+            static std::locale loc;
+            std::string result;
+            result.reserve(str.size());
 
-    inline std::string to_lower(const std::string &str) {
-        static std::locale loc;
-        std::string result;
-        result.reserve(str.size());
+            for (auto elem : str)
+                result += std::tolower(elem, loc);
 
-        for (auto elem : str)
-            result += std::tolower(elem, loc);
+            return result;
+        }
 
-        return result;
-    }
+        inline std::wstring to_upper(const std::wstring &str) {
+            static std::locale loc;
+            std::wstring result;
+            result.reserve(str.size());
 
-    inline std::wstring to_upper(const std::wstring &str) {
-        static std::locale loc;
-        std::wstring result;
-        result.reserve(str.size());
+            for (auto elem : str)
+                result += std::toupper(elem, loc);
 
-        for (auto elem : str)
-            result += std::toupper(elem, loc);
+            return result;
+        }
 
-        return result;
-    }
+        inline std::string to_upper(const std::string &str) {
+            static std::locale loc;
+            std::string result;
+            result.reserve(str.size());
 
-    inline std::string to_upper(const std::string &str) {
-        static std::locale loc;
-        std::string result;
-        result.reserve(str.size());
+            for (auto elem : str)
+                result += std::toupper(elem, loc);
 
-        for (auto elem : str)
-            result += std::toupper(elem, loc);
+            return result;
+        }
 
-        return result;
-    }
+        // This is used on WIN build only. There was a note to refactor
+        // here. TODO: check what it's for and why it might need refactor.
+        inline std::string to_upper_path(const std::filesystem::path &path) {
+            static std::locale loc;
+            std::string result;
+            result.reserve(path.string().size());
+            for (auto elem : path.string())
+                result += std::toupper(elem, loc);
 
-    // TODO: Ahead to refactor
-    inline std::string to_upper_path(const std::filesystem::path &path) {
-        static std::locale loc;
-        std::string result;
-        result.reserve(path.string().size());
+            return result;
+        }
 
-        for (auto elem : path.string())
-            result += std::toupper(elem, loc);
+        inline std::optional<std::string> get_env(const std::string &key) {
+            const char *val = std::getenv(key.c_str());
+            if (val)
+                return std::string(val);
+            return {};
+        }
 
-        return result;
-    }
-
-    inline std::optional<std::string> get_env(const std::string &key) {
-        const char *val = std::getenv(key.c_str());
+        inline std::string get_env(const std::string &key, const std::string &default_value) {
+            const char *val = std::getenv(key.c_str());
         if (val)
             return std::string(val);
-        return {};
+        return default_value;
     }
 
     inline std::string get_hostname() {

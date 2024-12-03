@@ -22,18 +22,22 @@ namespace bookmark {
 
         static caf::message_handler default_event_handler();
 
+        void on_exit() override;
+
       private:
         inline static const std::string NAME = "BookmarksActor";
         void init();
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::message_handler message_handler();
+
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
 
         void csv_export(
             caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp);
 
       private:
-        caf::behavior behavior_;
         Bookmarks base_;
-        caf::actor event_group_;
         std::string default_category_;
 
         std::map<utility::Uuid, caf::actor> bookmarks_;

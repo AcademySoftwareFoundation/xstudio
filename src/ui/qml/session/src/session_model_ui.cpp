@@ -2,7 +2,6 @@
 
 #include "xstudio/media/media.hpp"
 #include "xstudio/session/session_actor.hpp"
-#include "xstudio/tag/tag.hpp"
 #include "xstudio/timeline/item.hpp"
 #include "xstudio/ui/qml/caf_response_ui.hpp"
 #include "xstudio/ui/qml/job_control_ui.hpp"
@@ -118,6 +117,34 @@ SessionModel::actorUuidFromIndex(const QModelIndex &index, const bool try_parent
     return result;
 }
 
+utility::Uuid
+SessionModel::containerUuidFromIndex(const QModelIndex &index, const bool try_parent) {
+    auto result = utility::Uuid();
+
+    try {
+        if (index.isValid()) {
+            nlohmann::json &j = indexToData(index);
+            result = j.count("container_uuid") and not j.at("container_uuid").is_null()
+                         ? j.at("container_uuid").get<Uuid>()
+                         : utility::Uuid();
+
+            if (result.is_null() and try_parent) {
+                QModelIndex pindex = index.parent();
+                if (pindex.isValid()) {
+                    nlohmann::json &pj = indexToData(pindex);
+                    result =
+                        pj.count("container_uuid") and not pj.at("container_uuid").is_null()
+                            ? pj.at("container_uuid").get<Uuid>()
+                            : utility::Uuid();
+                }
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+    return result;
+}
+
 
 void SessionModel::forcePopulate(
     const utility::JsonTree &tree, const QPersistentModelIndex &search_hint) {
@@ -125,8 +152,9 @@ void SessionModel::forcePopulate(
 
     if (tjson.count("group_actor") and not tjson.at("group_actor").is_null()) {
         auto grp = actorFromString(system(), tjson.at("group_actor").get<std::string>());
-        if (grp)
+        if (grp) {
             anon_send(grp, broadcast::join_broadcast_atom_v, as_actor());
+        }
 
     } else if (
         tjson.count("actor") and not tjson.at("actor").is_null() and
@@ -134,7 +162,7 @@ void SessionModel::forcePopulate(
         // spdlog::info("request group {}", i);
         requestData(
             QVariant::fromValue(QUuidFromUuid(tjson.at("id"))),
-            Roles::idRole,
+            JSONTreeModel::Roles::idRole,
             search_hint,
             tjson,
             Roles::groupActorRole);
@@ -144,31 +172,41 @@ void SessionModel::forcePopulate(
 
     // spdlog::warn("{} {}", type, item.dump(2));
     // if subset or playlist, trigger auto population of children
-    if (type == "Playlist" or type == "Subset" or type == "Timeline") {
+    if (type == "Playlist" or type == "ContactSheet" or type == "Subset" or type == "Timeline") {
         try {
+
             requestData(
                 QVariant::fromValue(QUuidFromUuid(tree.child(0)->data().at("id"))),
-                Roles::idRole,
+                JSONTreeModel::Roles::idRole,
                 search_hint,
                 tree.child(0)->data(),
-                Roles::childrenRole);
+                JSONTreeModel::Roles::childrenRole);
             requestData(
                 QVariant::fromValue(QUuidFromUuid(tree.child(1)->data().at("id"))),
-                Roles::idRole,
+                JSONTreeModel::Roles::idRole,
                 search_hint,
                 tree.child(1)->data(),
-                Roles::childrenRole);
+                JSONTreeModel::Roles::childrenRole);
 
             if (type == "Playlist")
                 requestData(
                     QVariant::fromValue(QUuidFromUuid(tree.child(2)->data().at("id"))),
-                    Roles::idRole,
+                    JSONTreeModel::Roles::idRole,
                     search_hint,
                     tree.child(2)->data(),
-                    Roles::childrenRole);
+                    JSONTreeModel::Roles::childrenRole);
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
+    } else if (type == "MediaSource") {
+        // for grab of path data..
+        // might be over kill ?
+        requestData(
+            QVariant::fromValue(QUuidFromUuid(tjson.at("id"))),
+            JSONTreeModel::Roles::idRole,
+            search_hint,
+            tjson,
+            Roles::pathRole);
     }
 }
 
@@ -184,7 +222,7 @@ utility::Uuid SessionModel::refreshId(nlohmann::json &ij) {
 }
 
 void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &parent_index) {
-    QVector<int> roles({Roles::childrenRole});
+    QVector<int> roles({JSONTreeModel::Roles::childrenRole});
     auto changed = false;
     START_SLOW_WATCHER()
 
@@ -193,17 +231,18 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
     const auto type = ptree->data().count("type") ? ptree->data().at("type").get<std::string>()
                                                   : std::string();
 
-    // spdlog::warn("processChildren {} {} {}", type, ptree->data().dump(2), rj.dump(2));
+    // if(type == "Media List")
+    //     spdlog::warn("processChildren {} {} {}", type, ptree->data().dump(2), rj.dump(2));
     // spdlog::warn("processChildren {}", tree_to_json( *ptree,"children").dump(2));
     // spdlog::warn("processChildren {}", rj.dump(2));
-    if (type == "MediaSource" and rj.at(0).at("children").empty() and
+
+    /*if (type == "MediaSource" and rj.at(0).at("children").empty() and
         rj.at(1).at("children").empty()) {
         // spdlog::warn("RETRY {}", rj.dump(2));
         // force retry
         emit dataChanged(parent_index, parent_index, roles);
         return;
-    }
-
+    }*/
 
     try {
         if (type == "Session" or type == "Container List" or type == "Media" or
@@ -307,6 +346,8 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
                     // if appending we can process them all in one hit..
                     auto start = ptree->size();
 
+                    // spdlog::warn("inserting rows {} {}", i, rjc.size() - 1);
+
                     beginInsertRows(parent_index, i, rjc.size() - 1);
                     for (; i < rjc.size(); i++) {
 
@@ -368,6 +409,7 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
 
                     } else if (not iju.count(rjc.at(i).at(compare_key))) {
                         // insert
+                        // spdlog::warn("inserting individual row {}",i);
                         beginInsertRows(parent_index, i, i);
                         auto new_child =
                             ptree->insert(ptree->child(i), json_to_tree(rjc.at(i), "children"));
@@ -399,7 +441,116 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
             // handle reordering
             // all rows exist but in wrong order..
             try {
-                auto ordered = false;
+
+                // First, make a vector of the *original* index of each row
+                // after any re-ordering has happened ....
+
+                bool reorder_done = false;
+                if (rjc.size() == ptree->size()) {
+
+                    // rjc is the new layout for the children of ptree.
+
+                    // a map of the ordering key vs. the child index in the
+                    // parent tree
+                    std::map<nlohmann::json, int> index_by_key;
+                    for (size_t j = 0; j < ptree->size(); j++) {
+                        auto cjson = ptree->child(j)->data();
+                        if (cjson.count(compare_key)) {
+                            index_by_key[cjson.at(compare_key)] = j;
+                        }
+                    }
+
+                    std::vector<int> reordered_src_indeces;
+                    reordered_src_indeces.reserve(rjc.size());
+
+                    // Now we iterate over elements of 'rjc' and get the compare
+                    // key ... find out the index of the corresponding child of
+                    // ptree (whose compare key matches the j'th entry of rjc).
+                    //
+                    // Thus we have a vector telling us how to re-order the
+                    // children of ptree ... the j'th element of the vector gives
+                    // us the src index in ptree. So if reordered_src_indeces[5] = 1,
+                    // say, then the 2nd child of ptree needs to be moved to be
+                    // the 6th child etc.
+                    for (int j = 0; j < rjc.size(); j++) {
+                        if (rjc.at(j).contains(compare_key)) {
+                            auto p = index_by_key.find(rjc.at(j).at(compare_key));
+                            reordered_src_indeces.push_back(p->second);
+                        }
+                    }
+                    if (reordered_src_indeces.size() == ptree->size()) {
+
+                        // if reordered_src_indeces looks like [0,1,2,3,4,5]
+                        // then of course it's already in the correct order
+                        bool needs_reorder = false;
+                        for (int iii = 0; iii < (int)reordered_src_indeces.size(); ++iii) {
+                            if (iii != reordered_src_indeces[iii]) {
+                                needs_reorder = true;
+                                break;
+                            }
+                        }
+                        if (needs_reorder) {
+                            reorder_done =
+                                JSONTreeModel::reorderRows(parent_index, reordered_src_indeces);
+                        } else {
+                            reorder_done = true;
+                        }
+                    }
+                }
+
+                if (!reorder_done) {
+
+                    // the first attempt requires that we have compare key for
+                    // each and every child of rjc and ptree ... not sure if
+                    // that is guaranteed
+
+                    // second attempt ... do one by one 'move rows' for re-ordering.
+                    // (Much less efficient than using JSONTreeModel::reorderRows)
+                    std::vector<int> reordered_state;
+                    std::map<nlohmann::json, int> elements_to_move;
+
+                    for (size_t j = 0; j < rjc.size(); j++) {
+                        reordered_state.push_back(j);
+                        if (rjc.at(j).count(compare_key)) {
+                            auto cjson = ptree->child(j)->data();
+                            if (cjson.count(compare_key)) {
+                                elements_to_move[cjson.at(compare_key)] = j;
+                            }
+                        }
+                    }
+
+                    for (int dest_idx = 0; dest_idx < rjc.size(); dest_idx++) {
+
+                        if (rjc.at(dest_idx).count(compare_key)) {
+
+                            const auto &kk = rjc.at(dest_idx).at(compare_key);
+                            auto p         = elements_to_move.find(kk);
+                            if (p != elements_to_move.end()) {
+
+                                auto q = std::find(
+                                    reordered_state.begin(), reordered_state.end(), p->second);
+                                int source_index = std::distance(reordered_state.begin(), q);
+
+                                if (source_index != dest_idx) {
+
+                                    JSONTreeModel::moveRows(
+                                        parent_index, source_index, 1, parent_index, dest_idx);
+
+                                    reordered_state.erase(q);
+                                    q = reordered_state.begin();
+                                    std::advance(q, dest_idx);
+                                    reordered_state.insert(q, p->second);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // This was the old re-ordering code. Was pretty slow and failed
+                // in some cases (re-ordering long media lists, for example).
+                // Keeping for reference.
+
+                /*auto ordered = false;
                 while (not ordered) {
                     ordered = true;
                     for (size_t i = 0; i < rjc.size(); i++) {
@@ -411,13 +562,13 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
                             cjson.at(compare_key) != rjc.at(i).at(compare_key)) {
                             ordered = false;
                             // find actual index of model row
-                            // spdlog::warn("{} -> {}", iju[rjc.at(i).at(compare_key)], i);
+                            spdlog::warn("{} -> {}", iju[rjc.at(i).at(compare_key)], i);
                             JSONTreeModel::moveRows(
                                 parent_index,
                                 iju[rjc.at(i).at(compare_key)],
                                 1,
                                 parent_index,
-                                i);
+                                i+1);
                             // for update of item, as listview seems to get confused..
 
                             try {
@@ -431,15 +582,16 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
 
                             // rebuild iju
                             iju.clear();
-                            for (size_t i = 0; i < ptree->size(); i++) {
+                            for (size_t j = 0; j < ptree->size(); j++) {
                                 auto cjson = ptree->child(i)->data();
                                 if (cjson.count(compare_key) and not cjson.count("placeholder"))
-                                    iju[cjson.at(compare_key).get<Uuid>()] = i;
+                                    iju[cjson.at(compare_key).get<Uuid>()] = j;
                             }
                             break;
                         }
                     }
-                }
+                }*/
+
             } catch (const std::exception &err) {
                 spdlog::warn("{} reorder {}", __PRETTY_FUNCTION__, err.what());
             }
@@ -455,18 +607,9 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
 
     if (changed) {
         // update totals.
-        auto children = ptree->data().at("children");
-        if (type == "Media List") {
-            if (children.is_array()) {
-
-                setData(
-                    parent_index.parent(),
-                    QVariant::fromValue(int(children.size())),
-                    mediaCountRole);
-
-            } else {
-                setData(parent_index.parent(), QVariant::fromValue(0), mediaCountRole);
-            }
+        if (type == "Media List" and ptree->data().at("children").is_array()) {
+            // spdlog::warn("mediaCountRole {}", ptree->size());
+            setData(parent_index.parent(), QVariant::fromValue(ptree->size()), mediaCountRole);
         }
 
         emit dataChanged(parent_index, parent_index, roles);
@@ -478,6 +621,16 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
 }
 
 void SessionModel::finishedDataSlot(
+    const QVariant &search_value, const int search_role, const int role) {
+
+    // auto inflight = mapFromValue(search_value).dump() + std::to_string(search_role) + "-" +
+    //                 std::to_string(role);
+    // if (in_flight_requests_.count(inflight)) {
+    //     in_flight_requests_.erase(inflight);
+    // }
+}
+
+void SessionModel::startedDataSlot(
     const QVariant &search_value, const int search_role, const int role) {
 
     auto inflight = mapFromValue(search_value).dump() + std::to_string(search_role) + "-" +
@@ -534,37 +687,32 @@ void SessionModel::receivedData(
             search_start = search_index.row();
         }
 
-        auto indexes = search_recursive_list(sv, search_role, search_index, search_start, hits);
+        auto indexes = searchRecursiveList(sv, search_role, search_index, search_start, hits);
 
         std::map<int, std::string> role_to_key({
-            {Roles::pathRole, "path"},
-            {Roles::rateFPSRole, "rate"},
-            {Roles::formatRole, "format"},
-            {Roles::resolutionRole, "resolution"},
-            {Roles::pixelAspectRole, "pixel_aspect"},
-            {Roles::bitDepthRole, "bit_depth"},
-            {Roles::mtimeRole, "mtime"},
-            {Roles::nameRole, "name"},
-            {Roles::actorUuidRole, "actor_uuid"},
             {Roles::actorRole, "actor"},
+            {Roles::actorUuidRole, "actor_uuid"},
             {Roles::audioActorUuidRole, "audio_actor_uuid"},
-            {Roles::imageActorUuidRole, "image_actor_uuid"},
-            {Roles::mediaStatusRole, "media_status"},
+            {Roles::bitDepthRole, "bit_depth"},
+            {Roles::bookmarkUuidsRole, "bookmark_uuids"},
             {Roles::flagColourRole, "flag"},
             {Roles::flagTextRole, "flag_text"},
+            {Roles::formatRole, "format"},
+            {Roles::imageActorUuidRole, "image_actor_uuid"},
+            {Roles::mediaDisplayInfoRole, "media_display_info"},
+            {Roles::mediaStatusRole, "media_status"},
+            {Roles::mtimeRole, "mtime"},
+            {Roles::nameRole, "name"},
+            {Roles::pathRole, "path"},
+            {Roles::notificationRole, "notification"},
+            {Roles::timecodeAsFramesRole, "timecode_as_frames"},
+            {Roles::pathShakeRole, "path_shake"},
+            {Roles::pixelAspectRole, "pixel_aspect"},
+            {Roles::rateFPSRole, "rate"},
+            {Roles::resolutionRole, "resolution"},
             {Roles::selectionRole, "playhead_selection"},
             {Roles::thumbnailURLRole, "thumbnail_url"},
-            {Roles::metadataSet0Role, "metadata_set0"},
-            {Roles::metadataSet1Role, "metadata_set1"},
-            {Roles::metadataSet2Role, "metadata_set2"},
-            {Roles::metadataSet3Role, "metadata_set3"},
-            {Roles::metadataSet4Role, "metadata_set4"},
-            {Roles::metadataSet5Role, "metadata_set5"},
-            {Roles::metadataSet6Role, "metadata_set6"},
-            {Roles::metadataSet7Role, "metadata_set7"},
-            {Roles::metadataSet8Role, "metadata_set8"},
-            {Roles::metadataSet9Role, "metadata_set9"},
-            {Roles::metadataSet10Role, "metadata_set10"},
+            {Roles::expandedRole, "expanded"},
         });
 
         for (auto &index : indexes) {
@@ -574,6 +722,7 @@ void SessionModel::receivedData(
                 nlohmann::json &j = indexToData(index);
 
                 switch (role) {
+
                 default:
                     if (role_to_key.count(role)) {
                         if (j.count(role_to_key[role]) and j.at(role_to_key[role]) != result) {
@@ -582,6 +731,34 @@ void SessionModel::receivedData(
                         } else if (not j.count(role_to_key[role])) {
                             j[role_to_key[role]] = result;
                             emit dataChanged(index, index, roles);
+                        }
+                    }
+                    break;
+
+                case Roles::bookmarkUuidsRole:
+                    // force update for bookmarks so we can detect changes in content
+                    if (role_to_key.count(role)) {
+                        if (j.count(role_to_key[role]) and j.at(role_to_key[role]) != result) {
+                            j[role_to_key[role]] = result;
+                            emit dataChanged(index, index, roles);
+                        } else if (not j.count(role_to_key[role])) {
+                            j[role_to_key[role]] = result;
+                            emit dataChanged(index, index, roles);
+                        } else
+                            emit dataChanged(index, index, roles);
+                    }
+                    break;
+
+                case Roles::actorRole:
+                    if (role_to_key.count(role)) {
+                        if (j.count(role_to_key[role]) and j.at(role_to_key[role]) != result) {
+                            j[role_to_key[role]] = result;
+                            emit dataChanged(index, index, roles);
+                            add_lookup(*indexToTree(index), index);
+                        } else if (not j.count(role_to_key[role])) {
+                            j[role_to_key[role]] = result;
+                            emit dataChanged(index, index, roles);
+                            add_lookup(*indexToTree(index), index);
                         }
                     }
                     break;
@@ -611,6 +788,30 @@ void SessionModel::receivedData(
                         }
                     }
                     break;
+
+                case Roles::flagTextRole:
+                case Roles::flagColourRole: {
+                    auto changed = false;
+                    if (j.count(role_to_key[role]) and j.at(role_to_key[role]) != result) {
+                        j[role_to_key[role]] = result;
+                        changed              = true;
+                    } else if (not j.count(role_to_key[role])) {
+                        j[role_to_key[role]] = result;
+                        changed              = true;
+                    }
+                    if (changed) {
+                        emit dataChanged(index, index, roles);
+                        if (j.count("type") and j.at("type") == "Media") {
+                            // propergate to children
+                            auto rows = rowCount(index);
+                            if (rows)
+                                emit dataChanged(
+                                    SessionModel::index(0, 0, index),
+                                    SessionModel::index(rows - 1, 0, index),
+                                    roles);
+                        }
+                    }
+                } break;
 
                 case Roles::thumbnailURLRole:
                     if (role_to_key.count(role)) {
@@ -642,7 +843,7 @@ void SessionModel::receivedData(
                                         idRole,
                                         index,
                                         media_list_index,
-                                        childrenRole);
+                                        JSONTreeModel::Roles::childrenRole);
                                 }
                             }
 
@@ -662,43 +863,51 @@ void SessionModel::receivedData(
                 case JSONTreeModel::Roles::JSONTextRole:
                     if (j.at("type") == "TimelineItem") {
                         // this is an init setup..
+                        // watchout for duplicate event..
                         auto owner =
                             actorFromString(system(), j.at("actor_owner").get<std::string>());
-                        timeline_lookup_.emplace(
-                            std::make_pair(owner, timeline::Item(result, &system())));
 
-                        timeline_lookup_[owner].bind_item_event_func(
-                            [this](const utility::JsonStore &event, timeline::Item &item) {
-                                item_event_callback(event, item);
-                            },
-                            true);
+                        if (not timeline_lookup_.count(owner)) {
+                            timeline_lookup_.emplace(
+                                std::make_pair(owner, timeline::Item(result, &system())));
 
-                        // rebuild json
-                        auto jsn =
-                            timelineItemToJson(timeline_lookup_.at(owner), system(), true);
-                        // spdlog::info("construct timeline object {}", jsn.dump(2));
-                        // root is myself
-                        auto node     = indexToTree(index);
-                        auto new_node = json_to_tree(jsn, children_);
+                            timeline_lookup_[owner].bind_item_post_event_func(
+                                [this](const utility::JsonStore &event, timeline::Item &item) {
+                                    item_event_callback(event, item);
+                                },
+                                true);
 
-                        node->splice(node->end(), new_node.base());
+                            // rebuild json
+                            auto jsn =
+                                timelineItemToJson(timeline_lookup_.at(owner), system(), true);
 
-                        // update root..
-                        j[children_] = nlohmann::json::array();
+                            // spdlog::info("construct timeline object {}", jsn.dump(2));
+                            // root is myself
+                            auto node     = indexToTree(index);
+                            auto new_node = json_to_tree(jsn, children_);
 
-                        // spdlog::error("{} {}", j["id"], jsn["uuid"]);
+                            // beginInsertRows(index, 0, 0);
+                            node->splice(node->end(), new_node.base());
+                            // endInsertRows();
 
-                        j["id"]              = jsn["id"];
-                        j["actor"]           = jsn["actor"];
-                        j["enabled"]         = jsn["enabled"];
-                        j["transparent"]     = jsn["transparent"];
-                        j["active_range"]    = jsn["active_range"];
-                        j["available_range"] = jsn["available_range"];
-                        emit dataChanged(index, index, QVector<int>());
+                            // update root..
+                            j[children_]         = nlohmann::json::array();
+                            j["id"]              = jsn["id"];
+                            j["prop"]            = jsn["prop"];
+                            j["actor_owner"]     = jsn["actor"];
+                            j["enabled"]         = jsn["enabled"];
+                            j["transparent"]     = jsn["transparent"];
+                            j["active_range"]    = jsn["active_range"];
+                            j["available_range"] = jsn["available_range"];
+
+                            add_lookup(*indexToTree(index), index);
+                            emit dataChanged(index, index, QVector<int>());
+                            // make sure timeline id's are cached!
+                        }
                     }
                     break;
 
-                case Roles::childrenRole:
+                case JSONTreeModel::Roles::childrenRole:
                     processChildren(result, index);
                     break;
                 }
@@ -716,14 +925,11 @@ void SessionModel::requestData(
     const int search_role,
     const QPersistentModelIndex &search_hint,
     const QModelIndex &index,
-    const int role,
-    const std::map<int, std::string> &metadata_paths) const {
+    const int role) const {
     // dispatch call to backend to retrieve missing data.
 
-    // spdlog::warn("{} {}", role, StdFromQString(roleName(role)));
     try {
-        requestData(
-            search_value, search_role, search_hint, indexToData(index), role, metadata_paths);
+        requestData(search_value, search_role, search_hint, indexToData(index), role);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -734,8 +940,11 @@ void SessionModel::requestData(
     const int search_role,
     const QPersistentModelIndex &search_hint,
     const nlohmann::json &data,
-    const int role,
-    const std::map<int, std::string> &metadata_paths) const {
+    const int role) const {
+
+    // need some way of throttling events that are spammed when adding a lot of media.
+    // or the playlist will be repeatedly spammed with child requests.
+
     // dispatch call to backend to retrieve missing data.
     auto inflight = mapFromValue(search_value).dump() + std::to_string(search_role) + "-" +
                     std::to_string(role);
@@ -749,11 +958,14 @@ void SessionModel::requestData(
             data,
             role,
             StdFromQString(roleName(role)),
-            metadata_paths,
             request_handler_);
 
         connect(tmp, &CafResponse::received, this, &SessionModel::receivedDataSlot);
         connect(tmp, &CafResponse::finished, this, &SessionModel::finishedDataSlot);
+        connect(tmp, &CafResponse::started, this, &SessionModel::startedDataSlot);
+    } else {
+        //  we might miss the event if it happens after the inflight request was sent.
+        // spdlog::warn("ALREADY INFLIGHT {}", inflight);
     }
 }
 
@@ -794,7 +1006,7 @@ nlohmann::json SessionModel::playlistTreeToJson(
                 n["actor_uuid"]     = i.value().uuid();
                 n["container_uuid"] = i.uuid();
                 result["children"].emplace_back(n);
-            } else if (type == "Subset" or type == "Timeline") {
+            } else if (type == "Subset" or type == "Timeline" or type == "ContactSheet") {
                 auto n = createEntry(R"({
                     "name": null,
                     "actor_uuid": null,
@@ -891,9 +1103,11 @@ nlohmann::json SessionModel::sessionTreeToJson(
                     "flag": null,
                     "type": null,
                     "actor": null,
+                    "expanded": null,
                     "busy": false,
                     "media_count": 0,
-                    "error_count": 0
+                    "error_count": 0,
+                    "notification": null
                 })"_json);
 
                 n["type"]           = i.value().type();
@@ -961,32 +1175,26 @@ nlohmann::json SessionModel::containerDetailToJson(
         result.erase("children");
     }
 
-    if (detail.type_ == "Media" or detail.type_ == "MediaSource") {
-        result["metadata_set0"]    = nullptr;
-        result["metadata_set1"]    = nullptr;
-        result["metadata_set2"]    = nullptr;
-        result["metadata_set3"]    = nullptr;
-        result["metadata_set4"]    = nullptr;
-        result["metadata_set5"]    = nullptr;
-        result["metadata_set6"]    = nullptr;
-        result["metadata_set7"]    = nullptr;
-        result["metadata_set8"]    = nullptr;
-        result["metadata_set9"]    = nullptr;
-        result["metadata_set10"]   = nullptr;
+    if (detail.type_ == "Media" or detail.type_ == "MediaSource" or
+        detail.type_ == "MediaStream") {
         result["audio_actor_uuid"] = nullptr;
         result["image_actor_uuid"] = nullptr;
         result["media_status"]     = nullptr;
         if (detail.type_ == "Media") {
-            result["flag"]      = nullptr;
-            result["flag_text"] = nullptr;
+            result["flag"]               = nullptr;
+            result["flag_text"]          = nullptr;
+            result["bookmark_uuids"]     = nullptr;
+            result["media_display_info"] = nullptr;
         } else if (detail.type_ == "MediaSource") {
-            result["thumbnail_url"] = nullptr;
-            result["rate"]          = nullptr;
-            result["path"]          = nullptr;
-            result["resolution"]    = nullptr;
-            result["pixel_aspect"]  = nullptr;
-            result["bit_depth"]     = nullptr;
-            result["format"]        = nullptr;
+            result["thumbnail_url"]      = nullptr;
+            result["rate"]               = nullptr;
+            result["path"]               = nullptr;
+            result["timecode_as_frames"] = nullptr;
+            result["path_shake"]         = nullptr;
+            result["resolution"]         = nullptr;
+            result["pixel_aspect"]       = nullptr;
+            result["bit_depth"]          = nullptr;
+            result["format"]             = nullptr;
         }
     }
 
@@ -1001,6 +1209,7 @@ nlohmann::json SessionModel::createEntry(const nlohmann::json &update) {
 
     return result;
 }
+
 
 void SessionModel::moveSelectionByIndex(const QModelIndex &index, const int offset) {
     try {
@@ -1019,43 +1228,91 @@ void SessionModel::moveSelectionByIndex(const QModelIndex &index, const int offs
     }
 }
 
-void SessionModel::updateSelection(const QModelIndex &index, const QModelIndexList &selection) {
+void SessionModel::updateSelection(
+    const QModelIndex &index,
+    const QModelIndexList &selection,
+    const QItemSelectionModel::SelectionFlags &qmode) {
     try {
         if (index.isValid()) {
             nlohmann::json &j = indexToData(index);
-            // spdlog::warn("{}", j.dump(2));
-
             if (j.at("type") == "PlayheadSelection" && j.at("actor").is_string()) {
                 auto actor = actorFromString(system(), j.at("actor"));
                 if (actor) {
-                    UuidList uv;
-                    for (const auto &i : selection)
+                    utility::UuidVector uv;
+                    uv.reserve(selection.size());
+                    for (const auto &i : selection) {
                         uv.emplace_back(UuidFromQUuid(i.data(actorUuidRole).toUuid()));
+                    }
+                    playhead::SelectionMode mode = playhead::SelectionMode::SM_NO_UPDATE;
+                    switch (qmode) {
+                    case QItemSelectionModel::Clear:
+                        mode = playhead::SelectionMode::SM_CLEAR;
+                        break;
+                    case QItemSelectionModel::Select:
+                        mode = playhead::SelectionMode::SM_SELECT;
+                        break;
+                    case QItemSelectionModel::Deselect:
+                        mode = playhead::SelectionMode::SM_DESELECT;
+                        break;
+                    case QItemSelectionModel::Toggle:
+                        mode = playhead::SelectionMode::SM_TOGGLE;
+                        break;
+                    case QItemSelectionModel::ClearAndSelect:
+                        mode = playhead::SelectionMode::SM_CLEAR_AND_SELECT;
+                        break;
+                    case QItemSelectionModel::NoUpdate:
+                    default:
+                        break;
+                    }
 
-                    anon_send(actor, playlist::select_media_atom_v, uv);
+                    anon_send(actor, playlist::select_media_atom_v, uv, mode);
                 }
             }
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        if (index.isValid()) {
+        /*if (index.isValid()) {
             nlohmann::json &j = indexToData(index);
             spdlog::warn("{}", j.dump(2));
-        }
+        }*/
     }
 }
 
+void SessionModel::updateMediaListFilterString(
+    const QModelIndex &index, const QString &filter_string) {
+    try {
+
+        if (index.isValid()) {
+            nlohmann::json &j = indexToData(index);
+            if (j.at("type") == "PlayheadSelection" && j.at("actor").is_string()) {
+                auto actor = actorFromString(system(), j.at("actor"));
+                if (actor) {
+                    anon_send(
+                        actor, playlist::media_filter_string_v, StdFromQString(filter_string));
+                }
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        /*if (index.isValid()) {
+            nlohmann::json &j = indexToData(index);
+            spdlog::warn("{}", j.dump(2));
+        }*/
+    }
+}
 
 nlohmann::json SessionModel::timelineItemToJson(
     const timeline::Item &item, caf::actor_system &sys, const bool recurse) {
     auto result = R"({})"_json;
 
-    result["id"]    = item.uuid();
-    result["actor"] = actorToString(sys, item.actor());
-    result["type"]  = to_string(item.item_type());
-    result["name"]  = item.name();
-    result["flag"]  = item.flag();
-    result["prop"]  = item.prop();
+    result["id"]      = item.uuid();
+    result["actor"]   = actorToString(sys, item.actor());
+    result["type"]    = to_string(item.item_type());
+    result["name"]    = item.name();
+    result["flag"]    = item.flag();
+    result["locked"]  = item.locked();
+    result["markers"] = serialise_markers(item.markers());
+    result["prop"]    = item.prop();
 
     result["active_range"]    = nullptr;
     result["available_range"] = nullptr;
@@ -1063,22 +1320,28 @@ nlohmann::json SessionModel::timelineItemToJson(
     auto active_range    = item.active_range();
     auto available_range = item.available_range();
 
+    result["enabled"]     = item.enabled();
+    result["transparent"] = item.transparent();
+    if (active_range)
+        result["active_range"] = *active_range;
+    if (available_range)
+        result["available_range"] = *available_range;
+
     switch (item.item_type()) {
     case timeline::IT_NONE:
         break;
-
     case timeline::IT_GAP:
+        break;
     case timeline::IT_AUDIO_TRACK:
     case timeline::IT_VIDEO_TRACK:
+        result["notification"] = nullptr;
+        result["group_actor"]  = nullptr;
+        break;
     case timeline::IT_STACK:
+        break;
     case timeline::IT_TIMELINE:
+        break;
     case timeline::IT_CLIP:
-        result["enabled"]     = item.enabled();
-        result["transparent"] = item.transparent();
-        if (active_range)
-            result["active_range"] = *active_range;
-        if (available_range)
-            result["available_range"] = *available_range;
         break;
     }
 

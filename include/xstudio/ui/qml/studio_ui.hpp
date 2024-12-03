@@ -10,6 +10,9 @@ CAF_PUSH_WARNINGS
 #include <QtConcurrent>
 CAF_POP_WARNINGS
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/studio_qml_export.h"
+
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qt/offscreen_viewport.hpp"
 #include "xstudio/utility/uuid.hpp"
@@ -19,7 +22,7 @@ namespace ui {
     namespace qml {
 
         //  top level utility actor, for stuff that lives out side the session.
-        class StudioUI : public QMLActor {
+        class STUDIO_QML_EXPORT StudioUI : public QMLActor {
 
             Q_OBJECT
 
@@ -29,7 +32,7 @@ namespace ui {
 
           public:
             explicit StudioUI(caf::actor_system &system, QObject *parent = nullptr);
-            ~StudioUI();
+            virtual ~StudioUI();
 
             Q_INVOKABLE bool clearImageCache();
 
@@ -57,6 +60,15 @@ namespace ui {
 
             void setSessionActorAddr(const QString &addr);
 
+            Q_INVOKABLE QString renderScreenShotToDisk(
+                const QUrl &path, const int compression, const int width, const int height);
+
+            Q_INVOKABLE QString renderScreenShotToClipboard(const int width, const int height);
+
+            Q_INVOKABLE void setupSnapshotViewport(const QString &playhead_addr);
+
+            Q_INVOKABLE void loadVideoOutputPlugins();
+
           signals:
 
             void newSessionCreated(const QString &session_addr);
@@ -64,23 +76,23 @@ namespace ui {
             void dataSourcesChanged();
             void sessionRequest(const QUrl path, const QByteArray jsn);
             void sessionActorAddrChanged();
-            void openQuickViewers(QStringList mediaActors, QString compareMode);
+            void
+            openQuickViewers(QStringList mediaActors, QString compareMode, int inpt, int outPt);
             void showMessageBox(
                 QString messageTile, QString messageBody, bool closeButton, int timeoutSeconds);
-
 
           public slots:
 
           private:
             void init(caf::actor_system &system) override;
             void updateDataSources();
-            void loadVideoOutputPlugins();
+            xstudio::ui::qt::OffscreenViewport *offscreen_snapshot_viewport();
 
             QList<QObject *> data_sources_;
-            QString session_actor_addr_;
+            xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
             std::vector<xstudio::ui::qt::OffscreenViewport *> offscreen_viewports_;
             std::vector<caf::actor> video_output_plugins_;
-            xstudio::ui::qt::OffscreenViewport *snapshot_offscreen_viewport_ = nullptr;
+            QString session_actor_addr_;
         };
     } // namespace qml
 } // namespace ui

@@ -1,7 +1,7 @@
 SET(LINK_DEPS
 	xstudio::media
 	xstudio::utility
-	xstudio::broadcast
+	xstudio::subset
 	caf::core
 )
 

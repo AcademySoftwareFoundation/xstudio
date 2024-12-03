@@ -13,6 +13,7 @@ using namespace xstudio::utility;
 
 Track::Track(
     const std::string &name,
+    const utility::FrameRate &rate,
     const media::MediaType media_type,
     const utility::Uuid &_uuid,
     const caf::actor &actor)
@@ -21,7 +22,9 @@ Track::Track(
       item_(
           media_type == MediaType::MT_IMAGE ? ItemType::IT_VIDEO_TRACK
                                             : ItemType::IT_AUDIO_TRACK,
-          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor))) {
+          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor)),
+          {},
+          utility::FrameRange(FrameRateDuration(0, rate))) {
     item_.set_name(name);
 }
 
@@ -29,6 +32,14 @@ Track::Track(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
       item_(static_cast<utility::JsonStore>(jsn.at("item"))) {
     media_type_ = jsn.at("media_type");
+}
+
+Track::Track(const Item &item, const caf::actor &actor)
+    : Container(item.name(), "Track", item.uuid()), item_(item.clone()) {
+    item_.set_actor_addr(caf::actor_cast<caf::actor_addr>(actor));
+    media_type_ =
+        (item_.item_type() == ItemType::IT_VIDEO_TRACK ? MediaType::MT_IMAGE
+                                                       : MediaType::MT_AUDIO);
 }
 
 Track Track::duplicate() const {

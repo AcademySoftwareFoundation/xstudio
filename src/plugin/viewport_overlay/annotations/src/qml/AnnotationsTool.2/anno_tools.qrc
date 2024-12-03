@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/anno_icons">
+        <file alias="draw_brush.svg">icons/brush.svg</file>
+        <file alias="draw_laser.svg">icons/stylus_laser_pointer.svg</file>
+        <file alias="draw_text.svg">icons/title.svg</file>
+        <file alias="draw_eraser.svg">icons/ink_eraser.svg</file>
+        <file alias="draw_star.svg">icons/star_rate.svg</file>
+        <file alias="draw_shapes.svg">icons/shapes.svg</file>
+        <file alias="draw_shape_arrow.svg">icons/arrow_forward.svg</file>
+        <file alias="draw_shape_circle.svg">icons/circle.svg</file>
+        <file alias="draw_shape_square.svg">icons/crop_square.svg</file>
+        <file alias="draw_shape_line.svg">icons/horizontal_rule.svg</file>
+        <file alias="draw_color_pick.svg">icons/colorize.svg</file>
+        <file alias="draw_color_check.svg">icons/check.svg</file>
+        <file alias="undo.svg">icons/undo.svg</file>
+        <file alias="redo.svg">icons/redo.svg</file>
+        <file alias="delete.svg">icons/delete.svg</file>
+        <file alias="check_circle.svg">icons/check_circle.svg</file>
+        <file alias="pause_circle.svg">icons/pause_circle.svg</file>
+        <file alias="play_circle.svg">icons/play_circle.svg</file>
+    </qresource>
+</RCC>

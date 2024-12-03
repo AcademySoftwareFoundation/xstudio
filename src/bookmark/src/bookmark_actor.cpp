@@ -34,6 +34,7 @@ BookmarkActor::BookmarkActor(caf::actor_config &cfg, const utility::JsonStore &j
             std::chrono::milliseconds(50));
     }
     link_to(json_store_);
+    join_event_group(this, json_store_);
     init();
 
     if (jsn["base"].contains("annotation") and not jsn["base"]["annotation"].is_null()) {
@@ -48,7 +49,9 @@ BookmarkActor::BookmarkActor(
 
     json_store_ = spawn<json_store::JsonStoreActor>(
         utility::Uuid::generate(), utility::JsonStore(), std::chrono::milliseconds(50));
+
     link_to(json_store_);
+    join_event_group(this, json_store_);
 
     init();
 
@@ -60,44 +63,11 @@ BookmarkActor::BookmarkActor(
     }
 }
 
+caf::message_handler BookmarkActor::message_handler() {
+    return caf::message_handler{
+        make_ignore_error_handler(),
 
-void BookmarkActor::init() {
-    print_on_create(this, base_);
-    print_on_exit(this, base_);
-
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-
-    set_down_handler([=](down_msg &msg) {
-        // find in playhead list..
-        if (msg.source == caf::actor_cast<caf::actor>(owner_)) {
-            set_owner(caf::actor(), true);
-            send_exit(this, caf::exit_reason::user_shutdown);
-        }
-    });
-
-    attach_functor([=](const caf::error &reason) {
-        // this sends a dummy change event that will propagate from the owner, to playhead
-        // so that playhead knows bookmark frame ranges have changed, for example
-        auto owner = caf::actor_cast<caf::actor>(owner_);
-        if (owner)
-            send(owner, utility::event_atom_v, remove_bookmark_atom_v, base_.uuid());
-    });
-
-    behavior_.assign(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        base_.make_ignore_error_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
-        base_.make_last_changed_event_handler(event_group_, this),
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-
 
         [=](json_store::get_json_atom atom,
             const std::string &path,
@@ -114,6 +84,22 @@ void BookmarkActor::init() {
             return rp;
         },
 
+
+        // watch for events...
+        [=](json_store::update_atom,
+            const JsonStore &change,
+            const std::string &path,
+            const JsonStore &full) {
+            if (current_sender() == json_store_) {
+                send(base_.event_group(), json_store::update_atom_v, change, path, full);
+            }
+        },
+
+        [=](json_store::update_atom, const JsonStore &full) mutable {
+            if (current_sender() == json_store_) {
+                send(base_.event_group(), json_store::update_atom_v, full);
+            }
+        },
 
         [=](json_store::get_json_atom atom, const std::string &path) {
             delegate(json_store_, atom, path);
@@ -182,7 +168,8 @@ void BookmarkActor::init() {
         },
 
         [=](bookmark_detail_atom) -> result<BookmarkDetail> {
-            auto detail = BookmarkDetail(base_);
+            auto detail        = BookmarkDetail(base_);
+            detail.actor_addr_ = caf::actor_cast<caf::actor_addr>(this);
             if (not owner_)
                 return detail;
 
@@ -227,8 +214,12 @@ void BookmarkActor::init() {
             }
 
             if (changed) {
-                send(event_group_, utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
-                base_.send_changed(event_group_, this);
+                send(
+                    base_.event_group(),
+                    utility::event_atom_v,
+                    bookmark_change_atom_v,
+                    base_.uuid());
+                base_.send_changed();
             }
             return changed;
         },
@@ -260,8 +251,12 @@ void BookmarkActor::init() {
             if (base_.annotation_ == anno)
                 return false;
             base_.annotation_ = anno;
-            send(event_group_, utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
-            // base_.send_changed(event_group_, this);
+            send(
+                base_.event_group(),
+                utility::event_atom_v,
+                bookmark_change_atom_v,
+                base_.uuid());
+            // base_.send_changed();
             return true;
         },
 
@@ -355,7 +350,28 @@ void BookmarkActor::init() {
                     [=](caf::error &err) mutable { rp.deliver(err); });
 
             return rp;
-        });
+        }};
+}
+
+void BookmarkActor::init() {
+    print_on_create(this, base_);
+    print_on_exit(this, base_);
+
+    set_down_handler([=](down_msg &msg) {
+        // find in playhead list..
+        if (msg.source == caf::actor_cast<caf::actor>(owner_)) {
+            set_owner(caf::actor(), true);
+            send_exit(this, caf::exit_reason::user_shutdown);
+        }
+    });
+
+    attach_functor([=](const caf::error &reason) {
+        // this sends a dummy change event that will propagate from the owner, to playhead
+        // so that playhead knows bookmark frame ranges have changed, for example
+        auto owner = caf::actor_cast<caf::actor>(owner_);
+        if (owner)
+            send(owner, utility::event_atom_v, remove_bookmark_atom_v, base_.uuid());
+    });
 }
 
 void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_data) {
@@ -380,7 +396,7 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                                 anno->bookmark_uuid_ = base_.uuid();
                                 base_.annotation_    = anno;
                                 send(
-                                    event_group_,
+                                    base_.event_group(),
                                     utility::event_atom_v,
                                     bookmark_change_atom_v,
                                     base_.uuid());
@@ -394,7 +410,7 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                                 base_.annotation_.reset(
                                     new AnnotationBase(anno_data, base_.uuid()));
                                 send(
-                                    event_group_,
+                                    base_.event_group(),
                                     utility::event_atom_v,
                                     bookmark_change_atom_v,
                                     base_.uuid());
@@ -405,7 +421,7 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                     // see comment above.
                     base_.annotation_.reset(new AnnotationBase(anno_data, base_.uuid()));
                     send(
-                        event_group_,
+                        base_.event_group(),
                         utility::event_atom_v,
                         bookmark_change_atom_v,
                         base_.uuid());
@@ -417,7 +433,7 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                 "{} AnnotationBase serialised data does not include annotations plugin uuid",
                 __PRETTY_FUNCTION__);
         base_.annotation_.reset(new AnnotationBase(anno_data, base_.uuid()));
-        send(event_group_, utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
+        send(base_.event_group(), utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
     }
 }
 
@@ -437,7 +453,7 @@ void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
 
     if (owner) {
         monitor(owner);
-        request(event_group_, infinite, broadcast::join_broadcast_atom_v, owner)
+        request(base_.event_group(), infinite, broadcast::join_broadcast_atom_v, owner)
             .then(
                 [=](const bool) mutable {},
                 [=](const error &err) mutable {
@@ -445,5 +461,5 @@ void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
                 });
     }
 
-    send(event_group_, utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
+    send(base_.event_group(), utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
 }

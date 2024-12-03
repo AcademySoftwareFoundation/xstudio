@@ -33,6 +33,21 @@ template <> struct adl_serializer<xstudio::utility::ColourTriplet> {
     }
 };
 
+template <> struct adl_serializer<Imath::V4f> {
+    static void to_json(json &j, const Imath::V4f &c) {
+        j = json{"vec4", 1, c[0], c[1], c[2], c[3]};
+    }
+    static void from_json(const json &j, Imath::V4f &c) {
+        auto vv = j.begin();
+        vv++; // skip param type
+        vv++; // skip count
+        c[0] = (vv++).value().get<double>();
+        c[1] = (vv++).value().get<double>();
+        c[2] = (vv++).value().get<double>();
+        c[3] = (vv++).value().get<double>();
+    }
+};
+
 template <typename T> struct adl_serializer<Imath::Matrix44<T>> {
     static void to_json(json &j, const Imath::Matrix44<T> &p) {
         j = json{
@@ -306,7 +321,7 @@ namespace utility {
                 merged.merge(j);
             }
         } catch ([[maybe_unused]] const std::exception &e) {
-            spdlog::warn("Preference path does not exist {}. ({})", path);
+            spdlog::warn("Preference path does not exist {}.", path);
         }
         return merged;
     }

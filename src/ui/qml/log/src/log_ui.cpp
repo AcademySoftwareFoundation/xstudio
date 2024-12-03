@@ -112,19 +112,19 @@ QVariant LogModel::data(const QModelIndex &index, int role) const {
     if (index.row() < data_.size()) {
         switch (role) {
         case TimeRole:
-            result = QVariant::fromValue(data_[index.row()].timeStamp);
+            result = data_[index.row()].timeStamp;
             break;
 
         case LevelRole:
-            result = QVariant::fromValue(data_[index.row()].level);
+            result = data_[index.row()].level;
             break;
 
         case LevelStringRole:
-            result = QVariant::fromValue(logLevelToQString(data_[index.row()].level));
+            result = logLevelToQString(data_[index.row()].level);
             break;
 
         case StringRole:
-            result = QVariant::fromValue(data_[index.row()].text);
+            result = data_[index.row()].text;
             break;
         }
     }

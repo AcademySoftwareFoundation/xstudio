@@ -95,10 +95,7 @@ class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
 
 EXRDataWindowHUD::EXRDataWindowHUD(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)
-    : HUDPluginBase(cfg, "OpenEXR Data Window", init_settings) {
-
-    enabled_->set_preference_path("/plugin/exr_data_window/enabled");
-    enabled_->set_role_data(module::Attribute::ToolbarPosition, 1.0f);
+    : plugin::HUDPluginBase(cfg, "OpenEXR Data Window", init_settings, 1.0f) {
 
     colour_ =
         add_colour_attribute("Line Colour", "Colour", utility::ColourTriplet(0.0f, 1.0f, 0.0f));
@@ -110,14 +107,14 @@ EXRDataWindowHUD::EXRDataWindowHUD(
     add_hud_settings_attribute(width_);
 }
 
-plugin::ViewportOverlayRendererPtr EXRDataWindowHUD::make_overlay_renderer(const int) {
+plugin::ViewportOverlayRendererPtr EXRDataWindowHUD::make_overlay_renderer() {
     return plugin::ViewportOverlayRendererPtr(new EXRDataWindowRenderer());
 }
 
 EXRDataWindowHUD::~EXRDataWindowHUD() = default;
 
-utility::BlindDataObjectPtr EXRDataWindowHUD::prepare_overlay_data(
-    const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
+utility::BlindDataObjectPtr EXRDataWindowHUD::onscreen_render_data(
+    const media_reader::ImageBufPtr &image, const std::string & /*viewport_name*/) const {
 
     auto r = utility::BlindDataObjectPtr();
 
@@ -150,7 +147,8 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<EXRDataWindowHUD>>(
                 utility::Uuid("f8a09960-606d-11ed-9b6a-0242ac120002"),
                 "EXRDataWindowHUD",
-                plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY,
+                plugin_manager::PluginFlags::PF_HEAD_UP_DISPLAY |
+                    plugin_manager::PluginFlags::PF_VIEWPORT_OVERLAY,
                 true,
                 "Clement Jovet",
                 "Viewport HUD Plugin")}));

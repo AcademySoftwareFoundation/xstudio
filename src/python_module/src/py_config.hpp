@@ -8,6 +8,8 @@
 #include <caf/config.hpp>
 #include <caf/io/all.hpp>
 
+#define PYBIND11_DETAILED_ERROR_MESSAGES
+
 CAF_PUSH_WARNINGS
 #include "pybind11_json/pybind11_json.hpp"
 #include <pybind11/operators.h>
@@ -90,8 +92,8 @@ using cpp_binding_ptr = std::unique_ptr<cpp_binding>;
 template <typename T> class has_register_struct {
   private:
     template <typename U>
-    static auto test(U *x) -> decltype(
-        register_class(x, std::declval<py::module &>(), std::declval<const std::string &>()));
+    static auto test(U *x) -> decltype(register_class(
+        x, std::declval<py::module &>(), std::declval<const std::string &>()));
 
     static auto test(...) -> std::false_type;
 
@@ -117,8 +119,8 @@ template <class T> class has_to_string {
 template <class T> class has_register_class {
   private:
     template <class U>
-    static auto test(U *x) -> decltype(
-        register_class(x, std::declval<py::module &>(), std::declval<const std::string &>()));
+    static auto test(U *x) -> decltype(register_class(
+        x, std::declval<py::module &>(), std::declval<const std::string &>()));
 
     static auto test(...) -> std::false_type;
 
@@ -215,6 +217,30 @@ class py_config : public caf::actor_system_config {
     void add_atoms();
     void add_types();
     void add_messages();
+
+    class int_py_binding : public py_binding {
+      public:
+      using py_binding::py_binding;
+      void append(message_builder &xs, py::handle x) const override { 
+        // Awkward! PyBind chucks an error if you try to cast a python int 
+        // (which is actually a long or long long) to a C int if the python 
+        // int value > INT_MAX.
+        long foo = 12412;
+        int64_t a = PyLong_AsLong(x.ptr());
+        int b = int(a);
+        if (a != int64_t(b)) {
+          xs.append(a); 
+        } else {
+          xs.append(b); 
+        }        
+      }
+    };
+
+     void add_int_py() {
+        auto ptr = new int_py_binding("int");
+        py_bindings_.emplace("int", py_binding_ptr{ptr});
+        bindings_.emplace(std::move("int"), ptr);
+    }
 
     template <class T> void add_py(std::string name) {
         auto ptr = new default_py_binding<T>(name);

@@ -60,39 +60,12 @@ PlayheadSelectionActor::PlayheadSelectionActor(
     init();
 }
 
+PlayheadSelectionActor::~PlayheadSelectionActor() {}
 
-void PlayheadSelectionActor::init() {
+void PlayheadSelectionActor::on_exit() { playlist_ = caf::actor(); }
 
-    spdlog::debug("Created PlayheadSelectionActor {}", base_.name());
-    print_on_exit(this, "PlayheadSelectionActor");
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-
-    caf::scoped_actor sys(system());
-    link_to(playlist_);
-    request(playlist_, infinite, uuid_atom_v)
-        .then(
-            [=](const utility::Uuid &uuid) mutable { base_.set_monitored(uuid); },
-            [=](error &) {});
-    request(playlist_, infinite, playlist::get_change_event_group_atom_v)
-        .then([=](caf::actor grp) mutable { join_broadcast(this, grp); }, [=](error &) {});
-
-    set_down_handler([=](down_msg &msg) {
-        // find removed sources..
-        remove_dead_actor(msg.source);
-    });
-
-    behavior_.assign(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
-
+caf::message_handler PlayheadSelectionActor::message_handler() {
+    return caf::message_handler{
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](const group_down_msg & /*msg*/) {},
 
@@ -115,7 +88,7 @@ void PlayheadSelectionActor::init() {
                             playlist_, infinite, playlist::remove_media_atom_v, base_.items())
                             .await(
                                 [=](const bool) {
-                                    select_media(UuidList({new_selection_uuid}));
+                                    select_media(UuidVector({new_selection_uuid}));
                                 },
                                 [=](error &err) {
                                     spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -175,7 +148,16 @@ void PlayheadSelectionActor::init() {
 
         [=](playlist::select_all_media_atom) { select_all(); },
 
-        [=](playlist::select_media_atom, const UuidList &media_uuids) -> bool {
+        [=](playlist::select_media_atom, const UuidVector &media_uuids, bool retry) -> bool {
+            if (media_uuids.empty()) {
+                select_one();
+            } else {
+                select_media(media_uuids, false);
+            }
+            return true;
+        },
+
+        [=](playlist::select_media_atom, const UuidVector &media_uuids) -> bool {
             if (media_uuids.empty()) {
                 select_one();
             } else {
@@ -184,16 +166,43 @@ void PlayheadSelectionActor::init() {
             return true;
         },
 
+        [=](playlist::select_media_atom,
+            const UuidVector &media_uuids,
+            const bool retry,
+            const playhead::SelectionMode mode) -> bool {
+            if (media_uuids.empty()) {
+                select_one();
+            } else {
+                select_media(media_uuids, retry, mode);
+            }
+            return true;
+        },
+
+        [=](playlist::select_media_atom,
+            const UuidVector &media_uuids,
+            const playhead::SelectionMode mode) -> bool {
+            if (media_uuids.empty())
+                select_one();
+            else
+                select_media(media_uuids, true, mode);
+
+            return true;
+        },
+
+        [=](playlist::media_filter_string, const std::string &filter_string) {
+            filter_string_ = filter_string;
+        },
+
+        [=](playlist::media_filter_string) -> std::string { return filter_string_; },
+
         [=](playlist::select_media_atom) -> bool {
             // clears the selection
-            select_media(UuidList());
+            select_media(UuidVector(), true, SM_CLEAR);
             return true;
         },
 
         [=](playlist::select_media_atom, utility::Uuid media_uuid) {
-            auto modified_selection = base_.items();
-            modified_selection.push_back(media_uuid);
-            select_media(modified_selection);
+            select_media(UuidVector({media_uuid}), true, SM_SELECT);
         },
 
         [=](utility::event_atom, utility::change_atom) {
@@ -201,7 +210,7 @@ void PlayheadSelectionActor::init() {
                 // the playlist has changed - if it was previously empty but now
                 // (perhaps) has media content then try selecting the first item
                 if (base_.empty())
-                    anon_send(this, playlist::select_media_atom_v, UuidList());
+                    anon_send(this, playlist::select_media_atom_v, utility::UuidVector());
             }
         },
 
@@ -224,86 +233,170 @@ void PlayheadSelectionActor::init() {
         [=](utility::event_atom, playlist::move_media_atom, const UuidVector &, const Uuid &) {
         },
         [=](utility::event_atom, playlist::remove_media_atom, const UuidVector &) {},
-        [=](utility::event_atom, playlist::add_media_atom, utility::UuidActor media) {
+        [=](utility::event_atom, playlist::add_media_atom, const utility::UuidActorVector &) {
             if (base_.items().empty()) {
                 select_one();
             }
-        }
-
-    );
+        }};
 }
 
-void PlayheadSelectionActor::select_media(const UuidList &media_uuids) {
-    if (base_.items_vec() == std::vector<Uuid>(media_uuids.begin(), media_uuids.end())) {
+
+void PlayheadSelectionActor::init() {
+
+    spdlog::debug("Created PlayheadSelectionActor {}", base_.name());
+    print_on_exit(this, "PlayheadSelectionActor");
+
+    caf::scoped_actor sys(system());
+    link_to(playlist_);
+    request(playlist_, infinite, uuid_atom_v)
+        .then(
+            [=](const utility::Uuid &uuid) mutable { base_.set_monitored(uuid); },
+            [=](error &) {});
+    request(playlist_, infinite, playlist::get_change_event_group_atom_v)
+        .then([=](caf::actor grp) mutable { join_broadcast(this, grp); }, [=](error &) {});
+
+    set_down_handler([=](down_msg &msg) {
+        // find removed sources..
+        remove_dead_actor(msg.source);
+    });
+}
+
+void PlayheadSelectionActor::select_media(
+    const UuidVector &media_uuids, const bool retry, const SelectionMode mode) {
+    // this depends on mode...
+
+    // build list of selected / deselected
+
+    // spdlog::warn("select_media {} {}", retry, mode);
+    // for(const auto &i: media_uuids)
+    //     spdlog::warn("{}", to_string(i));
+
+    if (mode == SM_NO_UPDATE)
         return;
+
+    auto selected   = UuidVector();
+    auto deselected = UuidVector();
+
+    if (mode == SM_CLEAR)
+        deselected = base_.items_vec();
+    else if (mode == SM_DESELECT)
+        deselected = media_uuids;
+    else if (mode == SM_SELECT)
+        selected = media_uuids;
+    else if (mode == SM_TOGGLE) {
+        auto current_selection = base_.items_vec();
+        auto current_selection_set =
+            UuidSet(current_selection.begin(), current_selection.end());
+        for (const auto &i : media_uuids) {
+            if (current_selection_set.count(i))
+                deselected.push_back(i);
+            else
+                selected.push_back(i);
+        }
+    } else if (mode == SM_CLEAR_AND_SELECT) {
+        deselected = base_.items_vec();
+        selected   = media_uuids;
     }
 
-    if (media_uuids.empty()) {
-        for (const auto &i : source_actors_)
-            demonitor(i.second);
-        source_actors_.clear();
-        base_.clear();
-        send(
-            event_group_,
-            utility::event_atom_v,
-            playhead::source_atom_v,
-            std::vector<caf::actor>());
-    } else {
-
-        // fetch all the media in the playlist
+    if (not selected.empty()) {
+        // grab media from playlist..
         request(playlist_, infinite, playlist::get_media_atom_v)
             .then(
                 [=](const std::vector<UuidActor> &media_actors) mutable {
-                    // re can have nasty races..
-                    // we should try and give a grace period
+                    // It's possible that a client has told us to select a piece
+                    // of media that the playlist hasn't quite got around to
+                    // adding yet. e.g. client creates media, adds to playlist
+                    // and then tells PlayheadSelectionActor to select it.
+                    // Due to async actors the Playlist might not have the new
+                    // media quite yet.. in this case order a retry
+
+                    // check to retry
                     auto media_uas = uuidactor_vect_to_map(media_actors);
-                    for (const auto &i : media_uuids) {
-                        if (not media_uas.count(i))
-                            return delayed_anon_send(
-                                caf::actor_cast<caf::actor>(this),
-                                std::chrono::milliseconds(50),
-                                playlist::select_media_atom_v,
-                                media_uuids);
-                    }
+                    if (retry) {
+                        for (const auto &i : selected) {
+                            if (not media_uas.count(i) || !media_uas[i]) {
+                                delayed_anon_send(
+                                    caf::actor_cast<caf::actor>(this),
+                                    std::chrono::milliseconds(500),
+                                    playlist::select_media_atom_v,
+                                    media_uuids,
+                                    false,
+                                    mode);
 
-                    for (const auto &i : source_actors_)
-                        demonitor(i.second);
-                    source_actors_.clear();
-                    base_.clear();
-
-                    std::vector<caf::actor> selected_media_actors;
-
-                    for (auto p : media_uuids) {
-                        if (media_uas.count(p)) {
-                            insert_actor(media_uas[p], p, Uuid());
-                            selected_media_actors.push_back(media_uas[p]);
+                                return;
+                            }
                         }
                     }
 
+                    for (const auto &i : deselected) {
+                        auto currently_selected = source_actors_.find(i);
+                        if (currently_selected != source_actors_.end()) {
+                            // part of current selection..
+                            demonitor(currently_selected->second);
+                            source_actors_.erase(currently_selected);
+                            base_.remove_item(i);
+                        }
+                    }
+                    // some uuids might be bogus..
+                    // we ignore them..
+                    for (const auto &i : selected) {
+                        // make sure they not already active..
+                        if (not media_uas.count(i)) {
+                            spdlog::warn("Invalid media uuid in selection {}", to_string(i));
+                        } else if (media_uas.at(i)) {
+                            if (not source_actors_.count(i)) {
+                                // add to selection..
+                                insert_actor(media_uas.at(i), i, Uuid());
+                            }
+                        }
+                    }
+
+                    auto tmp = std::vector<caf::actor>();
+                    for (const auto &i : base_.items_vec())
+                        tmp.push_back(source_actors_[i]);
+
                     send(
-                        event_group_,
+                        base_.event_group(),
                         utility::event_atom_v,
                         playhead::source_atom_v,
-                        selected_media_actors);
+                        tmp);
                 },
                 [=](error &err) mutable {
                     spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 });
+    } else {
+        // deselect first
+        // then select as order matters.
+        for (const auto &i : deselected) {
+            auto currently_selected = source_actors_.find(i);
+            if (currently_selected != source_actors_.end()) {
+                // part of current selection..
+                demonitor(currently_selected->second);
+                source_actors_.erase(currently_selected);
+                base_.remove_item(i);
+            }
+        }
+
+        // we're done flush changes.
+        // order matters..
+        auto tmp = std::vector<caf::actor>();
+        for (const auto &i : base_.items_vec())
+            tmp.push_back(source_actors_[i]);
+        send(base_.event_group(), utility::event_atom_v, playhead::source_atom_v, tmp);
     }
 }
 
 void PlayheadSelectionActor::select_one() {
-
     // fetch all the media in the playlist
     request(playlist_, infinite, playlist::get_media_atom_v)
         .then(
             [=](std::vector<UuidActor> media_actors) mutable {
                 if (!media_actors.empty()) {
                     // select only the first item in the playlist
-                    select_media(UuidList({media_actors[0].uuid()}));
+                    select_media(UuidVector({media_actors[0].uuid()}));
 
                 } else {
-                    select_media(UuidList());
+                    select_media(UuidVector(), true, SM_CLEAR);
                 }
             },
             [=](error &err) mutable {
@@ -318,7 +411,7 @@ void PlayheadSelectionActor::select_all() {
         .then(
             [=](std::vector<UuidActor> media_actors) mutable {
                 // make a list of all the media item uuids in the plauylist
-                UuidList l;
+                UuidVector l;
                 for (auto i : media_actors) {
                     l.push_back(i.uuid());
                 }
@@ -346,11 +439,11 @@ void PlayheadSelectionActor::select_next_media_item(const int skip_by) {
         infinite,
         playlist::get_next_media_atom_v,
         current_media_source_uuid,
-        skip_by)
+        skip_by,
+        filter_string_)
         .then(
             [=](UuidActor media_actor) mutable {
-                UuidList l({media_actor.uuid()});
-                select_media(l);
+                select_media(UuidVector({media_actor.uuid()}));
             },
             [=](error &err) mutable {
                 spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));

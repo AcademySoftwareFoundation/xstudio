@@ -8,7 +8,6 @@
 
 
 #include "xstudio/atoms.hpp"
-#include "xstudio/audio/audio_output_actor.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/colour_pipeline/colour_cache_actor.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline_actor.hpp"
@@ -17,11 +16,11 @@
 #include "xstudio/global/global_actor.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/global_store/global_store_actor.hpp"
+#include "xstudio/media/media_metadata_manager_actor.hpp"
 #include "xstudio/media_cache/media_cache_actor.hpp"
 #include "xstudio/media_hook/media_hook_actor.hpp"
 #include "xstudio/media_metadata/media_metadata_actor.hpp"
 #include "xstudio/media_reader/media_reader_actor.hpp"
-#include "xstudio/module/global_module_events_actor.hpp"
 #include "xstudio/playhead/playhead_global_events_actor.hpp"
 #include "xstudio/plugin_manager/plugin_manager_actor.hpp"
 #include "xstudio/scanner/scanner_actor.hpp"
@@ -30,6 +29,7 @@
 #include "xstudio/thumbnail/thumbnail_manager_actor.hpp"
 #include "xstudio/ui/model_data/model_data_actor.hpp"
 #include "xstudio/ui/viewport/keypress_monitor.hpp"
+#include "xstudio/ui/viewport/viewport_layout_plugin.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 
@@ -81,8 +81,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
     // spawning the 'GlobalModuleAttrEventsActor' first because subsequent
     // actors might want to connect with it on creation .. see Module::connect_to_ui()
-    auto attr_evs = spawn<module::GlobalModuleAttrEventsActor>();
-    auto gsa      = caf::actor();
+    auto gsa = caf::actor();
 
     if (prefs.is_null()) {
         gsa = spawn<global_store::GlobalStoreActor>(
@@ -95,7 +94,9 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
     auto sga             = spawn<sync::SyncGatewayActor>();
     auto sgma            = spawn<sync::SyncGatewayManagerActor>();
+    auto keyboard_events = spawn<ui::keypress_monitor::KeypressMonitor>();
     auto ui_models       = spawn<ui::model_data::GlobalUIModelData>();
+    auto metadata_mgr    = spawn<media::GlobalMetadataManager>();
     auto pm              = spawn<plugin_manager::PluginManagerActor>();
     auto colour          = spawn<colour_pipeline::GlobalColourPipelineActor>();
     auto gmma            = spawn<media_metadata::GlobalMediaMetadataActor>();
@@ -105,14 +106,13 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     auto gcca            = spawn<colour_pipeline::GlobalColourCacheActor>();
     auto gmha            = spawn<media_hook::GlobalMediaHookActor>();
     auto thumbnail       = spawn<thumbnail::ThumbnailManagerActor>();
-    auto keyboard_events = spawn<ui::keypress_monitor::KeypressMonitor>();
     auto audio           = spawn<audio::GlobalAudioOutputActor>();
     auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto pa              = spawn<embedded_python::EmbeddedPythonActor>("Python");
     auto scanner         = spawn<scanner::ScannerActor>();
     auto conform         = spawn<conform::ConformManagerActor>();
+    auto vpmgr           = spawn<ui::viewport::ViewportLayoutManager>();
 
-    link_to(attr_evs);
     link_to(audio);
     link_to(colour);
     link_to(conform);
@@ -130,20 +130,25 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     link_to(scanner);
     link_to(sga);
     link_to(sgma);
+    link_to(metadata_mgr);
     link_to(thumbnail);
     link_to(ui_models);
-
+    link_to(vpmgr);
 
     // Make default audio output
 #ifdef __linux__
-    auto audio_out = spawn<audio::AudioOutputActor<audio::LinuxAudioOutputDevice>>();
+    auto audio_out = spawn_audio_output_actor<audio::LinuxAudioOutputDevice>(prefs);
     link_to(audio_out);
 #elif __APPLE__
     // TO DO
 #elif _WIN32
-    auto audio_out = spawn<audio::AudioOutputActor<audio::WindowsAudioOutputDevice>>();
+    auto audio_out = spawn_audio_output_actor<audio::WindowsAudioOutputDevice>(prefs);
     link_to(audio_out);
 #endif
+
+    if (audio_out) {
+        system().registry().put(pc_audio_output_registry, audio_out);
+    }
 
     python_enabled_ = false;
     connected_      = false;
@@ -489,6 +494,7 @@ void GlobalActor::on_exit() {
         system().middleman().unpublish(actor_cast<actor>(this), sync_port_);
     }
     system().registry().erase(global_registry);
+    system().registry().erase(pc_audio_output_registry);
 }
 
 void GlobalActor::connect_api(const caf::actor &embedded_python) {

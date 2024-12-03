@@ -13,9 +13,7 @@
 #include "xstudio/json_store/json_store_actor.hpp"
 #include "xstudio/bookmark/bookmarks_actor.hpp"
 #include "xstudio/playlist/playlist_actor.hpp"
-#include "xstudio/tag/tag_actor.hpp"
 #include "xstudio/session/session_actor.hpp"
-#include "xstudio/tag/tag_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
@@ -26,6 +24,8 @@ using namespace xstudio::global_store;
 using namespace xstudio::session;
 using namespace nlohmann;
 using namespace caf;
+using namespace std::chrono_literals;
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -58,7 +58,7 @@ class MediaCopyActor : public caf::event_based_actor {
         const utility::Uuid &dst,
         const utility::Uuid &src,
         const utility::UuidVector &media,
-        const bool remove_source         = false,
+        bool remove_source               = false,
         const bool force_duplicate       = false,
         const utility::Uuid &uuid_before = utility::Uuid(),
         const bool into                  = false);
@@ -98,7 +98,7 @@ void MediaCopyActor::copy_media_to(
     const utility::Uuid &dst,
     const utility::Uuid &src,
     const utility::UuidVector &media,
-    const bool remove_source,
+    bool remove_source,
     const bool force_duplicate,
     const utility::Uuid &uuid_before,
     const bool) {
@@ -108,17 +108,20 @@ void MediaCopyActor::copy_media_to(
         // now find src..
         caf::scoped_actor sys(system());
         caf::actor src_actor;
+        caf::actor src_playlist;
         if (not src.is_null()) {
-            if (playlists_.count(src))
-                src_actor = playlists_[src];
-            else {
+            if (playlists_.count(src)) {
+                src_actor    = playlists_[src];
+                src_playlist = playlists_[src];
+            } else {
                 for (const auto &i : playlists_) {
                     try {
                         auto result = request_receive<std::vector<UuidActor>>(
                             *sys, i.second, playlist::get_container_atom_v, true);
                         for (const auto &ii : result) {
                             if (ii.uuid() == src) {
-                                src_actor = ii.actor();
+                                src_actor    = ii.actor();
+                                src_playlist = i.second;
                                 break;
                             }
                         }
@@ -129,6 +132,16 @@ void MediaCopyActor::copy_media_to(
                     }
                 }
             }
+        }
+
+        if (dst == src && !force_duplicate) {
+            // We're being asked to move media between same src and dest with
+            // no copy ...
+            request(src_actor, infinite, playlist::move_media_atom_v, media, uuid_before)
+                .then(
+                    [=](bool) mutable { rp.deliver(media); },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return;
         }
 
         // find target
@@ -158,6 +171,12 @@ void MediaCopyActor::copy_media_to(
                     rp.deliver(make_error(xstudio_error::error, err.what()));
                 }
             }
+        }
+
+        if (src_playlist == target_playlist) {
+            // copying between sibling subsets/timelines OR from parent playlist
+            // to child subset/timeline
+            remove_source = false;
         }
 
         // we should have target..
@@ -225,7 +244,6 @@ void MediaCopyActor::copy_media_to(
 
                                 //  add to subgroup
                                 if (target_playlist != target) {
-                                    spdlog::warn("add dup to sub");
                                     anon_send(
                                         target,
                                         playlist::add_media_atom_v,
@@ -251,6 +269,7 @@ void MediaCopyActor::copy_media_to(
                                 }
                             }
                         }
+
                         // all done just do removal..
                         if (not removal_list.empty()) {
                             fan_out_request<policy::select_all>(
@@ -291,7 +310,8 @@ class LoadUrisActor : public caf::event_based_actor {
     caf::behavior behavior_;
     caf::actor session_;
     std::vector<caf::uri> uris_;
-    bool load_uris(const bool single_playlist = false);
+    UuidActorVector
+    load_uris(const bool single_playlist = false, const bool make_subsets = false);
 };
 
 LoadUrisActor::LoadUrisActor(
@@ -300,29 +320,40 @@ LoadUrisActor::LoadUrisActor(
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        [=](load_uris_atom, const bool single_playlist) -> result<bool> {
+        [=](load_uris_atom, const bool single_playlist) -> result<UuidActorVector> {
             return load_uris(single_playlist);
-        });
+        },
+        [=](load_uris_atom, const bool single_playlist, const bool make_subsets)
+            -> result<UuidActorVector> { return load_uris(single_playlist, make_subsets); });
 }
 
-bool LoadUrisActor::load_uris(const bool single_playlist) {
+UuidActorVector LoadUrisActor::load_uris(const bool single_playlist, const bool make_subsets) {
 
     bool has_files = false;
     caf::actor playlist;
 
     if (single_playlist) {
-        request(session_, infinite, add_playlist_atom_v, std::string("Untitled Playlist"))
+        request(session_, infinite, add_playlist_atom_v, std::string(""))
             .then(
                 [=](UuidUuidActor playlist) {
                     for (const auto &i : uris_) {
                         fs::path p(uri_to_posix_path(i));
-                        if (not is_session(p.string()))
-                            anon_send(
-                                playlist.second.actor(),
-                                playlist::add_media_atom_v,
-                                i,
-                                true,
-                                Uuid());
+                        if (not is_session(p.string())) {
+                            if (make_subsets) {
+                                anon_send(
+                                    playlist.second.actor(),
+                                    playlist::add_media_with_subsets_atom_v,
+                                    i,
+                                    Uuid());
+                            } else {
+                                anon_send(
+                                    playlist.second.actor(),
+                                    playlist::add_media_atom_v,
+                                    i,
+                                    true,
+                                    Uuid());
+                            }
+                        }
                     }
                 },
                 [=](error &err) mutable {
@@ -340,15 +371,22 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
 #else
                 request(session_, infinite, add_playlist_atom_v, std::string(p.filename()))
 #endif
-
                     .then(
                         [=](UuidUuidActor playlist) {
-                            anon_send(
-                                playlist.second.actor(),
-                                playlist::add_media_atom_v,
-                                i,
-                                true,
-                                Uuid());
+                            if (make_subsets) {
+                                anon_send(
+                                    playlist.second.actor(),
+                                    playlist::add_media_with_subsets_atom_v,
+                                    i,
+                                    Uuid());
+                            } else {
+                                anon_send(
+                                    playlist.second.actor(),
+                                    playlist::add_media_atom_v,
+                                    i,
+                                    true,
+                                    Uuid());
+                            }
                         },
                         [=](error &err) mutable {
                             spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -363,7 +401,7 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
         }
 
         if (has_files) {
-            request(session_, infinite, add_playlist_atom_v, std::string("Untitled Playlist"))
+            request(session_, infinite, add_playlist_atom_v, std::string(""))
                 .then(
                     [=](UuidUuidActor playlist) {
                         for (const auto &i : uris_) {
@@ -382,7 +420,7 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
                     });
         }
     }
-    return true;
+    return UuidActorVector();
 }
 } // namespace
 
@@ -416,14 +454,6 @@ SessionActor::SessionActor(
     join_event_group(this, bookmarks_);
     link_to(bookmarks_);
 
-    if (not jsn.count("tags") or jsn["tags"].is_null()) {
-        tags_ = spawn<tag::TagActor>();
-    } else {
-        tags_ = spawn<tag::TagActor>(static_cast<JsonStore>(jsn["tags"]));
-    }
-    join_event_group(this, tags_);
-    link_to(tags_);
-
     for (const auto &[key, value] : jsn["actors"].items()) {
         if (value["base"]["container"]["type"] == "Playlist") {
             try {
@@ -440,16 +470,24 @@ SessionActor::SessionActor(
     init();
 
     check_media_hook_plugin_version(jsn, path);
+
+    if (!base_.current_playlist_uuid().is_null()) {
+        anon_send(this, active_media_container_atom_v, base_.current_playlist_uuid());
+    }
+    if (!base_.viewed_playlist_uuid().is_null()) {
+        anon_send(this, viewport_active_media_container_atom_v, base_.viewed_playlist_uuid());
+    }
 }
 
 SessionActor::SessionActor(caf::actor_config &cfg, const std::string &name)
     : caf::event_based_actor(cfg), base_(name) {
 
     try {
+
         auto prefs = GlobalStoreHelper(system());
-        base_.set_playhead_rate(
-            FrameRate(1.0 / prefs.value<double>("/core/session/play_rate")));
-        base_.set_media_rate(FrameRate(1.0 / prefs.value<double>("/core/session/media_rate")));
+        base_.set_playhead_rate(FrameRate(prefs.value<std::string>("/core/session/play_rate")));
+        base_.set_media_rate(FrameRate(prefs.value<std::string>("/core/session/media_rate")));
+
     } catch (...) {
     }
 
@@ -463,10 +501,6 @@ SessionActor::SessionActor(caf::actor_config &cfg, const std::string &name)
     join_event_group(this, bookmarks_);
     link_to(bookmarks_);
 
-    tags_ = spawn<tag::TagActor>();
-    join_event_group(this, tags_);
-    link_to(tags_);
-
     init();
 }
 
@@ -474,14 +508,30 @@ void SessionActor::init() {
     print_on_create(this, base_);
     print_on_exit(this, base_);
 
-    event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-
     // monitor serilise targets.
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
         // if they don't unsubscribe we blow their data..!
         auto target = caf::actor_cast<caf::actor_addr>(msg.source);
+        if (msg.source == viewedContainer_.actor()) {
+            demonitor(viewedContainer_.actor());
+            viewedContainer_ = UuidActor();
+            base_.set_viewed_playlist_uuid(utility::Uuid());
+            send(
+                base_.event_group(),
+                utility::event_atom_v,
+                session::viewport_active_media_container_atom_v,
+                viewedContainer_);
+        } else if (msg.source == inspectedContainer_.actor()) {
+            demonitor(inspectedContainer_.actor());
+            inspectedContainer_ = UuidActor();
+            base_.set_current_playlist_uuid(utility::Uuid());
+            send(
+                base_.event_group(),
+                utility::event_atom_v,
+                session::active_media_container_atom_v,
+                inspectedContainer_);
+        }
         if (serialise_targets_.count(target)) {
             anon_send(json_store_, json_store::erase_json_atom_v, serialise_targets_[target]);
             serialise_targets_.erase(target);
@@ -490,27 +540,26 @@ void SessionActor::init() {
     });
 
     behavior_.assign(message_handler()
+                         .or_else(base_.container_message_handler(this))
                          .or_else(bookmark::BookmarksActor::default_event_handler())
-                         .or_else(playlist::PlaylistActor::default_event_handler())
-                         .or_else(tag::TagActor::default_event_handler()));
+                         .or_else(playlist::PlaylistActor::default_event_handler()));
 
     anon_send(caf::actor_cast<caf::actor>(this), bookmark::associate_bookmark_atom_v);
+
+    auto playhead_events_actor =
+        system().registry().template get<caf::actor>(global_playhead_events_actor);
+
+    anon_send(
+        playhead_events_actor,
+        broadcast::join_broadcast_atom_v,
+        caf::actor_cast<caf::actor>(this));
 }
 
 caf::message_handler SessionActor::message_handler() {
     return {
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
-        base_.make_ignore_error_handler(),
         make_get_version_handler(),
+        make_ignore_error_handler(),
 
         [=](bookmark::associate_bookmark_atom) -> result<int> {
             auto rp = make_response_promise<int>();
@@ -564,8 +613,6 @@ caf::message_handler SessionActor::message_handler() {
             delegate(caf::actor_cast<caf::actor>(this), atom, media, base_.media_rate());
         },
 
-        [=](tag::get_tag_atom) -> caf::actor { return tags_; },
-
         [=](get_playlist_atom) -> result<caf::actor> {
             // gets the first playlist
             if (!playlists_.size()) {
@@ -609,6 +656,7 @@ caf::message_handler SessionActor::message_handler() {
         [=](get_playlist_atom, const std::string &name) -> caf::actor {
             std::function<Uuid(const PlaylistTree &, const std::string &)>
                 recursive_name_search;
+
             recursive_name_search = [&recursive_name_search](
                                         const PlaylistTree &tree,
                                         const std::string &name) -> Uuid {
@@ -760,15 +808,23 @@ caf::message_handler SessionActor::message_handler() {
 
         [=](load_uris_atom, const std::vector<caf::uri> &uris, const bool single_playlist) {
             auto loader = system().spawn<LoadUrisActor>(actor_cast<caf::actor>(this), uris);
-            anon_send(loader, load_uris_atom_v, single_playlist);
+            delegate(loader, load_uris_atom_v, single_playlist);
+        },
+
+        [=](load_uris_atom,
+            const std::vector<caf::uri> &uris,
+            const bool single_playlist,
+            const bool make_subsets) {
+            auto loader = system().spawn<LoadUrisActor>(actor_cast<caf::actor>(this), uris);
+            delegate(loader, load_uris_atom_v, single_playlist, make_subsets);
         },
 
         [=](media_rate_atom) -> FrameRate { return base_.media_rate(); },
 
         [=](media_rate_atom, const FrameRate &rate) {
             base_.set_media_rate(rate);
-            send(event_group_, utility::event_atom_v, media_rate_atom_v, rate);
-            base_.send_changed(event_group_, this);
+            send(base_.event_group(), utility::event_atom_v, media_rate_atom_v, rate);
+            base_.send_changed();
             // force all playlists to ave the same new media rate ?
             for (auto &i : playlists_) {
                 anon_send(i.second, media_rate_atom_v, rate);
@@ -912,6 +968,7 @@ caf::message_handler SessionActor::message_handler() {
                 before,
                 into);
         },
+
         [=](playlist::copy_media_atom,
             const Uuid &dst,
             const UuidVector &media,
@@ -939,7 +996,7 @@ caf::message_handler SessionActor::message_handler() {
         [=](path_atom, const caf::uri &uri) -> bool {
             base_.set_filepath(uri);
             send(
-                event_group_,
+                base_.event_group(),
                 utility::event_atom_v,
                 path_atom_v,
                 std::make_pair(base_.filepath(), base_.session_file_mtime()));
@@ -950,8 +1007,10 @@ caf::message_handler SessionActor::message_handler() {
 
         [=](playhead::playhead_rate_atom, const FrameRate &rate) {
             base_.set_playhead_rate(rate);
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
         },
+
+        [=](utility::event_atom, utility::notification_atom, const utility::JsonStore &) {},
 
         [=](playlist::create_divider_atom,
             const std::string &name,
@@ -959,8 +1018,12 @@ caf::message_handler SessionActor::message_handler() {
             const bool into) -> result<Uuid> {
             auto i = base_.insert_divider(name, uuid_before, into);
             if (i) {
-                base_.send_changed(event_group_, this);
-                send(event_group_, utility::event_atom_v, playlist::create_divider_atom_v, *i);
+                base_.send_changed();
+                send(
+                    base_.event_group(),
+                    utility::event_atom_v,
+                    playlist::create_divider_atom_v,
+                    *i);
                 return *i;
             }
 
@@ -983,8 +1046,12 @@ caf::message_handler SessionActor::message_handler() {
             const Uuid &uuid_before) -> result<Uuid> {
             auto i = base_.insert_group(name, uuid_before);
             if (i) {
-                base_.send_changed(event_group_, this);
-                send(event_group_, utility::event_atom_v, playlist::create_group_atom_v, *i);
+                base_.send_changed();
+                send(
+                    base_.event_group(),
+                    utility::event_atom_v,
+                    playlist::create_group_atom_v,
+                    *i);
                 return *i;
             }
 
@@ -1017,7 +1084,7 @@ caf::message_handler SessionActor::message_handler() {
             return PlaylistTree(**found);
         },
 
-        [=](bookmark::render_annotations_atom, const std::string path) {
+        /*[=](bookmark::render_annotations_atom, const std::string path) {
             // This is for debugging but may be useful in the future. It will
             // render all the annotations in the session as a sequential set of
             // image files.
@@ -1069,7 +1136,7 @@ caf::message_handler SessionActor::message_handler() {
                     [=](caf::error err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
-        },
+        },*/
 
         [=](playlist::get_media_atom) -> result<std::vector<UuidActor>> {
             if (playlists_.empty()) {
@@ -1091,6 +1158,36 @@ caf::message_handler SessionActor::message_handler() {
 
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
 
+            return rp;
+        },
+
+        [=](media::get_media_source_atom, const Uuid &uuid) -> result<caf::actor> {
+            if (playlists_.empty()) {
+                return make_error(xstudio_error::error, "No Playlists");
+            }
+
+            auto rp = make_response_promise<caf::actor>();
+
+            fan_out_request<policy::select_all>(
+                playlists(), infinite, media::get_media_source_atom_v, uuid, true)
+                .then(
+                    [=](std::vector<caf::actor> results) mutable {
+                        caf::actor result;
+
+                        for (const auto &i : results) {
+                            if (i) {
+                                result = i;
+                                break;
+                            }
+                        }
+
+                        if (result)
+                            rp.deliver(result);
+                        else
+                            rp.deliver(make_error(xstudio_error::error, "Invalid uuid"));
+                    },
+
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
             return rp;
         },
 
@@ -1159,9 +1256,9 @@ caf::message_handler SessionActor::message_handler() {
             bool changed = base_.move_container(uuid, uuid_before, into);
 
             if (changed) {
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::move_container_atom_v,
                     uuid,
@@ -1176,9 +1273,9 @@ caf::message_handler SessionActor::message_handler() {
             const Uuid &uuid) -> bool {
             bool result = base_.reflag_container(flag, uuid);
             if (result) {
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::reflag_container_atom_v,
                     uuid,
@@ -1226,14 +1323,14 @@ caf::message_handler SessionActor::message_handler() {
             }
 
             if (result) {
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::remove_container_atom_v,
                     cuuid);
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::remove_container_atom_v,
                     removed_playlist_uuids);
@@ -1252,9 +1349,9 @@ caf::message_handler SessionActor::message_handler() {
                 if (found and playlists_.count((*found)->value().uuid()))
                     anon_send(playlists_[(*found)->value().uuid()], name_atom_v, name);
 
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::rename_container_atom_v,
                     uuid,
@@ -1263,34 +1360,193 @@ caf::message_handler SessionActor::message_handler() {
             return result;
         },
 
-        [=](session::current_playlist_atom) -> result<caf::actor> {
-            auto a = actor_cast<caf::actor>(current_playlist_);
-            if (a)
-                return a;
+        [=](session::active_media_container_atom, const UuidActor &playlist) -> bool {
+            if (playlist != inspectedContainer_) {
 
-            return make_error(xstudio_error::error, "No current playlist");
+                if (inspectedContainer_) {
+                    demonitor(inspectedContainer_.actor());
+                }
+                inspectedContainer_ = playlist;
+                if (inspectedContainer_) {
+                    monitor(inspectedContainer_.actor());
+                }
+                base_.set_current_playlist_uuid(inspectedContainer_.uuid());
+                send(
+                    base_.event_group(),
+                    utility::event_atom_v,
+                    session::active_media_container_atom_v,
+                    inspectedContainer_);
+
+                if (!viewedContainer_) {
+                    // if the viewed playlist is not set, default it to the inspected playlist
+                    anon_send(
+                        this,
+                        session::viewport_active_media_container_atom_v,
+                        inspectedContainer_);
+                }
+            }
+            return true;
         },
 
-        [=](session::current_playlist_atom, caf::actor actor, bool broadcast) {
-            current_playlist_ = actor_cast<caf::actor_addr>(actor);
+        [=](session::viewport_active_media_container_atom, const UuidActor &playlist) -> bool {
+            // Sets the active Playlist/Subset/Timeline ... either the 'viewed' one driving the
+            // viewport or the 'current' one that shows up in the MediaList, for example
+            if (playlist != viewedContainer_) {
 
-            if (broadcast) {
+                if (viewedContainer_) {
+                    demonitor(viewedContainer_.actor());
+                }
+                viewedContainer_ = playlist;
+                if (viewedContainer_) {
+
+                    monitor(viewedContainer_.actor());
+
+                    // we need to ensure that the Playlist/Subset/Timeline has a playhead and
+                    // that this playhead is broadcast to viewport so they can attach to it.
+                    request(
+                        viewedContainer_.actor(), infinite, playlist::create_playhead_atom_v)
+                        .then(
+                            [=](utility::UuidActor &playhead) {
+                                // this is a bit nasty - I need to know if this SessionActor
+                                // is the *current* session (it could be a session that's being
+                                // imported)
+                                request(
+                                    system().registry().template get<caf::actor>(
+                                        studio_registry),
+                                    infinite,
+                                    session::session_atom_v)
+                                    .then(
+                                        [=](caf::actor session) {
+
+                                            // If  we are not THE active session. Don't try and
+                                            // switch
+                                            // the global playhead ...
+                                            if (caf::actor_cast<caf::actor>(this) != session)
+                                                return;
+
+                                            // this actually broadcasts, via the global playhead
+                                            // events actor, the new playhead to all viewports
+                                            // so they can attach to the playhead
+                                            auto playhead_events_actor =
+                                                system().registry().template get<caf::actor>(
+                                                    global_playhead_events_actor);
+
+                                            anon_send(
+                                                playhead_events_actor,
+                                                ui::viewport::viewport_playhead_atom_v,
+                                                playhead.actor());
+                                        },
+                                        [=](caf::error &err) {});
+
+
+                                send(
+                                    base_.event_group(),
+                                    utility::event_atom_v,
+                                    ui::viewport::viewport_playhead_atom_v,
+                                    playhead.uuid());
+                            },
+                            [=](caf::error &err) {
+
+                            });
+                }
+                base_.set_viewed_playlist_uuid(viewedContainer_.uuid());
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
-                    session::current_playlist_atom_v,
-                    actor);
+                    session::viewport_active_media_container_atom_v,
+                    playlist);
+            }
+            return true;
+        },
+
+        [=](media::current_media_atom) -> UuidActorVector {
+            auto result = UuidActorVector();
+
+            for (const auto &i : selectedMedia_)
+                result.emplace_back(UuidActor(i.first, i.second));
+
+            return result;
+        },
+
+        [=](media::current_media_atom, const UuidActorVector &media) {
+            selectedMedia_.clear();
+            for (const auto &i : media) {
+                selectedMedia_.push_back(std::make_pair(i.uuid(), i.actor_addr()));
             }
         },
 
-        [=](session::current_playlist_atom, caf::actor actor) {
-            current_playlist_ = actor_cast<caf::actor_addr>(actor);
-            send(event_group_, utility::event_atom_v, session::current_playlist_atom_v, actor);
+        [=](session::active_media_container_atom) -> UuidActor { return inspectedContainer_; },
+
+        [=](session::viewport_active_media_container_atom) -> UuidActor {
+            return viewedContainer_;
         },
 
-        [=](utility::event_atom, playlist::add_media_atom, const UuidActor &ua) {
-            send(event_group_, utility::event_atom_v, playlist::add_media_atom_v, ua);
+        [=](session::active_media_container_atom, utility::Uuid playlist_uuid) {
+            request(
+                caf::actor_cast<caf::actor>(this), infinite, get_playlist_atom_v, playlist_uuid)
+                .then(
+                    [=](caf::actor playlist) {
+                        anon_send(
+                            this,
+                            session::active_media_container_atom_v,
+                            UuidActor(playlist_uuid, playlist));
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
         },
+
+        [=](session::viewport_active_media_container_atom, utility::Uuid playlist_uuid) {
+            request(
+                caf::actor_cast<caf::actor>(this), infinite, get_playlist_atom_v, playlist_uuid)
+                .then(
+                    [=](caf::actor playlist) {
+                        anon_send(
+                            this,
+                            session::viewport_active_media_container_atom_v,
+                            UuidActor(playlist_uuid, playlist));
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        },
+
+        [=](session::active_media_container_atom, caf::actor actor) {
+            request(actor, infinite, utility::uuid_atom_v)
+                .then(
+                    [=](const utility::Uuid &playlist_uuid) mutable {
+                        anon_send(
+                            this,
+                            session::active_media_container_atom_v,
+                            UuidActor(playlist_uuid, actor));
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        },
+
+        [=](session::viewport_active_media_container_atom, caf::actor actor) {
+            request(actor, infinite, utility::uuid_atom_v)
+                .then(
+                    [=](const utility::Uuid &playlist_uuid) mutable {
+                        anon_send(
+                            this,
+                            session::viewport_active_media_container_atom_v,
+                            UuidActor(playlist_uuid, actor));
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        },
+
+        [=](utility::event_atom, playlist::add_media_atom, const UuidActorVector &uav) {
+            send(base_.event_group(), utility::event_atom_v, playlist::add_media_atom_v, uav);
+        },
+
+        [=](utility::event_atom,
+            media::media_display_info_atom,
+            const utility::JsonStore &,
+            caf::actor_addr &) {},
 
         [=](utility::event_atom, playlist::remove_media_atom, const UuidVector &) {},
 
@@ -1372,18 +1628,6 @@ caf::message_handler SessionActor::message_handler() {
                                     rp.deliver(std::move(err));
                                 });
 
-                        request(tags_, infinite, utility::serialise_atom_v)
-                            .then(
-                                [=](const JsonStore &result) mutable {
-                                    (*stores)["tags"] = result;
-                                    check_save_serialise_payload(stores, rp);
-                                },
-                                [=](error &err) mutable {
-                                    spdlog::warn(
-                                        "{} tags {}", __PRETTY_FUNCTION__, to_string(err));
-                                    rp.deliver(std::move(err));
-                                });
-
                         request(
                             system().registry().template get<caf::actor>(media_hook_registry),
                             infinite,
@@ -1428,6 +1672,12 @@ caf::message_handler SessionActor::message_handler() {
             return rp;
         },
 
+        [=](json_store::update_atom,
+            const JsonStore &,
+            const std::string &,
+            const JsonStore &) {},
+        [=](json_store::update_atom, const JsonStore &) {},
+
         [=](utility::serialise_atom,
             const std::vector<utility::Uuid> &containers) -> result<JsonStore> {
             caf::scoped_actor sys(system());
@@ -1460,6 +1710,9 @@ caf::message_handler SessionActor::message_handler() {
                         clients.push_back(playlists_[i]);
                 }
 
+                auto bookmarks =
+                    request_receive<JsonStore>(*sys, bookmarks_, utility::serialise_atom_v);
+
                 if (not clients.empty()) {
                     auto rp = make_response_promise<JsonStore>();
                     fan_out_request<policy::select_all>(clients, infinite, serialise_atom_v)
@@ -1471,6 +1724,7 @@ caf::message_handler SessionActor::message_handler() {
                                 jsn["actors"]        = {};
                                 jsn["global_store"]  = global_store_json;
                                 jsn["store"]         = local_json;
+                                jsn["bookmarks"]     = bookmarks;
                                 for (const auto &j : json) {
                                     jsn["actors"][static_cast<std::string>(
                                         j["base"]["container"]["uuid"])] = j;
@@ -1487,6 +1741,7 @@ caf::message_handler SessionActor::message_handler() {
                 jsn["actors"]        = {};
                 jsn["global_store"]  = global_store_json;
                 jsn["store"]         = local_json;
+                jsn["bookmarks"]     = bookmarks;
 
                 return result<JsonStore>(jsn);
             } catch (const std::exception &err) {
@@ -1495,15 +1750,77 @@ caf::message_handler SessionActor::message_handler() {
         },
         [=](ui::open_quickview_window_atom,
             const utility::UuidActorVector &media_items,
-            std::string compare_mode,
-            bool force) {
+            std::string compare_mode) {
             // forward to the studio actor
             anon_send(
                 home_system().registry().get<caf::actor>(studio_registry),
                 ui::open_quickview_window_atom_v,
                 media_items,
                 compare_mode,
-                force);
+                utility::JsonStore(),
+                utility::JsonStore());
+        },
+        [=](ui::open_quickview_window_atom,
+            const utility::UuidActorVector &media_items,
+            std::string compare_mode,
+            const utility::JsonStore in_point,
+            const utility::JsonStore out_point) {
+            // forward to the studio actor
+            anon_send(
+                home_system().registry().get<caf::actor>(studio_registry),
+                ui::open_quickview_window_atom_v,
+                media_items,
+                compare_mode,
+                in_point,
+                out_point);
+        },
+        [=](utility::event_atom,
+            ui::viewport::viewport_atom,
+            const std::string &viewport_name,
+            caf::actor viewport) {
+            // event from 'global_playhead_events_actor'
+            // a new viewport has been created
+        },
+
+        [=](utility::event_atom,
+            ui::viewport::viewport_playhead_atom,
+            const std::string &viewport_name,
+            caf::actor playhead) {
+            // event from 'global_playhead_events_actor'
+            // the playhead of the given viewport has changed
+        },
+
+        [=](utility::event_atom,
+            ui::viewport::viewport_playhead_atom,
+            caf::actor live_playhead) {
+            // the main, globally active playhead that pushes images to the
+            // viewport (apart from QuickView windows) has changed....
+
+            if (live_playhead) {
+                // we want to get the playlist/subset/timeline that owns this
+                // new playhead
+                request(live_playhead, infinite, utility::parent_atom_v)
+                    .then(
+                        [=](caf::actor_addr playhead_owner) {
+                            // the playhead owner is a Playlist, Subset or Timeline
+                            anon_send(
+                                this,
+                                session::viewport_active_media_container_atom_v,
+                                caf::actor_cast<caf::actor>(playhead_owner));
+                        },
+                        [=](caf::error &err) {});
+            } else {
+                anon_send(this, session::viewport_active_media_container_atom_v, UuidActor());
+            }
+        },
+
+        [=](utility::event_atom,
+            playhead::show_atom,
+            caf::actor media,
+            caf::actor media_source,
+            const std::string &viewport_name) {
+            // event from 'global_playhead_events_actor'
+            // the onscreen media for the given viewport has changed
         }};
 }
 
@@ -1518,8 +1835,6 @@ void SessionActor::check_save_serialise_payload(
         return;
     if (not payload->count("bookmarks"))
         return;
-    if (not payload->count("tags"))
-        return;
     if (not payload->count("media_hook_versions"))
         return;
     if (not payload->count("actors"))
@@ -1532,7 +1847,6 @@ void SessionActor::check_save_serialise_payload(
     jsn["global_store"]        = (*payload)["global_store"];
     jsn["store"]               = (*payload)["store"];
     jsn["bookmarks"]           = (*payload)["bookmarks"];
-    jsn["tags"]                = (*payload)["tags"];
     jsn["media_hook_versions"] = (*payload)["media_hook_versions"];
 
     rp.deliver(jsn);
@@ -1588,6 +1902,36 @@ void SessionActor::create_playlist(
     std::string name,
     const utility::Uuid &uuid_before,
     const bool into) {
+
+    if (name.empty()) {
+
+        // No name supplied ... we want to create a new playlist called
+        // 'Playlist 1' or, if 'Playlist 1' already exists 'Playlist 2' etc.
+        std::function<Uuid(const PlaylistTree &, const std::string &)> recursive_name_search;
+
+        recursive_name_search = [&recursive_name_search](
+                                    const PlaylistTree &tree, const std::string &name) -> Uuid {
+            if (tree.name() == name) {
+                return tree.value_uuid();
+            }
+            for (auto i : tree.children_ref()) {
+                const Uuid uuid = recursive_name_search(i, name);
+                if (uuid != Uuid())
+                    return uuid;
+            }
+            return Uuid();
+        };
+
+        int n = 1;
+        while (1) {
+            name       = fmt::format("Playlist {}", n);
+            Uuid match = recursive_name_search(base_.containers(), name);
+            if (!playlists_.count(match))
+                break;
+            n++;
+        }
+    }
+
     auto actor = spawn<playlist::PlaylistActor>(
         name, utility::Uuid(), caf::actor_cast<caf::actor>(this));
     anon_send(actor, media_rate_atom_v, base_.media_rate());
@@ -1622,9 +1966,9 @@ void SessionActor::create_container(
                 if (not cuuid) {
                     cuuid = base_.insert_container(tmp);
                 }
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     add_playlist_atom_v,
                     UuidActor(detail.uuid_, actor));
@@ -1648,13 +1992,16 @@ void SessionActor::duplicate_container(
     const bool into,
     const bool rename,
     const bool kill_source) {
+
     // find all actor children.. (Timeline/SUBSET/CONTACTSHEET)
     // quick clone of divider..
 
     // clone structure
     PlaylistTree new_tree(tree);
+
     // regenerate uuids..
     new_tree.reset_uuid(true);
+
     duplicate_tree(new_tree, source_session, rename);
 
     std::function<void(const PlaylistTree &, std::vector<Uuid> &)> flatten_tree;
@@ -1681,7 +2028,7 @@ void SessionActor::duplicate_container(
         base_.insert_container(new_tree, uuid_before, into);
     }
 
-    base_.send_changed(event_group_, this);
+    base_.send_changed();
 
     if (kill_source)
         send_exit(source_session, caf::exit_reason::user_shutdown);
@@ -1700,10 +2047,18 @@ void SessionActor::duplicate_tree(
 
     if (tree.value().type() == "ContainerDivider") {
         tree.value().set_uuid(Uuid::generate());
-        send(event_group_, utility::event_atom_v, playlist::create_divider_atom_v, tree.uuid());
+        send(
+            base_.event_group(),
+            utility::event_atom_v,
+            playlist::create_divider_atom_v,
+            tree.uuid());
     } else if (tree.value().type() == "ContainerGroup") {
         tree.value().set_uuid(Uuid::generate());
-        send(event_group_, utility::event_atom_v, playlist::create_group_atom_v, tree.uuid());
+        send(
+            base_.event_group(),
+            utility::event_atom_v,
+            playlist::create_group_atom_v,
+            tree.uuid());
     } else if (tree.value().type() == "Playlist") {
         // need to issue a duplicate action, as we actors are blackboxes..
         // try not to confuse this with duplicating a container, as opposed to the actor..
@@ -1736,7 +2091,7 @@ void SessionActor::duplicate_tree(
             }
 
             link_to(result.actor());
-            send(event_group_, utility::event_atom_v, add_playlist_atom_v, result);
+            send(base_.event_group(), utility::event_atom_v, add_playlist_atom_v, result);
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             // set to invalid uuid ?
@@ -1950,10 +2305,13 @@ void SessionActor::save_json_to(
         // rename tmp to final name
         fs::rename(save_path + ".tmp", save_path);
 
+        const std::string t = utility::to_string(utility::sysclock::now());
+        spdlog::info("Session saved as {} at {}", save_path, t);
+
         if (update_path) {
             base_.set_filepath(path);
             send(
-                event_group_,
+                base_.event_group(),
                 utility::event_atom_v,
                 path_atom_v,
                 std::make_pair(base_.filepath(), base_.session_file_mtime()));

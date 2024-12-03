@@ -40,7 +40,8 @@ namespace module {
             _any_to_json{
                 to_any_to_json<nlohmann::json>(
                     [](nlohmann::json x) -> nlohmann::json { return x; }),
-                to_any_to_json<int>([](int x) -> nlohmann::json { return nlohmann::json(x); }),
+                to_any_to_json<int64_t>(
+                    [](int64_t x) -> nlohmann::json { return nlohmann::json(x); }),
                 to_any_to_json<float>(
                     [](float x) -> nlohmann::json { return nlohmann::json(x); }),
                 to_any_to_json<double>(
@@ -56,16 +57,25 @@ namespace module {
                 to_any_to_json<Imath::V3f>([](Imath::V3f x) -> nlohmann::json {
                     return nlohmann::json{"vec3", 1, x.x, x.y, x.z};
                 }),
+                to_any_to_json<Imath::V4f>([](Imath::V4f x) -> nlohmann::json {
+                    return nlohmann::json{"vec4", 1, x.x, x.y, x.z, x.w};
+                }),
                 to_any_to_json<utility::ColourTriplet>(
                     [](utility::ColourTriplet x) -> nlohmann::json {
                         return nlohmann::json{"colour", 1, x.r, x.g, x.b};
                     }),
                 to_any_to_json<std::vector<float>>(
                     [](std::vector<float> x) -> nlohmann::json { return nlohmann::json(x); }),
+                to_any_to_json<std::vector<int>>(
+                    [](std::vector<int> x) -> nlohmann::json { return nlohmann::json(x); }),
                 to_any_to_json<std::vector<bool>>(
                     [](std::vector<bool> x) -> nlohmann::json { return nlohmann::json(x); }),
                 to_any_to_json<std::vector<std::string>>(
                     [](std::vector<std::string> x) -> nlohmann::json {
+                        return nlohmann::json(x);
+                    }),
+                to_any_to_json<std::vector<utility::Uuid>>(
+                    [](std::vector<utility::Uuid> x) -> nlohmann::json {
                         return nlohmann::json(x);
                     }),
             };
@@ -145,6 +155,12 @@ namespace module {
                 rt = set(data.get<Imath::V3f>());
 
             } else if (
+                data.is_array() && data.size() == 6 && data.begin().value().is_string() &&
+                data.begin().value().get<std::string>() == "vec4") {
+
+                rt = set(data.get<Imath::V4f>());
+
+            } else if (
                 data.is_array() && data.size() == 5 && data.begin().value().is_string() &&
                 data.begin().value().get<std::string>() == "colour") {
 
@@ -170,12 +186,11 @@ namespace module {
                 }
                 rt = set(v);
 
-            } else if (
-                data.is_array() && data.size() && data.begin().value().is_number_float()) {
+            } else if (data.is_array() && data.size() && data.begin().value().is_number()) {
 
                 std::vector<float> v;
                 for (auto p = data.begin(); p != data.end(); p++) {
-                    if (p.value().is_number_float()) {
+                    if (p.value().is_number()) {
                         v.push_back(p.value().get<float>());
                     }
                 }
@@ -184,7 +199,7 @@ namespace module {
             } else if (data.is_boolean()) {
                 rt = set(data.get<bool>());
             } else if (data.is_number_integer()) {
-                rt = set(data.get<int>());
+                rt = set(data.get<int64_t>());
             } else if (data.is_number_float()) {
                 rt = set(data.get<float>());
             } else if (
@@ -200,17 +215,18 @@ namespace module {
             return rt;
         }
 
-        // not pretty, must be a better way of letting an int set a float and vice versa
+        // not pretty, must be a better way of letting an int64_t set a float and vice versa
         // without violating type checking
         bool set(const float &v) {
             if (data_.has_value()) {
                 if (data_.type() == typeid(float) && get<float>() != v) {
                     data_ = v;
                     return true;
-                } else if (data_.type() == typeid(int) && get<int>() != (int)v) {
-                    data_ = (int)v;
+                } else if (data_.type() == typeid(int64_t) && get<int64_t>() != (int64_t)v) {
+                    data_ = (int64_t)v;
                     return true;
-                } else if (!(data_.type() == typeid(int) || data_.type() == typeid(float))) {
+                } else if (!(data_.type() == typeid(int64_t) ||
+                             data_.type() == typeid(float))) {
                     spdlog::warn(
                         "{} Attempt to set AttributeData with type {} with data of type {} "
                         "and "
@@ -225,15 +241,18 @@ namespace module {
             return true;
         }
 
-        bool set(const int &v) {
+        bool set(const int v) { return set(int64_t(v)); }
+
+        bool set(const int64_t &v) {
             if (data_.has_value()) {
                 if (data_.type() == typeid(float) && get<float>() != (float)v) {
                     data_ = (float)v;
                     return true;
-                } else if (data_.type() == typeid(int) && get<int>() != v) {
+                } else if (data_.type() == typeid(int64_t) && get<int64_t>() != v) {
                     data_ = v;
                     return true;
-                } else if (!(data_.type() == typeid(int) || data_.type() == typeid(float))) {
+                } else if (!(data_.type() == typeid(int64_t) ||
+                             data_.type() == typeid(float))) {
                     spdlog::warn(
                         "{} Attempt to set AttributeData with type {} with data of type {} "
                         "and "

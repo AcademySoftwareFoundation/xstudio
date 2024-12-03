@@ -2,33 +2,45 @@
 from xstudio.core import session_atom, join_broadcast_atom
 from xstudio.core import colour_pipeline_atom, get_actor_from_registry_atom
 from xstudio.core import viewport_playhead_atom, quickview_media_atom
-from xstudio.core import UuidActorVec, UuidActor
+from xstudio.core import UuidActorVec, UuidActor, viewport_atom
+from xstudio.core import get_global_playhead_events_atom
 from xstudio.api.session import Session, Container
+from xstudio.api.session.playhead import Playhead
 from xstudio.api.module import ModuleBase
 from xstudio.api.auxiliary import ActorConnection
 
 class Viewport(ModuleBase):
     """Viewport object, represents a viewport in the UI or offscreen."""
 
-    def __init__(self, connection):
+    def __init__(self, connection, viewport_name):
         """Create Viewport object.
 
         Args:
             connection(Connection): Connection object
-            remote(actor): Remote actor object
+            viewport_name(str): Name of viewport
 
         Kwargs:
             uuid(Uuid): Uuid of remote actor.
         """
+        gphev = connection.request_receive(
+                connection.remote(),
+                get_global_playhead_events_atom())[0]
+
         ModuleBase.__init__(
             self,
             connection,
             connection.request_receive(
-                connection.remote(),
-                get_actor_from_registry_atom(),
-                "MAIN_VIEWPORT"
+                gphev,
+                viewport_atom(),
+                viewport_name
                 )[0]
             )
+
+    @property
+    def playhead(self):
+        """Access the Playhead object supplying images to the viewport
+        """        
+        return Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])            
 
     def quickview(self, media_items, compare_mode="Off", position=(100,100), size=(1280,720)):
         """Connect this playhead to the viewport.

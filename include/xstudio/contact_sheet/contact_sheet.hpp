@@ -7,7 +7,6 @@
 
 #include "xstudio/playhead/playhead.hpp"
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 
@@ -48,15 +47,10 @@ namespace contact_sheet {
 
         [[nodiscard]] utility::FrameRate playhead_rate() const { return playhead_rate_; }
         void set_playhead_rate(const utility::FrameRate &rate) { playhead_rate_ = rate; }
-        void set_compare_mode(const playhead::CompareMode compare_mode = playhead::CM_GRID) {
-            compare_mode_ = compare_mode;
-        }
-        [[nodiscard]] playhead::CompareMode compare_mode() const { return compare_mode_; }
 
       private:
         utility::UuidListContainer media_list_;
         utility::FrameRate playhead_rate_;
-        playhead::CompareMode compare_mode_ = {playhead::CM_GRID};
         utility::UuidActor playhead_;
     };
 } // namespace contact_sheet

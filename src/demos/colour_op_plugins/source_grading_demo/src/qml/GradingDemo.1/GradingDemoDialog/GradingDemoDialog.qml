@@ -10,7 +10,6 @@ import QtQml.Models 2.14
 import QtQuick.Dialogs 1.3 //for ColorDialog
 import QtGraphicalEffects 1.15 //for RadialGradient
 
-import xstudio.qml.module 1.0
 import xStudio 1.0
 
 XsWindow {
@@ -25,13 +24,6 @@ XsWindow {
     height: minimumHeight
     minimumHeight: minimumWidth
     maximumHeight: minimumHeight
-
-    onVisibleChanged: {
-        if (!visible) {
-            // ensure keyboard events are returned to the viewport
-            sessionWidget.playerWidget.viewport.forceActiveFocus()
-        }
-    }
 
     XsModuleAttributesModel {
         id: grading_demo_controls

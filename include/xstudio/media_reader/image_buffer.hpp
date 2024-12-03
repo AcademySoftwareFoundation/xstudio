@@ -46,6 +46,8 @@ namespace media_reader {
             }
         }
 
+        [[nodiscard]] float image_aspect() const { return image_size_in_pixels_.y ? pixel_aspect_*image_size_in_pixels_.x/image_size_in_pixels_.y : 16.0f/9.0f; }
+
         [[nodiscard]] float pixel_aspect() const { return pixel_aspect_; }
         void set_pixel_aspect(const float aspect) { pixel_aspect_ = aspect; }
 
@@ -71,8 +73,6 @@ namespace media_reader {
                 return pixel_picker_(*this, pixel_location);
             return PixelInfo(pixel_location);
         }
-
-        AudioBufPtr audio_;
 
       private:
         utility::Uuid shader_id_;
@@ -106,7 +106,10 @@ namespace media_reader {
               plugin_blind_data_(o.plugin_blind_data_),
               tts_(o.tts_),
               frame_id_(o.frame_id_),
-              bookmarks_(o.bookmarks_) {}
+              bookmarks_(o.bookmarks_),
+              intrinsic_transform_(o.intrinsic_transform_),
+              layout_transform_(o.layout_transform_),
+              playhead_logical_frame_(o.playhead_logical_frame_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
             Base &b               = static_cast<Base &>(*this);
@@ -118,6 +121,9 @@ namespace media_reader {
             tts_                  = o.tts_;
             frame_id_             = o.frame_id_;
             bookmarks_            = o.bookmarks_;
+            intrinsic_transform_  = o.intrinsic_transform_;
+            layout_transform_     = o.layout_transform_;
+            playhead_logical_frame_ = o.playhead_logical_frame_;
             return *this;
         }
 
@@ -129,7 +135,7 @@ namespace media_reader {
             }
 
             if (colour_pipe_data_ && o.colour_pipe_data_) {
-                if (colour_pipe_data_->cache_id_ != o.colour_pipe_data_->cache_id_) {
+                if (colour_pipe_data_->cache_id() != o.colour_pipe_data_->cache_id()) {
                     return false;
                 }
             } else if (colour_pipe_data_ || o.colour_pipe_data_) {
@@ -164,37 +170,27 @@ namespace media_reader {
         // of add_plugin_blind_data2 instead
         void add_plugin_blind_data(
             const utility::Uuid &plugin_uuid, const utility::BlindDataObjectPtr &data) {
-            plugin_blind_data_[plugin_uuid].first = data;
-        }
-
-        void add_plugin_blind_data2(
-            const utility::Uuid &plugin_uuid, const utility::BlindDataObjectPtr &data) {
-            plugin_blind_data_[plugin_uuid].second = data;
+            plugin_blind_data_[plugin_uuid] = data;
         }
 
         [[nodiscard]] utility::BlindDataObjectPtr
         plugin_blind_data(const utility::Uuid plugin_uuid) const {
             auto p = plugin_blind_data_.find(plugin_uuid);
             if (p != plugin_blind_data_.end())
-                return p->second.first;
-            return utility::BlindDataObjectPtr();
-        }
-
-        [[nodiscard]] utility::BlindDataObjectPtr
-        plugin_blind_data2(const utility::Uuid plugin_uuid) const {
-            auto p = plugin_blind_data_.find(plugin_uuid);
-            if (p != plugin_blind_data_.end())
-                return p->second.second;
+                return p->second;
             return utility::BlindDataObjectPtr();
         }
 
         std::map<
             utility::Uuid,
-            std::pair<utility::BlindDataObjectPtr, utility::BlindDataObjectPtr>>
+            utility::BlindDataObjectPtr>
             plugin_blind_data_;
 
         [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
         void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
+
+        [[nodiscard]] const int &playhead_logical_frame() const { return playhead_logical_frame_; }
+        void set_playhead_logical_frame(const int frame) { playhead_logical_frame_ = frame; }
 
         [[nodiscard]] const bookmark::BookmarkAndAnnotations &bookmarks() const {
             return bookmarks_;
@@ -206,10 +202,21 @@ namespace media_reader {
         [[nodiscard]] const media::AVFrameID &frame_id() const { return frame_id_; }
         void set_frame_id(const media::AVFrameID &id) { frame_id_ = id; }
 
+        [[nodiscard]] const Imath::M44f & intrinsic_transform() const { return intrinsic_transform_; }
+        void set_intrinsic_transform(const Imath::M44f &t) { intrinsic_transform_ = t; }
+
+        [[nodiscard]] const Imath::M44f & layout_transform() const { return layout_transform_; }
+        void set_layout_transform(const Imath::M44f &t) { layout_transform_ = t; }
+
       private:
+
+        Imath::M44f intrinsic_transform_;
+        Imath::M44f layout_transform_;
+
         timebase::flicks tts_ = timebase::flicks{0};
         media::AVFrameID frame_id_;
         bookmark::BookmarkAndAnnotations bookmarks_;
+        int playhead_logical_frame_ = 0;
     };
 
 } // namespace media_reader

@@ -10,7 +10,6 @@
 #include "xstudio/media_cache/media_cache_actor.hpp"
 #include "xstudio/media_reader/media_reader_actor.hpp"
 #include "xstudio/playlist/playlist_actor.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/helpers.hpp"
 
 using namespace xstudio;

@@ -21,8 +21,7 @@ void ViewportGLWidget::resizeGL(int w, int h) {
         Imath::V2f(w, 0),
         Imath::V2f(w, h),
         Imath::V2f(0, h),
-        Imath::V2i(w, h),
-        1.0f);
+        Imath::V2i(w, h));
 }
 
 void ViewportGLWidget::paintGL() { the_viewport_->render(); }
@@ -42,9 +41,7 @@ void ViewportGLWidget::init(caf::actor_system &system) {
 
     the_viewport_.reset(new ui::viewport::Viewport(
         jsn,
-        as_actor(),
-        true,
-        viewport::ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false))));
+        as_actor()));
 
     auto callback = [this](auto &&PH1) {
         receive_change_notification(std::forward<decltype(PH1)>(PH1));

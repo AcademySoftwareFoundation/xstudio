@@ -57,11 +57,19 @@
 				"datatype": "bool",
 				"context": ["APPLICATION"]
 			},
-			"mask_selection": {
-				"path": "/plugin/basic_masking/mask_selection",
-				"default_value": "Off",
+			"mask_enabled": {
+				"path": "/plugin/basic_masking/mask_enabled",
+				"default_value": false,
 				"description": "Sets the mask on / off",
-				"value": "Off",
+				"value": false,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			},
+			"mask_render_method": {
+				"path": "/plugin/basic_masking/mask_render_method",
+				"default_value": "OpenGL",
+				"description": "Sets whether QML or OpenGL is used to draw the mask",
+				"value": "OpenGL",
 				"datatype": "string",
 				"context": ["APPLICATION"]
 			}

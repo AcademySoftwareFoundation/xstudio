@@ -16,8 +16,8 @@ void FrameRequestQueue::add_frame_request(
     bool matches_existing_request = false;
     for (auto pp = queue_.rbegin(); pp != queue_.rend(); ++pp) {
 
-        if ((*pp)->requested_frame_->frame_ == frame_info.frame_ &&
-            (*pp)->requested_frame_->uri_ == frame_info.uri_) {
+        if ((*pp)->requested_frame_->frame() == frame_info.frame() &&
+            (*pp)->requested_frame_->uri() == frame_info.uri()) {
             if ((*pp)->required_by_ > required_by) {
                 (*pp)->required_by_ = required_by;
             }
@@ -47,9 +47,9 @@ void FrameRequestQueue::add_frame_requests(
 
     for (const auto &p : frames_info) {
         const std::shared_ptr<const media::AVFrameID> &frame_info = (p.second);
-        const utility::time_point &required_by                    = p.first;
+        const utility::time_point &when_we_want_it                = p.first;
         queue_.emplace_back(
-            new FrameRequest(frame_info, required_by, requesting_playhead_uuid));
+            new FrameRequest(frame_info, when_we_want_it, requesting_playhead_uuid));
     }
 
     std::sort(

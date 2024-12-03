@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
 
@@ -6,6 +5,7 @@ using namespace xstudio::ui::qml;
 
 #include <QJSValue>
 #include <QItemSelectionRange>
+#include <QVector4D>
 
 void ModelRowCount::setCount(const int count) {
     if (count != count_) {
@@ -79,15 +79,23 @@ void ModelRowCount::setIndex(const QModelIndex &index) {
 
 void ModelProperty::setIndex(const QModelIndex &index) {
     if (index.isValid()) {
-        if (index_.isValid())
+        if (index_.isValid()) {
             disconnect(
                 index_.model(),
                 &QAbstractItemModel::dataChanged,
                 this,
                 &ModelProperty::dataChanged);
+            disconnect(
+                index_.model(),
+                &QAbstractItemModel::rowsRemoved,
+                this,
+                &ModelProperty::removed);
+        }
 
         connect(
             index.model(), &QAbstractItemModel::dataChanged, this, &ModelProperty::dataChanged);
+
+        connect(index.model(), &QAbstractItemModel::rowsRemoved, this, &ModelProperty::removed);
 
         index_ = QPersistentModelIndex(index);
         emit indexChanged();
@@ -97,8 +105,14 @@ void ModelProperty::setIndex(const QModelIndex &index) {
     } else {
         index_ = QPersistentModelIndex(index);
         emit indexChanged();
-        if (updateValue())
-            emit valueChanged();
+        value_ = QVariant();
+        emit valueChanged();
+    }
+}
+
+void ModelProperty::removed(const QModelIndex &parent, int first, int last) {
+    if (not index_.isValid()) {
+        setIndex(parent.model()->index(-1, -1, parent));
     }
 }
 
@@ -161,12 +175,40 @@ void ModelProperty::setValue(const QVariant &value) {
     }
 }
 
+void PreferencePropertyMap::setMyValue(const QVariant &value) {
+    if (values_->value("valueRole") != value) {
+        values_->setProperty("valueRole", value);
+        emit myValueChanged();
+    }
+}
+
+void PreferencePropertyMap::valueChanged(const QString &key, const QVariant &value) {
+    ModelPropertyMap::valueChanged(key, value);
+    emitChange(key);
+}
+
+void PreferencePropertyMap::emitChange(const QString &key) {
+    if (key == "valueRole")
+        emit myValueChanged();
+    else if (key == "datatypeRole")
+        emit dataTypeChanged();
+    else if (key == "contextRole")
+        emit contextChanged();
+    else if (key == "nameRole")
+        emit nameChanged();
+    else if (key == "defaultValueRole")
+        emit defaultValueChanged();
+    else if (key == "jsonTextRole")
+        emit jsonStringChanged();
+}
+
 ModelPropertyMap::ModelPropertyMap(QObject *parent) : QObject(parent) {
     values_ = new QQmlPropertyMap(this);
     connect(values_, &QQmlPropertyMap::valueChanged, this, &ModelPropertyMap::valueChangedSlot);
 }
 
 void ModelPropertyMap::setIndex(const QModelIndex &index) {
+
     if (index != index_) {
         auto model_change = true;
 
@@ -202,13 +244,16 @@ void ModelPropertyMap::setIndex(const QModelIndex &index) {
 
             emit indexChanged();
 
-            if (model_change)
+            if (model_change) {
                 emit valuesChanged();
+                emit contentChanged();
+            }
         } else {
             index_ = QPersistentModelIndex(index);
             updateValues();
             emit indexChanged();
             emit valuesChanged();
+            emit contentChanged();
         }
     } else if (not index.isValid()) {
         // force update as will auto become invalid
@@ -216,6 +261,7 @@ void ModelPropertyMap::setIndex(const QModelIndex &index) {
         updateValues();
         emit indexChanged();
         emit valuesChanged();
+        emit contentChanged();
     }
 }
 
@@ -235,7 +281,8 @@ void ModelPropertyMap::dump() {
     }
 }
 
-void ModelPropertyMap::updateValues(const QVector<int> &roles) {
+bool ModelPropertyMap::updateValues(const QVector<int> &roles) {
+    auto changed = false;
     if (index_.isValid()) {
         auto hash = index_.model()->roleNames();
 
@@ -248,6 +295,7 @@ void ModelPropertyMap::updateValues(const QVector<int> &roles) {
 
                 if (model_value != (*values_)[propery_name]) {
                     values_->setProperty(StdFromQString(propery_name).c_str(), model_value);
+                    changed = true;
                 }
             }
             ++i;
@@ -257,13 +305,18 @@ void ModelPropertyMap::updateValues(const QVector<int> &roles) {
         for (const auto &i : values_->keys()) {
             values_->setProperty(StdFromQString(i).c_str(), QVariant());
         }
+        changed = true;
     }
+
+    return changed;
 }
 
 void ModelPropertyMap::dataChanged(
     const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
-    if (index_.isValid() and QItemSelectionRange(topLeft, bottomRight).contains(index_))
-        updateValues(roles);
+    if (index_.isValid() and QItemSelectionRange(topLeft, bottomRight).contains(index_)) {
+        if (updateValues(roles))
+            emit contentChanged();
+    }
 }
 
 void ModelPropertyMap::valueChangedSlot(const QString &key, const QVariant &value) {
@@ -321,7 +374,7 @@ void ModelNestedPropertyMap::valueChanged(const QString &key, const QVariant &va
 }
 
 // change from frontend.
-void ModelNestedPropertyMap::updateValues(const QVector<int> &roles) {
+bool ModelNestedPropertyMap::updateValues(const QVector<int> &roles) {
     // populate QMLPropertyMap from value.
     if (index_.isValid()) {
         auto jvalue = mapFromValue(index_.data(getRoleId(data_role_)));
@@ -358,6 +411,7 @@ void ModelNestedPropertyMap::updateValues(const QVector<int> &roles) {
             }
         }
     }
+    return true;
 }
 
 
@@ -367,17 +421,46 @@ QVariant xstudio::ui::qml::mapFromValue(const nlohmann::json &value) {
     if (value.is_boolean())
         result = QVariant::fromValue(value.get<bool>());
     else if (value.is_number_integer())
-        result = QVariant::fromValue(value.get<int>());
+        result = QVariant::fromValue(value.get<long long>());
     else if (value.is_number_unsigned())
-        result = QVariant::fromValue(value.get<int>());
+        result = QVariant::fromValue(value.get<unsigned int>());
     else if (value.is_number_float())
         result = QVariant::fromValue(value.get<float>());
     else if (value.is_string())
         result = QVariant::fromValue(QStringFromStd(value.get<std::string>()));
-    else if (value.is_array())
-        result = QVariantListFromJson(utility::JsonStore(value));
-    else if (value.is_object())
-        result = QVariantMapFromJson(value);
+    else if (value.is_array()) {
+        if (value.size() == 5 && value[0].is_string() &&
+            value[0].get<std::string>() == "colour") {
+
+            // it should be a color!
+            const auto t = value.get<utility::ColourTriplet>();
+            QColor c(
+                static_cast<int>(round(t.r * 255.0f)),
+                static_cast<int>(round(t.g * 255.0f)),
+                static_cast<int>(round(t.b * 255.0f)));
+            result = QVariant(c);
+        } else if (
+            value.size() == 6 && value[0].is_string() &&
+            value[0].get<std::string>() == "vec4") {
+
+            // it should be a color!
+            const auto t = value.get<Imath::V4f>();
+            QVector4D rt;
+            rt[0] = t[0];
+            rt[1] = t[1];
+            rt[2] = t[2];
+            rt[3] = t[3];
+            return QVariant(rt);
+        } else {
+            result = QVariantListFromJson(utility::JsonStore(value));
+        }
+    } else if (value.is_object()) {
+        QVariantMap r;
+        for (auto p = value.begin(); p != value.end(); ++p) {
+            r[QStringFromStd(p.key())] = mapFromValue(p.value());
+        }
+        result = r;
+    }
 
     return result;
 }
@@ -399,6 +482,17 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
                 QJsonDocument(v.toJsonArray()).toJson(QJsonDocument::Compact).constData());
             break;
 
+        case QMetaType::QColor: {
+            auto c = v.value<QColor>();
+            result = nlohmann::json(utility::ColourTriplet(
+                float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
+        } break;
+
+        case QMetaType::QVector4D: {
+            auto c = v.value<QVector4D>();
+            result = nlohmann::json(Imath::V4f(c[0], c[1], c[2], c[3]));
+        } break;
+
         default:
             spdlog::warn("1 Unsupported datatype {} {}", v.type(), v.typeName());
             break;
@@ -415,6 +509,9 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
             result = value.toBool();
             break;
         case QMetaType::Double:
+            result = value.toDouble();
+            break;
+        case QMetaType::Float:
             result = value.toDouble();
             break;
         case QMetaType::Int:
@@ -441,10 +538,26 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
                 QJsonDocument(value.toJsonObject()).toJson(QJsonDocument::Compact).constData());
             break;
 
+        case QMetaType::QStringList:
+            result = nlohmann::json::parse(
+                QJsonDocument(value.toJsonArray()).toJson(QJsonDocument::Compact).constData());
+            break;
+
         case QMetaType::QVariantList:
             result = nlohmann::json::parse(
                 QJsonDocument(value.toJsonArray()).toJson(QJsonDocument::Compact).constData());
             break;
+
+        case QMetaType::QColor: {
+            auto c = value.value<QColor>();
+            result = nlohmann::json(utility::ColourTriplet(
+                float(c.red()) / 255.0f, float(c.green()) / 255.0f, float(c.blue()) / 255.0f));
+        } break;
+
+        case QMetaType::QVector4D: {
+            auto c = value.value<QVector4D>();
+            result = nlohmann::json(Imath::V4f(c[0], c[1], c[2], c[3]));
+        } break;
 
         case QMetaType::QJsonDocument: {
             QVariant v = value;

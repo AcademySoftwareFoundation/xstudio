@@ -5,8 +5,8 @@
 #include <caf/uri.hpp>
 #include <limits>
 
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/frame_list.hpp"
+#include "xstudio/utility/frame_rate_and_duration.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/timecode.hpp"
 
@@ -14,6 +14,8 @@ namespace xstudio {
 namespace utility {
     class MediaReference {
       public:
+        enum FramePadFormat { FPF_XSTUDIO = 0, FPF_SHAKE, FPF_NUKE };
+
         MediaReference(
             caf::uri uri          = caf::uri(),
             const bool container  = true,
@@ -40,7 +42,7 @@ namespace utility {
         [[nodiscard]] virtual JsonStore serialise() const;
         virtual ~MediaReference() = default;
 
-        [[nodiscard]] caf::uri uri() const;
+        [[nodiscard]] caf::uri uri(const FramePadFormat fpf = FPF_XSTUDIO) const;
         [[nodiscard]] bool container() const { return container_; }
         [[nodiscard]] int frame_count() const { return duration_.frames(); }
         [[nodiscard]] int offset() const { return offset_; }

@@ -6,7 +6,6 @@
 #include "xstudio/ui/mouse.hpp"
 
 #include "xstudio/ui/qml/module_ui.hpp"          //NOLINT
-#include "xstudio/ui/qml/module_menu_ui.hpp"     //NOLINT
 #include "xstudio/ui/qml/embedded_python_ui.hpp" //NOLINT
 #include "xstudio/ui/qml/helper_ui.hpp"          //NOLINT
 #include "xstudio/ui/qml/bookmark_ui.hpp"        //NOLINT
@@ -60,8 +59,6 @@ PySideQmlViewport::PySideQmlViewport(QWidget *parent) : QQuickWidget(parent) {
     // Register our custom types
     qmlRegisterType<StudioUI>("xstudio.qml.studio", 1, 0, "Studio");
     qmlRegisterType<SemVer>("xstudio.qml.semver", 1, 0, "SemVer");
-    qmlRegisterType<CursorPosProvider>(
-        "xstudio.qml.cursor_pos_provider", 1, 0, "CursorPosProvider");
     qmlRegisterType<QMLViewport>("xstudio.qml.viewport", 1, 0, "Viewport");
     qmlRegisterType<PlaylistUI>("xstudio.qml.playlist", 1, 0, "Playlist");
     qmlRegisterType<MediaUI>("xstudio.qml.media", 1, 0, "Media");
@@ -78,10 +75,6 @@ PySideQmlViewport::PySideQmlViewport(QWidget *parent) : QQuickWidget(parent) {
     qmlRegisterType<ContactSheetUI>("xstudio.qml.contact_sheet", 1, 0, "ContactSheetUI");
     qmlRegisterType<QMLUuid>("xstudio.qml.uuid", 1, 0, "QMLUuid");
     qmlRegisterType<ClipboardProxy>("xstudio.qml.clipboard", 1, 0, "Clipboard");
-
-    qmlRegisterType<ModuleAttrsModel>("xstudio.qml.module", 1, 0, "XsModuleAttributesModel");
-    qmlRegisterType<ModuleAttrsDirect>("xstudio.qml.module", 1, 0, "XsModuleAttributes");
-    qmlRegisterType<ModuleMenusModel>("xstudio.qml.module", 1, 0, "XsModuleMenu");
 
     qRegisterMetaType<MediaUI *>("MediaUI*");
     // qRegisterMetaType<BookmarkDetailUI*>("BookmarkDetailUI*");

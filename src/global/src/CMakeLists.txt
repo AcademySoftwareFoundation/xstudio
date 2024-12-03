@@ -1,5 +1,8 @@
 project(global VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
-find_package(pybind11 REQUIRED)  # or `add_subdirectory(pybind11)`
+
+find_package(Python COMPONENTS Interpreter Development)
+find_package(pybind11 CONFIG)  # or `add_subdirectory(pybind11)`
+find_package(fmt REQUIRED)
 
 set(SOURCES
 	global_actor.cpp
@@ -22,8 +25,8 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::audio_output
 		xstudio::conform
 		xstudio::embedded_python
-		xstudio::event
 		xstudio::global_store
+		xstudio::media
 		xstudio::media_cache
 		xstudio::media_cache
 		xstudio::media_hook
@@ -41,8 +44,9 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::utility
 		caf::core
 		caf::io
+		fmt::fmt
 	PRIVATE
-		pybind11::embed
+		Python::Python
 )
 
 if(UNIX AND NOT APPLE)

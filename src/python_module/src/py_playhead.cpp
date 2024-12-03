@@ -22,9 +22,16 @@ using namespace xstudio;
 namespace py = pybind11;
 
 void py_playhead(py::module_ &m) {
-    py::enum_<playhead::CompareMode>(m, "CompareMode")
-        .value("CM_STRING", playhead::CompareMode::CM_STRING)
-        .value("CM_AB", playhead::CompareMode::CM_AB)
+    py::enum_<playhead::AssemblyMode>(m, "AssemblyMode")
+        .value("AM_STRING", playhead::AssemblyMode::AM_STRING)
+        .value("AM_ONE", playhead::AssemblyMode::AM_ONE)
+        .value("AM_ALL", playhead::AssemblyMode::AM_ALL)
+        .export_values();
+
+    py::enum_<playhead::AutoAlignMode>(m, "AutoAlignMode")
+        .value("AAM_ALIGN_OFF", playhead::AutoAlignMode::AAM_ALIGN_OFF)
+        .value("AAM_ALIGN_FRAMES", playhead::AutoAlignMode::AAM_ALIGN_FRAMES)
+        .value("AAM_ALIGN_TRIM", playhead::AutoAlignMode::AAM_ALIGN_TRIM)
         .export_values();
 
     py::enum_<playhead::LoopMode>(m, "LoopMode")

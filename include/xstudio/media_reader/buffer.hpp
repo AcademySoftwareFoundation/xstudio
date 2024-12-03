@@ -19,6 +19,8 @@ namespace media_reader {
 
     enum class byte : unsigned char {};
 
+    class ImageBufferRecyclerCache;
+
     class Buffer {
 
       public:
@@ -80,6 +82,8 @@ namespace media_reader {
         };
         typedef std::shared_ptr<BufferData> BufferDataPtr;
 
+        static std::shared_ptr<ImageBufferRecyclerCache> s_buf_cache;
+
       private:
         BufferDataPtr buffer_; // use long long to get 16 byte alignment
         size_t size_{0};
@@ -88,6 +92,22 @@ namespace media_reader {
         BufferErrorState error_state_{NO_ERROR};
         double dts_ = {UNSET_DTS};
     };
+
+    /* Lower level dumb cache that hangs onto BufferDataPtrs after deletion
+    of parent Buffer class for re-use.*/
+    class ImageBufferRecyclerCache {
+      public:
+        void store_unwanted_buffer(Buffer::BufferDataPtr &buf, const size_t size);
+        Buffer::BufferDataPtr fetch_recycled_buffer(const size_t required_size);
+        size_t max_size_ = {512 * 1024 * 1024}; // 0.5GB - probably doesn't need to be that big,
+                                                // and need to set this with a pref
+        size_t total_size_ = {0};
+        typedef std::vector<Buffer::BufferDataPtr> Buffers;
+        std::map<size_t, Buffers> recycle_buffer_bin_;
+        std::map<utility::time_point, size_t> size_by_time_;
+        std::mutex mutex_;
+    };
+
 
 } // namespace media_reader
 } // namespace xstudio

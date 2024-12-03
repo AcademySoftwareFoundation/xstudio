@@ -5,6 +5,7 @@
 #include <caf/behavior.hpp>
 #include <caf/event_based_actor.hpp>
 
+#include "xstudio/audio/audio_output_actor.hpp"
 #include "xstudio/global/enums.hpp"
 #include "xstudio/utility/exports.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
@@ -36,6 +37,15 @@ namespace global {
         void connect_sync_api();
         void disconnect_api(const caf::actor &embedded_python, const bool force = false);
         void disconnect_sync_api(const bool force = false);
+
+        template <class AudioOutputDev>
+        caf::actor spawn_audio_output_actor(const utility::JsonStore &prefs) {
+            static_assert(
+                std::is_base_of<audio::AudioOutputDevice, AudioOutputDev>::value,
+                "Not derived from audio::AudioOutputDevice");
+            return spawn<audio::AudioOutputActor>(
+                std::shared_ptr<audio::AudioOutputDevice>(new AudioOutputDev(prefs)));
+        }
 
         inline static const std::string NAME = "GlobalActor";
         caf::behavior behavior_;

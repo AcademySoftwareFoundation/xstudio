@@ -1,5 +1,7 @@
 
 include(CTest)
+
+find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 REQUIRED)  # or `add_subdirectory(pybind11)`
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
@@ -15,6 +17,7 @@ target_link_libraries(embedded_python_test
 		xstudio::embedded_python
 		pybind11::embed
 		xstudio::utility
+		xstudio::media
 		${GTEST_LDFLAGS}
 )
 add_test(embedded_python_tests embedded_python_test)
@@ -29,6 +32,7 @@ target_link_libraries(embedded_python_actor_test
 		xstudio::embedded_python
 		pybind11::embed
 		xstudio::utility
+		xstudio::media
 		${GTEST_LDFLAGS}
 )
 add_test(embedded_python_tests embedded_python_actor_test)

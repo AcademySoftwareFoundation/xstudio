@@ -26,7 +26,13 @@
 #include <caf/scheduled_actor.hpp>
 #include "caf/detail/shared_spinlock.hpp"
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/helper_qml_export.h"
+
 #include <caf/scoped_execution_unit.hpp>
+
+#include "xstudio/atoms.hpp"
+#include "xstudio/utility/logging.hpp"
 
 CAF_PUSH_WARNINGS
 #include <QApplication>
@@ -34,8 +40,6 @@ CAF_PUSH_WARNINGS
 #include <QDebug>
 CAF_POP_WARNINGS
 
-#include "xstudio/atoms.hpp"
-#include "xstudio/utility/logging.hpp"
 
 namespace caf::mixin {
 
@@ -56,7 +60,7 @@ class actor_object : public Base {
 
     // TODO: Ahead This is a bad hack for windows to make it compile currently, possible
     // solution is to pass
-    //  JsonTreeModel as a reference or a pointer.
+    // JsonTreeModel as a reference or a pointer.
     template <
         typename... Ts,
         std::enable_if_t<(std::is_move_constructible_v<Ts> && ...), int> = 0>
@@ -146,3 +150,23 @@ class actor_object : public Base {
 };
 
 } // namespace caf::mixin
+
+namespace xstudio::ui::qml {
+using namespace caf;
+
+class HELPER_QML_EXPORT QMLActor : public caf::mixin::actor_object<QObject> {
+    Q_OBJECT
+
+  public:
+    using super = caf::mixin::actor_object<QObject>;
+    explicit QMLActor(QObject *parent = nullptr) : super(parent) {}
+
+    virtual ~QMLActor() = default;
+    virtual void init(caf::actor_system &system) { super::init(system); }
+
+  public:
+    caf::actor_system &system() const {
+        return const_cast<caf::actor_companion *>(self())->home_system();
+    }
+};
+} // namespace xstudio::ui::qml

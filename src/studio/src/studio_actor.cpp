@@ -28,31 +28,9 @@ StudioActor::StudioActor(caf::actor_config &cfg, const std::string &name)
     init();
 }
 
-void StudioActor::init() {
-    // launch global actors..
-    // preferences first..
-    // this will need more configuration
-    spdlog::debug("Created StudioActor {}", base_.name());
-
-    session_ = spawn<session::SessionActor>("New Session");
-    link_to(session_);
-
-    system().registry().put(studio_registry, this);
-
-    auto event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-
-    behavior_.assign(
+caf::message_handler StudioActor::message_handler() {
+    return caf::message_handler{
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
         make_get_version_handler(),
 
         [=](session::session_atom) -> caf::actor { return session_; },
@@ -64,7 +42,7 @@ void StudioActor::init() {
             send_exit(session_, caf::exit_reason::user_shutdown);
             session_ = session;
             link_to(session_);
-            send(event_group_, utility::event_atom_v, session::session_atom_v, session_);
+            send(base_.event_group(), utility::event_atom_v, session::session_atom_v, session_);
             return true;
         },
 
@@ -73,7 +51,11 @@ void StudioActor::init() {
             const JsonStore &js) -> bool {
             // need to chat to UI ?
             send(
-                event_group_, utility::event_atom_v, session::session_request_atom_v, path, js);
+                base_.event_group(),
+                utility::event_atom_v,
+                session::session_request_atom_v,
+                path,
+                js);
             return true;
         },
 
@@ -125,42 +107,40 @@ void StudioActor::init() {
         [=](ui::open_quickview_window_atom atom,
             const utility::UuidActorVector &media_items,
             std::string compare_mode) {
-            delegate(actor_cast<caf::actor>(this), atom, media_items, compare_mode, false);
+            delegate(
+                actor_cast<caf::actor>(this),
+                atom,
+                media_items,
+                compare_mode,
+                utility::JsonStore(),
+                utility::JsonStore());
         },
         [=](ui::open_quickview_window_atom,
             const utility::UuidActorVector &media_items,
             std::string compare_mode,
-            bool force) {
-            bool do_quickview = force;
-            if (!do_quickview) {
-                try {
-                    auto prefs = global_store::GlobalStoreHelper(system());
-                    do_quickview =
-                        prefs.value<bool>("/core/session/quickview_all_incoming_media");
-                } catch (...) {
-                }
-            }
+            const utility::JsonStore in_point,
+            const utility::JsonStore out_point) {
+            caf::actor studio_ui_actor =
+                system().registry().template get<caf::actor>(studio_ui_registry);
 
-            if (do_quickview) {
-
-                caf::actor studio_ui_actor =
-                    system().registry().template get<caf::actor>(studio_ui_registry);
-
-                if (studio_ui_actor) {
-                    // forward to StudioUI instance
-                    anon_send(
-                        studio_ui_actor,
-                        utility::event_atom_v,
-                        ui::open_quickview_window_atom_v,
-                        media_items,
-                        compare_mode);
-                } else {
-                    // UI hasn't started up yet, store the request
-                    QuickviewRequest request;
-                    request.media_actors = media_items;
-                    request.compare_mode = compare_mode;
-                    quickview_requests_.push_back(request);
-                }
+            if (studio_ui_actor) {
+                // forward to StudioUI instance
+                anon_send(
+                    studio_ui_actor,
+                    utility::event_atom_v,
+                    ui::open_quickview_window_atom_v,
+                    media_items,
+                    compare_mode,
+                    in_point,
+                    out_point);
+            } else {
+                // UI hasn't started up yet, store the request
+                QuickviewRequest request;
+                request.media_actors = media_items;
+                request.compare_mode = compare_mode;
+                request.in_point     = in_point;
+                request.out_point    = out_point;
+                quickview_requests_.push_back(request);
             }
         },
         [=](ui::open_quickview_window_atom, caf::actor studio_ui_actor) {
@@ -173,10 +153,25 @@ void StudioActor::init() {
                     utility::event_atom_v,
                     ui::open_quickview_window_atom_v,
                     r.media_actors,
-                    r.compare_mode);
+                    r.compare_mode,
+                    r.in_point,
+                    r.out_point);
             }
             quickview_requests_.clear();
-        });
+        }};
+}
+
+
+void StudioActor::init() {
+    // launch global actors..
+    // preferences first..
+    // this will need more configuration
+    spdlog::debug("Created StudioActor {}", base_.name());
+
+    session_ = spawn<session::SessionActor>("New Session");
+    link_to(session_);
+
+    system().registry().put(studio_registry, this);
 }
 
 void StudioActor::on_exit() {

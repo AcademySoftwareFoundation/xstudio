@@ -2,7 +2,7 @@ SET(LINK_DEPS
 	xstudio::media
 	xstudio::media_cache
 	xstudio::global_store
-	xstudio::broadcast
+	xstudio::utility
 	caf::core
 )
 
@@ -13,4 +13,3 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 create_component(media_reader 0.1.0 "${LINK_DEPS}")
-

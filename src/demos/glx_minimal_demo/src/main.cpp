@@ -21,9 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __linux__
 #include <unistd.h>
-#endif
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <GL/gl.h>
@@ -168,7 +166,8 @@ GLXWindowViewportActor::GLXWindowViewportActor(caf::actor_config &cfg)
         jsn,
         caf::actor_cast<caf::actor>(this),
         true,
-        ui::viewport::ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false)));
+        ui::viewport::ViewportRendererPtr(new opengl::OpenGLViewportRenderer(true, false)),
+        "GLXViewport");
 
     /* Provide a callback so the xstudio OpenGLViewportRenderer can tell this class when some
     property of the viewport has changed, or a redraw is needed, so the window
@@ -217,8 +216,7 @@ void GLXWindowViewportActor::resizeGL(int w, int h) {
         Imath::V2f(w, 0),
         Imath::V2f(w, h),
         Imath::V2f(0, h),
-        Imath::V2i(w, h),
-        1.0f);
+        Imath::V2i(w, h));
 }
 
 int main(int argc, char *argv[]) {
@@ -304,6 +302,7 @@ int main(int argc, char *argv[]) {
         viewport_actor,
         std::chrono::milliseconds(2000),
         viewport::viewport_playhead_atom_v,
+        "viewport0",
         playhead);
 
     // start playback

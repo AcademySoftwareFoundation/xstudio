@@ -53,7 +53,7 @@ media::MediaStatus check_media_status(const MediaReference &mr) {
             }
         }
 
-    } catch ([[maybe_unused]] std::exception &e) {
+    } catch (std::exception &e) {
         ms = media::MediaStatus::MS_UNREADABLE;
     }
 
@@ -82,10 +82,21 @@ std::string get_checksum(const std::string &path) {
     try {
         myfile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         myfile.open(path, std::ios::in | std::ios::binary);
-        myfile.read((char *)buf.data(), 1024);
-        myfile.seekg(-1024, std::ios::end);
-        myfile.read((char *)buf.data() + 1024, 1024);
+        auto short_file = false;
+
+        try {
+            myfile.read((char *)buf.data(), 1024);
+        } catch (...) {
+            // shortfile..
+            short_file = true;
+        }
+        if (not short_file) {
+            myfile.seekg(-1024, std::ios::end);
+            myfile.read((char *)buf.data() + 1024, 1024);
+        }
+
         myfile.close();
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, path, err.what());
         return std::string();

@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-#include "xstudio/utility/helpers.hpp"
-
 #ifdef __linux__
 #define __USE_POSIX
 #include <unistd.h>
@@ -16,10 +14,11 @@
 
 #include <fmt/format.h>
 
-// #include <reproc++/drain.hpp>
-// #include <reproc++/reproc.hpp>
+/*#include <reproc++/drain.hpp>
+#include <reproc++/reproc.hpp>*/
 
 #include "xstudio/utility/frame_list.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/sequence.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 
@@ -84,7 +83,7 @@ std::string xstudio::utility::actor_to_string(caf::actor_system &sys, const caf:
 
         result = utility::make_hex_string(std::begin(buf), std::end(buf));
     } catch (const std::exception &err) {
-        spdlog::debug("{} {}", __PRETTY_FUNCTION__, err.what());
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
     return result;
@@ -142,7 +141,7 @@ void xstudio::utility::leave_broadcast(caf::event_based_actor *source, caf::acto
         .then(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, to_string(err), to_string(actor));
             });
 }
 
@@ -199,8 +198,8 @@ void xstudio::utility::print_on_exit(
     });
 }
 
-std::string xstudio::utility::exec(const std::vector<std::string> &cmd, int &exit_code) {
-    /*reproc::process process;
+/*std::string xstudio::utility::exec(const std::vector<std::string> &cmd, int &exit_code) {
+    reproc::process process;
     std::error_code ec = process.start(cmd);
 
     if (ec == std::errc::no_such_file_or_directory) {
@@ -227,9 +226,8 @@ std::string xstudio::utility::exec(const std::vector<std::string> &cmd, int &exi
         return ec.message();
     }
 
-    return output;*/
-    return std::string();
-}
+    return output;
+}*/
 
 std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
     if (uri.path().data()) {
@@ -268,6 +266,12 @@ std::string xstudio::utility::uri_encode(const std::string &s) {
 
     for (size_t i = 0; s[i]; i++) {
         switch (s[i]) {
+        case '#':
+            result += "%23";
+            break;
+        case '%':
+            result += "%25";
+            break;
         case ' ':
             result += "%20";
             break;
@@ -350,16 +354,17 @@ xstudio::utility::uri_framelist_as_sequence(const caf::uri &uri, const FrameList
         auto fl = frame_list.frames();
         uris.reserve(fl.size());
         for (const auto i : fl) {
-            auto new_uri =
-                caf::make_uri(uri_encode(fmt::format(uri_decode(to_string(uri)), i)));
+            auto new_uri = caf::make_uri(
+                uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri))), i)));
             if (not new_uri) {
                 spdlog::warn(
                     "{} {} {}",
                     to_string(uri),
                     uri_decode(to_string(uri)),
-                    uri_encode(fmt::format(uri_decode(to_string(uri)), i)));
+                    uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri))), i)));
                 throw std::runtime_error(
-                    "Invalid uri " + uri_encode(fmt::format(uri_decode(to_string(uri)), i)));
+                    "Invalid uri " +
+                    uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri))), i)));
             }
 
             uris.push_back(*new_uri);
@@ -476,6 +481,44 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
         return caf::uri_builder().scheme("file").path(p).make();
 
     return caf::uri_builder().scheme("file").host("localhost").path(p).make();
+
+    // NOTE: the 'localhost' hostname does not work with some readers, for
+    // example ffmpeg. Currently our 'uri_to_posix_path' func simply strips the
+    // localhost back off before it gets to ffmpeg. It would be better if we
+    // used uris more directly without going back and forth via
+    // uri_to_posix_path / posix_path_to_uri so much.
+
+    // The code below is a first stab at doing this but commenting it out
+    // for now until v2.0 is deployed.
+
+    /*if (p.find("///") == 0) {
+        return caf::uri_builder().scheme("file").host("").path(p).make();
+    } else if (p.find("//") == 0) {
+        return caf::uri_builder().scheme("file").host("").path("/" + p).make();
+    } else if (p.find("/") == 0) {
+        return caf::uri_builder().scheme("file").host("").path("//" + p).make();
+    }
+    return caf::uri_builder().scheme("file").host("").path("//" + p).make();*/
+}
+
+std::vector<caf::uri> xstudio::utility::uri_subfolders(const caf::uri parent_uri) {
+
+    std::vector<caf::uri> result;
+    try {
+        auto c = fs::directory_iterator(uri_to_posix_path(parent_uri));
+        for (const auto &entry : c) {
+            if (fs::is_directory(entry)) {
+#ifdef _WIN32
+                result.emplace_back(posix_path_to_uri(entry.path().string()));
+#else
+                result.emplace_back(posix_path_to_uri(entry.path().string()));
+#endif
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+    return result;
 }
 
 std::vector<std::pair<caf::uri, FrameList>>
@@ -492,22 +535,27 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
             try {
                 std::vector<std::string> files;
                 for (const auto &entry : fs::directory_iterator(path)) {
-                    if (!entry.path().filename().empty() &&
-                        entry.path().filename().string()[0] == '.')
+
+#ifdef _WIN32
+                    const std::string _path     = entry.path().string();
+                    const std::string _filename = entry.path().filename().string();
+                    if (not _filename.empty() and _filename[0] == '.')
                         continue;
                     if (fs::is_directory(entry) && (depth > 0 || depth < 0)) {
-#ifdef _WIN32
-                        auto more = scan_posix_path(entry.path().string(), depth - 1);
-#else
-                        auto more = scan_posix_path(entry.path(), depth - 1);
-#endif
+                        auto more = scan_posix_path(_path, depth - 1);
                         items.insert(items.end(), more.begin(), more.end());
                     } else if (fs::is_regular_file(entry))
-#ifdef _WIN32
-                        files.push_back(
-                            std::regex_replace(entry.path().string(), std::regex("[\]"), "/"));
+                        files.push_back(std::regex_replace(_path, std::regex("[\]"), "/"));
 #else
-                        files.push_back(entry.path());
+                    const std::string _path     = entry.path();
+                    const std::string _filename = entry.path().filename();
+                    if (not _filename.empty() and _filename[0] == '.')
+                        continue;
+                    if (fs::is_directory(entry) && (depth > 0 || depth < 0)) {
+                        auto more = scan_posix_path(_path, depth - 1);
+                        items.insert(items.end(), more.begin(), more.end());
+                    } else if (fs::is_regular_file(entry))
+                        files.push_back(_path);
 #endif
                 }
                 auto file_items = uri_from_file_list(files);
@@ -518,12 +566,21 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
         } else if (fs::is_regular_file(p)) {
             items.emplace_back(std::make_pair(posix_path_to_uri(path), FrameList()));
         } else {
+
             FrameList fl;
-            auto uri = xstudio::utility::parse_cli_posix_path(path, fl, true);
-            if (not uri.empty()) {
-                items.emplace_back(std::make_pair(uri, fl));
+            if (path.find("http") == 0) {
+                // TODO: extend parse_cli_posix_path to handle http protocol.
+                auto uri = caf::make_uri(path);
+                if (uri) {
+                    items.emplace_back(std::make_pair(*uri, fl));
+                }
             } else {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, path);
+                auto uri = xstudio::utility::parse_cli_posix_path(path, fl, true);
+                if (not uri.empty()) {
+                    items.emplace_back(std::make_pair(uri, fl));
+                } else {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, path);
+                }
             }
         }
     } catch (const std::exception &err) {
@@ -533,25 +590,26 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
     return items;
 }
 
-std::string xstudio::utility::filemanager_show_uris(const std::vector<caf::uri> &uris) {
-    int exit_code;
+// std::string xstudio::utility::filemanager_show_uris(const std::vector<caf::uri> &uris) {
+//     int exit_code;
 
-    std::vector<std::string> cmd = {
-        "dbus-send",
-        "--session",
-        "--print-reply",
-        "--dest=org.freedesktop.FileManager1",
-        "--type=method_call",
-        "/org/freedesktop/FileManager1",
-        "org.freedesktop.FileManager1.ShowItems",
-        std::string("array:string:") + join_as_string(uris, ","),
-        "string:"};
-    // dbus-send --session --print-reply --dest=org.freedesktop.FileManager1 --type=method_call
-    // /org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems
-    // array:string:"file://localhost//u/al/Desktop/itsdeadjim.jpg" string:""
+//     std::vector<std::string> cmd = {
+//         "dbus-send",
+//         "--session",
+//         "--print-reply",
+//         "--dest=org.freedesktop.FileManager1",
+//         "--type=method_call",
+//         "/org/freedesktop/FileManager1",
+//         "org.freedesktop.FileManager1.ShowItems",
+//         std::string("array:string:") + join_as_string(uris, ","),
+//         "string:"};
+//     // dbus-send --session --print-reply --dest=org.freedesktop.FileManager1
+//     --type=method_call
+//     // /org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems
+//     // array:string:"file://localhost//u/al/Desktop/itsdeadjim.jpg" string:""
 
-    return xstudio::utility::exec(cmd, exit_code);
-}
+//     return std::string(); // xstudio::utility::exec(cmd, exit_code);
+// }
 
 std::string xstudio::utility::get_host_name() {
     std::array<char, MAXHOSTNAMELEN> hostname{0};
@@ -561,7 +619,6 @@ std::string xstudio::utility::get_host_name() {
 
 std::string xstudio::utility::get_user_name() {
     std::string result;
-
 #ifdef _WIN32
     TCHAR username[MAX_PATH];
     DWORD size = MAX_PATH;
@@ -622,6 +679,8 @@ std::string xstudio::utility::expand_envvars(
                     env = additional.at(match_str);
                 } else if (match_str == "USERFULLNAME") {
                     env = utility::get_user_name();
+                } else if (match_str == "XSTUDIO_ROOT") {
+                    env = xstudio_root();
                 } else {
                     spdlog::warn("Undefined envvar ${{{}}}", match_str);
                     env = "";
@@ -641,7 +700,6 @@ std::string xstudio::utility::expand_envvars(
 
 std::string xstudio::utility::get_login_name() {
     std::string result;
-
 #ifdef _WIN32
     TCHAR username[MAX_PATH];
     DWORD size = MAX_PATH;
@@ -692,7 +750,7 @@ bool xstudio::utility::check_plugin_uri_request(const std::string &request) {
     const static std::regex re(R"((\w+)://.+)");
     std::cmatch m;
     if (std::regex_match(request.c_str(), m, re)) {
-        if (m[1] != "xstudio" and m[1] != "file")
+        if (m[1] != "xstudio" and m[1] != "file" and m[1] != "https")
             return true;
     }
     return false;

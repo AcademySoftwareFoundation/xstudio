@@ -1265,6 +1265,7 @@ namespace shotgun_client {
         using StdList::const_iterator;
         using StdList::crbegin;
         using StdList::crend;
+        using StdList::emplace_back;
         using StdList::empty;
         using StdList::end;
         using StdList::erase;

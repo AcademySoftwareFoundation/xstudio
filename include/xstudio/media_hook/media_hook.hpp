@@ -54,6 +54,18 @@ namespace media_hook {
 
         virtual void update_prefs(const utility::JsonStore &full_prefs_dict) {}
 
+        /* Allow custom display selection logic to be defined in MediaHook plugins.
+           This can be used to assign a specific OCIO display to the detected
+           monitor where the xStudio viewport is being shown. */
+        virtual std::string detect_display(
+            const std::string &name,
+            const std::string &model,
+            const std::string &manufacturer,
+            const std::string &serialNumber,
+            const utility::JsonStore &colour_params) {
+            return {};
+        }
+
       protected:
         MediaHook(std::string name) : module::Module(name), name_(std::move(name)) {}
         std::string default_path() const { return "/metadata/external/" + name_; }
@@ -165,6 +177,16 @@ namespace media_hook {
                     }
 
                     return media_hook_.modify_metadata(mr, jsn);
+                },
+
+                [=](media_hook::detect_display_atom,
+                    const std::string &name,
+                    const std::string &model,
+                    const std::string &manufacturer,
+                    const std::string &serialNumber,
+                    const utility::JsonStore &jsn) -> std::string {
+                    return media_hook_.detect_display(
+                        name, model, manufacturer, serialNumber, jsn);
                 },
 
                 [=](json_store::update_atom,

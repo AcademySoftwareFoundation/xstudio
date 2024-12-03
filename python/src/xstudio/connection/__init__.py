@@ -9,12 +9,12 @@ from xstudio.core import request_connection_atom, get_sync_atom, version_atom
 from xstudio.core import get_application_mode_atom, authorise_connection_atom, broadcast_down_atom
 from xstudio.core import join_broadcast_atom, exit_atom, api_exit_atom, leave_broadcast_atom, get_event_group_atom
 from xstudio.core import error, Link
+from xstudio.core import XSTUDIO_LOCAL_PLUGIN_PATH
 from xstudio.api import API
 from xstudio.sync_api import SyncAPI
 from xstudio.core import RemoteSessionManager, remote_session_path
 import uuid
 import time
-import traceback
 import os
 from pathlib import Path
 from threading import Thread
@@ -583,6 +583,10 @@ class Connection(object):
             search_paths = os.environ["XSTUDIO_PYTHON_PLUGIN_PATH"].split(":")
             for search_path in search_paths:
                 self.load_plugins_in_path(search_path)
+        # XSTUDIO_LOCAL_PLUGIN_PATH points us at the folder where python plugins
+        # installed/deployed as part of xstudio live
+        self.load_plugins_in_path(XSTUDIO_LOCAL_PLUGIN_PATH)
+
 
     def load_plugins_in_path(self, path):
         """Load plugins found under the given directoy path
@@ -605,9 +609,11 @@ class Connection(object):
         Args:
             path (Path): Path to a directory on filesystem
         """
-        import importlib.util
-        import sys
+
         try:
+            import importlib.util
+            import sys
+
             sys.path.insert(0, path)
             spec = importlib.util.find_spec(plugin_name)
             if spec is not None:
@@ -616,11 +622,7 @@ class Connection(object):
                 spec.loader.exec_module(module)
                 self.plugins[path + plugin_name] = module.create_plugin_instance(self)
             else:
-                print ("Error loading plugin \"{1}\" from \"{0}\" - not python importable.".format(
-                    path, plugin_name))
+                print ("Error loading plugin \"{0}\" from \"{0}\" - not python importable.".format(
+                    path))
         except Exception as e:
-            print ("Error loading plugin \"{0}\" from \"{1}\" - : {2}".format(
-                    plugin_name,
-                    path,
-                    e))
-            print (traceback.format_exc())
+            print (str(e))

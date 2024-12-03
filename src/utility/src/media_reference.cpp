@@ -111,7 +111,54 @@ void MediaReference::set_frame_list(const FrameList &fl) {
 
 void MediaReference::set_rate(const FrameRate &rate) { duration_.set_rate(rate, true); }
 
-caf::uri MediaReference::uri() const { return uri_; }
+caf::uri MediaReference::uri(const FramePadFormat fpf) const {
+    auto result = uri_;
+
+    if (not container_) {
+        switch (fpf) {
+        case FramePadFormat::FPF_SHAKE:
+            // replace formet string with correct number of #/@
+            {
+                auto str = uri_decode(to_string(uri_));
+                std::cmatch m;
+                if (std::regex_match(str.c_str(), m, std::regex(".*\\{:(\\d+)d\\}.*"))) {
+                    auto repstr = std::string(std::stoi(m[1].str()), '#');
+
+                    result = *caf::make_uri(uri_encode(std::regex_replace(
+                        str,
+                        std::regex("(\\{:\\d+d\\})"),
+                        repstr,
+                        std::regex_constants::format_first_only)));
+                }
+            }
+            break;
+
+        case FramePadFormat::FPF_NUKE:
+            // replace format string with %04d etc.
+            // file://localhost//tmp/test/test.{:04d}.exr
+
+            {
+                result = *caf::make_uri(uri_encode(std::regex_replace(
+                    uri_decode(to_string(uri_)),
+                    std::regex("\\{:(\\d+d)\\}"),
+                    "%$1",
+                    std::regex_constants::format_first_only)));
+            }
+            break;
+
+        case FramePadFormat::FPF_XSTUDIO:
+        default:
+            break;
+        }
+    }
+
+    return result;
+}
+
+// EXPECT_EQ(mr2.uri(), posix_path_to_uri("/tmp/test/test.{:03d}.exr"));
+// EXPECT_EQ(mr2.uri(MediaReference::FramePadFormat::FPF_NUKE),
+// posix_path_to_uri("/tmp/test/test.%03d.exr"));
+
 
 void MediaReference::set_uri(const caf::uri &uri) { uri_ = uri; }
 
@@ -150,8 +197,8 @@ std::optional<caf::uri> MediaReference::uri_from_frame(const int sequence_frame)
     if (container_)
         return uri_;
 
-    auto _uri =
-        caf::make_uri(uri_encode(fmt::format(uri_decode(to_string(uri_)), sequence_frame)));
+    auto _uri = caf::make_uri(
+        uri_encode(fmt::format(fmt::runtime(uri_decode(to_string(uri_))), sequence_frame)));
     if (_uri)
         return *_uri;
 

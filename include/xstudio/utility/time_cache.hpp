@@ -1,24 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 // NOTES
-// properties of the cache
-// we store mixed frames as shared_ptrs (we only give out const to clients)
-// we should limit on memory not the number of frames cached ?
-// we either return a frame or request a frame from the media reader.
-// we don't want to release frames that have been eager loaded (we'd end up reading the twice)
-// allow cached frames to be manually expired. (watchout for shared frames).
-// reuse buffers if they are a close match on size. NONONONONONO they are SHARED!!
-// check ref COUNT ? IS THAT SAFE ? == 1 then no one is referencing it so we can reuse it..
-// who knows how big the buffer should be ? the reader ?
-// who handles eager loading ? the reader ?
-// sort cache on expected presentation timestamp ?
-// if the expired buffer is still in use remove ref and deduct from our budget.
-// make a distinction from request and readahead hint.
-// can we generalise the cache ?
-// make the media cache a global actor
-// but allow local cache actors.
-// the same way we use the json_store/global jsonstore
-// not sure the request to read a frame should go to the cache..
-// seems like the reader should be the client...
+
+// TimeCache class is used to manage storage of ImageBuffers, AudioBuffers and
+// ColourPipelineData - the MediaCacheActor owns the Class and provides access
+// to the cache.
+// When the cache is full (the size of the buffers exceeds the size set on
+// the cache), buffers (values) are discarded to make space for new buffers.
+// We do this by checking timestamps that store when a buffer will be needed
+// in the near future. If the timestamps are in the past the buffer can be 
+// discarded.
+// The playheads will continually notify the cache which buffers that are going
+// to need in the coming few seconds for playback, and the cache updates the
+// timepoints accordingly.
+// 
+// Note that it's possible for a buffer to be needed 0.1s and again 2.0s in the
+// future, say. Once we have advanced > 0.1s, then the other timepoint at 2.0s 
+// becomes relevant in terms of retaining the buffer when we need to make more
+// space.
+//
+// Sometimes, if we have a buffer stored that's needed in 10.0s and we need to
+// store a new buffer needed in 1.0s, then we might need to delete the buffer
+// stored for 10s in favour of the buffer needed more imminently. This is the
+// reason for storing a set of timepoints telling us when buffers are needed
+// rather than a single timepoitn.
+// 
+// We also store Uuids against the cache entries. These uuids tell us which 
+// object is 'insterested' in that cache entry. For example, a SubPlayhead X154
+// might be requesting reads for a particular media item and then retrieveing the
+// buffers from the cache during display. When the user switches to view another
+// piece of media it means the SubPlayhead X154 will be destroyed. It tells the 
+// MediaReader, which then checks the cache - if the only Uuid stored with the
+// buffers is X154 then the buffers are considered safe for removal as they will
+// no longer be needed for display.
+//
+// Final note: We use std::map, not std::unsorted_map. Although advice is that
+// std::map should not be used for high performance applications, we found that
+// lookups and insertions are much quicker for std::map. It might be becuase
+// our cache is usually in the order of a few hundred or at most a few thousand
+// entries and binary lookup of std::map is superiour at these small sizes.
+
+// The goal of the cache is to keep values that we need and 
 #pragma once
 
 #include <algorithm>
@@ -34,14 +55,24 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/media/media.hpp"
 
 namespace xstudio {
 namespace utility {
     template <typename K, typename V> class TimeCache {
       public:
-        using cache_type     = std::map<K, V>;
-        using uuid_type      = std::map<K, std::set<utility::Uuid>>;
-        using timepoint_type = std::map<K, std::set<time_point>>;
+
+        struct CacheEntry {
+            CacheEntry() = default;
+            CacheEntry(const V _v) : value(_v) {}
+            V value;
+            std::unordered_set<utility::Uuid> uuids;
+            std::set<time_point> timepoints;
+        };
+        typedef std::shared_ptr<CacheEntry> CacheEntryPtr;
+
+        using cache_type     = std::map<K, CacheEntryPtr>;
+        cache_type cache_;
 
         TimeCache(
             const size_t max_size  = std::numeric_limits<size_t>::max(),
@@ -113,6 +144,8 @@ namespace utility {
 
         [[nodiscard]] size_t size() const { return size_; }
         [[nodiscard]] size_t count() const { return count_; }
+        [[nodiscard]] bool empty() const { return count_ == 0; }
+
 
         [[nodiscard]] size_t max_size() const { return max_size_; }
         [[nodiscard]] size_t max_count() const { return max_count_; }
@@ -150,6 +183,11 @@ namespace utility {
                 change_callback_(store, erase);
         }
 
+        /*bool noisy = {false};
+        std::vector<int> retrieve_times;
+        size_t avg_sum{0};
+        size_t avg_ct{0};*/
+
       private:
         std::function<void(const std::vector<K> &store, const std::vector<K> &erase)>
             change_callback_;
@@ -164,9 +202,6 @@ namespace utility {
             const utility::Uuid &uuid,
             const size_t size);
 
-        cache_type cache_;
-        uuid_type uuid_cache_;
-        timepoint_type timepoint_cache_;
         size_t max_size_;
         size_t max_count_;
         size_t size_{0};
@@ -182,11 +217,9 @@ namespace utility {
     template <typename K, typename V>
     void TimeCache<K, V>::add_timepoint_reference(
         const K &key, const time_point &time, const utility::Uuid &uuid) {
-        uuid_cache_[key].insert(uuid);
-        if (timepoint_cache_.count(key))
-            timepoint_cache_[key].insert(time);
-        else
-            timepoint_cache_[key] = std::set<time_point>{time};
+        auto it = cache_.find(key);
+        it->second->uuids.insert(uuid);
+        it->second->timepoints.insert(time);
     }
 
     template <typename K, typename V>
@@ -198,10 +231,11 @@ namespace utility {
         const size_t size) {
         count_++;
         size_ += size;
-        cache_[key] = value;
+
+        cache_[key] = std::make_shared<CacheEntry>(value);
+
         call_change_callback({key}, {});
 
-        uuid_cache_[key] = std::set<utility::Uuid>{};
         add_timepoint_reference(key, time, uuid);
     }
 
@@ -346,8 +380,6 @@ namespace utility {
         call_change_callback({}, keys());
 
         cache_.clear();
-        uuid_cache_.clear();
-        timepoint_cache_.clear();
         count_ = 0;
         size_  = 0;
     }
@@ -364,6 +396,7 @@ namespace utility {
     template <typename K, typename V>
     std::vector<K> TimeCache<K, V>::erase(const std::vector<K> &keys) {
         std::vector<K> result;
+        result.reserve(keys.size());
         for (const auto &i : keys) {
             if (erase(i))
                 result.push_back(i);
@@ -375,10 +408,10 @@ namespace utility {
         auto it     = std::begin(cache_);
         bool result = false;
         while (it != std::end(cache_)) {
-            if (uuid_cache_[it->first].count(uuid)) {
-                uuid_cache_[it->first].erase(uuid);
+            if (it->second->uuids.count(uuid)) {
+                it->second->uuids.erase(uuid);
                 result = true;
-                if (uuid_cache_[it->first].empty()) {
+                if (it->second->uuids.empty()) {
                     it = erase(it);
                     continue;
                 }
@@ -393,10 +426,8 @@ namespace utility {
     TimeCache<K, V>::erase(const typename cache_type::iterator &it) {
         typename cache_type::iterator nit;
         if (it->second)
-            size_ -= it->second->size();
+            size_ -= it->second->value->size();
         count_--;
-        uuid_cache_.erase(uuid_cache_.find(it->first));
-        timepoint_cache_.erase(timepoint_cache_.find(it->first));
         call_change_callback({}, {it->first});
         nit = cache_.erase(it);
         return nit;
@@ -404,20 +435,27 @@ namespace utility {
 
     template <typename K, typename V>
     bool TimeCache<K, V>::erase(const K &key, const utility::Uuid &uuid) {
-        const auto it = uuid_cache_.find(key);
+        const auto it = cache_.find(key);
         bool result   = false;
-        if (it != std::end(uuid_cache_)) {
+        if (it != std::end(cache_)) {
             // remove from set..
-            it->second.erase(uuid);
-            result = true;
-            if (it->second.empty())
-                erase(cache_.find(key));
+            if (it->second->uuids.count(uuid)) {
+                it->second->uuids.erase(uuid);
+                result = true;
+                if (it->second->uuids.empty()) {
+                    erase(it);
+                }
+            }
         }
         return result;
     }
 
-    // we must always release..
-    // unless the size is set..
+    // The goal here is to find the cache entry that has the oldest timepoints
+    // in the whole set, and remove it. Remember, timepoint is the estimated
+    // time when the given data entry will be needed. If the timepoints tell us
+    // it was needed in the past, then we can safely remove. If it's in the 
+    // future, and inside 'newtp' then we can't get rid of it as we will need 
+    // it soon so we have a release failure.
     // return empty buffer on fail / empty cache.
     template <typename K, typename V>
     V TimeCache<K, V>::release(
@@ -429,42 +467,41 @@ namespace utility {
 
         // release in special time order..
         long int max_offset(0);
-        K key;
+
+        typename cache_type::iterator it = cache_.end();
+        typename cache_type::iterator i = cache_.begin();
 
         // set to our proposed time, if we're bigger than every chache entry we fail.
         if (not force_eviction)
             max_offset = std::abs(
                 std::chrono::duration_cast<std::chrono::microseconds>(ntp - newtp).count());
 
-        for (const auto &i : timepoint_cache_) {
-            long int min_offset(std::numeric_limits<long int>::max());
+        // loop over every cache entry
+        while (i != cache_.end()) {
 
-            // calculate offset in time from now,
-            for (const auto &tp : i.second) {
+            const std::set<time_point> & timepoints = i->second->timepoints;
+
+            // timepoints is an ordered set, so the last entry is the timepoint
+            // furthest forward in time. How does this timepoint (which represents
+            // the furthest point in the future that we would need this Value)
+            // compare to 'max_offset' ?
+            if (timepoints.size()) {
                 long int offset = std::abs(
-                    std::chrono::duration_cast<std::chrono::microseconds>(ntp - tp).count());
-                if (min_offset > offset)
-                    min_offset = offset;
+                    std::chrono::duration_cast<std::chrono::microseconds>(ntp - *(timepoints.rbegin())).count());
+                if (offset >= max_offset) {
+                    max_offset = offset;
+                    it        = i;
+                }
             }
+            i++;
 
-            if (min_offset >= max_offset) {
-                max_offset = min_offset;
-                key        = i.first;
-            }
         }
-        // valid key ?
-        auto it = cache_.find(key);
         if (it != cache_.end()) {
-            ptr                 = it->second;
-            const auto &old_tps = timepoint_cache_[key];
-            auto ms             = std::chrono::duration_cast<std::chrono::milliseconds>(
-                          utility::clock::now() - *(old_tps.begin()))
-                          .count();
+            ptr = it->second->value;
             erase(it);
-            // spdlog::debug("Release buffer {} which has timestamp {} milliseconds from
-            // now", key, ms);
         }
-        return ptr;
+        return ptr; 
+
     }
 
     // release the oldest item that is older than out_of_date_time
@@ -475,35 +512,37 @@ namespace utility {
         if (cache_.empty())
             return ptr;
 
-        K key;
+        typename cache_type::iterator it = cache_.end();
+        typename cache_type::iterator i = cache_.begin();
 
         long int maxx = 0;
-        std::vector<time_point> bb;
-        for (const auto &i : timepoint_cache_) {
 
-            // calculate offset in time from now,
-            long int ctt = std::numeric_limits<long int>::max();
-            std::vector<time_point> cc;
-            for (const auto &tp : i.second) {
-                ctt = std::min(
-                    ctt,
-                    static_cast<long int>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                              out_of_date_time - tp)
-                                              .count()));
-                cc.push_back(tp);
+        // loop over every cache entry
+        while (i != cache_.end()) {
+
+            const std::set<time_point> & timepoints = i->second->timepoints;
+
+            // timepoints is an ordered set, so the last entry is the timepoint
+            // furthest forward in time. How does this timepoint (which represents
+            // the furthest point in the future that we would need this Value)
+            // compare to 'max_offset' ?
+            if (timepoints.size()) {
+                long int offset = std::abs(
+                    std::chrono::duration_cast<std::chrono::microseconds>(out_of_date_time - *(timepoints.rbegin())).count());
+                if (offset >= maxx) {
+                    maxx = offset;
+                    it = i;
+                }
             }
-            if (ctt > maxx) {
-                maxx = ctt;
-                key  = i.first;
-                bb   = cc;
-            }
+            ++i;
+
         }
         // valid key ?
-        auto it = cache_.find(key);
         if (it != cache_.end()) {
-            ptr = it->second;
+            ptr = it->second->value;
             erase(it);
         }
+
         return ptr;
     }
 
@@ -527,19 +566,45 @@ namespace utility {
     template <typename K, typename V>
     V TimeCache<K, V>::retrieve(
         const K &key, const time_point &time, const utility::Uuid &uuid) {
+        auto tp = utility::clock::now();
         auto it = cache_.find(key);
         if (it == std::end(cache_))
             return V();
         // found entry, add timestamp (bit like lru ?)
-        timepoint_cache_[key].insert(time);
+        it->second->timepoints.insert(time);
         if (not uuid.is_null())
-            uuid_cache_[key].insert(uuid);
+            it->second->uuids.insert(uuid);
         clean_timepoints(key);
-        return it->second;
+
+        /*if (noisy){
+            retrieve_times.push_back(std::chrono::duration_cast<std::chrono::microseconds>(utility::clock::now()-tp).count());
+            if (retrieve_times.size() == 1024) {
+                int _max = 0;
+                int _min = 100000000;
+                int sum = 0;
+                for (auto &t: retrieve_times) {
+                    sum += t;
+                    _max=std::max(t, _max);
+                    _min=std::min(t, _min);
+                }
+                std::sort(retrieve_times.begin(), retrieve_times.end());
+                int last_ten = 0;
+                for (int i = 924; i < 1024; ++i) {
+                    last_ten += retrieve_times[i];
+                }
+                avg_sum += sum;
+                avg_ct += 1024;
+                std::cerr << this << " Cache Size: " << cache_.size() << "  Min retrieve: " << _min << ", Max retrieve: " << _max << ", Average: " << sum/1024 << " (mean), " << retrieve_times[512] << " (median), " << " worst 100: " << last_ten/100 << "   Running average " << avg_sum/avg_ct << "\n";
+                retrieve_times.clear();
+            }
+        }*/
+
+        return it->second->value;
     }
 
     template <typename K, typename V> std::vector<K> TimeCache<K, V>::keys() const {
         std::vector<K> _keys;
+        _keys.reserve(cache_.size());
         for (const auto &i : cache_)
             _keys.push_back(i.first);
         return _keys;
@@ -571,7 +636,7 @@ namespace utility {
         for (const auto &key : keys_and_timepoints) {
             auto it = cache_.find(key.first);
             if (it != std::end(cache_)) {
-                timepoint_cache_[key.first] = std::set<time_point>({key.second + delta});
+                it->second->timepoints = std::set<time_point>({key.second + delta});
             }
         }
     }
@@ -581,14 +646,15 @@ namespace utility {
         // set the 'required by' time point on all cache entries that mathch uuid
         // backwards by one hour so that it can be dropped from the cache in
         // favour of new incoming data,
-        auto it = std::begin(cache_);
-        while (it != std::end(cache_)) {
-            if (uuid_cache_[it->first].count(uuid) && timepoint_cache_.count(it->first)) {
-                std::set<time_point> ntp;
-                for (const auto &tp : timepoint_cache_[it->first]) {
-                    ntp.insert(tp - std::chrono::hours(1));
+        typename cache_type::iterator it = cache_.begin();
+        while (it != cache_.end()) {
+            if (it->second->uuids.count(uuid)) {
+                std::set<time_point> new_timepoints;
+                std::set<time_point> &timepoints = it->second->timepoints;
+                for (const auto &tp : timepoints) {
+                    new_timepoints.emplace(tp - std::chrono::hours(1));
                 }
-                timepoint_cache_[it->first] = ntp;
+                timepoints = new_timepoints;
             }
             it++;
         }
@@ -596,20 +662,28 @@ namespace utility {
     // if they never expire the timepoint list can grow indefinitely..
     // remove timepoints older than now, but keep the most recent of these.
     template <typename K, typename V> void TimeCache<K, V>::clean_timepoints(const K &key) {
-        const time_point now = utility::clock::now();
-        time_point newest;
 
-        for (auto i = std::begin(timepoint_cache_[key]);
-             i != std::end(timepoint_cache_[key]);) {
-            if (*i < now) {
-                if (*i > newest)
-                    newest = *i;
-                i = timepoint_cache_[key].erase(i);
-            } else
-                ++i;
+        auto it = cache_.find(key);
+        if (it == cache_.end()) return;
+
+        std::set<time_point> & timepoints = it->second->timepoints;
+
+        if (timepoints.empty()) return;
+
+        const time_point now = utility::clock::now();
+
+        // get the most recent timepoint
+        time_point newest = *(timepoints.rbegin());
+
+        // erasing all entries older than 'now'
+        while ((*timepoints.begin()) < now) {
+            timepoints.erase(timepoints.begin());
+            if (timepoints.empty()) break;
         }
-        if (newest != time_point())
-            timepoint_cache_[key].insert(newest);
+
+        if (timepoints.empty())
+            timepoints.emplace(newest);
+
     }
 } // namespace utility
 } // namespace xstudio

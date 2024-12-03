@@ -17,6 +17,10 @@ using namespace xstudio::ui::qml;
 
 StudioUI::StudioUI(caf::actor_system &system, QObject *parent) : QMLActor(parent) {
     init(system);
+
+    // create the offscreen viewport used for snapshot and note thumbnail
+    // generation
+    offscreen_snapshot_viewport();
 }
 
 StudioUI::~StudioUI() {
@@ -75,6 +79,15 @@ void StudioUI::init(actor_system &system_) {
     // put ourselves in the registry
     system().registry().template put<caf::actor>(studio_ui_registry, as_actor());
 
+    self()->set_down_handler([=](down_msg &msg) {
+        for (auto p = video_output_plugins_.begin(); p != video_output_plugins_.end(); ++p) {
+            if (msg.source == *p) {
+                video_output_plugins_.erase(p);
+                break;
+            }
+        }
+    });
+
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
             [=](utility::event_atom, utility::change_atom) {},
@@ -93,13 +106,18 @@ void StudioUI::init(actor_system &system_) {
             [=](utility::event_atom,
                 ui::open_quickview_window_atom,
                 const utility::UuidActorVector &media_items,
-                const std::string &compare_mode) {
+                const std::string &compare_mode,
+                const utility::JsonStore in_point,
+                const utility::JsonStore out_point) {
                 QStringList media_actors_as_strings;
                 for (const auto &media : media_items) {
                     media_actors_as_strings.push_back(
                         QStringFromStd(actorToString(system(), media.actor())));
                 }
-                emit openQuickViewers(media_actors_as_strings, QStringFromStd(compare_mode));
+                const int in  = in_point.is_number() ? in_point.get<int>() : -1;
+                const int out = out_point.is_number() ? out_point.get<int>() : -1;
+                emit openQuickViewers(
+                    media_actors_as_strings, QStringFromStd(compare_mode), in, out);
             },
 
             [=](utility::event_atom,
@@ -133,9 +151,6 @@ void StudioUI::init(actor_system &system_) {
                     requester,
                     ui::offscreen_viewport_atom_v,
                     offscreen_viewports_.back()->as_actor());
-            },
-            [=](std::string) {
-                loadVideoOutputPlugins();
             }
 
         };
@@ -147,17 +162,6 @@ void StudioUI::init(actor_system &system_) {
     if (studio) {
         anon_send(studio, ui::open_quickview_window_atom_v, as_actor());
     }
-
-    // create the offscreen viewport used for rendering snapshots
-    snapshot_offscreen_viewport_ = new xstudio::ui::qt::OffscreenViewport("snapshot_viewport");
-    system().registry().template put<caf::actor>(
-        offscreen_viewport_registry, snapshot_offscreen_viewport_->as_actor());
-
-    // we need to delay loading video output plugins by a couple of seconds
-    // to make sure the UI is up and running before we create offscreen viewports
-    // etc. that the video output plugin probably wants
-    delayed_anon_send(
-        as_actor(), std::chrono::seconds(5), std::string("load video output plugins"));
 }
 
 void StudioUI::setSessionActorAddr(const QString &addr) {
@@ -193,7 +197,7 @@ QUrl StudioUI::apiDocsUrl() const {
 }
 
 QUrl StudioUI::releaseDocsUrl() const {
-    std::string docs_index = utility::xstudio_root("/docs/user_docs/release_notes/index.html");
+    std::string docs_index = utility::xstudio_root("/user_docs/release_notes/index.html");
     return QUrl(QString(tr("file://")) + QString(docs_index.c_str()));
 }
 
@@ -223,7 +227,7 @@ QFuture<bool> StudioUI::loadSessionFuture(const QUrl &path, const QVariant &json
             JsonStore js;
 
             if (json.isNull()) {
-                js = utility::open_session(StdFromQString(path.path()));
+                js = utility::open_session(UriFromQUrl(path));
             } else {
                 js = qvariant_to_json(json);
             }
@@ -233,7 +237,6 @@ QFuture<bool> StudioUI::loadSessionFuture(const QUrl &path, const QVariant &json
             sys->anon_send(global, session::session_atom_v, session);
             setSessionActorAddr(actorToQString(system(), session));
             emit sessionLoaded(session_actor_addr_);
-
             result = true;
 
         } catch (const std::exception &err) {
@@ -354,18 +357,79 @@ void StudioUI::loadVideoOutputPlugins() {
             plugin_manager::PluginType(plugin_manager::PluginFlags::PF_VIDEO_OUTPUT));
 
         for (const auto &i : details) {
-            try {
 
-                auto video_output_plugin = request_receive<caf::actor>(
-                    *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
-                video_output_plugins_.push_back(video_output_plugin);
-
-            } catch (const std::exception &err) {
-                spdlog::info("{}", err.what());
-            }
+            auto video_output_plugin = request_receive<caf::actor>(
+                *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
+            self()->monitor(video_output_plugin);
+            video_output_plugins_.push_back(video_output_plugin);
         }
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+}
+
+xstudio::ui::qt::OffscreenViewport *StudioUI::offscreen_snapshot_viewport() {
+    // create an offscreen viewport and send its companion actor to the actor that requested it
+    if (!snapshot_offscreen_viewport_) {
+        snapshot_offscreen_viewport_ = new xstudio::ui::qt::OffscreenViewport(
+            "snapshot_viewport",
+            false // this flag means we don't have QML overlays in the snapshot viewport
+        );
+        system().registry().put(
+            offscreen_viewport_registry, snapshot_offscreen_viewport_->as_actor());
+    }
+    return snapshot_offscreen_viewport_;
+}
+
+QString StudioUI::renderScreenShotToDisk(
+    const QUrl &path, const int compression, const int width, const int height) {
+
+    try {
+
+        scoped_actor sys{system()};
+
+        request_receive<bool>(
+            *sys,
+            offscreen_snapshot_viewport()->as_actor(),
+            viewport::render_viewport_to_image_atom_v,
+            UriFromQUrl(path),
+            width,
+            height);
+
+    } catch (std::exception &e) {
+        return QString(e.what());
+    }
+    return QString();
+}
+
+QString StudioUI::renderScreenShotToClipboard(const int width, const int height) {
+
+    try {
+
+        scoped_actor sys{system()};
+
+        request_receive<bool>(
+            *sys,
+            offscreen_snapshot_viewport()->as_actor(),
+            viewport::render_viewport_to_image_atom_v,
+            width,
+            height);
+
+    } catch (std::exception &e) {
+        return QString(e.what());
+    }
+    return QString();
+}
+
+void StudioUI::setupSnapshotViewport(const QString &playhead_addr) {
+
+    try {
+
+        scoped_actor sys{system()};
+        offscreen_snapshot_viewport()->setPlayhead(playhead_addr);
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {} ", __PRETTY_FUNCTION__, e.what());
     }
 }

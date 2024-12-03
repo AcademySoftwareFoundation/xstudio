@@ -1,29 +1,54 @@
 
+macro(add_preference name path target)
+    add_custom_command(TARGET ${target}
+                   COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
+                                                    ${CMAKE_BINARY_DIR}/bin/preference/${name}
+                   DEPENDS ${path}/${name})
+    if(INSTALL_XSTUDIO)
+		if(WIN32)
+			install(FILES
+			${path}/${name}
+			DESTINATION
+			${CMAKE_INSTALL_PREFIX}/preference)
+		else()
+			install(FILES
+			${path}/${name}
+			DESTINATION share/xstudio/preference)
+		endif()
+    endif ()
+
+endmacro()
+
 macro(default_compile_options name)
 	target_compile_options(${name}
 		# PRIVATE -fvisibility=hidden
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Linux>>:-fno-omit-frame-pointer>
 		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Windows>>:/Oy>
-		PRIVATE $<$<AND:$<CONFIG:RelWithDebInfo>,$<PLATFORM_ID:Windows>>:/showIncludes>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wno-deprecated>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
 		# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
 		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wno-unused-function>
 		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+		PRIVATE $<$<PLATFORM_ID:Linux>:-Wfatal-errors> # Stop after first error
 		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
 		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Windows>>:/wd4100>
 		# PRIVATE $<$<CONFIG:Debug>:-Wall>
 		# PRIVATE $<$<CONFIG:Debug>:-Werror>
+		# PRIVATE $<$<CONFIG:Debug>:-Wextra>
+		# PRIVATE $<$<CONFIG:Debug>:-Wpedantic>
 		# PRIVATE ${GTEST_CFLAGS}
 	)
 
 	target_compile_features(${name}
-		PUBLIC cxx_std_17
+		PUBLIC cxx_std_20
 	)
 
 	target_compile_definitions(${name}
 		PUBLIC $<$<BOOL:${BUILD_TESTING}>:test_private=public>
 		PUBLIC $<$<NOT:$<BOOL:${BUILD_TESTING}>>:test_private=private>
+		PRIVATE -DSPDLOG_FMT_EXTERNAL
 		$<$<CXX_COMPILER_ID:GNU>:_GNU_SOURCE> # Define _GNU_SOURCE for Linux
 		$<$<PLATFORM_ID:Linux>:__linux__> # Define __linux__ for Linux
 		$<$<PLATFORM_ID:Windows>:_WIN32> # Define _WIN32 for Windows
@@ -33,8 +58,8 @@ macro(default_compile_options name)
 		PUBLIC BINARY_DIR=\"${CMAKE_BINARY_DIR}/bin\"
 		PRIVATE TEST_RESOURCE=\"${TEST_RESOURCE}\"
 		PRIVATE ROOT_DIR=\"${ROOT_DIR}\"
-		$<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>
 		PRIVATE $<$<CONFIG:Debug>:XSTUDIO_DEBUG=1>
+		$<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>	
 	)
 endmacro()
 
@@ -43,15 +68,16 @@ if (BUILD_TESTING)
 		target_compile_options(${name}
 			# PRIVATE -fvisibility=hidden
 			PRIVATE $<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>
+			PRIVATE -Wno-deprecated
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-variable>
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-but-set-variable>
 			# PRIVATE $<$<CONFIG:Debug>:-Wno-unused-parameter>
-			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wno-unused-function>>
+			PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wno-unused-function>
 			# PRIVATE $<$<CONFIG:Debug>:-Wall>
 			# PRIVATE $<$<CONFIG:Debug>:-Werror>
-			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wextra>>
-			$<$<PLATFORM_ID:Linux>:PRIVATE $<$<CONFIG:Debug>:-Wpedantic>>
-			$ PRIVATE ${GTEST_CFLAGS}
+			PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wextra>
+			PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
+			PRIVATE ${GTEST_CFLAGS}
 		)
 
 		target_compile_features(${name}
@@ -89,6 +115,7 @@ macro(default_options_local name)
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
 	    SYSTEM PUBLIC
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
+	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 	)
 	set_target_properties(${name}
 	    PROPERTIES
@@ -103,8 +130,10 @@ macro(default_options name)
 	target_include_directories(${name} INTERFACE
   		$<BUILD_INTERFACE:${ROOT_DIR}/include>
   		$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
+    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
   		$<INSTALL_INTERFACE:include>
-		$<INSTALL_INTERFACE:extern/include>)
+		$<INSTALL_INTERFACE:extern/include>
+		)
 endmacro()
 
 macro(default_options_static name)
@@ -123,6 +152,7 @@ macro(default_options_static name)
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
 	    SYSTEM PUBLIC
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
+	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 	)
 	set_target_properties(${name}
 	    PROPERTIES
@@ -135,7 +165,7 @@ macro(default_plugin_options name)
 		find_package(CAF COMPONENTS core io)
 	endif (NOT CAF_FOUND)
 
-	find_package(spdlog REQUIRED)
+	find_package(spdlog CONFIG REQUIRED)
 	default_compile_options(${name})
 	target_include_directories(${name}
 	    PUBLIC
@@ -145,6 +175,7 @@ macro(default_plugin_options name)
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
 	    SYSTEM PUBLIC
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
+	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 	)
 	set_target_properties(${name}
 	    PROPERTIES
@@ -177,7 +208,7 @@ if (BUILD_TESTING)
 		if (NOT CAF_FOUND)
 			find_package(CAF COMPONENTS core io)
 		endif (NOT CAF_FOUND)
-		find_package(spdlog REQUIRED)
+		find_package(spdlog CONFIG REQUIRED)
 		default_compile_options_gtest(${name})
 		target_include_directories(${name}
 		    PUBLIC
@@ -187,6 +218,7 @@ if (BUILD_TESTING)
 		        ${CMAKE_CURRENT_SOURCE_DIR}/src
 		    SYSTEM PUBLIC
 		    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
+		    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 		)
 	endmacro()
 endif (BUILD_TESTING)
@@ -196,7 +228,7 @@ macro(default_options_qt name)
 	if (NOT CAF_FOUND)
 		find_package(CAF COMPONENTS core io)
 	endif (NOT CAF_FOUND)
-	find_package(spdlog REQUIRED)
+	find_package(spdlog CONFIG REQUIRED)
 	default_compile_options(${name})
 	target_include_directories(${name}
 	    PUBLIC
@@ -239,6 +271,17 @@ macro(add_src_and_test NAME)
 	endif()
 endmacro()
 
+macro(add_python_plugin NAME)
+
+	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} DESTINATION share/xstudio/plugin-python)
+
+	add_custom_target(COPY_PY_PLUGIN_${NAME} ALL)
+
+	add_custom_command(TARGET COPY_PY_PLUGIN_${NAME} POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E
+                         copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NAME} ${CMAKE_BINARY_DIR}/bin/plugin-python/${NAME})
+
+endmacro()
 
 macro(create_plugin NAME VERSION DEPS)
 	create_plugin_with_alias(${NAME} xstudio::${NAME} ${VERSION} "${DEPS}")
@@ -249,7 +292,6 @@ macro(create_plugin_with_alias NAME ALIASNAME VERSION DEPS)
 	project(${NAME} VERSION ${VERSION} LANGUAGES CXX)
 
 	file(GLOB SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
-
 
 	add_library(${PROJECT_NAME} SHARED ${SOURCES})
 	add_library(${ALIASNAME} ALIAS ${PROJECT_NAME})
@@ -396,7 +438,6 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 	# Generate export header
 	include(GenerateExportHeader)
 	generate_export_header(${PROJECT_NAME} EXPORT_FILE_NAME "${ROOT_DIR}/include/xstudio/ui/qml/${PROJECT_NAME}_export.h")
-
 	target_link_libraries(${PROJECT_NAME}
 		PUBLIC ${DEPS}
 	)
@@ -408,8 +449,6 @@ macro(create_qml_component_with_alias NAME ALIASNAME VERSION DEPS EXTRAMOC)
 	#target_include_directories(${PROJECT_NAME} 
 	#	PUBLIC ${CMAKE_BINARY_DIR}  # Include the build directory
 	#)
-
-
 
 endmacro()
 
@@ -423,6 +462,16 @@ macro(build_studio_plugins STUDIO)
 			    if(IS_DIRECTORY ${DIR})
 			    	get_filename_component(PLUGINNAME ${DIR} NAME)
 					add_src_and_test(${STUDIO}/${PLUGINNAME})
+					if(IS_DIRECTORY ${DIR}/share/preference)
+						file(GLOB PREFFILES ${DIR}/share/preference/*.json)
+
+						add_custom_target(${STUDIO}_${PLUGINNAME}_PREFERENCES ALL)
+						foreach(PREFFile ${PREFFILES})
+							get_filename_component(PREFNAME ${PREFFile} NAME)
+							add_preference(${PREFNAME} ${DIR}/share/preference ${STUDIO}_${PLUGINNAME}_PREFERENCES)
+						endforeach()
+
+					endif ()
 				endif()
 			endforeach()
 

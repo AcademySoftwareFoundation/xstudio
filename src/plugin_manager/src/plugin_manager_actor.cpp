@@ -9,6 +9,7 @@
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/string_helpers.hpp"
+#include "xstudio/plugin_manager/hud_plugin.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -21,7 +22,6 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
     print_on_exit(this, "PluginManagerActor");
 
     system().registry().put(plugin_manager_registry, this);
-
 
     manager_.emplace_front_path(xstudio_root("/plugin"));
 
@@ -59,7 +59,8 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         // helper for dealing with URI's
         [=](data_source::use_data_atom,
             const caf::uri &uri,
-            const FrameRate &media_rate) -> result<UuidActorVector> {
+            const FrameRate &media_rate,
+            const bool create_playlist) -> result<UuidActorVector> {
             // send to resident enabled datasource plugins
             auto actors = std::vector<caf::actor>();
 
@@ -75,7 +76,12 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             auto rp = make_response_promise<UuidActorVector>();
 
             fan_out_request<policy::select_all>(
-                actors, infinite, data_source::use_data_atom_v, uri, media_rate)
+                actors,
+                infinite,
+                data_source::use_data_atom_v,
+                uri,
+                media_rate,
+                create_playlist)
                 .then(
                     [=](const std::vector<UuidActorVector> results) mutable {
                         for (const auto &i : results) {
@@ -169,7 +175,8 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                 infinite,
                 data_source::use_data_atom_v,
                 uri,
-                media_rate)
+                media_rate,
+                playlist ? false : true)
                 .then(
                     [=](const UuidActorVector &results) mutable {
                         // uri can contain playlist or media currently.
@@ -180,7 +187,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                             try {
                                 auto type =
                                     request_receive<std::string>(*sys, i.actor(), type_atom_v);
-                                if (type == "Media" && playlist) {
+                                if (type == "Media" and playlist) {
                                     anon_send(
                                         playlist,
                                         playlist::add_media_atom_v,
@@ -312,12 +319,41 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
         [=](spawn_plugin_base_atom,
             const std::string name,
-            const utility::JsonStore &json) -> result<caf::actor> {
+            const utility::JsonStore &json,
+            const std::string class_name) -> result<caf::actor> {
             /*if (base_plugins_.find(name) == base_plugins_.end()) {
                 base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
                 link_to(base_plugins_[name]);
             }*/
-            return spawn<plugin::StandardPlugin>(name, json); // base_plugins_[name];
+            auto rp = make_response_promise<caf::actor>();
+            if (class_name == "HUDPlugin") {
+                rp.deliver(spawn<plugin::HUDPluginBase>(name, json)); // base_plugins_[name];
+            } else if (class_name == "ViewportLayoutPlugin") {
+                // slightly awkward. We want to spawn an instance of
+                // ViewportLayoutPlugin class to back a Python plugin for
+                // managing viewport layouts. To avoid making the plugin_manager
+                // component link-dependent on the ui::viewport component we
+                // spawn via the viewport_layouts_manager
+                std::vector<PluginDetail> details = manager_.plugin_detail();
+                for (auto &detail: details) {
+                    if (detail.name_ == "DefaultViewportLayout") {
+                        try {
+                            auto j = json;
+                            j["name"] = name;
+                            j["is_python"] = true;
+                            rp.deliver(manager_.spawn(*scoped_actor(system()), detail.uuid_, j));
+                        } catch (std::exception &e) {
+                            rp.deliver(make_error(xstudio_error::error, e.what()));
+                        }
+                    }
+                }
+                if (rp.pending()) {
+                    rp.deliver(make_error(xstudio_error::error, "Failed to spawn base ViewportLayoutPlugin"));
+                }
+                return rp;
+            }
+            rp.deliver(spawn<plugin::StandardPlugin>(name, json)); // base_plugins_[name];
+            return rp;
         },
 
         [=](spawn_plugin_base_atom, const std::string name) -> result<caf::actor> {

@@ -13,6 +13,7 @@
 
 #include <caf/actor.hpp>
 #include <caf/actor_addr.hpp>
+#include <caf/actor_cast.hpp>
 #include <nlohmann/json.hpp>
 
 #include "stduuid/uuid.h"
@@ -154,11 +155,16 @@ namespace utility {
         UuidActor(const utility::Uuid uuid, const caf::actor actor)
             : uuid_(std::move(uuid)), actor_(std::move(actor)) {}
 
+        UuidActor(const utility::Uuid uuid, const caf::actor_addr &actor)
+            : uuid_(std::move(uuid)), actor_(std::move(caf::actor_cast<caf::actor>(actor))) {}
+
         UuidActor &operator=(const UuidActor &o) = default;
 
-        bool operator==(const UuidActor &o) const {
-            return (uuid_ == o.uuid_ && actor_ == o.actor_);
+        friend bool operator==(const UuidActor &a, const UuidActor &b) {
+            return (a.uuid_ == b.uuid_ && a.actor_ == b.actor_);
         };
+
+        friend bool operator!=(const UuidActor &a, const UuidActor &b) { return !(a == b); };
 
         operator caf::actor &() { return actor_; }
         operator const caf::actor &() const { return actor_; }
@@ -170,6 +176,10 @@ namespace utility {
         [[nodiscard]] const utility::Uuid &uuid() const { return uuid_; }
         caf::actor &actor() { return actor_; }
         [[nodiscard]] const caf::actor &actor() const { return actor_; }
+
+        [[nodiscard]] caf::actor_addr actor_addr() const {
+            return caf::actor_cast<caf::actor_addr>(actor_);
+        }
 
         template <class Inspector> friend bool inspect(Inspector &f, UuidActor &x) {
             return f.object(x).fields(f.field("uuid", x.uuid_), f.field("actor", x.actor_));

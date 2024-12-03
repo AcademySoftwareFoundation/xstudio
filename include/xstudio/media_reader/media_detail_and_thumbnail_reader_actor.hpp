@@ -34,15 +34,7 @@ namespace media_reader {
       private:
         void send_error_to_source(const caf::actor_addr &addr, const caf::error &err);
         void process_get_media_detail_queue();
-        void process_get_thumbnail_queue();
-        bool queues_empty() const {
-            return media_detail_request_queue_.empty() && thumbnail_request_queue_.empty();
-        }
-        void get_thumbnail_from_reader_plugin(
-            caf::actor &,
-            const media::AVFrameID,
-            const size_t,
-            caf::typed_response_promise<thumbnail::ThumbnailBufferPtr>);
+        bool queues_empty() const { return media_detail_request_queue_.empty(); }
         void continue_processing_queue();
 
       private:
@@ -61,29 +53,24 @@ namespace media_reader {
             caf::typed_response_promise<media::MediaDetail> rp_;
         };
 
-        struct ThumbnailRequest {
-
-            ThumbnailRequest(const ThumbnailRequest &o) = default;
-            ThumbnailRequest()                          = default;
-            ThumbnailRequest(
-                const media::AVFrameID media_pointer,
-                const size_t size,
-                caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp)
-                : media_pointer_(std::move(media_pointer)), size_(size), rp_(std::move(rp)) {}
-
-            media::AVFrameID media_pointer_;
-            size_t size_;
-            caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp_;
-        };
-
       private:
+        void get_thumbnail(
+            caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
+            const media::AVFrameID &mptr,
+            const size_t size);
+
+        void get_thumbnail_from_reader_plugin(
+            caf::actor &reader_plugin,
+            caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp,
+            const media::AVFrameID &mptr,
+            const size_t size);
+
         inline static const std::string NAME = "MediaDetailAndThumbnailReaderActor";
         caf::behavior behavior_;
 
         int num_detail_requests_since_thumbnail_request_ = {0};
 
         std::queue<MediaDetailRequest> media_detail_request_queue_;
-        std::queue<ThumbnailRequest> thumbnail_request_queue_;
 
         std::map<caf::uri, media::MediaDetail> media_detail_cache_;
         std::map<caf::uri, utility::time_point> media_detail_cache_age_;

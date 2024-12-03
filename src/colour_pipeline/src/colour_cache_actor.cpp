@@ -84,38 +84,57 @@ GlobalColourCacheActor::GlobalColourCacheActor(caf::actor_config &cfg)
         [=](preserve_atom, const std::string &key) -> bool { return cache_.preserve(key); },
 
         [=](preserve_atom, const std::string &key, const time_point &time) -> bool {
+            //std::cerr << "K " << key << "\n";
             return cache_.preserve(key, time);
         },
 
         [=](preserve_atom, const std::string &key, const time_point &time, const Uuid &uuid)
-            -> bool { return cache_.preserve(key, time, uuid); },
+            -> bool { 
+                //std::cerr << "K1 " << key << "\n";
+                return cache_.preserve(key, time, uuid); 
+                },
 
         [=](retrieve_atom, const std::string &key) -> ColourOperationDataPtr {
+                //std::cerr << "K2 " << key << "\n";
+
             return cache_.retrieve(key);
         },
 
         [=](retrieve_atom, const std::string &key, const time_point &time)
-            -> ColourOperationDataPtr { return cache_.retrieve(key, time); },
+            -> ColourOperationDataPtr { 
+                //std::cerr << "K3 " << key << "\n";
+                return cache_.retrieve(key, time); 
+                },
 
         [=](retrieve_atom, const std::string &key, const time_point &time, const Uuid &uuid)
-            -> ColourOperationDataPtr { return cache_.retrieve(key, time, uuid); },
+            -> ColourOperationDataPtr { 
+                                //std::cerr << "K4 " << key << "\n";
+
+                return cache_.retrieve(key, time, uuid); 
+                },
 
         [=](size_atom) -> size_t { return cache_.size(); },
 
         [=](store_atom, const std::string &key, ColourOperationDataPtr buf) -> bool {
+            //std::cerr << "K5 " << key << "\n";
             return cache_.store(key, buf);
         },
 
         [=](store_atom,
             const std::string &key,
             ColourOperationDataPtr buf,
-            const time_point &when) -> bool { return cache_.store(key, buf, when); },
+            const time_point &when) -> bool { 
+                //std::cerr << "K6 " << key << "\n";
+                return cache_.store(key, buf, when); 
+                },
 
         [=](store_atom,
             const std::string &key,
             ColourOperationDataPtr buf,
             const time_point &when,
             const utility::Uuid &uuid) -> bool {
+                //std::cerr << "K7 " << key << "\n";
+
             return cache_.store(key, buf, when, false, uuid);
         });
 }

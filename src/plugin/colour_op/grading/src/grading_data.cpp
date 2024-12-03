@@ -11,38 +11,26 @@ using namespace xstudio;
 
 void xstudio::ui::viewport::from_json(const nlohmann::json &j, Grade &g) {
 
-    j.at("slope").get_to(g.slope);
-    j.at("offset").get_to(g.offset);
-    j.at("power").get_to(g.power);
+    j.at("slope").get_to(static_cast<std::array<double, 4> &>(g.slope));
+    j.at("offset").get_to(static_cast<std::array<double, 4> &>(g.offset));
+    j.at("power").get_to(static_cast<std::array<double, 4> &>(g.power));
     j.at("sat").get_to(g.sat);
+
+    if (j.contains("exposure"))
+        j.at("exposure").get_to(g.exposure);
+    if (j.contains("contrast"))
+        j.at("contrast").get_to(g.contrast);
 }
 
 void xstudio::ui::viewport::to_json(nlohmann::json &j, const Grade &g) {
 
-    j["slope"]  = g.slope;
-    j["offset"] = g.offset;
-    j["power"]  = g.power;
-    j["sat"]    = g.sat;
+    j["slope"]    = g.slope;
+    j["offset"]   = g.offset;
+    j["power"]    = g.power;
+    j["sat"]      = g.sat;
+    j["exposure"] = g.exposure;
+    j["contrast"] = g.contrast;
 }
-
-bool LayerData::identity() const { return (grade_ == Grade() && mask_.empty()); }
-
-void xstudio::ui::viewport::from_json(const nlohmann::json &j, LayerData &l) {
-
-    j.at("grade").get_to(l.grade_);
-    j.at("mask_active").get_to(l.mask_active_);
-    j.at("mask_editing").get_to(l.mask_editing_);
-    j.at("mask").get_to(l.mask_);
-}
-
-void xstudio::ui::viewport::to_json(nlohmann::json &j, const LayerData &l) {
-
-    j["grade"]        = l.grade_;
-    j["mask_active"]  = l.mask_active_;
-    j["mask_editing"] = l.mask_editing_;
-    j["mask"]         = l.mask_;
-}
-
 
 GradingData::GradingData(const utility::JsonStore &s) : bookmark::AnnotationBase() {
 
@@ -55,29 +43,24 @@ utility::JsonStore GradingData::serialise(utility::Uuid &plugin_uuid) const {
     return GradingDataSerialiser::serialise((const GradingData *)this);
 }
 
-bool GradingData::identity() const {
+bool GradingData::identity() const { return (grade_ == Grade() && mask_.empty()); }
 
-    return (layers_.empty() || (layers_.size() == 1 && layers_.front().identity()));
+void xstudio::ui::viewport::from_json(const nlohmann::json &j, GradingData &l) {
+
+    if (j.contains("colour_space"))
+        j.at("colour_space").get_to(l.colour_space_);
+
+    j.at("grade").get_to(l.grade_);
+    j.at("mask_active").get_to(l.mask_active_);
+    j.at("mask_editing").get_to(l.mask_editing_);
+    j.at("mask").get_to(l.mask_);
 }
 
-LayerData *GradingData::layer(size_t idx) {
+void xstudio::ui::viewport::to_json(nlohmann::json &j, const GradingData &l) {
 
-    if (idx >= 0 && idx < layers_.size()) {
-        return &layers_[idx];
-    }
-    return nullptr;
-}
-
-void GradingData::push_layer() { layers_.push_back(LayerData()); }
-
-void GradingData::pop_layer() { layers_.pop_back(); }
-
-void xstudio::ui::viewport::from_json(const nlohmann::json &j, GradingData &gd) {
-
-    j.at("layers").get_to(gd.layers_);
-}
-
-void xstudio::ui::viewport::to_json(nlohmann::json &j, const GradingData &gd) {
-
-    j["layers"] = gd.layers_;
+    j["colour_space"] = l.colour_space_;
+    j["grade"]        = l.grade_;
+    j["mask_active"]  = l.mask_active_;
+    j["mask_editing"] = l.mask_editing_;
+    j["mask"]         = l.mask_;
 }

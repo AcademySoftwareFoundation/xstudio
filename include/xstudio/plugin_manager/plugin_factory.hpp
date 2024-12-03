@@ -33,6 +33,9 @@ namespace plugin_manager {
         spawn(caf::blocking_actor &, const utility::JsonStore & = utility::JsonStore()) {
             return caf::actor();
         }
+
+        virtual void *instance_q_object(void *parent_q_object) { return nullptr; }
+
         [[nodiscard]] virtual std::string spawn_widget_ui() { return ""; }
         [[nodiscard]] virtual std::string spawn_menu_ui() { return ""; }
     };
@@ -87,6 +90,51 @@ namespace plugin_manager {
 
       private:
         caf::actor instance_;
+    };
+
+
+    template <typename T> class PluginFactoryTemplate2 : public PluginFactory {
+      public:
+        PluginFactoryTemplate2(
+            utility::Uuid uuid,
+            std::string name        = "",
+            PluginType type         = PluginFlags::PF_CUSTOM,
+            bool resident           = false,
+            std::string author      = "",
+            std::string description = "",
+            semver::version version = semver::version("0.0.0"))
+            : uuid_(std::move(uuid)),
+              name_(std::move(name)),
+              type_(type),
+              resident_(resident),
+              author_(std::move(author)),
+              description_(std::move(description)),
+              version_(std::move(version)) {}
+        ~PluginFactoryTemplate2() override = default;
+
+        [[nodiscard]] std::string name() const override { return name_; }
+        [[nodiscard]] utility::Uuid uuid() const override { return uuid_; }
+        [[nodiscard]] PluginType type() const override { return type_; }
+        [[nodiscard]] bool resident() const override { return resident_; }
+        [[nodiscard]] std::string author() const override { return author_; }
+        [[nodiscard]] std::string description() const override { return description_; }
+        [[nodiscard]] semver::version version() const override { return version_; }
+        [[nodiscard]] std::string spawn_widget_ui() override { return ui_widget_string_; }
+        [[nodiscard]] std::string spawn_menu_ui() override { return ui_menu_string_; }
+
+        void *instance_q_object(void *parent_q_object) override {
+            return T::instance_q_object(parent_q_object);
+        }
+
+        utility::Uuid uuid_;
+        std::string name_;
+        PluginType type_;
+        bool resident_;
+        std::string author_;
+        std::string description_;
+        semver::version version_;
+        std::string ui_widget_string_;
+        std::string ui_menu_string_;
     };
 
 

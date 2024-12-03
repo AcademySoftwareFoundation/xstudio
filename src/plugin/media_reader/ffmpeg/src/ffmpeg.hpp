@@ -45,8 +45,9 @@ namespace media_reader {
         std::shared_ptr<ffmpeg::FFMpegDecoder> thumbnail_decoder;
 
         int readers_per_source_;
-        int soundcard_sample_rate_ = {4000};
-        int channels_ = 2;
+        int soundcard_sample_rate_       = {4000};
+        int channels_                    = 2;
+        utility::FrameRate default_rate_ = {utility::FrameRate(timebase::k_flicks_24fps)};
 
         ImageBufPtr last_decoded_image_;
     };

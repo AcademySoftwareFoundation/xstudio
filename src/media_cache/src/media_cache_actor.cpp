@@ -35,15 +35,30 @@ class TrimActor : public caf::event_based_actor {
 };
 
 TrimActor::TrimActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
-    behavior_.assign([=](unpreserve_atom, const size_t count) {
+
+    // trim memory usage, as when idle it'll slowly creep up until we run out of memory.
+    delayed_anon_send(this, std::chrono::minutes(10), unpreserve_atom_v);
+
+    behavior_.assign(
+        [=](unpreserve_atom, const size_t count) {
     // spdlog::stopwatch sw;
 #ifdef _WIN32
-        _heapmin();
+            _heapmin();
 #else
-        malloc_trim(64);
+            malloc_trim(64);
 #endif
-        // spdlog::warn("Release {:.3f}", sw);
-    });
+            // spdlog::warn("Release {:.3f}", sw);
+        },
+        [=](unpreserve_atom) {
+#ifdef _WIN32
+            _heapmin();
+#else
+            malloc_trim(64);
+#endif
+            delayed_anon_send(this, std::chrono::minutes(10), unpreserve_atom_v);
+        }
+
+    );
 }
 
 GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
@@ -58,8 +73,10 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
         auto prefs = GlobalStoreHelper(system());
         JsonStore j;
         join_broadcast(this, prefs.get_group(j));
-        max_count = preference_value<size_t>(j, "/core/image_cache/max_count");
-        max_size  = preference_value<size_t>(j, "/core/image_cache/max_size") * 1024 * 1024;
+        max_count   = preference_value<size_t>(j, "/core/image_cache/max_count");
+        max_size    = preference_value<size_t>(j, "/core/image_cache/max_size") * 1024 * 1024;
+        reset_idle_ = std::chrono::minutes(
+            preference_value<size_t>(j, "/core/image_cache/release_on_idle"));
     } catch (...) {
     }
 
@@ -75,10 +92,23 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
     auto trim = spawn<TrimActor>();
     link_to(trim);
 
+    delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+
+    // For cache benchmarking
+    // cache_.noisy = true;
+
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+        [=](clear_atom, const bool idle_check) {
+            if (reset_idle_.count() and not cache_.empty() and
+                utility::clock::now() - last_activity_ > reset_idle_) {
+                anon_send(this, clear_atom_v);
+            }
+            delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+        },
         [=](clear_atom) -> bool {
             cache_.clear();
+            anon_send(trim, unpreserve_atom_v, static_cast<size_t>(0));
             return true;
         },
 
@@ -108,6 +138,8 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
 
         [=](json_store::update_atom, const JsonStore &js) {
             try {
+                reset_idle_ = std::chrono::minutes(
+                    preference_value<size_t>(js, "/core/image_cache/release_on_idle"));
                 auto new_count = preference_value<size_t>(js, "/core/image_cache/max_count");
                 auto new_size =
                     preference_value<size_t>(js, "/core/image_cache/max_size") * 1024 * 1024;
@@ -161,8 +193,9 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
             const media::AVFrameIDsAndTimePoints &mpts,
             const Uuid &uuid) -> media::AVFrameIDsAndTimePoints {
             media::AVFrameIDsAndTimePoints result;
+            result.reserve(mpts.size());
             for (const auto &p : mpts) {
-                if (!cache_.preserve(p.second->key_, p.first, uuid)) {
+                if (!cache_.preserve(p.second->key(), p.first, uuid)) {
                     result.push_back(p);
                 }
             }
@@ -177,43 +210,59 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
         },
 
         [=](retrieve_atom, const media::MediaKey &key) -> media_reader::ImageBufPtr {
+            last_activity_ = utility::clock::now();
             return cache_.retrieve(key);
         },
 
         [=](retrieve_atom, const media::AVFrameIDsAndTimePoints &mptr_and_timepoints)
             -> std::vector<media_reader::ImageBufPtr> {
-            std::vector<media_reader::ImageBufPtr> result(mptr_and_timepoints.size());
-            auto r = result.begin();
+            std::vector<media_reader::ImageBufPtr> result;
+            result.reserve(mptr_and_timepoints.size());
+
+            last_activity_ = utility::clock::now();
+
             for (const auto &p : mptr_and_timepoints) {
-                *r                    = cache_.retrieve(p.second->key_, p.first);
-                (*r).when_to_display_ = p.first;
-                r++;
+                result.emplace_back(cache_.retrieve(p.second->key(), p.first));
+                result.back().when_to_display_ = p.first;
             }
             return result;
         },
 
-        [=](retrieve_atom, const media::MediaKey &key, const time_point &time)
-            -> media_reader::ImageBufPtr { return cache_.retrieve(key, time); },
+        [=](retrieve_atom,
+            const media::MediaKey &key,
+            const time_point &time) -> media_reader::ImageBufPtr {
+            last_activity_ = utility::clock::now();
+            return cache_.retrieve(key, time);
+        },
 
         [=](retrieve_atom, const media::MediaKey &key, const time_point &time, const Uuid &uuid)
-            -> media_reader::ImageBufPtr { return cache_.retrieve(key, time, uuid); },
+            -> media_reader::ImageBufPtr {
+            last_activity_ = utility::clock::now();
+            return cache_.retrieve(key, time, uuid);
+        },
 
         [=](size_atom) -> size_t { return cache_.size(); },
 
         [=](store_atom, const media::MediaKey &key, media_reader::ImageBufPtr buf) -> bool {
+            last_activity_ = utility::clock::now();
             return cache_.store(key, buf);
         },
 
         [=](store_atom,
             const media::MediaKey &key,
             const media_reader::ImageBufPtr &buf,
-            const time_point &when) -> bool { return cache_.store(key, buf, when); },
+            const time_point &when) -> bool {
+            last_activity_ = utility::clock::now();
+
+            return cache_.store(key, buf, when);
+        },
 
         [=](store_atom,
             const media::MediaKey &key,
             const media_reader::ImageBufPtr &buf,
             const time_point &when,
             const utility::Uuid &uuid) -> bool {
+            last_activity_ = utility::clock::now();
             return cache_.store(key, buf, when, false, uuid);
         },
 
@@ -222,6 +271,7 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
             const media_reader::ImageBufPtr &buf,
             const time_point &when,
             const utility::Uuid &uuid) -> bool {
+            last_activity_ = utility::clock::now();
             return cache_.store(key, buf, when, false, uuid);
         },
         [=](store_atom,
@@ -230,6 +280,7 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
             const time_point &when,
             const utility::Uuid &uuid,
             const time_point &cache_out_date_tp) -> bool {
+            last_activity_ = utility::clock::now();
             return cache_.store(key, buf, when, uuid, cache_out_date_tp);
         },
 
@@ -238,15 +289,15 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
 
 void GlobalImageCacheActor::update_changes(
     const media::MediaKeyVector &store, const media::MediaKeyVector &erase) {
-    for (const auto &i : store) {
-        new_keys_.insert(i);
-        erased_keys_.erase(i);
-    }
 
-    for (const auto &i : erase) {
+    new_keys_.insert(store.begin(), store.end());
+    for (const auto &i : store)
+        erased_keys_.erase(i);
+
+    erased_keys_.insert(erase.begin(), erase.end());
+    for (const auto &i : erase)
         new_keys_.erase(i);
-        erased_keys_.insert(i);
-    }
+
     if (not update_pending_ and (not new_keys_.empty() or not erased_keys_.empty())) {
         update_pending_ = true;
         delayed_anon_send(this, std::chrono::milliseconds(250), keys_atom_v, true);
@@ -268,8 +319,10 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
         auto prefs = GlobalStoreHelper(system());
         JsonStore j;
         join_broadcast(this, prefs.get_group(j));
-        max_count = preference_value<size_t>(j, "/core/audio_cache/max_count");
-        max_size  = preference_value<size_t>(j, "/core/audio_cache/max_size") * 1024 * 1024;
+        max_count   = preference_value<size_t>(j, "/core/audio_cache/max_count");
+        max_size    = preference_value<size_t>(j, "/core/audio_cache/max_size") * 1024 * 1024;
+        reset_idle_ = std::chrono::minutes(
+            preference_value<size_t>(j, "/core/audio_cache/release_on_idle"));
     } catch (...) {
     }
 
@@ -281,8 +334,19 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
     auto event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
 
+    delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+
+        [=](clear_atom, const bool idle_check) {
+            if (reset_idle_.count() and not cache_.empty() and
+                utility::clock::now() - last_activity_ > reset_idle_) {
+                anon_send(this, clear_atom_v);
+            }
+            delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+        },
+
         [=](clear_atom) -> bool {
             cache_.clear();
             return true;
@@ -311,6 +375,9 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
 
         [=](json_store::update_atom, const JsonStore &js) {
             try {
+                reset_idle_ = std::chrono::minutes(
+                    preference_value<size_t>(js, "/core/audio_cache/release_on_idle"));
+
                 auto new_count = preference_value<size_t>(js, "/core/audio_cache/max_count");
                 auto new_size =
                     preference_value<size_t>(js, "/core/audio_cache/max_size") * 1024 * 1024;
@@ -352,8 +419,9 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
             const media::AVFrameIDsAndTimePoints &mpts,
             const Uuid &uuid) -> media::AVFrameIDsAndTimePoints {
             media::AVFrameIDsAndTimePoints result;
+            result.reserve(mpts.size());
             for (const auto &p : mpts) {
-                if (!cache_.preserve(p.second->key_, p.first, uuid)) {
+                if (!cache_.preserve(p.second->key(), p.first, uuid)) {
                     result.push_back(p);
                 }
             }
@@ -365,42 +433,59 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
 
         [=](retrieve_atom, const media::AVFrameIDsAndTimePoints &mptr_and_timepoints)
             -> std::vector<media_reader::AudioBufPtr> {
-            std::vector<media_reader::AudioBufPtr> result(mptr_and_timepoints.size());
-            auto r = result.begin();
+            std::vector<media_reader::AudioBufPtr> result;
+            last_activity_ = utility::clock::now();
+
+            result.reserve(mptr_and_timepoints.size());
+
             for (const auto &p : mptr_and_timepoints) {
-                *r                    = cache_.retrieve(p.second->key_, p.first);
-                (*r).when_to_display_ = p.first;
-                r++;
+                result.emplace_back(cache_.retrieve(p.second->key(), p.first));
+                result.back().when_to_display_ = p.first;
             }
+
             return result;
         },
 
         [=](retrieve_atom, const media::MediaKey &key) -> media_reader::AudioBufPtr {
+            last_activity_ = utility::clock::now();
             return cache_.retrieve(key);
         },
 
-        [=](retrieve_atom, const media::MediaKey &key, const time_point &time)
-            -> media_reader::AudioBufPtr { return cache_.retrieve(key, time); },
+        [=](retrieve_atom,
+            const media::MediaKey &key,
+            const time_point &time) -> media_reader::AudioBufPtr {
+            last_activity_ = utility::clock::now();
+
+            return cache_.retrieve(key, time);
+        },
 
         [=](retrieve_atom, const media::MediaKey &key, const time_point &time, const Uuid &uuid)
-            -> media_reader::AudioBufPtr { return cache_.retrieve(key, time, uuid); },
+            -> media_reader::AudioBufPtr {
+            last_activity_ = utility::clock::now();
+            return cache_.retrieve(key, time, uuid);
+        },
 
         [=](size_atom) -> size_t { return cache_.size(); },
 
         [=](store_atom, const media::MediaKey &key, media_reader::AudioBufPtr buf) -> bool {
+            last_activity_ = utility::clock::now();
             return cache_.store(key, buf);
         },
 
         [=](store_atom,
             const media::MediaKey &key,
             media_reader::AudioBufPtr buf,
-            const time_point &when) -> bool { return cache_.store(key, buf, when); },
+            const time_point &when) -> bool {
+            last_activity_ = utility::clock::now();
+            return cache_.store(key, buf, when);
+        },
 
         [=](store_atom,
             const media::MediaKey &key,
             media_reader::AudioBufPtr buf,
             const time_point &when,
             const utility::Uuid &uuid) -> bool {
+            last_activity_ = utility::clock::now();
             return cache_.store(key, buf, when, false, uuid);
         },
 
@@ -410,6 +495,7 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
             const time_point &when,
             const utility::Uuid &uuid,
             const time_point &cache_out_date_tp) -> bool {
+            last_activity_ = utility::clock::now();
             return cache_.store(key, buf, when, uuid, cache_out_date_tp);
         },
 
@@ -421,15 +507,15 @@ void GlobalAudioCacheActor::on_exit() { system().registry().erase(audio_cache_re
 
 void GlobalAudioCacheActor::update_changes(
     const media::MediaKeyVector &store, const media::MediaKeyVector &erase) {
-    for (const auto &i : store) {
-        new_keys_.insert(i);
-        erased_keys_.erase(i);
-    }
 
-    for (const auto &i : erase) {
+    new_keys_.insert(store.begin(), store.end());
+    for (const auto &i : store)
+        erased_keys_.erase(i);
+
+    erased_keys_.insert(erase.begin(), erase.end());
+    for (const auto &i : erase)
         new_keys_.erase(i);
-        erased_keys_.insert(i);
-    }
+
     if (not update_pending_ and (not new_keys_.empty() or not erased_keys_.empty())) {
         update_pending_ = true;
         delayed_anon_send(this, std::chrono::milliseconds(250), keys_atom_v, true);

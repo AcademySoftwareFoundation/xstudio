@@ -1,5 +1,0 @@
-module AnnotationsTool
-
-AnnotationsButton 1.0 AnnotationsButton.qml
-AnnotationsDialog 1.0 AnnotationsDialog/AnnotationsDialog.qml
-AnnotationsTextItems 1.0 AnnotationsTextItems.qml

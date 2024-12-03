@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "pixel_probe.hpp"
 #include "xstudio/plugin_manager/plugin_base.hpp"
-#include "xstudio/media_reader/image_buffer.hpp"
+#include "xstudio/media_reader/image_buffer_set.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/utility/blind_data.hpp"
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
@@ -84,7 +84,7 @@ void PixelProbeHUDRenderer::set_mouse_pointer_position(const Imath::V2f p)
 }*/
 
 PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &init_settings)
-    : HUDPluginBase(cfg, "Pixel Probe", init_settings) {
+    : plugin::HUDPluginBase(cfg, "Pixel Probe", init_settings, 3.0f) {
 
     pixel_info_text_ = add_string_attribute("Pixel Info", "Pixel Info", "");
     pixel_info_text_->expose_in_ui_attrs_group("pixel_info_attributes");
@@ -92,22 +92,8 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
     pixel_info_title_ = add_string_attribute("Pixel Info Title", "Pixel Info Title", "");
     pixel_info_title_->expose_in_ui_attrs_group("pixel_info_attributes");
 
-    // expose the enabled toggle (from HUDPluginBase)
-    enabled_->set_value(false);
-    enabled_->expose_in_ui_attrs_group("pixel_info_attributes");
-    enabled_->set_preference_path("/plugin/pixel_probe/enabled");
-    enabled_->set_role_data(module::Attribute::ToolbarPosition, 3.0f);
-
-    // Here we declare QML code that is reponsible for drawing the pixel info over the xSTUDIO
-    // viewport. The main Viewport class will take care of instanciating the qml object from
-    // this code.
-    hud_element_qml(
-        R"(
-            import PixelProbe 1.0
-            PixelProbeOverlay {
-            }
-        )",
-        HUDPluginBase::TopLeft);
+    pixel_info_current_viewport_ = add_string_attribute("Current Viewport", "Current Viewport", "");
+    pixel_info_current_viewport_->expose_in_ui_attrs_group("pixel_info_attributes");
 
     auto font_size = add_float_attribute("Font Size", "Font Size", 10.0f, 5.0f, 50.0f, 1.0f);
     font_size->expose_in_ui_attrs_group("pixel_info_attributes");
@@ -166,85 +152,112 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
     show_final_screen_rgb_pixel_values_->set_preference_path(
         "/plugin/pixel_probe/show_final_screen_rgb_pixel_values");
     value_precision_->set_preference_path("/plugin/pixel_probe/decimals");
+
+    // Here we declare QML code that is reponsible for drawing the pixel info over the xSTUDIO
+    // viewport. The main Viewport class will take care of instanciating the qml object from
+    // this code.
+    hud_element_qml(
+        R"(
+            import PixelProbe 1.0
+            PixelProbeOverlay {
+            }
+        )",
+        plugin::TopLeft);
+
 }
 
 PixelProbeHUD::~PixelProbeHUD() {
     colour_pipelines_.clear();
-    colour_pipeline_ = caf::actor();
 }
 
 
 bool PixelProbeHUD::pointer_event(const ui::PointerEvent &e) {
 
-    last_pointer_pos_ = e.position_in_viewport_coord_sys();
-    update_onscreen_info(e.context());
+    update_onscreen_info(e.context(), e.position_in_viewport_coord_sys());
     return true;
 }
 
-void PixelProbeHUD::update_onscreen_info(const std::string &viewport_name) {
+void PixelProbeHUD::update_onscreen_info(
+    const std::string &viewport_name,
+    const Imath::V2f &pointer_position) {
 
-    if (is_enabled_ != enabled_->value()) {
-        is_enabled_ = enabled_->value();
+    if (is_enabled_ != visible()) {
+        is_enabled_ = visible();
         if (is_enabled_) {
             connect_to_ui();
         } else {
-            current_onscreen_image_ = media_reader::ImageBufPtr();
+            return;
         }
     }
 
-    if (is_enabled_ && not viewport_name.empty()) {
+    media_reader::ImageBufDisplaySetPtr onscreen_image_set; 
+    caf::actor colour_pipeline;
+    if (not viewport_name.empty()) {
         if (current_onscreen_images_.find(viewport_name) != current_onscreen_images_.end()) {
-            current_onscreen_image_ = current_onscreen_images_[viewport_name];
-        } else {
-            current_onscreen_image_ = media_reader::ImageBufPtr();
+            onscreen_image_set = current_onscreen_images_[viewport_name];
         }
-        colour_pipeline_ = get_colour_pipeline_actor(viewport_name);
+        colour_pipeline = get_colour_pipeline_actor(viewport_name);
     }
 
-    static Imath::V2i image_dims(1920, 1080);
+    if (onscreen_image_set && visible() && colour_pipeline) {
 
-    if (current_onscreen_image_ && enabled_->value()) {
+        Imath::V4f pointer(pointer_position.x, pointer_position.y, 0.0, 1.0f);
+        bool ptr_in_image = false;
+        // loop over on-screen images
+        for (int i = 0; i < onscreen_image_set->num_onscreen_images(); ++i) {
+            const auto &im = onscreen_image_set->onscreen_image(i);
+            if (im) {
 
-        // WIP!
-        image_dims = current_onscreen_image_->image_size_in_pixels();
+                // Convert pointer_position to normalised image coordinates
+                // (image width always spans -1.0, 1.0 in x)
+                const float a = 1.0f/im->image_aspect();
+                Imath::V4f p = pointer*im.layout_transform().inverse();
+                Imath::V2f p0(p.x/p.w, p.y/p.w);
+                if (p0.x >= -1.0f && p0.x <= 1.0f && p0.y >= -a && p0.y <= a) {
 
-        // Image is width-fitted to viewport coordinates -1.0 to 1.0:
-        const float image_aspect =
-            image_dims.y / (image_dims.x * current_onscreen_image_->pixel_aspect());
-        Imath::V2i image_coord(
-            int(round((last_pointer_pos_.x + 1.0f) * 0.5f * image_dims.x)),
-            int(round((last_pointer_pos_.y / image_aspect + 1.0f) * 0.5f * image_dims.y)));
+                    // pointer is inside image boundary
+                    Imath::V2i image_coord(
+                        int(round((p0.x + 1.0f) * 0.5f * im->image_size_in_pixels().x)),
+                        int(round((p0.y/a + 1.0f) * 0.5f * im->image_size_in_pixels().y)));
 
-        const auto pixel_info = current_onscreen_image_->pixel_info(image_coord);
+                    // here we get the RGB, YUV value at the image coordinate
+                    const auto pixel_info = im->pixel_info(image_coord);
+                    ptr_in_image = true;
 
-        if (colour_pipeline_) {
+                    if (!viewport_name.empty()) {
+                        // update our attribute that tracks which viewport the
+                        // mouse pointer is in - used to reveal/hide the pixel
+                        // info overlay per viewport
+                        pixel_info_current_viewport_->set_value(viewport_name);
+                    }
 
-            // we send the pixel info to the colour pipeline to add it's own colourspace
-            // transforms and info, if it needs/wants to
-            request(
-                colour_pipeline_,
-                infinite,
-                colour_pipeline::pixel_info_atom_v,
-                pixel_info,
-                current_onscreen_image_.frame_id())
-                .then(
-                    [=](const media_reader::PixelInfo &extended_info) mutable {
-                        make_pixel_info_onscreen_text(extended_info);
-                    },
-                    [=](caf::error &err) {
+                    // we send the pixel info to the colour pipeline to add it's own colourspace
+                    // transforms and info, if it needs/wants to
+                    request(
+                        colour_pipeline,
+                        infinite,
+                        colour_pipeline::pixel_info_atom_v,
+                        pixel_info,
+                        im.frame_id())
+                        .then(
+                            [=](const media_reader::PixelInfo &extended_info) mutable {
+                                
+                                make_pixel_info_onscreen_text(extended_info);
+                            },
+                            [=](caf::error &err) {
 
-                    });
+                            });                        
+                    break;
+                }
+            }
+        }
+        if (!ptr_in_image) {
+            // empty info
+            make_pixel_info_onscreen_text(media_reader::PixelInfo());
         }
 
-    } else if (enabled_->value()) {
-        const float image_aspect = image_dims.y / (image_dims.x);
-        Imath::V2i image_coord(
-            int(round((last_pointer_pos_.x + 1.0f) * 0.5f * image_dims.x)),
-            int(round((last_pointer_pos_.y / image_aspect + 1.0f) * 0.5f * image_dims.y)));
-        make_pixel_info_onscreen_text(media_reader::PixelInfo(image_coord));
     } else {
-        pixel_info_text_->set_value("");
-        pixel_info_title_->set_value("");
+        make_pixel_info_onscreen_text(media_reader::PixelInfo());
     }
 }
 
@@ -362,20 +375,26 @@ caf::actor PixelProbeHUD::get_colour_pipeline_actor(const std::string &viewport_
 }
 
 void PixelProbeHUD::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
-    update_onscreen_info();
-    HUDPluginBase::attribute_changed(attribute_uuid, role);
+    
+    if (attribute_uuid == show_code_values_->uuid()
+        || attribute_uuid == show_raw_pixel_values_->uuid()
+        || attribute_uuid == show_linear_pixel_values_->uuid()
+        || attribute_uuid == show_final_screen_rgb_pixel_values_->uuid()
+        || attribute_uuid == value_precision_->uuid()) {
+            update_onscreen_info();
+        }
+    plugin::HUDPluginBase::attribute_changed(attribute_uuid, role);
 }
 
 void PixelProbeHUD::images_going_on_screen(
-    const std::vector<media_reader::ImageBufPtr> &images,
+    const media_reader::ImageBufDisplaySetPtr &images,
     const std::string viewport_name,
     const bool playhead_playing) {
 
-    if (images.size())
-        current_onscreen_images_[viewport_name] = images.front();
+    if (images)
+        current_onscreen_images_[viewport_name] = images;
     else
         current_onscreen_images_[viewport_name].reset();
-    update_onscreen_info();
 }
 
 extern "C" {

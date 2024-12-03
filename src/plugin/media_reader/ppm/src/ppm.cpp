@@ -64,7 +64,7 @@ static ui::viewport::GPUShaderPtr
 ImageBufPtr PPMMediaReader::image(const media::AVFrameID &mptr) {
     ImageBufPtr buf;
 
-    std::ifstream inp(uri_to_posix_path(mptr.uri_), std::ios::in | std::ios::binary);
+    std::ifstream inp(uri_to_posix_path(mptr.uri()), std::ios::in | std::ios::binary);
     if (inp.is_open()) {
         size_t width;
         size_t height;
@@ -75,7 +75,7 @@ ImageBufPtr PPMMediaReader::image(const media::AVFrameID &mptr) {
         std::getline(inp, line);
         if (line != "P6")
             throw media_corrupt_error(
-                "Error. Unrecognized file format." + to_string(mptr.uri_));
+                "Error. Unrecognized file format." + to_string(mptr.uri()));
 
         std::getline(inp, line);
         while (line[0] == '#') {
@@ -117,7 +117,7 @@ ImageBufPtr PPMMediaReader::image(const media::AVFrameID &mptr) {
         inp.close();
 
     } else {
-        throw media_unreadable_error("Unable to open " + to_string(mptr.uri_));
+        throw media_unreadable_error("Unable to open " + to_string(mptr.uri()));
     }
 
     return buf;

@@ -2,6 +2,11 @@
 #include "xstudio/ui/viewport/viewport.hpp"
 
 namespace xstudio {
+
+namespace media_reader {
+    class ImageBufferSet;
+}
+
 namespace ui {
     namespace viewport {
 
@@ -25,8 +30,14 @@ namespace ui {
           public:
             ViewportFrameQueueActor(
                 caf::actor_config &cfg,
+                caf::actor viewport,
                 std::map<utility::Uuid, caf::actor> overlay_actors,
-                const int viewport_index);
+                const std::string &viewport_name, 
+                caf::actor colour_pipeline);
+
+            ~ViewportFrameQueueActor() override;
+
+            void on_exit() override;
 
           private:
             caf::behavior make_behavior() override { return behavior_; }
@@ -35,8 +46,7 @@ namespace ui {
 
             caf::actor playhead_broadcast_group_;
             caf::actor playhead_;
-            utility::Uuid current_playhead_;
-
+            utility::Uuid current_key_sub_playhead_id_, previous_key_sub_playhead_id_;
             /**
              *  @brief Receive frame buffer and colour pipeline data for drawing to screen.
              *
@@ -47,50 +57,33 @@ namespace ui {
             virtual void queue_image_buffer_for_drawing(
                 media_reader::ImageBufPtr &buf, const utility::Uuid &playhead_id);
 
-            /**
-             *  @brief Get a pointer to the framebuffer and colour pipe data that should be
-             *         displayed in the next redraw. We also get the next framebuffer that
-             * we'll want to draw, if there is one in the queue. Calling this removes any
-             * images in the queue for display that have a display timestamp older than the
-             * timestamp for the returned data
-             *
-             *  @details This function should be used by classes subclassing the Viewport in
-             * their main draw function to receive the image(s) to be draw to screen.
-             * Returns an empty pointer if the image does not need to be refreshed since the
-             * last draw.
-             */
+
+            void get_frames_for_display_sync(
+                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp);
+
             void get_frames_for_display(
-                const utility::Uuid &playhead_id,
-                std::vector<media_reader::ImageBufPtr> &next_images);
+                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
+                const utility::time_point &when_going_on_screen = utility::time_point());
 
-            /**
-             *  @brief Tell the viewport that certain playheads are defunct.
-             *
-             *  @details The viewport can remove any images that came from these
-             *  playheads that are in the display queue
-             */
-            void
-            child_playheads_deleted(const std::vector<utility::Uuid> &child_playhead_uuids);
+            void clear_images_from_old_playheads();
 
+            void append_overlays_data(
+                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
+                media_reader::ImageBufDisplaySet * result);
 
-            void add_blind_data_to_image_in_queue(
-                const media_reader::ImageBufPtr &image,
-                const utility::BlindDataObjectPtr &bdata,
-                const utility::Uuid &overlay_actor_uuid);
+            void append_overlays_data(
+                caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
+                const int img_idx,
+                media_reader::ImageBufDisplaySet * result,
+                std::shared_ptr<int> response_count
+                );
 
-            void update_blind_data(
-                const std::vector<media_reader::ImageBufPtr> bufs, const bool wait = true);
-
-            typedef std::vector<media_reader::ImageBufPtr> OrderedImagesToDraw;
+            typedef std::map<timebase::flicks, media_reader::ImageBufPtr> OrderedImagesToDraw;
 
             media_reader::ImageBufPtr
             get_least_old_image_in_set(const OrderedImagesToDraw &image_set);
 
             void drop_old_frames(const utility::time_point out_of_date_threshold);
-
-            void update_image_blind_data_and_deliver(
-                const media_reader::ImageBufPtr &buf,
-                caf::typed_response_promise<std::vector<media_reader::ImageBufPtr>> rp);
 
             timebase::flicks compute_video_refresh() const;
 
@@ -99,13 +92,18 @@ namespace ui {
 
             timebase::flicks predicted_playhead_position_at_next_video_refresh();
 
+            timebase::flicks predicted_playhead_position(const utility::time_point &when);
+
             double average_video_refresh_period() const;
+
+            caf::typed_response_promise<bool> set_playhead(caf::actor playhead, const bool prefetch_inital_image);
 
             bool playing_          = {false};
             bool playing_forwards_ = {true};
 
-            std::map<utility::Uuid, caf::actor> overlay_actors_;
+            std::map<utility::Uuid, caf::actor> viewport_overlay_plugins_;
 
+            const std::string viewport_name_;
             caf::actor colour_pipeline_;
 
             std::map<utility::Uuid, OrderedImagesToDraw> frames_to_draw_per_playhead_;
@@ -117,8 +115,18 @@ namespace ui {
             } video_refresh_data_;
 
             timebase::flicks playhead_vid_sync_phase_adjust_ = timebase::k_flicks_zero_seconds;
+            utility::time_point last_playhead_switch_tp_;
+            utility::time_point last_playhead_set_tp_;
+            std::set<utility::Uuid> deleted_playheads_;
+            utility::UuidVector sub_playhead_ids_;
 
-            const int viewport_index_;
+            playhead::AssemblyMode playhead_mode_;
+            caf::actor viewport_layout_manager_;
+            caf::actor viewport_;
+            std::string viewport_layout_mode_name_;
+
+            double playhead_velocity_ = {1.0};
+
         };
 
     } // namespace viewport

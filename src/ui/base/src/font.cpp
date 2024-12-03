@@ -178,7 +178,7 @@ void AlphaBitmapFont::render_text2(
     const float viewport_du_dx) const {
     std::vector<float> vertices;
 
-    precompute_text_rendering_vertex_layout(
+    std::ignore = precompute_text_rendering_vertex_layout(
         vertices, text, position, wrap_width, text_size, just, line_spacing);
 
     render_text(

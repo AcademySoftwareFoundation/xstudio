@@ -6,6 +6,7 @@
 #include <optional>
 #include <shared_mutex>
 
+#include "xstudio/ui/canvas/shapes.hpp"
 #include "xstudio/ui/canvas/stroke.hpp"
 #include "xstudio/ui/canvas/caption.hpp"
 #include "xstudio/ui/canvas/handle.hpp"
@@ -47,7 +48,7 @@ namespace ui {
         */
         class Canvas {
 
-            using Item    = std::variant<Stroke, Caption>;
+            using Item    = std::variant<Stroke, Caption, Quad, Polygon, Ellipse>;
             using ItemVec = std::vector<Item>;
 
           public:
@@ -58,7 +59,12 @@ namespace ui {
                   undo_stack_(o.undo_stack_),
                   redo_stack_(o.redo_stack_),
                   last_change_time_(o.last_change_time_),
-                  uuid_(o.uuid_) {}
+                  uuid_(o.uuid_),
+                  next_shape_id_(o.next_shape_id_) {
+                // make sure current_item_ is pushed into finished
+                // strokes/captions on copy
+                end_draw();
+            }
 
             bool operator==(const Canvas &o) const {
                 std::shared_lock l(mutex_);
@@ -73,6 +79,10 @@ namespace ui {
                 redo_stack_       = o.redo_stack_;
                 last_change_time_ = o.last_change_time_;
                 uuid_             = o.uuid_;
+                next_shape_id_    = o.next_shape_id_;
+                // make sure current_item_ is pushed into finished
+                // strokes/captions on copy
+                end_draw_no_lock();
                 return *this;
             }
 
@@ -114,7 +124,46 @@ namespace ui {
             // Delete the strokes when reaching 0 opacity.
             bool fade_all_strokes(float opacity);
 
-            // Shapes
+            // Shapes (filled)
+
+            uint32_t start_quad(
+                const utility::ColourTriplet &colour, const std::vector<Imath::V2f> &corners);
+            void update_quad(
+                uint32_t id,
+                const utility::ColourTriplet &colour,
+                const std::vector<Imath::V2f> &corners,
+                float softness,
+                float opacity,
+                bool invert);
+
+            uint32_t start_polygon(
+                const utility::ColourTriplet &colour, const std::vector<Imath::V2f> &points);
+            void update_polygon(
+                uint32_t id,
+                const utility::ColourTriplet &colour,
+                const std::vector<Imath::V2f> &points,
+                float softness,
+                float opacity,
+                bool invert);
+
+            uint32_t start_ellipse(
+                const utility::ColourTriplet &colour,
+                const Imath::V2f &center,
+                const Imath::V2f &radius,
+                float angle);
+            void update_ellipse(
+                uint32_t id,
+                const utility::ColourTriplet &colour,
+                const Imath::V2f &center,
+                const Imath::V2f &radius,
+                float angle,
+                float softness,
+                float opacity,
+                bool invert);
+
+            bool remove_shape(uint32_t id);
+
+            // Shapes (outlined using strokes)
 
             void
             start_square(const utility::ColourTriplet &colour, float thickness, float opacity);
@@ -217,7 +266,6 @@ namespace ui {
             }
 
             template <typename T> T get_current() const {
-                std::shared_lock l(mutex_);
                 return std::get<T>(current_item_.value());
             }
 
@@ -254,6 +302,8 @@ namespace ui {
             std::vector<CanvasUndoRedoPtr> redo_stack_;
 
             std::string::const_iterator cursor_position_;
+
+            uint32_t next_shape_id_{0};
 
             mutable std::shared_mutex mutex_;
         };

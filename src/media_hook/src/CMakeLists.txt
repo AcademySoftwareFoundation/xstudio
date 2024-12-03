@@ -9,4 +9,3 @@ if(UNIX)
 endif()
 
 create_component(media_hook 0.1.0 "${LINK_DEPS}")
-

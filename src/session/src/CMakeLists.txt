@@ -2,7 +2,6 @@ SET(LINK_DEPS
 	xstudio::playlist
 	xstudio::utility
 	xstudio::bookmark
-	xstudio::tag
 	caf::core
 )
 

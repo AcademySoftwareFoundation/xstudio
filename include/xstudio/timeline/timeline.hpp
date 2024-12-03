@@ -6,7 +6,6 @@
 #include <string>
 
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/frame_range.hpp"
@@ -28,9 +27,10 @@ namespace timeline {
     class Timeline : public utility::Container {
       public:
         Timeline(
-            const std::string &name   = "Timeline",
-            const utility::Uuid &uuid = utility::Uuid::generate(),
-            const caf::actor &actor   = caf::actor());
+            const std::string &name        = "Timeline",
+            const utility::FrameRate &rate = utility::FrameRate(),
+            const utility::Uuid &uuid      = utility::Uuid::generate(),
+            const caf::actor &actor        = caf::actor());
         Timeline(const utility::JsonStore &jsn);
 
         ~Timeline() override = default;

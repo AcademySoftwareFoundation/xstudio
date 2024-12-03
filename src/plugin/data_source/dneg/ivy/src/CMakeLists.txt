@@ -1,7 +1,6 @@
 SET(LINK_DEPS
 	xstudio::data_source
 	xstudio::utility
-	xstudio::event
 	xstudio::module
 	xstudio::media
 	xstudio::http_client

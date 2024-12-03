@@ -17,6 +17,7 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/utility/caf_helpers.hpp"
+#include "xstudio/utility/uuid.hpp"
 
 namespace caf::python {
 
@@ -44,6 +45,10 @@ class py_context : public py_config {
     py::tuple py_tuple_from_wrapped_message(const py::args &xs);
     py::tuple py_dequeue();
     py::tuple py_dequeue_with_timeout(xstudio::utility::absolute_receive_timeout timeout);
+    void py_run_xstudio_message_loop();
+    void py_add_message_callback(const py::args &xs);
+    void py_remove_message_callback(const py::args &xs);
+
     actor py_self() { return self_; }
     actor py_remote() { return remote_; }
     actor py_spawn(const py::args &xs);
@@ -81,10 +86,13 @@ class py_context : public py_config {
     // the python module is instanced.
     actor_system &system_;
 
-
     scoped_actor self_;
     actor remote_;
     py::function my_func;
     std::thread my_thread;
+
+    std::map<caf::actor_addr, std::vector<py::function>> message_handler_callbacks_;
+    std::map<caf::actor_addr, py::function> message_conversion_function_;
+    std::map<xstudio::utility::Uuid, py::function> delayed_callbacks_;
 };
 } // namespace caf::python

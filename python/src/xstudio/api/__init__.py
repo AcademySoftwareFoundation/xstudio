@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_studio_atom, get_global_image_cache_atom, get_global_audio_cache_atom, get_global_thumbnail_atom
-from xstudio.core import get_global_store_atom, get_plugin_manager_atom, get_scanner_atom, exit_atom
+from xstudio.core import get_global_store_atom, get_plugin_manager_atom, get_scanner_atom, exit_atom, get_python_atom
 from xstudio.common_api import CommonAPI
 from xstudio.api.studio import Studio
 from xstudio.api.intrinsic import GlobalStore

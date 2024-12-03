@@ -22,6 +22,8 @@ namespace module {
             IntegerAttribute,
             StringChoiceAttribute,
             ColourAttribute,
+            Vec4fAttribute,
+            FloatVectorAttribute,
             JsonAttribute
         };
 
@@ -34,6 +36,8 @@ namespace module {
             {FloatAttribute, "FloatScrubber"},
             {ActionAttribute, "Action"},
             {ColourAttribute, "ColourAttribute"},
+            {Vec4fAttribute, "Vec4fAttribute"},
+            {FloatVectorAttribute, "FloatVectorAttribute"},
             {JsonAttribute, "JsonAttribute"}};
 
         enum Role {
@@ -44,6 +48,7 @@ namespace module {
             AbbrTitle,
             StringChoices,
             AbbrStringChoices,
+            StringChoicesIds,
             StringChoicesEnabled,
             ToolTip,
             CustomMessage,
@@ -59,12 +64,14 @@ namespace module {
             DefaultValue,
             AbbrValue,
             UuidRole,
-            Groups,
+            UIDataModels,
             MenuPaths,
             ToolbarPosition,
             OverrideValue,
             SerializeKey,
             QmlCode,
+            LeftRightDockWidgetQmlCode,
+            TopBottomDockWidgetQmlCode,
             PreferencePath, // use this to set a pref path that means the attribute always
                             // tracks the preference
             InitOnlyPreferencePath, // use this to set a pref path that doesn't update the
@@ -75,7 +82,9 @@ namespace module {
             TextContainerBox,
             Colour,
             HotkeyUuid,
-            UserData
+            UserData,
+            IconPath,
+            CallbackData
         };
 
         inline static const std::map<int, std::string> role_names = {
@@ -86,6 +95,7 @@ namespace module {
             {AbbrTitle, "abbr_title"},
             {StringChoices, "combo_box_options"},
             {AbbrStringChoices, "combo_box_abbr_options"},
+            {StringChoicesIds, "combo_box_options_ids"},
             {StringChoicesEnabled, "combo_box_options_enabled"},
             {ToolTip, "tooltip"},
             {CustomMessage, "custom_message"},
@@ -101,12 +111,14 @@ namespace module {
             {AbbrValue, "short_value"},
             {DisabledValue, "disabled_value"},
             {UuidRole, "attr_uuid"},
-            {Groups, "groups"},
+            {UIDataModels, "groups"},
             {MenuPaths, "menu_paths"},
             {ToolbarPosition, "toolbar_position"},
             {OverrideValue, "override_value"},
             {SerializeKey, "serialize_key"},
             {QmlCode, "qml_code"},
+            {LeftRightDockWidgetQmlCode, "left_right_dock_widget_qml_code"},
+            {TopBottomDockWidgetQmlCode, "top_bottom_dock_widget_qml_code"},
             {PreferencePath, "preference_path"},
             {InitOnlyPreferencePath, "init_only_preference_path"},
             {FontSize, "font_size"},
@@ -115,7 +127,9 @@ namespace module {
             {TextContainerBox, "text_alignment_box"},
             {Colour, "attr_colour"},
             {HotkeyUuid, "hotkey_uuid"},
-            {UserData, "user_data"}};
+            {UserData, "user_data"},
+            {IconPath, "icon_path"},
+            {CallbackData, "callback_data"}};
 
         ~Attribute() = default;
 
@@ -140,6 +154,9 @@ namespace module {
         }
 
         [[nodiscard]] nlohmann::json role_data_as_json(const int role) const;
+
+        void update_role_data_from_json(
+            const int role, const nlohmann::json &data, const bool notify);
 
         [[nodiscard]] nlohmann::json as_json() const;
 

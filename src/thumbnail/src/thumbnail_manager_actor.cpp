@@ -53,18 +53,6 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        [=](media_reader::cancel_thumbnail_request_atom atom, const utility::Uuid job_uuid) {
-            for (auto i = request_queue_.begin(); i != request_queue_.end(); ++i) {
-                auto rp                    = std::get<0>(*i);
-                const utility::Uuid j_uuid = std::get<5>(*i);
-                if (j_uuid == job_uuid) {
-                    rp.deliver(make_error(xstudio_error::error, "Cancelled"));
-                    request_queue_.erase(i);
-                    break;
-                }
-            }
-        },
-
         [=](media_reader::get_thumbnail_atom) { process_queue(); },
 
         [=](media_reader::get_thumbnail_atom atom, const media::AVFrameID &mptr) {
@@ -74,21 +62,17 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
                 mptr,
                 size_t(thumb_size_),
                 size_t(0),
-                true,
-                utility::Uuid());
+                true);
         },
 
-        [=](media_reader::get_thumbnail_atom atom,
-            const media::AVFrameID &mptr,
-            const utility::Uuid &job_uuid) {
+        [=](media_reader::get_thumbnail_atom atom, const media::AVFrameID &mptr) {
             delegate(
                 caf::actor_cast<caf::actor>(this),
                 atom,
                 mptr,
                 size_t(thumb_size_),
                 size_t(0),
-                true,
-                job_uuid);
+                true);
         },
 
         [=](utility::clear_atom atom,
@@ -136,21 +120,6 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
                 delegate(dsk_cache_, atom);
         },
 
-        [=](media_reader::get_thumbnail_atom atom,
-            const media::AVFrameID &mptr,
-            const size_t thumb_size,
-            const size_t hash,
-            const bool cache_to_disk) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                atom,
-                mptr,
-                thumb_size,
-                hash,
-                cache_to_disk,
-                Uuid::generate());
-        },
-
         // get thumb from memory cache.
         [=](media_reader::get_thumbnail_atom,
             const std::string &key,
@@ -171,15 +140,35 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
             const media::AVFrameID &mptr,
             const size_t thumb_size,
             const size_t hash,
-            const bool cache_to_disk,
-            const utility::Uuid &job_uuid) -> result<ThumbnailBufferPtr> {
+            const bool cache_to_disk) -> result<ThumbnailBufferPtr> {
             // try cache..
             // cache key will differ from media keys.
             auto rp = make_response_promise<ThumbnailBufferPtr>();
 
-            request_buffer(rp, mptr, thumb_size, hash, cache_to_disk, job_uuid);
+            request_buffer(rp, mptr, thumb_size, hash, cache_to_disk);
 
             return rp;
+        },
+
+        [=](media_reader::get_thumbnail_atom,
+            const media::AVFrameID &mptr,
+            const size_t thumb_size,
+            const size_t hash,
+            const bool cache_to_disk) -> result<ThumbnailBufferPtr> {
+            // try cache..
+            // cache key will differ from media keys.
+            auto rp = make_response_promise<ThumbnailBufferPtr>();
+
+            request_buffer(rp, mptr, thumb_size, hash, cache_to_disk);
+
+            return rp;
+        },
+
+        // convert to jpg
+        [=](media_reader::get_thumbnail_atom,
+            const ThumbnailBufferPtr &buffer,
+            const int quality) {
+            delegate(dsk_cache_, media_reader::get_thumbnail_atom_v, buffer, quality);
         },
 
         // convert to jpg
@@ -278,10 +267,9 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
 
 void ThumbnailManagerActor::on_exit() {
     // fufil pending queries.
-    while (not request_queue_.empty()) {
-        auto [r, m, t, h, c, i] = request_queue_.front();
-        r.deliver(make_error(xstudio_error::error, "System shutting down"));
-        request_queue_.pop_front();
+    auto err = make_error(xstudio_error::error, "System shutting down");
+    for (auto &p : request_queue_) {
+        p->deliver(err);
     }
 
     system().registry().erase(thumbnail_manager_registry);
@@ -292,8 +280,7 @@ void ThumbnailManagerActor::request_buffer(
     const media::AVFrameID &mptr,
     const size_t thumb_size,
     const size_t hash,
-    const bool cache_to_disk,
-    const utility::Uuid &job_uuid) {
+    const bool cache_to_disk) {
 
     auto key = ThumbnailKey(mptr, hash, thumb_size).hash();
 
@@ -305,8 +292,7 @@ void ThumbnailManagerActor::request_buffer(
                 } else {
                     // add to queue, if to many requests or already inflight.
                     bool start_loop = request_queue_.empty();
-                    request_queue_.emplace_back(
-                        std::make_tuple(rp, mptr, thumb_size, hash, cache_to_disk, job_uuid));
+                    queue_thumbnail_request(rp, mptr, thumb_size, hash, cache_to_disk);
                     if (start_loop)
                         anon_send(
                             caf::actor_cast<caf::actor>(this),
@@ -314,6 +300,34 @@ void ThumbnailManagerActor::request_buffer(
                 }
             },
             [=](const caf::error &err) mutable { rp.deliver(err); });
+}
+
+void ThumbnailManagerActor::queue_thumbnail_request(
+    caf::typed_response_promise<ThumbnailBufferPtr> rp,
+    const media::AVFrameID &mptr,
+    const size_t thumb_size,
+    const size_t hash,
+    const bool cache_to_disk) {
+
+    for (auto p = request_queue_.begin(); p != request_queue_.end(); ++p) {
+        if ((*p)->mptr == mptr && (*p)->size == thumb_size && (*p)->hash == hash &&
+            (*p)->cache_to_disk == cache_to_disk) {
+            // we put it at the end of the queue, so it gets processed next
+            auto tn_request = *p;
+            tn_request->response_promises.push_back(rp);
+            request_queue_.erase(p);
+            request_queue_.push_back(tn_request);
+            return;
+        }
+    }
+
+    auto tn_request           = std::make_shared<ThumbnailRequest>();
+    tn_request->mptr          = mptr;
+    tn_request->size          = thumb_size;
+    tn_request->hash          = hash;
+    tn_request->cache_to_disk = cache_to_disk;
+    tn_request->response_promises.push_back(rp);
+    request_queue_.push_back(tn_request);
 }
 
 void ThumbnailManagerActor::request_buffer(
@@ -341,29 +355,40 @@ void ThumbnailManagerActor::process_queue() {
     if (!request_queue_.size())
         return;
 
-    auto r = request_queue_.front();
+    ThumbnailRequestPtr tn_request;
 
-    // unpack this tuple!
-    caf::typed_response_promise<ThumbnailBufferPtr> response_promise = std::get<0>(r);
-    media::AVFrameID media_ptr                                       = std::get<1>(r);
-    const size_t thumb_size                                          = std::get<2>(r);
-    const size_t hash                                                = std::get<3>(r);
-    const bool cache_to_disk                                         = std::get<4>(r);
-    const utility::Uuid job_id                                       = std::get<5>(r);
+    // N.b.We process the requests most recent first. This is because the most
+    // recent requests are made by the UI to draw thumbnails in the media list.
+    // If the user scrolls through the media list we get a lot of thumbnail
+    // requests, but we want to process the most recent first so the thumbnails
+    // needed to go onscreen are provided immediately and the ones that were
+    // scrolled past earlier are lower priority.
 
-    auto key = ThumbnailKey(media_ptr, hash, thumb_size).hash();
+    // get the last request that isn't already in flight
+    for (auto p = request_queue_.rbegin(); p != request_queue_.rend(); p++) {
+        if (!(*p)->in_flight) {
+            tn_request = (*p);
+            break;
+        }
+    }
+
+    if (!tn_request)
+        return;
+
+    tn_request->in_flight = true;
+
+    auto key = ThumbnailKey(tn_request->mptr, tn_request->hash, tn_request->size).hash();
 
     auto continue_func = [=]() {
-        for (auto i = request_queue_.begin(); i != request_queue_.end(); ++i) {
-            const utility::Uuid j_uuid = std::get<5>(*i);
-            if (j_uuid == job_id) {
-                request_queue_.erase(i);
-                break;
-            }
-        }
         // delayed send prevents 'tight loop' in the message queue,
         // so incoming messages such as cancelled thumbnail requests
         // are able to be adressed between processing thumbnails
+        for (auto p = request_queue_.begin(); p != request_queue_.end(); p++) {
+            if ((*p) == tn_request) {
+                request_queue_.erase(p);
+                break;
+            }
+        }
         if (request_queue_.size()) {
             delayed_anon_send(
                 caf::actor_cast<caf::actor>(this),
@@ -376,17 +401,17 @@ void ThumbnailManagerActor::process_queue() {
         .then(
             [=](const ThumbnailBufferPtr &buf) mutable {
                 if (buf) {
-                    response_promise.deliver(buf);
+                    tn_request->deliver(buf);
                     continue_func();
                 } else {
                     request(
                         dsk_cache_,
                         infinite,
                         media_reader::get_thumbnail_atom_v,
-                        media_ptr,
-                        thumb_size,
-                        hash,
-                        cache_to_disk)
+                        tn_request->mptr,
+                        tn_request->size,
+                        tn_request->hash,
+                        tn_request->cache_to_disk)
                         .then(
                             [=](ThumbnailBufferPtr &buf) mutable {
                                 // if valid add to memory cache
@@ -394,21 +419,25 @@ void ThumbnailManagerActor::process_queue() {
                                     anon_send(
                                         mem_cache_,
                                         media_cache::store_atom_v,
-                                        ThumbnailKey(media_ptr, hash, thumb_size).hash(),
+                                        ThumbnailKey(
+                                            tn_request->mptr,
+                                            tn_request->hash,
+                                            tn_request->size)
+                                            .hash(),
                                         buf);
 
                                 // deliver buffer.
-                                response_promise.deliver(buf);
+                                tn_request->deliver(buf);
                                 continue_func();
                             },
                             [=](const caf::error &err) mutable {
-                                response_promise.deliver(err);
+                                tn_request->deliver(err);
                                 continue_func();
                             });
                 }
             },
             [=](const caf::error &err) mutable {
-                request_queue_.pop_front();
+                tn_request->deliver(err);
                 continue_func();
             });
 }

@@ -71,10 +71,13 @@ namespace ui {
                 const utility::Uuid &attribute_uuid,
                 caf::actor client);
 
+            void stop_watching_model(const std::string &model_name, caf::actor client);
+
             void register_model(
                 const std::string &model_name,
                 const utility::JsonStore &model_data,
                 caf::actor client,
+                bool force_resend                  = false,
                 const std::string &preference_path = std::string());
 
             void check_model_is_registered(
@@ -95,12 +98,16 @@ namespace ui {
                 int count,
                 caf::actor requester = caf::actor());
 
-            void push_to_prefs(const std::string &model_name, const bool actually_push = false);
-
             void remove_attribute_from_model(
                 const std::string &model_name, const utility::Uuid &attr_uuid);
 
-            void node_activated(const std::string &model_name, const std::string &path);
+            void push_to_prefs(const std::string &model_name, const bool actually_push = false);
+
+            void node_activated(
+                const std::string &model_name,
+                const std::string &path,
+                const std::string &user_data,
+                const bool from_hotkey);
 
             void insert_into_menu_model(
                 const std::string &model_name,
@@ -111,6 +118,26 @@ namespace ui {
             void remove_node(const std::string &model_name, const utility::Uuid &model_item_id);
 
             void broadcast_whole_model_data(const std::string &model_name);
+
+            void set_menu_node_position(
+                const std::string &model_name,
+                const std::string &menu_path,
+                const float position_in_menu);
+
+            void update_hotkeys_model_data(const Hotkey &hotkey);
+
+            void hotkey_pressed(
+                const utility::Uuid &hotkey_uuid,
+                const std::string &context,
+                const std::string &window);
+
+            void
+            reset_model(const std::string &model_name, const std::string &preferences_path);
+
+            void reset_model(
+                const std::string &model_name,
+                const utility::JsonStore &data,
+                caf::actor excluded_client);
 
             struct ModelData {
                 ModelData()                   = default;
@@ -126,14 +153,23 @@ namespace ui {
                     clients_.push_back(client);
                 }
                 std::string name_;
+                std::string sort_key_;
                 utility::JsonTree data_;
                 std::string preference_path_;
                 std::vector<caf::actor> clients_;
                 std::map<utility::Uuid, std::vector<caf::actor>> menu_watchers_;
                 bool pending_prefs_update_ = {false};
+                std::set<utility::Uuid> hotkeys_;
             };
 
             typedef std::shared_ptr<ModelData> ModelDataPtr;
+            typedef std::vector<ModelDataPtr> ModelDataVec;
+
+            ModelDataVec get_menu_models(const std::string model_name);
+
+            void do_ordering(
+                utility::JsonTree *node,
+                const std::string &ordering_key = "menu_item_position");
 
             std::map<std::string, ModelDataPtr> models_;
             std::set<std::string> models_to_be_fully_broadcasted_;

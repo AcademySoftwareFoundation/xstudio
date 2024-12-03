@@ -18,7 +18,7 @@ namespace playhead {
             caf::actor_config &cfg, const utility::JsonStore &jsn, caf::actor playlist);
         PlayheadSelectionActor(
             caf::actor_config &cfg, const std::string &name, caf::actor playlist);
-        ~PlayheadSelectionActor() override = default;
+        ~PlayheadSelectionActor();
 
         const char *name() const override { return NAME.c_str(); }
 
@@ -26,9 +26,19 @@ namespace playhead {
         inline static const std::string NAME = "PlayheadSelectionActor";
         void init();
 
-        caf::behavior make_behavior() override { return behavior_; }
+        void on_exit() override;
 
-        void select_media(const utility::UuidList &media_uuids);
+
+        caf::message_handler message_handler();
+
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
+
+        void select_media(
+            const utility::UuidVector &media_uuids = utility::UuidVector(),
+            const bool retry                       = true,
+            const SelectionMode mode               = SM_CLEAR_AND_SELECT);
 
         void insert_actor(
             caf::actor actor, const utility::Uuid media_uuid, const utility::Uuid &before_uuid);
@@ -43,10 +53,9 @@ namespace playhead {
 
       private:
         PlayheadSelection base_;
-        caf::behavior behavior_;
-        caf::actor event_group_;
         caf::actor playlist_;
         std::map<utility::Uuid, caf::actor> source_actors_;
+        std::string filter_string_;
     };
 } // namespace playhead
 } // namespace xstudio

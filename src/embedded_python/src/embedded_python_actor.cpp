@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
 #include <caf/logger.hpp>
+#include <Python.h>
 
 #include <pybind11/pybind11.h> // everything needed for embedding
 #include <pybind11/embed.h>    // everything needed for embedding
 #include <pybind11/stl.h>
 #include <tuple>
+#include <filesystem>
 
-#ifdef BUILD_OTIO
 #include <opentimelineio/timeline.h>
-#endif
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -26,12 +26,10 @@ using namespace nlohmann;
 using namespace caf;
 using namespace pybind11::literals;
 
+namespace fs = std::filesystem;
 namespace py = pybind11;
 
-#ifdef BUILD_OTIO
 namespace otio = opentimelineio::OPENTIMELINEIO_VERSION;
-#endif
-
 
 #ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC visibility push(hidden)
@@ -107,11 +105,9 @@ class PyObjectRef {
     operator PyObject *() const { return obj_; }
 };
 
-#ifdef __GNUC__ // Check if GCC compiler is being used
+
 #pragma GCC visibility pop
-#else
-#pragma warning(pop)
-#endif
+
 
 EmbeddedPythonActor::EmbeddedPythonActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
     : caf::blocking_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"]), this) {
@@ -128,7 +124,31 @@ EmbeddedPythonActor::EmbeddedPythonActor(caf::actor_config &cfg, const std::stri
 void EmbeddedPythonActor::act() {
     bool running = true;
 
+    data_.set_origin(true);
+    data_.bind_send_event_func([&](auto &&PH1, auto &&PH2) {
+        auto event     = JsonStore(std::forward<decltype(PH1)>(PH1));
+        auto undo_redo = std::forward<decltype(PH2)>(PH2);
+        send(event_group_, utility::event_atom_v, json_store::sync_atom_v, data_uuid_, event);
+    });
+
+    try {
+        auto prefs = GlobalStoreHelper(system());
+        JsonStore j;
+        join_broadcast(prefs.get_group(j));
+        update_preferences(j);
+    } catch (...) {
+    }
+
     base_.setup();
+
+
+    // data_.insert_rows(
+    //     0, 1,
+    //     R"([{
+    //         "name": "test",
+    //         "path": "file:///u/al/.config/DNEG/xstudio/snippets/test.py"
+    //     }])"_json
+    // );
 
     receive_while(running)(
         base_.make_set_name_handler(event_group_, this),
@@ -211,8 +231,6 @@ void EmbeddedPythonActor::act() {
             return result;
         },
 
-#ifdef BUILD_OTIO
-
         // import otio file return as otio xml string.
         // if already native format should be quick..
         [=](session::import_atom, const caf::uri &path) -> result<std::string> {
@@ -278,8 +296,6 @@ void EmbeddedPythonActor::act() {
 
             return make_error(xstudio_error::error, error);
         },
-
-#endif BUILD_OTIO
 
         [=](python_create_session_atom, const bool interactive) -> result<utility::Uuid> {
             if (not base_.enabled())
@@ -564,6 +580,57 @@ void EmbeddedPythonActor::act() {
             return result<JsonStore>(jsn);
         },
 
+        [=](utility::event_atom,
+            json_store::sync_atom,
+            const Uuid &uuid,
+            const JsonStore &event) {
+            if (uuid == data_uuid_)
+                data_.process_event(event, true, false, false);
+        },
+
+        [=](json_store::sync_atom) -> UuidVector { return UuidVector({data_uuid_}); },
+
+        [=](media::rescan_atom) { refresh_snippets(snippet_paths_); },
+
+        [=](save_atom, const caf::uri &path, const std::string &content) -> result<bool> {
+            auto result = true;
+            try {
+                std::ofstream myfile;
+                myfile.open(uri_to_posix_path(path));
+                myfile << content << std::endl;
+                myfile.close();
+                refresh_snippets(snippet_paths_);
+                result = true;
+            } catch (const std::exception &err) {
+                return make_error(xstudio_error::error, err.what());
+            }
+            return result;
+        },
+
+        [=](json_store::sync_atom, const Uuid &uuid) -> JsonStore {
+            if (uuid == data_uuid_)
+                return data_.as_json();
+
+            return JsonStore();
+        },
+
+        [=](json_store::update_atom,
+            const JsonStore & /*change*/,
+            const std::string & /*path*/,
+            const JsonStore &full) {
+            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+        },
+
+        [=](json_store::update_atom, const JsonStore &j) mutable {
+            try {
+                update_preferences(j);
+            } catch (...) {
+            }
+        },
+        [=](bool) {},
+
+        [=](const utility::Uuid &cb_id) { base_.run_callback(cb_id); },
+
         [&](exit_msg &em) {
             if (em.reason) {
                 if (base_.enabled())
@@ -574,6 +641,14 @@ void EmbeddedPythonActor::act() {
         },
         others >> [=](message &msg) -> skippable_result {
             auto sender = caf::actor_cast<caf::actor>(current_sender());
+            /*        request(sender, infinite, utility::name_atom_v).receive(
+            [=](std::string nm) {
+                std::cerr << "Name " << nm << "\n";
+            },
+            [=](caf::error & err) {
+                std::cerr << "Err " << to_string(err) << "\n";
+            });*/
+
             base_.push_caf_message_to_py_callbacks(sender, msg);
             return message{};
 
@@ -597,6 +672,11 @@ void EmbeddedPythonActor::join_broadcast(caf::actor broadcast_group) {
     send(broadcast_group, broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this));
 }
 
+void EmbeddedPythonActor::leave_broadcast(caf::actor broadcast_group) {
+
+    send(broadcast_group, broadcast::leave_broadcast_atom_v, caf::actor_cast<caf::actor>(this));
+}
+
 void EmbeddedPythonActor::join_broadcast(
     caf::actor plugin_base_actor, const std::string &plugin_name) {
 
@@ -613,4 +693,110 @@ void EmbeddedPythonActor::join_broadcast(
             [=](caf::error &e) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e));
             });
+}
+
+
+void EmbeddedPythonActor::update_preferences(const utility::JsonStore &j) {
+    auto paths = preference_value<JsonStore>(j, "/core/python/snippets/path");
+    auto snips = std::vector<caf::uri>();
+
+    for (const auto &path : paths)
+        snips.emplace_back(posix_path_to_uri(expand_envvars(path)));
+
+    if (snips != snippet_paths_) {
+        refresh_snippets(snips);
+        snippet_paths_ = snips;
+    }
+}
+
+
+void EmbeddedPythonActor::refresh_snippets(const std::vector<caf::uri> &paths) {
+    auto data = R"([])"_json;
+
+    for (const auto &i : paths) {
+        for (const auto &j : refresh_snippet(fs::path(uri_to_posix_path(i)), "Snippets"))
+            data.push_back(j);
+    }
+
+    // sort results..
+    std::sort(
+        data.begin(), data.end(), [](const nlohmann::json &a, const nlohmann::json &b) -> bool {
+            return std::string(
+                       a.at("menu_path").get<std::string>() + a.at("name").get<std::string>()) <
+                   std::string(
+                       b.at("menu_path").get<std::string>() + b.at("name").get<std::string>());
+        });
+
+    data_.reset_data(data);
+}
+
+nlohmann::json EmbeddedPythonActor::refresh_snippet(
+    const std::filesystem::path &path,
+    const std::string &menu_path_,
+    const std::string &snippet_type) {
+    auto result = R"([])"_json;
+
+    if (!fs::is_directory(path))
+        return result;
+
+    try {
+        for (const auto &entry : fs::directory_iterator(path)) {
+            if (fs::is_regular_file(entry.status()) and entry.path().extension() == ".py") {
+                auto item =
+                    R"({"id": null, "type": "script", "snippet_type": null, "name": null, "script_path":null})"_json;
+                item["id"]           = Uuid::generate();
+                item["snippet_type"] = snippet_type.empty() ? "Application" : snippet_type;
+                item["name"]         = title_case(entry.path().stem().string());
+                item["script_path"]  = to_string(posix_path_to_uri(entry.path().string()));
+                item["menu_path"]    = menu_path_;
+                result.push_back(item);
+            } else if (fs::is_directory(entry.status())) {
+                auto change_type = snippet_type;
+                auto menu_path =
+                    menu_path_.empty()
+                        ? title_case(entry.path().stem().string())
+                        : menu_path_ + "|" + title_case(entry.path().stem().string());
+
+                if (change_type.empty()) {
+                    if (entry.path().stem() == "media") {
+                        change_type = "Media";
+                        menu_path   = "";
+                    } else if (entry.path().stem() == "playlist") {
+                        change_type = "Playlist";
+                        menu_path   = "";
+                    } else if (entry.path().stem() == "sequence") {
+                        change_type = "Sequence";
+                        menu_path   = "";
+                    } else if (entry.path().stem() == "track") {
+                        change_type = "Track";
+                        menu_path   = "";
+                    } else if (entry.path().stem() == "clip") {
+                        change_type = "Clip";
+                        menu_path   = "";
+                    } else {
+                        change_type = "Application";
+                    }
+                }
+
+                for (const auto &i : refresh_snippet(entry.path(), menu_path, change_type))
+                    result.push_back(i);
+
+                // auto item = R"({"id": null, "type": "script","name": null,
+                // "children":[]})"_json; item["id"] = Uuid::generate(); item["name"] =
+                // entry.path().stem().string(); item["children"] =
+                // refresh_snippet(entry.path()); result.push_back(item);
+            }
+        }
+
+    } catch (const std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return result;
+}
+void EmbeddedPythonActor::delayed_callback(utility::Uuid &cb_id, const int microseconds_delay) {
+    delayed_anon_send(
+        caf::actor_cast<caf::actor>(this),
+        std::chrono::microseconds(microseconds_delay),
+        cb_id);
 }

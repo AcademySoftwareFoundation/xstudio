@@ -1,10 +1,16 @@
-# Welcome to xSTUDIO
+# Welcome to xSTUDIO - v1.0.0 (alpha)
 
 xSTUDIO is a media playback and review application designed for professionals working in the film and TV post production industries, particularly the Visual Effects and Feature Animation sectors. xSTUDIO is focused on providing an intuitive, easy to use interface with a high performance playback engine at its core and C++ and Python APIs for pipeline integration and customisation for total flexibility.
 
+This codebase will build version 1.0.0 (alpha) of xstudio. There are some known issues that are currently being worked on:
+
+* Moderate audio distortion on playback (Windows only)
+* Ueser Documentation and API Documentation is badly out-of-date.
+* Saved sessions might not restore media correctly (Windows only)
+
 ## Building xSTUDIO
 
-This release of xSTUDIO can be built on various Linux flavours and Windows 10 and 11. MacOS compatibility is not available yet but this work is on the roadmap for 2024.
+This release of xSTUDIO can be built on various Linux flavours and Windows 10 and 11. MacOS compatibility is not available yet but this work is on the roadmap for early 2025.
 
 We provide comprehensive build steps for 4 of the most popular distributions.
 

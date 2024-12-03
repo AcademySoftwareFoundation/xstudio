@@ -12,7 +12,8 @@
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 
-namespace fs = std::filesystem;
+namespace fs   = std::filesystem;
+namespace OCIO = OCIO_NAMESPACE;
 
 using namespace xstudio;
 using namespace xstudio::media_hook;
@@ -91,6 +92,12 @@ class DNegMediaHook : public MediaHook {
             "Some DNEG pipeline movies have metadata indicating if there is a slate frame. "
             "Enable this option to use the metadata to automatically trim the slate.");
 
+        adjust_timecode_ = add_boolean_attribute("Adjust Timecode", "Adjust Timecode", false);
+
+        adjust_timecode_->set_preference_path("/plugin/dneg_media_hook/adjust_timecode");
+        adjust_timecode_->expose_in_ui_attrs_group("media_hook_settings");
+        adjust_timecode_->set_tool_tip("Use timeline_range from pipequery to adjust timecode.");
+
         slate_trim_behaviour_ = add_string_choice_attribute(
             "Default Trim Slate Behaviour",
             "Trim Slate",
@@ -109,6 +116,7 @@ class DNegMediaHook : public MediaHook {
 
     module::StringChoiceAttribute *slate_trim_behaviour_;
     module::BooleanAttribute *auto_trim_slate_;
+    module::BooleanAttribute *adjust_timecode_;
 
     std::optional<utility::MediaReference> modify_media_reference(
         const utility::MediaReference &mr, const utility::JsonStore &jsn) override {
@@ -131,6 +139,44 @@ class DNegMediaHook : public MediaHook {
                 changed = true;
             }
         }
+        if (adjust_timecode_->value()) {
+            // check for ivy timeline_range
+            try {
+                const static auto tcp = json::json_pointer("/metadata/ivy/file/timeline_range");
+                if (jsn.contains(tcp) and jsn.at(tcp).is_string()) {
+                    auto ifr = FrameList(jsn.at(tcp).get<std::string>());
+
+                    // there is a slate frame ?
+                    if (ifr.count() + 1 == result.frame_list().count()) {
+                        // offset ifr start..
+                        auto &ifg = ifr.frame_groups();
+                        ifg.at(0).set_start(ifg.at(0).start() - 1);
+                    }
+
+                    if (result.timecode().total_frames() != ifr.start()) {
+                        // force range..
+                        if (result.frame_list().size() == 1) {
+                            auto before = result.timecode();
+                            result.set_timecode(
+                                result.timecode() +
+                                (ifr.start() -
+                                 static_cast<int>(result.timecode().total_frames())));
+                            // spdlog::info(
+                            //     "Adjust timecode {} before {} {} after {} {}",
+                            //     to_string(result.uri()),
+                            //     to_string(before),
+                            //     before.total_frames(),
+                            //     to_string(result.timecode()),
+                            //     result.timecode().total_frames());
+                            changed = true;
+                        }
+                    }
+                }
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
+        }
+
         // we chomp the first frame if internal movie..
         // why do we come here multiple times ??
         if (not result.frame_list().start() and result.container()) {
@@ -289,13 +335,29 @@ class DNegMediaHook : public MediaHook {
 
         std::smatch match;
 
+        static const std::regex show_shot_edit_ref_regex(
+            R"([\/]+jobs\/([^\/]+)\/EDITORIAL\/CUTS\/edit_ref\/([^\/]+))");
+
         static const std::regex show_shot_regex(
             R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|jobs)\/([^\/]+)\/([^\/]+))");
 
         static const std::regex show_shot_alternative_regex(
             R"(.+-([^-]+)-([^-]+)\.dneg\.webm$)");
 
-        if (std::regex_search(path, match, show_shot_regex)) {
+        if (std::regex_search(path, match, show_shot_edit_ref_regex) && match[1] == "FUR") {
+            // FUR includes the Client_Graded_Rec709 space which fully inverts
+            // the client look (including primary CDL). Detecting the SHOT for
+            // edit ref will correctly allow to preview the Client look under the
+            // Client graded view.
+            // For other shows where Client_Graded_Rec709 doesn't exists, having
+            // the edit ref SHOT not detected is actually somewhat better because
+            // the correct look will be available under both Client and Client graded.
+            // The risk to view the incorrect look is reduced.
+            // We should remove this condition in the future when Client_Graded_Rec709
+            // is more widely available.
+            context["SHOW"] = match[1];
+            context["SHOT"] = match[2];
+        } else if (std::regex_search(path, match, show_shot_regex)) {
             context["SHOW"] = match[2];
             context["SHOT"] = match[3];
         } else if (std::regex_search(path, match, show_shot_alternative_regex)) {
@@ -369,13 +431,14 @@ class DNegMediaHook : public MediaHook {
 
             // Input colour space detection
 
-            // Extract OCIO metadata from internal and review proxy movies.
+            // Extract OCIO metadata from DNEG generated movies
             std::string media_colorspace;
             std::string media_display;
             std::string media_view;
 
-            if (std::regex_match(path, review_regex) ||
-                std::regex_match(path, internal_regex)) {
+            if (input_category == "review_proxy" || input_category == "internal_movie" ||
+                input_category == "movie_media") {
+
                 try {
                     const utility::JsonStore &tags =
                         metadata.at("metadata").at("media").at("@").at("format").at("tags");
@@ -397,7 +460,14 @@ class DNegMediaHook : public MediaHook {
             if (!media_colorspace.empty()) {
                 r["input_colorspace"] = media_colorspace;
             } else if (!media_display.empty() && !media_view.empty()) {
-                r["input_colorspace"] = media_view + "_" + media_display;
+                // Experimental support for Client_Graded_Rec709 in select shows (eg. FUR)
+                // Always add Client view as fallback for other shows.
+                if (media_view == "Client graded") {
+                    r["input_colorspace"] =
+                        "Client_Graded_" + media_display + ":Client_" + media_display;
+                } else {
+                    r["input_colorspace"] = media_view + "_" + media_display;
+                }
             } else if (input_category == "review_proxy") {
                 r["input_colorspace"] = "dneg_proxy_log:log";
                 // LBP review proxy before CMS1 migration (no metadata)
@@ -416,15 +486,12 @@ class DNegMediaHook : public MediaHook {
                     r["input_display"] = "Rec709";
                     r["input_view"]    = "Film";
                 }
-            } else if (input_category == "edit_ref") {
-                if (is_cms1_config or has_untonemapped_view) {
-                    r["input_colorspace"] = "disp_Rec709-G24";
-                    r["working_space"]    = "display_linear";
-                    r["automatic_view"]   = "Un-tone-mapped";
+            } else if (input_category == "edit_ref" || input_category == "movie_media") {
+                if (is_cms1_config) {
+                    r["input_colorspace"] = "Client_Graded_Rec709:Client_Rec709";
                 } else {
-                    r["input_display"]  = "Rec709";
-                    r["input_view"]     = "Film";
-                    r["automatic_view"] = "Film";
+                    r["input_display"] = "Rec709";
+                    r["input_view"]    = "Film";
                 }
             } else if (input_category == "linear_media") {
                 r["input_colorspace"] = "scene_linear:linear";
@@ -433,35 +500,33 @@ class DNegMediaHook : public MediaHook {
             } else if (input_category == "still_media") {
                 if (is_cms1_config) {
                     r["input_colorspace"] = "DNEG_sRGB";
-                    r["automatic_view"]   = "DNEG";
                 } else {
-                    r["input_display"]  = "sRGB";
-                    r["input_view"]     = "Film";
-                    r["automatic_view"] = "Film";
-                }
-            } else if (input_category == "movie_media") {
-                if (is_cms1_config or has_untonemapped_view) {
-                    r["input_colorspace"] = "disp_Rec709-G24";
-                    r["working_space"]    = "display_linear";
-                    r["automatic_view"]   = "Un-tone-mapped";
-                } else {
-                    r["input_display"]  = "Rec709";
-                    r["input_view"]     = "Film";
-                    r["automatic_view"] = "Film";
+                    r["input_display"] = "sRGB";
+                    r["input_view"]    = "Film";
                 }
             }
 
-            // Detect automatic view assignment in case not found yet
-            if (!r.count("automatic_view")) {
-                if (path.find("/ASSET/") != std::string::npos) {
-                    r["automatic_view"] = "DNEG";
-                } else if (
-                    path.find("/out/") != std::string::npos ||
-                    path.find("/ELEMENT/") != std::string::npos) {
-                    r["automatic_view"] = is_cms1_config ? "Client graded" : "Film primary";
-                } else {
-                    r["automatic_view"] = is_cms1_config ? "Client" : "Film";
-                }
+            // Un-tone-mapped space
+            if (input_category == "edit_ref" || input_category == "movie_media" ||
+                input_category == "internal_movie") {
+                r["untonemapped_colorspace"] = "disp_Rec709-G24";
+            } else if (input_category == "still_media") {
+                r["untonemapped_colorspace"] = "disp_sRGB";
+            }
+
+            // Detect automatic view assignment
+            if (input_category == "edit_ref" || input_category == "movie_media" ||
+                input_category == "still_media") {
+                r["automatic_view"] =
+                    is_cms1_config or has_untonemapped_view ? "Un-tone-mapped" : "Film";
+            } else if (path.find("/ASSET/") != std::string::npos) {
+                r["automatic_view"] = "DNEG";
+            } else if (
+                path.find("/out/") != std::string::npos ||
+                path.find("/ELEMENT/") != std::string::npos) {
+                r["automatic_view"] = is_cms1_config ? "Client graded" : "Film primary";
+            } else {
+                r["automatic_view"] = is_cms1_config ? "Client" : "Film";
             }
 
             // Detect grading CDLs slots to upgrade as GradingPrimary
@@ -479,6 +544,27 @@ class DNegMediaHook : public MediaHook {
         }
 
         return r;
+    }
+
+    std::string detect_display(
+        const std::string &name,
+        const std::string &model,
+        const std::string &manufacturer,
+        const std::string &serialNumber,
+        const utility::JsonStore &meta) override {
+
+        if (meta.contains("ocio_config")) {
+            try {
+                const std::string config_name = meta["ocio_config"];
+                auto config              = OCIO::Config::CreateFromFile(config_name.c_str());
+                const std::string device = manufacturer + " " + model;
+                return dneg_ocio_default_display(config, device);
+            } catch (...) {
+                // pass
+            }
+        }
+
+        return "";
     }
 
     std::string get_showvar_or(
@@ -529,6 +615,173 @@ class DNegMediaHook : public MediaHook {
 
         return variables;
     }
+
+    std::string get_playback_display() {
+        const std::string CONST_PLAYBACK_FILE = "/var/playback/sys-config.yaml";
+
+        std::map<std::string, std::string> CONST_DISPLAY = {
+            {"cinema", "DCI-P3"}, {"hdr", "HDR"}, {"playback", "Playback"}};
+
+        std::fstream data_load;
+        data_load.open(CONST_PLAYBACK_FILE, std::ios::in);
+
+        if (data_load.is_open()) {
+            std::string temp;
+            while (std::getline(data_load, temp)) {
+                if (temp.find("cinema") != std::string::npos) {
+                    return CONST_DISPLAY["cinema"];
+                } else if (temp.find("hdr") != std::string::npos) {
+                    return CONST_DISPLAY["hdr"];
+                }
+            }
+            data_load.close();
+        }
+
+        return CONST_DISPLAY["playback"];
+    }
+
+    std::string dneg_ocio_default_display(
+        const OCIO::ConstConfigRcPtr &ocio_config, const std::string &device) {
+        std::string display = "";
+        std::map<std::string, std::vector<std::string>> display_views;
+        std::vector<std::string> displays;
+
+        std::map<std::string, std::string> CONST_DISPLAY = {
+            {"srgb", "sRGB"}, {"eizo", "EIZO"}, {"hdr", "HDR"}, {"playback", "Playback"}};
+
+        // Helper lambda to check for string in displays vector
+        auto check_displays = [&displays](std::string &check_string) {
+            if (std::find(displays.begin(), displays.end(), check_string) != displays.end()) {
+                return true;
+            }
+
+            return false;
+        };
+
+        // Get the Hostname of the machine
+        const char *hostname_env = std::getenv("HOSTNAME");
+        std::string hostname;
+        std::string hostname_lower;
+
+        if (hostname_env && *hostname_env) {
+            hostname       = hostname_env;
+            hostname_lower = hostname;
+        }
+        hostname[0] = std::toupper(hostname[0]);
+
+        std::transform(
+            hostname_lower.begin(), hostname_lower.end(), hostname_lower.begin(), ::tolower);
+
+        // Get ocio config and
+        const std::string default_display = ocio_config->getDefaultDisplay();
+
+        // Parse display views
+        for (int i = 0; i < ocio_config->getNumDisplays(); ++i) {
+            const std::string display = ocio_config->getDisplay(i);
+            displays.push_back(display);
+
+            display_views[display] = std::vector<std::string>();
+            for (int j = 0; j < ocio_config->getNumViews(display.c_str()); ++j) {
+                const std::string view = ocio_config->getView(display.c_str(), j);
+                display_views[display].push_back(view);
+            }
+        }
+
+        // Check for India sRGB lock
+        const char *site_name_env   = std::getenv("DN_SITE");
+        const bool srgb_calibration = (bool)std::getenv("DN_SRGB_CALIBRATION");
+        std::string site_name;
+
+        if (site_name_env && *site_name_env) {
+            site_name = site_name_env;
+        }
+
+        if (((site_name == "mumbai") || (site_name == "chennai")) && srgb_calibration) {
+            // Return sRGB
+            return CONST_DISPLAY["srgb"];
+        }
+
+        // At-desk monitor Logic
+        std::string device_upper = xstudio::utility::to_upper(device);
+
+        // EIZO monitors
+        if (device_upper.find(CONST_DISPLAY["eizo"]) != std::string::npos) {
+            /*
+            NOTE: this rule is kept for backward compatibility only, a time
+            where each EIZO model had its specific calibration.
+            Some OCIO configs have a display per Device model, whereas others
+            have one for all EIZO monitors
+            */
+            if (check_displays(CONST_DISPLAY["eizo"])) {
+                display = CONST_DISPLAY["eizo"];
+            }
+            /*
+            Try to match the model exactly something like this is expected
+            'Eizo CG247X (DFP-0)', in the OCIO config, this would be EIZO247X
+            */
+            else {
+                std::regex expression("CG([0-9A-Z]+)");
+                std::smatch match;
+                if (std::regex_search(device_upper, match, expression)) {
+                    std::string config_name = "EIZO" + match.str(1);
+                    if (check_displays(config_name)) {
+                        display = config_name;
+                    }
+                }
+            }
+
+            if (display.empty()) {
+                display = default_display;
+                spdlog::warn("Could not find OCIO Display for device " + device);
+            }
+        }
+        // DELL monitors
+        else if (device_upper.find("DELL") != std::string::npos) {
+            if (check_displays(CONST_DISPLAY["srgb"])) {
+                display = CONST_DISPLAY["srgb"];
+            } else {
+                display = default_display;
+            }
+        }
+
+        // Playback room logic
+
+        // KONA video cards
+        else if (device_upper.find("KONA") != std::string::npos) {
+            if (check_displays(CONST_DISPLAY["hdr"])) {
+                display = CONST_DISPLAY["hdr"];
+            } else {
+                display = default_display;
+                spdlog::warn("Could not set HDR as the display for device " + device);
+            }
+        }
+
+        /*
+        Fallback: Projectors
+        New style is to have a 'Playback' display. Fallback to old-style where
+        we check whether the hostname is one of the display options.
+        Note that for DCI, playback display default view is a straight
+        DCI-P3 output (playback characterization tranforms are identity matrix
+        and 1D LUT).
+        */
+
+        else if (
+            hostname_lower.find("playback") != std::string::npos &&
+            check_displays(CONST_DISPLAY["playback"])) {
+            display = get_playback_display();
+        }
+
+        else if (check_displays(hostname)) {
+            display = hostname;
+        }
+
+        // Fall back to default
+        if (display.empty()) {
+            display = default_display;
+        }
+        return display;
+    }
+
 
     std::map<std::string, std::map<std::string, std::string>> show_variables_store_;
 };

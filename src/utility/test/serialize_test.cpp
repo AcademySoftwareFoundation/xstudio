@@ -207,26 +207,6 @@ TEST(JsonStoreSerializerTest, Test) {
     EXPECT_EQ(u1, u2) << "Creation from string should be equal";
 }
 
-TEST(EditListSerializerTest, Test) {
-    fixture f;
-
-    binary_serializer::container_type buf;
-    binary_serializer bs{f.system, buf};
-    EditList u1(
-        {EditListSection(Uuid(), FrameRateDuration(12l, 24.0), Timecode()),
-         EditListSection(Uuid(), FrameRateDuration(24l, 24.0), Timecode())});
-    EditList u2;
-
-    auto e = bs.apply(u1);
-    EXPECT_TRUE(e) << "unable to serialize" << to_string(bs.get_error()) << std::endl;
-
-    binary_deserializer bd{f.system, buf};
-    e = bd.apply(u2);
-    EXPECT_TRUE(e) << "unable to deserialize" << to_string(bd.get_error()) << std::endl;
-
-    EXPECT_EQ(u1, u2) << "Creation from string should be equal";
-}
-
 TEST(TimecodeSerializerTest, Test) {
     fixture f;
 

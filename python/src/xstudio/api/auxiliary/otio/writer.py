@@ -51,6 +51,36 @@ def export_timeline_to_file(timeline, path, adapter_name=None):
 
     write_otio(otio, path, adapter_name)
 
+def timeline_to_otio_string(timeline, adapter_name=None):
+    """Create otio from timeline and reutrn as a string
+
+    Args:
+        timeline(Timeline): Timeline object
+
+    Kwargs:
+        adapter_name(str): Override adaptor.
+
+    Returns:
+        otio(str): Otio serialised timeline as string
+    """
+
+    if not isinstance(timeline, Timeline):
+        raise RuntimeError("Not a timeline")
+
+    # build otio
+    otio = oTimeline()
+
+    # our timeline has one stack, so does otio.
+    # we just need to start porcessing it.
+    for i in reversed(timeline.video_tracks):
+        __process_obj(i, otio.tracks, oTrack.Kind.Video)
+    for i in timeline.audio_tracks:
+        __process_obj(i, otio.tracks, oTrack.Kind.Audio)
+
+    return opentimelineio.adapters.write_to_string(
+        otio, adapter_name=adapter_name
+    )
+
 def __process_obj(obj, otio, context=oTrack.Kind.Video):
     ar = obj.available_range
     if ar is None:

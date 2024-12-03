@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wattributes"
-#endif
 
 #include "py_opaque.hpp"
 
@@ -92,6 +90,12 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("ST_BUSY", global::StatusType::ST_BUSY)
         .export_values();
 
+    py::enum_<utility::MediaReference::FramePadFormat>(m, "FramePadFormat")
+        .value("FPF_XSTUDIO", utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
+        .value("FPF_NUKE", utility::MediaReference::FramePadFormat::FPF_NUKE)
+        .value("FPF_SHAKE", utility::MediaReference::FramePadFormat::FPF_SHAKE)
+        .export_values();
+
     py::enum_<module::Attribute::Role>(m, "AttributeRole")
         .value("Type", module::Attribute::Role::Type)
         .value("Enabled", module::Attribute::Role::Enabled)
@@ -115,7 +119,7 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("DefaultValue", module::Attribute::Role::DefaultValue)
         .value("AbbrValue", module::Attribute::Role::AbbrValue)
         .value("UuidRole", module::Attribute::Role::UuidRole)
-        .value("Groups", module::Attribute::Role::Groups)
+        .value("UIDataModels", module::Attribute::Role::UIDataModels)
         .value("MenuPaths", module::Attribute::Role::MenuPaths)
         .value("ToolbarPosition", module::Attribute::Role::ToolbarPosition)
         .value("OverrideValue", module::Attribute::Role::OverrideValue)
@@ -129,7 +133,14 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("TextContainerBox", module::Attribute::Role::TextContainerBox)
         .value("Colour", module::Attribute::Role::Colour)
         .value("HotkeyUuid", module::Attribute::Role::HotkeyUuid)
+        .value("IconPath", module::Attribute::Role::IconPath)
+        .value("CallbackData", module::Attribute::Role::CallbackData)
         .export_values();
+
+    // set XSTUDIO_LOCAL_PLUGIN_PATH so we can load python plugins that are
+    // provided as part of the xstudio install/distribution
+    m.add_object(
+        "XSTUDIO_LOCAL_PLUGIN_PATH", py::cast(utility::xstudio_root("/plugin-python")));
 
     py_remote_session_file(m);
     py_playhead(m);

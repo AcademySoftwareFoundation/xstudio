@@ -2,6 +2,7 @@
 #pragma once
 
 #include <array>
+#include <vector>
 
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/bookmark/bookmark.hpp"
@@ -12,17 +13,21 @@ namespace ui {
 namespace viewport {
 
     struct Grade {
-        std::array<double, 4> slope  {1.0, 1.0, 1.0, 0.0};
+        std::array<double, 4> slope  {1.0, 1.0, 1.0, 1.0};
         std::array<double, 4> offset {0.0, 0.0, 0.0, 0.0};
         std::array<double, 4> power  {1.0, 1.0, 1.0, 1.0};
         double sat {1.0};
+        double exposure {0.0};
+        double contrast {1.0};
 
         bool operator==(const Grade &o) const {
             return (
                 slope == o.slope &&
                 offset == o.offset &&
                 power == o.power &&
-                sat == o.sat
+                sat == o.sat &&
+                exposure == o.exposure &&
+                contrast == o.contrast
             );
         }
     };
@@ -30,12 +35,14 @@ namespace viewport {
     void from_json(const nlohmann::json &j, Grade &g);
     void to_json(nlohmann::json &j, const Grade &g);
 
-    class LayerData {
+    class GradingData : public bookmark::AnnotationBase {
       public:
-        LayerData() = default;
+        GradingData() = default;
+        explicit GradingData(const utility::JsonStore &s);
 
-        bool operator==(const LayerData &o) const {
+        bool operator==(const GradingData &o) const {
             return (
+                colour_space_ == o.colour_space_ &&
                 grade_ == o.grade_ &&
                 mask_active_ == o.mask_active_ &&
                 mask_editing_ == o.mask_editing_ &&
@@ -43,7 +50,12 @@ namespace viewport {
             ); 
         }
 
+        [[nodiscard]] utility::JsonStore serialise(utility::Uuid &plugin_uuid) const override;
+
         bool identity() const;
+
+        void set_colour_space(const std::string &val) { colour_space_ = val; }
+        std::string colour_space() const { return colour_space_; }
 
         Grade & grade() { return grade_; }
         const Grade & grade() const { return grade_; }
@@ -58,58 +70,27 @@ namespace viewport {
         const canvas::Canvas & mask() const { return mask_; }
 
       private:
-        friend void from_json(const nlohmann::json &j, LayerData &l);
-        friend void to_json(nlohmann::json &j, const LayerData &l);
+        friend void from_json(const nlohmann::json &j, GradingData &gd);
+        friend void to_json(nlohmann::json &j, const GradingData &gd);
 
+        std::string colour_space_ {"scene_linear"};
         Grade grade_;
         bool mask_active_ {false};
         bool mask_editing_ {false};
         canvas::Canvas mask_;
     };
 
-    void from_json(const nlohmann::json &j, LayerData &l);
-    void to_json(nlohmann::json &j, const LayerData &l);
-
-    class GradingData : public bookmark::AnnotationBase {
-      public:
-        GradingData() = default;
-        explicit GradingData(const utility::JsonStore &s);
-
-        GradingData & operator=(const GradingData &o) = default;
-
-        bool operator==(const GradingData &o) const {
-            return (layers_ == o.layers_);
-        }
-
-        [[nodiscard]] utility::JsonStore serialise(utility::Uuid &plugin_uuid) const override;
-
-        bool identity() const;
-
-        size_t size() const { return layers_.size(); }
-
-        std::vector<LayerData>::const_iterator begin() const {
-            return layers_.begin(); }
-        std::vector<LayerData>::const_iterator end() const {
-            return layers_.end(); }
-
-        std::vector<LayerData>& layers() { return layers_; }
-        const std::vector<LayerData>& layers() const { return layers_; }
-
-        LayerData* layer(size_t idx);
-        void push_layer();
-        void pop_layer();
-
-      private:
-        friend void from_json(const nlohmann::json &j, GradingData &gd);
-        friend void to_json(nlohmann::json &j, const GradingData &gd);
-
-        std::vector<LayerData> layers_;
-    };
-
     void from_json(const nlohmann::json &j, GradingData &gd);
     void to_json(nlohmann::json &j, const GradingData &gd);
 
     typedef std::shared_ptr<GradingData> GradingDataPtr;
+
+    // This struct is a convenience wrapper to bundle GradingData
+    // with other metadatas living in the bookmark user_data field.
+    struct GradingInfo {
+        const GradingData* data;
+        bool isActive;
+    };
 
 } // end namespace viewport
 } // end namespace ui

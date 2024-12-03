@@ -26,6 +26,11 @@ Gap::Gap(const utility::JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
       item_(static_cast<utility::JsonStore>(jsn.at("item"))) {}
 
+Gap::Gap(const Item &item, const caf::actor &actor)
+    : Container(item.name(), "Gap", item.uuid()), item_(item.clone()) {
+    item_.set_actor_addr(caf::actor_cast<caf::actor_addr>(actor));
+}
+
 utility::JsonStore Gap::serialise() const {
     utility::JsonStore jsn;
 

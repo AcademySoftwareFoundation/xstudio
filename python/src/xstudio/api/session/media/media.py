@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom, rescan_atom
-from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid
-from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI
+from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid, media_status_atom
+from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI, MediaStatus
 from xstudio.core import set_json_atom, JsonStore, quickview_media_atom
 
 from xstudio.api.session.container import Container
@@ -42,6 +42,26 @@ class Media(Container):
 
 
     @property
+    def status(self):
+        """Get media status
+
+        Returns:
+            status(MediaStatus): Status of current media source.
+        """
+
+        return self.connection.request_receive(self.remote, media_status_atom())[0]
+
+    @property
+    def is_online(self):
+        """Get media status
+
+        Returns:
+            status(MediaStatus): Status of current media source.
+        """
+
+        return self.status == MediaStatus.MS_ONLINE
+
+    @property
     def flag_colour(self):
         """Get media flag colour.
 
@@ -60,6 +80,32 @@ class Media(Container):
         """
 
         return self.connection.request_receive(self.remote, reflag_container_atom())[0][1]
+
+    @flag_colour.setter
+    def flag_colour(self, colour):
+        """Set media flag colour.
+
+        Args:
+            colour(string): colour string
+
+        Returns:
+            bool: success
+
+        """
+        return self.reflag(colour, self.flag_text)
+
+    @flag_text.setter
+    def flag_text(self, text):
+        """Set media flag text.
+
+        Args:
+            text(string): text string
+
+        Returns:
+            bool: success
+
+        """
+        return self.reflag(self.flag_colour, text)
 
     def media_source(self, media_type=MediaType.MT_IMAGE):
         """Get current media source.

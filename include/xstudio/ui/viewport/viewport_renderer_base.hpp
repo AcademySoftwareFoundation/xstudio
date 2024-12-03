@@ -2,7 +2,7 @@
 #pragma once
 
 #include <memory>
-#include "xstudio/media_reader/image_buffer.hpp"
+#include "xstudio/media_reader/image_buffer_set.hpp"
 #include "xstudio/plugin_manager/plugin_base.hpp"
 
 namespace xstudio {
@@ -38,10 +38,10 @@ namespace ui {
              *  an active OpenGL context)
              */
             virtual void render(
-                const std::vector<media_reader::ImageBufPtr> &next_images,
-                const Imath::M44f &to_scene_matrix,
-                const Imath::M44f &projection_matrix,
-                const Imath::M44f &fit_mode_matrix) = 0;
+                const media_reader::ImageBufDisplaySetPtr &images,
+                const Imath::M44f &window_to_viewport_matrix,
+                const Imath::M44f &viewport_to_image_matrix,
+                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) = 0;
 
             /**
              *  @brief Provide default preference dictionary for the viewport renderer
@@ -61,20 +61,10 @@ namespace ui {
              */
             virtual void set_prefs(const utility::JsonStore &prefs) = 0;
 
-            void set_aux_shader_uniforms(const utility::JsonStore &uniforms) {
-                shader_uniforms_ = uniforms;
-            }
-
-            void add_overlay_renderer(
-                const utility::Uuid &uuid, plugin::ViewportOverlayRendererPtr renderer) {
-                viewport_overlay_renderers_[uuid] = renderer;
-            }
-
             void
-            add_pre_renderer_hook(const utility::Uuid &uuid, plugin::GPUPreDrawHookPtr hook) {
-                pre_render_gpu_hooks_[uuid] = hook;
+            set_pre_renderer_hooks(const std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> &hooks) {
+                pre_render_gpu_hooks_ = hooks;
             }
-
 
             void set_render_hints(RenderHints hint) { render_hints_ = hint; }
 
@@ -96,6 +86,29 @@ namespace ui {
             }
 
           protected:
+
+            /**
+             *  @brief Create a json dict with essential shader parameters for drawing 
+             *  the image to the viewport.
+             *
+             *  @details The json dictionary returned from this function is as follows:
+             *
+             *  mat4 to_coord_system (matrix to project from viewport to viewport coordinate system
+             *  mat4 to_canvas (matrix to transform from window area to viewport area)
+             *  bool use_bilinear_filtering (tells us whether to use bilinear pixel filtering)
+             *  mat4 image_transform_matrix (transform image into viewport coordinate system)
+             *
+             */
+            virtual utility::JsonStore core_shader_params(
+                const media_reader::ImageBufPtr &image_to_be_drawn,
+                const Imath::M44f &window_to_viewport_matrix,
+                const Imath::M44f &viewport_to_image_space,
+                const float viewport_du_dx,
+                const utility::JsonStore & layout_data,
+                const int image_index) const;
+
+        Imath::M44f mat;
+          
             /**
              *  @brief Initialise the viewport.
              *
@@ -104,14 +117,10 @@ namespace ui {
              */
             virtual void pre_init() = 0;
 
-            std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
-                viewport_overlay_renderers_;
-
             std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> pre_render_gpu_hooks_;
 
             RenderHints render_hints_ = {BilinearWhenZoomedOut};
             bool done_init_           = false;
-            utility::JsonStore shader_uniforms_;
         };
 
         typedef std::shared_ptr<ViewportRenderer> ViewportRendererPtr;

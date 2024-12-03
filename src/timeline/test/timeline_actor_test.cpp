@@ -60,8 +60,9 @@ TEST(TimelineActorHistoryTest, Test) {
 
     // add track to stack
     uuid.generate_in_place();
-    auto track1 = f.self->spawn<TrackActor>("Track-001", media::MediaType::MT_IMAGE, uuid);
-    auto hist1  = request_receive<JsonStore>(
+    auto track1 = f.self->spawn<TrackActor>(
+        "Track-001", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
+    auto hist1 = request_receive<JsonStore>(
         *(f.self), stack1, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, track1)}));
 
     // add clip to track..
@@ -79,7 +80,7 @@ TEST(TimelineActorHistoryTest, Test) {
 
     // stack
     uuid.generate_in_place();
-    auto stack2 = f.self->spawn<StackActor>("Nested Stack-002", uuid);
+    auto stack2 = f.self->spawn<StackActor>("Nested Stack-002", utility::FrameRate(), uuid);
     result      = request_receive<JsonStore>(
         *(f.self), track1, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid, stack2)}));
     result = request_receive<JsonStore>(
@@ -112,14 +113,14 @@ TEST(TimelineActorHistoryTest, Test) {
 
     // now populate nested stack
     uuid.generate_in_place();
-    auto track2 =
-        f.self->spawn<TrackActor>("Nested Track-002", media::MediaType::MT_IMAGE, uuid);
+    auto track2 = f.self->spawn<TrackActor>(
+        "Nested Track-002", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
     result = request_receive<JsonStore>(
         *(f.self), stack2, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid, track2)}));
 
     uuid.generate_in_place();
-    auto track3 =
-        f.self->spawn<TrackActor>("Nested Track-003", media::MediaType::MT_IMAGE, uuid);
+    auto track3 = f.self->spawn<TrackActor>(
+        "Nested Track-003", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
     result = request_receive<JsonStore>(
         *(f.self), stack2, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid, track3)}));
     result = request_receive<JsonStore>(
@@ -312,7 +313,8 @@ TEST(TimelineActorChildTest, Test) {
 
     // add track to stack
     uuid.generate_in_place();
-    auto track1 = f.self->spawn<TrackActor>("Track-001", media::MediaType::MT_IMAGE, uuid);
+    auto track1 = f.self->spawn<TrackActor>(
+        "Track-001", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
     auto result = request_receive<JsonStore>(
         *(f.self), stack1, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, track1)}));
 
@@ -331,7 +333,7 @@ TEST(TimelineActorChildTest, Test) {
 
     // stack
     uuid.generate_in_place();
-    auto stack2 = f.self->spawn<StackActor>("Nested Stack-002", uuid);
+    auto stack2 = f.self->spawn<StackActor>("Nested Stack-002", utility::FrameRate(), uuid);
     result      = request_receive<JsonStore>(
         *(f.self), track1, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid, stack2)}));
     result = request_receive<JsonStore>(
@@ -364,14 +366,14 @@ TEST(TimelineActorChildTest, Test) {
 
     // now populate nested stack
     uuid.generate_in_place();
-    auto track2 =
-        f.self->spawn<TrackActor>("Nested Track-002", media::MediaType::MT_IMAGE, uuid);
+    auto track2 = f.self->spawn<TrackActor>(
+        "Nested Track-002", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
     result = request_receive<JsonStore>(
         *(f.self), stack2, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid, track2)}));
 
     uuid.generate_in_place();
-    auto track3 =
-        f.self->spawn<TrackActor>("Nested Track-003", media::MediaType::MT_IMAGE, uuid);
+    auto track3 = f.self->spawn<TrackActor>(
+        "Nested Track-003", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
     result = request_receive<JsonStore>(
         *(f.self), stack2, insert_item_atom_v, -1, UuidActorVector({UuidActor(uuid, track3)}));
     result = request_receive<JsonStore>(

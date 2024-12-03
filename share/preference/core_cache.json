@@ -4,7 +4,7 @@
 			"max_count": {
 				"path": "/core/image_cache/max_count",
 				"default_value": 1000000,
-				"description": "Maximum number of entries to store in cache.",
+				"description": "This value sets the maximum number of cached frames.",
 				"value": 1000000,
 				"minimum": 1,
 				"maximum": 1000000,
@@ -13,11 +13,23 @@
 			},
 			"max_size": {
 				"path": "/core/image_cache/max_size",
-				"default_value": 1024,
-				"description": "Maximum total size of cache in megabytes.",
-				"value": 20480,
+				"default_value": 4096,
+				"description": "This setting controls the maximum amount of your computer's RAM that xSTUDIO will use to store video frames during playback. A higher number means more memory is used but this will allow xSTUDIO to keep de-coded frames ready for immediate display.",
+				"value": 4096,
 				"datatype": "int",
-				"context": ["APPLICATION","SESSION"]
+				"context": ["APPLICATION","SESSION"],
+				"category": "General",
+				"display_name": "Video Cache Size / Mb"
+			},
+			"release_on_idle": {
+				"path": "/core/image_cache/release_on_idle",
+				"default_value": 0,
+				"description": "This setting will release the memory used by the cache if the app has been idle for X minutes, 0 disables this.",
+				"value": 0,
+				"datatype": "int",
+				"context": ["APPLICATION","SESSION"],
+				"category": "General",
+				"display_name": "Video Cache Idle Clear"
 			}
 		},
 		"audio_cache":{
@@ -35,9 +47,17 @@
 				"path": "/core/audio_cache/max_size",
 				"default_value": 512,
 				"description": "Maximum total size of cache in megabytes.",
-				"value": 2048,
+				"value": 512,
 				"datatype": "int",
 				"context": ["APPLICATION"]
+			},
+			"release_on_idle": {
+				"path": "/core/image_cache/release_on_idle",
+				"default_value": 0,
+				"description": "This setting will release the memory used by the cache if the app has been idle for X minutes, 0 disables this.",
+				"value": 0,
+				"datatype": "int",
+				"context": ["APPLICATION","SESSION"]
 			}
 		}
 	}

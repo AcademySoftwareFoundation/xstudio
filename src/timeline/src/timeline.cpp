@@ -8,11 +8,17 @@
 using namespace xstudio::timeline;
 using namespace xstudio::utility;
 
-Timeline::Timeline(const std::string &name, const utility::Uuid &_uuid, const caf::actor &actor)
+Timeline::Timeline(
+    const std::string &name,
+    const utility::FrameRate &rate,
+    const utility::Uuid &_uuid,
+    const caf::actor &actor)
     : Container(name, "Timeline", _uuid),
       item_(
           ItemType::IT_TIMELINE,
-          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor))) {
+          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor)),
+          {},
+          utility::FrameRange(FrameRateDuration(0, rate))) {
     item_.set_name(name);
 }
 

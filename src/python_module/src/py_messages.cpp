@@ -6,7 +6,6 @@
 // #include <caf/all.hpp>
 // #include <caf/config.hpp>
 // #include <caf/io/all.hpp>
-#include "xstudio/utility/helpers.hpp"
 
 #include "py_opaque.hpp"
 
@@ -16,6 +15,7 @@
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/utility/container.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/media_reference.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
 #include "xstudio/utility/serialise_headers.hpp"
@@ -57,14 +57,18 @@ void py_config::add_messages() {
         "group_down_msg", "caf::group_down_msg", &register_group_down_msg);
     add_message_type<caf::uri>("URI", "caf::uri", &register_URI_class);
     add_message_type<media::MediaType>("MediaType", "xstudio::media::MediaType", nullptr);
+    add_message_type<plugin::HUDElementPosition>(
+        "HUDElementPosition", "xstudio::plugin::HUDElementPosition", nullptr);
     add_message_type<media::StreamDetail>(
         "StreamDetail", "xstudio::media::StreamDetail", &register_streamdetail_class);
     add_message_type<plugin_manager::PluginDetail>(
         "PluginDetail", "xstudio::plugin_manager::PluginDetail", &register_plugindetail_class);
     add_message_type<std::vector<plugin_manager::PluginDetail>>(
         "PluginDetailVec", "std::vector<xstudio::plugin_manager::PluginDetail>", nullptr);
-    add_message_type<playhead::CompareMode>(
-        "CompareMode", "xstudio::playhead::CompareMode", nullptr);
+    add_message_type<playhead::AssemblyMode>(
+        "AssemblyMode", "xstudio::playhead::AssemblyMode", nullptr);
+    add_message_type<playhead::AutoAlignMode>(
+        "AutoAlignMode", "xstudio::playhead::AutoAlignMode", nullptr);
     add_message_type<global::StatusType>("StatusType", "xstudio::global::StatusType", nullptr);
     add_message_type<playhead::LoopMode>("LoopMode", "xstudio::playhead::LoopMode", nullptr);
     add_message_type<playhead::OverflowMode>(
@@ -103,6 +107,15 @@ void py_config::add_messages() {
 
     add_message_type<std::vector<std::pair<int, int>>>(
         "std::vector<std::pair<int, int>>", "std::vector<std::pair<int, int>>", nullptr);
+
+    add_message_type<std::pair<
+        xstudio::utility::UuidActor,
+        std::pair<std::string, xstudio::utility::UuidActor>>>(
+        "std::pair<xstudio::utility::UuidActor, std::pair<std::string, "
+        "xstudio::utility::UuidActor>>",
+        "std::pair<xstudio::utility::UuidActor, std::pair<std::string, "
+        "xstudio::utility::UuidActor>>",
+        nullptr);
 
     add_message_type<timebase::flicks>("timebase::flicks", "timebase::flicks", nullptr);
 

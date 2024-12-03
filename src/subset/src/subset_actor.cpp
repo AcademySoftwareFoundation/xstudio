@@ -29,18 +29,20 @@ SubsetActor::SubsetActor(
     init();
 }
 
-SubsetActor::SubsetActor(caf::actor_config &cfg, caf::actor playlist, const std::string &name)
+SubsetActor::SubsetActor(caf::actor_config &cfg, caf::actor playlist, const std::string &name, const std::string &override_type)
     : caf::event_based_actor(cfg),
       playlist_(caf::actor_cast<actor_addr>(playlist)),
-      base_(name) {
+      base_(name, override_type) {
     init();
 }
 
 void SubsetActor::add_media(
     caf::actor actor, const utility::Uuid &uuid, const utility::Uuid &before_uuid) {
-    base_.insert_media(uuid, before_uuid);
-    actors_[uuid] = actor;
-    monitor(actor);
+    if (not base_.contains_media(uuid)) {
+        base_.insert_media(uuid, before_uuid);
+        actors_[uuid] = actor;
+        monitor(actor);
+    }
 }
 
 bool SubsetActor::remove_media(caf::actor actor, const utility::Uuid &uuid) {
@@ -54,51 +56,9 @@ bool SubsetActor::remove_media(caf::actor actor, const utility::Uuid &uuid) {
 
     return result;
 }
-
-
-void SubsetActor::init() {
-    print_on_create(this, base_);
-    print_on_exit(this, base_);
-
-    event_group_        = spawn<broadcast::BroadcastActor>(this);
-    change_event_group_ = spawn<broadcast::BroadcastActor>(this);
-    link_to(event_group_);
-    link_to(change_event_group_);
-
-    auto selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
-        "SubsetPlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
-    link_to(selection_actor_);
-
-    set_down_handler([=](down_msg &msg) {
-        // find in playhead list..
-        for (auto it = std::begin(actors_); it != std::end(actors_); ++it) {
-            if (msg.source == it->second) {
-                spdlog::debug("Remove media {}", to_string(it->first));
-                remove_media(it->second, it->first);
-                send(event_group_, utility::event_atom_v, change_atom_v);
-                send(
-                    event_group_,
-                    utility::event_atom_v,
-                    playlist::remove_media_atom_v,
-                    UuidVector({it->first}));
-                base_.send_changed(event_group_, this);
-                break;
-            }
-        }
-    });
-
-
-    behavior_.assign(
+caf::message_handler SubsetActor::message_handler() {
+    return caf::message_handler{
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
 
         [=](get_change_event_group_atom) -> caf::actor { return change_event_group_; },
 
@@ -135,46 +95,11 @@ void SubsetActor::init() {
             return make_error(xstudio_error::error, "Invalid uuid");
         },
 
-        [=](media::get_edit_list_atom, const Uuid &uuid) -> result<utility::EditList> {
-            std::vector<caf::actor> actors;
-            for (const auto &i : base_.media())
-                actors.push_back(actors_[i]);
-
-            if (not actors.empty()) {
-                auto rp = make_response_promise<utility::EditList>();
-
-                fan_out_request<policy::select_all>(
-                    actors, infinite, media::get_edit_list_atom_v, Uuid())
-                    .then(
-                        [=](std::vector<utility::EditList> sections) mutable {
-                            utility::EditList ordered_sections;
-                            for (const auto &i : base_.media()) {
-                                for (const auto &ii : sections) {
-                                    const auto &[ud, rt, tc] = ii.section_list()[0];
-                                    if (ud == i) {
-                                        if (uuid.is_null())
-                                            ordered_sections.push_back(ii.section_list()[0]);
-                                        else
-                                            ordered_sections.push_back({uuid, rt, tc});
-                                        break;
-                                    }
-                                }
-                            }
-                            rp.deliver(ordered_sections);
-                        },
-                        [=](error &err) mutable { rp.deliver(std::move(err)); });
-
-                return rp;
-            }
-
-            return result<utility::EditList>(utility::EditList());
-        },
-
         [=](playhead::playhead_rate_atom) -> FrameRate { return base_.playhead_rate(); },
 
         [=](playhead::playhead_rate_atom, const FrameRate &rate) {
             base_.set_playhead_rate(rate);
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
         },
 
         [=](playhead::source_atom) -> caf::actor {
@@ -224,8 +149,40 @@ void SubsetActor::init() {
                 spdlog::error("Failed to init Subset {}", e.what());
                 base_.clear();
             }
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
             return true;
+        },
+
+        [=](playlist::add_media_atom atom,
+            const caf::uri &path,
+            const bool recursive,
+            const utility::Uuid &uuid_before) -> result<std::vector<UuidActor>> {
+            auto rp = make_response_promise<std::vector<UuidActor>>();
+            request(
+                caf::actor_cast<caf::actor>(playlist_),
+                infinite,
+                atom,
+                path,
+                recursive,
+                uuid_before)
+                .then(
+                    [=](const std::vector<UuidActor> new_media) mutable {
+                        for (const auto &m : new_media) {
+                            add_media(m.actor(), m.uuid(), uuid_before);
+                        }
+                        send(
+                            base_.event_group(),
+                            utility::event_atom_v,
+                            playlist::add_media_atom_v,
+                            new_media);
+                        base_.send_changed();
+                        send(base_.event_group(), utility::event_atom_v, change_atom_v);
+                        send(
+                            change_event_group_, utility::event_atom_v, utility::change_atom_v);
+                        rp.deliver(new_media);
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return rp;
         },
 
         [=](add_media_atom atom,
@@ -290,12 +247,12 @@ void SubsetActor::init() {
             try {
                 add_media(actor, uuid, before_uuid);
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::add_media_atom_v,
-                    UuidActor(uuid, actor));
-                base_.send_changed(event_group_, this);
-                send(event_group_, utility::event_atom_v, change_atom_v);
+                    UuidActorVector({UuidActor(uuid, actor)}));
+                base_.send_changed();
+                send(base_.event_group(), utility::event_atom_v, change_atom_v);
                 send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -329,12 +286,12 @@ void SubsetActor::init() {
 
                 // add_media(actor, uuid, before_uuid);
                 // send(
-                //     event_group_,
+                //     base_.event_group(),
                 //     utility::event_atom_v,
                 //     playlist::add_media_atom_v,
-                //     UuidActor(uuid, actor));
-                // base_.send_changed(event_group_, this);
-                // send(event_group_, utility::event_atom_v, change_atom_v);
+                //     UuidActorVector({UuidActor(uuid, actor)}));
+                // base_.send_changed();
+                // send(base_.event_group(), utility::event_atom_v, change_atom_v);
                 // send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -361,14 +318,14 @@ void SubsetActor::init() {
                             actor,
                             before_uuid);
                         // add_media(actor, uuid, before_uuid);
-                        // send(event_group_, utility::event_atom_v, change_atom_v);
-                        // send(change_event_group_, utility::event_atom_v,
+                        // send(base_.event_group(), utility::event_atom_v, change_atom_v);
+                        // send(change_base_.event_group(), utility::event_atom_v,
                         // utility::change_atom_v); send(
-                        //     event_group_,
+                        //     base_.event_group(),
                         //     utility::event_atom_v,
                         //     playlist::add_media_atom_v,
-                        //     UuidActor(uuid, actor));
-                        // base_.send_changed(event_group_, this);
+                        //     UuidActorVector({UuidActor(uuid, actor)}));
+                        // base_.send_changed();
                         // rp.deliver(true);
                     },
                     [=](error &err) mutable {
@@ -377,6 +334,16 @@ void SubsetActor::init() {
                     });
 
             return rp;
+        },
+
+        [=](playlist::add_media_atom, const std::vector<UuidActor> &media) -> bool {
+            for (const auto &m : media) {
+                add_media(m.actor(), m.uuid(), utility::Uuid());
+            }
+            base_.send_changed();
+            send(base_.event_group(), utility::event_atom_v, change_atom_v);
+            send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
+            return true;
         },
 
         [=](playlist::add_media_atom,
@@ -395,22 +362,22 @@ void SubsetActor::init() {
                                     changed = true;
                                     add_media(ii.actor(), i, uuid_before);
                                     send(
-                                        event_group_,
+                                        base_.event_group(),
                                         utility::event_atom_v,
                                         playlist::add_media_atom_v,
-                                        UuidActor(i, ii.actor()));
+                                        UuidActorVector({UuidActor(i, ii.actor())}));
                                     break;
                                 }
                             }
                         }
 
                         if (changed) {
-                            send(event_group_, utility::event_atom_v, change_atom_v);
+                            send(base_.event_group(), utility::event_atom_v, change_atom_v);
                             send(
                                 change_event_group_,
                                 utility::event_atom_v,
                                 utility::change_atom_v);
-                            base_.send_changed(event_group_, this);
+                            base_.send_changed();
                         }
                         rp.deliver(changed);
                     },
@@ -423,16 +390,40 @@ void SubsetActor::init() {
         },
 
 
+        [=](media::current_media_source_atom)
+            -> caf::result<std::vector<std::pair<UuidActor, std::pair<UuidActor, UuidActor>>>> {
+            auto rp = make_response_promise<
+                std::vector<std::pair<UuidActor, std::pair<UuidActor, UuidActor>>>>();
+            if (not actors_.empty()) {
+                fan_out_request<policy::select_all>(
+                    map_value_to_vec(actors_), infinite, media::current_media_source_atom_v)
+                    .then(
+                        [=](const std::vector<
+                            std::pair<UuidActor, std::pair<UuidActor, UuidActor>>>
+                                details) mutable { rp.deliver(details); },
+                        [=](error &err) mutable { rp.deliver(std::move(err)); });
+            } else {
+                rp.deliver(
+                    std::vector<std::pair<UuidActor, std::pair<UuidActor, UuidActor>>>());
+            }
+            return rp;
+        },
+
+
         [=](playlist::add_media_atom,
             const std::vector<UuidActor> &media_actors,
             const utility::Uuid &uuid_before) -> result<bool> {
             for (const auto &i : media_actors) {
                 add_media(i.actor(), i.uuid(), uuid_before);
-                send(event_group_, utility::event_atom_v, playlist::add_media_atom_v, i);
             }
-            send(event_group_, utility::event_atom_v, change_atom_v);
+            send(
+                base_.event_group(),
+                utility::event_atom_v,
+                playlist::add_media_atom_v,
+                media_actors);
+            send(base_.event_group(), utility::event_atom_v, change_atom_v);
             send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
-            base_.send_changed(event_group_, this);
+            base_.send_changed();
             return true;
         },
 
@@ -441,7 +432,10 @@ void SubsetActor::init() {
                 return playhead_;
             auto uuid  = utility::Uuid::generate();
             auto actor = spawn<playhead::PlayheadActor>(
-                std::string("Subset Playhead"), selection_actor_, uuid);
+                std::string("Subset Playhead"),
+                selection_actor_,
+                uuid,
+                caf::actor_cast<caf::actor_addr>(this));
             link_to(actor);
 
             anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
@@ -525,14 +519,14 @@ void SubsetActor::init() {
                 result |= base_.move_media(uuid, uuid_before);
             }
             if (result) {
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::move_media_atom_v,
                     media_uuids,
                     uuid_before);
-                send(event_group_, utility::event_atom_v, change_atom_v);
+                send(base_.event_group(), utility::event_atom_v, change_atom_v);
                 send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
             }
             return result;
@@ -560,71 +554,148 @@ void SubsetActor::init() {
             }
 
             if (not removed.empty()) {
-                send(event_group_, utility::event_atom_v, change_atom_v);
+                send(base_.event_group(), utility::event_atom_v, change_atom_v);
                 send(
-                    event_group_,
+                    base_.event_group(),
                     utility::event_atom_v,
                     playlist::remove_media_atom_v,
                     removed);
                 send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
-                base_.send_changed(event_group_, this);
+                base_.send_changed();
             }
             return not removed.empty();
         },
 
         [=](playlist::selection_actor_atom) -> caf::actor { return selection_actor_; },
 
-        [=](playlist::sort_alphabetically_atom) { sort_alphabetically(); },
+        [=](playlist::sort_by_media_display_info_atom,
+            const int sort_column_index,
+            const bool ascending) { sort_by_media_display_info(sort_column_index, ascending); },
+
+        [=](playlist::filter_media_atom,
+            const std::string &filter_string) -> result<utility::UuidList> {
+            // for each media item in the playlist, check if any fields in the
+            // 'media display info' for the media matches filter_string. If
+            // it does, include it in the result. We have to do some awkward
+            // shenanegans thanks to async requests ... the usual stuff!!
+
+            if (filter_string.empty())
+                return base_.media();
+
+            auto rp = make_response_promise<utility::UuidList>();
+            // share ptr to store result for each media piece (in order)
+            auto vv = std::make_shared<std::vector<Uuid>>(base_.media().size());
+            // keep count of responses with this
+            auto ct                        = std::make_shared<int>(base_.media().size());
+            const auto filter_string_lower = utility::to_lower(filter_string);
+            auto check_deliver             = [=]() mutable {
+                (*ct)--;
+                if (*ct == 0) {
+                    utility::UuidList r;
+                    for (const auto &v : *vv) {
+                        if (!v.is_null()) {
+                            r.push_back(v);
+                        }
+                    }
+                    rp.deliver(r);
+                }
+            };
+
+
+            int idx = 0;
+            for (const auto &uuid : base_.media()) {
+                if (!actors_.count(uuid)) {
+                    check_deliver();
+                    continue;
+                }
+                UuidActor media(uuid, actors_[uuid]);
+                request(media.actor(), infinite, media::media_display_info_atom_v)
+                    .then(
+                        [=](const utility::JsonStore &media_display_info) mutable {
+                            if (media_display_info.is_array()) {
+                                for (int i = 0; i < media_display_info.size(); ++i) {
+                                    std::string data = media_display_info[i].dump();
+                                    if (utility::to_lower(data).find(filter_string_lower) !=
+                                        std::string::npos) {
+                                        (*vv)[idx] = media.uuid();
+                                        break;
+                                    }
+                                }
+                            }
+                            check_deliver();
+                        },
+                        [=](caf::error &err) mutable { check_deliver(); });
+                idx++;
+            }
+            return rp;
+        },
 
         [=](get_next_media_atom,
             const utility::Uuid &after_this_uuid,
-            int skip_by) -> result<UuidActor> {
-            const utility::UuidList media = base_.media();
-            if (skip_by > 0) {
-                auto i = std::find(media.begin(), media.end(), after_this_uuid);
-                if (i == media.end()) {
-                    // not found!
-                    return make_error(
-                        xstudio_error::error,
-                        "playlist::get_next_media_atom called with uuid that is not in "
-                        "subset");
-                }
-                while (skip_by--) {
-                    i++;
-                    if (i == media.end()) {
-                        i--;
-                        break;
-                    }
-                }
-                if (actors_.count(*i))
-                    return UuidActor(*i, actors_[*i]);
+            int skip_by,
+            const std::string &filter_string) -> result<UuidActor> {
+            auto rp = make_response_promise<UuidActor>();
 
-            } else {
-                auto i = std::find(media.rbegin(), media.rend(), after_this_uuid);
-                if (i == media.rend()) {
-                    // not found!
-                    return make_error(
-                        xstudio_error::error,
-                        "playlist::get_next_media_atom called with uuid that is not in "
-                        "playlist");
-                }
-                while (skip_by++) {
-                    i++;
-                    if (i == media.rend()) {
-                        i--;
-                        break;
-                    }
-                }
+            request(
+                caf::actor_cast<caf::actor>(this),
+                infinite,
+                playlist::filter_media_atom_v,
+                filter_string)
+                .then(
+                    [=](const utility::UuidList &media) mutable {
+                        if (skip_by > 0) {
+                            auto i = std::find(media.begin(), media.end(), after_this_uuid);
+                            if (i == media.end()) {
+                                // not found!
+                                rp.deliver(make_error(
+                                    xstudio_error::error,
+                                    "playlist::get_next_media_atom called with uuid that is "
+                                    "not in "
+                                    "subset"));
+                            }
+                            while (skip_by--) {
+                                i++;
+                                if (i == media.end()) {
+                                    i--;
+                                    break;
+                                }
+                            }
+                            if (actors_.count(*i))
+                                rp.deliver(UuidActor(*i, actors_[*i]));
 
-                if (actors_.count(*i))
-                    return UuidActor(*i, actors_[*i]);
-            }
+                        } else {
+                            auto i = std::find(media.rbegin(), media.rend(), after_this_uuid);
+                            if (i == media.rend()) {
+                                // not found!
+                                rp.deliver(make_error(
+                                    xstudio_error::error,
+                                    "playlist::get_next_media_atom called with uuid that is "
+                                    "not in "
+                                    "playlist"));
+                            }
+                            while (skip_by++) {
+                                i++;
+                                if (i == media.rend()) {
+                                    i--;
+                                    break;
+                                }
+                            }
 
-            return make_error(
-                xstudio_error::error,
-                "playlist::get_next_media_atom called with uuid for which no media actor "
-                "exists");
+                            if (actors_.count(*i))
+                                rp.deliver(UuidActor(*i, actors_[*i]));
+                        }
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+            return rp;
         },
+
+        // [=](json_store::get_json_atom atom, const std::string &path) {
+        //     delegate(caf::actor_cast<caf::actor>(playlist_), atom, path);
+        // },
+
+        // [=](json_store::set_json_atom atom, const JsonStore &json, const std::string &path) {
+        //     delegate(caf::actor_cast<caf::actor>(playlist_), atom, json, path);
+        // },
 
         [=](session::session_atom) {
             delegate(caf::actor_cast<caf::actor>(playlist_), session::session_atom_v);
@@ -634,7 +705,37 @@ void SubsetActor::init() {
             JsonStore jsn;
             jsn["base"] = base_.serialise();
             return jsn;
-        });
+        }};
+}
+
+void SubsetActor::init() {
+    print_on_create(this, base_);
+    print_on_exit(this, base_);
+
+    change_event_group_ = spawn<broadcast::BroadcastActor>(this);
+    link_to(change_event_group_);
+
+    selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
+        "SubsetPlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
+    link_to(selection_actor_);
+
+    set_down_handler([=](down_msg &msg) {
+        // find in playhead list..
+        for (auto it = std::begin(actors_); it != std::end(actors_); ++it) {
+            if (msg.source == it->second) {
+                spdlog::debug("Remove media {}", to_string(it->first));
+                remove_media(it->second, it->first);
+                send(base_.event_group(), utility::event_atom_v, change_atom_v);
+                send(
+                    base_.event_group(),
+                    utility::event_atom_v,
+                    playlist::remove_media_atom_v,
+                    UuidVector({it->first}));
+                base_.send_changed();
+                break;
+            }
+        }
+    });
 }
 
 void SubsetActor::add_media(
@@ -667,9 +768,13 @@ void SubsetActor::add_media(
         }
 
         add_media(actor, ua.uuid(), before_uuid);
-        send(event_group_, utility::event_atom_v, playlist::add_media_atom_v, ua);
-        base_.send_changed(event_group_, this);
-        send(event_group_, utility::event_atom_v, change_atom_v);
+        send(
+            base_.event_group(),
+            utility::event_atom_v,
+            playlist::add_media_atom_v,
+            UuidActorVector({ua}));
+        base_.send_changed();
+        send(base_.event_group(), utility::event_atom_v, change_atom_v);
         send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
         rp.deliver(ua);
 
@@ -678,40 +783,56 @@ void SubsetActor::add_media(
     }
 }
 
-void SubsetActor::sort_alphabetically() {
+void SubsetActor::sort_by_media_display_info(
+    const int sort_column_index, const bool ascending) {
 
     using SourceAndUuid = std::pair<std::string, utility::Uuid>;
-    auto media_names_vs_uuids =
+    auto sort_keys_vs_uuids =
         std::make_shared<std::vector<std::pair<std::string, utility::Uuid>>>();
 
+    int idx = 0;
     for (const auto &i : base_.media()) {
 
         // Pro tip: because i is a reference, it's the reference that is captured in our lambda
         // below and therefore it is 'unstable' so we make a copy here and use that in the
         // lambda as this is object-copied in the capture instead.
         UuidActor media_actor(i, actors_[i]);
+        idx++;
 
-        request(media_actor.actor(), infinite, media::media_reference_atom_v, utility::Uuid())
+        request(media_actor.actor(), infinite, media::media_display_info_atom_v)
             .await(
 
-                [=](const std::pair<Uuid, MediaReference> &m_ref) mutable {
-                    std::string path = uri_to_posix_path(m_ref.second.uri());
-                    path             = std::string(path, path.rfind("/") + 1);
-                    path             = to_lower(path);
+                [=](const utility::JsonStore &media_display_info) mutable {
+                    // media_display_info should be an array of arrays. Each
+                    // array is the data shown in the media list columns.
+                    // So info_set_idx corresponds to the media list (in the UI)
+                    // from which the sort was requested. And the info_item_idx
+                    // corresponds to the column of that media list.
 
-                    (*media_names_vs_uuids).push_back(std::make_pair(path, media_actor.uuid()));
+                    // default sort key keeps current sorting but should always
+                    // put it after the last element that did have a sort key
+                    std::string sort_key = fmt::format("ZZZZZZ{}", idx);
 
-                    if (media_names_vs_uuids->size() == base_.media().size()) {
+                    if (media_display_info.is_array() &&
+                        sort_column_index < media_display_info.size()) {
+                        sort_key = media_display_info[sort_column_index].dump();
+                    }
+
+                    (*sort_keys_vs_uuids)
+                        .push_back(std::make_pair(sort_key, media_actor.uuid()));
+
+                    if (sort_keys_vs_uuids->size() == base_.media().size()) {
 
                         std::sort(
-                            media_names_vs_uuids->begin(),
-                            media_names_vs_uuids->end(),
-                            [](const SourceAndUuid &a, const SourceAndUuid &b) -> bool {
-                                return a.first < b.first;
+                            sort_keys_vs_uuids->begin(),
+                            sort_keys_vs_uuids->end(),
+                            [ascending](
+                                const SourceAndUuid &a, const SourceAndUuid &b) -> bool {
+                                return ascending ? a.first < b.first : a.first > b.first;
                             });
 
                         utility::UuidList ordered_uuids;
-                        for (const auto &p : (*media_names_vs_uuids)) {
+                        for (const auto &p : (*sort_keys_vs_uuids)) {
                             ordered_uuids.push_back(p.second);
                         }
 

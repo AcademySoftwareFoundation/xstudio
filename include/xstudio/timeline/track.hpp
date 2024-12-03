@@ -8,7 +8,6 @@
 #include "xstudio/media/media.hpp"
 #include "xstudio/utility/container.hpp"
 #include "xstudio/utility/frame_range.hpp"
-#include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/timeline/item.hpp"
@@ -20,10 +19,12 @@ namespace timeline {
       public:
         Track(
             const std::string &name           = "Track",
+            const utility::FrameRate &rate    = utility::FrameRate(),
             const media::MediaType media_type = media::MediaType::MT_IMAGE,
             const utility::Uuid &uuid         = utility::Uuid::generate(),
             const caf::actor &actor           = caf::actor());
         Track(const utility::JsonStore &jsn);
+        Track(const Item &item, const caf::actor &actor);
 
         ~Track() override = default;
 
@@ -45,6 +46,8 @@ namespace timeline {
         }
 
         utility::JsonStore refresh_item() { return item_.refresh(); }
+
+        utility::FrameRate rate() const { return item_.rate(); }
 
       private:
         media::MediaType media_type_;

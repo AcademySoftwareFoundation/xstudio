@@ -11,6 +11,7 @@ default_options(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
+		xstudio::media
 		xstudio::global_store
 		caf::core
 )

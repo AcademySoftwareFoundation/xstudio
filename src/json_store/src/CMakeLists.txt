@@ -1,11 +1,9 @@
 SET(LINK_DEPS
 	caf::core
-	xstudio::broadcast
 	xstudio::utility
 )
 
 SET(STATIC_LINK_DEPS
-	xstudio::broadcast_static
 	xstudio::utility_static
 	caf::core
 )

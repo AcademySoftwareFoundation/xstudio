@@ -27,10 +27,13 @@ namespace history {
       private:
         inline static const std::string NAME = "HistoryActor";
         void init();
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::message_handler message_handler();
+
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
 
       private:
-        caf::behavior behavior_;
         History<V> base_;
     };
 
@@ -49,16 +52,8 @@ namespace history {
         init();
     }
 
-    template <typename V> void HistoryActor<V>::init() {
-        print_on_create(this, "HistoryActor");
-        print_on_exit(this, "HistoryActor");
-
-        behavior_.assign(
-            base_.make_get_uuid_handler(),
-            base_.make_get_type_handler(),
-            make_get_event_group_handler(caf::actor()),
-            base_.make_get_detail_handler(this, caf::actor()),
-
+    template <typename V> caf::message_handler HistoryActor<V>::message_handler() {
+        return caf::message_handler{
             [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
 
             [=](plugin_manager::enable_atom, const bool enabled) -> bool {
@@ -104,7 +99,13 @@ namespace history {
                 utility::JsonStore jsn;
                 jsn["base"] = base_.serialise();
                 return jsn;
-            });
+            }};
+    }
+
+
+    template <typename V> void HistoryActor<V>::init() {
+        print_on_create(this, "HistoryActor");
+        print_on_exit(this, "HistoryActor");
     }
 
     template <typename K, typename V> class HistoryMapActor : public caf::event_based_actor {
@@ -118,7 +119,11 @@ namespace history {
       private:
         inline static const std::string NAME = "HistoryActor";
         void init();
-        caf::behavior make_behavior() override { return behavior_; }
+        caf::message_handler message_handler();
+
+        caf::behavior make_behavior() override {
+            return message_handler().or_else(base_.container_message_handler(this));
+        }
 
       private:
         caf::behavior behavior_;
@@ -141,16 +146,9 @@ namespace history {
         init();
     }
 
-    template <typename K, typename V> void HistoryMapActor<K, V>::init() {
-        print_on_create(this, "HistoryActor");
-        print_on_exit(this, "HistoryActor");
-
-        behavior_.assign(
-            base_.make_get_uuid_handler(),
-            base_.make_get_type_handler(),
-            make_get_event_group_handler(caf::actor()),
-            base_.make_get_detail_handler(this, caf::actor()),
-
+    template <typename K, typename V>
+    caf::message_handler HistoryMapActor<K, V>::message_handler() {
+        return caf::message_handler{
             [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
 
             [=](plugin_manager::enable_atom, const bool enabled) -> bool {
@@ -210,19 +208,19 @@ namespace history {
                 utility::JsonStore jsn;
                 jsn["base"] = base_.serialise();
                 return jsn;
-            });
+            }};
     }
 
-    template <> void HistoryMapActor<utility::sys_time_point, utility::JsonStore>::init() {
+
+    template <typename K, typename V> void HistoryMapActor<K, V>::init() {
         print_on_create(this, "HistoryActor");
         print_on_exit(this, "HistoryActor");
+    }
 
-        behavior_.assign(
-            base_.make_get_uuid_handler(),
-            base_.make_get_type_handler(),
-            make_get_event_group_handler(caf::actor()),
-            base_.make_get_detail_handler(this, caf::actor()),
-
+    template <>
+    caf::message_handler
+    HistoryMapActor<utility::sys_time_point, utility::JsonStore>::message_handler() {
+        return caf::message_handler{
             [=](plugin_manager::enable_atom) -> bool { return base_.enabled(); },
 
             [=](plugin_manager::enable_atom, const bool enabled) -> bool {
@@ -332,7 +330,13 @@ namespace history {
                 utility::JsonStore jsn;
                 jsn["base"] = base_.serialise();
                 return jsn;
-            });
+            }};
+    }
+
+
+    template <> void HistoryMapActor<utility::sys_time_point, utility::JsonStore>::init() {
+        print_on_create(this, "HistoryActor");
+        print_on_exit(this, "HistoryActor");
     }
 
 

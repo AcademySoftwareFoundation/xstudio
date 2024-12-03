@@ -4,13 +4,15 @@
 			"OpenEXR":{
 				"max_exr_overscan_percent": {
 					"path": "/plugin/media_reader/OpenEXR/max_exr_overscan_percent",
-					"default_value": 5.0,
-					"description": "Default overscan.",
-					"value": 5.0,
+					"default_value": 100.0,
+					"description": "Set the maximum amount of EXR overscan that is loaded. Setting to zero means no overscan is loaded, or set to a very high number to always load all overscan pixels. After changing this value, you may need to clear the xstudio cache ('Advanced' sub-menu in MediaList) to re-load the frames",
+					"value": 100.0,
 					"minimum": 0.0,
-					"maximum": 100.0,
+					"maximum": 1000.0,
 					"datatype": "double",
-					"context": ["APPLICATION"]
+					"context": ["APPLICATION"],
+					"category": "Playback",
+					"display_name": "EXR maximum overscan (%)"
 				},
 				"readers_per_source": {
 					"path": "/plugin/media_reader/OpenEXR/readers_per_source",

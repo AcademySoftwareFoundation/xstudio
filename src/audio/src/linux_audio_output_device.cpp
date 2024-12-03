@@ -16,12 +16,17 @@ LinuxAudioOutputDevice::~LinuxAudioOutputDevice() { disconnect_from_soundcard();
 
 void LinuxAudioOutputDevice::disconnect_from_soundcard() {
     if (playback_handle_) {
+        int error;
+        pa_simple_flush(playback_handle_, &error);
         pa_simple_free(playback_handle_);
     }
     playback_handle_ = nullptr;
 }
 
 void LinuxAudioOutputDevice::connect_to_soundcard() {
+
+    if (playback_handle_)
+        return;
 
     num_channels_ = 2;
     std::string sound_card("default");
@@ -59,10 +64,8 @@ void LinuxAudioOutputDevice::connect_to_soundcard() {
               nullptr,
               nullptr,
               &error))) {
-        fprintf(stderr, __FILE__ ": pa_simple_new() failed: %s\n", pa_strerror(error));
-        std::stringstream ss;
-        ss << __FILE__ ": pa_simple_new() failed: " << pa_strerror(error);
-        throw std::runtime_error(ss.str().c_str());
+        spdlog::warn(
+            "{}  pa_simple_new() failed: {} ", __PRETTY_FUNCTION__, pa_strerror(error));
     }
 
     spdlog::debug("{} Connected to soundcard : {} ", __PRETTY_FUNCTION__, sound_card.c_str());
@@ -72,21 +75,20 @@ long LinuxAudioOutputDevice::desired_samples() { return buffer_size_; }
 
 long LinuxAudioOutputDevice::latency_microseconds() {
 
-    pa_usec_t latency;
+    pa_usec_t latency = 0;
     int error;
 
     if (playback_handle_ &&
         (latency = pa_simple_get_latency(playback_handle_, &error)) == (pa_usec_t)-1) {
-        std::stringstream ss;
-        ss << __FILE__ ": pa_simple_get_latency() failed: " << pa_strerror(error);
-        throw std::runtime_error(ss.str().c_str());
+        spdlog::warn(
+            "{}  pa_simple_get_latency() failed: {} ", __PRETTY_FUNCTION__, pa_strerror(error));
     }
 
     return (long)latency;
 }
 
 
-void LinuxAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {
+bool LinuxAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {
 
     int error;
     // TODO: * 2 below is because we ASSUME 16bits per sample. Need to handle different
@@ -95,6 +97,8 @@ void LinuxAudioOutputDevice::push_samples(const void *sample_data, const long nu
         pa_simple_write(playback_handle_, sample_data, (size_t)num_samples * 2, &error) < 0) {
         std::stringstream ss;
         ss << __FILE__ ": pa_simple_write() failed: " << pa_strerror(error);
-        throw std::runtime_error(ss.str().c_str());
+        spdlog::warn("{} : {} ", __PRETTY_FUNCTION__, ss.str());
+        return false;
     }
+    return true;
 }

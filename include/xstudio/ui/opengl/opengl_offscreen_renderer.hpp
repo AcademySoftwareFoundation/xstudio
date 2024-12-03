@@ -35,6 +35,7 @@ namespace ui {
             unsigned int rbo_id_{0};
             unsigned int fbo_id_{0};
 
+            GLint restore_fbo_id_{0};
             std::array<int, 4> vp_state_;
         };
 

@@ -101,6 +101,10 @@ namespace media_reader {
 
             [[nodiscard]] FFMpegStreamType stream_type() const { return stream_type_; }
 
+            [[nodiscard]] Imath::V2i resolution() const { return resolution_; }
+
+            [[nodiscard]] float pixel_aspect() const { return pixel_aspect_; }
+
             [[nodiscard]] int duration_frames() const;
 
             [[nodiscard]] bool is_single_frame() const { return duration_frames() < 2; }
@@ -110,10 +114,6 @@ namespace media_reader {
             [[nodiscard]] bool is_drop_frame_timecode() const {
                 return is_drop_frame_timecode_;
             }
-
-            [[nodiscard]] Imath::V2i resolution() const { return resolution_; }
-
-            [[nodiscard]] float pixel_aspect() const { return pixel_aspect_; }
 
             [[nodiscard]] double duration_seconds() const;
 

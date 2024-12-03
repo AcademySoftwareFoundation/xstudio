@@ -106,6 +106,23 @@ class Bookmark(Container):
         detail.duration = x
         self.connection.request_receive(self.remote, bookmark_detail_atom(), detail)
 
+
+    @property
+    def user_data(self):
+        """Is enabled.
+
+        Returns:
+            result(bool): Enabled ?
+        """
+
+        return self.connection.request_receive(self.remote, bookmark_detail_atom())[0].user_data
+
+    @user_data.setter
+    def user_data(self, x):
+        detail = BookmarkDetail()
+        detail.user_data = x
+        self.connection.request_receive(self.remote, bookmark_detail_atom(), detail)
+
     @property
     def author(self):
         """Is enabled.

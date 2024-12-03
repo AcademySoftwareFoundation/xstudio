@@ -25,7 +25,16 @@ Timecode::Timecode(
 
 Timecode::Timecode(const unsigned int f, const double fr, const bool df)
     : frame_rate_(fr == 0.0 ? 24.0 : fr), drop_frame_(df) {
+    total_frames(f);
+}
 
+Timecode::Timecode(const std::string &timecode, const double fr, const bool df)
+    : frame_rate_(fr == 0.0 ? 24.0 : fr), drop_frame_(df) {
+    set_timecode(timecode);
+    validate();
+}
+
+void Timecode::total_frames(const unsigned int f) {
     const unsigned int nominal_fps = nominal_framerate();
     unsigned int frame_input       = f % max_frames();
 
@@ -45,11 +54,6 @@ Timecode::Timecode(const unsigned int f, const double fr, const bool df)
     hours_   = ((frame_input / nominal_fps) / 60 / 60);
 }
 
-Timecode::Timecode(const std::string &timecode, const double fr, const bool df)
-    : frame_rate_(fr == 0.0 ? 24.0 : fr), drop_frame_(df) {
-    set_timecode(timecode);
-    validate();
-}
 
 void Timecode::set_timecode(const std::string &timecode) {
     unsigned int h, m, s, f;

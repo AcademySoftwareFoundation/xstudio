@@ -1,0 +1,19 @@
+{
+    "plugin": {
+        "data_source": {
+            "ivy": {
+                "enable_audio_autoload": {
+                    "context": [
+                        "APPLICATION"
+                    ],
+                    "datatype": "bool",
+                    "default_value": true,
+                    "description": "Automatically load audio sources.",
+                    "path": "/plugin/data_source/ivy/enable_audio_autoload",
+                    "value": true,
+                    "category": "Pipeline"
+                }
+            }
+        }
+    }
+}

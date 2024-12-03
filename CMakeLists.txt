@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
 option(USE_VCPKG "Use Vcpkg for package management" OFF)
 if(WIN32)
@@ -9,7 +9,7 @@ if (USE_VCPKG)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
 endif()
 
-set(XSTUDIO_GLOBAL_VERSION "0.11.2" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "1.0.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
@@ -25,10 +25,11 @@ option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
 option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
 option(BUILD_RESKIN "Build xstudio reskin binary" ON)
-
+option(OTIO_SUBMODULE "Automatically build OpenTimelineIO as a submodule" OFF)
 
 if(WIN32)
     set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
+    set(OTIO_SUBMODULE ON)
     add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
     # enable UUID System Generator 
     add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
@@ -37,7 +38,6 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
-
 
 if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND NOT WIN32)) AND NOT __CHECKED_CXX_FLAGS)
     set(__CHECKED_CXX_FLAGS TRUE CACHE INTERNAL "Whether we checked the CXX flags already")
@@ -71,9 +71,8 @@ if (NOT ${GCC_MARCH_OVERRIDE} STREQUAL "")
   endif()
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU") 
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
-endif()
+
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fpic")
 
 set(TEST_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/test_resource")
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -166,6 +165,8 @@ if(WIN32)
   # https://github.com/nlohmann/json/issues/3868#issuecomment-1563726354
   add_definitions(-DJSON_HAS_THREE_WAY_COMPARISON=OFF)
 
+  add_subdirectory("extern/otio")
+
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
   # When moving to Qt6 or greater, we might be able to use qt_generate_deploy_app_script
@@ -226,28 +227,21 @@ add_subdirectory(src)
 
 if(INSTALL_XSTUDIO)
 
-
-    # add extern libs that are build-time dependencies of xstudio
-if (UNIX)
-    add_subdirectory("extern/reproc")
-endif()
-    add_subdirectory("extern/quickfuture")
-    add_subdirectory("extern/quickpromise")
-
-  add_subdirectory(share/preference)
-  add_subdirectory(share/snippets)
-  add_subdirectory(share/fonts)
+  # build quickpromise
+  add_subdirectory(extern/quickpromise)
+  add_subdirectory(extern/quickfuture) 
 
   install(DIRECTORY include/xstudio
           DESTINATION include)
 
   INSTALL(DIRECTORY extern/ DESTINATION extern)
 
+  add_subdirectory(share/preference)
+  add_subdirectory(share/snippets)
+  add_subdirectory(share/fonts)
+
   if(BUILD_DOCS)
-    if(NOT INSTALL_PYTHON_MODULE)
-      add_subdirectory(python)
-    endif ()
-    add_subdirectory(docs)
+    #add_subdirectory(docs)
   else()
     install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
   endif ()

@@ -101,7 +101,6 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
                 return rp;
             }
 
-
             request(media_source, infinite, json_store::get_json_atom_v, "")
                 .then(
                     [=](const JsonStore &jsn) mutable {
@@ -154,6 +153,33 @@ MediaHookWorkerActor::MediaHookWorkerActor(caf::actor_config &cfg)
                                 [=](error &err) mutable { rp.deliver(std::move(err)); });
                     },
                     [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
+        [=](detect_display_atom,
+            const std::string &name,
+            const std::string &model,
+            const std::string &manufacturer,
+            const std::string &serialNumber,
+            const utility::JsonStore &jsn) -> result<std::string> {
+            auto rp = make_response_promise<std::string>();
+
+            if (not hooks.empty()) {
+                fan_out_request<policy::select_any>(
+                    hooks,
+                    infinite,
+                    media_hook::detect_display_atom_v,
+                    name,
+                    model,
+                    manufacturer,
+                    serialNumber,
+                    jsn)
+                    .then(
+                        [=](const std::string &display) mutable { rp.deliver(display); },
+                        [=](const error &err) mutable { rp.deliver(err); });
+                return rp;
+            }
 
             return rp;
         });
@@ -320,6 +346,26 @@ GlobalMediaHookActor::GlobalMediaHookActor(caf::actor_config &cfg)
                 }
             } catch (...) {
             }
+        },
+
+        [=](detect_display_atom,
+            const std::string &name,
+            const std::string &model,
+            const std::string &manufacturer,
+            const std::string &serialNumber,
+            const utility::JsonStore &jsn) -> result<std::string> {
+            auto rp = make_response_promise<std::string>();
+
+            rp.delegate(
+                pool,
+                media_hook::detect_display_atom_v,
+                name,
+                model,
+                manufacturer,
+                serialNumber,
+                jsn);
+
+            return rp;
         });
 }
 

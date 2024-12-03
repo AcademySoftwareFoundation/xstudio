@@ -13,18 +13,20 @@ CAF_PUSH_WARNINGS
 #include <QVector2D>
 CAF_POP_WARNINGS
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/viewport_qml_export.h"
+
 namespace xstudio {
 namespace ui {
     namespace qml {
 
         class QMLViewport;
-        class PlayheadUI;
 
-        class QMLViewportRenderer : public QMLActor {
+        class VIEWPORT_QML_EXPORT QMLViewportRenderer : public QMLActor {
             Q_OBJECT
 
           public:
-            QMLViewportRenderer(QObject *owner, const int viewport_index);
+            QMLViewportRenderer(QObject *owner);
             virtual ~QMLViewportRenderer();
 
             void setWindow(QQuickWindow *window);
@@ -36,6 +38,8 @@ namespace ui {
                 const QPointF bottomleft,
                 const QSize sceneSize,
                 const float devicePixelRatio);
+
+            void prepareRenderData();
 
             void init_system();
             void join_playhead(caf::actor group) {
@@ -56,19 +60,14 @@ namespace ui {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 }
             }
-            void set_playhead(PlayheadUI *playhead);
 
-            float zoom();
-            [[nodiscard]] QString fpsExpression() const { return fps_expression_; }
-            void rawKeyDown(const int key, const bool autorepeat);
-            void keyboardTextEntry(const QString text);
-            void rawKeyUp(const int key);
-            void allKeysUp();
-            Imath::V2i imageResolutionCoords();
-            Imath::V2f imageCoordsToViewport(const int x, const int y);
-            [[nodiscard]] QRectF imageBoundsInViewportPixels() const;
-            void setScale(const float s);
-            void setTranslate(const QVector2D &t);
+            void set_playhead(caf::actor playhead);
+            
+            [[nodiscard]] QVariantList imageResolutions() const;
+            [[nodiscard]] QVariantList imageBoundariesInViewport() const;
+            [[nodiscard]] caf::actor playhead() {
+                return viewport_renderer_ ? viewport_renderer_->playhead() : caf::actor();
+            }
             bool pointerEvent(const PointerEvent &e);
             void setScreenInfos(
                 QString name,
@@ -77,59 +76,47 @@ namespace ui {
                 QString serialNumber,
                 double refresh_rate);
             [[nodiscard]] QString name() const {
-                return QStringFromStd(viewport_renderer_->name());
+                return viewport_renderer_ ? QStringFromStd(viewport_renderer_->name())
+                                          : QString("Not Yet");
             }
 
-            void linkToViewport(QMLViewportRenderer *other_viewport);
+            [[nodiscard]] std::string std_name() const {
+                return viewport_renderer_ ? viewport_renderer_->name() : "not yet";
+            }
 
-            void renderImageToFile(
-                const QUrl filePath,
-                caf::actor playhead,
-                const int format,
-                const int compression,
-                const int width,
-                const int height,
-                const bool bakeColor);
             void setIsQuickViewer(const bool is_quick_viewer);
+            void visibleChanged(const bool is_visible);
 
           public slots:
 
             void init_renderer();
             void paint();
-            void setZoom(const float f);
-            void revertFitZoomToPrevious();
             void frameSwapped();
-            float scale();
-            QVector2D translate();
-            void quickViewSource(QStringList mediaActors, QString compareMode);
+            void quickViewSource(
+                QStringList mediaActors, QString compareMode, int in_pt, int out_pt);
+            void reset();
+
           signals:
 
-            void zoomChanged(float);
             void fpsChanged(QString);
-            void scaleChanged(float);
             void exposureChanged(float);
-            void translateChanged(QVector2D);
-            void onScreenFrameChanged(int);
-            void outOfRange(bool);
-            void noAlphaChannelChanged(bool);
+            void translationChanged();
+            void resolutionsChanged();
             void doRedraw();
             void doSnapshot(QString, QString, int, int, bool);
             void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
             void quickViewBackendRequestWithSize(
                 QStringList mediaActors, QString compareMode, QPoint position, QSize size);
             void snapshotRequestResult(QString resultMessage);
-            void isQuickviewerChanged(bool);
 
           private:
             void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
+            void make_xstudio_viewport();
 
             QQuickWindow *m_window;
             ui::viewport::Viewport *viewport_renderer_ = nullptr;
             bool init_done{false};
             QString fps_expression_;
-            bool frame_out_of_range_ = {false};
-            QRectF imageBounds_;
-            int viewport_index_;
             class QMLViewport *viewport_qml_item_;
 
             caf::actor viewport_update_group;

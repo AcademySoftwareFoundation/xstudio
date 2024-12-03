@@ -38,6 +38,8 @@ namespace global_store {
         virtual ~GlobalStoreDef() = default;
 
         std::string path_;
+        std::string display_name_;
+        std::string category_;
         nlohmann::json value_;
         nlohmann::json default_value_;
         std::string datatype_;
@@ -45,8 +47,11 @@ namespace global_store {
         std::string overridden_path_;
         nlohmann::json minimum_value_;
         nlohmann::json maximum_value_;
+        nlohmann::json options_;
 
         [[nodiscard]] std::string path() const { return path_; }
+        [[nodiscard]] std::string display_name() const { return display_name_; }
+        [[nodiscard]] std::string category() const { return category_; }
         [[nodiscard]] std::string datatype() const { return datatype_; }
         [[nodiscard]] std::string description() const { return description_; }
         [[nodiscard]] std::string overridden_path() const { return overridden_path_; }
@@ -56,6 +61,7 @@ namespace global_store {
         [[nodiscard]] nlohmann::json default_value() const { return default_value_; }
         [[nodiscard]] nlohmann::json minimum_value() const { return minimum_value_; }
         [[nodiscard]] nlohmann::json maximum_value() const { return maximum_value_; }
+        [[nodiscard]] nlohmann::json options() const { return options_; }
 
         operator std::string() const { return path_; }
         operator nlohmann::json() const {
@@ -65,8 +71,11 @@ namespace global_store {
                 {"default_value", default_value_},
                 {"description", description_},
                 {"datatype", datatype_},
+                {"category", category_},
                 {"minimum", minimum_value_},
                 {"maximum", maximum_value_},
+                {"display_name", display_name_},
+                {"options", options_},
                 {"overridden_path", overridden_path_}};
         }
     };
@@ -117,9 +126,25 @@ namespace global_store {
         return preference_property<result_type>(js, path, "default_value");
     }
 
+    template <typename result_type>
+    inline result_type
+    preference_options(const utility::JsonStore &js, const std::string &path) {
+        return preference_property<result_type>(js, path, "options");
+    }
+
+    inline std::string
+    preference_category(const utility::JsonStore &js, const std::string &path) {
+        return preference_property<std::string>(js, path, "category");
+    }
+
     inline std::string
     preference_description(const utility::JsonStore &js, const std::string &path) {
         return preference_property<std::string>(js, path, "description");
+    }
+
+    inline std::string
+    preference_display_name(const utility::JsonStore &js, const std::string &path) {
+        return preference_property<std::string>(js, path, "display_name");
     }
 
     inline std::string

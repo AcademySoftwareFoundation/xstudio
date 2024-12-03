@@ -30,9 +30,9 @@ TEST(TrackActorAddTest, Test) {
     auto t = f.self->spawn<TrackActor>("Top Track");
 
     {
-        auto uuid = utility::Uuid::generate();
-        auto invalid =
-            f.self->spawn<TrackActor>("Invalid Track", media::MediaType::MT_IMAGE, uuid);
+        auto uuid    = utility::Uuid::generate();
+        auto invalid = f.self->spawn<TrackActor>(
+            "Invalid Track", utility::FrameRate(), media::MediaType::MT_IMAGE, uuid);
         EXPECT_THROW(
             request_receive<JsonStore>(
                 *(f.self),
@@ -45,8 +45,9 @@ TEST(TrackActorAddTest, Test) {
     }
 
     {
-        auto uuid    = utility::Uuid::generate();
-        auto invalid = f.self->spawn<TimelineActor>("Invalid Timeline", uuid);
+        auto uuid = utility::Uuid::generate();
+        auto invalid =
+            f.self->spawn<TimelineActor>("Invalid Timeline", utility::FrameRate(), uuid);
         EXPECT_THROW(
             request_receive<JsonStore>(
                 *(f.self),
@@ -60,7 +61,7 @@ TEST(TrackActorAddTest, Test) {
 
     {
         auto uuid  = utility::Uuid::generate();
-        auto valid = f.self->spawn<StackActor>("Valid Stack", uuid);
+        auto valid = f.self->spawn<StackActor>("Valid Stack", utility::FrameRate(), uuid);
         EXPECT_NO_THROW(request_receive<JsonStore>(
             *(f.self), t, insert_item_atom_v, 0, UuidActorVector({UuidActor(uuid, valid)})));
     }
@@ -82,14 +83,14 @@ TEST(TrackActorAddTest, Test) {
     auto item = request_receive<Item>(*(f.self), t, item_atom_v);
     EXPECT_EQ(item.size(), 3);
 
-    EXPECT_NO_THROW(request_receive<JsonStore>(*(f.self), t, erase_item_atom_v, 0));
+    EXPECT_NO_THROW(request_receive<JsonStore>(*(f.self), t, erase_item_atom_v, 0, false));
     item = request_receive<Item>(*(f.self), t, item_atom_v);
     EXPECT_EQ(item.size(), 2);
 
     auto jitem = std::pair<JsonStore, std::vector<Item>>();
     EXPECT_NO_THROW(
         (jitem = request_receive<std::pair<JsonStore, std::vector<Item>>>(
-             *(f.self), t, remove_item_atom_v, 0)));
+             *(f.self), t, remove_item_atom_v, 0, false)));
     EXPECT_EQ(jitem.second[0].item_type(), ItemType::IT_GAP);
     f.self->send_exit(jitem.second[0].actor(), caf::exit_reason::user_shutdown);
 

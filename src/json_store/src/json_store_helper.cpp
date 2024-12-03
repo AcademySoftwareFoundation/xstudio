@@ -42,18 +42,41 @@ void JsonStoreHelper::set(
     }
 }
 
+caf::actor JsonStoreHelper::get_jsonactor() const {
+    auto a = caf::actor_cast<caf::actor>(store_actor_);
+    caf::actor result;
+
+    if (not a)
+        throw std::runtime_error("JsonStoreHelper is dead");
+
+    system_->request(a, infinite, utility::get_group_atom_v)
+        .receive(
+            [&](const std::tuple<caf::actor, caf::actor, JsonStore> &data) {
+                const auto [jsa, grpa, json] = data;
+                result                       = jsa;
+            },
+            [&](const error &err) { throw std::runtime_error(to_string(err)); });
+
+    return result;
+};
+
 caf::actor JsonStoreHelper::get_group(utility::JsonStore &V) const {
     auto a = caf::actor_cast<caf::actor>(store_actor_);
     caf::actor grp;
+
     if (not a)
         throw std::runtime_error("JsonStoreHelper is dead");
+
     system_->request(a, infinite, utility::get_group_atom_v)
         .receive(
-            [&](const std::pair<caf::actor, JsonStore> &data) {
-                grp = data.first;
-                V   = data.second;
+            [&](const std::tuple<caf::actor, caf::actor, JsonStore> &data) {
+                const auto [jsa, grpa, json] = data;
+
+                grp = grpa;
+                V   = json;
             },
             [&](const error &err) { throw std::runtime_error(to_string(err)); });
+
     return grp;
 }
 } // namespace xstudio::json_store

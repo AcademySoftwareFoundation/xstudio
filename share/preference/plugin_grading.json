@@ -1,11 +1,11 @@
 {
 	"plugin": {
 		"grading": {
-			"grading_panel": {
-				"path": "/plugin/grading/grading_panel",
-				"default_value": "Basic",
-				"description": "Grading panel",
-				"value": "Basic",
+			"drawing_tool": {
+				"path": "/plugin/grading/drawing_tool",
+				"default_value": "Shape",
+				"description": "Drawing tool",
+				"value": "Shape",
 				"datatype": "string",
 				"context": ["APPLICATION"]
 			},

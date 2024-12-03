@@ -3,7 +3,7 @@
 
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/ui/opengl/shader_program_base.hpp"
-#include "xstudio/ui/viewport/hud_plugin.hpp"
+#include "xstudio/plugin_manager/hud_plugin.hpp"
 #include "xstudio/ui/opengl/opengl_text_rendering.hpp"
 
 namespace xstudio {
@@ -30,7 +30,7 @@ namespace ui {
 
         };*/
 
-        class PixelProbeHUD : public HUDPluginBase {
+        class PixelProbeHUD : public plugin::HUDPluginBase {
           public:
             PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
@@ -41,7 +41,7 @@ namespace ui {
                 ) override;
 
             void images_going_on_screen(
-                const std::vector<media_reader::ImageBufPtr> & /*images*/,
+                const media_reader::ImageBufDisplaySetPtr & /*images*/,
                 const std::string viewport_name,
                 const bool playhead_playing) override;
 
@@ -49,23 +49,21 @@ namespace ui {
             bool pointer_event(const ui::PointerEvent &e) override;
 
           private:
-            void update_onscreen_info(const std::string &viewport_name = std::string());
+            void update_onscreen_info(const std::string &viewport_name = std::string(), const Imath::V2f &pointer = Imath::V2f(-1,-1));
             caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
             void make_pixel_info_onscreen_text(const media_reader::PixelInfo &pixel_info);
 
-            media_reader::ImageBufPtr current_onscreen_image_;
-            std::map<std::string, media_reader::ImageBufPtr> current_onscreen_images_;
+            std::map<std::string, media_reader::ImageBufDisplaySetPtr> current_onscreen_images_;
             std::map<std::string, caf::actor> colour_pipelines_;
             module::StringAttribute *pixel_info_text_;
             module::StringAttribute *pixel_info_title_;
+            module::StringAttribute *pixel_info_current_viewport_;
             module::BooleanAttribute *show_code_values_;
             module::BooleanAttribute *show_raw_pixel_values_;
             module::BooleanAttribute *show_linear_pixel_values_;
             module::BooleanAttribute *show_final_screen_rgb_pixel_values_;
             module::IntegerAttribute *value_precision_;
 
-            caf::actor colour_pipeline_;
-            Imath::V2f last_pointer_pos_;
             bool is_enabled_ = {false};
         };
 

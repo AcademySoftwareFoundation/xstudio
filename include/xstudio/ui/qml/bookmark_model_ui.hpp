@@ -56,17 +56,45 @@ class BOOKMARK_QML_EXPORT BookmarkFilterModel : public QSortFilterProxyModel {
                    currentMediaChanged)
 
     Q_PROPERTY(int depth READ depth WRITE setDepth NOTIFY depthChanged)
+    Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
+    Q_PROPERTY(
+        QString showUserType READ showUserType WRITE setShowUserType NOTIFY showUserTypeChanged)
+    Q_PROPERTY(QStringList excludedCategories READ excludedCategories WRITE
+                   setExcludedCategories NOTIFY excludedCategoriesChanged)
+    Q_PROPERTY(QStringList includedCategories READ includedCategories WRITE
+                   setIncludedCategories NOTIFY includedCategoriesChanged)
+    Q_PROPERTY(bool sortbyCreated READ sortbyCreated WRITE setsortbyCreated NOTIFY
+                   sortbyCreatedChanged)
+    Q_PROPERTY(int length READ length NOTIFY lengthChanged)
+
 
   public:
     BookmarkFilterModel(QObject *parent = nullptr);
 
+    Q_INVOKABLE [[nodiscard]] QModelIndex
+    nextBookmark(const int mediaFrame, const QUuid &ownerUuid) const;
+
+    Q_INVOKABLE [[nodiscard]] QModelIndex
+    previousBookmark(const int mediaFrame, const QUuid &ownerUuid) const;
+
     [[nodiscard]] QVariantMap mediaOrder() const { return media_order_; }
     [[nodiscard]] int depth() const { return depth_; }
     [[nodiscard]] QVariant currentMedia() const { return QVariant::fromValue(current_media_); }
+    [[nodiscard]] bool showHidden() const { return showHidden_; }
+    [[nodiscard]] QString showUserType() const { return showUserType_; }
+    [[nodiscard]] QStringList excludedCategories() const { return excluded_categories_; }
+    [[nodiscard]] QStringList includedCategories() const { return included_categories_; }
+    [[nodiscard]] bool sortbyCreated() const { return sortbyCreated_; }
+    [[nodiscard]] int length() const { return rowCount(); }
 
     void setMediaOrder(const QVariantMap &mo);
     void setDepth(const int value);
     void setCurrentMedia(const QVariant &value);
+    void setShowHidden(const bool value);
+    void setShowUserType(const QString &value);
+    void setExcludedCategories(const QStringList value);
+    void setIncludedCategories(const QStringList value);
+    void setsortbyCreated(const bool value);
 
     Q_INVOKABLE bool
     removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override {
@@ -87,12 +115,23 @@ class BOOKMARK_QML_EXPORT BookmarkFilterModel : public QSortFilterProxyModel {
   signals:
     void mediaOrderChanged();
     void depthChanged();
+    void lengthChanged();
     void currentMediaChanged();
+    void showHiddenChanged();
+    void showUserTypeChanged();
+    void excludedCategoriesChanged();
+    void includedCategoriesChanged();
+    void sortbyCreatedChanged();
 
   private:
     QVariantMap media_order_;
     QUuid current_media_;
     int depth_{0};
+    bool showHidden_{false};
+    QString showUserType_;
+    QStringList excluded_categories_;
+    QStringList included_categories_;
+    bool sortbyCreated_{false};
 };
 
 
@@ -105,31 +144,35 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
 
   public:
     enum Roles {
-        enabledRole = JSONTreeModel::Roles::LASTROLE,
-        focusRole,
-        frameRole,
-        frameFromTimecodeRole,
-        startTimecodeRole,
-        endTimecodeRole,
-        durationTimecodeRole,
-        startFrameRole,
-        endFrameRole,
-        hasNoteRole,
-        subjectRole,
-        noteRole,
-        authorRole,
+        authorRole = JSONTreeModel::Roles::LASTROLE,
         categoryRole,
         colourRole,
+        createdEpochRole,
         createdRole,
-        hasAnnotationRole,
-        thumbnailRole,
-        ownerRole,
-        uuidRole,
-        objectRole,
-        startRole,
-        durationRole,
         durationFrameRole,
-        visibleRole
+        durationRole,
+        durationTimecodeRole,
+        enabledRole,
+        endFrameRole,
+        endTimecodeRole,
+        focusRole,
+        frameFromTimecodeRole,
+        frameRole,
+        hasAnnotationRole,
+        hasNoteRole,
+        metadataChangedRole,
+        noteRole,
+        objectRole,
+        ownerRole,
+        startFrameRole,
+        startRole,
+        startTimecodeRole,
+        subjectRole,
+        thumbnailRole,
+        userDataRole,
+        userTypeRole,
+        uuidRole,
+        visibleRole,
     };
 
     using super = caf::mixin::actor_object<JSONTreeModel>;
@@ -163,6 +206,12 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
     [[nodiscard]] QFuture<QString>
     getJSONFuture(const QModelIndex &index, const QString &path) const;
 
+    Q_INVOKABLE QVariant getJSONObject(const QModelIndex &index, const QString &path) const {
+        return getJSONObjectFuture(index, path).result();
+    }
+    Q_INVOKABLE QFuture<QVariant>
+    getJSONObjectFuture(const QModelIndex &index, const QString &path) const;
+
   signals:
     void bookmarkActorAddrChanged();
     void lengthChanged();
@@ -183,5 +232,7 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
     caf::actor bookmark_actor_;
     caf::actor backend_events_;
     std::map<utility::Uuid, bookmark::BookmarkDetail> bookmarks_;
+    std::map<utility::Uuid, QImage> thumbnail_cache_;
+    std::set<utility::Uuid> out_of_date_thumbnails_;
 };
 } // namespace xstudio::ui::qml
