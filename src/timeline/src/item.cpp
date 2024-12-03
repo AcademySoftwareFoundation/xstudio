@@ -1726,13 +1726,11 @@ void BuildFrameIDsHelper::add_frame(caf::actor clip_actor, timebase::flicks time
         current_clip_actor_ = clip_actor;
         timeline_timepoints_.clear();
         clip_timepoints_.clear();
-        std::cerr << "@";
 
     }
 
     timeline_timepoints_.emplace_back(timeline_tp);
     clip_timepoints_.emplace_back(clip_tp);
-    std::cerr << ":";
     
 }
 
