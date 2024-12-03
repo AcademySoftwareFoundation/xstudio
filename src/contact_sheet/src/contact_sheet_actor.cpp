@@ -119,8 +119,10 @@ void ContactSheetActor::init() {
                         rp.deliver(j);
                     });
 
-            } else if (!playhead_serialisation_.is_null()) {
-                j["playhead"] = playhead_serialisation_;
+            } else {
+                if (!playhead_serialisation_.is_null()) {
+                    j["playhead"] = playhead_serialisation_;
+                }
                 rp.deliver(j);
             }
             return rp;

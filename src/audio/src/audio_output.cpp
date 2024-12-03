@@ -168,10 +168,6 @@ void AudioOutputControl::prepare_samples_for_soundcard(
 
                 if (current_buf_) {
 
-                    std::cerr << to_string(current_buf_->media_key()) << " "
-                              << current_buf_->duration_seconds()
-                              << "\n";
-
                     current_buf_pos_ = 0;
 
                     // is audio playback stable ? i.e. is the next sample buffer
@@ -240,7 +236,6 @@ void AudioOutputControl::queue_samples_for_playing(
         t0 = audio_frames[0].timeline_timestamp();
     }
 
-    std::cerr << "queue_samples_for_playing ";
     for (const auto & frame: audio_frames) {
 
         // xstudio stores a frame of audio samples for every video frame for any
@@ -253,8 +248,6 @@ void AudioOutputControl::queue_samples_for_playing(
         // associated with that frame should sound.
         const auto adjusted_timeline_timestamp =
             std::chrono::duration_cast<timebase::flicks>(frame.timeline_timestamp() + (frame ? frame->time_delta_to_video_frame() : std::chrono::microseconds(0)));
-
-        std::cerr << timebase::to_seconds(adjusted_timeline_timestamp) << " " << timebase::to_seconds(t0) << "    ";
 
         if (frame)
             t0 += timebase::to_flicks(frame->duration_seconds());
@@ -285,7 +278,6 @@ void AudioOutputControl::queue_samples_for_playing(
         }
 
     }
-    std::cerr << "\n\n";
 
 }
 
@@ -440,10 +432,6 @@ AudioOutputControl::check_if_buffer_is_contiguous_with_previous_and_next(
         } else {
             result |= DoFadeHead;
         }
-    }
-
-    if (result != NoFade) {
-        std::cerr << "Distort\n";
     }
 
     return (AudioOutputControl::Fade)result;
