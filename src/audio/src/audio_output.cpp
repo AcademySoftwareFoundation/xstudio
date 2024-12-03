@@ -359,9 +359,8 @@ media_reader::AudioBufPtr AudioOutputControl::pick_audio_buffer(
     }
 
     if (drop_old_buffers && playing_forward_) {
-        r++;
         sample_data_.erase(sample_data_.begin(), r);
-    } else {
+    } else if (drop_old_buffers) {
         sample_data_.erase(r, sample_data_.end());
     }
     return v;
