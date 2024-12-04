@@ -102,18 +102,12 @@ Item {
     }
 
     function openDoc(url) {
+        console.log("url", url)
         if (url == "") {
-            var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
-            dialog.title = "Error"
-            dialog.text = "Unable to resolve location of user docs."
-            dialog.show()
+            dialogHelpers.errorDialogFunc("Error", "Unable to resolve location of user docs.")
         } else {
             if(!helpers.openURL(url)) {
-                var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
-                dialog.width = 600
-                dialog.title = "Error"
-                dialog.text = "Failed to launch webbrowser, this is the link, please manually visit this.<BR><BR>"+url+"<BR><BR>"
-                dialog.show()
+                dialogHelpers.errorDialogFunc("Error", "Failed to launch webbrowser, this is the link, please manually visit this.<BR><BR>"+url+"<BR><BR>")
             }
         }
     }

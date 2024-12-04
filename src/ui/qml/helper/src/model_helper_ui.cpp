@@ -529,6 +529,9 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
         case QMetaType::LongLong:
             result = value.toLongLong();
             break;
+        case QMetaType::ULongLong:
+            result = value.toULongLong();
+            break;
         case QMetaType::QString:
             result = StdFromQString(value.toString());
             break;
