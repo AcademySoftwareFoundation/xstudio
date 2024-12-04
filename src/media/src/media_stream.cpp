@@ -9,11 +9,11 @@ using namespace xstudio::utility;
 
 MediaStream::MediaStream(const JsonStore &jsn)
     : utility::Container(static_cast<JsonStore>(jsn["container"])) {
+
     detail_.duration_   = jsn["duration"];
     detail_.key_format_ = jsn["key_format"];
     detail_.media_type_ = media_type_from_string(jsn["media_type"]);
     detail_.name_       = name();
-
     // older versions of xstudio did not serialise these values. MediaStreamActor
     // takes care of re-scanning for the data in this case
     if (jsn.contains("resolution"))

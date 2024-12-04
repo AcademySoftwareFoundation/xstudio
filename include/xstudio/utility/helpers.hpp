@@ -280,7 +280,7 @@ namespace utility {
         DWORD nSize  = _countof(filename);
         DWORD result = GetModuleFileNameA(NULL, filename, nSize);
         if (result == 0) {
-            spdlog::debug("Unable to determine executable path from Windows API, falling back "
+            spdlog::critical("Unable to determine executable path from Windows API, falling back "
                           "to standard methods");
         } else {
             auto exePath = fs::path(filename);
@@ -288,7 +288,7 @@ namespace utility {
             // The first parent path gets us to the bin directory, the second gets us to the
             // level above bin.
             auto xstudio_root = exePath.parent_path().parent_path();
-            fallback_root     = xstudio_root.string();
+            fallback_root     = xstudio_root.string() + "/share/xstudio";
         }
 #else
         // TODO: This could inspect the current running process and look one directory up.

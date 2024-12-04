@@ -194,7 +194,6 @@ void WindowsAudioOutputDevice::initialize_sound_card() {
     } catch (std::exception &e) {
         spdlog::warn("{} Failed to retrieve WASAPI prefs : {} ", __PRETTY_FUNCTION__, e.what());
     }
-    spdlog::critical("DOING {} {}", __PRETTY_FUNCTION__, sample_rate_);
 
     HRESULT hr = initializeAudioClient(sound_card, sample_rate_, num_channels_);
     if (FAILED(hr)) {
@@ -212,8 +211,6 @@ void WindowsAudioOutputDevice::initialize_sound_card() {
     }
 
     audio_client_->Start();
-
-    spdlog::critical("DONE {} {}", __PRETTY_FUNCTION__, audio_client_);
 
 }
 

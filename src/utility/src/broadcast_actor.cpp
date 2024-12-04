@@ -88,7 +88,7 @@ void BroadcastActor::init() {
             // one of our subscribers..
             // spdlog::warn("possible subscriber dead {}", to_string(msg.source));
             auto subscriber = caf::actor_cast<caf::actor_addr>(msg.source);
-            if (subscribers_.count(subscriber)) {
+            if (subscriber && subscribers_.count(subscriber)) {
                 demonitor(msg.source);
                 subscribers_.erase(subscriber);
                 // spdlog::warn("subscriber dead {} {}",
@@ -101,7 +101,7 @@ void BroadcastActor::init() {
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
         [=](leave_broadcast_atom) -> bool {
             auto subscriber = caf::actor_cast<caf::actor_addr>(current_sender());
-            if (subscribers_.count(subscriber)) {
+            if (subscriber && subscribers_.count(subscriber)) {
                 demonitor(current_sender());
                 subscribers_.erase(subscriber);
                 // spdlog::warn("subscriber leaving {} {}",
@@ -111,7 +111,7 @@ void BroadcastActor::init() {
         },
         [=](leave_broadcast_atom, caf::actor sub) -> bool {
             auto subscriber = caf::actor_cast<caf::actor_addr>(sub);
-            if (subscribers_.count(subscriber)) {
+            if (subscriber && subscribers_.count(subscriber)) {
                 demonitor(sub);
                 subscribers_.erase(subscriber);
                 // spdlog::warn("subscriber leaving {} {}",
@@ -121,7 +121,7 @@ void BroadcastActor::init() {
         },
         [=](join_broadcast_atom) -> bool {
             auto subscriber = caf::actor_cast<caf::actor_addr>(current_sender());
-            if (not subscribers_.count(subscriber)) {
+            if (subscriber && not subscribers_.count(subscriber)) {
                 monitor(current_sender());
                 subscribers_.insert(subscriber);
                 // spdlog::warn("new subscriber {} {} {}",
@@ -133,7 +133,7 @@ void BroadcastActor::init() {
         [=](join_broadcast_atom, caf::actor sub) -> bool {
             auto subscriber = caf::actor_cast<caf::actor_addr>(sub);
 
-            if (not subscribers_.count(subscriber)) {
+            if (subscriber && not subscribers_.count(subscriber)) {
 
                 monitor(sub);
                 subscribers_.insert(subscriber);

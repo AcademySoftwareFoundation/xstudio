@@ -5,16 +5,9 @@ macro(add_preference name path target)
                                                     ${CMAKE_BINARY_DIR}/bin/preference/${name}
                    DEPENDS ${path}/${name})
     if(INSTALL_XSTUDIO)
-		if(WIN32)
-			install(FILES
-			${path}/${name}
-			DESTINATION
-			${CMAKE_INSTALL_PREFIX}/preference)
-		else()
-			install(FILES
-			${path}/${name}
-			DESTINATION share/xstudio/preference)
-		endif()
+		install(FILES
+		${path}/${name}
+		DESTINATION share/xstudio/preference)
     endif ()
 
 endmacro()
@@ -189,7 +182,7 @@ macro(default_plugin_options name)
 		#This will unfortunately also install the plugin in the /bin directory.  TODO: Figure out how to omit the plugin itself.
 		install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
 		# We don't want the vcpkg install because it forces dependences; we just want the plugin.
-		_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin)
+		_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin)
 
 		#For interactive debugging, we want only the output dll to be copied to the build plugins folder.
 		add_custom_command(

@@ -62,11 +62,9 @@ int FrameRateDuration::frame(const FrameRateDuration &rt, const bool remapped) c
 
 void xstudio::utility::from_json(const nlohmann::json &j, FrameRateDuration &rt) {
     FrameRate r;
-    long int ticks;
-
+    uint64_t ticks;
     j.at("rate").get_to(r);
     j.at("duration").get_to(ticks);
-
     rt.set_duration(timebase::flicks(ticks));
     rt.set_rate(r);
 }

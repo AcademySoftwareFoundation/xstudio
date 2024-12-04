@@ -1284,6 +1284,7 @@ void MediaSourceActor::get_media_pointers_for_frames(
 
     auto blank_ptr = std::make_shared<const media::AVFrameID>(blank);
 
+
     // get colours params ... only need this for media_type == MT_IMAGE though
     request(json_store_, infinite, json_store::get_json_atom_v, "/colour_pipeline")
         .then(

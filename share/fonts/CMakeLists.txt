@@ -20,13 +20,6 @@ add_custom_target(
   ${fonts}
 )
 
-if(WIN32)
-	install(FILES
+install(FILES
 	${fonts}
-	DESTINATION
-	${CMAKE_INSTALL_PREFIX}/fonts)
-else()
-	install(FILES
-	  ${fonts}
-	  DESTINATION share/xstudio/fonts)
-endif()
+	DESTINATION share/xstudio/fonts)
