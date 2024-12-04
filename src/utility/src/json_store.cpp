@@ -35,11 +35,8 @@ JsonStore xstudio::utility::open_session(const caf::uri &path) {
 
 JsonStore xstudio::utility::open_session(const std::string &path) {
     JsonStore js;
-
-    std::cerr << "path " << path << "\n";
     zstr::ifstream i(path);
     i >> js;
-
     return js;
 }
 

@@ -92,7 +92,7 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
         result = JSONTreeModel::removeRows(row, count, parent);
 
         if (media) {
-            // spdlog::warn("mediaCountRole {}", rowCount(parent));
+            //spdlog::warn("mediaCountRole 2 {}", rowCount(parent));
             setData(parent.parent(), QVariant::fromValue(rowCount(parent)), mediaCountRole);
         }
     }

@@ -49,7 +49,7 @@ set(QML_INSTALL_DIR ${INSTALL_ROOT}/bin/QuickPromise)
 # Install the library and qml files
 if(WIN32)
     install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT}/bin)
-    install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin/qml/QuickPromise)
+    install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickPromise)
 else()
     install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT})
     install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickPromise)

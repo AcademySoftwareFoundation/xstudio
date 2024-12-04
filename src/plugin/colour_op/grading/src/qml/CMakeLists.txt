@@ -2,11 +2,7 @@
 
 project(grading VERSION 0.1.0 LANGUAGES CXX)
 
-if(WIN32)
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Grading.2/ DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin/qml/Grading.2)
-else()
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Grading.2/ DESTINATION share/xstudio/plugin/qml/Grading.2)
-endif()
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Grading.2/ DESTINATION share/xstudio/plugin/qml/Grading.2)
 
 add_custom_target(COPY_GRADE_QML ALL)
 
