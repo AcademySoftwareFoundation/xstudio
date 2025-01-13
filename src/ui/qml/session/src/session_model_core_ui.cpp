@@ -479,24 +479,27 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
 
             case notificationRole:
                 if (j.count("notification")) {
-                    auto type = j.value("type", "");
-                    if (j.at("notification").is_null()) {
-                        if (type == "Audio Track" or type == "Video Track")
-                            requestData(
-                                QVariant::fromValue(QUuidFromUuid(j.at("id"))),
-                                idRole,
-                                index,
-                                index,
-                                role);
-                        else
-                            requestData(
-                                QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
-                                actorUuidRole,
-                                getPlaylistIndex(index),
-                                index,
-                                role);
-                    } else {
-                        result = QVariant::fromValue(mapFromValue(j.at("notification")));
+                    try {
+                        auto type = j.value("type", "");
+                        if (j.at("notification").is_null()) {
+                            if (type == "Audio Track" or type == "Video Track")
+                                requestData(
+                                    QVariant::fromValue(QUuidFromUuid(j.at("id"))),
+                                    idRole,
+                                    index,
+                                    index,
+                                    role);
+                            else
+                                requestData(
+                                    QVariant::fromValue(QUuidFromUuid(j.at("actor_uuid"))),
+                                    actorUuidRole,
+                                    getPlaylistIndex(index),
+                                    index,
+                                    role);
+                        } else {
+                            result = QVariant::fromValue(mapFromValue(j.at("notification")));
+                        }
+                    } catch (...) {
                     }
                 }
                 break;
@@ -1312,8 +1315,8 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
 
             case nameRole:
                 if (j.count("name") and j["name"] != value) {
-                    if ((type == "Session" or type == "ContactSheet" or type == "Subset" or type == "Timeline" or
-                         type == "Playlist") and
+                    if ((type == "Session" or type == "ContactSheet" or type == "Subset" or
+                         type == "Timeline" or type == "Playlist") and
                         actor) {
                         // spdlog::warn("Send update {} {}", j["name"], value);
                         anon_send(actor, utility::name_atom_v, value.get<std::string>());

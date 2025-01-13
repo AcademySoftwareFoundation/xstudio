@@ -169,30 +169,42 @@ Rectangle{
                     anchors.fill: parent
                     showBorder: isOnScreen
                     highlightBorderThickness: 10
+
+                    LinearGradient {
+                        anchors.fill: parent
+                        start: Qt.point(0, 0)
+                        end: Qt.point(width, height)
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: isSelected ? palette.highlight : "#44000000" }
+                            GradientStop { position: 0.15; color: isSelected ? palette.highlight : "#44000000" }
+                            GradientStop { position: 0.25; color: "transparent" }
+                            GradientStop { position: 1.0; color: "transparent" }
+                        }
+                    }
                 }
                 Rectangle{ id: flagIndicator
                     width: 5 * cellSize/standardCellSize
                     height: parent.height
                     color: flagColourRole == undefined ? "transparent" : flagColourRole
                 }
-                Rectangle{
-                    anchors.left: thumb.left
-                    anchors.leftMargin: -width/2
-                    anchors.top: thumb.top
-                    anchors.topMargin: -width/2
-                    color: isSelected ? palette.highlight : "black"
-                    width: 50
-                    height: width
-                    // radius: width/2
-                    border.width: 0
-                    border.color: palette.text
-                    scale: cellSize/standardCellSize
-                    opacity: isSelected? 0.9 : 0.5
-                    clip: true
-                    rotation: -45
+                // Rectangle{
+                //     anchors.left: thumb.left
+                //     anchors.leftMargin: -width/2
+                //     anchors.top: thumb.top
+                //     anchors.topMargin: -width/2
+                //     color: "transparent" //isSelected ? "red" : "black"
+                //     width: 50
+                //     height: width
+                //     // radius: width/2
+                //     border.width: 0
+                //     border.color: palette.text
+                //     scale: cellSize/standardCellSize
+                //     opacity: isSelected? 0.9 : 0.5
+                //     clip: true
+                //     rotation: -45
+                //     visible: indexDiv.text != ""
+                // }
 
-                    visible: indexDiv.text != ""
-                }
                 XsText{ id: indexDiv
                     text: selectionIndex ? selectionIndex : ""
                     anchors.left: thumb.left

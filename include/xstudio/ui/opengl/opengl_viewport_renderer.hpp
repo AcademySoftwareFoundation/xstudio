@@ -43,7 +43,6 @@ namespace ui {
 
         class OpenGLViewportRenderer : public viewport::ViewportRenderer {
           public:
-
             OpenGLViewportRenderer(const std::string &window_id);
 
             virtual ~OpenGLViewportRenderer() override;
@@ -52,7 +51,8 @@ namespace ui {
                 const media_reader::ImageBufDisplaySetPtr &images,
                 const Imath::M44f &window_to_viewport_matrix,
                 const Imath::M44f &viewport_to_image_matrix,
-                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) override;
+                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
+                    &overlay_renderers) override;
 
             virtual void draw_image(
                 const media_reader::ImageBufPtr &image_to_be_drawn,
@@ -67,14 +67,14 @@ namespace ui {
             void set_prefs(const utility::JsonStore &prefs) override;
 
           protected:
-
             void __draw_image(
                 const media_reader::ImageBufDisplaySetPtr &all_images,
                 const int index,
                 const Imath::M44f &window_to_viewport_matrix,
                 const Imath::M44f &viewport_to_image_space,
                 const float viewport_du_dx,
-                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers);
+                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
+                    &overlay_renderers);
 
             void pre_init() override;
 
@@ -82,8 +82,7 @@ namespace ui {
                 const viewport::GPUShaderPtr &image_buffer_unpack_shader,
                 const std::vector<colour_pipeline::ColourOperationDataPtr> &operations);
 
-            void
-            upload_image_and_colour_data(const media_reader::ImageBufPtr &image);
+            void upload_image_and_colour_data(const media_reader::ImageBufPtr &image);
             void bind_textures(const media_reader::ImageBufPtr &image);
             void release_textures();
             void clear_viewport_area(const Imath::M44f &window_to_viewport_matrix);
@@ -91,22 +90,29 @@ namespace ui {
             typedef std::shared_ptr<GLDoubleBufferedTexture> GLTexturePtr;
 
             struct SharedResources {
-              std::vector<GLTexturePtr> textures_;
-              std::map<std::string, GLShaderProgramPtr> programs_;
-              ColourPipeLutCollection colour_pipe_textures_;
-              unsigned int vbo_, vao_;
-              GLShaderProgramPtr no_image_shader_program_;
-              void init();
-              ~SharedResources();
+                std::vector<GLTexturePtr> textures_;
+                std::map<std::string, GLShaderProgramPtr> programs_;
+                ColourPipeLutCollection colour_pipe_textures_;
+                unsigned int vbo_ = 0;
+                unsigned int vao_ = 0;
+                GLShaderProgramPtr no_image_shader_program_;
+                void init();
+                ~SharedResources();
             };
-            
+
             typedef std::shared_ptr<SharedResources> SharedResourcesPtr;
-            std::vector<GLTexturePtr> & textures() { return resources_->textures_; }
-            std::map<std::string, GLShaderProgramPtr> & shader_programs() { return resources_->programs_; }
-            ColourPipeLutCollection & colour_pipe_textures() { return resources_->colour_pipe_textures_; }
-            GLShaderProgramPtr & no_image_shader_program() { return resources_-> no_image_shader_program_; }
-            unsigned int & vbo() { return resources_->vbo_; }
-            unsigned int & vao() { return resources_->vao_; }
+            std::vector<GLTexturePtr> &textures() { return resources_->textures_; }
+            std::map<std::string, GLShaderProgramPtr> &shader_programs() {
+                return resources_->programs_;
+            }
+            ColourPipeLutCollection &colour_pipe_textures() {
+                return resources_->colour_pipe_textures_;
+            }
+            GLShaderProgramPtr &no_image_shader_program() {
+                return resources_->no_image_shader_program_;
+            }
+            unsigned int &vbo() { return resources_->vbo_; }
+            unsigned int &vao() { return resources_->vao_; }
 
             static std::map<std::string, SharedResourcesPtr> s_resources_store_;
 
@@ -114,7 +120,7 @@ namespace ui {
             GLShaderProgramPtr active_shader_program_;
             std::string latest_colour_pipe_data_cacheid_;
             const std::string window_id_;
-            bool use_ssbo_ = {false};
+            bool use_ssbo_  = {false};
             bool use_alpha_ = {false};
             std::array<int, 4> scissor_coords_;
         };

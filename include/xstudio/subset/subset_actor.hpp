@@ -12,7 +12,11 @@ namespace subset {
     class SubsetActor : public caf::event_based_actor {
       public:
         SubsetActor(caf::actor_config &cfg, caf::actor playlist, const utility::JsonStore &jsn);
-        SubsetActor(caf::actor_config &cfg, caf::actor playlist, const std::string &name, const std::string &override_type = "Subset");
+        SubsetActor(
+            caf::actor_config &cfg,
+            caf::actor playlist,
+            const std::string &name,
+            const std::string &override_type = "Subset");
         ~SubsetActor() override = default;
 
         const char *name() const override { return NAME.c_str(); }
@@ -44,8 +48,9 @@ namespace subset {
         bool remove_media(caf::actor actor, const utility::Uuid &uuid);
 
       protected:
-
         utility::JsonStore serialise() const { return base_.serialise(); }
+
+        utility::JsonStore playhead_serialisation_;
 
         caf::behavior behavior_;
         caf::actor_addr playlist_;

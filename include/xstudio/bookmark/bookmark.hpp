@@ -31,6 +31,8 @@ namespace bookmark {
         }
         utility::Uuid bookmark_uuid_;
 
+        virtual size_t hash() const { return 0; }
+
       private:
         utility::JsonStore store_;
     };
@@ -104,6 +106,7 @@ namespace bookmark {
 
         std::optional<bool> has_note_;
         std::optional<bool> has_annotation_;
+        std::optional<size_t> annotation_hash_;
 
         std::optional<utility::MediaReference> media_reference_;
         std::optional<std::string> media_flag_;
@@ -124,6 +127,7 @@ namespace bookmark {
                 f.field("utp", x.user_type_),
                 f.field("udt", x.user_data_),
                 f.field("hasa", x.has_annotation_),
+                f.field("anh", x.annotation_hash_),
                 f.field("hasn", x.has_note_),
                 f.field("aut", x.author_),
                 f.field("cat", x.category_),
@@ -288,6 +292,7 @@ namespace bookmark {
 
         auto has_note() const { return static_cast<bool>(note_); }
         auto has_annotation() const { return static_cast<bool>(annotation_); }
+        size_t annotation_hash() const { return annotation_ ? annotation_->hash() : 0; }
 
         void create_note();
         void create_annotation();

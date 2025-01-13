@@ -29,7 +29,7 @@ Item{ id: toolDiv
         XsPrimaryButton{ id: deleteBtn
             Layout.preferredWidth: btnWidth
             Layout.preferredHeight: btnHeight
-            imgSrc: "qrc:/icons/delete.svg"
+            imgSrc: "qrc:/icons/delete.svg" 
             //tooltip: "Remove the currently selected color correction"
             enabled: bookmarkList.count > 0
             onClicked: {
@@ -69,20 +69,7 @@ Item{ id: toolDiv
             hotkeyNameForTooltip: "Bypass all grades"
             
         }
-        XsPrimaryButton{ id: moreBtn
-            Layout.preferredWidth: btnWidth
-            Layout.preferredHeight: btnHeight
-            Layout.alignment: Qt.AlignRight
-            imgSrc: "qrc:/icons/more_vert.svg"
-            onClicked:{
-                if(moreMenu.visible) moreMenu.visible = false
-                else{
-                    moreMenu.x = x + width
-                    moreMenu.y = y + height
-                    moreMenu.visible = true
-                }
-            }
-        }
 
     }
+
 }

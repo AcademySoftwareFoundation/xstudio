@@ -32,7 +32,6 @@ using namespace xstudio::playhead;
 using namespace xstudio::playlist;
 using namespace xstudio::plugin_manager;
 using namespace xstudio::session;
-using namespace xstudio::sync;
 using namespace xstudio::thumbnail;
 using namespace xstudio::timeline;
 using namespace xstudio::ui;
@@ -56,9 +55,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::broadcast, join_broadcast_atom);
     ADD_ATOM(xstudio::broadcast, leave_broadcast_atom);
     ADD_ATOM(xstudio::broadcast, broadcast_down_atom);
-    ADD_ATOM(xstudio::sync, authorise_connection_atom);
-    ADD_ATOM(xstudio::sync, get_sync_atom);
-    ADD_ATOM(xstudio::sync, request_connection_atom);
     ADD_ATOM(xstudio::media_hook, get_media_hook_atom);
     ADD_ATOM(xstudio::media_hook, gather_media_sources_atom);
     ADD_ATOM(xstudio::media_metadata, get_metadata_atom);
@@ -86,6 +82,8 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::timeline, split_item_atom);
     ADD_ATOM(xstudio::timeline, split_item_at_frame_atom);
     ADD_ATOM(xstudio::timeline, trimmed_range_atom);
+    ADD_ATOM(xstudio::timeline, item_selection_atom);
+    ADD_ATOM(xstudio::timeline, item_type_atom);
 
     ADD_ATOM(xstudio::thumbnail, cache_path_atom);
     ADD_ATOM(xstudio::thumbnail, cache_stats_atom);
@@ -202,7 +200,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::global, api_exit_atom);
     ADD_ATOM(xstudio::global, busy_atom);
     ADD_ATOM(xstudio::global, create_studio_atom);
-    ADD_ATOM(xstudio::global, get_api_mode_atom);
     ADD_ATOM(xstudio::global, get_application_mode_atom);
     ADD_ATOM(xstudio::global, get_global_audio_cache_atom);
     ADD_ATOM(xstudio::global, get_global_image_cache_atom);
@@ -216,6 +213,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::global, remote_session_name_atom);
     ADD_ATOM(xstudio::global, status_atom);
     ADD_ATOM(xstudio::global, get_actor_from_registry_atom);
+    ADD_ATOM(xstudio::global, authenticate_atom);
 
     ADD_ATOM(xstudio::media, acquire_media_detail_atom);
     ADD_ATOM(xstudio::media, add_media_source_atom);
@@ -257,6 +255,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::utility, type_atom);
     ADD_ATOM(xstudio::utility, uuid_atom);
     ADD_ATOM(xstudio::utility, version_atom);
+    ADD_ATOM(xstudio::utility, notification_atom);
     ADD_ATOM(xstudio::json_store, get_json_atom);
     ADD_ATOM(xstudio::json_store, jsonstore_change_atom);
     ADD_ATOM(xstudio::json_store, patch_atom);
@@ -371,7 +370,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::viewport, quickview_media_atom);
     ADD_ATOM(xstudio::ui::viewport, viewport_atom);
     ADD_ATOM(xstudio::ui::viewport, hud_settings_atom);
-    ADD_ATOM(xstudio::ui::viewport, viewport_layout_atom);    
+    ADD_ATOM(xstudio::ui::viewport, viewport_layout_atom);
 
     ADD_ATOM(xstudio::ui, show_message_box_atom);
 

@@ -30,6 +30,107 @@ namespace fs = std::filesystem;
 
 namespace {
 
+class SessionIOActor : public caf::event_based_actor {
+  public:
+    SessionIOActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {}
+    const char *name() const override { return NAME.c_str(); }
+
+    caf::message_handler message_handler() {
+        return caf::message_handler{
+            [=](save_atom,
+                const JsonStore &js,
+                const caf::uri &path,
+                const bool update_path,
+                const size_t hash) -> caf::result<size_t> {
+                size_t new_hash = 0;
+
+                try {
+                    auto data = js.dump(2);
+
+                    auto resolve_link = false;
+                    new_hash          = std::hash<std::string>{}(data);
+
+                    // no change in hash, so skip save (autosave)
+                    if (new_hash == hash) {
+                        return new_hash;
+                    }
+
+                    // fix something ?
+                    auto ppath = utility::posix_path_to_uri(utility::uri_to_posix_path(path));
+
+                    // try and save, we are already looking at this file
+                    if (update_path) {
+                        // same path as session, are we allowed ?
+                        resolve_link = true;
+                    }
+
+                    auto save_path = uri_to_posix_path(ppath);
+                    if (resolve_link && fs::exists(save_path) && fs::is_symlink(save_path))
+#ifdef _WIN32
+                        save_path = fs::canonical(save_path).string();
+#else
+                        save_path = fs::canonical(save_path);
+#endif
+
+
+                    // compress data.
+                    if (to_lower(path_to_string(fs::path(save_path).extension())) == ".xsz") {
+                        zstr::ofstream o(save_path + ".tmp");
+                        try {
+                            o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                            // if(not o.is_open())
+                            //     throw std::runtime_error();
+                            o << std::setw(4) << data << std::endl;
+                            o.close();
+                        } catch (const std::exception &) {
+                            // remove failed file
+                            if (o.is_open()) {
+                                o.close();
+                                fs::remove(save_path + ".tmp");
+                            }
+                            throw std::runtime_error("Failed to open file");
+                        }
+                    } else {
+                        // this maybe a symlink in which case we should resolve it.
+                        std::ofstream o(save_path + ".tmp");
+                        try {
+                            o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                            // if(not o.is_open())
+                            //     throw std::runtime_error();
+                            o << std::setw(4) << data << std::endl;
+                            o.close();
+                        } catch (const std::exception &) {
+                            // remove failed file
+                            if (o.is_open()) {
+                                o.close();
+                                fs::remove(save_path + ".tmp");
+                            }
+                            throw std::runtime_error("Failed to open file");
+                        }
+                    }
+
+                    // rename tmp to final name
+                    fs::rename(save_path + ".tmp", save_path);
+
+                    const std::string t = utility::to_string(utility::sysclock::now());
+                    spdlog::info("Session saved as {} at {}", save_path, t);
+
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    return make_error(xstudio_error::error, err.what());
+                }
+
+                return new_hash;
+            }};
+    }
+
+    caf::behavior make_behavior() override { return message_handler(); }
+
+  private:
+    inline static const std::string NAME = "SessionIOActor";
+};
+
+
 // offload media actor copy as it blocks the session actor..
 class MediaCopyActor : public caf::event_based_actor {
 
@@ -508,6 +609,9 @@ void SessionActor::init() {
     print_on_create(this, base_);
     print_on_exit(this, base_);
 
+    ioactor_ = spawn<SessionIOActor>();
+    link_to(ioactor_);
+
     // monitor serilise targets.
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
@@ -541,6 +645,7 @@ void SessionActor::init() {
 
     behavior_.assign(message_handler()
                          .or_else(base_.container_message_handler(this))
+                         .or_else(notification_.message_handler(this, base_.event_group()))
                          .or_else(bookmark::BookmarksActor::default_event_handler())
                          .or_else(playlist::PlaylistActor::default_event_handler()));
 
@@ -571,9 +676,17 @@ caf::message_handler SessionActor::message_handler() {
             return rp;
         },
 
+        [=](name_atom, const std::string &name_template, const bool) -> std::string {
+            return get_next_name(name_template);
+        },
+
         [=](add_playlist_atom atom, const Uuid &uuid_before) {
             delegate(
-                actor_cast<caf::actor>(this), atom, "Untitled Playlist", uuid_before, false);
+                actor_cast<caf::actor>(this),
+                atom,
+                get_next_name("Playlist {}"),
+                uuid_before,
+                false);
         },
 
         [=](add_playlist_atom atom, const std::string name) {
@@ -611,6 +724,12 @@ caf::message_handler SessionActor::message_handler() {
         // gather sources for media and return new sources.
         [=](media_hook::gather_media_sources_atom atom, const caf::actor &media) {
             delegate(caf::actor_cast<caf::actor>(this), atom, media, base_.media_rate());
+        },
+
+        [=](timeline::item_selection_atom) -> UuidActorVector { return selection_; },
+
+        [=](timeline::item_selection_atom, const UuidActorVector &selection) {
+            selection_ = selection;
         },
 
         [=](get_playlist_atom) -> result<caf::actor> {
@@ -779,7 +898,23 @@ caf::message_handler SessionActor::message_handler() {
                     utility::serialise_atom_v)
                     .then(
                         [=](const utility::JsonStore &js) mutable {
-                            save_json_to(rp, js, path, update_path, hash);
+                            request(
+                                ioactor_, infinite, save_atom_v, js, path, update_path, hash)
+                                .then(
+                                    [=](size_t r) mutable {
+                                        rp.deliver(r);
+                                        if (update_path) {
+                                            base_.set_filepath(path);
+                                            send(
+                                                base_.event_group(),
+                                                utility::event_atom_v,
+                                                path_atom_v,
+                                                std::make_pair(
+                                                    base_.filepath(),
+                                                    base_.session_file_mtime()));
+                                        }
+                                    },
+                                    [=](error &err) mutable { rp.deliver(std::move(err)); });
                         },
                         [=](error &err) mutable { rp.deliver(std::move(err)); });
             } else {
@@ -790,7 +925,8 @@ caf::message_handler SessionActor::message_handler() {
                     containers)
                     .then(
                         [=](const utility::JsonStore &js) mutable {
-                            save_json_to(rp, js, path, false, hash);
+                            rp.delegate(ioactor_, save_atom_v, js, path, false, hash);
+                            // save_json_to(rp, js, path, false, hash);
                         },
                         [=](error &err) mutable { rp.deliver(std::move(err)); });
             }
@@ -1417,7 +1553,6 @@ caf::message_handler SessionActor::message_handler() {
                                     session::session_atom_v)
                                     .then(
                                         [=](caf::actor session) {
-
                                             // If  we are not THE active session. Don't try and
                                             // switch
                                             // the global playhead ...
@@ -1903,34 +2038,8 @@ void SessionActor::create_playlist(
     const utility::Uuid &uuid_before,
     const bool into) {
 
-    if (name.empty()) {
-
-        // No name supplied ... we want to create a new playlist called
-        // 'Playlist 1' or, if 'Playlist 1' already exists 'Playlist 2' etc.
-        std::function<Uuid(const PlaylistTree &, const std::string &)> recursive_name_search;
-
-        recursive_name_search = [&recursive_name_search](
-                                    const PlaylistTree &tree, const std::string &name) -> Uuid {
-            if (tree.name() == name) {
-                return tree.value_uuid();
-            }
-            for (auto i : tree.children_ref()) {
-                const Uuid uuid = recursive_name_search(i, name);
-                if (uuid != Uuid())
-                    return uuid;
-            }
-            return Uuid();
-        };
-
-        int n = 1;
-        while (1) {
-            name       = fmt::format("Playlist {}", n);
-            Uuid match = recursive_name_search(base_.containers(), name);
-            if (!playlists_.count(match))
-                break;
-            n++;
-        }
-    }
+    if (name.empty())
+        name = get_next_name("Playlist {}");
 
     auto actor = spawn<playlist::PlaylistActor>(
         name, utility::Uuid(), caf::actor_cast<caf::actor>(this));
@@ -2228,101 +2337,52 @@ void SessionActor::move_containers_to(
     }
 }
 
-void SessionActor::save_json_to(
-    caf::typed_response_promise<size_t> &rp,
-    const utility::JsonStore &js,
-    const caf::uri &path,
-    const bool update_path,
-    const size_t hash) {
 
-    size_t new_hash = 0;
+std::string SessionActor::get_next_name(const std::string &name_template) const {
+    auto result = name_template;
 
-    try {
-        auto data = js.dump(2);
+    auto merged_tree = base_.containers();
 
-        auto resolve_link = false;
-        new_hash          = std::hash<std::string>{}(data);
+    caf::scoped_actor sys(system());
 
-        // no change in hash, so skip save (autosave)
-        if (new_hash == hash) {
-            return rp.deliver(new_hash);
-        }
-
-        // fix something ?
-        auto ppath = utility::posix_path_to_uri(utility::uri_to_posix_path(path));
-
-        // try and save, we are already looking at this file
-        if (update_path) {
-            // same path as session, are we allowed ?
-            resolve_link = true;
-        }
-
-        auto save_path = uri_to_posix_path(ppath);
-        if (resolve_link && fs::exists(save_path) && fs::is_symlink(save_path))
-#ifdef _WIN32
-            save_path = fs::canonical(save_path).string();
-#else
-            save_path = fs::canonical(save_path);
-#endif
-
-
-        // compress data.
-        if (to_lower(path_to_string(fs::path(save_path).extension())) == ".xsz") {
-            zstr::ofstream o(save_path + ".tmp");
-            try {
-                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-                // if(not o.is_open())
-                //     throw std::runtime_error();
-                o << std::setw(4) << data << std::endl;
-                o.close();
-            } catch (const std::exception &) {
-                // remove failed file
-                if (o.is_open()) {
-                    o.close();
-                    fs::remove(save_path + ".tmp");
-                }
-                throw std::runtime_error("Failed to open file");
-            }
-        } else {
-            // this maybe a symlink in which case we should resolve it.
-            std::ofstream o(save_path + ".tmp");
-            try {
-                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-                // if(not o.is_open())
-                //     throw std::runtime_error();
-                o << std::setw(4) << data << std::endl;
-                o.close();
-            } catch (const std::exception &) {
-                // remove failed file
-                if (o.is_open()) {
-                    o.close();
-                    fs::remove(save_path + ".tmp");
-                }
-                throw std::runtime_error("Failed to open file");
-            }
-        }
-
-        // rename tmp to final name
-        fs::rename(save_path + ".tmp", save_path);
-
-        const std::string t = utility::to_string(utility::sysclock::now());
-        spdlog::info("Session saved as {} at {}", save_path, t);
-
-        if (update_path) {
-            base_.set_filepath(path);
-            send(
-                base_.event_group(),
-                utility::event_atom_v,
-                path_atom_v,
-                std::make_pair(base_.filepath(), base_.session_file_mtime()));
-        }
-
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-        return rp.deliver(make_error(xstudio_error::error, err.what()));
+    // pity we don't sync children.. like timelines..
+    for (const auto &p : playlists()) {
+        auto pt = request_receive<PlaylistTree>(*sys, p, playlist::get_container_atom_v);
+        merged_tree.insert(pt);
     }
 
-    rp.deliver(new_hash);
+    // No name supplied ... we want to create a new playlist called
+    // 'Playlist 1' or, if 'Playlist 1' already exists 'Playlist 2' etc.
+    std::function<Uuid(const PlaylistTree &, const std::string &)> recursive_name_search;
+
+    recursive_name_search =
+        [&recursive_name_search](const PlaylistTree &tree, const std::string &name) -> Uuid {
+        if (tree.name() == name) {
+            return tree.value_uuid();
+        }
+        // also search for other children of session..
+        for (auto i : tree.children_ref()) {
+            auto uuid = recursive_name_search(i, name);
+            if (uuid)
+                return uuid;
+        }
+        return Uuid();
+    };
+
+    int n = 1;
+
+    while (true) {
+        result = fmt::format(fmt::runtime(name_template), n);
+        if (result == name_template)
+            break;
+
+        if (not recursive_name_search(merged_tree, result))
+            break;
+
+        n++;
+    }
+
+    return result;
 }
 
 void SessionActor::associate_bookmarks(caf::typed_response_promise<int> &rp) {

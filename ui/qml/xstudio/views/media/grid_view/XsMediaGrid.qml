@@ -126,14 +126,14 @@ XsGridView {
             if (idx == undefined || !idx.valid) {
                 idx = mediaListModelDataRoot
                 if (idx == undefined || !idx.valid) {
-                    idx = theSessionData.createPlaylist("New Playlist")
+                    idx = theSessionData.createPlaylist(theSessionData.getNextName("Playlist {}"))
                 } else {
                     idx = idx.parent // mediaListModelDataRoot is the 'MediaList' underneath a Playist, Subset etc.
                 }
             }
 
             if (source == "External URIS") {
-        
+
                 Future.promise(
                     theSessionData.handleDropFuture(
                         Qt.CopyAction,

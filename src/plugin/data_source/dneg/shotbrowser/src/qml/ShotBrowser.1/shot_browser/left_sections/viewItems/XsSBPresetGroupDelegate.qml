@@ -12,7 +12,7 @@ import ShotBrowser 1.0
 
 
 MouseArea {
-    id: dragArea
+    id: thisItem
 
     property var delegateModel: null
     property var selectionModel: null
@@ -31,6 +31,15 @@ MouseArea {
     property color itemColorNormal: XsStyleSheet.widgetBgNormalColor //palette.base
 
     hoverEnabled: true
+
+    property bool itemDragging: isDragging && isSelected
+    property int itemDraggingOffset: itemDragging ? draggingOffset : 0
+
+    property int oldY: 0
+    property var oldParent: null
+
+    x: 0
+
 
     function presetModelIndex() {
         try {
@@ -54,15 +63,122 @@ MouseArea {
         if(mouse.modifiers == Qt.NoModifier) {
             selectionModel.select(presetModelIndex(), ItemSelectionModel.ClearAndSelect)
         } else if(mouse.modifiers == Qt.ShiftModifier){
-            // ShotBrowserHelpers.shiftSelectItem(selectionModel, presetModelIndex())
+            ShotBrowserHelpers.shiftSelectItem(selectionModel, presetModelIndex())
         } else if(mouse.modifiers == Qt.ControlModifier) {
-            // ShotBrowserHelpers.ctrlSelectItem(selectionModel, presetModelIndex())
+            ShotBrowserHelpers.ctrlSelectItem(selectionModel, presetModelIndex())
         }
     }
 
-    // onDoubleClicked:{
-    //     openEditPopup()
-    // }
+    onItemDraggingOffsetChanged: {
+
+        if(itemDragging) {
+            let offset = itemDraggingOffset
+
+            // calculate offset based on position in selection.
+            let ordered = [].concat(selectionModel.selectedIndexes)
+            ordered.sort((a,b) => a.row - b.row)
+            for(let i=0; i < ordered.length; i++) {
+                if(ordered[i] == presetModelIndex())
+                    break
+                offset += 1
+            }
+
+            thisItem.y = draggingY + (offset  * (btnHeight-1)) - parent.contentY + (btnHeight/2)
+        }
+    }
+
+    onItemDraggingChanged: {
+        if(itemDragging) {
+            thisItem.x = height
+            oldY = mapToItem(thisItem.parent, 0, 0).y
+            oldParent = parent
+            thisItem.parent = thisItem.parent.parent
+        } else if(oldParent) {
+            parent = oldParent
+            thisItem.y = oldY
+            thisItem.x = 0
+            oldParent = null
+        }
+    }
+
+    Item {
+        id: dummy
+    }
+
+    DragHandler {
+        cursorShape: Qt.PointingHandCursor
+        xAxis.enabled: false
+        target: dummy
+
+        dragThreshold: 5
+
+        onTranslationChanged: {
+            let offset = Math.floor(translation.y / (btnHeight-1))
+            let row_count = filterModelIndex().model.rowCount(filterModelIndex().parent)
+
+            if(filterModelIndex().row + offset < 0) {
+                draggingOffset = -(filterModelIndex().row+1)
+            }
+            else if(filterModelIndex().row + offset > row_count-1){
+                draggingOffset = (row_count - 1 - filterModelIndex().row)
+            } else {
+                draggingOffset = offset
+            }
+        }
+        onActiveChanged: {
+            if(active) {
+                // collapse all
+                expandedModel.clear()
+                // primary drag
+                draggingOffset = 0
+                draggingY = mapToItem(thisItem.parent, 0, 0).y
+                isDragging = true
+            } else {
+                isDragging = false
+                if(draggingOffset) {
+                    // need to move stuff..
+                    let pis = []
+                    let ordered = [].concat(selectionModel.selectedIndexes)
+                    ordered.sort((a,b) => a.row - b.row)
+                    for(let i = 0; i< ordered.length; i++)
+                        pis.push(helpers.makePersistent(ordered[i]))
+
+                    // have list of persistent indexes.
+                    let destRow = presetModelIndex().model.rowCount(presetModelIndex().parent)
+                    let filteredDestRow = index + draggingOffset + 1
+                    let modelDestIndex = filterModelIndex().model.index(filteredDestRow, 0, filterModelIndex().parent)
+                    if(modelDestIndex.valid) {
+                        destRow = modelDestIndex.model.mapToSource(modelDestIndex).row
+                    }
+
+                    // destRow will not be what we think it is due to filtering!
+                    // we need to real row based off the filtered row.
+
+                    if(draggingOffset < 0) {
+                        for(let i = 0;i < pis.length; i++) {
+                            ShotBrowserEngine.presetsModel.moveRows(
+                                pis[i].parent,
+                                pis[i].row,
+                                1,
+                                pis[i].parent,
+                                destRow + i
+                            )
+                        }
+                    } else {
+                        for(let i = 0;i < pis.length; i++) {
+                            ShotBrowserEngine.presetsModel.moveRows(
+                                pis[i].parent,
+                                pis[i].row,
+                                1,
+                                pis[i].parent,
+                                destRow
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     Connections {
         target: expandedModel

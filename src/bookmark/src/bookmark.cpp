@@ -234,9 +234,10 @@ BookmarkDetail &BookmarkDetail::operator=(const Bookmark &other) {
     user_data_ = other.user_data_;
     created_   = other.created_;
 
-    has_note_       = other.has_note();
-    has_annotation_ = other.has_annotation();
-    owner_          = UuidActor(other.owner_, caf::actor());
+    has_note_        = other.has_note();
+    has_annotation_  = other.has_annotation();
+    annotation_hash_ = other.annotation_hash();
+    owner_           = UuidActor(other.owner_, caf::actor());
 
     if (*(has_note_)) {
         author_   = other.note_->author();

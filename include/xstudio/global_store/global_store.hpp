@@ -258,6 +258,15 @@ namespace global_store {
             JsonStoreHelper::set(value, path + "/value", async, broacast_change);
         }
 
+        template <typename value_type>
+        inline void set_overridden_path(
+            const value_type &value,
+            const std::string &path,
+            const bool async           = true,
+            const bool broacast_change = true) {
+            JsonStoreHelper::set(value, path + "/overridden_path", async, broacast_change);
+        }
+
         /*If a preference is found at path return the value. Otherwise build
         a preference at path and return default.*/
         utility::JsonStore get_existing_or_create_new_preference(

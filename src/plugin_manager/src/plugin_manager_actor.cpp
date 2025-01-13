@@ -335,20 +335,22 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                 // component link-dependent on the ui::viewport component we
                 // spawn via the viewport_layouts_manager
                 std::vector<PluginDetail> details = manager_.plugin_detail();
-                for (auto &detail: details) {
+                for (auto &detail : details) {
                     if (detail.name_ == "DefaultViewportLayout") {
                         try {
-                            auto j = json;
-                            j["name"] = name;
+                            auto j         = json;
+                            j["name"]      = name;
                             j["is_python"] = true;
-                            rp.deliver(manager_.spawn(*scoped_actor(system()), detail.uuid_, j));
+                            rp.deliver(
+                                manager_.spawn(*scoped_actor(system()), detail.uuid_, j));
                         } catch (std::exception &e) {
                             rp.deliver(make_error(xstudio_error::error, e.what()));
                         }
                     }
                 }
                 if (rp.pending()) {
-                    rp.deliver(make_error(xstudio_error::error, "Failed to spawn base ViewportLayoutPlugin"));
+                    rp.deliver(make_error(
+                        xstudio_error::error, "Failed to spawn base ViewportLayoutPlugin"));
                 }
                 return rp;
             }

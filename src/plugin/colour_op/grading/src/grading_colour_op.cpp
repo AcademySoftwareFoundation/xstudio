@@ -334,17 +334,20 @@ std::shared_ptr<ColourOperationData> GradingColourOperator::setup_shader_data(
         fs_luts.insert(fs_luts.end(), luts.begin(), luts.end());
     }
 
-    gradingop_shader_         = std::make_shared<ui::opengl::OpenGLShader>(PLUGIN_UUID, fs_str);
-    colour_op_data->shader_   = gradingop_shader_;
-    colour_op_data->set_cache_id(fmt::format("{}", std::hash<std::string_view>{}(fragment_shader)));
+    gradingop_shader_       = std::make_shared<ui::opengl::OpenGLShader>(PLUGIN_UUID, fs_str);
+    colour_op_data->shader_ = gradingop_shader_;
+    colour_op_data->set_cache_id(
+        fmt::format("{}", std::hash<std::string_view>{}(fragment_shader)));
     for (const auto &lut : fs_luts) {
-        colour_op_data->set_cache_id(colour_op_data->cache_id() + fmt::format("{}",lut->cache_id()));
+        colour_op_data->set_cache_id(
+            colour_op_data->cache_id() + fmt::format("{}", lut->cache_id()));
     }
     return colour_op_data;
 }
 
-plugin::GPUPreDrawHookPtr GradingColourOperator::make_pre_draw_gpu_hook() {
-    return std::make_shared<GradingMaskRenderer>();
+plugin::GPUPreDrawHookPtr
+GradingColourOperator::make_pre_draw_gpu_hook(const std::string &viewport_name) {
+    return std::make_shared<GradingMaskRenderer>(viewport_name);
 }
 
 OCIO::ConstGpuShaderDescRcPtr GradingColourOperator::setup_ocio_shader(

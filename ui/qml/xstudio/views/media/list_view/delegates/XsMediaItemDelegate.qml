@@ -72,8 +72,9 @@ Rectangle {
     }
 
     property color highlightColor: palette.highlight
-    property color bgColorPressed: Qt.darker(palette.highlight, 3) //XsStyleSheet.widgetBgNormalColor
-    property color bgColorNormal: "transparent" //XsStyleSheet.widgetBgNormalColor
+    property color bgColorPressed: Qt.darker(palette.highlight, 3)
+    property color bgColorNormal: "transparent"
+    
     //background:
     Rectangle {
         id: itemBg
@@ -88,7 +89,9 @@ Rectangle {
         visible: isDragTarget
         color: palette.highlight
         Behavior on height { NumberAnimation{duration: 250} }
+        y: dragToEnd ? parent.height-height : 0
     }
+
     Rectangle {
         id: drag_item_bg
         anchors.fill: parent
@@ -157,6 +160,8 @@ Rectangle {
                     text: selectionIndex ? selectionIndex : ""
                     width: size
                     height: itemRowHeight
+                    leftMargin: 2
+                    isIndex: true
                 }
             }
             Component {
@@ -189,7 +194,7 @@ Rectangle {
 
         width: parent.width
         height: itemRowHeight
-        y: drag_target_indicator.height
+        y: dragToEnd ? 0 : drag_target_indicator.height
 
         Rectangle{
             id: rowDividerLine

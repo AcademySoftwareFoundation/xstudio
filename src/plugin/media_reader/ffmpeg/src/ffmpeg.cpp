@@ -30,6 +30,69 @@ using namespace xstudio::utility;
 
 namespace {
 
+static Uuid blankshader_uuid{"d6c8722b-dc2a-42f9-981d-a2485c6ceea1"};
+
+static std::string blankshader{R"(
+#version 330 core
+uniform int blank_width;
+uniform int dummy;
+
+// forward declaration
+uvec4 get_image_data_4bytes(int byte_address);
+
+vec4 fetch_rgba_pixel(ivec2 image_coord)
+{
+    int bytes_per_pixel = 4;
+    int pixel_bytes_offset_in_texture_memory = (image_coord.x + image_coord.y*blank_width)*bytes_per_pixel;
+    uvec4 c = get_image_data_4bytes(pixel_bytes_offset_in_texture_memory);
+    return vec4(float(c.x)/255.0f,float(c.y)/255.0f,float(c.z)/255.0f,1.0f);
+}
+)"};
+
+static ui::viewport::GPUShaderPtr
+    blank_shader(new ui::opengl::OpenGLShader(blankshader_uuid, blankshader));
+
+ImageBufPtr make_blank_image() {
+
+    ImageBufPtr buf;
+    int width             = 192;
+    int height            = 108;
+    size_t size           = width * height;
+    int bytes_per_channel = 1;
+
+    // we are totally free to choose the pixel layout, but we need to unpack
+    // in the shader. RGBA 4 bytes matches underlying texture format, so most
+    // simple option.
+    int bytes_per_pixel = 4 * bytes_per_channel;
+
+    JsonStore jsn;
+    jsn["blank_width"] = width;
+
+    buf.reset(new ImageBuffer(blankshader_uuid, jsn));
+    buf->allocate(size * bytes_per_pixel);
+    buf->set_shader(blank_shader);
+    buf->set_image_dimensions(Imath::V2i(width, height));
+
+    std::array<uint8_t, 4> c = {48, 48, 48};
+    int i                    = 0;
+    uint8_t *b               = (uint8_t *)buf->buffer();
+    while (i < size) {
+        if (((i / 16) & 1) == (i / (192 * 16) & 1)) {
+            b[0] = c[0];
+            b[1] = c[1];
+            b[2] = c[2];
+        } else {
+            b[0] = 0;
+            b[1] = 0;
+            b[2] = 0;
+        }
+        b += 4; // buf is implicitly rgba
+        ++i;
+    }
+    return buf;
+}
+
+
 static Uuid s_plugin_uuid("87557f93-55f8-4650-8905-4834f1f4b78d");
 static Uuid ffmpeg_shader_uuid_yuv{"9854e7c0-2e32-4600-aedd-463b2a6de95a"};
 static Uuid ffmpeg_shader_uuid_rgb{"20015805-0b83-426a-bf7e-f6549226bfef"};
@@ -324,6 +387,16 @@ static std::mutex m;
 static int ct = 0;
 
 ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
+
+    if (mptr.stream_id() == "stream -1") {
+        // dummy stream, return empty image
+        ImageBufPtr blank = make_blank_image();
+        if (mptr.error() != "") {
+            blank->set_error(mptr.error());
+        }
+        return blank;
+    }
+
     std::string path = uri_convert(mptr.uri());
 
     if (last_decoded_image_ && last_decoded_image_->media_key() == mptr.key()) {
@@ -395,11 +468,17 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
     // N.B. MediaDetail needs frame duration, so invert frame rate
     std::vector<media::StreamDetail> streams;
 
+    bool have_video_stream = false;
+    bool have_audio_stream = false;
+
     for (auto &p : t_decoder.streams()) {
         if (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ||
             p.second->codec_type() == AVMEDIA_TYPE_AUDIO) {
 
             auto frameRate = t_decoder.frame_rate(p.first);
+
+            have_audio_stream |= p.second->codec_type() == AVMEDIA_TYPE_AUDIO;
+            have_video_stream |= p.second->codec_type() == AVMEDIA_TYPE_VIDEO;
 
             // If the stream has a duration of 1 then it is probably frame based.
             // FFMPEG assigns a default frame rate of 25fps to JPEGs, for example -
@@ -423,6 +502,25 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
                 p.first));
         }
     }
+
+
+    // Leaving this here - dummy video streams was a bad idea because audio only
+    // sources were showing up in the list of valid video sources.
+    /*if (have_audio_stream && !have_video_stream) {
+        // audio only source. We need a dummy video stream, because xstudio playheads
+        // currently require an media::MT_IMAGE type media stream to be available for
+        // a given source. The duration of the source is always inferred from the
+        // active video track. This is easily done by adding a phoney video stream with
+        // the same duration as the first audio stream:
+        streams.emplace_back(media::StreamDetail(
+            streams[0].duration_,
+            "stream -1",
+            media::MT_IMAGE,
+            "{0}@{1}/{2}",
+            Imath::V2f(1920, 1080),
+            1.0f,
+            -1));
+    }*/
 
     return xstudio::media::MediaDetail(name(), streams, t_decoder.first_frame_timecode());
 }
@@ -504,10 +602,9 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         const int half_scale_uvy       = buf.shader_params().value("half_scale_uvy", 0);
         const int half_scale_uvx       = buf.shader_params().value("half_scale_uvx", 0);
         const int bits_per_channel     = buf.shader_params().value("bits_per_channel", 0);
-        const Imath::M33f yuv_conv =
-            buf.shader_params().value("yuv_conv", Imath::M33f());
-        const Imath::V3i yuv_offsets = buf.shader_params().value("yuv_offsets", Imath::V3i());
-        const float norm_coeff       = buf.shader_params().value("norm_coeff", 1.0f);
+        const Imath::M33f yuv_conv     = buf.shader_params().value("yuv_conv", Imath::M33f());
+        const Imath::V3i yuv_offsets   = buf.shader_params().value("yuv_offsets", Imath::V3i());
+        const float norm_coeff         = buf.shader_params().value("norm_coeff", 1.0f);
 
         auto get_image_data_4bytes = [&](const int address) -> std::array<float, 4> {
             if (address < 0 || address >= (int)buf.size())

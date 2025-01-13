@@ -149,6 +149,15 @@ QDateTime ShotBrowserResultModel::requestedAt() const {
     return QDateTime::fromSecsSinceEpoch(getResultValue("/context/epoc", 0));
 }
 
+QVariant ShotBrowserResultModel::customContext() const {
+    QVariant result;
+    try {
+        result = mapFromValue(result_data_.at(json::json_pointer("/context/custom")));
+    } catch (...) {
+    }
+    return result;
+}
+
 QVariantMap ShotBrowserResultModel::env() const {
     return QVariantMapFromJson(getResultValue("/env", R"({})"_json));
 }

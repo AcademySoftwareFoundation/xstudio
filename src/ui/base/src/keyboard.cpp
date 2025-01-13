@@ -79,36 +79,69 @@ void Hotkey::update_state(
         if (!pressed_) {
 
             pressed_ = true;
-            notify_watchers(context, window);
-            anon_send(
-                keypress_monitor,
-                keypress_monitor::hotkey_event_atom_v,
-                uuid_,
-                pressed_,
-                context,
-                window);
+            notify(context, window, keypress_monitor);
 
         } else if (auto_repeat && auto_repeat_) {
-            notify_watchers(context, window);
-            anon_send(
-                keypress_monitor,
-                keypress_monitor::hotkey_event_atom_v,
-                uuid_,
-                pressed_,
-                context,
-                window);
+            notify(context, window, keypress_monitor);
         }
     } else if (pressed_) {
         pressed_ = false;
-        notify_watchers(context, window);
-        anon_send(
-            keypress_monitor,
-            keypress_monitor::hotkey_event_atom_v,
-            uuid_,
-            pressed_,
-            context,
-            window);
+        notify(context, window, keypress_monitor);
     }
+}
+
+void Hotkey::notify(const std::string &context,
+    const std::string &window,
+    caf::actor keypress_monitor) 
+{
+
+
+    auto p = exclusive_watchers_.begin();
+    while (p != exclusive_watchers_.end()) {
+        auto exclusive = caf::actor_cast<caf::actor>(*p);
+        if (exclusive) {
+            // we've found a valid 'exclusive' hotkey watcher
+            anon_send(
+                exclusive,
+                keypress_monitor::hotkey_event_atom_v,
+                uuid_,
+                pressed_,
+                context,
+                window
+                );
+            return;
+        } else {
+            // the exclusive watcher must have exited without telling us!
+            p = exclusive_watchers_.erase(p);
+        }
+    }
+        
+    // no exclusive watchers, broadcast hotkey event to everyone!
+    notify_watchers(context, window);
+    anon_send(
+        keypress_monitor,
+        keypress_monitor::hotkey_event_atom_v,
+        uuid_,
+        pressed_,
+        context,
+        window);
+}
+
+void Hotkey::exclusive_watcher(caf::actor_addr w, bool watch) {
+
+    auto p = exclusive_watchers_.begin();
+    while (p != exclusive_watchers_.end()) {
+        if (*p = w) {
+            p = exclusive_watchers_.erase(p);
+        } else {
+            p++;
+        }
+    }
+
+    if (watch) {
+        exclusive_watchers_.insert(exclusive_watchers_.begin(), w);
+    }
+
 }
 
 void Hotkey::watcher_died(caf::actor_addr &watcher) {
@@ -121,6 +154,19 @@ void Hotkey::watcher_died(caf::actor_addr &watcher) {
         }
     }
 }
+
+void Hotkey::add_watcher(caf::actor_addr w) {
+
+    auto p = watchers_.begin();
+    while (p != watchers_.end()) {
+        if (*p == w) {
+            return;
+        }
+        p++;
+    }
+    watchers_.push_back(w);
+}
+
 
 void Hotkey::notify_watchers(const std::string &context, const std::string &window) {
     auto p = watchers_.begin();

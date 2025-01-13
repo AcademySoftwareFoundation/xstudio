@@ -8,6 +8,7 @@
 #include "xstudio/session/session.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 
 namespace xstudio {
 namespace session {
@@ -28,9 +29,10 @@ namespace session {
         inline static const std::string NAME = "SessionActor";
 
         void init();
-        caf::message_handler message_handler();
 
+        caf::message_handler message_handler();
         caf::behavior make_behavior() override { return behavior_; }
+
         void create_container(
             caf::actor actor,
             caf::typed_response_promise<std::pair<utility::Uuid, utility::UuidActor>> rp,
@@ -78,17 +80,11 @@ namespace session {
             const utility::Uuid &uuid_before = utility::Uuid(),
             const bool into                  = false);
 
-        void save_json_to(
-            caf::typed_response_promise<size_t> &rp,
-            const utility::JsonStore &js,
-            const caf::uri &path,
-            const bool update_path = true,
-            const size_t hash      = 0);
-
         void associate_bookmarks(caf::typed_response_promise<int> &rp);
 
         void sync_to_json_store(caf::typed_response_promise<bool> &rp);
 
+        [[nodiscard]] std::string get_next_name(const std::string &name_template) const;
 
         void gather_media_sources(
             caf::typed_response_promise<utility::UuidActorVector> &rp,
@@ -121,10 +117,13 @@ namespace session {
         void
         check_media_hook_plugin_version(const utility::JsonStore &jsn, const caf::uri &path);
 
+        utility::NotificationHandler notification_;
+
         caf::behavior behavior_;
         Session base_;
         caf::actor json_store_;
         caf::actor bookmarks_;
+        caf::actor ioactor_;
         std::map<utility::Uuid, caf::actor> playlists_;
         std::map<caf::actor_addr, std::string> serialise_targets_;
         // std::map<utility::Uuid, caf::actor> players_;
@@ -134,6 +133,8 @@ namespace session {
         utility::UuidActor inspectedContainer_;
 
         std::vector<utility::UuidActorAddr> selectedMedia_;
+
+        utility::UuidActorVector selection_;
     };
 } // namespace session
 } // namespace xstudio

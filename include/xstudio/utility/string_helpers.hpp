@@ -181,67 +181,67 @@ namespace utility {
             result = items[0];
             if (items.size() > 1) {
                 for (size_t i = 1; i < items.size(); i++)
-                        result += separator + items[i];
-                }
+                    result += separator + items[i];
             }
-
-            return result;
         }
 
-        inline std::string to_lower(const std::string &str) {
-            static std::locale loc;
-            std::string result;
-            result.reserve(str.size());
+        return result;
+    }
 
-            for (auto elem : str)
-                result += std::tolower(elem, loc);
+    inline std::string to_lower(const std::string &str) {
+        static std::locale loc;
+        std::string result;
+        result.reserve(str.size());
 
-            return result;
-        }
+        for (auto elem : str)
+            result += std::tolower(elem, loc);
 
-        inline std::wstring to_upper(const std::wstring &str) {
-            static std::locale loc;
-            std::wstring result;
-            result.reserve(str.size());
+        return result;
+    }
 
-            for (auto elem : str)
-                result += std::toupper(elem, loc);
+    inline std::wstring to_upper(const std::wstring &str) {
+        static std::locale loc;
+        std::wstring result;
+        result.reserve(str.size());
 
-            return result;
-        }
+        for (auto elem : str)
+            result += std::toupper(elem, loc);
 
-        inline std::string to_upper(const std::string &str) {
-            static std::locale loc;
-            std::string result;
-            result.reserve(str.size());
+        return result;
+    }
 
-            for (auto elem : str)
-                result += std::toupper(elem, loc);
+    inline std::string to_upper(const std::string &str) {
+        static std::locale loc;
+        std::string result;
+        result.reserve(str.size());
 
-            return result;
-        }
+        for (auto elem : str)
+            result += std::toupper(elem, loc);
 
-        // This is used on WIN build only. There was a note to refactor
-        // here. TODO: check what it's for and why it might need refactor.
-        inline std::string to_upper_path(const std::filesystem::path &path) {
-            static std::locale loc;
-            std::string result;
-            result.reserve(path.string().size());
-            for (auto elem : path.string())
-                result += std::toupper(elem, loc);
+        return result;
+    }
 
-            return result;
-        }
+    // This is used on WIN build only. There was a note to refactor
+    // here. TODO: check what it's for and why it might need refactor.
+    inline std::string to_upper_path(const std::filesystem::path &path) {
+        static std::locale loc;
+        std::string result;
+        result.reserve(path.string().size());
+        for (auto elem : path.string())
+            result += std::toupper(elem, loc);
 
-        inline std::optional<std::string> get_env(const std::string &key) {
-            const char *val = std::getenv(key.c_str());
-            if (val)
-                return std::string(val);
-            return {};
-        }
+        return result;
+    }
 
-        inline std::string get_env(const std::string &key, const std::string &default_value) {
-            const char *val = std::getenv(key.c_str());
+    inline std::optional<std::string> get_env(const std::string &key) {
+        const char *val = std::getenv(key.c_str());
+        if (val)
+            return std::string(val);
+        return {};
+    }
+
+    inline std::string get_env(const std::string &key, const std::string &default_value) {
+        const char *val = std::getenv(key.c_str());
         if (val)
             return std::string(val);
         return default_value;

@@ -60,10 +60,16 @@ namespace embedded_python {
         void remove_message_callback(const py::tuple &xs);
         void run_callback_with_delay(const py::tuple &args);
         void run_callback(const utility::Uuid &id);
+        utility::JsonStore run_plugin_callback(
+            const utility::Uuid &plugin_uuid,
+            const std::string method_name,
+            const utility::JsonStore &packed_args);
+        void register_python_plugin_instance(const py::tuple &xs);
 
         static void s_add_message_callback(const py::tuple &xs);
         static void s_remove_message_callback(const py::tuple &xs);
         static void s_run_callback_with_delay(const py::tuple &delayed_cb_args);
+        static void s_register_python_plugin_instance(const py::tuple &delayed_cb_args);
 
         void finalize();
 
@@ -72,6 +78,7 @@ namespace embedded_python {
         std::map<caf::actor_addr, std::vector<py::function>> message_handler_callbacks_;
         std::map<caf::actor_addr, py::function> message_conversion_function_;
         std::map<utility::Uuid, py::function> delayed_callbacks_;
+        std::map<utility::Uuid, py::object> plugin_registry_;
 
         EmbeddedPythonActor *parent_;
 

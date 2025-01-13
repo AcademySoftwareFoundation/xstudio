@@ -46,16 +46,17 @@ namespace media_reader {
             }
         }
 
-        [[nodiscard]] float image_aspect() const { return image_size_in_pixels_.y ? pixel_aspect_*image_size_in_pixels_.x/image_size_in_pixels_.y : 16.0f/9.0f; }
+        [[nodiscard]] float image_aspect() const {
+            return image_size_in_pixels_.y
+                       ? pixel_aspect_ * image_size_in_pixels_.x / image_size_in_pixels_.y
+                       : 16.0f / 9.0f;
+        }
 
         [[nodiscard]] float pixel_aspect() const { return pixel_aspect_; }
         void set_pixel_aspect(const float aspect) { pixel_aspect_ = aspect; }
 
         [[nodiscard]] const media::MediaKey &media_key() const { return media_key_; }
         void set_media_key(const media::MediaKey &key) { media_key_ = key; }
-
-        [[nodiscard]] double duration_seconds() const { return frame_duration_; }
-        void set_duration_seconds(const double d) { frame_duration_ = d; }
 
         [[nodiscard]] int decoder_frame_number() const { return frame_num_; }
         void set_decoder_frame_number(const int f) { frame_num_ = f; }
@@ -81,8 +82,7 @@ namespace media_reader {
         Imath::Box2i pixels_bounds_;
         float pixel_aspect_ = {1.0f};
         media::MediaKey media_key_;
-        double frame_duration_ = {1.0};
-        int frame_num_         = -1;
+        int frame_num_ = -1;
         ui::viewport::GPUShaderPtr shader_;
         PixelPickerFunc pixel_picker_;
         bool has_alpha_ = false;
@@ -112,17 +112,17 @@ namespace media_reader {
               playhead_logical_frame_(o.playhead_logical_frame_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
-            Base &b               = static_cast<Base &>(*this);
-            b                     = static_cast<const Base &>(o);
-            colour_pipe_data_     = o.colour_pipe_data_;
-            colour_pipe_uniforms_ = o.colour_pipe_uniforms_;
-            when_to_display_      = o.when_to_display_;
-            plugin_blind_data_    = o.plugin_blind_data_;
-            tts_                  = o.tts_;
-            frame_id_             = o.frame_id_;
-            bookmarks_            = o.bookmarks_;
-            intrinsic_transform_  = o.intrinsic_transform_;
-            layout_transform_     = o.layout_transform_;
+            Base &b                 = static_cast<Base &>(*this);
+            b                       = static_cast<const Base &>(o);
+            colour_pipe_data_       = o.colour_pipe_data_;
+            colour_pipe_uniforms_   = o.colour_pipe_uniforms_;
+            when_to_display_        = o.when_to_display_;
+            plugin_blind_data_      = o.plugin_blind_data_;
+            tts_                    = o.tts_;
+            frame_id_               = o.frame_id_;
+            bookmarks_              = o.bookmarks_;
+            intrinsic_transform_    = o.intrinsic_transform_;
+            layout_transform_       = o.layout_transform_;
             playhead_logical_frame_ = o.playhead_logical_frame_;
             return *this;
         }
@@ -181,15 +181,14 @@ namespace media_reader {
             return utility::BlindDataObjectPtr();
         }
 
-        std::map<
-            utility::Uuid,
-            utility::BlindDataObjectPtr>
-            plugin_blind_data_;
+        std::map<utility::Uuid, utility::BlindDataObjectPtr> plugin_blind_data_;
 
         [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
         void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
 
-        [[nodiscard]] const int &playhead_logical_frame() const { return playhead_logical_frame_; }
+        [[nodiscard]] const int &playhead_logical_frame() const {
+            return playhead_logical_frame_;
+        }
         void set_playhead_logical_frame(const int frame) { playhead_logical_frame_ = frame; }
 
         [[nodiscard]] const bookmark::BookmarkAndAnnotations &bookmarks() const {
@@ -202,14 +201,15 @@ namespace media_reader {
         [[nodiscard]] const media::AVFrameID &frame_id() const { return frame_id_; }
         void set_frame_id(const media::AVFrameID &id) { frame_id_ = id; }
 
-        [[nodiscard]] const Imath::M44f & intrinsic_transform() const { return intrinsic_transform_; }
+        [[nodiscard]] const Imath::M44f &intrinsic_transform() const {
+            return intrinsic_transform_;
+        }
         void set_intrinsic_transform(const Imath::M44f &t) { intrinsic_transform_ = t; }
 
-        [[nodiscard]] const Imath::M44f & layout_transform() const { return layout_transform_; }
+        [[nodiscard]] const Imath::M44f &layout_transform() const { return layout_transform_; }
         void set_layout_transform(const Imath::M44f &t) { layout_transform_ = t; }
 
       private:
-
         Imath::M44f intrinsic_transform_;
         Imath::M44f layout_transform_;
 

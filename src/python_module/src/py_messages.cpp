@@ -22,6 +22,7 @@
 #include "xstudio/utility/timecode.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/frame_range.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 
 #include "py_config.hpp"
 
@@ -43,12 +44,14 @@ extern void register_FrameRate_class(py::module &m, const std::string &name);
 extern void register_group_down_msg(py::module &m, const std::string &name);
 extern void register_URI_class(py::module &m, const std::string &name);
 extern void register_FrameRateDuration_class(py::module &m, const std::string &name);
+extern void register_colour_triplet_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_vector_class(py::module &m, const std::string &name);
 extern void register_uuidvec_class(py::module &m, const std::string &name);
 extern void register_item_class(py::module &m, const std::string &name);
 extern void register_frame_range_class(py::module &m, const std::string &name);
 extern void register_frame_list_class(py::module &m, const std::string &name);
+extern void register_notification_class(py::module &m, const std::string &name);
 
 using namespace xstudio;
 
@@ -141,6 +144,8 @@ void py_config::add_messages() {
         "FrameRateDuration",
         "xstudio::utility::FrameRateDuration",
         &register_FrameRateDuration_class);
+    add_message_type<utility::ColourTriplet>(
+        "ColourTriplet", "xstudio::utility::ColourTriplet", &register_colour_triplet_class);
     add_message_type<utility::JsonStore>(
         "JsonStore", "xstudio::utility::JsonStore", &register_jsonstore_class);
     add_message_type<utility::MediaReference>(
@@ -175,12 +180,23 @@ void py_config::add_messages() {
     add_message_type<xstudio::timeline::Item>(
         "Item", "xstudio::timeline::Item", &register_item_class);
 
+    add_message_type<xstudio::timeline::ItemType>(
+        "ItemType", "xstudio::timeline::ItemType", nullptr);
+
     add_message_type<xstudio::utility::FrameRange>(
         "FrameRange", "xstudio::utility::FrameRange", &register_frame_range_class);
 
     add_message_type<std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>>(
         "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
         "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
+        nullptr);
+
+    add_message_type<xstudio::utility::Notification>(
+        "Notification", "xstudio::utility::Notification", &register_notification_class);
+
+    add_message_type<std::vector<xstudio::utility::Notification>>(
+        "std::vector<xstudio::utility::Notification>",
+        "std::vector<xstudio::utility::Notification>",
         nullptr);
 }
 } // namespace caf::python

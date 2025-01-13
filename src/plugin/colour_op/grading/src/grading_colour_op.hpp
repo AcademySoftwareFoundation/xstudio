@@ -32,7 +32,7 @@ class GradingColourOperator : public ColourOpPlugin {
 
     utility::JsonStore update_shader_uniforms(const media_reader::ImageBufPtr &image) override;
 
-    plugin::GPUPreDrawHookPtr make_pre_draw_gpu_hook() override;
+    plugin::GPUPreDrawHookPtr make_pre_draw_gpu_hook(const std::string &viewport_name) override;
 
   protected:
     caf::message_handler message_handler_extensions() override;

@@ -90,6 +90,19 @@ void send_output(
     }
 }
 
+void py_print(const std::string &e) {
+    // Note . on Windows, using py::arg or _a literal is causing seg-fault
+    // but using a dict to set kwargs on py::print works fine.
+    auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
+#ifdef _WIN32
+    py::dict d;
+    d["file"] = py_stderr;
+    py::print(e, d);
+#else
+    py::print(e, "file"_a = py_stderr);
+#endif
+}
+
 class PyObjectRef {
   public:
     PyObjectRef(PyObject *obj) : obj_(obj) {
@@ -176,9 +189,7 @@ void EmbeddedPythonActor::act() {
                     }
                 } catch (py::error_already_set &e) {
                     e.restore();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(e.what(), "file"_a = py_stderr);
+                    py_print(e.what());
                     spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -186,8 +197,7 @@ void EmbeddedPythonActor::act() {
                 send_output(this, event_group_, out);
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -209,9 +219,7 @@ void EmbeddedPythonActor::act() {
                     }
                 } catch (py::error_already_set &e) {
                     e.restore();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(e.what(), "file"_a = py_stderr);
+                    py_print(e.what());
                     spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -219,8 +227,7 @@ void EmbeddedPythonActor::act() {
                 send_output(this, event_group_, out);
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -229,6 +236,131 @@ void EmbeddedPythonActor::act() {
             CAF_SET_LOGGER_SYS(&system());
 
             return result;
+        },
+
+        [=](session::export_atom) -> result<std::vector<std::string>> {
+            // get otio supported export formats.
+            auto result = std::vector<std::string>({"otio"});
+
+            if (not base_.enabled())
+                return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+            std::string error;
+
+            try {
+                PyStdErrOutStreamRedirect out{};
+                try {
+                    // Import the OTIO Python module.
+                    auto p_module =
+                        PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
+                    auto p_suffixes_with_defined_adapters = PyObjectRef(
+                        PyObject_GetAttrString(p_module, "suffixes_with_defined_adapters"));
+                    auto p_suffixes_with_defined_adapters_args = PyObjectRef(PyTuple_New(2));
+
+                    PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 0, Py_False);
+                    PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 1, Py_True);
+
+                    auto p_suffixes = PyObjectRef(PyObject_CallObject(
+                        p_suffixes_with_defined_adapters,
+                        p_suffixes_with_defined_adapters_args));
+
+                    PyObject *repr = PyObject_Repr(p_suffixes);
+                    if (repr) {
+                        PyObject *str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
+                        if (str) {
+                            const char *bytes = PyBytes_AS_STRING(str);
+
+                            for (const auto &i :
+                                 resplit(std::string(bytes), std::regex{"\\{'|'\\}|',\\s'"})) {
+                                if (not i.empty())
+                                    result.push_back(i);
+                            }
+                            // something like .. {'otiod', 'edl', 'mb', 'ma', 'kdenlive',
+                            // 'otio', 'otioz', 'ale', 'm3u8', 'xml', 'aaf', 'fcpxml', 'svg',
+                            // 'xges', 'rv'}
+
+                            Py_XDECREF(str);
+                        }
+                        Py_XDECREF(repr);
+                    }
+
+                    std::sort(result.begin(), result.end());
+                    return result;
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    py_print(error);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    error = err.what();
+                }
+                // send_output(this, event_group_, out, uuid);
+            } catch (py::error_already_set &err) {
+                err.restore();
+                error = err.what();
+                py_print(error);
+                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                error = err.what();
+            }
+
+            return make_error(xstudio_error::error, error);
+        },
+
+        [=](session::export_atom,
+            const std::string &otio_str,
+            const caf::uri &upath,
+            const std::string &type) -> result<bool> {
+            // get otio supported export formats.
+            if (not base_.enabled())
+                return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+            std::string error;
+
+            try {
+                PyStdErrOutStreamRedirect out{};
+                otio::ErrorStatus error_status;
+                // Import the OTIO Python module.
+                auto p_module = PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
+                auto p_read_from_string =
+                    PyObjectRef(PyObject_GetAttrString(p_module, "read_from_string"));
+                auto p_read_from_string_args = PyObjectRef(PyTuple_New(1));
+                auto p_read_from_string_arg =
+                    PyUnicode_FromStringAndSize(otio_str.c_str(), otio_str.size());
+                if (not p_read_from_string_arg)
+                    throw std::runtime_error("cannot create arg");
+                PyTuple_SetItem(p_read_from_string_args, 0, p_read_from_string_arg);
+                auto p_timeline = PyObjectRef(
+                    PyObject_CallObject(p_read_from_string, p_read_from_string_args));
+
+                auto path = uri_to_posix_path(upath);
+
+                // Write the Python timeline.
+                auto p_write_to_file =
+                    PyObjectRef(PyObject_GetAttrString(p_module, "write_to_file"));
+                auto p_write_to_file_args = PyObjectRef(PyTuple_New(2));
+                auto p_write_to_file_arg =
+                    PyUnicode_FromStringAndSize(path.c_str(), path.size());
+                if (not p_write_to_file_arg)
+                    throw std::runtime_error("cannot create arg");
+                PyTuple_SetItem(p_write_to_file_args, 0, p_timeline);
+                PyTuple_SetItem(p_write_to_file_args, 1, p_write_to_file_arg);
+                PyObjectRef(PyObject_CallObject(p_write_to_file, p_write_to_file_args));
+
+                return true;
+            } catch (py::error_already_set &err) {
+                err.restore();
+                error = err.what();
+                py_print(error);
+                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                error = err.what();
+            }
+
+            return make_error(xstudio_error::error, error);
         },
 
         // import otio file return as otio xml string.
@@ -273,9 +405,7 @@ void EmbeddedPythonActor::act() {
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(error, "file"_a = py_stderr);
+                    py_print(error);
                     spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -285,9 +415,8 @@ void EmbeddedPythonActor::act() {
                 // send_output(this, event_group_, out, uuid);
             } catch (py::error_already_set &err) {
                 err.restore();
-                error          = err.what();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(error, "file"_a = py_stderr);
+                error = err.what();
+                py_print(error);
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -310,9 +439,8 @@ void EmbeddedPythonActor::act() {
                 return session_uuid;
             } catch (py::error_already_set &err) {
                 err.restore();
-                error          = err.what();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(error, "file"_a = py_stderr);
+                error = err.what();
+                py_print(error);
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
                 return make_error(xstudio_error::error, err.what());
             } catch (const std::exception &err) {
@@ -338,9 +466,7 @@ void EmbeddedPythonActor::act() {
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(error, "file"_a = py_stderr);
+                    py_print(error);
                     spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -350,9 +476,8 @@ void EmbeddedPythonActor::act() {
                 send_output(this, event_group_, out, uuid);
             } catch (py::error_already_set &err) {
                 err.restore();
-                error          = err.what();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(error, "file"_a = py_stderr);
+                error = err.what();
+                py_print(error);
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -371,8 +496,7 @@ void EmbeddedPythonActor::act() {
                 return JsonStore(base_.eval(pystring, locals));
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 return make_error(xstudio_error::error, e.what());
             } catch (const std::exception &err) {
@@ -391,9 +515,7 @@ void EmbeddedPythonActor::act() {
                     base_.eval_file(uri_to_posix_path(pyfile));
                 } catch (py::error_already_set &e) {
                     e.restore();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(e.what(), "file"_a = py_stderr);
+                    py_print(e.what());
                     spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -402,8 +524,7 @@ void EmbeddedPythonActor::act() {
                 send_output(this, event_group_, out, uuid);
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -418,8 +539,7 @@ void EmbeddedPythonActor::act() {
                 return JsonStore(base_.eval_locals(pystring));
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 return make_error(xstudio_error::error, e.what());
             } catch (const std::exception &err) {
@@ -438,8 +558,7 @@ void EmbeddedPythonActor::act() {
                 return JsonStore(base_.eval_locals(pystring, locals));
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 return make_error(xstudio_error::error, e.what());
             } catch (const std::exception &err) {
@@ -458,9 +577,7 @@ void EmbeddedPythonActor::act() {
                     base_.exec(pystring);
                 } catch (py::error_already_set &e) {
                     e.restore();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(e.what(), "file"_a = py_stderr);
+                    py_print(e.what());
                     spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -469,8 +586,7 @@ void EmbeddedPythonActor::act() {
                 send_output(this, event_group_, out, uuid);
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -485,8 +601,7 @@ void EmbeddedPythonActor::act() {
                 return base_.remove_session(uuid);
             } catch (py::error_already_set &e) {
                 e.restore();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(e.what(), "file"_a = py_stderr);
+                py_print(e.what());
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
                 return make_error(xstudio_error::error, e.what());
             } catch (const std::exception &err) {
@@ -513,20 +628,21 @@ void EmbeddedPythonActor::act() {
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(error, "file"_a = py_stderr);
-                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-                    return make_error(xstudio_error::error, err.what());
+                    py_print(error);
+                    // get console back to input mode..
+                    auto result = base_.input_session(uuid, "");
+                    send_output(this, event_group_, out, uuid);
+                    return result;
+                    // spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                    // return make_error(xstudio_error::error, err.what());
                 } catch (const std::exception &err) {
                     return make_error(xstudio_error::error, err.what());
                 }
                 send_output(this, event_group_, out, uuid);
             } catch (py::error_already_set &err) {
                 err.restore();
-                error          = err.what();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(error, "file"_a = py_stderr);
+                error = err.what();
+                py_print(error);
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
                 return make_error(xstudio_error::error, err.what());
             } catch (const std::exception &err) {
@@ -551,9 +667,7 @@ void EmbeddedPythonActor::act() {
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
-                    auto py_stderr =
-                        py::module::import("sys").attr("stderr").cast<py::object>();
-                    py::print(error, "file"_a = py_stderr);
+                    py_print(error);
                     spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
                     return make_error(xstudio_error::error, err.what());
                 } catch (const std::exception &err) {
@@ -562,9 +676,8 @@ void EmbeddedPythonActor::act() {
                 send_output(this, event_group_, out, uuid);
             } catch (py::error_already_set &err) {
                 err.restore();
-                error          = err.what();
-                auto py_stderr = py::module::import("sys").attr("stderr").cast<py::object>();
-                py::print(error, "file"_a = py_stderr);
+                error = err.what();
+                py_print(error);
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
                 return make_error(xstudio_error::error, err.what());
             } catch (const std::exception &err) {
@@ -630,6 +743,17 @@ void EmbeddedPythonActor::act() {
         [=](bool) {},
 
         [=](const utility::Uuid &cb_id) { base_.run_callback(cb_id); },
+
+        [=](embedded_python::python_exec_atom,
+            const utility::Uuid &plugin_uuid,
+            const std::string method_name,
+            const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
+            try {
+                return base_.run_plugin_callback(plugin_uuid, method_name, packed_args);
+            } catch (std::exception &e) {
+                return make_error(xstudio_error::error, e.what());
+            }
+        },
 
         [&](exit_msg &em) {
             if (em.reason) {

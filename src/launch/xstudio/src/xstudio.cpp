@@ -255,7 +255,7 @@ struct CLIArguments {
     args::PositionalList<std::string> media_paths = {parser, "PATH", "Path to media"};
 
     args::Flag headless   = {parser, "headless", "Headless mode, no UI", {'e', "headless"}};
-    args::Flag player     = {parser, "player", "Player mode, minimal UI", {'p', "player"}};
+    args::Flag user_prefs_off = {parser, "user-prefs-off", "Skip loading and saving of user preferences.", {"user-prefs-off"}};
     args::Flag quick_view = {
         parser,
         "quick-view",
@@ -349,7 +349,7 @@ struct Launcher {
         start_logger(
             cli_args.debug.Matched() ? spdlog::level::debug : spdlog::level::info,
             args::get(cli_args.logfile));
-        prefs = load_preferences();
+        prefs = load_preferences(cli_args.user_prefs_off.Matched());
 
         scoped_actor self{system};
 
@@ -357,7 +357,7 @@ struct Launcher {
         actions["new_instance"]          = cli_args.new_session.Matched();
         actions["headless"]              = cli_args.headless.Matched();
         actions["debug"]                 = cli_args.debug.Matched();
-        actions["player"]                = cli_args.player.Matched();
+        actions["user_prefs_off"]        = cli_args.user_prefs_off.Matched();
         actions["quick_view"]            = cli_args.quick_view.Matched();
         actions["disable_vsync"]         = cli_args.disable_vsync.Matched();
         actions["share_opengl_contexts"] = cli_args.share_opengl_contexts.Matched();
@@ -393,9 +393,9 @@ struct Launcher {
                 // check for unassigned media.
                 auto media = uri_params.equal_range("media");
                 if (media.first != uri_params.end()) {
-                    actions["playlists"]["Untitled Playlist"] = nlohmann::json::array();
+                    actions["playlists"]["Added Media"] = nlohmann::json::array();
                     for (auto m = media.first; m != media.second; ++m) {
-                        actions["playlists"]["Untitled Playlist"].push_back(m->second);
+                        actions["playlists"]["Added Media"].push_back(m->second);
                     }
                 }
 
@@ -434,7 +434,7 @@ struct Launcher {
                 // check for media.
                 auto playlist_name =
                     args::get(cli_args.playlist_name).empty()
-                        ? (actions["quick_view"] ? "QuickView Media" : "Untitled Playlist")
+                        ? (actions["quick_view"] ? "QuickView Media" : "Added Media")
                         : args::get(cli_args.playlist_name);
                 actions["playlists"][playlist_name] = nlohmann::json::array();
                 if (not args::get(cli_args.media_paths).empty())
@@ -548,7 +548,7 @@ struct Launcher {
 
             // If playlist name is "Untitled Playlist" (in other words no playlist
             // was named to add media to) then try and get the current playlist
-            if (p.key() == "Untitled Playlist" and not actions["new_instance"]) {
+            if (p.key() == "Added Media" and not actions["new_instance"]) {
                 try {
                     playlist = request_receive<caf::actor>(
                         *self, session, session::active_media_container_atom_v);
@@ -596,14 +596,16 @@ struct Launcher {
         }
     }
 
-    JsonStore load_preferences() {
+    JsonStore load_preferences(const bool skip_user_prefs) {
         std::vector<std::string> pref_paths;
         for (const auto &p : args::get(cli_args.cli_pref_paths)) {
             pref_paths.push_back(p);
         }
 
-        for (const auto &i : global_store::PreferenceContexts)
-            pref_paths.push_back(preference_path_context(i));
+        if (!skip_user_prefs) {
+            for (const auto &i : global_store::PreferenceContexts)
+                pref_paths.push_back(preference_path_context(i));
+        }
 
         for (const auto &p : args::get(cli_args.cli_override_pref_paths)) {
             pref_paths.push_back(p);
@@ -919,15 +921,19 @@ struct Launcher {
                     // try open ?
                     auto connecting = system.spawn(connect_to_remote);
                     try {
-                        auto a = request_receive_wait<caf::actor>(
+                        auto remote = request_receive_wait<caf::actor>(
                             *self,
                             connecting,
                             std::chrono::seconds(2),
                             caf::connect_atom_v,
                             host,
                             port);
+
+                        auto auth = request_receive_wait<caf::actor>(
+                            *self, remote, std::chrono::seconds(2), authenticate_atom_v);
+
                         spdlog::info("Connected to session '{}' at {}:{}", name, host, port);
-                        return a;
+                        return auth;
                     } catch (const std::exception &err) {
                         spdlog::debug("Failed to connect '{}'", err.what());
                     }
@@ -972,7 +978,7 @@ int main(int argc, char **argv) {
     // but buffers might be cleaned up (destroyed) after the media_reader component
     // is cleaned up on exit. So we make a copy here to ensure the ImageBufferRecyclerCache
     // instance outlives any Buffer objects.
-    
+
     // auto buffer_cache_handle = media_reader::Buffer::s_buf_cache;
 
     // As far as I can tell caf only allows config to be modified
@@ -987,16 +993,22 @@ int main(int argc, char **argv) {
         argv[0],
         "--caf.scheduler.max-threads=128",
         "--caf.scheduler.policy=sharing",
-        "--caf.logger.console.verbosity=trace"};
+        "--caf.logger.console.verbosity=debug"};
 
     caf_config config{4, const_cast<char **>(args)};
 
-    config.add_actor_type<timeline::GapActor, const std::string &>("Gap");
+    config.add_actor_type<
+        timeline::GapActor,
+        const std::string &,
+        const utility::FrameRateDuration &>("Gap");
     config.add_actor_type<timeline::StackActor, const std::string &>("Stack");
     config.add_actor_type<timeline::ClipActor, const utility::UuidActor &, const std::string &>(
         "Clip");
-    config.add_actor_type<timeline::TrackActor, const std::string &, const media::MediaType &>(
-        "Track");
+    config.add_actor_type<
+        timeline::TrackActor,
+        const std::string &,
+        const utility::FrameRate &,
+        const media::MediaType &>("Track");
 
     {
 
@@ -1200,8 +1212,6 @@ int main(int argc, char **argv) {
                 engine.addImportPath("qrc:///");
                 engine.addImportPath("qrc:///extern");
 
-                qDebug() << "FART " << QStringFromStd(xstudio_root("/plugin/qml"));
-
                 // gui plugins..
                 engine.addImportPath(QStringFromStd(xstudio_root("/plugin/qml")));
                 engine.addPluginPath(QStringFromStd(xstudio_root("/plugin")));
@@ -1235,9 +1245,8 @@ int main(int argc, char **argv) {
                 // fingers crossed...
                 // need to stop monitoring or we'll be sending events to a dead QtObject
                 spdlog::get("xstudio")->sinks().pop_back();
-                // save state.. BUT NOT WHEN USING PLAYER MODE.. (THIS needs work)
-                // if we store prefs then we affect the normal mode.. (DUAL mode for prefs ?)
-                if (not l.actions.value("player", false)) {
+                // save state.. BUT NOT WHEN user_prefs_off
+                if (not l.actions.value("user_prefs_off", false)) {
                     for (const auto &context : global_store::PreferenceContexts) {
                         try {
                             request_receive<bool>(

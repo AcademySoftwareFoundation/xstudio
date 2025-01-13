@@ -211,12 +211,12 @@ void WindowsAudioOutputDevice::initialize_sound_card() {
     }
 
     audio_client_->Start();
-
 }
 
 void WindowsAudioOutputDevice::connect_to_soundcard() {
     // We are already playing ;-D
-    if (!audio_client_) initialize_sound_card();
+    if (!audio_client_)
+        initialize_sound_card();
 }
 
 long WindowsAudioOutputDevice::desired_samples() {
@@ -259,7 +259,7 @@ long WindowsAudioOutputDevice::latency_microseconds() {
               << " " << (long(pad) * long(1000000)) /
                      long(sample_rate_)
               << " ";*/
-    return (long(pad)*long(1000000))/long(sample_rate_);
+    return (long(pad) * long(1000000)) / long(sample_rate_);
 }
 
 bool WindowsAudioOutputDevice::push_samples(const void *sample_data, const long num_samples) {

@@ -18,6 +18,10 @@ XsListView {
     property int rightSpacing: control.height < control.contentHeight ? 12 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
 
+    property bool isDragging: false
+    property int draggingOffset: 0
+    property int draggingY: 0
+
     model: presetsTreeModel
 
     delegate: DelegateChooser {
@@ -37,7 +41,6 @@ XsListView {
         DelegateChoice {
             roleValue: "preset";
             XsSBPresetDelegate{
-                x: height
                 width: control.width - height - control.rightSpacing
                 height: btnHeight-2
                 delegateModel: control.model

@@ -923,10 +923,23 @@ bool MediaListFilterModel::filterAcceptsRow(
 
 QModelIndex MediaListFilterModel::rowToSourceIndex(const int row) const {
 
-    QModelIndex srcIdx          = mapToSource(index(row, 0));
-    QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
-    if (mdl) {
-        srcIdx = mdl->mapToModel(srcIdx);
+    QModelIndex srcIdx;
+    if (row == -1) {
+        // last row
+        srcIdx                      = mapToSource(index(rowCount() - 1, 0));
+        QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
+        if (mdl) {
+            srcIdx = mdl->mapToModel(srcIdx);
+        }
+        // next item
+        srcIdx = srcIdx.siblingAtRow(srcIdx.row() + 1);
+
+    } else {
+        srcIdx                      = mapToSource(index(row, 0));
+        QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
+        if (mdl) {
+            srcIdx = mdl->mapToModel(srcIdx);
+        }
     }
     return srcIdx;
 }

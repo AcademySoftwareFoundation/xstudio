@@ -110,6 +110,8 @@ xstudio::utility::actor_from_string(caf::actor_system &sys, const std::string &s
 
 void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor actor) {
 
+    if (!actor)
+        return;
     source->request(actor, caf::infinite, broadcast::join_broadcast_atom_v)
         .then(
             [=](const bool) mutable {},
@@ -119,6 +121,8 @@ void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor
 }
 
 void xstudio::utility::join_broadcast(caf::blocking_actor *source, caf::actor actor) {
+    if (!actor)
+        return;
     source->request(actor, caf::infinite, broadcast::join_broadcast_atom_v)
         .receive(
             [=](const bool) mutable {},
@@ -128,6 +132,8 @@ void xstudio::utility::join_broadcast(caf::blocking_actor *source, caf::actor ac
 }
 
 void xstudio::utility::leave_broadcast(caf::blocking_actor *source, caf::actor actor) {
+    if (!actor || !caf::actor_cast<caf::actor>(source))
+        return;
     source->request(actor, caf::infinite, broadcast::leave_broadcast_atom_v)
         .receive(
             [=](const bool) mutable {},
@@ -137,6 +143,8 @@ void xstudio::utility::leave_broadcast(caf::blocking_actor *source, caf::actor a
 }
 
 void xstudio::utility::leave_broadcast(caf::event_based_actor *source, caf::actor actor) {
+    if (!actor || !caf::actor_cast<caf::actor>(source))
+        return;
     source->request(actor, caf::infinite, broadcast::leave_broadcast_atom_v)
         .then(
             [=](const bool) mutable {},
@@ -146,9 +154,13 @@ void xstudio::utility::leave_broadcast(caf::event_based_actor *source, caf::acto
 }
 
 void xstudio::utility::join_event_group(caf::event_based_actor *source, caf::actor actor) {
+    if (!actor)
+        return;
     source->request(actor, caf::infinite, utility::get_event_group_atom_v)
         .then(
             [=](caf::actor grp) mutable {
+                if (!grp)
+                    return;
                 source->request(grp, caf::infinite, broadcast::join_broadcast_atom_v)
                     .then(
                         [=](const bool) mutable {},
@@ -162,9 +174,13 @@ void xstudio::utility::join_event_group(caf::event_based_actor *source, caf::act
 }
 
 void xstudio::utility::leave_event_group(caf::event_based_actor *source, caf::actor actor) {
+    if (!actor)
+        return;
     source->request(actor, caf::infinite, utility::get_event_group_atom_v)
         .then(
             [=](caf::actor grp) mutable {
+                if (!grp)
+                    return;
                 source->request(grp, caf::infinite, broadcast::leave_broadcast_atom_v)
                     .then(
                         [=](const bool) mutable {},

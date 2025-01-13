@@ -76,4 +76,12 @@ XsPopupMenu {
         menuModelName: rightClickMenu.menu_model_name
         onActivated: clipboard.text = JSON.stringify(ShotBrowserHelpers.getJSON(popupSelectionModel.selectedIndexes))
     }
+    XsMenuModelItem {
+        text: "Copy DNUuid"
+        menuItemPosition: 6.6
+        menuPath: ""
+        menuModelName: rightClickMenu.menu_model_name
+        onActivated: clipboard.text = ShotBrowserHelpers.getDNUuid(popupSelectionModel.selectedIndexes).join("\n")
+    }
+
 }

@@ -152,15 +152,21 @@ namespace media {
             const std::string &stream_id);
 
         bool operator!=(const MediaKey &o) const {
-            return (hash_ == o.hash_) ? static_cast<const std::string&>(*this) != static_cast<const std::string &>(o) : true;
+            return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) !=
+                                            static_cast<const std::string &>(o)
+                                      : true;
         }
 
         bool operator==(const MediaKey &o) const {
-            return (hash_ == o.hash_) ? static_cast<const std::string&>(*this) == static_cast<const std::string &>(o) : false;
+            return (hash_ == o.hash_) ? static_cast<const std::string &>(*this) ==
+                                            static_cast<const std::string &>(o)
+                                      : false;
         }
 
         bool operator<(const MediaKey &o) const {
-            return (hash_ != o.hash_) ? hash_ < o.hash_ : static_cast<const std::string&>(*this) < static_cast<const std::string &>(o);
+            return (hash_ != o.hash_) ? hash_ < o.hash_
+                                      : static_cast<const std::string &>(*this) <
+                                            static_cast<const std::string &>(o);
         }
 
         [[nodiscard]] size_t hash() const { return hash_; }
@@ -172,8 +178,7 @@ namespace media {
             return f.object(x).fields(f.field("data", static_cast<std::string &>(x)));
         }
 
-        private:
-
+      private:
         size_t hash_;
     };
 
@@ -210,18 +215,17 @@ namespace media {
     // copy and data footprint
     class AVFrameID {
       public:
-
         AVFrameID(
             const AVFrameID &shared,
             const caf::uri &uri,
             const int frame,
             const std::string &key_format,
-            const utility::Timecode time_code = utility::Timecode()) :
-            fixed_media_data_(shared.fixed_media_data_),
-            uri_(uri == shared.fixed_media_data_->fixed_uri_ ? caf::uri() : uri),
-            frame_(frame),
-            key_(key_format, uri, frame, shared.fixed_media_data_->stream_id_),
-            timecode_(time_code) {}
+            const utility::Timecode time_code = utility::Timecode())
+            : fixed_media_data_(shared.fixed_media_data_),
+              uri_(uri == shared.fixed_media_data_->fixed_uri_ ? caf::uri() : uri),
+              frame_(frame),
+              key_(key_format, uri, frame, shared.fixed_media_data_->stream_id_),
+              timecode_(time_code) {}
 
         AVFrameID(
             const caf::uri &uri               = caf::uri(),
@@ -242,19 +246,19 @@ namespace media {
               frame_(frame),
               key_(key_format, uri, frame, stream_id),
               timecode_(time_code) {
-                FixedMediaData * md = new FixedMediaData;
-                md->first_frame_ = first_frame;
-                md->rate_ = rate;
-                md->stream_id_ = stream_id;
-                md->reader_ = reader;
-                md->actor_addr_ = addr;
-                md->params_ = params;
-                md->source_uuid_ = source_uuid;
-                md->media_uuid_ = media_uuid;
-                md->clip_uuid_ = clip_uuid;
-                md->media_type_ = media_type;
-                fixed_media_data_.reset(md);
-              }
+            FixedMediaData *md = new FixedMediaData;
+            md->first_frame_   = first_frame;
+            md->rate_          = rate;
+            md->stream_id_     = stream_id;
+            md->reader_        = reader;
+            md->actor_addr_    = addr;
+            md->params_        = params;
+            md->source_uuid_   = source_uuid;
+            md->media_uuid_    = media_uuid;
+            md->clip_uuid_     = clip_uuid;
+            md->media_type_    = media_type;
+            fixed_media_data_.reset(md);
+        }
 
         virtual ~AVFrameID() = default;
 
@@ -269,24 +273,41 @@ namespace media {
                 timecode_ == other.timecode_ and error_ == other.error_);
         }
 
-        [[nodiscard]] const caf::uri & uri() const { return uri_.empty() ? fixed_media_data_->fixed_uri_ : uri_; }
+        bool operator!=(const AVFrameID &other) const { return !(*this == other); }
+
+        [[nodiscard]] const caf::uri &uri() const {
+            return uri_.empty() ? fixed_media_data_->fixed_uri_ : uri_;
+        }
         [[nodiscard]] int frame() const { return frame_; }
         [[nodiscard]] int first_frame() const { return fixed_media_data_->first_frame_; }
-        [[nodiscard]] const utility::FrameRate & rate() const { return fixed_media_data_->rate_; }
-        [[nodiscard]] const std::string & stream_id() const { return fixed_media_data_->stream_id_; }
-        [[nodiscard]] const MediaKey & key() const { return key_; }
-        [[nodiscard]] const std::string & reader() const { return fixed_media_data_->reader_; }
-        [[nodiscard]] const caf::actor_addr & actor_addr() const { return fixed_media_data_->actor_addr_; }
-        [[nodiscard]] const utility::JsonStore & params() const { return fixed_media_data_->params_; }
-        [[nodiscard]] const utility::Uuid & source_uuid() const { return fixed_media_data_->source_uuid_; }
-        [[nodiscard]] const utility::Uuid & media_uuid() const { return fixed_media_data_->media_uuid_; }
-        [[nodiscard]] const utility::Uuid & clip_uuid() const { return fixed_media_data_->clip_uuid_; }
+        [[nodiscard]] const utility::FrameRate &rate() const {
+            return fixed_media_data_->rate_;
+        }
+        [[nodiscard]] const std::string &stream_id() const {
+            return fixed_media_data_->stream_id_;
+        }
+        [[nodiscard]] const MediaKey &key() const { return key_; }
+        [[nodiscard]] const std::string &reader() const { return fixed_media_data_->reader_; }
+        [[nodiscard]] const caf::actor_addr &actor_addr() const {
+            return fixed_media_data_->actor_addr_;
+        }
+        [[nodiscard]] const utility::JsonStore &params() const {
+            return fixed_media_data_->params_;
+        }
+        [[nodiscard]] const utility::Uuid &source_uuid() const {
+            return fixed_media_data_->source_uuid_;
+        }
+        [[nodiscard]] const utility::Uuid &media_uuid() const {
+            return fixed_media_data_->media_uuid_;
+        }
+        [[nodiscard]] const utility::Uuid &clip_uuid() const {
+            return fixed_media_data_->clip_uuid_;
+        }
         [[nodiscard]] MediaType media_type() const { return fixed_media_data_->media_type_; }
-        [[nodiscard]] const utility::Timecode & timecode() const { return timecode_; }
-        [[nodiscard]] const std::string & error() const { return error_; }
+        [[nodiscard]] const utility::Timecode &timecode() const { return timecode_; }
+        [[nodiscard]] const std::string &error() const { return error_; }
 
-        private:
-
+      private:
         caf::uri uri_;
         int frame_;
         MediaKey key_;
@@ -308,14 +329,14 @@ namespace media {
         };
 
         std::shared_ptr<const FixedMediaData> fixed_media_data_;
-
     };
 
     typedef std::pair<utility::time_point, std::shared_ptr<const AVFrameID>>
         MediaPointerAndTimePoint;
     typedef std::vector<MediaPointerAndTimePoint> AVFrameIDsAndTimePoints;
     typedef std::map<timebase::flicks, std::shared_ptr<const AVFrameID>> FrameTimeMap;
-    typedef std::shared_ptr<const std::map<timebase::flicks, std::shared_ptr<const AVFrameID>>> FrameTimeMapPtr;
+    typedef std::shared_ptr<const std::map<timebase::flicks, std::shared_ptr<const AVFrameID>>>
+        FrameTimeMapPtr;
 
     class Media : public utility::Container {
       public:
@@ -459,9 +480,8 @@ namespace media {
         StreamDetail detail_;
     };
 
-    inline std::shared_ptr<const AVFrameID> make_blank_frame(
-        const utility::FrameRate rate,
-        const MediaType media_type) {
+    inline std::shared_ptr<const AVFrameID>
+    make_blank_frame(const utility::FrameRate rate, const MediaType media_type) {
         utility::JsonStore js;
         js["BLANK_FRAME"] = true;
 
@@ -479,15 +499,14 @@ namespace media {
             utility::Uuid(),
             utility::Uuid(),
             media_type));
-        }
+    }
 
     inline std::shared_ptr<const AVFrameID> make_blank_frame(
         const MediaType media_type,
-        const utility::Uuid media_uuid = utility::Uuid(),
-        const utility::Uuid source_uuid= utility::Uuid(),
-        const utility::Uuid clip_uuid= utility::Uuid(),
-        const caf::actor_addr actor_addr = caf::actor_addr()
-        ) {
+        const utility::Uuid media_uuid   = utility::Uuid(),
+        const utility::Uuid source_uuid  = utility::Uuid(),
+        const utility::Uuid clip_uuid    = utility::Uuid(),
+        const caf::actor_addr actor_addr = caf::actor_addr()) {
         utility::JsonStore js;
         js["BLANK_FRAME"] = true;
 
@@ -511,8 +530,6 @@ namespace media {
 
 namespace std {
 template <> struct hash<xstudio::media::MediaKey> {
-    size_t operator()(const xstudio::media::MediaKey &k) const {
-        return k.hash();
-    }
+    size_t operator()(const xstudio::media::MediaKey &k) const { return k.hash(); }
 };
 } // namespace std

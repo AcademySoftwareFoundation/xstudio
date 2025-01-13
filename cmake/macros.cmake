@@ -27,6 +27,7 @@ macro(default_compile_options name)
 		PRIVATE $<$<PLATFORM_ID:Linux>:-Wfatal-errors> # Stop after first error
 		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Linux>>:-Wpedantic>
 		PRIVATE $<$<AND:$<CONFIG:Debug>,$<PLATFORM_ID:Windows>>:/wd4100>
+		PRIVATE $<$<PLATFORM_ID:Windows>:/bigobj>
 		# PRIVATE $<$<CONFIG:Debug>:-Wall>
 		# PRIVATE $<$<CONFIG:Debug>:-Werror>
 		# PRIVATE $<$<CONFIG:Debug>:-Wextra>

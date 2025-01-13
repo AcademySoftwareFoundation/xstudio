@@ -83,6 +83,8 @@ namespace media_reader {
 
             AudioBufPtr get_ffmpeg_frame_as_xstudio_audio(const int soundcard_sample_rate);
 
+            const ImageBufPtr &attached_pic() const { return attached_pic_; }
+
             std::shared_ptr<thumbnail::ThumbnailBuffer>
             convert_av_frame_to_thumbnail(const size_t size_hint);
 
@@ -107,7 +109,11 @@ namespace media_reader {
 
             [[nodiscard]] int duration_frames() const;
 
-            [[nodiscard]] bool is_single_frame() const { return duration_frames() < 2; }
+            [[nodiscard]] bool is_single_frame() const {
+                return is_attached_pic_ || duration_frames() < 2;
+            }
+
+            [[nodiscard]] bool is_attached_pic() const { return is_attached_pic_; }
 
             [[nodiscard]] int stream_index() const { return stream_index_; }
 
@@ -135,6 +141,8 @@ namespace media_reader {
                 return avc_stream_->start_time != AV_NOPTS_VALUE ? avc_stream_->start_time : 0;
             }
 
+            void decode_attached_pic();
+
             // void setup_frame(ImageStorePtr & video_frame);
             int stream_index_;
             AVCodecContext *codec_context_;
@@ -154,6 +162,7 @@ namespace media_reader {
             int current_frame_                    = {CURRENT_FRAME_UNKNOWN};
             Imath::V2i resolution_                = {Imath::V2i(0, 0)};
             float pixel_aspect_                   = 1.0f;
+            bool is_attached_pic_                 = {false};
 
             // for video rescaling
             SwsContext *sws_context_ = {nullptr};
@@ -168,6 +177,7 @@ namespace media_reader {
             SwrContext *audio_resampler_ctx_     = {0};
 
             utility::FrameRate frame_rate_;
+            ImageBufPtr attached_pic_;
         };
     } // namespace ffmpeg
 } // namespace media_reader

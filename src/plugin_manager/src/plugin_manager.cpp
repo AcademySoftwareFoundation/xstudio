@@ -55,7 +55,8 @@ size_t PluginManager::load_plugins() {
 
 #ifdef __linux__
 
-                if (entry.path().extension() != ".so") continue;
+                if (entry.path().extension() != ".so")
+                    continue;
                 // only want .so
                 // clear any errors..
                 dlerror();
@@ -76,12 +77,13 @@ size_t PluginManager::load_plugins() {
                 }
 #elif defined(_WIN32)
 
-                if (entry.path().extension() != ".dll") continue;
+                if (entry.path().extension() != ".dll")
+                    continue;
 
                 // open .dll
                 std::string dllPath = entry.path().string();
 
-                HMODULE hndl        = LoadLibraryA(dllPath.c_str());
+                HMODULE hndl = LoadLibraryA(dllPath.c_str());
                 if (hndl == nullptr) {
                     DWORD errorCode = GetLastError();
                     LPSTR buffer    = nullptr;

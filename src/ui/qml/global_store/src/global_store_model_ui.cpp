@@ -126,7 +126,7 @@ void GlobalStoreModel::setAutosave(const bool enabled) {
     scoped_actor sys{system()};
     autosave_ = enabled;
     sys->send(gsh_->get_actor(), xstudio::global_store::autosave_atom_v, enabled);
-    gsh_->set_value(enabled, "/ui/qml/autosave");
+    gsh_->set_value(enabled, "/core/global_store/autosave_enable");
     emit autosaveChanged();
 }
 
@@ -432,7 +432,7 @@ void PublicPreferencesModel::setAutosave(const bool enabled) {
     scoped_actor sys{system()};
     autosave_ = enabled;
     sys->send(gsh_->get_actor(), xstudio::global_store::autosave_atom_v, enabled);
-    gsh_->set_value(enabled, "/ui/qml/autosave");
+    gsh_->set_value(enabled, "/core/global_store/autosave_enable");
     emit autosaveChanged();
 }
 

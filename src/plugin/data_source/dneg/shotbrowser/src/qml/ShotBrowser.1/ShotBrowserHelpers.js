@@ -143,6 +143,19 @@ function getJSON(indexes=[]) {
 	return jsn
 }
 
+function getDNUuid(indexes=[]) {
+	let jsn = []
+	if(indexes.length) {
+		indexes = mapIndexesToResultModel(indexes)
+
+		let m = indexes[0].model
+		for(let i = 0; i< indexes.length; i++) {
+			jsn.push(helpers.QUuidToQString(m.get(indexes[i], "stalkUuidRole") ))
+		}
+	}
+	return jsn
+}
+
 function getNote(indexes=[]) {
 	let txt = ""
 	if(indexes.length) {
@@ -299,6 +312,20 @@ function compareSelectedResults(indexes=[]) {
 	}
 }
 
+
+function getNextMediaUuid() {
+    let media_uuid = null
+    let indexes = mediaSelectionModel.selectedIndexes
+
+	if(indexes.length) {
+        let next = nextItem(indexes[indexes.length-1])
+        if(next.valid) {
+			media_uuid = mediaSelectionModel.model.get(next, "actorUuidRole")
+        }
+	}
+	return media_uuid
+}
+
 function replaceMediaCallback(playlist_uuid, uuids) {
 	// find selected media.
     if(uuids.length && mediaSelectionModel.selectedIndexes.length) {
@@ -442,37 +469,48 @@ function selectTimelineCallback(playlist_index, uuids, wait=4) {
 function addToSequence(indexes=[], viewed=true) {
 	let current_pl = viewed ? viewedMediaSetProperties.values.actorUuidRole : inspectedMediaSetProperties.values.actorUuidRole
 	if(viewed)
-		addToPlaylist(indexes, current_pl, null, "Untitled Playlist", conformMediaCallback)
+		addToPlaylist(indexes, current_pl, null, theSessionData.getNextName("Playlist {}"), conformMediaCallback)
 	else
-		addToPlaylist(indexes, current_pl, null, "Untitled Playlist", conformMediaToConformTrackCallback)
+		addToPlaylist(indexes, current_pl, null, theSessionData.getNextName("Playlist {}"), conformMediaToConformTrackCallback)
 }
 
 function replaceToSequence(indexes=[], callback=replaceConformMediaCallback) {
 	let current_pl = viewedMediaSetProperties.values.actorUuidRole
 
-	addToPlaylist(indexes, current_pl, null, "Untitled Playlist", callback)
+	addToPlaylist(indexes, current_pl, null, theSessionData.getNextName("Playlist {}"), callback)
 }
 
 function addToCurrentMediaContainer(indexes=[], media_uuid=null, viewed=true, callback=selectFirstMediaCallback) {
 	let current_pl = viewed ? viewedMediaSetProperties.values.actorUuidRole : inspectedMediaSetProperties.values.actorUuidRole
 
-	addToPlaylist(indexes, current_pl, media_uuid, "Untitled Playlist", callback)
+	addToPlaylist(indexes, current_pl, media_uuid, theSessionData.getNextName("Playlist {}"), callback)
 }
 
-function addToNewPlaylist(indexes=[], media_uuid=null, callback=selectFirstMediaCallback) {
-	addToPlaylist(indexes, null, media_uuid, "Untitled Playlist", callback)
+function addToNewPlaylist(indexes=[], media_uuid=null, callback=null) {
+	// we can probably be smarter..
+	// as we can at least determine the preset used ?
+	let playlistname = "Playlist {}"
+	if(indexes.length) {
+		let ind = mapIndexesToResultModel(indexes)
+		let cc = ind[0].model.customContext
+		if(cc != undefined && cc.project_name != undefined && cc.preset_name != undefined) {
+			playlistname = cc.project_name + " - " + cc.preset_name
+		}
+	}
+
+	addToPlaylist(indexes, null, media_uuid, theSessionData.getNextName(playlistname), callback)
 }
 
 
 function loadShotGridPlaylist(shotgrid_playlist_id, name, context={}) {
 
 	// console.log("createPlaylist", name)
-	let plindex = theSessionData.createPlaylist(name)
+	let plindex = theSessionData.createPlaylist(name, true, false)
 
 	let notify_uuid = theSessionData.processingNotification(plindex, "Loading ShotGrid Playlist")
 
 	// mark playlist as busy.
-    plindex.model.set(plindex, true, "busyRole")
+    // plindex.model.set(plindex, true, "busyRole")
 
 	// get playlist actor uuid
 	let pl_actor_uuid = plindex.model.get(plindex, "actorUuidRole")
@@ -505,20 +543,20 @@ function loadShotGridPlaylist(shotgrid_playlist_id, name, context={}) {
                 // add versions to playlist.
                 Future.promise(ShotBrowserEngine.addVersionToPlaylistFuture(JSON.stringify(data), pl_actor_uuid)).then(
                     function(json_string) {
-                    	var uuids = JSON.parse(json_string)
-                    	if(uuids.length) {
-                        	let tmp = []//uuids.length
-                        	for(let i=0;i<1;i++)
-	                        	tmp.push(helpers.QVariantFromUuidString(uuids[i]))
+                    	// var uuids = JSON.parse(json_string)
+                    	// if(uuids.length) {
+                     //    	let tmp = []//uuids.length
+                     //    	for(let i=0;i<1;i++)
+	                    //     	tmp.push(helpers.QVariantFromUuidString(uuids[i]))
 
-	                        mediaSelectionModel.selectNewMedia(plindex, tmp)
-                        }
+	                    //     mediaSelectionModel.selectNewMedia(plindex, tmp)
+                     //    }
 
-                        plindex.model.set(plindex, false, "busyRole")
+                        // plindex.model.set(plindex, false, "busyRole")
 
 						// selects the playlist so it is what's showing in
 						// the viewport
-						sessionSelectionModel.setCurrentIndex(plindex, ItemSelectionModel.ClearAndSelect)
+						// sessionSelectionModel.setCurrentIndex(plindex, ItemSelectionModel.ClearAndSelect)
 						theSessionData.infoNotification(plindex, "Loaded ShotGrid Playlist", 5, notify_uuid)
                         // ShotgunHelpers.handle_response(json_string)
                     },
@@ -557,11 +595,16 @@ function loadShotgridPlaylists(indexes=[]) {
 	}
 }
 
-function addToCurrent(indexes=[], viewed=true) {
+function addToCurrent(indexes=[], viewed=true, addAfterSelection=false) {
 	if(viewedMediaSetProperties.values.typeRole == "Timeline") {
 		addToSequence(indexes, viewed)
 	} else {
-        addToCurrentMediaContainer(indexes, null, viewed)
+		let afterMediaUuid = null
+		if(addAfterSelection) {
+			afterMediaUuid = getNextMediaUuid()
+		}
+
+        addToCurrentMediaContainer(indexes, afterMediaUuid, viewed)
 	}
 }
 
@@ -616,7 +659,7 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 	}
 }
 
-function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlist_name = "Untitled Playlist", callback=null) {
+function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlist_name = theSessionData.getNextName("Playlist {}"), callback=null) {
 	indexes = mapIndexesToResultModel(indexes)
 
 	let shotgrid_playlists = []
@@ -663,7 +706,8 @@ function addToPlaylist(indexes=[], playlist_uuid=null, before_uuid=null, playlis
 		        function(json_string) {
 	                try {
 	                    var data = JSON.parse(json_string)
-	                    callback(playlist_uuid, data)
+	                    if(callback)
+		                    callback(playlist_uuid, data)
 
 	                    // app_window.sessionFunction.setActivePlaylist(index)
 	                    // app_window.requestActivate()
@@ -696,22 +740,32 @@ function selectItem(selectionModel, index) {
 }
 
 function ctrlSelectItem(selectionModel, index) {
-	selectionModel.select(index, ItemSelectionModel.Toggle)
+	//  make sure we don't have mixed selections / cross group selections.
+
+	if(selectionModel.selectedIndexes.length && selectionModel.selectedIndexes[0].parent != index.parent)
+		selectItem(selectionModel, index)
+	else
+		selectionModel.select(index, ItemSelectionModel.Toggle)
 }
 
 function shiftSelectItem(selectionModel, index) {
 	let sel = selectionModel.selectedIndexes
 	if(sel.length) {
-		// find last selected entry ?
-		let m = sel[sel.length-1]
-		let s = Math.min(index.row, m.row)
-		let e = Math.max(index.row, m.row)
-		let items = []
+		if(selectionModel.selectedIndexes[0].parent != index.parent)
+			selectItem(selectionModel, index)
+		else {
 
-		for(let i=s; i<=e; i++) {
-			items.push(selectionModel.model.index(i, 0, index.parent))
+			// find last selected entry ?
+			let m = sel[sel.length-1]
+			let s = Math.min(index.row, m.row)
+			let e = Math.max(index.row, m.row)
+			let items = []
+
+			for(let i=s; i<=e; i++) {
+				items.push(selectionModel.model.index(i, 0, index.parent))
+			}
+			selectionModel.select(helpers.createItemSelection(items), ItemSelectionModel.ClearAndSelect)
 		}
-		selectionModel.select(helpers.createItemSelection(items), ItemSelectionModel.ClearAndSelect)
 	} else {
 		selectItem(selectionModel, index)
 	}

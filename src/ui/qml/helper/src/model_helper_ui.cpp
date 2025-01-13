@@ -469,7 +469,9 @@ nlohmann::json xstudio::ui::qml::mapFromValue(const QVariant &value) {
     nlohmann::json result;
 
     if (value.userType() == qMetaTypeId<QJSValue>()) {
-        QVariant v = qvariant_cast<QJSValue>(value).toVariant();
+        auto qjsvalue = qvariant_cast<QJSValue>(value);
+
+        QVariant v = qjsvalue.toVariant();
 
         switch (static_cast<int>(v.type())) {
         case QMetaType::QVariantMap:

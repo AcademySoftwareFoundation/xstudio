@@ -8,7 +8,7 @@
 #include "xstudio/utility/chrono.hpp"
 
 using namespace xstudio::ui::opengl;
- 
+
 GLSsboTex::~GLSsboTex() {
 
     // ensure no copying is in flight

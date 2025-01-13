@@ -394,7 +394,8 @@ bool Item::valid_child(const Item &child) const {
     return valid;
 }
 
-utility::UuidActorVector Item::find_all_uuid_actors(const ItemType item_type, const bool only_enabled_items) const {
+utility::UuidActorVector
+Item::find_all_uuid_actors(const ItemType item_type, const bool only_enabled_items) const {
     utility::UuidActorVector items;
 
     if (item_type_ == item_type && (!only_enabled_items || enabled_))
@@ -451,7 +452,7 @@ Item::find_all_items(const ItemType item_type, const ItemType track_type) {
     const timebase::flicks frame_inteval,
     const media::MediaType mt,
     const utility::UuidSet &focus,
-    const bool must_have_focus) const 
+    const bool must_have_focus) const
 {
     if (transparent())
         return;
@@ -470,13 +471,13 @@ Item::find_all_items(const ItemType item_type, const ItemType track_type) {
         const auto td = it.trimmed_duration();
         while (time < td && time <= print_range_out) {
             // print clip/gap frame here
-            result[idx++] = std::pair<const Item &, utility::FrameRate>(it, time + it.trimmed_start());
-            time += frame_inteval;
+            result[idx++] = std::pair<const Item &, utility::FrameRate>(it, time +
+it.trimmed_start()); time += frame_inteval;
         }
 
-        
+
     }
-    
+
 }*/
 
 std::optional<ResolvedItem> Item::resolve_time(
@@ -1590,52 +1591,54 @@ void Item::reset_media_uuid() {
 }
 
 namespace xstudio::timeline {
-/* Doing sync requests to the clip actors to build our FrameTimeMap can 
-get a bit ugly. To help with this we have this helper that processes the 
+/* Doing sync requests to the clip actors to build our FrameTimeMap can
+get a bit ugly. To help with this we have this helper that processes the
 responses from the clip actors and self destroys once all the expected responses
 come in*/
 class BuildFrameIDsHelper {
 
-    public:
-
+  public:
     BuildFrameIDsHelper(
         caf::typed_response_promise<media::FrameTimeMapPtr> rp,
         const int rcount,
-        Item * parent,
-        const media::MediaType media_type
-    ) : rp_(rp), media_type_(media_type) {
+        Item *parent,
+        const media::MediaType media_type)
+        : rp_(rp), media_type_(media_type) {
 
-        base_rate_ = parent->rate();
+        base_rate_    = parent->rate();
         parent_actor_ = caf::actor_cast<caf::event_based_actor *>(parent->actor());
-        count_ = size_t(rcount);
-        blank_frame = media::make_blank_frame(media_type);
-        result = new media::FrameTimeMap;
+        count_        = size_t(rcount);
+        blank_frame   = media::make_blank_frame(media_type);
+        result        = new media::FrameTimeMap;
     }
 
     void add_blank_frame(timebase::flicks timeline_tp);
     void add_frame(caf::actor, timebase::flicks, const FrameRate &clip_tp);
 
-    void incref() {
-        refcount_++;
-    }
+    void incref() { refcount_++; }
 
     void decref() {
         refcount_--;
-        if (!refcount_) delete this;
+        if (!refcount_) {
+            if (rp_.pending()) {
+                rp_.deliver(make_error(
+                    xstudio_error::error, "Timeline Item failed to complete frame IDs build."));
+            }
+            delete this;
+        }
     }
 
     void request_clip_frames();
 
     void decrement_count(const size_t n = 1);
 
-    private:
-
+  private:
     // store for the result
-    media::FrameTimeMap * result;
+    media::FrameTimeMap *result;
     size_t count_;
     int refcount_ = {0};
     FrameRate base_rate_;
-    caf::event_based_actor * parent_actor_ = nullptr;
+    caf::event_based_actor *parent_actor_ = nullptr;
     caf::actor current_clip_actor_;
     std::vector<timebase::flicks> timeline_timepoints_;
     std::vector<FrameRate> clip_timepoints_;
@@ -1643,19 +1646,16 @@ class BuildFrameIDsHelper {
     caf::typed_response_promise<media::FrameTimeMapPtr> rp_;
     // blank frame
     std::shared_ptr<const media::AVFrameID> blank_frame;
-
 };
-}
+} // namespace xstudio::timeline
 
- caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
-            const media::MediaType media_type,
-            const utility::TimeSourceMode tsm,
-            const utility::FrameRate &override_rate,
-            const utility::UuidSet &focus_list
-            ) 
-{
+caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
+    const media::MediaType media_type,
+    const utility::TimeSourceMode tsm,
+    const utility::FrameRate &override_rate,
+    const utility::UuidSet &focus_list) {
     auto foo = caf::actor_cast<caf::event_based_actor *>(actor());
-    auto rp = foo->make_response_promise<media::FrameTimeMapPtr>();
+    auto rp  = foo->make_response_promise<media::FrameTimeMapPtr>();
 
     if (!available_range()) {
         rp.deliver(media::FrameTimeMapPtr());
@@ -1663,18 +1663,16 @@ class BuildFrameIDsHelper {
     }
 
     // First, get our frame range
-    const int start_frame =
-        available_range()->frame_start().frames(override_rate);
+    const int start_frame = available_range()->frame_start().frames(override_rate);
     const int end_frame =
-        start_frame +
-        available_range()->frame_duration().frames(override_rate);
-    const int num_frames = end_frame-start_frame;
+        start_frame + available_range()->frame_duration().frames(override_rate);
+    const int num_frames = end_frame - start_frame;
 
-    BuildFrameIDsHelper * helper = new BuildFrameIDsHelper(rp, num_frames, this, media_type);
+    BuildFrameIDsHelper *helper = new BuildFrameIDsHelper(rp, num_frames, this, media_type);
     helper->incref();
 
     const timebase::flicks delta = override_rate.to_flicks();
-    timebase::flicks timepoint = start_frame * delta;
+    timebase::flicks timepoint   = start_frame * delta;
 
     // TODO: this needs optimisation - for multi-track, long timlines we see
     // this taking 100s of milliseconds. The problem is the recursive call into
@@ -1685,39 +1683,39 @@ class BuildFrameIDsHelper {
     // just do a simple loop to print itself into the result.
     for (auto i = start_frame; i < end_frame; i++) {
 
-        std::optional<ResolvedItem> clip_item = resolve_time(
-            FrameRate(timepoint),
-            media_type,
-            focus_list);
+        std::optional<ResolvedItem> clip_item =
+            resolve_time(FrameRate(timepoint), media_type, focus_list);
 
-        if (clip_item) helper->add_frame(clip_item->first.actor(), timepoint, clip_item->second);
-        else helper->add_blank_frame(timepoint);
+        if (clip_item)
+            helper->add_frame(clip_item->first.actor(), timepoint, clip_item->second);
+        else
+            helper->add_blank_frame(timepoint);
         timepoint += delta;
-
     }
 
     helper->request_clip_frames();
 
     // in case start_frame = end_frame, i.e. nothing to process this
     // call will ensure we deliver ont the RP
-    helper->decrement_count(0); 
+    helper->decrement_count(0);
     helper->decref();
-    
+
     return rp;
 }
 
-void BuildFrameIDsHelper::add_blank_frame(timebase::flicks timeline_tp)
-{
+void BuildFrameIDsHelper::add_blank_frame(timebase::flicks timeline_tp) {
     if (current_clip_actor_) {
         request_clip_frames();
+        current_clip_actor_ = caf::actor();
+        timeline_timepoints_.clear();
+        clip_timepoints_.clear();
     }
     (*result)[timeline_tp] = blank_frame;
-    current_clip_actor_ = caf::actor();
     decrement_count();
 }
 
-void BuildFrameIDsHelper::add_frame(caf::actor clip_actor, timebase::flicks timeline_tp, const FrameRate &clip_tp)
-{
+void BuildFrameIDsHelper::add_frame(
+    caf::actor clip_actor, timebase::flicks timeline_tp, const FrameRate &clip_tp) {
 
     if (clip_actor != current_clip_actor_) {
 
@@ -1726,35 +1724,40 @@ void BuildFrameIDsHelper::add_frame(caf::actor clip_actor, timebase::flicks time
         current_clip_actor_ = clip_actor;
         timeline_timepoints_.clear();
         clip_timepoints_.clear();
-
     }
 
     timeline_timepoints_.emplace_back(timeline_tp);
     clip_timepoints_.emplace_back(clip_tp);
-    
 }
 
-void BuildFrameIDsHelper::request_clip_frames() 
-{
+void BuildFrameIDsHelper::request_clip_frames() {
 
-    if (!current_clip_actor_) return;
-    
+    if (!current_clip_actor_) {
+        incref();
+        for (const auto &tp : timeline_timepoints_) {
+            (*result)[tp] = blank_frame;
+        }
+        decrement_count(timeline_timepoints_.size());
+        decref();
+        return;
+    }
+
     const auto timeline_timepoints_cpy = timeline_timepoints_;
 
     incref();
 
-    parent_actor_->request(
-        current_clip_actor_,
-        infinite,
-        media::get_media_pointer_atom_v,
-        media_type_,
-        clip_timepoints_,
-        base_rate_)
+    parent_actor_
+        ->request(
+            current_clip_actor_,
+            infinite,
+            media::get_media_pointer_atom_v,
+            media_type_,
+            clip_timepoints_,
+            base_rate_)
         .then(
             [=](const media::AVFrameIDs &mps) mutable {
-                
                 int idx = 0;
-                for (const auto &mp: mps) {
+                for (const auto &mp : mps) {
                     (*result)[timeline_timepoints_cpy[idx++]] = mp;
                 }
                 decrement_count(timeline_timepoints_cpy.size());
@@ -1762,23 +1765,21 @@ void BuildFrameIDsHelper::request_clip_frames()
             },
 
             [=](error &err) mutable {
-                for (const auto &tp: timeline_timepoints_cpy) {
+                for (const auto &tp : timeline_timepoints_cpy) {
                     (*result)[tp] = blank_frame;
                 }
                 decrement_count(timeline_timepoints_cpy.size());
                 decref();
             });
-
 }
 
 void BuildFrameIDsHelper::decrement_count(const size_t n) {
 
-    if (n >= count_) {
+    if (n >= count_ && rp_.pending()) {
+        media::FrameTimeMapPtr r(result);
+        rp_.deliver(r);
 
-        rp_.deliver(media::FrameTimeMapPtr(result));
-
-    }
-    else {
+    } else {
         count_ -= n;
     }
 }

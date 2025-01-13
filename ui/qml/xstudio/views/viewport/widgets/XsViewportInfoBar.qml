@@ -86,6 +86,7 @@ Rectangle {
                 shortText: abbr_title
                 valueText: "" + value
                 isBgGradientVisible: false
+                enabled: attr_enabled
             }
         }
 

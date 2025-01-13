@@ -76,6 +76,8 @@ caf::message_handler GapActor::message_handler() {
             return jsn;
         },
 
+        [=](item_type_atom) -> ItemType { return base_.item().item_type(); },
+
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
             if (not jsn.is_null())

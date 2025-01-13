@@ -48,6 +48,10 @@ Item{
             text: title ? title : ""
             anchors.verticalCenter: parent.verticalCenter
             x: position == "left" ? leftMargin : (parent.width-width)/2
+
+            horizontalAlignment: position == "left" ? Text.AlignLeft : Text.AlignHCenter
+            elide: Text.ElideRight
+            width: parent.width - leftMargin
         }
 
         MouseArea {

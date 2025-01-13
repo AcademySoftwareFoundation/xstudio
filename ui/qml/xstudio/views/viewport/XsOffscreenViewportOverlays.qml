@@ -52,6 +52,8 @@ Item  {
 
     property var sessionPath: sessionProperties.values.pathRole
     
+    property alias viewportPlayhead: sessionData.current_playhead
+
     XsViewportHUD {}
 
     XsViewportOverlays {}

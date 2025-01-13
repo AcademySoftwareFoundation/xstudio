@@ -53,8 +53,17 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                 // we get this message every time the AudioOutputActor has
                 // received samples to play.
                 // connect to the sound output device if necessary
-                if (output_device_)
-                    output_device_->connect_to_soundcard();
+                if (output_device_) {
+                    try {
+                        output_device_->connect_to_soundcard();
+                    } catch (std::exception &err) {
+                        spdlog::critical("Failed to connect to audio device: {}", err.what());
+                        output_device_.reset();
+                        return;
+                    }
+                } else {
+                    return;
+                }
 
                 if (!waiting_for_samples_) {
                     // start playback loop
@@ -77,7 +86,6 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                 }
             },
             [=](push_samples_atom) {
-
                 if (!output_device_)
                     return;
 
@@ -100,10 +108,10 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                 // essentially we have two loops running within the single actor.
                 if (waiting_for_samples_)
                     return;
-                waiting_for_samples_ = true;
+                waiting_for_samples_                 = true;
                 const long num_samps_soundcard_wants = (long)output_device_->desired_samples();
 
-                auto tt                              = utility::clock::now();
+                auto tt = utility::clock::now();
                 request(
                     audio_samples_actor_,
                     infinite,
@@ -152,8 +160,13 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
 class AudioOutputActor : public caf::event_based_actor, AudioOutputControl {
 
   public:
-    AudioOutputActor(caf::actor_config &cfg, std::shared_ptr<AudioOutputDevice> output_device)
-        : caf::event_based_actor(cfg), output_device_(output_device) {
+    AudioOutputActor(
+        caf::actor_config &cfg,
+        std::shared_ptr<AudioOutputDevice> output_device,
+        bool subscribe_to_global_audio_stream = true)
+        : caf::event_based_actor(cfg),
+          output_device_(output_device),
+          is_global_(subscribe_to_global_audio_stream) {
         init();
     }
 
@@ -170,13 +183,13 @@ class AudioOutputActor : public caf::event_based_actor, AudioOutputControl {
 
     caf::behavior behavior_;
     const utility::JsonStore params_;
-    bool playing_       = {false};
     int video_frame_    = {0};
     int retry_on_error_ = {0};
     utility::Uuid uuid_ = {utility::Uuid::generate()};
     utility::Uuid sub_playhead_uuid_;
     std::shared_ptr<AudioOutputDevice> output_device_;
     caf::actor playhead_;
+    bool is_global_;
 };
 
 /* Singleton class that receives audio sample buffers from the current
@@ -203,6 +216,8 @@ class GlobalAudioOutputActor : public caf::event_based_actor, module::Module {
 
 
   private:
+    caf::actor independent_output(const utility::Uuid &playhead_uuid);
+
     caf::actor event_group_;
     caf::message_handler behavior_;
     module::BooleanAttribute *audio_repitch_;
@@ -210,6 +225,7 @@ class GlobalAudioOutputActor : public caf::event_based_actor, module::Module {
     module::FloatAttribute *volume_;
     module::BooleanAttribute *muted_;
     utility::Uuid mute_hotkey_;
+    std::map<utility::Uuid, caf::actor> independent_outputs_;
 };
 
 } // namespace xstudio::audio

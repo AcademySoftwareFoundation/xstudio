@@ -55,10 +55,11 @@ const static auto MEDIA_COLOUR_JPOINTER = nlohmann::json::json_pointer("/xstudio
 
 caf::actor
 TimelineActor::deserialise(const utility::JsonStore &value, const bool replace_item) {
-    auto key   = utility::Uuid(value.at("base").at("item").at("uuid"));
+
     auto actor = caf::actor();
 
     if (value.at("base").at("container").at("type") == "Stack") {
+        auto key  = utility::Uuid(value.at("base").at("item").at("uuid"));
         auto item = Item();
         actor     = spawn<StackActor>(static_cast<utility::JsonStore>(value), item);
         add_item(UuidActor(key, actor));
@@ -74,6 +75,17 @@ TimelineActor::deserialise(const utility::JsonStore &value, const bool replace_i
                     to_string(key),
                     value.dump(2));
             }
+        }
+    } else if (value.at("base").at("container").at("type") == "PlayheadSelection") {
+
+        try {
+
+            selection_actor_ = system().spawn<playhead::PlayheadSelectionActor>(
+                static_cast<utility::JsonStore>(value), caf::actor_cast<caf::actor>(this));
+            link_to(selection_actor_);
+
+        } catch (const std::exception &e) {
+            spdlog::error("{}", e.what());
         }
     }
 
@@ -329,6 +341,7 @@ void process_item(
     const std::vector<otio::SerializableObject::Retainer<otio::Composable>> &items,
     blocking_actor *self,
     caf::actor &parent,
+    const caf::uri &path, // otio path
     const std::map<std::string, UuidActor> &media_lookup,
     const FrameRate &timeline_rate) {
 
@@ -427,34 +440,7 @@ void process_item(
                     UuidActorVector({UuidActor(uuid, actor)}))
                 .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-            process_item(ii->children(), self, actor, media_lookup, timeline_rate);
-            // } else if (ii->kind() == otio::Track::Kind::audio) {
-            //     // spdlog::warn("Audio Track");
-            //     auto uuid = Uuid::generate();
-            //     auto actor =
-            //         self->spawn<TrackActor>(ii->name(), media::MediaType::MT_AUDIO, uuid);
-            //     auto source_range = ii->source_range();
-
-            //     if (source_range)
-            //         self->request(
-            //                 actor,
-            //                 infinite,
-            //                 active_range_atom_v,
-            //                 FrameRange(FrameRateDuration(
-            //                     static_cast<int>(source_range->duration().value()),
-            //                     source_range->duration().rate())))
-            //             .receive([=](const JsonStore &) {}, [=](const error &err) {});
-
-            //     self->request(
-            //             parent,
-            //             infinite,
-            //             insert_item_atom_v,
-            //             -1,
-            //             UuidActorVector({UuidActor(uuid, actor)}))
-            //         .receive([=](const JsonStore &) {}, [=](const error &err) {});
-
-            //     process_item(ii->children(), self, actor, media_lookup);
-            // }
+            process_item(ii->children(), self, actor, path, media_lookup, timeline_rate);
         } else if (auto ii = dynamic_cast<otio::Gap *>(&(*i))) {
 
             auto uuid  = Uuid::generate();
@@ -543,6 +529,15 @@ void process_item(
                 active_path = active->target_url_base() + active->name_prefix() + "{:0" +
                               std::to_string(active->frame_zero_padding()) + "d}" +
                               active->name_suffix();
+            }
+
+            // active_path maybe relative..
+            if (not active_path.empty() and not caf::make_uri(active_path)) {
+                // not uri....
+                // assume relative ?
+                auto tmp       = uri_to_posix_path(path);
+                auto const pos = tmp.find_last_of('/');
+                active_path    = "file://" + tmp.substr(0, pos + 1) + active_path;
             }
 
             if (active_path.empty() or not media_lookup.count(active_path)) {
@@ -718,7 +713,7 @@ void process_item(
                     UuidActorVector({UuidActor(uuid, actor)}))
                 .receive([=](const JsonStore &) {}, [=](const error &err) {});
 
-            process_item(ii->children(), self, parent, media_lookup, timeline_rate);
+            process_item(ii->children(), self, parent, path, media_lookup, timeline_rate);
         }
     }
 }
@@ -734,10 +729,22 @@ void timeline_importer(
     otio::ErrorStatus error_status;
     otio::SerializableObject::Retainer<otio::Timeline> timeline;
 
+    // notify processing..
+    auto notify_uuid = Uuid();
+    {
+        auto notify = Notification::ProgressRangeNotification("Loading timeline");
+        anon_send(dst.actor(), notification_atom_v, notify);
+        notify_uuid = notify.uuid();
+    }
+
     timeline = otio::SerializableObject::Retainer<otio::Timeline>(
         dynamic_cast<otio::Timeline *>(otio::Timeline::from_json_string(data, &error_status)));
 
     if (otio::is_error(error_status)) {
+        auto failnotify = Notification::WarnNotification("Failed Loading timeline");
+        failnotify.uuid(notify_uuid);
+        anon_send(dst.actor(), notification_atom_v, failnotify);
+
         return rp.deliver(false);
     }
 
@@ -763,6 +770,14 @@ void timeline_importer(
             }
         }
     }
+
+    {
+        auto notify =
+            Notification::ProgressRangeNotification("Loading timeline", 0, 0, clips.size());
+        notify.uuid(notify_uuid);
+        anon_send(dst.actor(), notification_atom_v, notify);
+    }
+
 
     self->request(
             dst.actor(),
@@ -815,7 +830,11 @@ void timeline_importer(
             },
             [=](error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); });
 
+    float count = 0.0;
     for (const auto &cl : clips) {
+        count++;
+        anon_send(dst.actor(), notification_atom_v, notify_uuid, count);
+
         const auto &name = cl->name();
         // spdlog::warn("{} {}", name, cl->active_media_reference_key());
 
@@ -832,6 +851,15 @@ void timeline_importer(
             active_path = active->target_url_base() + active->name_prefix() + "{:0" +
                           std::to_string(active->frame_zero_padding()) + "d}" +
                           active->name_suffix();
+        }
+
+        // active_path maybe relative..
+        if (not caf::make_uri(active_path)) {
+            // not uri....
+            // assume relative ?
+            auto tmp       = uri_to_posix_path(path);
+            auto const pos = tmp.find_last_of('/');
+            active_path    = "file://" + tmp.substr(0, pos + 1) + active_path;
         }
 
         // WARNING this may inadvertantly skip auxiliary sources we want..
@@ -866,8 +894,13 @@ void timeline_importer(
 
                 auto uri = caf::make_uri(ext->target_url());
                 if (!uri) {
-                    uri = posix_path_to_uri(ext->target_url());
+                    // not uri....
+                    // assume relative ?
+                    auto tmp       = uri_to_posix_path(path);
+                    auto const pos = tmp.find_last_of('/');
+                    uri = posix_path_to_uri(tmp.substr(0, pos + 1) + ext->target_url());
                 }
+
                 if (uri) {
                     auto extname     = ext->name();
                     auto source_uuid = utility::Uuid::generate();
@@ -1054,7 +1087,7 @@ void timeline_importer(
         if (not markers.empty())
             anon_send(stack_actor, item_marker_atom_v, insert_item_atom_v, markers);
 
-        process_item(tracks, self, stack_actor, target_url_map, timeline_rate);
+        process_item(tracks, self, stack_actor, path, target_url_map, timeline_rate);
     }
 
     // enable history, we've finished.
@@ -1063,6 +1096,10 @@ void timeline_importer(
     }
 
     // spdlog::warn("imported");
+
+    auto successnotify = Notification::InfoNotification("Timeline Loaded");
+    successnotify.uuid(notify_uuid);
+    anon_send(dst.actor(), notification_atom_v, successnotify);
 
     rp.deliver(true);
 }
@@ -1077,6 +1114,10 @@ TimelineActor::TimelineActor(
 
     if (playlist)
         anon_send(this, playhead::source_atom_v, playlist, UuidUuidMap());
+
+    if (jsn.contains("playhead")) {
+        playhead_serialisation_ = jsn["playhead"];
+    }
 
     for (const auto &[key, value] : jsn["actors"].items()) {
         try {
@@ -1143,11 +1184,15 @@ TimelineActor::TimelineActor(
 }
 
 caf::message_handler TimelineActor::default_event_handler() {
-    return {
-        [=](utility::event_atom, item_atom, const Item &) {},
-        [=](utility::event_atom, item_atom, const JsonStore &, const bool) {},
-    };
+    return caf::message_handler(
+               {
+                   [=](utility::event_atom, item_atom, const Item &) {},
+                   [=](utility::event_atom, item_atom, const JsonStore &, const bool) {},
+               })
+        .or_else(NotificationHandler::default_event_handler())
+        .or_else(Container::default_event_handler());
 }
+
 
 caf::message_handler TimelineActor::message_handler() {
     return caf::message_handler{
@@ -1311,22 +1356,20 @@ caf::message_handler TimelineActor::message_handler() {
             send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
 
 
-
             // Ted - TODO - this WIP stuff allows comparing of video tracks within
             // a timeline.
             auto video_tracks = base_.item().find_all_uuid_actors(IT_VIDEO_TRACK, true);
             if (video_tracks != video_tracks_) {
                 video_tracks_ = video_tracks;
                 if (playhead_) {
-                    // now set this (and its video tracks) as the source for 
-                    // the timeple playhead                    
+                    // now set this (and its video tracks) as the source for
+                    // the timeple playhead
 
                     anon_send(
                         playhead_.actor(),
                         playhead::source_atom_v,
                         utility::UuidActor(base_.uuid(), caf::actor_cast<caf::actor>(this)),
-                        video_tracks_
-                    );
+                        video_tracks_);
                 }
             }
         },
@@ -1342,15 +1385,6 @@ caf::message_handler TimelineActor::message_handler() {
                     true);
             }
         },
-
-        // handle child change events.
-        // [=](event_atom, item_atom, const Item &item) {
-        //     // it's possibly one of ours.. so try and substitue the record
-        //     if(base_.item().replace_child(item)) {
-        //         base_.item().refresh();
-        //         send(this, utility::event_atom_v, change_atom_v);
-        //     }
-        // },
 
         // check events processes
         [=](item_atom, event_atom, const std::set<utility::Uuid> &events) -> bool {
@@ -1579,6 +1613,19 @@ caf::message_handler TimelineActor::message_handler() {
             return rp;
         },
 
+        [=](bake_atom,
+            const FrameRate &time,
+            const FrameRate &duration) -> result<std::vector<std::optional<ResolvedItem>>> {
+            auto result = std::vector<std::optional<ResolvedItem>>();
+
+            for (auto i = time; i <= time + duration; i += base_.item().rate()) {
+                result.emplace_back(base_.item().resolve_time(
+                    i, media::MediaType::MT_IMAGE, base_.focus_list()));
+            }
+
+            return result;
+        },
+
         [=](bake_atom, const FrameRate &time) -> result<ResolvedItem> {
             auto ri =
                 base_.item().resolve_time(time, media::MediaType::MT_IMAGE, base_.focus_list());
@@ -1587,6 +1634,12 @@ caf::message_handler TimelineActor::message_handler() {
 
             return make_error(xstudio_error::error, "No clip resolved");
         },
+
+        [=](item_selection_atom) -> UuidActorVector { return selection_; },
+
+        [=](item_type_atom) -> ItemType { return base_.item().item_type(); },
+
+        [=](item_selection_atom, const UuidActorVector &selection) { selection_ = selection; },
 
         [=](media_frame_to_timeline_frames_atom,
             const utility::Uuid &media_uuid,
@@ -1754,14 +1807,6 @@ caf::message_handler TimelineActor::message_handler() {
             return result<media::AVFrameID>(make_error(xstudio_error::error, "No media"));
         },
 
-        // [=](json_store::get_json_atom atom, const std::string &path) {
-        //     delegate(json_store_, atom, path);
-        // },
-
-        // [=](json_store::set_json_atom atom, const JsonStore &json, const std::string &path) {
-        //     delegate(json_store_, atom, json, path);
-        // },
-
         [=](playlist::get_media_uuid_atom) -> UuidVector { return base_.media_vector(); },
 
         [=](playlist::add_media_atom atom,
@@ -1879,16 +1924,6 @@ caf::message_handler TimelineActor::message_handler() {
                             uuid,
                             actor,
                             before_uuid);
-                        // add_media(actor, uuid, before_uuid);
-                        // send(base_.event_group(), utility::event_atom_v, change_atom_v);
-                        // send(change_base_.event_group(), utility::event_atom_v,
-                        // utility::change_atom_v); send(
-                        //     base_.event_group(),
-                        //     utility::event_atom_v,
-                        //     playlist::add_media_atom_v,
-                        //     UuidActorVector({UuidActor(uuid, actor)}));
-                        // base_.send_changed(event_group_, this);
-                        // rp.deliver(true);
                     },
                     [=](error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -2120,7 +2155,19 @@ caf::message_handler TimelineActor::message_handler() {
             const caf::uri &path,
             const std::string &type) -> result<bool> {
             auto rp = make_response_promise<bool>();
-            export_otio(rp, path, type);
+
+            request(caf::actor_cast<caf::actor>(this), infinite, session::export_atom_v)
+                .then(
+                    [=](const std::string &result) { export_otio(rp, result, path, type); },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+
+            return rp;
+        },
+
+        [=](session::export_atom) -> result<std::string> {
+            // convert timeline to otio string
+            auto rp = make_response_promise<std::string>();
+            export_otio_as_string(rp);
             return rp;
         },
 
@@ -2130,9 +2177,6 @@ caf::message_handler TimelineActor::message_handler() {
 
             auto uuid = utility::Uuid::generate();
 
-            /*auto actor = spawn<playhead::PlayheadActor>(
-                std::string("Timeline Playhead"), selection_actor_, uuid);*/
-
             // N.B. for now we're not using the 'selection_actor_' as this
             // drives the playhead a list of selected media which the playhead
             // will play. It will ignore this timeline completely if we do that.
@@ -2140,6 +2184,7 @@ caf::message_handler TimelineActor::message_handler() {
             // that is selected.
             auto playhead_actor = spawn<playhead::PlayheadActor>(
                 std::string("Timeline Playhead"),
+                playhead::GLOBAL_AUDIO,
                 selection_actor_,
                 uuid,
                 caf::actor_cast<caf::actor_addr>(this));
@@ -2148,20 +2193,19 @@ caf::message_handler TimelineActor::message_handler() {
 
             anon_send(playhead_actor, playhead::playhead_rate_atom_v, base_.rate());
 
-            // this lets the playhead talk to the selection actor whilst not being
-            // driven by the selection actor
-            anon_send(playhead_actor, playlist::selection_actor_atom_v, selection_actor_);
-
             // now make this timeline and its vide tracks the source for the playhead
             video_tracks_ = base_.item().find_all_uuid_actors(IT_VIDEO_TRACK, true);
             anon_send(
                 playhead_actor,
                 playhead::source_atom_v,
                 utility::UuidActor(base_.uuid(), caf::actor_cast<caf::actor>(this)),
-                video_tracks_
-                );
+                video_tracks_);
 
             playhead_ = UuidActor(uuid, playhead_actor);
+            if (!playhead_serialisation_.is_null()) {
+                anon_send(
+                    playhead_.actor(), module::deserialise_atom_v, playhead_serialisation_);
+            }
             return playhead_;
         },
 
@@ -2332,85 +2376,11 @@ caf::message_handler TimelineActor::message_handler() {
             return true;
         },
 
-        // [=](media::get_media_pointer_atom,
-        //     const int logical_frame) -> result<media::AVFrameID> {
-        //     if (base_.empty())
-        //         return result<media::AVFrameID>(make_error(xstudio_error::error, "No
-        //         media"));
-
-        //     auto rp = make_response_promise<media::AVFrameID>();
-        //     if (update_edit_list_) {
-        //         request(actor_cast<caf::actor>(this), infinite, media::get_edit_list_atom_v)
-        //             .then(
-        //                 [=](const utility::EditList &) mutable {
-        //                     deliver_media_pointer(logical_frame, rp);
-        //                 },
-        //                 [=](error &err) mutable { rp.deliver(std::move(err)); });
-        //     } else {
-        //         deliver_media_pointer(logical_frame, rp);
-        //     }
-
-        //     return rp;
-        // },
-
-        // [=](start_time_atom) -> utility::FrameRateDuration { return base_.start_time(); },
-
-        // [=](utility::clear_atom) -> bool {
-        //     base_.clear();
-        //     for (const auto &i : actors_) {
-        //         // this->leave(i.second);
-        //         unlink_from(i.second);
-        //         send_exit(i.second, caf::exit_reason::user_shutdown);
-        //     }
-        //     actors_.clear();
-        //     return true;
-        // },
-
-        // [=](utility::event_atom, utility::change_atom) {
-        //     update_edit_list_ = true;
-        //     send(event_group_, utility::event_atom_v, utility::change_atom_v);
-        // },
-
-        // [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
-
         [=](utility::rate_atom) -> FrameRate { return base_.item().rate(); },
 
         [=](utility::rate_atom atom, const media::MediaType media_type) {
             delegate(caf::actor_cast<caf::actor>(this), atom);
         },
-
-        // [=](utility::rate_atom, const FrameRate &rate) { base_.set_rate(rate); },
-
-        // this operation isn't relevant ?
-
-
-        // [=](playlist::create_playhead_atom) -> UuidActor {
-        //     if (playhead_)
-        //         return playhead_;
-        //     auto uuid  = utility::Uuid::generate();
-        //     auto actor = spawn<playhead::PlayheadActor>(
-        //         std::string("Timeline Playhead"), caf::actor_cast<caf::actor>(this), uuid);
-        //     link_to(actor);
-        //     playhead_ = UuidActor(uuid, actor);
-
-        //     anon_send(actor, playhead::playhead_rate_atom_v, base_.rate());
-
-        //     // this pushes this actor to the playhead as the 'source' that the
-        //     // playhead will play
-        //     send(
-        //         actor,
-        //         utility::event_atom_v,
-        //         playhead::source_atom_v,
-        //         std::vector<caf::actor>{caf::actor_cast<caf::actor>(this)});
-
-        //     return playhead_;
-        // },
-
-        // emulate subset.
-
-        // [=](playlist::selection_actor_atom) -> caf::actor {
-        //     return caf::actor_cast<caf::actor>(this);
-        // },
 
         [=](duplicate_atom) -> result<UuidActor> {
             auto rp = make_response_promise<UuidActor>();
@@ -2574,86 +2544,54 @@ caf::message_handler TimelineActor::message_handler() {
 
         [=](duration_atom, const int) {},
 
-        /*
-                    // FOR TED
-                    // iterate over direct children of stack item, and only return indexs of
-           audio tracks that are enabled. auto audio_indexes =
-           find_indexes(base_.item().front().children(), ItemType::IT_AUDIO_TRACK, true);
-                    // resolve frames, using indexes from above.
-                    if(not audio_indexes.empty()) {
-                        // get first audio index
-                        auto audio_index = audio_indexes[0];
-
-                        // get access to the audio track item.
-                        auto track_it = base_.item().front().item_at_index(audio_index);
-
-                        // if it's valid (which it should be)
-                        // resolve frame
-                        // may return {} if no clip.
-                        // focus list won't work correctly doing it this way.
-                        // that would require the resolve_time function to return a vector, and
-           not be used on individal tracks.
-
-                        if(track_it) {
-                            auto ii = (*track_it)->resolve_time(
-                                            FrameRate(0),
-                                            media::MediaType::MT_AUDIO,
-                                            base_.focus_list());
-                        }
-                    }
-        */
-
         [=](media::get_media_pointers_atom atom,
             const media::MediaType media_type,
             const utility::TimeSourceMode tsm,
             const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
-
             // This is required by SubPlayhead actor to make the timeline
             // playable.
             return base_.item().get_all_frame_IDs(
-                media_type,
-                tsm,
-                override_rate,
-                base_.focus_list());
-
+                media_type, tsm, override_rate, base_.focus_list());
         },
 
-        // [=](media::get_edit_list_atom, const Uuid &uuid) -> result<utility::EditList> {
-        //     auto el = utility::EditList(utility::ClipList({utility::EditListSection(
-        //         base_.uuid(),
-        //         base_.item().trimmed_frame_duration(),
-        //         utility::Timecode(
-        //             base_.item().trimmed_frame_duration().frames(),
-        //             base_.rate().to_fps()))}));
-        //     return el;
-        // },
-
         [=](utility::serialise_atom) -> result<JsonStore> {
-            if (not actors_.empty()) {
-                auto rp = make_response_promise<JsonStore>();
+            std::vector actors = map_value_to_vec(actors_);
+            actors.push_back(selection_actor_);
+            auto rp = make_response_promise<JsonStore>();
 
-                fan_out_request<policy::select_all>(
-                    map_value_to_vec(actors_), infinite, serialise_atom_v)
-                    .then(
-                        [=](std::vector<JsonStore> json) mutable {
-                            JsonStore jsn;
-                            jsn["base"]   = base_.serialise();
-                            jsn["actors"] = {};
-                            for (const auto &j : json)
-                                jsn["actors"]
-                                   [static_cast<std::string>(j["base"]["container"]["uuid"])] =
-                                       j;
+            fan_out_request<policy::select_all>(actors, infinite, serialise_atom_v)
+                .then(
+                    [=](std::vector<JsonStore> json) mutable {
+                        JsonStore jsn;
+                        jsn["base"]   = base_.serialise();
+                        jsn["actors"] = {};
+                        for (const auto &j : json)
+                            jsn["actors"]
+                               [static_cast<std::string>(j["base"]["container"]["uuid"])] = j;
+                        if (playhead_) {
+                            request(playhead_.actor(), infinite, utility::serialise_atom_v)
+                                .then(
+                                    [=](const utility::JsonStore &playhead_state) mutable {
+                                        playhead_serialisation_ = playhead_state;
+                                        jsn["playhead"]         = playhead_state;
+                                        rp.deliver(jsn);
+                                    },
+                                    [=](caf::error &err) mutable {
+                                        spdlog::warn(
+                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        rp.deliver(jsn);
+                                    });
+
+                        } else {
+                            if (!playhead_serialisation_.is_null()) {
+                                jsn["playhead"] = playhead_serialisation_;
+                            }
                             rp.deliver(jsn);
-                        },
-                        [=](error &err) mutable { rp.deliver(std::move(err)); });
+                        }
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
 
-                return rp;
-            }
-            JsonStore jsn;
-            jsn["base"]   = base_.serialise();
-            jsn["actors"] = {};
-
-            return result<JsonStore>(jsn);
+            return rp;
         },
 
 
@@ -2729,7 +2667,7 @@ caf::message_handler TimelineActor::message_handler() {
             const caf::uri &path,
             const std::string &data) -> result<bool> {
             auto rp = make_response_promise<bool>();
-        // purge timeline.. ?
+            // purge timeline.. ?
             spawn(
                 timeline_importer,
                 rp,
@@ -2753,9 +2691,11 @@ void TimelineActor::init() {
     history_      = spawn<history::HistoryMapActor<sys_time_point, JsonStore>>(history_uuid_);
     link_to(history_);
 
-    selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
-        "SubsetPlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
-    link_to(selection_actor_);
+    if (!selection_actor_) {
+        selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
+            "TimelinePlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
+        link_to(selection_actor_);
+    }
 
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
@@ -3243,10 +3183,8 @@ void TimelineActor::bake(
     rp.deliver(UuidActor(track_uuid, track_actor));
 }
 
-void TimelineActor::export_otio(
-    caf::typed_response_promise<bool> rp, const caf::uri &path, const std::string &type) {
-    // build timeline from model..
-    // we need clips to return information on current media source..
+void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::string> rp) {
+
     otio::ErrorStatus err;
     auto jany = std::any();
     auto meta = base_.item().prop();
@@ -3515,13 +3453,12 @@ void TimelineActor::export_otio(
                 ostack->append_child(to_composition(track));
         }
 
-        otimeline->to_json_file(uri_to_posix_path(path), &err);
+        const auto result = otimeline->to_json_string(&err);
 
-        if (not otio::is_error(err)) {
-            rp.deliver(true);
-        } else {
-            rp.deliver(false);
-        }
+        if (not otio::is_error(err))
+            rp.deliver(result);
+        else
+            rp.deliver(make_error(xstudio_error::error, "Export failed"));
 
         // and crash..
         otimeline->possibly_delete();
@@ -3530,4 +3467,19 @@ void TimelineActor::export_otio(
             "{} {} {} {}", __PRETTY_FUNCTION__, err.what(), meta.dump(2), jany.type().name());
         rp.deliver(make_error(xstudio_error::error, err.what()));
     }
+}
+
+
+void TimelineActor::export_otio(
+    caf::typed_response_promise<bool> rp,
+    const std::string &otio_str,
+    const caf::uri &path,
+    const std::string &type) {
+    // build timeline from model..
+    // we need clips to return information on current media source..
+
+    caf::scoped_actor sys(system());
+    auto global = system().registry().template get<caf::actor>(global_registry);
+    auto epa    = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
+    rp.delegate(epa, session::export_atom_v, otio_str, path, type);
 }

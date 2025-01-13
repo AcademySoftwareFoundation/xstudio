@@ -133,11 +133,11 @@ XsMenuItemNew {
 
 				Future.promise(theSessionData.importFuture(path, null)).then(
 					function(result) {
-						if (result) {
-							dialogHelpers.errorDialogFunc("Snapshot Loaded", "Snapshot " + name + " was added to your session.")
-						} else {
-							dialogHelpers.errorDialogFunc("Snapshot Error", "Snapshot " + name + " was not added to your session, an error occurred. Check your terminal for more info.")
-						}
+						// if (result) {
+						// 	dialogHelpers.errorDialogFunc("Snapshot Loaded", "Snapshot " + name + " was added to your session.")
+						// } else {
+						// 	dialogHelpers.errorDialogFunc("Snapshot Error", "Snapshot " + name + " was not added to your session, an error occurred. Check your terminal for more info.")
+						// }
 					})
 
 			}

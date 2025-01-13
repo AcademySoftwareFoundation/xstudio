@@ -222,7 +222,6 @@ class API(CommonAPI):
             else:
                 # connection stats
                 stat["connection"]["connected"] = True
-                stat["connection"]["type"] = self.connection.api_type
                 stat["connection"]["version"] = self.connection.app_version
                 stat["connection"]["application"] = self.connection.app_type
                 stat["connection"]["host"] = self.connection.host

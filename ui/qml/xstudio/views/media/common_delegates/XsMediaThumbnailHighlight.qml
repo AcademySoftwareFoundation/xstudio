@@ -6,7 +6,7 @@ Item {
     anchors.fill: thumbnailImgDiv
     visible: showBorder
     z: 100
-    property int borderThickness: 5
+    property int borderThickness: 6
     LinearGradient {
         width: parent.width
         height: borderThickness

@@ -292,7 +292,8 @@ void OCIOEngine::extend_pixel_info(
         pixel_info.add_linear_channel_info(raw_info[2].channel_name, RGB[2]);
 
         pixel_info.set_linear_colourspace_name(
-            std::string("Scene Linear (") + working_space(frame_id.params()) + std::string(")"));
+            std::string("Scene Linear (") + working_space(frame_id.params()) +
+            std::string(")"));
     }
 
     // Display output
@@ -346,7 +347,19 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
         } else if (config_name == "__current__") {
             config = OCIO::GetCurrentConfig();
         } else if (!config_name.empty()) {
+
+#if OCIO_VERSION_HEX >= 0x02020100
+            // CreateFromBuiltinConfig introduced in OCIO v2.2
+            if (fs::exists(config_name)) {
+                config = OCIO::Config::CreateFromFile(config_name.c_str());
+            } else {
+                config = OCIO::Config::CreateFromBuiltinConfig(config_name.c_str());
+            }
+#else
             config = OCIO::Config::CreateFromFile(config_name.c_str());
+#endif
+
+            /**/
         } else {
             config = OCIO::GetCurrentConfig();
         }

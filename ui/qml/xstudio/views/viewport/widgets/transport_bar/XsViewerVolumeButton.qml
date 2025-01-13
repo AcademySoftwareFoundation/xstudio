@@ -24,7 +24,11 @@ XsPrimaryButton{ id: volumeButton
     property alias slider: volumeSlider
 
     onClicked:{
-        popup.open()
+        if (popup.opened) {
+            popup.close()
+        } else {
+            popup.open()
+        }
     }
 
     /* This connects to the backend annotations tool object and exposes its
@@ -69,7 +73,7 @@ XsPrimaryButton{ id: volumeButton
             XsText{ id: valueDisplay
                 Layout.preferredHeight: XsStyleSheet.widgetStdHeight+(2*2)
                 Layout.preferredWidth: parent.width
-                text: volume/10
+                text: parseInt(volume/10 + 0.5)
                 // opacity: muted? 0.7:1
                 font.bold: true
             }
@@ -84,12 +88,17 @@ XsPrimaryButton{ id: volumeButton
                 handleColor: muted? Qt.darker(palette.text,1.2) : palette.text
                 onValueChanged: {
                     if (pressed) {
-                        volume = parseInt(value)*10
+                        volume = value*10.0
                         if (value) muted = false
                     }
                 }
                 onReleased:{
                     popup.close()
+                }
+                onHoveredChanged: {
+                    if (!hovered && !pressed) {
+                        popup.close()
+                    }
                 }
             }
 

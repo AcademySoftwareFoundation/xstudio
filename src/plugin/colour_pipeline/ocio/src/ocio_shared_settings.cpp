@@ -160,7 +160,8 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
                         }
                         if (ds.contains(window_id) && ds[window_id].contains("Display")) {
                             res["Display"] = ds[window_id]["Display"];
-                        } else if (window_id.find("xstudio_quickview_window") != std::string::npos) {
+                        } else if (
+                            window_id.find("xstudio_quickview_window") != std::string::npos) {
 
                             // special case - a quickview window wants to set its
                             // display but no quickview has been set-up before for

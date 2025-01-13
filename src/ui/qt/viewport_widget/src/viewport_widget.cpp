@@ -39,9 +39,7 @@ void ViewportGLWidget::init(caf::actor_system &system) {
     utility::JsonStore jsn;
     jsn["base"] = utility::JsonStore();
 
-    the_viewport_.reset(new ui::viewport::Viewport(
-        jsn,
-        as_actor()));
+    the_viewport_.reset(new ui::viewport::Viewport(jsn, as_actor()));
 
     auto callback = [this](auto &&PH1) {
         receive_change_notification(std::forward<decltype(PH1)>(PH1));

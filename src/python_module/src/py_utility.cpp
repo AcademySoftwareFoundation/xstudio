@@ -27,4 +27,13 @@ void py_utility(py::module_ &m) {
         .value("TSM_REMAPPED", utility::TimeSourceMode::REMAPPED)
         .value("TSM_DYNAMIC", utility::TimeSourceMode::DYNAMIC)
         .export_values();
+
+    py::enum_<utility::NotificationType>(m, "NotificationType")
+        .value("NT_UNKNOWN", utility::NotificationType::NT_UNKNOWN)
+        .value("NT_INFO", utility::NotificationType::NT_INFO)
+        .value("NT_WARN", utility::NotificationType::NT_WARN)
+        .value("NT_PROCESSING", utility::NotificationType::NT_PROCESSING)
+        .value("NT_PROGRESS_RANGE", utility::NotificationType::NT_PROGRESS_RANGE)
+        .value("NT_PROGRESS_PERCENTAGE", utility::NotificationType::NT_PROGRESS_PERCENTAGE)
+        .export_values();
 }

@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import UuidActor, Uuid, actor, item_atom, MediaType, ItemType, enable_atom, item_flag_atom
 from xstudio.core import active_range_atom, available_range_atom, undo_atom, redo_atom, history_atom, add_media_atom, item_name_atom
-from xstudio.core import URI, selection_actor_atom
-from xstudio.core import import_atom, erase_item_atom, get_playhead_atom
+from xstudio.core import URI, selection_actor_atom, item_selection_atom, item_type_atom, get_media_atom, save_atom, export_atom
+from xstudio.core import import_atom, erase_item_atom, get_playhead_atom, FrameRate, FrameRateDuration
 from xstudio.api.session.container import Container
 from xstudio.api.intrinsic import History
 from xstudio.api.session.media.media import Media
 from xstudio.api.session.playlist.timeline.item import Item
 from xstudio.api.session.playhead import Playhead, PlayheadSelection
+from xstudio.api.auxiliary import NotificationHandler
 
 def create_gap(connection, name="Gap"):
     """Create Gap object.
@@ -22,7 +23,7 @@ def create_gap(connection, name="Gap"):
         gap(Gap): Gap object.
     """
 
-    return Gap(connection, connection.remote_spawn("Gap",name))
+    return Gap(connection, connection.remote_spawn("Gap", name, FrameRateDuration()))
 
 def create_clip(connection, media, name="Clip"):
     """Create Clip object.
@@ -68,7 +69,7 @@ def create_video_track(connection, name="Video Track"):
         track(Track): Track object.
     """
 
-    return Track(ItemType.IT_VIDEO_TRACK, connection, connection.remote_spawn("Track", name, MediaType.MT_IMAGE))
+    return Track(ItemType.IT_VIDEO_TRACK, connection, connection.remote_spawn("Track", name, FrameRate(), MediaType.MT_IMAGE))
 
 def create_audio_track(connection, name="Audio Track"):
     """Create Track object.
@@ -83,29 +84,32 @@ def create_audio_track(connection, name="Audio Track"):
         track(Track): Track object.
     """
 
-    return Track(ItemType.IT_AUDIO_TRACK, connection, connection.remote_spawn("Track", name, MediaType.MT_AUDIO))
+    return Track(ItemType.IT_AUDIO_TRACK, connection, connection.remote_spawn("Track", name, FrameRate(), MediaType.MT_AUDIO))
 
 def create_item_container(connection, item):
+    return create_item_container_from_type(connection, item.item_type(), item.uuid(), item.actor())
+
+def create_item_container_from_type(connection, item_type, uuid, actor):
     result = None
-    if item.item_type() == ItemType.IT_GAP:
-        result = Gap(connection, item.actor(), item.uuid())
-    elif item.item_type() == ItemType.IT_CLIP:
-        result =  Clip(connection, item.actor(), item.uuid())
-    elif item.item_type() == ItemType.IT_STACK:
-        result =  Stack(connection, item.actor(), item.uuid())
-    elif item.item_type() == ItemType.IT_VIDEO_TRACK:
-        result =  Track(ItemType.IT_VIDEO_TRACK, connection, item.actor(), item.uuid())
-    elif item.item_type() == ItemType.IT_AUDIO_TRACK:
-        result =  Track(ItemType.IT_AUDIO_TRACK, connection, item.actor(), item.uuid())
-    elif item.item_type() == ItemType.IT_TIMELINE:
-        result =  Timeline(connection, item.actor(), item.uuid())
+    if item_type == ItemType.IT_GAP:
+        result = Gap(connection, actor, uuid)
+    elif item_type == ItemType.IT_CLIP:
+        result =  Clip(connection, actor, uuid)
+    elif item_type == ItemType.IT_STACK:
+        result =  Stack(connection, actor, uuid)
+    elif item_type == ItemType.IT_VIDEO_TRACK:
+        result =  Track(ItemType.IT_VIDEO_TRACK, connection, actor, uuid)
+    elif item_type == ItemType.IT_AUDIO_TRACK:
+        result =  Track(ItemType.IT_AUDIO_TRACK, connection, actor, uuid)
+    elif item_type == ItemType.IT_TIMELINE:
+        result =  Timeline(connection, actor, uuid)
     else:
-        raise RuntimeError("Invalid type " + i.item_type())
+        raise RuntimeError("Invalid type " + item_type)
 
     return result
 
 
-class Timeline(Item):
+class Timeline(Item, NotificationHandler):
     """Timeline object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -121,6 +125,7 @@ class Timeline(Item):
             uuid(Uuid): Uuid of remote actor.
         """
         Item.__init__(self, connection, remote, uuid)
+        NotificationHandler.__init__(self, self)
 
     def __len__(self):
         """Get size.
@@ -140,6 +145,25 @@ class Timeline(Item):
         # it may not exist..
         item = self.connection.request_receive(self.remote, item_atom(), 0)[0]
         return create_item_container(self.connection, item)
+
+    @property
+    def selection(self):
+        """Get currently selected items
+
+        Returns:
+            list([item]): Selected Items
+        """
+
+        items = self.connection.request_receive(self.remote, item_selection_atom())[0]
+        result = []
+
+        for i in items:
+            item_type = self.connection.request_receive(i.actor, item_type_atom())[0]
+            result.append(
+                create_item_container_from_type(self.connection, item_type, i.uuid, i.actor)
+            )
+
+        return result
 
     @property
     def children(self):
@@ -271,6 +295,37 @@ class Timeline(Item):
         """
         return create_video_track(self.connection, name)
 
+    def insert_video_track(self, name="Video Track", index=0):
+        """Insert video track
+
+        Args:
+            name(str): Name of new track.
+            index(int): Position to insert
+
+        Returns:
+            success(Item): New item
+        """
+
+        result = Track(ItemType.IT_VIDEO_TRACK, self.connection, self.connection.remote_spawn("Track", name, self.rate, MediaType.MT_IMAGE))
+        self.stack.insert_child(result, index)
+        return result
+
+    def insert_audio_track(self, name="Audio Track", index=-1):
+        """Insert audio track
+
+        Args:
+            name(str): Name of new track.
+            index(int): Position to insert
+
+        Returns:
+            success(Item): New item
+        """
+
+        result = Track(ItemType.IT_AUDIO_TRACK, self.connection, self.connection.remote_spawn("Track", name, self.rate, MediaType.MT_AUDIO))
+        self.stack.insert_child(result, index)
+        return result
+
+
     def export_timeline_to_file(self, path, adapter_name=None):
         """Create otio from timeline.
 
@@ -325,6 +380,41 @@ class Timeline(Item):
             URI(path) if path else URI(),
             otio_body,
             clear)[0]
+
+    def export_otio(self, path):
+        """Export timeline via OpenTimelineIO. File path extension infers the
+        format of the exported file.
+
+        Args:
+            path(str/uri): Path to expor to.
+
+        Returns:
+            bool: True on success, False on failure
+        """
+        otio_string = self.connection.request_receive(self.remote, export_atom())[0]
+
+        from opentimelineio.adapters import read_from_string, write_to_file
+        otio_object = read_from_string(otio_string)
+        return write_to_file(otio_object, path)
+
+    @property
+    def audio_tracks(self):
+        return self.stack.audio_tracks
+
+    @property
+    def video_tracks(self):
+        return self.stack.video_tracks
+
+    @property
+    def media(self):
+        """Get media in timeline
+
+        Returns:
+            media(list[media]): Media
+        """
+        result = self.connection.request_receive(self.remote, get_media_atom())[0]
+        return [Media(self.connection, i.actor, i.uuid) for i in result]
+
 
     @property
     def playhead(self):

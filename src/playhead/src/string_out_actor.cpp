@@ -16,28 +16,25 @@ using namespace xstudio;
 using namespace xstudio::playhead;
 using namespace xstudio::media_reader;
 
-StringOutActor::StringOutActor(
-    caf::actor_config &cfg,
-    const utility::UuidActorVector &sources) : caf::event_based_actor(cfg), source_actors_(sources)
-{
-    
+StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorVector &sources)
+    : caf::event_based_actor(cfg), source_actors_(sources) {
+
     event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
-    
-    for (auto &source: source_actors_) {
+
+    for (auto &source : source_actors_) {
 
         monitor(source.actor());
         utility::join_event_group(this, source.actor());
- 
     }
 
     set_down_handler([=](down_msg &msg) {
         // is source down?
-        auto p = source_actors_.begin();
+        auto p      = source_actors_.begin();
         bool change = false;
         while (p != source_actors_.end()) {
             if ((*p).actor() == msg.source) {
-                p = source_actors_.erase(p);
+                p      = source_actors_.erase(p);
                 change = true;
             } else {
                 p++;
@@ -63,11 +60,9 @@ StringOutActor::StringOutActor(
             const media::MediaType media_type,
             const utility::TimeSourceMode tsm,
             const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
-
             auto rp = make_response_promise<media::FrameTimeMapPtr>();
             build_frame_map(media_type, tsm, override_rate, rp);
             return rp;
-
         },
 
         [=](utility::event_atom, playlist::add_media_atom, const utility::UuidActorVector &) {},
@@ -87,8 +82,7 @@ StringOutActor::StringOutActor(
         [=](utility::event_atom, timeline::item_atom, const utility::JsonStore &changes, bool) {
         },
 
-        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus) {
-        },
+        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus) {},
 
         [=](utility::event_atom,
             media::media_display_info_atom,
@@ -98,17 +92,19 @@ StringOutActor::StringOutActor(
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {},
 
         [=](utility::event_atom, utility::change_atom) {
-
             // one of the sources has changed -  this might affect its actual
-            // frames for display. So we clear the entry in our cache, and 
+            // frames for display. So we clear the entry in our cache, and
             // re-emit the change event to SubPlayhead
             auto sender = caf::actor_cast<caf::actor>(current_sender());
-            for (auto &s: source_actors_) {
+            for (auto &s : source_actors_) {
                 if (s.actor() == sender) {
                     source_frames_[s.uuid()].reset();
                 }
             }
-            send(event_group_, utility::event_atom_v, utility::change_atom_v); // triggers refresh of frames_time_list_
+            send(
+                event_group_,
+                utility::event_atom_v,
+                utility::change_atom_v); // triggers refresh of frames_time_list_
         },
 
         [=](utility::event_atom, utility::last_changed_atom, const utility::time_point &) {
@@ -126,8 +122,7 @@ StringOutActor::StringOutActor(
 
         [=](utility::event_atom,
             bookmark::bookmark_change_atom,
-            const utility::Uuid &bookmark_uuid) {
-        },
+            const utility::Uuid &bookmark_uuid) {},
 
         [=](utility::event_atom,
             bookmark::bookmark_change_atom,
@@ -137,12 +132,7 @@ StringOutActor::StringOutActor(
         [=](utility::event_atom,
             playlist::reflag_container_atom,
             const utility::Uuid &,
-            const std::tuple<std::string, std::string> &) {},
-
-        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {
-        });
-
-
+            const std::tuple<std::string, std::string> &) {});
 }
 
 void StringOutActor::build_frame_map(
@@ -151,11 +141,13 @@ void StringOutActor::build_frame_map(
     const utility::FrameRate &override_rate,
     caf::typed_response_promise<media::FrameTimeMapPtr> rp) {
 
+
     auto count = std::make_shared<int>(0);
 
-    for (auto &c: source_actors_) {
+    for (auto &c : source_actors_) {
         // we already have frames for this source
-        if (source_frames_[c.uuid()]) continue;
+        if (source_frames_[c.uuid()])
+            continue;
 
         (*count)++;
 
@@ -169,7 +161,6 @@ void StringOutActor::build_frame_map(
             override_rate)
             .then(
                 [=](const media::FrameTimeMapPtr &mpts) mutable {
-
                     source_frames_[source_uuid] = mpts;
                     (*count)--;
                     if (!(*count)) {
@@ -189,21 +180,22 @@ void StringOutActor::build_frame_map(
     }
 }
 
-void StringOutActor::finalise_frame_map(caf::typed_response_promise<media::FrameTimeMapPtr> rp) {
+void StringOutActor::finalise_frame_map(
+    caf::typed_response_promise<media::FrameTimeMapPtr> rp) {
 
-    media::FrameTimeMap * result = new media::FrameTimeMap;
+    media::FrameTimeMap *result = new media::FrameTimeMap;
     timebase::flicks d(0);
-    for (auto &c: source_actors_) {
+    for (auto &c : source_actors_) {
 
-        if (!source_frames_[c.uuid()]) continue;
+        if (!source_frames_[c.uuid()])
+            continue;
         const media::FrameTimeMap &map = *(source_frames_[c.uuid()]);
         timebase::flicks prev(0);
-        for (const auto &p: map) {
+        for (const auto &p : map) {
             d += p.first - prev;
             (*result)[d] = p.second;
-            prev = p.first;
+            prev         = p.first;
         }
-
     }
     rp.deliver(media::FrameTimeMapPtr(result));
 }

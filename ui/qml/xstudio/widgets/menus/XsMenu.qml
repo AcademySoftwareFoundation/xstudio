@@ -259,7 +259,8 @@ XsPopup {
 
                         onClicked: {
                             menu_model.nodeActivated(menu_model_index, "menu", helpers.contextPanel(the_popup))
-                            the_popup.closeAll()
+                            // if(mouse.modifiers == Qt.NoModifier)
+                            //     the_popup.closeAll()
                         }
 
                         width: view.width
@@ -286,33 +287,7 @@ XsPopup {
                         isChecked: is_checked
                         onClicked:{
                             is_checked = !is_checked
-                            the_popup.closeAll()
-                        }
-                        onMinWidthChanged: {
-                            view.setMinWidth(minWidth)
-                        }
-                        onLeftIconSizeChanged: {
-                            view.setIndent(leftIconSize)
-                        }
-
-                    }
-
-                }
-
-                DelegateChoice {
-                    roleValue: "toggle_checkbox"
-
-                    XsMenuItemToggle {
-                        menu_model: the_popup.menu_model
-                        menu_model_index: the_popup.menu_model.index(index, 0, the_popup.menu_model_index)
-
-                        isRadioButton: true
-                        parent_menu: the_popup
-
-                        onClicked: {
-                            // note 'is_checked' data in this context is provided
-                            // by the menu_model
-                            is_checked = !is_checked
+                            // the_popup.closeAll()
                         }
                         onMinWidthChanged: {
                             view.setMinWidth(minWidth)

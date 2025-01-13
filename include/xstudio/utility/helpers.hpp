@@ -280,8 +280,9 @@ namespace utility {
         DWORD nSize  = _countof(filename);
         DWORD result = GetModuleFileNameA(NULL, filename, nSize);
         if (result == 0) {
-            spdlog::critical("Unable to determine executable path from Windows API, falling back "
-                          "to standard methods");
+            spdlog::critical(
+                "Unable to determine executable path from Windows API, falling back "
+                "to standard methods");
         } else {
             auto exePath = fs::path(filename);
 
@@ -296,9 +297,8 @@ namespace utility {
 #endif
 
         std::string path = (root ? (*root) + append_path : fallback_root + append_path);
-        const auto p = fs::path(path).string();
+        const auto p     = fs::path(path).string();
         return p;
-        
     }
 
     inline std::string remote_session_path() {

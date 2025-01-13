@@ -31,13 +31,11 @@ void py_remote_session_file(py::module_ &m) {
         .def("filepath", &utility::RemoteSessionFile::filepath)
         .def("host", &utility::RemoteSessionFile::host)
         .def("port", &utility::RemoteSessionFile::port)
-        .def("pid", &utility::RemoteSessionFile::pid)
-        .def("sync", &utility::RemoteSessionFile::sync);
+        .def("pid", &utility::RemoteSessionFile::pid);
 
     py::class_<utility::RemoteSessionManager>(m, "RemoteSessionManager")
         .def(py::init<std::string>())
         .def("first_api", &utility::RemoteSessionManager::first_api)
-        .def("first_sync", &utility::RemoteSessionManager::first_sync)
         .def("find", &utility::RemoteSessionManager::find)
         .def("__len__", &utility::RemoteSessionManager::size)
         .def("empty", &utility::RemoteSessionManager::empty);

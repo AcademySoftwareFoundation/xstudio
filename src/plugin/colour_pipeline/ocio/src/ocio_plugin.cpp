@@ -109,6 +109,10 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                            window_id.find("xstudio_quickview_window") != std::string::npos)
                            return;
 
+                       // snapshot viewport settings don't affect other viewports
+                       if (window_id == "snapshot_viewport")
+                           return;
+
                        if (ocio_config == current_config_name_) {
 
                            // we don't sync OCIO Display if it's coming from a different window
@@ -118,6 +122,7 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                            auto attr = get_attribute(attr_title);
                            if (attr) {
                                attr->update_role_data_from_json(attr_role, attr_value, false);
+                               redraw_viewport();
                            }
                        }
                    }})

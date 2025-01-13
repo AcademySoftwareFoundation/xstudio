@@ -28,7 +28,7 @@ Item {
             // a new session has been created/loaded. Pick the first playlist
             // after 200ms to give the session data a chance to build itself
             callbackTimer.setTimeout(function() { return function() {
-                mediaSelectionModel.select(
+                sessionSelectionModel.select(
                     helpers.createItemSelection([session.searchRecursive("Playlist", "typeRole")]),
                     ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
                 }}(), 200);
@@ -89,7 +89,7 @@ Item {
 
         }
 
-        function createPlaylist(name, sync=true) {
+        function createPlaylist(name, sync=true, select=true) {
 
             // always add at end of playlists list
             var insert_row = rowCount(index(0,0));
@@ -102,9 +102,10 @@ Item {
                 index(0,0)
             )[0]
 
-            sessionSelectionModel.setCurrentIndex(
-                idx,
-                ItemSelectionModel.ClearAndSelect)
+            if(select)
+                sessionSelectionModel.setCurrentIndex(
+                    idx,
+                    ItemSelectionModel.ClearAndSelect)
 
             return idx
         }
@@ -166,7 +167,7 @@ Item {
 
             }
             // can't find a selected playlist to add to. Need a new playlist
-            var p = createPlaylist("New Playlist")
+            var p = createPlaylist(theSessionData.getNextName("Playlist {}"))
             theSessionData.set(p, true, "expandedRole")
             // need a delay to allow the playlist node in the model to be
             // filled out by the backend
@@ -269,6 +270,9 @@ Item {
         model: sessionData
         onCurrentIndexChanged: {
             currentMediaContainerIndex = currentIndex
+        }
+        onSelectionChanged: {
+            sessionData.setSessionSelection(sessionSelectionModel.selectedIndexes)
         }
     }
     property alias sessionSelectionModel: sessionSelectionModel
@@ -387,9 +391,10 @@ Item {
             let type = index.model.get(index,"typeRole")
             if(quuids.length && ["Playlist", "Subset", "Timeline", "ContactSheet"].includes(type)) {
                 // selects the playlist (or subset or timeline) corresponding to 'index'
-                mediaSelectionModel.select(
-                    helpers.createItemSelection([index]),
-                    ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
+                // mediaSelectionModel.select(
+                //     helpers.createItemSelection([index]),
+                //     ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
+
                 callbackTimer.setTimeout(function(plindex, new_items) {
                     return function() {
                         let indexes = []
@@ -413,7 +418,7 @@ Item {
                         if(playhead_index != -1)
                             current_playhead.keySubplayheadIndex = playhead_index
                     }
-                } ( index, quuids ), 1000);
+                } ( index, quuids ), 250);
             }
         }
 
@@ -506,6 +511,9 @@ Item {
     property alias mediaListModelDataRoot: filteredMediaListData.rootIndex
     property alias mediaListModelData: filteredMediaListData.model
     onMediaListSearchStringChanged: {
+        session.updateMediaListFilterString(playheadSelectionIndex, mediaListSearchString)
+    }
+    onPlayheadSelectionIndexChanged: {
         session.updateMediaListFilterString(playheadSelectionIndex, mediaListSearchString)
     }
 

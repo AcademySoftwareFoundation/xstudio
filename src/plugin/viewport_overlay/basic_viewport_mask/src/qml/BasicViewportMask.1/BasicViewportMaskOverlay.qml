@@ -107,7 +107,7 @@ Item {
 
     Repeater {
 
-        model: view.imageBoundariesInViewport
+        model: imageBoxes
         Item {
 
             // Viewport class provides imageBoxes - the coordinates of each

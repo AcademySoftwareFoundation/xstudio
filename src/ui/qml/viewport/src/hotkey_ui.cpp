@@ -285,52 +285,140 @@ HotkeyReferenceUI::HotkeyReferenceUI(QObject *parent) : QMLActor(parent) {
     init(CafSystemObject::get_actor_system());
 }
 
+HotkeyReferenceUI::~HotkeyReferenceUI() {
+
+    if (exclusive_) {
+        exclusive_ = false;
+        notifyExclusiveChanged();
+    }
+
+}
+
 void HotkeyReferenceUI::init(caf::actor_system &system_) {
 
     QMLActor::init(system_);
     scoped_actor sys{system()};
 
+    try {
+
+        auto keyboard_manager = system().registry().template get<caf::actor>(keyboard_events);
+
+        auto hotkeys_config_events_group = utility::request_receive<caf::actor>(
+            *sys,
+            keyboard_manager,
+            utility::get_event_group_atom_v,
+            keypress_monitor::hotkey_event_atom_v);
+
+        anon_send(hotkeys_config_events_group, broadcast::join_broadcast_atom_v, as_actor());
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
+            [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {
+                // hotkeys have been updated
+                for (const auto &hk : hotkeys) {
+                    if (hk.hotkey_name() == StdFromQString(hotkey_name_)) {
+                        if (QStringFromStd(hk.hotkey_sequence()) != sequence_) {
+                            sequence_ = QStringFromStd(hk.hotkey_sequence());
+                            Q_EMIT sequenceChanged();
+                        }
+                        QUuid uuid = QUuidFromUuid(hk.uuid());
+                        if (uuid != hotkey_uuid_) {
+                            hotkey_uuid_ = uuid;
+                            Q_EMIT uuidChanged();
+                            if (exclusive_) notifyExclusiveChanged();
+                        }
+                    }
+                }
+            },
+            [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {
+                // a hotkey has changed
+                if (hotkey.hotkey_name() == StdFromQString(hotkey_name_)) {
+                    if (QStringFromStd(hotkey.hotkey_sequence()) != sequence_) {
+                        sequence_ = QStringFromStd(hotkey.hotkey_sequence());
+                        Q_EMIT sequenceChanged();
+                    }
+                    QUuid uuid = QUuidFromUuid(hotkey.uuid());
+                    if (uuid != hotkey_uuid_) {
+                        hotkey_uuid_ = uuid;
+                        Q_EMIT uuidChanged();
+                        if (exclusive_) notifyExclusiveChanged();
 
-        };
+                    }
+                }
+            },
+            [=](keypress_monitor::hotkey_event_atom,
+                const utility::Uuid kotkey_uuid,
+                const bool pressed,
+                const std::string &context,
+                const std::string &window) {
+                // actual hotkey pressed or release ... we ignore
+                if (pressed && QUuidFromUuid(kotkey_uuid) == hotkey_uuid_ && (context_.empty() || context_ == context)) {
+                    activated(QStringFromStd(context));
+                }
+            }};
     });
 }
 
-void HotkeyReferenceUI::setHotkeyUuid(const QUuid &uuid) {
+void HotkeyReferenceUI::setHotkeyName(const QString &name) {
 
-    uuid_ = uuid;
-    Q_EMIT hotkeyUuidChanged();
+    if (hotkey_name_ == name)
+        return;
+    hotkey_name_ = name;
+    Q_EMIT hotkeyNameChanged();
 
-    if (!uuid_.isNull()) {
-        try {
+    try {
 
-            scoped_actor sys{system()};
+        scoped_actor sys{system()};
 
-            auto keyboard_manager =
-                system().registry().template get<caf::actor>(keyboard_events);
+        auto keyboard_manager = system().registry().template get<caf::actor>(keyboard_events);
 
-            auto hotkeys_config_events_group = utility::request_receive<caf::actor>(
-                *sys,
-                keyboard_manager,
-                utility::get_event_group_atom_v,
-                keypress_monitor::hotkey_event_atom_v);
+        auto hotkeys_config_events_group = utility::request_receive<caf::actor>(
+            *sys,
+            keyboard_manager,
+            utility::get_event_group_atom_v,
+            keypress_monitor::hotkey_event_atom_v);
 
-            const auto hk = request_receive<Hotkey>(
-                *sys,
-                keyboard_manager,
-                ui::keypress_monitor::hotkey_atom_v,
-                UuidFromQUuid(uuid_));
+        const auto hk = request_receive<Hotkey>(
+            *sys, keyboard_manager, ui::keypress_monitor::hotkey_atom_v, StdFromQString(name));
 
-            QString seq = QStringFromStd(hk.hotkey_sequence());
 
-            if (seq != sequence_) {
-                sequence_ = seq;
-                Q_EMIT sequenceChanged();
-            }
+        QString seq = QStringFromStd(hk.hotkey_sequence());
 
-        } catch (const std::exception &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        if (seq != sequence_) {
+            sequence_ = seq;
+            Q_EMIT sequenceChanged();
         }
+
+        QUuid uuid = QUuidFromUuid(hk.uuid());
+        if (uuid != hotkey_uuid_) {
+            hotkey_uuid_ = uuid;
+            Q_EMIT uuidChanged();
+            if (exclusive_) notifyExclusiveChanged();
+
+        }
+
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
+}
+
+void HotkeyReferenceUI::setExclusive(const bool exclusive) {
+
+    if (exclusive == exclusive_) return;
+    exclusive_ = exclusive;
+    emit exclusiveChanged();
+    notifyExclusiveChanged();
+
+}
+
+void HotkeyReferenceUI::notifyExclusiveChanged() {
+
+    auto keyboard_manager = system().registry().template get<caf::actor>(keyboard_events);
+    anon_send(keyboard_manager, keypress_monitor::watch_hotkey_atom_v, UuidFromQUuid(hotkey_uuid_), as_actor(), exclusive_);
+
 }

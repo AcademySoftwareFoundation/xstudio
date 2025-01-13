@@ -7,6 +7,7 @@ import Qt.labs.qmlmodels 1.0
 import QtQuick.Layouts 1.15
 
 import xStudio 1.0
+import xstudio.qml.helpers 1.0
 import "./widgets"
 
 Item{
@@ -48,6 +49,12 @@ Item{
                 showContextMenu(mouseX, mouseY, ma)
             }
         }
+    }
+
+    XsModelProperty {
+        id: notificationProperty
+        role: "notificationRole"
+        index: theSessionData.playlistsRootIdx
     }
 
     ColumnLayout {
@@ -101,6 +108,21 @@ Item{
             //     property string filename: path ? path.substring(path.lastIndexOf("/")+1) : sessionProperties.values.nameRole ? sessionProperties.values.nameRole : ""
             // }
 
+            Repeater {
+                Layout.preferredHeight: btnHeight
+                model: notificationProperty.value == undefined ? [] : notificationProperty.value
+
+                // notify widget
+                XsNotification {
+                    Layout.preferredHeight: btnHeight
+                    Layout.preferredWidth: height
+                    text: modelData.text
+                    type: modelData.type
+                    percentage: modelData.progress_percent || 0.0
+                }
+            }
+
+
             XsPrimaryButton{
                 id: morePlaylistBtn
                 Layout.preferredWidth: btnWidth
@@ -121,9 +143,40 @@ Item{
 
     }
 
+
+    XsPopupMenu {
+        id: flagMenu
+        visible: false
+        menu_model_name: "playlist_flag_menu_"+flagMenu
+        property var panelContext: helpers.contextPanel(flagMenu)
+        property var itemIndex: null
+
+        XsFlagMenuInserter {
+            text: ""
+            menuPath: ""
+            panelContext: flagMenu.panelContext
+            menuModelName: flagMenu.menu_model_name
+            onFlagSet: {
+                theSessionData.set(flagMenu.itemIndex, flag, "flagColourRole")
+
+                if (flag_text)
+                    theSessionData.set(flagMenu.itemIndex, flag_text, "flagTextRole")
+            }
+        }
+    }
+
+    function showFlagMenu(mx, my, source, itemIndex) {
+        let sp = mapFromItem(source, mx, my)
+        flagMenu.x = sp.x
+        flagMenu.y = sp.y
+        flagMenu.itemIndex = itemIndex
+        flagMenu.visible = true
+    }
+
     Loader {
         id: menu_loader
     }
+
 
     Component {
         id: plusMenuComponent
@@ -140,7 +193,6 @@ Item{
             menu_loader.item.close()
         }
     }
-
 
     function showMenu(mx, my, parent) {
         if (menu_loader.item == undefined) {

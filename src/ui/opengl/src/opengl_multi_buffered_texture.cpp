@@ -29,13 +29,12 @@ class DebugTimer {
 };
 
 } // namespace
- 
+
 namespace xstudio::ui::opengl {
 
 class TextureTransferWorker {
-    public:
-
-    TextureTransferWorker(GLDoubleBufferedTexture * owner) {
+  public:
+    TextureTransferWorker(GLDoubleBufferedTexture *owner) {
         for (int i = 0; i < 8; ++i) {
             threads_.emplace_back(std::thread(&TextureTransferWorker::run, this));
         }
@@ -44,12 +43,12 @@ class TextureTransferWorker {
 
     ~TextureTransferWorker() {
 
-        for (auto &t: threads_) {
+        for (auto &t : threads_) {
             // when any thread picks up an empty job it exits its loop
             add_job(GLDoubleBufferedTexture::GLBlindTexturePtr());
         }
 
-        for (auto &t: threads_) {
+        for (auto &t : threads_) {
             t.join();
         }
     }
@@ -59,7 +58,7 @@ class TextureTransferWorker {
     GLDoubleBufferedTexture::GLBlindTexturePtr get_job() {
         std::unique_lock lk(m);
         if (queue.empty()) {
-            cv.wait(lk, [=]{ return !queue.empty(); });
+            cv.wait(lk, [=] { return !queue.empty(); });
         }
         auto rt = queue.front();
         queue.pop_front();
@@ -80,37 +79,35 @@ class TextureTransferWorker {
         {
             std::lock_guard lk(m);
             queue.push_back(ptr);
-
         }
         cv.notify_one();
     }
 
-    void run()
-    {
-        while(1)  {
-            
+    void run() {
+        while (1) {
+
             // this blocks until there is something in queue for us
             GLDoubleBufferedTexture::GLBlindTexturePtr tex = get_job();
-            if (!tex) break; // exit 
+            if (!tex)
+                break; // exit
             tex->do_pixel_upload();
-
         }
     }
 
     std::mutex m;
     std::condition_variable cv;
     std::deque<GLDoubleBufferedTexture::GLBlindTexturePtr> queue;
-    GLDoubleBufferedTexture * owner_;
+    GLDoubleBufferedTexture *owner_;
 };
-}
+} // namespace xstudio::ui::opengl
 
 GLDoubleBufferedTexture::GLDoubleBufferedTexture() {
 
     worker_ = new TextureTransferWorker(this);
-
 }
 
-void GLDoubleBufferedTexture::bind(const media_reader::ImageBufPtr &image, int &tex_index, Imath::V2i &dims) {
+void GLDoubleBufferedTexture::bind(
+    const media_reader::ImageBufPtr &image, int &tex_index, Imath::V2i &dims) {
 
     auto p = textures_.find_pending(image);
     if (p != textures_.end()) {
@@ -125,7 +122,7 @@ void GLDoubleBufferedTexture::queue_image_set_for_upload(
 
     worker_->clear_jobs();
 
-    // image_set includes images that are due to go on-screen NOW in the 
+    // image_set includes images that are due to go on-screen NOW in the
     // current draw, plus images that are not going on screen now but will
     // be soon.
     // We can do a-sync uploads of images to texture memory for performance
@@ -136,17 +133,17 @@ void GLDoubleBufferedTexture::queue_image_set_for_upload(
     // queue of images that need to be in texture memory
     image_queue_.clear();
 
-    const std::vector<int> & draw_order = image_set->layout_data()->image_draw_order_hint_;    
+    const std::vector<int> &draw_order = image_set->layout_data()->image_draw_order_hint_;
 
     auto available_textures = textures_;
 
-    for (const auto &i: draw_order) {
+    for (const auto &i : draw_order) {
         auto im = image_set->onscreen_image(i);
         queue_for_upload(available_textures, im);
     }
 
     // now queue images the we'll need in the *next* redraw
-    for (const auto &i: draw_order) {
+    for (const auto &i : draw_order) {
         if (image_set->future_images(i).size()) {
             auto im = image_set->future_images(i)[0];
             queue_for_upload(available_textures, im);
@@ -154,26 +151,24 @@ void GLDoubleBufferedTexture::queue_image_set_for_upload(
     }
 
     // now queue images the we'll need in the *next* *next* redraw
-    for (const auto &i: draw_order) {
+    for (const auto &i : draw_order) {
         if (image_set->future_images(i).size() > 1) {
             auto im = image_set->future_images(i)[1];
             queue_for_upload(available_textures, im);
         }
     }
-           
 }
 
 void GLDoubleBufferedTexture::queue_for_upload(
     GLDoubleBufferedTexture::TexSet &available_textures,
-    const media_reader::ImageBufPtr &image
-    ) 
-{ 
-    if (!image) return;
+    const media_reader::ImageBufPtr &image) {
+    if (!image)
+        return;
     auto q = available_textures.find_pending(image);
     if (q != available_textures.end()) {
         available_textures.erase(q);
     } else if (available_textures.size()) {
-         q = available_textures.begin();
+        q = available_textures.begin();
         (*q)->prepare_for_upload(image);
         worker_->add_job(*q);
         available_textures.erase(q);
@@ -182,21 +177,20 @@ void GLDoubleBufferedTexture::queue_for_upload(
     }
 }
 
-void GLDoubleBufferedTexture::release(const media_reader::ImageBufPtr &image) { 
-    
+void GLDoubleBufferedTexture::release(const media_reader::ImageBufPtr &image) {
+
     // move the texture containing 'image' into the used_textures_ map so
     // it can be used for another image
 
     if (image_queue_.size()) {
         auto im = image_queue_.front();
-        auto q = textures_.find(image);
+        auto q  = textures_.find(image);
         if (q != textures_.end()) {
             (*q)->prepare_for_upload(im);
             worker_->add_job(*q);
             image_queue_.pop_front();
         } else {
-            //std::cerr << "Didn't release\n";
+            // std::cerr << "Didn't release\n";
         }
     }
-
 }

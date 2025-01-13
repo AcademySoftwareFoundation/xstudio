@@ -8,7 +8,7 @@
 #include "xstudio/utility/chrono.hpp"
 
 using namespace xstudio::ui::opengl;
- 
+
 GLBlindRGBA8bitTex::~GLBlindRGBA8bitTex() {
     // ensure no copying is in flight
     if (upload_thread_.joinable())

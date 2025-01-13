@@ -49,6 +49,7 @@ XsDelegateClip            1.0 ../views/timeline/delegates/XsDelegateClip.qml
 XsDelegateGap             1.0 ../views/timeline/delegates/XsDelegateGap.qml
 XsDelegateStack           1.0 ../views/timeline/delegates/XsDelegateStack.qml
 XsDelegateVideoTrack      1.0 ../views/timeline/delegates/XsDelegateVideoTrack.qml
+XsDelegateTrack      1.0 ../views/timeline/delegates/XsDelegateTrack.qml
 
 XsClipItem                1.0 ../views/timeline/widgets/XsClipItem.qml
 XsClipDragBoth            1.0 ../views/timeline/widgets/XsClipDragBoth.qml
@@ -113,6 +114,7 @@ XsSnapshotDialog          1.0 ../widgets/dialogs/XsSnapshotDialog.qml
 XsStringRequestDialog     1.0 ../widgets/dialogs/XsStringRequestDialog.qml
 XsWindow                  1.0 ../widgets/dialogs/XsWindow.qml
 XsPreferencesDialog       1.0 ../widgets/dialogs/preferences/XsPreferencesDialog.qml
+XsCompareModePref         1.0 ../widgets/dialogs/preferences/delegates/XsCompareModePref.qml
 XsHotkeysDialog           1.0 ../widgets/dialogs/hotkeys/XsHotkeysDialog.qml
 
 XsBusyIndicator           1.0 ../widgets/indicators/XsBusyIndicator.qml

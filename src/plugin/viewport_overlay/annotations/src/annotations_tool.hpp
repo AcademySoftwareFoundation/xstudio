@@ -38,11 +38,8 @@ namespace ui {
             void key_pressed(
                 const int key, const std::string &context, const bool auto_repeat) override;
 
-            utility::BlindDataObjectPtr onscreen_render_data(
-                const media_reader::ImageBufPtr &,
-                const std::string &viewport_name) const override;
-
-            plugin::ViewportOverlayRendererPtr make_overlay_renderer() override;
+            plugin::ViewportOverlayRendererPtr
+            make_overlay_renderer(const std::string &viewport_name) override;
 
             bookmark::AnnotationBasePtr
             build_annotation(const utility::JsonStore &anno_data) override;
@@ -61,7 +58,9 @@ namespace ui {
           private:
             bool is_laser_mode() const;
 
-            void start_editing(const std::string &viewport_name, const Imath::V2f &pointer_position = Imath::V2f(-1e6f, -1e6f));
+            void start_editing(
+                const std::string &viewport_name,
+                const Imath::V2f &pointer_position = Imath::V2f(-1e6f, -1e6f));
 
             void start_stroke(const Imath::V2f &point);
             void update_stroke(const Imath::V2f &point);
@@ -87,10 +86,11 @@ namespace ui {
             void clear_edited_annotation();
             void update_bookmark_annotation_data();
             Imath::V2f image_transformed_ptr_pos(const Imath::V2f &p) const;
+            void do_redraw();
 
           private:
             enum Tool { Draw, Laser, Square, Circle, Arrow, Line, Text, Erase, None };
-            enum DisplayMode { OnlyWhenPaused, Always, WithDrawTool };
+            enum DisplayMode { OnlyWhenPaused, Always };
 
             const std::map<int, std::string> tool_names_ = {
                 {Draw, "Draw"},
@@ -155,10 +155,10 @@ namespace ui {
             std::string last_tool_ = {"Draw"};
 
             bool fade_looping_{false};
-            std::map<std::string, media_reader::ImageBufDisplaySetPtr>
-                viewport_current_images_;
+            std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
             media_reader::ImageBufPtr image_being_annotated_;
 
+            std::map<std::string, plugin::ViewportOverlayRendererPtr> renderers_;
         };
 
     } // namespace viewport

@@ -26,6 +26,10 @@ Item {
 
     signal editingCompleted()
 
+    onVisibleChanged: {
+        //to expand if text exists, while swtiching layout
+        isExpanded = searchBar.text
+    }
 
     XsPrimaryButton{ id: searchBtn
         x: isExpandedToLeft? searchBar.width : 0
