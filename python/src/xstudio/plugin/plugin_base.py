@@ -41,7 +41,7 @@ class PluginBase(ModuleBase):
             name,
             JsonStore(),
             base_class_name)
-        self.uuid = a[1]
+
         remote = a[0]
 
         ModuleBase.__init__(self, connection, remote)
@@ -57,6 +57,12 @@ class PluginBase(ModuleBase):
 
         super().set_attribute_changed_event_handler(self._PluginBase__attribute_changed)
         self.user_attr_handler_ = None
+
+        #if XStudioExtensions:
+        #    XStudioExtensions.register_python_plugin_instance((self, self.uuid))
+        #else:
+        #    self.connection.link.register_python_plugin_instance((self, self.uuid))
+
 
     def set_attribute_changed_event_handler(self, handler):
         # here we override the method on Module class to ensure that
@@ -146,7 +152,7 @@ class PluginBase(ModuleBase):
     def create_qml_item(
         self,
         qml_item,
-        callback_fn
+        callback_fn=None
         ):
         """Create and show a qml item (typically a pop-up window, dialog etc.).
         Args:
@@ -174,7 +180,8 @@ class PluginBase(ModuleBase):
                     "enabled": False
                 })
 
-        self.qml_item_attrs[attr.uuid] = (attr, callback_fn)
+        if callback_fn:
+            self.qml_item_attrs[attr.uuid] = (attr, callback_fn)
         # 'attr_enabled' controls the visibility of the widget
         attr.set_role_data("attr_enabled", True) 
 
@@ -186,8 +193,25 @@ class PluginBase(ModuleBase):
 
         # check if 'CallbackData' has been set - if the attribute is one of our 
         # qml_item_attrs then we execute the associated callback
-        if role == AttributeRole.CallbackData and attribute.uuid in self.qml_item_attrs:
+        if role == AttributeRole.CallbackData and \
+            attribute.uuid in self.qml_item_attrs and \
+            attribute.role_data("callback_data") != {}:
             self.qml_item_attrs[attribute.uuid][1](attribute.role_data("callback_data"))
+            # now reset the callback data so if the callback is called again with
+            # the same data as before we still get an 'attribute_changed' signal
+            attribute.set_role_data("callback_data", {})
 
         if self.user_attr_handler_:
             self.user_attr_handler_(attribute)
+
+    def run_callback_func(self, cb_name, args):
+
+        import json
+        the_callback = getattr(self, cb_name)
+        translated_args = json.loads(args.dump())
+        if isinstance(translated_args, dict):
+            return JsonStore(the_callback(**translated_args))
+        elif isinstance(translated_args, list):
+            return JsonStore(the_callback(*translated_args))
+        else:
+            return JsonStore(the_callback(translated_args))

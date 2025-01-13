@@ -22,7 +22,7 @@ RowLayout{
         text: "Add"
         Layout.fillHeight: true
         Layout.preferredWidth: cellWidth
-        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes)
+        onClicked: ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, true, addAfterSelection.value)
     }
     XsPrimaryButton{
         text: "Replace"

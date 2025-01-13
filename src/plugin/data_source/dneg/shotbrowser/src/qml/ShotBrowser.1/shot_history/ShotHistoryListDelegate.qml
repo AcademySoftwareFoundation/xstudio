@@ -85,7 +85,7 @@ Rectangle{ id: frame
         onDoubleClicked: (mouse)=> {
             let m = ShotBrowserHelpers.mapIndexesToResultModel([delegateModel.modelIndex(index)])[0].model
             if(! special_sauce.includes(m.groupId) )
-                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser")
+                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addAfterSelection.value)
             else
                 ShotBrowserHelpers.addSequencesToNewPlaylist([delegateModel.modelIndex(index)])
         }

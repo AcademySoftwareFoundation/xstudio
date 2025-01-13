@@ -254,7 +254,8 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
 
         [=](get_image_atom,
             const media::AVFrameID &mptr,
-            const bool pin, // stamp the frame 10 minutes in the future so it sticks in the cache
+            const bool
+                pin, // stamp the frame 10 minutes in the future so it sticks in the cache
             const utility::Uuid &playhead_uuid,
             const timebase::flicks plahead_position) -> result<ImageBufPtr> {
             auto rp = make_response_promise<media_reader::ImageBufPtr>();
@@ -292,7 +293,11 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                             } else {
                                 // request new reader instance.
                                 request(
-                                    pool_, infinite, get_reader_atom_v, mptr.uri(), mptr.reader())
+                                    pool_,
+                                    infinite,
+                                    get_reader_atom_v,
+                                    mptr.uri(),
+                                    mptr.reader())
                                     .then(
                                         [=](caf::actor &new_reader) mutable {
                                             new_reader = add_reader(
@@ -366,8 +371,7 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             caf::actor playhead,
             const utility::Uuid playhead_uuid,
             const utility::time_point &tp,
-            const timebase::flicks playhead_position
-        ) {
+            const timebase::flicks playhead_position) {
             request(image_cache_, infinite, media_cache::retrieve_atom_v, mptr.key())
                 .then(
                     [=](const media_reader::ImageBufPtr &buf) mutable {
@@ -388,7 +392,11 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                             } else {
                                 // get reader..
                                 request(
-                                    pool_, infinite, get_reader_atom_v, mptr.uri(), mptr.reader())
+                                    pool_,
+                                    infinite,
+                                    get_reader_atom_v,
+                                    mptr.uri(),
+                                    mptr.reader())
                                     .then(
                                         [=](caf::actor &new_reader) mutable {
                                             new_reader = add_reader(
@@ -408,7 +416,13 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
 
                                             media_reader::ImageBufPtr buf(
                                                 new media_reader::ImageBuffer(to_string(err)));
-                                            send(playhead, push_image_atom_v, buf, mptr, tp, playhead_position);
+                                            send(
+                                                playhead,
+                                                push_image_atom_v,
+                                                buf,
+                                                mptr,
+                                                tp,
+                                                playhead_position);
                                         });
                             }
                         }
@@ -457,7 +471,6 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             const media::AVFrameIDsAndTimePoints media_ptrs,
             const Uuid &playhead_uuid,
             const media::MediaType mt) -> result<bool> {
-
             // we've received fresh lookahead read requests from the playhead
             // during playback. We want to ask the cache actors if they already
             // have those frames, and if not we need to queue read requests to
@@ -478,8 +491,8 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                 // clear all pending requests
                                 playback_precache_request_queue_.clear_pending_requests(
                                     playhead_uuid);
-                                background_precache_request_queue_
-                                    .clear_pending_requests(playhead_uuid);
+                                background_precache_request_queue_.clear_pending_requests(
+                                    playhead_uuid);
 
                                 playback_precache_request_queue_.add_frame_requests(
                                     media_ptrs_not_in_image_cache, playhead_uuid);
@@ -507,8 +520,8 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                 // clear all pending requests
                                 playback_precache_request_queue_.clear_pending_requests(
                                     playhead_uuid);
-                                background_precache_request_queue_
-                                    .clear_pending_requests(playhead_uuid);
+                                background_precache_request_queue_.clear_pending_requests(
+                                    playhead_uuid);
 
                                 playback_precache_request_queue_.add_frame_requests(
                                     media_ptrs_not_in_audio_cache, playhead_uuid);
@@ -531,10 +544,12 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             auto rp = make_response_promise<bool>();
             auto tt = utility::clock::now();
 
-            // we've been told to start background cacheing, so assume playback
-            // read-ahead can be cancelled. Keep a note of the timepoint of the
-            // first frame in the request queue - anything with an older time
-            // in the cache can be discarded when the cache is full
+            // we've been told to start background cacheing - this should only happen
+            // when playback has halted and the user isn't actively scrubbing the
+            // playhead, so we assume playback read-ahead can be cancelled.
+            // We keep a note of the timepoint of the first frame in the request
+            // queue - anything with an older time in the cache can be discarded
+            // when the cache is full
             if (mptrs.size()) {
                 request(image_cache_, infinite, media_cache::unpreserve_atom_v, playhead_uuid)
                     .then(
@@ -770,7 +785,8 @@ void GlobalMediaReaderActor::do_precache() {
                     continue_precacheing();
                 } else {
                     try {
-                        auto reader = get_reader(mptr->uri(), mptr->actor_addr(), mptr->reader());
+                        auto reader =
+                            get_reader(mptr->uri(), mptr->actor_addr(), mptr->reader());
                         if (not reader) {
                             mark_playhead_received_precache_result(playhead_uuid);
                             continue_precacheing();
@@ -936,7 +952,8 @@ void GlobalMediaReaderActor::read_and_cache_audio(
                             } else {
                                 continue_precacheing();
                                 if (is_background_cache) {
-                                    // keep_cache_hot(mptr.key(), predicted_time, playhead_uuid);
+                                    // keep_cache_hot(mptr.key(), predicted_time,
+                                    // playhead_uuid);
                                 }
                             }
                         },

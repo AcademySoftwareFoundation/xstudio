@@ -5,6 +5,6 @@ import xStudio 1.0
 import "."
 
 XsPlaylistItemBase {
-    iconSource: "qrc:/icons/view_timeline.svg"
+    iconSource: "qrc:/icons/view_object_track.svg"
     indent: true
 }

@@ -164,6 +164,10 @@ class Item(Container):
         return self.item.trimmed_range()
 
     @property
+    def rate(self):
+        return self.item.trimmed_range().rate()
+
+    @property
     def available_range(self):
         return self.item.available_range()
 

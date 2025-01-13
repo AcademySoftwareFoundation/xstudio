@@ -13,6 +13,53 @@ using namespace caf;
 namespace xstudio::global_store {
 
 
+class GlobalStoreIOActor : public caf::event_based_actor {
+  public:
+    GlobalStoreIOActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {}
+    const char *name() const override { return NAME.c_str(); }
+
+    caf::message_handler message_handler() {
+        return caf::message_handler{
+            [=](save_atom,
+                const JsonStore &data,
+                const std::string &path) -> caf::result<bool> {
+                try {
+                    // check dir exists..
+                    std::ofstream o(path + ".tmp", std::ofstream::out | std::ofstream::trunc);
+                    try {
+                        o.exceptions(std::ios_base::failbit | std::ifstream::badbit);
+
+                        o << std::setw(4) << data.cref() << std::endl;
+                        o.close();
+
+                        fs::rename(path + ".tmp", path);
+
+                        spdlog::debug("Saved {}", path);
+                    } catch (const std::exception &err) {
+                        if (o.is_open()) {
+                            o.close();
+                            fs::remove(path + ".tmp");
+                        }
+                        return caf::result<bool>(make_error(
+                            xstudio_error::error,
+                            fmt::format("Failed to save {} {}", path, err.what())));
+                    }
+                } catch (const std::exception &err) {
+                    return caf::result<bool>(make_error(
+                        xstudio_error::error,
+                        fmt::format("Failed to save {} {}", path, err.what())));
+                }
+                return true;
+            }};
+    }
+
+    caf::behavior make_behavior() override { return message_handler(); }
+
+  private:
+    inline static const std::string NAME = "GlobalStoreIOActor";
+};
+
+
 GlobalStoreActor::GlobalStoreActor(
     caf::actor_config &cfg, const JsonStore &jsn, std::string reg_value)
     : caf::event_based_actor(cfg),
@@ -102,12 +149,20 @@ caf::message_handler GlobalStoreActor::message_handler() {
         [=](json_store::update_atom, const JsonStore &json) {
             base_.preferences_.set(json);
             try {
-                auto tmp = preference_value<int>(
-                    base_.preferences_, "/core/global_store/autosave_interval");
-                if (tmp != base_.autosave_interval_) {
+                if (auto tmp = preference_value<int>(
+                        base_.preferences_, "/core/global_store/autosave_interval");
+                    tmp != base_.autosave_interval_) {
                     base_.autosave_interval_ = tmp;
                     spdlog::debug("autosave updated {}", base_.autosave_interval_);
                 }
+
+                if (auto tmp = preference_value<bool>(
+                        base_.preferences_, "/core/global_store/autosave_enable");
+                    tmp != base_.autosave_) {
+                    base_.autosave_ = tmp;
+                    spdlog::debug("autosave enable updated {}", base_.autosave_);
+                }
+
             } catch (...) {
             }
         },
@@ -131,32 +186,9 @@ caf::message_handler GlobalStoreActor::message_handler() {
                 JsonStore prefs = get_preference_values(
                     base_.preferences_, std::set<std::string>{context}, true, path);
 
-                try {
-                    // check dir exists..
-                    std::ofstream o(path + ".tmp", std::ofstream::out | std::ofstream::trunc);
-                    try {
-                        o.exceptions(std::ios_base::failbit | std::ifstream::badbit);
-
-                        o << std::setw(4) << prefs.cref() << std::endl;
-                        o.close();
-
-                        fs::rename(path + ".tmp", path);
-
-                        spdlog::debug("Saved {} {}", context, path);
-                    } catch (const std::exception &err) {
-                        if (o.is_open()) {
-                            o.close();
-                            fs::remove(path + ".tmp");
-                        }
-                        return caf::result<bool>(make_error(
-                            xstudio_error::error,
-                            fmt::format("Failed to save {} {}", context, err.what())));
-                    }
-                } catch (const std::exception &err) {
-                    return caf::result<bool>(make_error(
-                        xstudio_error::error,
-                        fmt::format("Failed to save {} {}", context, err.what())));
-                }
+                auto rp = make_response_promise<bool>();
+                rp.delegate(ioactor_, save_atom_v, prefs, path);
+                return rp;
 
             } else {
                 return caf::result<bool>(make_error(
@@ -222,9 +254,15 @@ void GlobalStoreActor::init() {
         base_.preferences_.set(std::get<2>(result));
         base_.autosave_interval_ =
             preference_value<int>(base_.preferences_, "/core/global_store/autosave_interval");
+        base_.autosave_ =
+            preference_value<bool>(base_.preferences_, "/core/global_store/autosave_enable");
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
+
+    ioactor_ = spawn<GlobalStoreIOActor>();
+    link_to(ioactor_);
 
     system().registry().put(reg_value_, this);
 }

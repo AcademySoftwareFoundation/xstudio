@@ -70,6 +70,7 @@ namespace module {
             OverrideValue,
             SerializeKey,
             QmlCode,
+            ModuleUuid,
             LeftRightDockWidgetQmlCode,
             TopBottomDockWidgetQmlCode,
             PreferencePath, // use this to set a pref path that means the attribute always
@@ -117,6 +118,7 @@ namespace module {
             {OverrideValue, "override_value"},
             {SerializeKey, "serialize_key"},
             {QmlCode, "qml_code"},
+            {ModuleUuid, "module_uuid"},
             {LeftRightDockWidgetQmlCode, "left_right_dock_widget_qml_code"},
             {TopBottomDockWidgetQmlCode, "top_bottom_dock_widget_qml_code"},
             {PreferencePath, "preference_path"},

@@ -241,7 +241,7 @@ if(INSTALL_XSTUDIO)
   add_subdirectory(share/fonts)
 
   if(BUILD_DOCS)
-    add_subdirectory(docs)
+    #add_subdirectory(docs)
   else()
     install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
   endif ()

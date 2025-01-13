@@ -88,7 +88,7 @@ const char *frag_shader = R"(
     )";
 } // namespace
 
-void BasicMaskRenderer::render_opengl(
+void BasicMaskRenderer::render_image_overlay(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
@@ -108,11 +108,11 @@ void BasicMaskRenderer::render_opengl(
     }
 
     utility::JsonStore shader_params;
-    shader_params["to_coord_system"] = transform_viewport_to_image_space.inverse();
-    shader_params["to_canvas"]       = transform_window_to_viewport_space;
-    shader_params["viewport_du_dx"]  = viewport_du_dpixel;
-    shader_params["image_transform_matrix"]  = frame.layout_transform();
-    shader_params["image_aspect"]  = frame ? frame->image_aspect() : 16.0f/9.0f;
+    shader_params["to_coord_system"]        = transform_viewport_to_image_space.inverse();
+    shader_params["to_canvas"]              = transform_window_to_viewport_space;
+    shader_params["viewport_du_dx"]         = viewport_du_dpixel;
+    shader_params["image_transform_matrix"] = frame.layout_transform();
+    shader_params["image_aspect"]           = frame ? frame->image_aspect() : 16.0f / 9.0f;
     shader_->set_shader_parameters(shader_params);
 
     shader_->use();
@@ -296,7 +296,9 @@ void BasicViewportMasking::register_hotkeys() {
 }
 
 utility::BlindDataObjectPtr BasicViewportMasking::onscreen_render_data(
-    const media_reader::ImageBufPtr &image, const std::string & /*viewport_name*/) const {
+    const media_reader::ImageBufPtr &image,
+    const std::string & /*viewport_name*/,
+    const utility::Uuid &playhead_uuid) const {
 
     auto r = utility::BlindDataObjectPtr();
     if (visible() && mask_render_method_->value() == "OpenGL" && image) {

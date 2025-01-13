@@ -4,7 +4,7 @@
             "shotbrowser": {
                 "purge_sequence_on_import": {
                     "context": [
-                        "APPLICATION"
+                        "PLUGIN"
                     ],
                     "datatype": "bool",
                     "default_value": true,

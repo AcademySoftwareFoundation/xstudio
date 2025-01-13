@@ -129,7 +129,6 @@ namespace timeline {
         // might need to prune.. ?
         std::set<utility::Uuid> events_processed_;
         utility::NotificationHandler notification_;
-
     };
 } // namespace timeline
 } // namespace xstudio

@@ -17,7 +17,8 @@ using namespace xstudio::ui::opengl;
 using namespace xstudio::ui::viewport;
 
 
-GradingMaskRenderer::GradingMaskRenderer() {
+GradingMaskRenderer::GradingMaskRenderer(const std::string &viewport_name)
+    : viewport_name_(viewport_name) {
 
     canvas_renderer_.reset(new ui::opengl::OpenGLCanvasRenderer());
 }
@@ -134,7 +135,8 @@ void GradingMaskRenderer::render_grading_data_masks(
     // here the relevant shared ptr to the colour op data is reset
     image.colour_pipe_data_->overwrite_operation_data(colour_op_data);
 
-    image.colour_pipe_data_->set_cache_id(image.colour_pipe_data_->cache_id() + cache_id_modifier);
+    image.colour_pipe_data_->set_cache_id(
+        image.colour_pipe_data_->cache_id() + cache_id_modifier);
 }
 
 void GradingMaskRenderer::render_layer(
@@ -175,6 +177,7 @@ void GradingMaskRenderer::render_layer(
                 2.0f / mask_resolution.x, // See A1
                 have_alpha_buffer,
                 image_aspect_ratio);
+
         } else {
 
             glClearColor(1.0, 1.0, 1.0, 1.0);

@@ -35,9 +35,9 @@
 		"audio_cache":{
 			"max_count": {
 				"path": "/core/audio_cache/max_count",
-				"default_value": 1000000,
+				"default_value": 4096,
 				"description": "Maximum number of entries to store in cache.",
-				"value": 1000000,
+				"value": 4096,
 				"minimum": 1,
 				"maximum": 1000000,
 				"datatype": "int",

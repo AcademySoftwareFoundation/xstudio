@@ -37,7 +37,7 @@ Item {
     property var mask_selected_shape: attrs.mask_selected_shape
     property var drawing_action: attrs.drawing_action
 
-    visible: mask_shapes_visible && tool_opened_count > 0
+    visible: mask_shapes_visible && tool_opened_count > 0 && !isQuickview
 
     property var polygon_init: attrs.polygon_init
     property var polygon_points: []

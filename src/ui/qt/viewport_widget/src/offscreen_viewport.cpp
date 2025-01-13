@@ -41,11 +41,10 @@ namespace {
 // More testing needed to check when this actually benefits us and on what
 // platforms, but for copying from memory mapped texture buffers into CPU
 // RAM it is required for high frame-rate offscreen rendering (e.g. 4k 60Hz
-// display on SDI card) 
+// display on SDI card)
 //
 class ThreadedMemCopy {
-    public:
-
+  public:
     ThreadedMemCopy() : num_threads_(8) {
         for (int i = 0; i < num_threads_; ++i) {
             threads_.emplace_back(std::thread(&ThreadedMemCopy::run, this));
@@ -54,7 +53,7 @@ class ThreadedMemCopy {
 
     ~ThreadedMemCopy() {
 
-        for (auto &t: threads_) {
+        for (auto &t : threads_) {
             // when any thread picks up an em
             {
                 std::lock_guard lk(m);
@@ -63,7 +62,7 @@ class ThreadedMemCopy {
             cv.notify_one();
         }
 
-        for (auto &t: threads_) {
+        for (auto &t : threads_) {
             t.join();
         }
     }
@@ -77,15 +76,13 @@ class ThreadedMemCopy {
         void *src;
         size_t n;
 
-        void do_job() {
-            memcpy(dst, src, n);
-        }
+        void do_job() { memcpy(dst, src, n); }
     };
 
     Job get_job() {
         std::unique_lock lk(m);
         if (queue.empty()) {
-            cv.wait(lk, [=]{ return !queue.empty(); });
+            cv.wait(lk, [=] { return !queue.empty(); });
         }
         auto rt = queue.front();
         queue.pop_front();
@@ -94,7 +91,7 @@ class ThreadedMemCopy {
 
     void do_memcpy(void *_dst, void *_src, size_t n) {
 
-        size_t step = (((n / num_threads_) / 4096)+1) * 4096;
+        size_t step = (((n / num_threads_) / 4096) + 1) * 4096;
 
         uint8_t *dst = (uint8_t *)_dst;
         uint8_t *src = (uint8_t *)_src;
@@ -107,27 +104,26 @@ class ThreadedMemCopy {
             cv.notify_one();
             dst += step;
             src += step;
-            if (n < step) break;
+            if (n < step)
+                break;
             n -= step;
         }
 
         std::unique_lock lk(m);
         if (!queue.empty()) {
-            cv2.wait(lk, [=]{ return queue.empty(); });
+            cv2.wait(lk, [=] { return queue.empty(); });
         }
-
     }
 
-    void run()
-    {
-        while(1)  {
-            
+    void run() {
+        while (1) {
+
             // this blocks until there is something in queue for us
             Job j = get_job();
-            if (!j.dst) break; // exit 
-            j.do_job();            
+            if (!j.dst)
+                break; // exit
+            j.do_job();
             cv2.notify_one();
-
         }
     }
 
@@ -187,8 +183,7 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_ov
     utility::JsonStore jsn;
     jsn["base"]        = utility::JsonStore();
     jsn["window_id"]   = name;
-    viewport_renderer_ = new Viewport(
-        jsn, as_actor(), name);
+    viewport_renderer_ = new Viewport(jsn, as_actor(), name);
 
     /* Provide a callback so the Viewport can tell this class when some property of the viewport
     has changed and such events can be propagated to other QT components, for example */
@@ -567,7 +562,13 @@ void OffscreenViewport::exportToEXR(const media_reader::ImageBufPtr &buf, const 
     header.dataWindow() = header.displayWindow() = box;
     header.compression()                         = Imf::PIZ_COMPRESSION;
     Imf::RgbaOutputFile outFile(utility::uri_to_posix_path(path).c_str(), header);
-    outFile.setFrameBuffer((Imf::Rgba *)buf->buffer(), 1, dim.x);
+    Imf::Rgba *bptr = (Imf::Rgba *)buf->buffer();
+    bptr += (dim.y - 1) * dim.x; // move to final scanline
+    outFile.setFrameBuffer(
+        bptr,
+        1,     // pix stride
+        -dim.x // line stride (i.e.) step backwards through buffer
+    );
     outFile.writePixels(dim.y);
 }
 
@@ -762,10 +763,11 @@ bool OffscreenViewport::loadQMLOverlays() {
 void OffscreenViewport::renderToImageBuffer(
     const int w,
     const int h,
-    media_reader::ImageBufPtr &image,
+    media_reader::ImageBufPtr &destination_image,
     const ImageFormat format,
     const bool sync_fetch_playhead_image,
-    const utility::time_point &tp) {
+    const utility::time_point &tp,
+    const media_reader::ImageBufPtr &image_to_use) {
     auto t0 = utility::clock::now();
 
     // ensure our GLContext is current
@@ -795,12 +797,16 @@ void OffscreenViewport::renderToImageBuffer(
         Imath::V2i(w, h),
         1.0f);
 
-    if (sync_fetch_playhead_image) {
-        media_reader::ImageBufPtr image = viewport_renderer_->get_onscreen_image(true);
-        viewport_renderer_->render(image);
-    } else if (tp != utility::time_point()) {
-        viewport_renderer_->render(tp);
+    if (image_to_use) {
+        viewport_renderer_->render(image_to_use);
     } else {
+        if (sync_fetch_playhead_image) {
+            viewport_renderer_->prepare_render_data(utility::clock::now(), true);
+        } else if (tp != utility::time_point()) {
+            viewport_renderer_->prepare_render_data(tp);
+        } else {
+            viewport_renderer_->prepare_render_data();
+        }
         viewport_renderer_->render();
     }
 
@@ -816,31 +822,26 @@ void OffscreenViewport::renderToImageBuffer(
         root_qml_overlays_item_->setHeight(h);
 
         // convert the image boundary in the viewport into plain pixels
-        const std::vector<Imath::Box2f> image_boxes = viewport_renderer_->image_bounds_in_viewport_pixels();
+        const std::vector<Imath::Box2f> image_boxes =
+            viewport_renderer_->image_bounds_in_viewport_pixels();
         QVariantList v;
-        for (const auto &box: image_boxes) {
+        for (const auto &box : image_boxes) {
             QRectF imageBoundsInViewportPixels(
-                box.min.x,
-                box.min.y,
-                box.max.x - box.min.x,
-                box.max.y - box.min.y);
+                box.min.x, box.min.y, box.max.x - box.min.x, box.max.y - box.min.y);
             v.append(imageBoundsInViewportPixels);
         }
         // these properties on XsOffscreenViewportOverlays mirror the same
         // properties provided by XsViewport - some overlay/HUD QML items access
         // these properties so they know how to compute their geometrty in
         // the QML coordinates to overlay the xSTUDIO image.
-        root_qml_overlays_item_->setProperty(
-            "imageBoundariesInViewport", v);
+        root_qml_overlays_item_->setProperty("imageBoundariesInViewport", v);
 
         const std::vector<Imath::V2i> resolutions = viewport_renderer_->image_resolutions();
         QVariantList rs;
-        for (const auto &r: resolutions) {
+        for (const auto &r : resolutions) {
             rs.append(QSize(r.x, r.y));
         }
-        root_qml_overlays_item_->setProperty(
-            "imageResolutions",
-            rs);
+        root_qml_overlays_item_->setProperty("imageResolutions", rs);
 
         root_qml_overlays_item_->setProperty("sessionActorAddr", session_actor_addr_);
         quick_win_->setWidth(w);
@@ -866,10 +867,10 @@ void OffscreenViewport::renderToImageBuffer(
     size_t pix_buf_size = w * h * format_to_bytes_per_pixel[vid_out_format_];
 
     // init RGBA float array
-    image->allocate(pix_buf_size);
-    image->set_image_dimensions(Imath::V2i(w, h));
-    image.when_to_display_          = utility::clock::now();
-    image->params()["pixel_format"] = (int)format;
+    destination_image->allocate(pix_buf_size);
+    destination_image->set_image_dimensions(Imath::V2i(w, h));
+    destination_image.when_to_display_          = utility::clock::now();
+    destination_image->params()["pixel_format"] = (int)format;
 
     if (!pixel_buffer_object_) {
         glGenBuffers(1, &pixel_buffer_object_);
@@ -904,7 +905,7 @@ void OffscreenViewport::renderToImageBuffer(
 
     auto t4 = utility::clock::now();
 
-    threaded_memcpy(image->buffer(), mappedBuffer, pix_buf_size);
+    threaded_memcpy(destination_image->buffer(), mappedBuffer, pix_buf_size);
 
 
     // now mapped buffer contains the pixel data
@@ -1045,7 +1046,8 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
 
     media_reader::ImageBufPtr image(new media_reader::ImageBuffer());
 
-    renderToImageBuffer(width, height, image, ImageFormat::RGBA_16F, true);
+    renderToImageBuffer(
+        width, height, image, ImageFormat::RGBA_16F, true, utility::clock::now(), image2);
     thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(image);
     r->convert_to(format);
     return r;
@@ -1059,10 +1061,12 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
     const int width,
     const bool auto_scale,
     const bool show_annotations) {
+
     if (!local_playhead_) {
-        auto a = caf::actor_cast<caf::event_based_actor *>(as_actor());
-        local_playhead_ =
-            a->spawn<playhead::PlayheadActor>("Offscreen Viewport Local Playhead");
+        auto a          = caf::actor_cast<caf::event_based_actor *>(as_actor());
+        local_playhead_ = a->spawn<playhead::PlayheadActor>(
+            "Offscreen Viewport Local Playhead", playhead::NO_AUDIO);
+
         a->link_to(local_playhead_);
     }
     // first, set the local playhead to be our image source
@@ -1088,11 +1092,12 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
     const bool auto_scale,
     const bool show_annotations) {
     if (!local_playhead_) {
-        auto a = caf::actor_cast<caf::event_based_actor *>(as_actor());
-        local_playhead_ =
-            a->spawn<playhead::PlayheadActor>("Offscreen Viewport Local Playhead");
+        auto a          = caf::actor_cast<caf::event_based_actor *>(as_actor());
+        local_playhead_ = a->spawn<playhead::PlayheadActor>(
+            "Offscreen Viewport Local Playhead", playhead::NO_AUDIO);
         a->link_to(local_playhead_);
     }
+
     // first, set the local playhead to be our image source
     viewport_renderer_->set_playhead(local_playhead_);
 

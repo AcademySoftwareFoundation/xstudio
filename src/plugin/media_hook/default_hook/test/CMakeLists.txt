@@ -1,7 +1,6 @@
 include(CTest)
 
 SET(LINK_DEPS
-	xstudio::sync
 	caf::core
 )
 

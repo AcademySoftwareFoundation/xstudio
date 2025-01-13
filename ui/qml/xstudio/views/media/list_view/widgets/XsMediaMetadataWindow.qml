@@ -14,6 +14,7 @@ XsWindow {
     property var metadata_digest
     minimumWidth: 600
     minimumHeight: 600
+    property bool no_data: false
 
     property int highlightIndex: -1
     property bool globalPressed: false
@@ -21,7 +22,7 @@ XsWindow {
         if (globalPressed) {
             metadataSelected(r1.itemAt(highlightIndex).text)
         }
-    }
+    }    
 
     signal metadataSelected(string metadataPath)
 
@@ -72,6 +73,9 @@ XsWindow {
                     columnSpacing: 0
                     Repeater {
                         id: r1
+                        onCountChanged: {
+                            no_data = count == 0
+                        }
                         model: metadata_digest
                         XsLabel {
                             text: metadata_digest[index][0]
@@ -163,6 +167,12 @@ XsWindow {
             }
         }
 
+    }
+
+    XsLabel {
+        anchors.centerIn: parent
+        text: "No Metadata"
+        visible: no_data
     }
 
 }

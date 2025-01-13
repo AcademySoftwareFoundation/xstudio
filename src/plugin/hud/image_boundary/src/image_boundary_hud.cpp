@@ -24,7 +24,7 @@ class HudData : public utility::BlindDataObject {
 class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
 
   public:
-    void render_opengl(
+    void render_image_overlay(
         const Imath::M44f &transform_window_to_viewport_space,
         const Imath::M44f &transform_viewport_to_image_space,
         const float /*viewport_du_dpixel*/,
@@ -103,14 +103,17 @@ ImageBoundaryHUD::ImageBoundaryHUD(
     add_hud_settings_attribute(width_);
 }
 
-plugin::ViewportOverlayRendererPtr ImageBoundaryHUD::make_overlay_renderer() {
+plugin::ViewportOverlayRendererPtr
+ImageBoundaryHUD::make_overlay_renderer(const std::string &viewport_name) {
     return plugin::ViewportOverlayRendererPtr(new ImageBoundaryRenderer());
 }
 
 ImageBoundaryHUD::~ImageBoundaryHUD() = default;
 
 utility::BlindDataObjectPtr ImageBoundaryHUD::onscreen_render_data(
-    const media_reader::ImageBufPtr &image, const std::string & /*viewport_name*/) const {
+    const media_reader::ImageBufPtr &image,
+    const std::string & /*viewport_name*/,
+    const utility::Uuid &playhead_uuid) const {
 
     auto r = utility::BlindDataObjectPtr();
 

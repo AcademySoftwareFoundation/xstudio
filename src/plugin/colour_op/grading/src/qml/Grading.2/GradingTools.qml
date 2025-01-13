@@ -69,85 +69,103 @@ Item { id: dialog
     }
 
 
+    property alias moreMenu: menus.moreMenu
+    
+    Sec0Menu{
+        id: menus
+    }
+
+
     property alias bookmarkList: listDiv.bookmarkList
     
-    ColumnLayout { id: leftView
+    Item { 
         anchors.fill: parent
         anchors.margins: panelPadding
-        spacing: panelPadding
 
-        Sec1Header{
-            Layout.fillWidth: true
-            Layout.preferredHeight: btnHeight
-        }
+        XsSplitView {
+            id: rightPanel
+            width: parent.width
+            height: parent.height
 
-        GridLayout { id: itemsGrid
-            property bool isVertical: false
-    
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-    
-            flow: GridLayout.TopToBottom
-            rowSpacing: 1
-            columnSpacing: 1
-            rows: itemsGrid.isVertical? 3: 1
-            columns: itemsGrid.isVertical? 6:18
-    
-            Behavior on width {NumberAnimation{ duration: 250 }}
-            onWidthChanged: {
-                if(width < 850) {
-                    itemsGrid.isVertical = true
-                } else {
-                    itemsGrid.isVertical = false
+            thumbWidth: XsStyleSheet.panelPadding
+            colorHandleBg: XsStyleSheet.panelBgGradTopColor
+
+            ColumnLayout{ id: leftBar
+                SplitView.minimumWidth: 270
+                Layout.preferredWidth: 290
+                SplitView.fillHeight: true
+                spacing: panelPadding
+                
+                Sec1Header{ id: header
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: btnHeight
+                    y: 0 //header.height + panelPaddingeight
+                    Layout.maximumHeight: btnHeight
                 }
-            }
-        
-            Sec2LayerList{ id: listDiv
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.columnSpan: 3
-            }
-
-            Sec3MaskTools{
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.preferredWidth: itemsGrid.isVertical? itemsGrid.width/2 : 100
-                Layout.maximumWidth: itemsGrid.isVertical? itemsGrid.width/2 : 100
-                Layout.columnSpan: 3
-            }
-            
-            GTSliderItem {
-                Layout.fillWidth: true
-                Layout.preferredWidth: itemsGrid.isVertical? itemsGrid.width/2 : itemsGrid.width/6
-                Layout.maximumWidth: itemsGrid.isVertical? itemsGrid.width/2 : itemsGrid.width/6
-                Layout.fillHeight: true
-                Layout.columnSpan: 3
-            }
-
-            Repeater{
-                model: attrs.grading_wheels_model
-
-                GTWheelItem {
+                Sec2LayerList{ id: listDiv
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.preferredWidth: itemsGrid.isVertical? itemsGrid.width/2 : itemsGrid.width/6
-                    Layout.maximumWidth: itemsGrid.isVertical? itemsGrid.width/2 : itemsGrid.width/6
-                    Layout.columnSpan: 3
                 }
             }
 
+            ColumnLayout{ id: rightBar
+                SplitView.minimumWidth: 200
+                SplitView.fillWidth: true
+                SplitView.fillHeight: true
+                spacing: panelPadding
+
+                RowLayout{
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: btnHeight
+                    SplitView.fillHeight: true
+
+                    Sec3MaskTools{
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: btnHeight
+                    } 
+                    XsPrimaryButton{ id: moreBtn
+                        Layout.preferredWidth: btnWidth
+                        Layout.preferredHeight: btnHeight
+                        Layout.alignment: Qt.AlignRight
+                        imgSrc: "qrc:/icons/more_vert.svg"
+                        onClicked:{
+                            if(moreMenu.visible) moreMenu.visible = false
+                            else{
+                                moreMenu.x = x + width + leftBar.width
+                                moreMenu.y = y + height
+                                moreMenu.visible = true
+                            }
+                        }
+                    }
+                }        
+                RowLayout{
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 1
+    
+                    GTSliderItem {
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 150
+                        Layout.maximumWidth: rightPanel.width/4
+                        Layout.fillHeight: true
+                    }
+                    Repeater{
+                        model: attrs.grading_wheels_model
+    
+                        GTWheelItem {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.preferredWidth: 150
+                            Layout.maximumWidth: rightPanel.width/4
+                        }
+                    }
+                }
+            }
+                
+            
         }
 
 
     }
-
-
-
-    
-
-
-
-
-
 
 }

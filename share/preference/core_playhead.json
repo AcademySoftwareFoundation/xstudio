@@ -30,6 +30,50 @@
 				"maximum": 64,
 				"datatype": "int",
 				"context": ["APPLICATION"]
+			},
+			"playlist_default_compare": {
+				"path": "/core/playhead/playlist_default_compare",
+				"default_value": ["A/B", "On"],
+				"description": "Set the default compare mode and auto align behaviour for new Playlists.",
+				"value": ["A/B", "On"],
+				"datatype": "json",
+				"options": "import xStudio 1.0; XsCompareModePref {}",
+				"context": ["APPLICATION"],
+				"category": "Compare",
+				"display_name": "Playlists"
+			},
+			"subset_default_compare": {
+				"path": "/core/playhead/subset_default_compare",
+				"default_value": ["A/B", "On"],
+				"description": "Set the default compare mode and auto align behaviour for new Subsets.",
+				"value": ["A/B", "On"],
+				"datatype": "json",
+				"options": "import xStudio 1.0; XsCompareModePref {}",
+				"context": ["APPLICATION"],
+				"category": "Compare",
+				"display_name": "Subsets"
+			},
+			"contact_sheet_default_compare": {
+				"path": "/core/playhead/contact_sheet_default_compare",
+				"default_value": ["Grid", "Off"],
+				"description": "Set the default compare mode and auto align behaviour for new Contact Sheets.",
+				"value": ["Grid", "Off"],
+				"datatype": "json",
+				"options": "import xStudio 1.0; XsCompareModePref {}",
+				"context": ["APPLICATION"],
+				"category": "Compare",
+				"display_name": "Contact Sheets"
+			},
+			"timeline_default_compare": {
+				"path": "/core/playhead/timeline_default_compare",
+				"default_value": ["Off", "Off"],
+				"description": "Set the default compare mode and auto align behaviour for new Timelines.",
+				"value": ["Off", "Off"],
+				"datatype": "json",
+				"options": "import xStudio 1.0; XsCompareModePref {}",
+				"context": ["APPLICATION"],
+				"category": "Compare",
+				"display_name": "Timelines"
 			}
 		}
 	}

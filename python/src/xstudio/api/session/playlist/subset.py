@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import Uuid, add_media_atom, actor, selection_actor_atom
+from xstudio.core import Uuid, add_media_atom, actor, selection_actor_atom, get_media_atom
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media import Media
 from xstudio.api.session.playhead import Playhead, PlayheadSelection
@@ -43,6 +43,17 @@ class Subset(Container):
         result = self.connection.request_receive(self.remote, add_media_atom(), media, before_uuid)[0]
 
         return Media(self.connection, result.actor, result.uuid)
+
+    @property
+    def media(self):
+        """Get media in subset
+
+        Returns:
+            media(list[media]): Media
+        """
+        result = self.connection.request_receive(self.remote, get_media_atom())[0]
+        return [Media(self.connection, i.actor, i.uuid) for i in result]
+
 
     @property
     def playhead_selection(self):

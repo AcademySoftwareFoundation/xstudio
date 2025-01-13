@@ -62,7 +62,7 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         // This call takes an image ptr, and returns a copy of the image ptr
         // but with all colour management data filled in.
         // Note that we do this in two steps. The ColourPipelineDataPtr carries
-        // static colour pipe data, like LUTs and shader code. This data is 
+        // static colour pipe data, like LUTs and shader code. This data is
         // generally expensive to generate and is pre-prepared and cached by
         // this actor before we need it a draw-time.
         // The colour_pipe_unirorms is dynamic colour management data - stuff like
@@ -70,26 +70,23 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         // is not cached but provided on-demand.
         [=](get_colour_pipe_data_atom,
             const media_reader::ImageBufPtr image) -> caf::result<media_reader::ImageBufPtr> {
-
             auto rp = make_response_promise<media_reader::ImageBufPtr>();
 
-            request(self(), infinite, get_colour_pipe_data_atom_v, image.frame_id()).then(
-                [=](const ColourPipelineDataPtr ptr) mutable {
-                    media_reader::ImageBufPtr result = image;
-                    result.colour_pipe_data_ = ptr;
+            request(self(), infinite, get_colour_pipe_data_atom_v, image.frame_id())
+                .then(
+                    [=](const ColourPipelineDataPtr ptr) mutable {
+                        media_reader::ImageBufPtr result = image;
+                        result.colour_pipe_data_         = ptr;
 
-                    request(self(), infinite, colour_operation_uniforms_atom_v, result).then(
-                        [=](const utility::JsonStore & colour_pipe_uniforms) mutable {
-                            result.colour_pipe_uniforms_ = colour_pipe_uniforms;
-                            rp.deliver(result);
-                        },
-                        [=](caf::error &err) mutable {
-                            rp.deliver(err);
-                        });                    
-                },
-                [=](caf::error &err) mutable {
-                    rp.deliver(err);
-                });
+                        request(self(), infinite, colour_operation_uniforms_atom_v, result)
+                            .then(
+                                [=](const utility::JsonStore &colour_pipe_uniforms) mutable {
+                                    result.colour_pipe_uniforms_ = colour_pipe_uniforms;
+                                    rp.deliver(result);
+                                },
+                                [=](caf::error &err) mutable { rp.deliver(err); });
+                    },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
 
             return rp;
         },
@@ -401,7 +398,8 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         },
         [=](json_store::update_atom, const utility::JsonStore &) mutable {},
         [=](utility::serialise_atom) -> utility::JsonStore { return serialise(); },
-        [=](ui::viewport::pre_render_gpu_hook_atom) -> result<plugin::GPUPreDrawHookPtr> {
+        [=](ui::viewport::pre_render_gpu_hook_atom,
+            const std::string &viewport_name) -> result<plugin::GPUPreDrawHookPtr> {
             // This message handler overrides the one in PluginBase class.
             // op plugins themselves might have a GPUPreDrawHook that needs
             // to be passed back up to the Viewport object that is making this
@@ -409,10 +407,10 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             // (see load_colour_op_plugins) we therefore need our own logic here.
             auto rp = make_response_promise<plugin::GPUPreDrawHookPtr>();
             if (colour_ops_loaded_) {
-                make_pre_draw_gpu_hook(rp);
+                make_pre_draw_gpu_hook(viewport_name, rp);
             } else {
                 // add to a queue of these requests pending a response
-                hook_requests_.push_back(rp);
+                hook_requests_.push_back(std::make_pair(viewport_name, rp));
                 // load_colour_op_plugins() will respond to these requests
                 // when all the plugins are loaded.
             }
@@ -428,7 +426,7 @@ void ColourPipeline::attribute_changed(const utility::Uuid &attr_uuid, const int
 bool ColourPipeline::add_in_flight_request(
     const std::string &transform_id, caf::typed_response_promise<ColourPipelineDataPtr> rp) {
     in_flight_requests_[transform_id].push_back(rp);
-    return in_flight_requests_[transform_id].size() > 1; 
+    return in_flight_requests_[transform_id].size() > 1;
 }
 
 bool ColourPipeline::make_colour_pipe_data_from_cached_data(
@@ -565,7 +563,7 @@ void ColourPipeline::load_colour_op_plugins() {
                 if (colour_op_plugin_details.empty()) {
                     colour_ops_loaded_ = true;
                     for (auto &hr : hook_requests_) {
-                        make_pre_draw_gpu_hook(hr);
+                        make_pre_draw_gpu_hook(hr.first, hr.second);
                     }
                     hook_requests_.clear();
                 }
@@ -588,14 +586,14 @@ void ColourPipeline::load_colour_op_plugins() {
                                 if (!(*count)) {
                                     colour_ops_loaded_ = true;
                                     for (auto &hr : hook_requests_) {
-                                        make_pre_draw_gpu_hook(hr);
+                                        make_pre_draw_gpu_hook(hr.first, hr.second);
                                     }
                                     hook_requests_.clear();
                                 }
                             },
                             [=](const caf::error &err) mutable {
                                 for (auto &hr : hook_requests_) {
-                                    hr.deliver(err);
+                                    hr.second.deliver(err);
                                 }
                                 hook_requests_.clear();
                             });
@@ -603,7 +601,7 @@ void ColourPipeline::load_colour_op_plugins() {
             },
             [=](const caf::error &err) mutable {
                 for (auto &hr : hook_requests_) {
-                    hr.deliver(err);
+                    hr.second.deliver(err);
                 }
                 hook_requests_.clear();
             });
@@ -634,6 +632,7 @@ class HookCollection : public plugin::GPUPreDrawHook {
 
 
 void ColourPipeline::make_pre_draw_gpu_hook(
+    const std::string &viewport_name,
     caf::typed_response_promise<plugin::GPUPreDrawHookPtr> rp) {
 
     auto collection = std::make_shared<HookCollection>();
@@ -650,7 +649,8 @@ void ColourPipeline::make_pre_draw_gpu_hook(
     auto count = std::make_shared<int>(colour_op_plugins_.size());
     for (auto &colour_op_plugin : colour_op_plugins_) {
 
-        request(colour_op_plugin, infinite, ui::viewport::pre_render_gpu_hook_atom_v)
+        request(
+            colour_op_plugin, infinite, ui::viewport::pre_render_gpu_hook_atom_v, viewport_name)
             .then(
                 [=](plugin::GPUPreDrawHookPtr &hook) mutable {
                     if (hook) {

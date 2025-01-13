@@ -3,8 +3,8 @@
 		"bookmark":{
 			"note_category": {
 				"path": "/core/bookmark/note_category",
-				"default_value": "default",
-				"value": "default",
+				"default_value": "",
+				"value": "",
 				"description": "Default note category.",
 				"datatype": "string",
 				"context": ["APPLICATION"]
@@ -31,7 +31,27 @@
 					{
 						"value": "default",
 						"colour": "",
-						"text": "Default"
+						"text": "Miscellaneous"
+					},
+					{
+						"value": "director",
+						"colour": "#FFFF0000",
+						"text": "Director Note"
+					},
+					{
+						"value": "studio",
+						"colour": "#FF00FF00",
+						"text": "Studio Note"
+					},
+					{
+						"value": "vfx",
+						"colour": "#FF0000FF",
+						"text": "VFX Supervisor Note"
+					},
+					{
+						"value": "editor",
+						"colour": "#FF00FFFF",
+						"text": "Editor Note"
 					}
 				],
 				"description": "Category defaults.",

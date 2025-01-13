@@ -12,11 +12,10 @@ using namespace xstudio::ui::viewport;
 using namespace xstudio;
 
 DefaultViewportLayout::DefaultViewportLayout(
-    caf::actor_config &cfg,
-    const utility::JsonStore &init_settings)
+    caf::actor_config &cfg, const utility::JsonStore &init_settings)
     : ViewportLayoutPlugin(cfg, init_settings) {
 
-    // Note: the base class takes care of making the actual layout data. The 
+    // Note: the base class takes care of making the actual layout data. The
     // default layout is to just display the 'hero' image in the ImageDisplaySet
     // with no transform applied.
 
@@ -31,12 +30,12 @@ DefaultViewportLayout::DefaultViewportLayout(
     if (!init_settings.value("is_python", false)) {
         add_layout_mode("Off", playhead::AssemblyMode::AM_ONE);
         add_layout_mode("String", playhead::AssemblyMode::AM_STRING);
-        add_layout_mode("A/B", playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        add_layout_mode(
+            "A/B", playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
     }
-
 }
 
-ViewportRenderer * DefaultViewportLayout::make_renderer(const std::string &window_id) {
+ViewportRenderer *DefaultViewportLayout::make_renderer(const std::string &window_id) {
     return new opengl::OpenGLViewportRenderer(window_id);
 }
 

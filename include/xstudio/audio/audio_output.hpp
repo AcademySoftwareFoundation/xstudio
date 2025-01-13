@@ -34,7 +34,19 @@ class AudioOutputControl {
      *  audio frames.
      *
      */
-    void prepare_samples_for_soundcard(
+    void prepare_samples_for_soundcard_playback(
+        std::vector<int16_t> &samples,
+        const long num_samps_to_push,
+        const long microseconds_delay,
+        const int num_channels,
+        const int sample_rate);
+
+    /**
+     *  @brief Pick audio samples based on the current playhead position to sound
+     *  audio during timeline scrubbing.
+     *
+     */
+    void prepare_samples_for_soundcard_scrubbing(
         std::vector<int16_t> &samples,
         const long num_samps_to_push,
         const long microseconds_delay,
@@ -54,13 +66,13 @@ class AudioOutputControl {
     /**
      *   @brief Queue audio buffer for streaming to the soundcard
      */
-    void queue_samples_for_playing(
-        const std::vector<media_reader::AudioBufPtr> &audio_buffers);
+    void queue_samples_for_playing(const std::vector<media_reader::AudioBufPtr> &audio_buffers);
 
     /**
      *   @brief Fine grained update of playhead position
      */
-    void playhead_position_changed(const timebase::flicks playhead_position,
+    void playhead_position_changed(
+        const timebase::flicks playhead_position,
         const bool forward,
         const float velocity,
         const bool playing,
@@ -92,7 +104,7 @@ class AudioOutputControl {
         override_volume_ = override_volume;
     }
 
-  private:
+  protected:
     media_reader::AudioBufPtr
     pick_audio_buffer(const utility::clock::time_point &tp, const bool drop_old_buffers);
 
@@ -104,14 +116,16 @@ class AudioOutputControl {
     std::map<timebase::flicks, media_reader::AudioBufPtr> sample_data_;
     media_reader::AudioBufPtr current_buf_;
     media_reader::AudioBufPtr previous_buf_;
+    media_reader::AudioBufPtr next_buf_;
     long current_buf_pos_;
     float playback_velocity_ = {1.0f};
 
     int fade_in_out_ = {NoFade};
 
     timebase::flicks playhead_position_;
-    bool playing_forward_   = {true};
+    bool playing_forward_ = {true};
     utility::time_point playhead_position_update_tp_;
+    timebase::flicks last_buffer_pts_;
 
     bool audio_repitch_    = {false};
     bool audio_scrubbing_  = {false};

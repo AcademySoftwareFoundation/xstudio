@@ -19,6 +19,8 @@ ApplicationWindow {
     color: "#00000000"
     title: "xSTUDIO QuickView - "+fileName
     objectName: "xstudio_quickview_window"
+    minimumWidth: 150
+    minimumHeight: 100
 
     // this gives us access to the 'role' data of the entry in the session model
     // for the current on-screen media SOURCE

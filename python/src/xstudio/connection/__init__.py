@@ -4,14 +4,13 @@
 Controls xStudio connections.
 """
 
-from xstudio.core import get_api_mode_atom, absolute_receive_timeout
-from xstudio.core import request_connection_atom, get_sync_atom, version_atom
-from xstudio.core import get_application_mode_atom, authorise_connection_atom, broadcast_down_atom
+from xstudio.core import absolute_receive_timeout
+from xstudio.core import version_atom, authenticate_atom
+from xstudio.core import get_application_mode_atom, broadcast_down_atom
 from xstudio.core import join_broadcast_atom, exit_atom, api_exit_atom, leave_broadcast_atom, get_event_group_atom
 from xstudio.core import error, Link
 from xstudio.core import XSTUDIO_LOCAL_PLUGIN_PATH
 from xstudio.api import API
-from xstudio.sync_api import SyncAPI
 from xstudio.core import RemoteSessionManager, remote_session_path
 import uuid
 import time
@@ -21,9 +20,6 @@ from threading import Thread
 
 class Connection(object):
     """Handle connection to xstudio."""
-    API_TYPE_FULL = "FULL"
-    API_TYPE_SYNC = "SYNC"
-    API_TYPE_GATEWAY = "GATEWAY"
     APP_TYPE_XSTUDIO = "XSTUDIO"
     APP_TYPE_XSTUDIO_GUI = "XSTUDIO_GUI"
 
@@ -37,7 +33,6 @@ class Connection(object):
         """
         self.link = Link()
         self.connected = False
-        self.api_type = None
         self.app_type = None
         self.app_version = None
         self._api = None
@@ -244,7 +239,7 @@ class Connection(object):
             pass
             # print("ignored broadcast", sender, req_id, event[:len(event)-2])
 
-    def get_key_from_stdin(self, lock):
+    def get_authentication_from_stdin(self):
         """Request lock key from user.
 
         Args:
@@ -253,7 +248,7 @@ class Connection(object):
         Returns:
             user_input(str): String entered by user.
         """
-        return input("Enter key for lock {}: ".format(lock))
+        return input("Enter script key or user<SPACE>password for remote session {}:{}: ".format(self.link.host, self.link.port))
 
     def connect_local(self, actor):
         """Connect to in-process actor.
@@ -268,25 +263,21 @@ class Connection(object):
         else:
             raise RuntimeError("Failed to connect")
 
-    def connect_remote_auto(self, session=None, sync_mode=False, sync_key_callback=None):
+    def connect_remote_auto(self, session=None, authentication_callback=None):
         """Connect to xStudio using session file.
 
         Kwargs:
            session (str): Session name.
-           sync_mode (bool): Sync API.
-           sync_key_callback (func): Callback for sync key.
+           authentication_callback (func): Callback for authentication.
         """
         r = RemoteSessionManager(remote_session_path())
         if session is None:
-            if sync_mode:
-                s = r.first_sync()
-            else:
-                s = r.first_api()
+            s = r.first_api()
         else:
             s = m.find(session)
-        self.connect_remote(s.host(), s.port(), sync_mode, sync_key_callback)
+        self.connect_remote(s.host(), s.port(), authentication_callback)
 
-    def connect_remote(self, host, port, sync_mode=False, sync_key_callback=None):
+    def connect_remote(self, host, port, authentication_callback=None):
         """Connect to xStudio using host/port.
 
         Args:
@@ -294,52 +285,43 @@ class Connection(object):
            port (int): Host port number.
 
         Kwargs:
-           sync_mode (bool): Sync API.
-           sync_key_callback (func): Callback for sync key.
+           authentication_callback (func): Callback for authentication.
         """
-        if sync_key_callback is None:
-            sync_key_callback = self.get_key_from_stdin
+        if authentication_callback is None:
+            authentication_callback = self.get_authentication_from_stdin
 
         self.disconnect()
         connected = self.link.connect_remote(host, port)
         if connected:
-            self.negotiate(sync_mode, sync_key_callback)
+            self.negotiate(authentication_callback)
         else:
             raise RuntimeError("Failed to connect")
 
-    def negotiate(self, sync_mode=False, sync_key_callback=None):
-        """Negotiate connection, also handles sync lock/key.
+    def negotiate(self, authentication_callback=None):
+        """Negotiate connection, also handles authentication.
 
         Kwargs:
-           sync_mode (bool): Sync API.
-           sync_key_callback (func): Callback for sync key.
+           authentication_callback (func): Callback for authentication.
         """
-
-        self.api_type = self.request_receive(self.link.remote(), get_api_mode_atom())[0]
-
-        if self.api_type == self.API_TYPE_GATEWAY:
-            if not sync_mode:
-                raise RuntimeError("Connection failed, this is the wrong port for FULL API")
-
-            # need to authorise..
-            lock = self.request_receive(self.link.remote(), request_connection_atom())[0]
-            remote = self.request_receive(self.link.remote(),
-                authorise_connection_atom(),
-                lock,
-                sync_key_callback(lock)
-            )[0]
-
-            self.link.set_remote(remote)
-            self.api_type = self.request_receive(self.link.remote(), get_api_mode_atom())[0]
-
-        elif self.api_type == self.API_TYPE_FULL and sync_mode:
-            self.link.set_remote(self.request_receive(self.link.remote(), get_sync_atom())[0])
-            self.api_type = self.request_receive(self.link.remote(), get_api_mode_atom())[0]
-
         self.app_version = self.request_receive(self.link.remote(), version_atom())[0]
         self.app_type = self.request_receive(self.link.remote(), get_application_mode_atom())[0]
-        if self.api_type:
-            self.connected = True
+
+
+        try:
+            self.link.set_remote(self.request_receive(self.link.remote(), authenticate_atom())[0])
+        except:
+            if authentication_callback:
+                auth = authentication_callback().split()
+                if len(auth) == 2:
+                    self.link.set_remote(self.request_receive(self.link.remote(), authenticate_atom(), auth[0], auth[1])[0])
+                elif len(auth) == 1:
+                    self.link.set_remote(self.request_receive(self.link.remote(), authenticate_atom(), auth[0])[0])
+                else:
+                    raise
+            else:
+                raise
+
+        self.connected = True
 
         # clear old handlers..
         self.broadcast_channel = {}
@@ -451,24 +433,6 @@ class Connection(object):
         if self.connected:
             self.link.send(*args)
 
-    # def join(self, group):
-    #     """Join message group
-
-    #     Args:
-    #        group (group): Group to join.
-    #     """
-    #     if self.api_type:
-    #         self.link.join(group)
-
-    # def leave(self, group):
-    #     """Leave message group
-
-    #     Args:
-    #        group (group): Group to leave.
-    #     """
-    #     if self.api_type:
-    #         self.link.leave(group)
-
     def dequeue_messages(self, timeout=10):
         """Pop waiting messages"""
         while True:
@@ -531,10 +495,6 @@ class Connection(object):
 
     def disconnect(self):
         """Disconnect from xstudio"""
-        if self.api_type == "SYNC":
-            self.link.send_exit(self.link.remote())
-
-        self.api_type = None
         self.app_type = None
         self.app_version = None
         self._api = None
@@ -547,13 +507,10 @@ class Connection(object):
         """Access API object.
 
         Returns:
-            API(API or SyncAPI): API object or None
+            API(API): API object or None
         """
         if self._api is None:
-            if self.api_type == "SYNC":
-                self._api = SyncAPI(self)
-            elif self.api_type == "FULL":
-                self._api = API(self)
+            self._api = API(self)
 
         return self._api
 

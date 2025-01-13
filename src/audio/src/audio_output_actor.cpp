@@ -23,6 +23,33 @@ using namespace xstudio::audio;
 using namespace xstudio::utility;
 using namespace xstudio;
 
+/* Notes:
+
+In order to support multiple audio outputs (e.g. PC soundcard, SDI output card
+etc.) receiving samples from multiple playing playheads, the audio output model
+is a somewhat complex. The model for audio playback is described as follows:
+
+During playback a PlayheadActor delivers audio samples to the singleton
+GlobalAudioOutputActor instance.
+
+The GlobalAudioOutputActor then forwards the samples data to AudioOutputActors
+that then deliver the samples to sound devices.
+
+For the active playhead in the xSTUDIO's main UI, the audio samples from that
+playhead are forwarded via the event_group of the GlobalAudioOutputActor.
+The default PC audio AudioOutputActor, plus AudioOutputActor from video output
+plugins (e.g. SDI card AV output plugin) will receive and play audio from this
+event_group.
+
+For playheads belonging to the xSTUDIO 'quicview' light viewers, a separate
+instance of the AudioOutputActor delivering to the PC audio is created and
+samples from those playheads are delivered to these separate AudioOutputActor
+instances. This allows independent audio playback in the quickviewer windows
+from the main xSTUDIO UI.
+
+*/
+
+
 void AudioOutputActor::init() {
 
     // spdlog::debug("Created AudioOutputControlActor {}", OutputClassType::name());
@@ -34,7 +61,13 @@ void AudioOutputActor::init() {
 
     auto global_audio_actor =
         system().registry().template get<caf::actor>(audio_output_registry);
-    utility::join_event_group(this, global_audio_actor);
+
+    if (is_global_) {
+        // we only want to receive audio via the global_audio_actor event group
+        // if we are marked as a global AudioOutputActor - this is how we play
+        // audio from whatever is playing in the xstudio main UI.
+        utility::join_event_group(this, global_audio_actor);
+    }
 
     behavior_.assign(
 
@@ -52,14 +85,37 @@ void AudioOutputActor::init() {
             const long microseconds_delay,
             const int num_channels,
             const int sample_rate) -> result<std::vector<int16_t>> {
+            // this message is a request from the AudioOutputDeviceActor to
+            // get samples for the soundcard
+
             std::vector<int16_t> samples;
+            samples.resize(num_samps_to_push * num_channels);
+            memset(samples.data(), 0, samples.size() * sizeof(int16_t));
+
+            if (muted() || (!playing_ && !audio_scrubbing_))
+                return samples;
+
             try {
 
-                prepare_samples_for_soundcard(
-                    samples, num_samps_to_push, microseconds_delay, num_channels, sample_rate);
+                if (!playing_) {
+
+                    prepare_samples_for_soundcard_scrubbing(
+                        samples,
+                        num_samps_to_push,
+                        microseconds_delay,
+                        num_channels,
+                        sample_rate);
+
+                } else {
+                    prepare_samples_for_soundcard_playback(
+                        samples,
+                        num_samps_to_push,
+                        microseconds_delay,
+                        num_channels,
+                        sample_rate);
+                }
 
             } catch (std::exception &e) {
-
                 return caf::make_error(xstudio_error::error, e.what());
             }
             return samples;
@@ -82,7 +138,7 @@ void AudioOutputActor::init() {
                 sub_playhead_uuid_ = sub_playhead;
             }
             queue_samples_for_playing(audio_buffers);
-            send(audio_output_device_, utility::event_atom_v, playhead::play_atom_v);            
+            send(audio_output_device_, utility::event_atom_v, playhead::play_atom_v);
         },
         [=](utility::event_atom,
             playhead::position_atom,
@@ -91,10 +147,17 @@ void AudioOutputActor::init() {
             const float velocity,
             const bool playing,
             utility::time_point when_position_changed) {
-            // these event messages are very fine-grained, so we know very accurately the playhead
-            // position during playback
+            // these event messages are very fine-grained, so we know very accurately the
+            // playhead position during playback
             playhead_position_changed(
                 playhead_position, forward, velocity, playing, when_position_changed);
+        },
+        [=](utility::event_atom,
+            audio::audio_samples_atom,
+            const std::vector<media_reader::AudioBufPtr> &audio_buffers,
+            timebase::flicks playhead_position,
+            const utility::Uuid &playhead_uuid) {
+
         });
 
     // kicks the global samples actor to update us with current volume etc.
@@ -117,8 +180,6 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
 
     volume_ = add_float_attribute("volume", "volume", 100.0f, 0.0f, 100.0f, 0.05f);
     volume_->set_role_data(module::Attribute::PreferencePath, "/core/audio/volume");
-
-    // by setting static UUIDs on these module we only create them once in the UI
     volume_->set_role_data(module::Attribute::UIDataModels, nlohmann::json{"audio_output"});
 
     muted_ = add_boolean_attribute("muted", "muted", false);
@@ -143,35 +204,52 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
 
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        [=](playhead::play_atom, const bool is_playing) {
-            send(event_group_, utility::event_atom_v, playhead::play_atom_v, is_playing);
+        [=](playhead::play_atom,
+            const bool is_playing,
+            bool global,
+            const utility::Uuid &playhead_uuid) {
+            auto dest = global ? event_group_ : independent_output(playhead_uuid);
+            if (dest) {
+                send(dest, utility::event_atom_v, playhead::play_atom_v, is_playing);
+            }
         },
         [=](playhead::position_atom,
             const timebase::flicks playhead_position,
             const bool forward,
             const float velocity,
             const bool playing,
-            utility::time_point when_position_changed) {
-            send(
-                event_group_,
-                utility::event_atom_v,
-                playhead::position_atom_v,
-                playhead_position,
-                forward,
-                velocity,
-                playing,
-                when_position_changed
-                );
+            utility::time_point when_position_changed,
+            bool global,
+            const utility::Uuid &playhead_uuid) {
+            auto dest = global ? event_group_ : independent_output(playhead_uuid);
+
+            if (dest) {
+                send(
+                    dest,
+                    utility::event_atom_v,
+                    playhead::position_atom_v,
+                    playhead_position,
+                    forward,
+                    velocity,
+                    playing,
+                    when_position_changed);
+            }
         },
         [=](playhead::sound_audio_atom,
             const std::vector<media_reader::AudioBufPtr> &audio_buffers,
-            const Uuid &sub_playhead_id) {
-            send(
-                event_group_,
-                utility::event_atom_v,
-                playhead::sound_audio_atom_v,                
-                audio_buffers,
-                sub_playhead_id);
+            const Uuid &sub_playhead_id,
+            bool global,
+            const utility::Uuid &playhead_uuid) {
+            auto dest = global ? event_group_ : independent_output(playhead_uuid);
+
+            if (dest) {
+                send(
+                    dest,
+                    utility::event_atom_v,
+                    playhead::sound_audio_atom_v,
+                    audio_buffers,
+                    sub_playhead_id);
+            }
         },
         [=](module::change_attribute_event_atom, caf::actor requester) {
             send(
@@ -182,6 +260,27 @@ GlobalAudioOutputActor::GlobalAudioOutputActor(caf::actor_config &cfg)
                 muted_->value(),
                 audio_repitch_->value(),
                 audio_scrubbing_->value());
+        },
+        [=](audio::audio_samples_atom,
+            const std::vector<media_reader::AudioBufPtr> &audio_buffers,
+            timebase::flicks playhead_position,
+            const utility::Uuid &playhead_uuid) {
+            send(
+                event_group_,
+                utility::event_atom_v,
+                audio::audio_samples_atom_v,
+                audio_buffers,
+                playhead_position,
+                playhead_uuid);
+        },
+        [=](playhead::sound_audio_atom, const utility::Uuid &playhead_uuid, bool) {
+            // playhead is exiting, if the playhead has its own audid output
+            // actor, kill it now
+            auto p = independent_outputs_.find(playhead_uuid);
+            if (p != independent_outputs_.end()) {
+                send_exit(p->second, caf::exit_reason::user_shutdown);
+                independent_outputs_.erase(p);
+            }
         }
 
     );
@@ -203,6 +302,17 @@ void GlobalAudioOutputActor::attribute_changed(const utility::Uuid &attr_uuid, c
         audio_repitch_->value(),
         audio_scrubbing_->value());
 
+    for (auto &p : independent_outputs_) {
+        send(
+            p.second,
+            utility::event_atom_v,
+            module::change_attribute_event_atom_v,
+            volume_->value(),
+            muted_->value(),
+            audio_repitch_->value(),
+            audio_scrubbing_->value());
+    }
+
     Module::attribute_changed(attr_uuid, role);
 }
 
@@ -212,4 +322,41 @@ void GlobalAudioOutputActor::hotkey_pressed(
     if (hotkey_uuid == mute_hotkey_) {
         muted_->set_value(!muted_->value());
     }
+}
+
+caf::actor GlobalAudioOutputActor::independent_output(const utility::Uuid &playhead_uuid) {
+
+    auto p = independent_outputs_.find(playhead_uuid);
+    if (p != independent_outputs_.end()) {
+        return p->second;
+    }
+
+    try {
+        JsonStore prefs_jsn;
+        auto prefs = global_store::GlobalStoreHelper(system());
+        join_broadcast(this, prefs.get_group(prefs_jsn));
+
+#ifdef __linux__
+        auto output_actor = spawn<audio::AudioOutputActor>(
+            std::shared_ptr<audio::AudioOutputDevice>(
+                new audio::LinuxAudioOutputDevice(prefs_jsn)),
+            false);
+#elif __APPLE__
+        // TO DO
+#elif _WIN32
+        auto output_actor = spawn<audio::AudioOutputActor>(
+            std::shared_ptr<audio::AudioOutputDevice>(
+                new audio::WindowsAudioOutputDevice(prefs_jsn)),
+            false);
+#endif
+
+        link_to(output_actor);
+        independent_outputs_[playhead_uuid] = output_actor;
+        return output_actor;
+    } catch (std::exception &e) {
+        independent_outputs_[playhead_uuid] = caf::actor();
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return caf::actor();
 }

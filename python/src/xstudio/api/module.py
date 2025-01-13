@@ -10,6 +10,7 @@ from xstudio.core import AttributeRole, get_event_group_atom
 from xstudio.core import event_atom, show_atom, module_add_menu_item_atom
 from xstudio.core import module_remove_menu_item_atom, uuid_atom
 from xstudio.core import menu_node_activated_atom, set_node_data_atom
+from xstudio.core import ColourTriplet
 from xstudio.api.auxiliary import ActorConnection
 from xstudio.core import JsonStore, Uuid
 from xstudio.api.auxiliary.helpers import get_event_group
@@ -50,6 +51,12 @@ class ModuleAttribute:
         if uuid:
             self.uuid = uuid
         else:
+            # as yet, I haven't worked out how to allow type conversion from 
+            # custom python type (like ColourTriplet) and JsonStore !!
+            if isinstance(attribute_value, ColourTriplet):
+                # backend knows to interpret this back into a ColourTriplet
+                attribute_value = ["colour", 1, attribute_value.red, attribute_value.green, attribute_value.blue]
+
             self.uuid = connection.request_receive(
                 parent_remote,
                 add_attribute_atom(),
@@ -181,6 +188,7 @@ class ModuleBase(ActorConnection):
         self.menu_trigger_callbacks = {}
         self.menu_item_ids = []
         self.hotkey_callbacks = {}
+        self._uuid = None
 
         for attr_uuid in attr_uuids:
             attr_wrapper = ModuleAttribute(
@@ -203,12 +211,7 @@ class ModuleBase(ActorConnection):
             )
 
         self.__attribute_changed = None
-        self.__playhead_event_callback = None
-
-    def get_uuid(self):
-        return self.connection.request_receive(
-            self.remote,
-            uuid_atom())[0]
+        self.__playhead_event_callback = None        
 
     def connect_to_ui(self):
         """Call this method to 'activate' the plugin and forward live data about
@@ -657,3 +660,16 @@ class ModuleBase(ActorConnection):
             )
         except Exception as err:
             pass
+
+    @property
+    def uuid(self):
+        """Get Module uuid
+
+        Returns:
+            uuid(Uuid): Uuid of actor container.
+        """
+        if not self._uuid:
+            self._uuid = self.connection.request_receive(
+                self.remote,
+                uuid_atom())[0]
+        return self._uuid

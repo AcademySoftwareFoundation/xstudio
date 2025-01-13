@@ -13,7 +13,7 @@
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
 
-/*void PixelProbeHUDRenderer::render_opengl(
+/*void PixelProbeHUDRenderer::render_image_overlay(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
@@ -92,7 +92,8 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
     pixel_info_title_ = add_string_attribute("Pixel Info Title", "Pixel Info Title", "");
     pixel_info_title_->expose_in_ui_attrs_group("pixel_info_attributes");
 
-    pixel_info_current_viewport_ = add_string_attribute("Current Viewport", "Current Viewport", "");
+    pixel_info_current_viewport_ =
+        add_string_attribute("Current Viewport", "Current Viewport", "");
     pixel_info_current_viewport_->expose_in_ui_attrs_group("pixel_info_attributes");
 
     auto font_size = add_float_attribute("Font Size", "Font Size", 10.0f, 5.0f, 50.0f, 1.0f);
@@ -163,12 +164,9 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
             }
         )",
         plugin::TopLeft);
-
 }
 
-PixelProbeHUD::~PixelProbeHUD() {
-    colour_pipelines_.clear();
-}
+PixelProbeHUD::~PixelProbeHUD() { colour_pipelines_.clear(); }
 
 
 bool PixelProbeHUD::pointer_event(const ui::PointerEvent &e) {
@@ -178,8 +176,7 @@ bool PixelProbeHUD::pointer_event(const ui::PointerEvent &e) {
 }
 
 void PixelProbeHUD::update_onscreen_info(
-    const std::string &viewport_name,
-    const Imath::V2f &pointer_position) {
+    const std::string &viewport_name, const Imath::V2f &pointer_position) {
 
     if (is_enabled_ != visible()) {
         is_enabled_ = visible();
@@ -190,7 +187,7 @@ void PixelProbeHUD::update_onscreen_info(
         }
     }
 
-    media_reader::ImageBufDisplaySetPtr onscreen_image_set; 
+    media_reader::ImageBufDisplaySetPtr onscreen_image_set;
     caf::actor colour_pipeline;
     if (not viewport_name.empty()) {
         if (current_onscreen_images_.find(viewport_name) != current_onscreen_images_.end()) {
@@ -210,19 +207,19 @@ void PixelProbeHUD::update_onscreen_info(
 
                 // Convert pointer_position to normalised image coordinates
                 // (image width always spans -1.0, 1.0 in x)
-                const float a = 1.0f/im->image_aspect();
-                Imath::V4f p = pointer*im.layout_transform().inverse();
-                Imath::V2f p0(p.x/p.w, p.y/p.w);
+                const float a = 1.0f / im->image_aspect();
+                Imath::V4f p  = pointer * im.layout_transform().inverse();
+                Imath::V2f p0(p.x / p.w, p.y / p.w);
                 if (p0.x >= -1.0f && p0.x <= 1.0f && p0.y >= -a && p0.y <= a) {
 
                     // pointer is inside image boundary
                     Imath::V2i image_coord(
                         int(round((p0.x + 1.0f) * 0.5f * im->image_size_in_pixels().x)),
-                        int(round((p0.y/a + 1.0f) * 0.5f * im->image_size_in_pixels().y)));
+                        int(round((p0.y / a + 1.0f) * 0.5f * im->image_size_in_pixels().y)));
 
                     // here we get the RGB, YUV value at the image coordinate
                     const auto pixel_info = im->pixel_info(image_coord);
-                    ptr_in_image = true;
+                    ptr_in_image          = true;
 
                     if (!viewport_name.empty()) {
                         // update our attribute that tracks which viewport the
@@ -241,12 +238,11 @@ void PixelProbeHUD::update_onscreen_info(
                         im.frame_id())
                         .then(
                             [=](const media_reader::PixelInfo &extended_info) mutable {
-                                
                                 make_pixel_info_onscreen_text(extended_info);
                             },
                             [=](caf::error &err) {
 
-                            });                        
+                            });
                     break;
                 }
             }
@@ -375,14 +371,14 @@ caf::actor PixelProbeHUD::get_colour_pipeline_actor(const std::string &viewport_
 }
 
 void PixelProbeHUD::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
-    
-    if (attribute_uuid == show_code_values_->uuid()
-        || attribute_uuid == show_raw_pixel_values_->uuid()
-        || attribute_uuid == show_linear_pixel_values_->uuid()
-        || attribute_uuid == show_final_screen_rgb_pixel_values_->uuid()
-        || attribute_uuid == value_precision_->uuid()) {
-            update_onscreen_info();
-        }
+
+    if (attribute_uuid == show_code_values_->uuid() ||
+        attribute_uuid == show_raw_pixel_values_->uuid() ||
+        attribute_uuid == show_linear_pixel_values_->uuid() ||
+        attribute_uuid == show_final_screen_rgb_pixel_values_->uuid() ||
+        attribute_uuid == value_precision_->uuid()) {
+        update_onscreen_info();
+    }
     plugin::HUDPluginBase::attribute_changed(attribute_uuid, role);
 }
 

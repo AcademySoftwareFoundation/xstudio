@@ -195,14 +195,6 @@ RowLayout {
 	    onDraggingStarted: {
 	    	control.draggingStarted(modelIndex(), control, mode)
 	    	isDragging = true
-
-	  //   	if(mode == "middle" && !rippleMode) {
-		 //    	let new_parent = control.parent.parent.parent.parent
-			// 	let orig = mapFromItem(new_parent, x, y)
-			// 	clip.parent = new_parent
-			// 	mappedX = -orig.x
-			// 	mappedY = -orig.y
-			// }
 	    }
 		onDragging: control.dragging(modelIndex(), control, mode, x / scaleX, y / scaleY / config.itemHeight)
 		onDoubleTapped: control.doubleTapped(control, mode)
@@ -210,11 +202,6 @@ RowLayout {
 		onDraggingStopped: {
 			control.draggingStopped(modelIndex(), control, mode)
 	    	isDragging = false
-			// if(mode == "middle" && !rippleMode) {
-			// 	clip.parent = control
-			// 	mappedX = 0
-			// 	mappedY = 0
-			// }
 		}
 
 	    Connections {

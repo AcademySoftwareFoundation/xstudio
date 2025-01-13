@@ -117,6 +117,7 @@ Item {
             id: errorDialog
             title: "Error"
             property string body: ""
+            property bool is_error: true
             width: 400
             height: 200
 
@@ -140,6 +141,7 @@ Item {
                         width: 40
                         height: 40
                         source: "qrc:/icons/error.svg"
+                        visible: is_error
                     }
                     XsText {
                         Layout.fillWidth: true
@@ -173,6 +175,15 @@ Item {
         loader.sourceComponent = errorDialog
         loader.item.title = error_title
         loader.item.body = error_body
+        loader.item.is_error = true
+        showDialog(undefined)
+    }
+
+    function messageDialogFunc(message_title, message_body) {
+        loader.sourceComponent = errorDialog
+        loader.item.title = message_title
+        loader.item.body = message_body
+        loader.item.is_error = false
         showDialog(undefined)
     }
 

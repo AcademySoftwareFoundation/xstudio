@@ -82,6 +82,7 @@ namespace ui {
                 next_shape_id_    = o.next_shape_id_;
                 // make sure current_item_ is pushed into finished
                 // strokes/captions on copy
+                changed();
                 end_draw_no_lock();
                 return *this;
             }
@@ -208,6 +209,12 @@ namespace ui {
             std::array<Imath::V2f, 2> caption_cursor_position() const;
             Imath::V2f caption_cursor_bottom() const;
 
+            // Note: not a real hash (yet). Just a way of knowing when the canvas
+            // appearance has changed but the hash is not unique from one
+            // canvas to the next. The hash does change if a given canvas has
+            // a new stroke or caption etc.
+            size_t hash() const { return hash_; }
+
             void update_caption_text(const std::string &text);
             void update_caption_position(const Imath::V2f &position);
             void update_caption_width(float wrap_width);
@@ -304,6 +311,7 @@ namespace ui {
             std::string::const_iterator cursor_position_;
 
             uint32_t next_shape_id_{0};
+            size_t hash_{0};
 
             mutable std::shared_mutex mutex_;
         };

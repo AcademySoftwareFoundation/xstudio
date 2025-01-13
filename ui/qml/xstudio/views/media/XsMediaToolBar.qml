@@ -116,7 +116,7 @@ Item {
         XsIntegerValueControl {
             visible: !is_list_view
 
-            Layout.minimumWidth: btnWidth
+            Layout.minimumWidth: btnWidth*1.5
             Layout.preferredWidth: btnWidth*2
             Layout.maximumWidth: btnWidth*2
             Layout.preferredHeight: btnHeight

@@ -133,15 +133,11 @@ void PlayheadBase::add_attributes() {
     source_offset_frames_ =
         add_integer_attribute("Source Offset Frames", "Source Offset Frames", 0);
 
-    timeline_mode_ =
-        add_boolean_attribute("Timeline Mode", "Timeline Mode", false);
+    timeline_mode_ = add_boolean_attribute("Timeline Mode", "Timeline Mode", false);
 
     // Compare mode needs custom QML code for instatiation into the toolbar as
     // the choices are determined through viewport layout plugins
-    compare_mode_ = add_string_attribute(
-        "Compare",
-        "Compare",
-        "Off");
+    compare_mode_ = add_string_attribute("Compare", "Compare", "Off");
     compare_mode_->set_tool_tip("Access compare mode controls");
     compare_mode_->set_role_data(module::Attribute::Type, "QmlCode");
     compare_mode_->set_role_data(
@@ -149,30 +145,43 @@ void PlayheadBase::add_attributes() {
         R"(import xStudio 1.0
             XsViewerCompareModeButton {})");
     compare_mode_->set_role_data(module::Attribute::ToolbarPosition, 9.0f);
-
 }
 
 
 JsonStore PlayheadBase::serialise() const {
 
     JsonStore jsn;
-    jsn["name"] = Module::name();
-    jsn["velocity"] = velocity_->value();
-    jsn["position"] = position_.count();
-    jsn["compare_mode"] = compare_mode_->value();
-    jsn["auto_align_mode"] = auto_align_mode_->value();
-    jsn["source_alignment_values"] = source_alignment_values_->value();    
+    jsn["name"]                    = Module::name();
+    jsn["velocity"]                = velocity_->value();
+    jsn["position"]                = position_.count();
+    jsn["compare_mode"]            = compare_mode_->value();
+    jsn["auto_align_mode"]         = auto_align_mode_->value();
+    jsn["source_alignment_values"] = source_alignment_values_->value();
+    jsn["loop_range_enabled"]      = loop_range_enabled_->value();
+    jsn["loop_mode"]               = loop_mode_->value();
+    jsn["loop_start"]              = loop_start_.count();
+    jsn["loop_end"]                = loop_end_.count();
+
     return jsn;
 }
 
 void PlayheadBase::deserialise(const JsonStore &jsn) {
 
-    if (jsn.is_null()) return;
+    if (jsn.is_null())
+        return;
     velocity_->set_value(jsn.value("velocity", velocity_->value()));
-    compare_mode_->set_value(jsn.value("compare_mode", compare_mode_->value()));
-    auto_align_mode_->set_value(jsn.value("auto_align_mode", auto_align_mode_->value()));
-    source_alignment_values_->set_value(jsn.value("source_alignment_values", source_alignment_values_->value()));
-    position_ = timebase::flicks(jsn.value("position", position_.count()));
+    compare_mode_->set_value(jsn.value("compare_mode", compare_mode_->value()), false);
+    auto_align_mode_->set_value(jsn.value("auto_align_mode", auto_align_mode_->value()), false);
+    source_alignment_values_->set_value(
+        jsn.value("source_alignment_values", source_alignment_values_->value()));
+    position_   = timebase::flicks(jsn.value("position", position_.count()));
+    loop_start_ = timebase::flicks(jsn.value("loop_start", loop_start_.count()));
+    loop_end_   = timebase::flicks(jsn.value("loop_end", loop_end_.count()));
+    loop_mode_->set_value(jsn.value("loop_mode", loop_mode_->value()));
+    loop_range_enabled_->set_value(
+        jsn.value("loop_range_enabled", loop_range_enabled_->value()));
+
+    deserialised_ = true;
 }
 
 PlayheadBase::OptionalTimePoint PlayheadBase::play_step() {
@@ -326,18 +335,17 @@ void PlayheadBase::register_hotkeys() {
         false,
         "Playback");
 
-    jump_to_next_clip_ = register_hotkey(
-        "Shift+Right",
-        "Jump to Next Clip",
-        "Jump the playhead to the start of the next clip in a timeline.",
+    cycle_image_layer_up_ = register_hotkey(
+        "Ctrl+Up",
+        "Cycle Image Layer / EXR Part (Up)",
+        "Cycle backwards through image layers (EXR parts) for the current on-screen source",
         false,
         "Playback");
 
-    jump_to_previous_clip_ = register_hotkey(
-        "Shift+Left",
-        "Jump to Previous Clip",
-        "Jump the playhead to the start of the current clip, or the start of the previous "
-        "clip.",
+    cycle_image_layer_down_ = register_hotkey(
+        "Ctrl+Down",
+        "Cycle Image Layer / EXR Part (Down)",
+        "Cycle forwards through image layers (EXR parts) for the current on-screen source",
         false,
         "Playback");
 }
@@ -566,8 +574,8 @@ timebase::flicks PlayheadBase::clamp_timepoint_to_loop_range(const timebase::fli
     return rt;
 }
 
-void PlayheadBase::set_position(const timebase::flicks p) { 
-    position_ = p; 
+void PlayheadBase::set_position(const timebase::flicks p) {
+    position_        = p;
     position_set_tp_ = utility::clock::now();
 }
 
@@ -659,12 +667,10 @@ AutoAlignMode PlayheadBase::auto_align_mode() const {
 }
 
 
-void PlayheadBase::set_assembly_mode(const AssemblyMode mode) {
-    assembly_mode_ = mode;
-}
+void PlayheadBase::set_assembly_mode(const AssemblyMode mode) { assembly_mode_ = mode; }
 
 void PlayheadBase::set_auto_align_mode(const AutoAlignMode mode) {
-    for (auto &a: auto_align_mode_names) {
+    for (auto &a : auto_align_mode_names) {
         if (std::get<0>(a) == mode) {
             auto_align_mode_->set_value(std::get<1>(a));
             break;

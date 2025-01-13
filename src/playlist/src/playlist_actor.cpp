@@ -197,6 +197,10 @@ PlaylistActor::PlaylistActor(
             std::chrono::milliseconds(50));
     }
 
+    if (jsn.contains("playhead")) {
+        playhead_serialisation_ = jsn["playhead"];
+    }
+
     link_to(json_store_);
     join_event_group(this, json_store_);
     // media needs to exist before we can deserialise containers.
@@ -251,13 +255,19 @@ PlaylistActor::PlaylistActor(
             } catch (const std::exception &e) {
                 spdlog::error("{}", e.what());
             }
+        } else if (value.at("base").at("container").at("type") == "PlayheadSelection") {
+
+            try {
+
+                selection_actor_ = system().spawn<playhead::PlayheadSelectionActor>(
+                    static_cast<utility::JsonStore>(value), caf::actor_cast<caf::actor>(this));
+                link_to(selection_actor_);
+
+            } catch (const std::exception &e) {
+                spdlog::error("{}", e.what());
+            }
         }
     }
-
-    selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
-        "PlaylistPlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
-    link_to(selection_actor_);
-
     init();
 }
 
@@ -420,8 +430,8 @@ caf::message_handler PlaylistActor::message_handler() {
             //     uuid_before);
 
             const auto uuid = Uuid::generate();
-            std::string ext =
-                ltrim_char(to_upper(fs::path(uri_to_posix_path(uri)).extension().string()), '.');
+            std::string ext = ltrim_char(
+                to_upper(fs::path(uri_to_posix_path(uri)).extension().string()), '.');
             const auto source_uuid = Uuid::generate();
 
             auto source =
@@ -1184,6 +1194,15 @@ caf::message_handler PlaylistActor::message_handler() {
             for (const auto &i : media_)
                 actors.push_back(i.second);
 
+            if (actors.empty()) {
+                if (return_null) {
+                    rp.deliver(caf::actor());
+                } else {
+                    rp.deliver(make_error(xstudio_error::error, "No matching media source"));
+                }
+                return rp;
+            }
+
             fan_out_request<policy::select_all>(
                 actors, infinite, media::get_media_source_atom_v, uuid, true)
                 .then(
@@ -1451,7 +1470,6 @@ caf::message_handler PlaylistActor::message_handler() {
 
         // create a new timeline, attach it to new playhead.
         [=](playlist::create_playhead_atom) -> result<utility::UuidActor> {
-            
             if (playhead_)
                 return playhead_;
 
@@ -1459,7 +1477,12 @@ caf::message_handler PlaylistActor::message_handler() {
             ss << base_.name() << " Playhead";
             auto uuid  = utility::Uuid::generate();
             auto actor = spawn<playhead::PlayheadActor>(
-                ss.str(), selection_actor_, uuid, caf::actor_cast<caf::actor_addr>(this));
+                ss.str(),
+                playhead::GLOBAL_AUDIO,
+                selection_actor_,
+                uuid,
+                caf::actor_cast<caf::actor_addr>(this));
+
             anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
             playhead_ = UuidActor(uuid, actor);
             link_to(playhead_.actor());
@@ -1479,6 +1502,12 @@ caf::message_handler PlaylistActor::message_handler() {
                                 selection_actor_,
                                 playlist::select_media_atom_v,
                                 utility::UuidVector());
+                        }
+                        if (!playhead_serialisation_.is_null()) {
+                            anon_send(
+                                playhead_.actor(),
+                                module::deserialise_atom_v,
+                                playhead_serialisation_);
                         }
                     },
                     [=](error &err) mutable {
@@ -1956,10 +1985,7 @@ caf::message_handler PlaylistActor::message_handler() {
                             clients.push_back(i.second);
                         for (const auto &i : container_)
                             clients.push_back(i.second);
-                        
-                        // Playhead serialisation disabled for now
-                        /*if (playhead_)
-                            clients.push_back(playhead_);*/
+                        clients.push_back(selection_actor_);
 
                         if (not clients.empty()) {
 
@@ -1968,22 +1994,40 @@ caf::message_handler PlaylistActor::message_handler() {
                                 .then(
                                     [=](std::vector<JsonStore> json) mutable {
                                         JsonStore jsn;
-                                        jsn["store"]     = meta;
-                                        jsn["base"]      = base_.serialise();
-                                        jsn["playheads"] = {};
-                                        jsn["actors"]    = {};
+                                        jsn["store"]  = meta;
+                                        jsn["base"]   = base_.serialise();
+                                        jsn["actors"] = {};
                                         for (const auto &j : json) {
-                                            if (j["base"]["container"]["type"]
-                                                    .get<std::string>() == "Playhead") {
-                                                jsn["playheads"][static_cast<std::string>(
-                                                    j["base"]["container"]["uuid"])] = j;
-
-                                            } else {
-                                                jsn["actors"][static_cast<std::string>(
-                                                    j["base"]["container"]["uuid"])] = j;
-                                            }
+                                            jsn["actors"][static_cast<std::string>(
+                                                j["base"]["container"]["uuid"])] = j;
                                         }
-                                        rp.deliver(jsn);
+                                        if (playhead_) {
+                                            request(
+                                                playhead_.actor(),
+                                                infinite,
+                                                utility::serialise_atom_v)
+                                                .then(
+                                                    [=](const utility::JsonStore
+                                                            &playhead_state) mutable {
+                                                        playhead_serialisation_ =
+                                                            playhead_state;
+                                                        jsn["playhead"] = playhead_state;
+                                                        rp.deliver(jsn);
+                                                    },
+                                                    [=](caf::error &err) mutable {
+                                                        spdlog::warn(
+                                                            "{} {}",
+                                                            __PRETTY_FUNCTION__,
+                                                            to_string(err));
+                                                        rp.deliver(jsn);
+                                                    });
+
+                                        } else {
+                                            if (!playhead_serialisation_.is_null()) {
+                                                jsn["playhead"] = playhead_serialisation_;
+                                            }
+                                            rp.deliver(jsn);
+                                        }
                                     },
                                     [=](error &err) mutable { rp.deliver(std::move(err)); });
 
@@ -2015,7 +2059,7 @@ void PlaylistActor::init() {
 
     if (!selection_actor_) {
         selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
-            "PlaylistPlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
+            base_.name() + " SelectionActor", caf::actor_cast<caf::actor>(this));
         link_to(selection_actor_);
     }
 
@@ -2241,7 +2285,6 @@ void PlaylistActor::duplicate_tree(utility::UuidTree<utility::PlaylistItem> &tre
                 *sys, container_[tree.value().uuid()], duplicate_atom_v);
 
             // need a list of source/dest media uuids.
-
             if (type == "Timeline")
                 anon_send(
                     result.actor(),
@@ -2541,6 +2584,8 @@ void PlaylistActor::sort_by_media_display_info(
                     // default sort key keeps current sorting but should always
                     // put it after the last element that did have a sort key
                     std::string sort_key = fmt::format("ZZZZZZ{}", idx);
+
+                    std::cerr << "media_display_info " << media_display_info.dump() << "\n";
 
                     if (media_display_info.is_array() &&
                         sort_column_index < media_display_info.size()) {

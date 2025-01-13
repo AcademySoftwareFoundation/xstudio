@@ -30,7 +30,7 @@ Viewport {
             elementsVisible = !elementsVisible
         }
     }
-
+    
     property alias hide_ui_hotkey: hide_ui_hotkey
 
     onPointerEntered: {

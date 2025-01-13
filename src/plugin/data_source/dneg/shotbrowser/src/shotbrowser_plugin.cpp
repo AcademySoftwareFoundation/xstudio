@@ -383,7 +383,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
                      pending_preference_update_ = true;
                      delayed_anon_send(
                          actor_cast<caf::actor>(this),
-                         std::chrono::seconds(5),
+                         std::chrono::seconds(1),
                          json_store::sync_atom_v,
                          true);
                  }
@@ -409,7 +409,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
                  engine().user_presets().as_json().at("children"),
                  "/plugin/data_source/shotbrowser/user_presets",
                  false);
-             prefs.save("APPLICATION");
+             prefs.save("PLUGIN");
          },
 
          [=](json_store::sync_atom) -> UuidVector {
@@ -622,7 +622,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
                  tokens.second,
                  "/plugin/data_source/shotbrowser/authentication/refresh_token",
                  false);
-             prefs.save("APPLICATION");
+             prefs.save("PLUGIN");
              set_authenticated(true);
          },
 
@@ -1033,6 +1033,18 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
                 preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/site_presets");
             auto user_presets =
                 preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/user_presets");
+
+            auto uorp =
+                preference_overridden_path(js, "/plugin/data_source/shotbrowser/user_presets");
+            if (ends_with(uorp, "application-v2.json")) {
+
+                auto prefs = GlobalStoreHelper(system());
+                prefs.set_overridden_path(
+                    replace_once(uorp, "/application-v2.json", "/plugin-v2.json"),
+                    "/plugin/data_source/shotbrowser/user_presets",
+                    false);
+                prefs.save("PLUGIN");
+            }
 
             engine().merge_presets(site_presets, project_presets);
             engine().set_presets(user_presets, site_presets);

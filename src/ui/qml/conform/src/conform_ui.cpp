@@ -579,16 +579,15 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
     auto media = UuidActorVector();
 
     auto src_playlist_index = QPersistentModelIndex();
-    SessionModel *smodel = nullptr;
+    SessionModel *smodel    = nullptr;
 
     // get media uuidactors
     for (const auto &i : mediaIndexes) {
         if (i.data(SessionModel::Roles::typeRole) != "Media")
             continue;
 
-        if(smodel == nullptr) {
-            smodel = qobject_cast<SessionModel *>(
-                const_cast<QAbstractItemModel *>(i.model()));
+        if (smodel == nullptr) {
+            smodel = qobject_cast<SessionModel *>(const_cast<QAbstractItemModel *>(i.model()));
 
             src_playlist_index = QPersistentModelIndex(smodel->getPlaylistIndex(i));
         }
@@ -615,7 +614,7 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
     }
 
     auto nquuid = QUuid();
-    if(smodel and not media.empty())
+    if (smodel and not media.empty())
         nquuid = smodel->progressRangeNotification(
             src_playlist_index, "Conforming Media", 0, media.size());
 
@@ -637,7 +636,7 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                 auto seq_to_media = std::map<caf::uri, std::vector<UuidActor>>();
                 auto seq_to_name  = std::map<caf::uri, std::string>();
 
-                auto count = 0;
+                auto count      = 0;
                 auto media_done = 0;
 
                 for (const auto &i : reply) {
@@ -806,14 +805,16 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                             timeline,
                             UuidActor(),
                             playlist_media);
-                        if(not nquuid.isNull()) {
+                        if (not nquuid.isNull()) {
                             media_done += playlist_media.size();
-                            smodel->updateProgressNotification(src_playlist_index, nquuid, media_done);
+                            smodel->updateProgressNotification(
+                                src_playlist_index, nquuid, media_done);
                         }
                     }
                 } else {
-                    if(not nquuid.isNull())
-                        smodel->warnNotification(src_playlist_index, "No sequence found for media", 10, nquuid);
+                    if (not nquuid.isNull())
+                        smodel->warnNotification(
+                            src_playlist_index, "No sequence found for media", 10, nquuid);
 
                     throw std::runtime_error("No sequence found for media");
                 }
@@ -821,7 +822,7 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
 
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                if(not nquuid.isNull())
+                if (not nquuid.isNull())
                     smodel->warnNotification(src_playlist_index, err.what(), 10, nquuid);
 
                 throw;
@@ -830,8 +831,9 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
 
         // return uuid of each timeline containing copied media ?
 
-        if(not nquuid.isNull())
-            smodel->infoNotification(src_playlist_index, "Media Conformed to Sequences", 5, nquuid);
+        if (not nquuid.isNull())
+            smodel->infoNotification(
+                src_playlist_index, "Media Conformed to Sequences", 5, nquuid);
 
         return result;
     });

@@ -11,11 +11,16 @@ using namespace xstudio::utility;
 using namespace xstudio;
 
 ViewportFrameQueueActor::ViewportFrameQueueActor(
-    caf::actor_config &cfg, caf::actor viewport, std::map<utility::Uuid, caf::actor> overlay_actors,
-    const std::string &viewport_name, caf::actor colour_pipeline)
-    : caf::event_based_actor(cfg), viewport_(viewport), viewport_overlay_plugins_(std::move(overlay_actors)),
-    viewport_name_(viewport_name),
-    colour_pipeline_(colour_pipeline) {
+    caf::actor_config &cfg,
+    caf::actor viewport,
+    std::map<utility::Uuid, caf::actor> overlay_actors,
+    const std::string &viewport_name,
+    caf::actor colour_pipeline)
+    : caf::event_based_actor(cfg),
+      viewport_(viewport),
+      viewport_overlay_plugins_(std::move(overlay_actors)),
+      viewport_name_(viewport_name),
+      colour_pipeline_(colour_pipeline) {
 
     print_on_exit(this, "ViewportFrameQueueActor");
 
@@ -23,9 +28,9 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
 
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
-        if (msg.source == playhead_) {
-            demonitor(playhead_);
-            playhead_ = caf::actor();
+        if (msg.source == playhead_.actor()) {
+            demonitor(playhead_.actor());
+            playhead_ = utility::UuidActor();
             frames_to_draw_per_playhead_.clear();
         }
     });
@@ -34,9 +39,9 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
         [=](viewport_playhead_atom,
-            caf::actor playhead,
+            utility::UuidActor playhead,
             const bool prefetch_inital_image) -> result<bool> {
-            return set_playhead(playhead, prefetch_inital_image);            
+            return set_playhead(playhead, prefetch_inital_image);
         },
 
         [=](playhead::child_playheads_deleted_atom,
@@ -129,7 +134,6 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         [=](ui::fps_monitor::framebuffer_swapped_atom,
             const utility::time_point &message_send_tp,
             const timebase::flicks video_refresh_rate_hint) {
-
             // this incoming message originates from the video layer and 'message_send_tp'
             // should be, as accurately as possible, the actual time that the framebuffer was
             // swapped to the screen.
@@ -141,7 +145,6 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             }
             video_refresh_data_.refresh_rate_hint_  = video_refresh_rate_hint;
             video_refresh_data_.last_video_refresh_ = message_send_tp;
-            
         },
 
         [=](playhead::show_atom,
@@ -150,18 +153,16 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             const utility::FrameRate & /*rate*/,
             const bool is_playing,
             const bool is_onscreen_frame) {
-
             playing_ = is_playing;
             queue_image_buffer_for_drawing(buf, playhead_uuid);
             drop_old_frames(utility::clock::now() - std::chrono::milliseconds(100));
             anon_send(viewport_, playhead::redraw_viewport_atom_v);
-
         },
 
         // these are frame bufs that we expect to draw in the very near future
         [=](playhead::show_atom,
             const utility::Uuid &playhead_uuid,
-            std::vector<media_reader::ImageBufPtr> future_bufs) {                
+            std::vector<media_reader::ImageBufPtr> future_bufs) {
             // now insert the new future frames ready for drawing
             for (auto &buf : future_bufs) {
                 if (buf) {
@@ -202,23 +203,24 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         },
 
         [=](viewport_get_next_frames_for_display_atom,
-            const media_reader::ImageBufPtr &lone_image) -> result<media_reader::ImageBufDisplaySetPtr> {
-
-            // If something wants the viewport to render a single image that has 
-            // been fetched independently (for example this is how offscreen 
-            // generation of thumbnail images is donw) we need to run this 
+            const media_reader::ImageBufPtr &lone_image)
+            -> result<media_reader::ImageBufDisplaySetPtr> {
+            // If something wants the viewport to render a single image that has
+            // been fetched independently (for example this is how offscreen
+            // generation of thumbnail images is donw) we need to run this
             // through our routine that adds colour management and overlay data
             // to the ImageBuffer and buid an ImageBufDisplaySetPtr for rendering.
             auto rp = make_response_promise<media_reader::ImageBufDisplaySetPtr>();
             static const utility::Uuid dummy_playhead_id = utility::Uuid::generate();
-            media_reader::ImageBufDisplaySet * result = new media_reader::ImageBufDisplaySet({dummy_playhead_id});
+            media_reader::ImageBufDisplaySet *result =
+                new media_reader::ImageBufDisplaySet({dummy_playhead_id});
             result->add_on_screen_image(dummy_playhead_id, lone_image);
             append_overlays_data(rp, result);
             return rp;
         },
 
-        [=](viewport_layout_atom, caf::actor layout_manager, const std::string & layout_name) {
-            viewport_layout_manager_ = layout_manager;
+        [=](viewport_layout_atom, caf::actor layout_manager, const std::string &layout_name) {
+            viewport_layout_manager_   = layout_manager;
             viewport_layout_mode_name_ = layout_name;
         },
 
@@ -239,12 +241,11 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
         [=](const error &err) mutable { aout(this) << err << std::endl; });
 }
 
-ViewportFrameQueueActor::~ViewportFrameQueueActor() {
-}
+ViewportFrameQueueActor::~ViewportFrameQueueActor() {}
 
 void ViewportFrameQueueActor::on_exit() {
     viewport_layout_manager_ = caf::actor();
-    playhead_ = caf::actor();
+    playhead_                = utility::UuidActor();
     caf::event_based_actor::on_exit();
 }
 
@@ -295,19 +296,18 @@ void ViewportFrameQueueActor::queue_image_buffer_for_drawing(
 
     auto &frames_queued_for_display = frames_to_draw_per_playhead_[playhead_id];
     frames_queued_for_display[buf.timeline_timestamp()] = buf;
-
 }
 
 void ViewportFrameQueueActor::get_frames_for_display_sync(
-    caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp)
-{
+    caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp) {
 
     // in 'force_sync' mode we request and wait for the playhead
     // to read all images for the current set of on-screen sources
-    media_reader::ImageBufDisplaySet * result = new media_reader::ImageBufDisplaySet(sub_playhead_ids_);
+    media_reader::ImageBufDisplaySet *result =
+        new media_reader::ImageBufDisplaySet(sub_playhead_ids_);
     auto count = std::make_shared<int>(sub_playhead_ids_.size());
-    int k_idx = 0;
-    for (const auto playhead_id: sub_playhead_ids_) {
+    int k_idx  = 0;
+    for (const auto playhead_id : sub_playhead_ids_) {
 
         if (current_key_sub_playhead_id_ == playhead_id) {
             result->set_hero_sub_playhead_index(k_idx);
@@ -316,35 +316,32 @@ void ViewportFrameQueueActor::get_frames_for_display_sync(
         // here we fetch the on-screen image buffer for the given sub-playhead
         // from the playhead
         const auto id = playhead_id;
-        request(playhead_, infinite, playhead::buffer_atom_v, playhead_id)
+        request(playhead_.actor(), infinite, playhead::buffer_atom_v, playhead_id)
             .then(
-            [=](const media_reader::ImageBufPtr &buf) mutable {
-                if (buf) {
-                    result->add_on_screen_image(id, buf);
-                }
-                (*count)--;
-                if (!(*count)) {
-                    // we have all images, now proceed to add extra data
-                    append_overlays_data(rp, result);
-                }
-                
-            },
-            [=](caf::error &err) mutable { 
-                rp.deliver(err); 
-                (*count)--;
-                if (!(*count)) {
-                    append_overlays_data(rp, result);
-                }
-            });
+                [=](const media_reader::ImageBufPtr &buf) mutable {
+                    if (buf) {
+                        result->add_on_screen_image(id, buf);
+                    }
+                    (*count)--;
+                    if (!(*count)) {
+                        // we have all images, now proceed to add extra data
+                        append_overlays_data(rp, result);
+                    }
+                },
+                [=](caf::error &err) mutable {
+                    rp.deliver(err);
+                    (*count)--;
+                    if (!(*count)) {
+                        append_overlays_data(rp, result);
+                    }
+                });
     }
-                
 }
-                
+
 
 void ViewportFrameQueueActor::get_frames_for_display(
     caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-    const utility::time_point &when_going_on_screen
-    ) {
+    const utility::time_point &when_going_on_screen) {
 
     // evaluate the position of the playhead at the timepoint when the viewport
     // redraw happens (or, more precisely, when the buffer that it is drawn
@@ -353,10 +350,11 @@ void ViewportFrameQueueActor::get_frames_for_display(
                                        ? predicted_playhead_position_at_next_video_refresh()
                                        : predicted_playhead_position(when_going_on_screen);
 
-    media_reader::ImageBufDisplaySet * result = new media_reader::ImageBufDisplaySet(sub_playhead_ids_);
+    media_reader::ImageBufDisplaySet *result =
+        new media_reader::ImageBufDisplaySet(sub_playhead_ids_);
 
     int k_idx = 0;
-    for (const auto playhead_id: sub_playhead_ids_) {
+    for (const auto playhead_id : sub_playhead_ids_) {
 
         if (current_key_sub_playhead_id_ == playhead_id) {
             result->set_hero_sub_playhead_index(k_idx);
@@ -366,7 +364,8 @@ void ViewportFrameQueueActor::get_frames_for_display(
         }
         k_idx++;
 
-        if (frames_to_draw_per_playhead_.find(playhead_id) == frames_to_draw_per_playhead_.end()) {
+        if (frames_to_draw_per_playhead_.find(playhead_id) ==
+            frames_to_draw_per_playhead_.end()) {
             // no images queued for display for the indicated playhead
             continue;
         }
@@ -396,7 +395,7 @@ void ViewportFrameQueueActor::get_frames_for_display(
 
         result->add_on_screen_image(playhead_id, r->second);
 
-        // now we add 'future frames' - i.e. frames that are not onscreen now 
+        // now we add 'future frames' - i.e. frames that are not onscreen now
         // but will be going on-screen next. We supply these to the viewport so
         // that it can do asynchronous transfers of data to VRAM, i.e. copying
         // the image data to the GPU for the next image(s) while the current image
@@ -404,7 +403,8 @@ void ViewportFrameQueueActor::get_frames_for_display(
         auto r_next = r;
         if (playing_forwards_) {
             r_next++;
-            while (r_next != frames_queued_for_display.end() && result->num_future_images(playhead_id) < 2) {
+            while (r_next != frames_queued_for_display.end() &&
+                   result->num_future_images(playhead_id) < 2) {
 
                 result->append_future_image(playhead_id, r_next->second);
                 r_next++;
@@ -413,7 +413,8 @@ void ViewportFrameQueueActor::get_frames_for_display(
                 }
             }
         } else {
-            while (r_next != frames_queued_for_display.begin() && result->num_future_images(playhead_id) < 2) {
+            while (r_next != frames_queued_for_display.begin() &&
+                   result->num_future_images(playhead_id) < 2) {
                 r_next--;
                 result->append_future_image(playhead_id, r_next->second);
                 if (r_next == frames_queued_for_display.begin()) {
@@ -422,7 +423,6 @@ void ViewportFrameQueueActor::get_frames_for_display(
                 }
             }
         }
-
     }
 
     // now that we have picked frames for display, the first frame in 'next_images'
@@ -433,12 +433,11 @@ void ViewportFrameQueueActor::get_frames_for_display(
     }
 
     append_overlays_data(rp, result);
-
 }
 
 void ViewportFrameQueueActor::append_overlays_data(
     caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-    media_reader::ImageBufDisplaySet * result) {
+    media_reader::ImageBufDisplaySet *result) {
 
     // In the next steps we are doing a-sync requests to get data added to
     // 'result'... we make a counter of the number of requests we'll be making
@@ -446,7 +445,8 @@ void ViewportFrameQueueActor::append_overlays_data(
     // counter has to be a shared pointer as the lambda request response handlers
     // make their own copy of response_count. If it weren't a shared pointer the
     // handler would be decrementing their copy, not a global (shared) counter.
-    auto response_count = std::make_shared<int>(viewport_overlay_plugins_.size()*result->num_onscreen_images());
+    auto response_count =
+        std::make_shared<int>(viewport_overlay_plugins_.size() * result->num_onscreen_images());
     if (!*response_count) {
         result->finalise();
         rp.deliver(media_reader::ImageBufDisplaySetPtr(result));
@@ -458,7 +458,7 @@ void ViewportFrameQueueActor::append_overlays_data(
     // plugins an opportunity to add data to the images that they will need
     // at draw time to draw graphics onto the screen
     for (int img_idx = 0; img_idx < result->num_onscreen_images(); ++img_idx) {
-        
+
         if (!result->onscreen_image(img_idx)) {
             // no image ? Not expected, but we'll handle this just in case. Skip
             // adding overlay data or colour data as there is no image.
@@ -476,27 +476,24 @@ void ViewportFrameQueueActor::append_overlays_data(
             colour_pipeline_,
             infinite,
             colour_pipeline::get_colour_pipe_data_atom_v,
-            result->onscreen_image(img_idx)).then(
+            result->onscreen_image(img_idx))
+            .then(
                 [=](media_reader::ImageBufPtr image_with_colour_data) mutable {
                     result->set_on_screen_image(img_idx, image_with_colour_data);
                     append_overlays_data(rp, img_idx, result, response_count);
-
                 },
-                [=](caf::error & err) mutable {
+                [=](caf::error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     append_overlays_data(rp, img_idx, result, response_count);
                 });
     }
-
 }
-            
+
 void ViewportFrameQueueActor::append_overlays_data(
     caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
     const int img_idx,
-    media_reader::ImageBufDisplaySet * result,
-    std::shared_ptr<int> response_count
-    ) 
-{
+    media_reader::ImageBufDisplaySet *result,
+    std::shared_ptr<int> response_count) {
 
     auto check_and_respond = [=]() mutable {
         (*response_count)--;
@@ -507,27 +504,32 @@ void ViewportFrameQueueActor::append_overlays_data(
                 // for the layout. Some layout plugins are provided by python,
                 // and could be slower so we have 0.25s timeout
                 result->finalise();
-                request(viewport_layout_manager_, std::chrono::milliseconds(250), viewport_layout_atom_v, viewport_layout_mode_name_, v).then(
-                    [=](const media_reader::ImageSetLayoutDataPtr &layout_data) mutable {
-                        
-                        result->set_layout_data(layout_data);
+                request(
+                    viewport_layout_manager_,
+                    std::chrono::milliseconds(250),
+                    viewport_layout_atom_v,
+                    viewport_layout_mode_name_,
+                    v)
+                    .then(
+                        [=](const media_reader::ImageSetLayoutDataPtr &layout_data) mutable {
+                            result->set_layout_data(layout_data);
 
-                        // here we set the layout transform matrix on the 
-                        // image buffers, if available
-                        for (int i = 0; i< result->num_onscreen_images(); ++i) {
-                            if (i <= (int)layout_data->image_transforms_.size()) {
-                                media_reader::ImageBufPtr &im = result->onscreen_image_m(i);
-                                im.set_layout_transform(layout_data->image_transforms_[i]);
+                            // here we set the layout transform matrix on the
+                            // image buffers, if available
+                            for (int i = 0; i < result->num_onscreen_images(); ++i) {
+                                if (i <= (int)layout_data->image_transforms_.size()) {
+                                    media_reader::ImageBufPtr &im = result->onscreen_image_m(i);
+                                    im.set_layout_transform(layout_data->image_transforms_[i]);
+                                }
                             }
-                        }
 
-                        rp.deliver(v);
-                    }, 
-                    [=](caf::error & err) mutable {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        result->finalise();
-                        rp.deliver(v);
-                    });
+                            rp.deliver(v);
+                        },
+                        [=](caf::error &err) mutable {
+                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            result->finalise();
+                            rp.deliver(v);
+                        });
             } else {
                 result->finalise();
                 rp.deliver(v);
@@ -535,7 +537,7 @@ void ViewportFrameQueueActor::append_overlays_data(
         }
     };
 
-    for (auto p: viewport_overlay_plugins_) {
+    for (auto p : viewport_overlay_plugins_) {
 
         utility::Uuid overlay_plugin_uuid = p.first;
         caf::actor overlay_plugin         = p.second;
@@ -545,20 +547,19 @@ void ViewportFrameQueueActor::append_overlays_data(
             infinite,
             prepare_overlay_render_data_atom_v,
             result->onscreen_image(img_idx),
-            viewport_name_).then(
-            [=](const utility::BlindDataObjectPtr &bdata) mutable {
-
-                result->onscreen_image_m(img_idx).add_plugin_blind_data(
-                    overlay_plugin_uuid, bdata);
-                check_and_respond();
-                
-            }, 
-            [=](caf::error & err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                check_and_respond();
-            });
+            viewport_name_,
+            playhead_.uuid())
+            .then(
+                [=](const utility::BlindDataObjectPtr &bdata) mutable {
+                    result->onscreen_image_m(img_idx).add_plugin_blind_data(
+                        overlay_plugin_uuid, bdata);
+                    check_and_respond();
+                },
+                [=](caf::error &err) mutable {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    check_and_respond();
+                });
     }
-                    
 }
 
 void ViewportFrameQueueActor::clear_images_from_old_playheads() {
@@ -594,7 +595,7 @@ ViewportFrameQueueActor::predicted_playhead_position(const utility::time_point &
         // show we actually show.
         auto estimate_playhead_position_at_next_redraw = request_receive_wait<timebase::flicks>(
             *sys,
-            playhead_,
+            playhead_.actor(),
             std::chrono::milliseconds(100),
             playhead::position_atom_v,
             when,
@@ -615,28 +616,25 @@ ViewportFrameQueueActor::predicted_playhead_position(const utility::time_point &
         // The key is that we only change this phase adjustment occasionally as the phase
         // between the playhead and the video refresh beats drifts.
 
-        const long playhead_velocity_ct = long(double(video_refresh_period.count())*playhead_velocity_);
+        const long playhead_velocity_ct =
+            long(double(video_refresh_period.count()) * playhead_velocity_);
         timebase::flicks phase_adjusted_tp =
             estimate_playhead_position_at_next_redraw + playhead_vid_sync_phase_adjust_;
         timebase::flicks rounded_phase_adjusted_tp = timebase::flicks(
-            playhead_velocity_ct *
-            (phase_adjusted_tp.count() / playhead_velocity_ct));
+            playhead_velocity_ct * (phase_adjusted_tp.count() / playhead_velocity_ct));
         const double phase =
             timebase::to_seconds(phase_adjusted_tp - rounded_phase_adjusted_tp) /
             timebase::to_seconds(video_refresh_period);
 
         if (phase < 0.1 || phase > 0.9) {
             playhead_vid_sync_phase_adjust_ = timebase::flicks(
-                playhead_velocity_ct / 2 -
-                estimate_playhead_position_at_next_redraw.count() +
+                playhead_velocity_ct / 2 - estimate_playhead_position_at_next_redraw.count() +
                 playhead_velocity_ct *
-                    (estimate_playhead_position_at_next_redraw.count() /
-                     playhead_velocity_ct));
+                    (estimate_playhead_position_at_next_redraw.count() / playhead_velocity_ct));
             phase_adjusted_tp =
                 estimate_playhead_position_at_next_redraw + playhead_vid_sync_phase_adjust_;
             rounded_phase_adjusted_tp = timebase::flicks(
-                playhead_velocity_ct *
-                (phase_adjusted_tp.count() / playhead_velocity_ct));
+                playhead_velocity_ct * (phase_adjusted_tp.count() / playhead_velocity_ct));
         }
         return rounded_phase_adjusted_tp;
 
@@ -805,58 +803,47 @@ double ViewportFrameQueueActor::average_video_refresh_period() const {
     return timebase::to_seconds(t) / (double(deltas.size() - 16));
 }
 
-caf::typed_response_promise<bool> ViewportFrameQueueActor::set_playhead(caf::actor playhead, const bool prefetch_inital_image)
-{
+caf::typed_response_promise<bool> ViewportFrameQueueActor::set_playhead(
+    utility::UuidActor playhead, const bool prefetch_inital_image) {
 
     auto self = caf::actor_cast<caf::actor>(this);
-
-    if (playhead_broadcast_group_) {
-        // stop getting broadcasts from the previous playhead
-        anon_send(playhead_broadcast_group_, broadcast::leave_broadcast_atom_v, self);
-        playhead_broadcast_group_ = caf::actor();
-    }
 
     auto rp = make_response_promise<bool>();
     // join the playhead's broadcast group - image buffers are streamed to
     // us via the broacast group
-    request(playhead, infinite, broadcast::join_broadcast_atom_v, self).then(
-        [=](const bool) mutable {
+    request(playhead.actor(), infinite, broadcast::join_broadcast_atom_v, self)
+        .then(
+            [=](const bool) mutable {
+                // Get the 'key' child playhead UUID
+                request(playhead.actor(), infinite, playhead::key_child_playhead_atom_v)
+                    .then(
+                        [=](utility::UuidVector curr_playhead_uuids) mutable {
+                            if (playhead_)
+                                demonitor(playhead_.actor());
+                            playhead_ = playhead;
+                            monitor(playhead_.actor());
 
-            // Get the 'key' child playhead UUID
-            request(playhead, infinite, playhead::key_child_playhead_atom_v).then(
-                [=](utility::UuidVector curr_playhead_uuids) mutable {
+                            // this message will make the playhead re-broadcaset the
+                            // media_source_atom event to it's 'broacast' group (of which we are
+                            // a member). This info from the playhead is received in a message
+                            // handler below and we send on the info about the media source to
+                            // our colour pipeline which needs to do some set-up.
+                            send(playhead_.actor(), playhead::media_source_atom_v, true, true);
+                            send(playhead_.actor(), playhead::jump_atom_v);
+                            request(playhead_.actor(), infinite, playhead::velocity_atom_v)
+                                .then(
+                                    [=](float v) { playhead_velocity_ = v; },
+                                    [=](caf::error &err) {});
 
-                    if (playhead_)
-                        demonitor(playhead_);
-                    playhead_ = playhead;
-                    monitor(playhead_);
-
-                    // this message will make the playhead re-broadcaset the media_source_atom
-                    // event to it's 'broacast' group (of which we are a member). This info
-                    // from the playhead is received in a message handler below and we
-                    // send on the info about the media source to our colour pipeline
-                    // which needs to do some set-up.
-                    send(playhead_, playhead::media_source_atom_v, true, true);
-                    send(playhead_, playhead::jump_atom_v);
-                    request(playhead_, infinite, playhead::velocity_atom_v).then(
-                        [=](float v) {
-                            playhead_velocity_ = v;
+                            if (curr_playhead_uuids.empty())
+                                return;
+                            current_key_sub_playhead_id_ = curr_playhead_uuids.back();
+                            curr_playhead_uuids.pop_back();
+                            sub_playhead_ids_ = curr_playhead_uuids;
+                            rp.deliver(true);
                         },
-                        [=](caf::error &err) {});
-
-                    if (curr_playhead_uuids.empty()) return;
-                    current_key_sub_playhead_id_ = curr_playhead_uuids.back();
-                    curr_playhead_uuids.pop_back();
-                    sub_playhead_ids_ = curr_playhead_uuids;
-                    rp.deliver(true);
-                    
-                },
-                [=](const error &err) mutable { 
-                    rp.deliver(err); 
-                });
-        },
-        [=](const error &err) mutable {
-            rp.deliver(err); 
-        });
+                        [=](const error &err) mutable { rp.deliver(err); });
+            },
+            [=](const error &err) mutable { rp.deliver(err); });
     return rp;
 }

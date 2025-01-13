@@ -50,12 +50,12 @@ Item{ id: toolActionsDiv
     property alias display_mode: __display_mode.value
 
     XsButtonWithImageAndText{ id: displayBtn
-        iconText: "Always"
+        iconText: display_mode.substring(display_mode.length-6, display_mode.length)
         x: framePadding
         width: parent.width- x*2
         height: XsStyleSheet.primaryButtonStdHeight
         anchors.top: dispText.bottom
-        iconSrc: "qrc:///anno_icons/check_circle.svg"
+        iconSrc: "qrc:///anno_icons/pause_circle.svg"
         textDiv.visible: true
         textDiv.font.bold: false
         textDiv.font.pixelSize: XsStyleSheet.fontSize
@@ -70,9 +70,6 @@ Item{ id: toolActionsDiv
             }
         }
 
-        Component.onCompleted: {
-            display_mode = "Always"
-        }
     }
 
     XsPopupMenu {
@@ -87,8 +84,7 @@ Item{ id: toolActionsDiv
         menuItemPosition: 1
         menuModelName: displayMenu.menu_model_name
         onActivated: {
-            display_mode = text
-            displayBtn.iconText = text
+            display_mode = "Always"
             displayBtn.iconSrc = menuCustomIcon
         }
     }
@@ -100,7 +96,6 @@ Item{ id: toolActionsDiv
         menuModelName: displayMenu.menu_model_name
         onActivated: {
             display_mode = "Only When Paused"
-            displayBtn.iconText = "Paused"
             displayBtn.iconSrc = menuCustomIcon
         }
     }

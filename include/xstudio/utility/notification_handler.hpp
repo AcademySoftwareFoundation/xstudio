@@ -15,7 +15,8 @@ class NotificationHandler;
 
 class Notification {
   public:
-    Notification()          = default;
+    Notification() = default;
+    Notification(const JsonStore &jsn);
     virtual ~Notification() = default;
 
     Notification(
@@ -231,9 +232,7 @@ class Notification {
 
 class NotificationHandler {
   public:
-    NotificationHandler() = default;
-    ;
-
+    NotificationHandler()          = default;
     virtual ~NotificationHandler() = default;
 
     virtual caf::message_handler

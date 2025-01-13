@@ -38,7 +38,10 @@ namespace timeline {
             return message_handler().or_else(base_.container_message_handler(this));
         }
 
-        void link_media(caf::typed_response_promise<bool> rp, const utility::UuidActor &media);
+        void link_media(
+            caf::typed_response_promise<bool> rp,
+            const utility::UuidActor &media,
+            const bool refresh = true);
 
       private:
         Clip base_;

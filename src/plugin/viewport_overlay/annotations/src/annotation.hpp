@@ -22,6 +22,8 @@ namespace ui {
             [[nodiscard]] utility::JsonStore
             serialise(utility::Uuid &plugin_uuid) const override;
 
+            size_t hash() const override { return canvas_.hash(); }
+
             xstudio::ui::canvas::Canvas &canvas() { return canvas_; }
             const xstudio::ui::canvas::Canvas &canvas() const { return canvas_; }
 

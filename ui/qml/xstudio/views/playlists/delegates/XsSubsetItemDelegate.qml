@@ -5,6 +5,6 @@ import xStudio 1.0
 import "."
 
 XsPlaylistItemBase {
-    iconSource: "qrc:/icons/featured_play_list.svg"
+    iconSource: "qrc:/icons/communities.svg"
     indent: true
 }

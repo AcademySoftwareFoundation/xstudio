@@ -770,6 +770,11 @@ namespace ui {
 
             Q_INVOKABLE void inhibitScreenSaver(const bool inhibit = true) const;
 
+            Q_INVOKABLE QVariant python_callback(
+                QString method_name,
+                QUuid python_plugin_uuid,
+                const QVariant args = QVariant()) const;
+
           private:
             QQmlEngine *engine_;
         };

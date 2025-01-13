@@ -171,7 +171,9 @@ namespace shotbrowser {
             caf::typed_response_promise<utility::JsonStore> rp, const std::string &type);
 
         void get_data_project(
-            caf::typed_response_promise<utility::JsonStore> rp, const std::string &type);
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &type,
+            const std::string &user = "");
 
         void get_data_location(
             caf::typed_response_promise<utility::JsonStore> rp, const std::string &type);

@@ -110,6 +110,24 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
                     actor_grabbing_all_mouse_input_.begin(), actor);
             }
         },
+        
+        [=](watch_hotkey_atom, const utility::Uuid &hk_uuid, caf::actor watcher) {
+
+            auto p = active_hotkeys_.find(hk_uuid);
+            if (p != active_hotkeys_.end()) {
+                p->second.add_watcher(caf::actor_cast<caf::actor_addr>(watcher));
+            }
+
+        },
+
+        [=](watch_hotkey_atom, const utility::Uuid &hk_uuid, caf::actor watcher, bool exclusive_watcher) {
+
+            auto p = active_hotkeys_.find(hk_uuid);
+            if (p != active_hotkeys_.end()) {
+                p->second.exclusive_watcher(caf::actor_cast<caf::actor_addr>(watcher), exclusive_watcher);
+            }
+
+        },
 
         [=](register_hotkey_atom, const Hotkey &hk) {
             if (active_hotkeys_.find(hk.uuid()) != active_hotkeys_.end()) {
@@ -146,6 +164,17 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
                 return p->second;
             }
             return make_error(xstudio_error::error, "Invalid hotkey uuid");
+        },
+
+        [=](hotkey_atom, const std::string &hotkey_name) -> result<Hotkey> {
+            auto p = active_hotkeys_.begin();
+            while (p != active_hotkeys_.end()) {
+                if (p->second.hotkey_name() == hotkey_name) {
+                    return p->second;
+                }
+                p++;
+            }
+            return make_error(xstudio_error::error, "Invalid hotkey name");
         },
 
         [=](keypress_monitor::hotkey_event_atom,

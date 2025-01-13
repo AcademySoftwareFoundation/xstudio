@@ -172,7 +172,8 @@ void SessionModel::forcePopulate(
 
     // spdlog::warn("{} {}", type, item.dump(2));
     // if subset or playlist, trigger auto population of children
-    if (type == "Playlist" or type == "ContactSheet" or type == "Subset" or type == "Timeline") {
+    if (type == "Playlist" or type == "ContactSheet" or type == "Subset" or
+        type == "Timeline") {
         try {
 
             requestData(
@@ -197,6 +198,16 @@ void SessionModel::forcePopulate(
                     JSONTreeModel::Roles::childrenRole);
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    } else if (type == "Media") {
+        if (tjson.count("media_status")) {
+            if (tjson.at("media_status").is_null())
+                requestData(
+                    QVariant::fromValue(QUuidFromUuid(tjson.at("id"))),
+                    JSONTreeModel::Roles::idRole,
+                    search_hint,
+                    tjson,
+                    Roles::mediaStatusRole);
         }
     } else if (type == "MediaSource") {
         // for grab of path data..
@@ -608,7 +619,7 @@ void SessionModel::processChildren(const nlohmann::json &rj, const QModelIndex &
     if (changed) {
         // update totals.
         if (type == "Media List" and ptree->data().at("children").is_array()) {
-            //spdlog::warn("mediaCountRole {}", ptree->size());
+            // spdlog::warn("mediaCountRole {}", ptree->size());
             setData(parent_index.parent(), QVariant::fromValue(ptree->size()), mediaCountRole);
         }
 
@@ -1043,6 +1054,7 @@ nlohmann::json SessionModel::playlistTreeToJson(
                     n["children"].push_back(createEntry(
                         R"({"type": "TimelineItem", "name": null, "actor_owner": null})"_json));
                     n["children"][2]["actor_owner"] = n["actor"];
+                    n["notification"]               = nullptr;
                 }
 
                 n["children"].push_back(createEntry(
@@ -1229,9 +1241,7 @@ void SessionModel::moveSelectionByIndex(const QModelIndex &index, const int offs
 }
 
 void SessionModel::updateSelection(
-    const QModelIndex &index,
-    const QModelIndexList &selection,
-    const QItemSelectionModel::SelectionFlags &qmode) {
+    const QModelIndex &index, const QModelIndexList &selection, const int qmode) {
     try {
         if (index.isValid()) {
             nlohmann::json &j = indexToData(index);
@@ -1244,6 +1254,7 @@ void SessionModel::updateSelection(
                         uv.emplace_back(UuidFromQUuid(i.data(actorUuidRole).toUuid()));
                     }
                     playhead::SelectionMode mode = playhead::SelectionMode::SM_NO_UPDATE;
+
                     switch (qmode) {
                     case QItemSelectionModel::Clear:
                         mode = playhead::SelectionMode::SM_CLEAR;

@@ -103,6 +103,8 @@ RowLayout{
             }
         }
 
+        defaultText: "Set Project..."
+
         textRole: "nameRole"
         Layout.fillWidth: true
         Layout.minimumWidth: btnWidth * 1.3

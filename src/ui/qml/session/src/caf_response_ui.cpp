@@ -268,6 +268,7 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                 *sys,
                 actorFromString(system_, json_.at("actor")),
                 utility::notification_atom_v);
+
             result[SessionModel::Roles::notificationRole] = QStringFromStd(n.dump());
         }
     }
@@ -278,12 +279,14 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
         caf::actor_system &system_,
         QMap<int, QString> &result) {
         if (type == "Session") {
+
             auto pt = request_receive<std::pair<caf::uri, fs::file_time_type>>(
                 *sys, actorFromString(system_, json_.at("actor")), session::path_atom_v);
 
             result[SessionModel::Roles::pathRole] =
                 QStringFromStd(json(to_string(pt.first)).dump());
             result[SessionModel::Roles::mtimeRole] = QStringFromStd(json(pt.second).dump());
+
         } else if (type == "MediaSource") {
             auto rr = request_receive<MediaReference>(
                 *sys,
@@ -305,8 +308,9 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
         scoped_actor &sys,
         caf::actor_system &system_,
         QMap<int, QString> &result) {
-        if (type == "Session" or type == "Playlist" or type == "ContactSheet" or type == "Subset" or type == "Timeline" or
-            type == "Media" or type == "PlayheadSelection" or type == "Playhead") {
+        if (type == "Session" or type == "Playlist" or type == "ContactSheet" or
+            type == "Subset" or type == "Timeline" or type == "Media" or
+            type == "PlayheadSelection" or type == "Playhead") {
 
             auto actor = caf::actor();
 

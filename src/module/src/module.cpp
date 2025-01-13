@@ -117,19 +117,6 @@ void Module::set_parent_actor_addr(caf::actor_addr addr) {
             }
         });
     }
-    /*if (self()) {
-        self()->attach_functor([=](const caf::error &reason) {
-            spdlog::debug(
-                "STANKSTONK {} exited: {}",
-                name(),
-                to_string(reason));
-            cleanup();
-            spdlog::debug(
-                "STINKDONK {} exited: {}",
-                name(),
-                to_string(reason));
-        });
-    }*/
 }
 
 void Module::delete_attribute(const utility::Uuid &attribute_uuid) {
@@ -878,7 +865,7 @@ caf::message_handler Module::message_handler() {
                              event["context"] = context;
                              // random num ensures the data changes every time
                              // so notification mechanism is triggered
-                             event["id"] = (double)rand() / RAND_MAX;                             
+                             event["id"] = (double)rand() / RAND_MAX;
                              attr->set_role_data(Attribute::UserData, event);
                          }
                      }
@@ -2146,6 +2133,13 @@ Attribute *Module::add_attribute(
         attr = static_cast<Attribute *>(
             add_string_attribute(title, title, value.get<std::string>()));
 
+    } else if (
+        value.is_array() && value.size() == 5 && value[0].is_string() &&
+        value[0].get<std::string>() == "colour") {
+
+        auto c = value.get<utility::ColourTriplet>();
+        attr   = static_cast<Attribute *>(add_colour_attribute(title, title, c));
+
     } else if (value.is_object() || value.is_null()) {
 
         attr = static_cast<Attribute *>(add_json_attribute(title, nlohmann::json("{}")));
@@ -2228,6 +2222,7 @@ void Module::connect_to_viewport(
 
 void Module::add_attribute(Attribute *attr) {
     attributes_.emplace_back(attr);
+    attr->set_role_data(module::Attribute::ModuleUuid, uuid(), false);
     attr->set_owner(this);
 }
 

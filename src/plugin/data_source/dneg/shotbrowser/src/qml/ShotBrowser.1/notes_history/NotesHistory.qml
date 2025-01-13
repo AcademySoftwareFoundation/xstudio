@@ -46,6 +46,11 @@ Item{
 
     property real panelPadding: XsStyleSheet.panelPadding
 
+    XsPreference {
+        id: addAfterSelection
+        path: "/plugin/data_source/shotbrowser/add_after_selection"
+    }
+
     onOnScreenLogicalFrameChanged: {
         if(updateTimer.running) {
             updateTimer.restart()
@@ -155,7 +160,7 @@ Item{
                 setIndexesFromPreferences()
             }
         }
-    
+
     }
 
     onActiveScopeIndexChanged: {
@@ -205,6 +210,15 @@ Item{
                 queryRunning += 1
                 let i = queryCounter
 
+                let customContext = {}
+                customContext["preset_name"] =  ShotBrowserEngine.presetsModel.get(
+                                    activeScopeIndex,
+                                    "nameRole"
+                                ) + " - " + ShotBrowserEngine.presetsModel.get(
+                                    activeTypeIndex,
+                                    "nameRole"
+                                )
+
                 Future.promise(
                     ShotBrowserEngine.executeQuery(
                             [
@@ -216,7 +230,8 @@ Item{
                                     activeTypeIndex,
                                     "jsonPathRole"
                                 )
-                            ]
+                            ],
+                            {},[],customContext
                         )
                     ).then(function(json_string) {
                         if(queryCounter == i) {

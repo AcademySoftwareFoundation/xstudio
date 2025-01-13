@@ -1,14 +1,27 @@
-SET(LINK_DEPS
-	${CAF_LIBRARY_core}
-	Qt5::Core
-	Qt5::Qml
-	Qt5::Gui
-	Qt5::Quick
-	#	Qt5::DBus
-	xstudio::global_store
-	xstudio::media
-	xstudio::utility
-)
+if(WIN32)
+	SET(LINK_DEPS
+		${CAF_LIBRARY_core}
+		Qt5::Core
+		Qt5::Qml
+		Qt5::Gui
+		Qt5::Quick
+		xstudio::global_store
+		xstudio::media
+		xstudio::utility
+	)
+else()
+	SET(LINK_DEPS
+		${CAF_LIBRARY_core}
+		Qt5::Core
+		Qt5::Qml
+		Qt5::Gui
+		Qt5::Quick
+		Qt5::DBus
+		xstudio::global_store
+		xstudio::media
+		xstudio::utility
+	)
+endif()
 
 SET(EXTRAMOC
 	"${ROOT_DIR}/include/xstudio/ui/qml/thumbnail_provider_ui.hpp"

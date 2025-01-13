@@ -115,9 +115,9 @@ XsGradientRectangle{
     XsPlayhead {
         id: timelinePlayhead
         Component.onCompleted: {
-            connectToModel()
+            connectToModel(0)
         }
-        function connectToModel() {
+        function connectToModel(retry) {
 
             // connect to the timeline playhead ...
             let playhead_idx = theSessionData.searchRecursive(
@@ -126,23 +126,28 @@ XsGradientRectangle{
                 theTimeline.timelineModel.rootIndex.parent
                 )
 
-
             if (playhead_idx.valid) {
                 let playhead_uuid = theSessionData.get(playhead_idx, "actorUuidRole")
                 if (playhead_uuid == undefined) {
                     // uh-oh - remember the session model is populated asynchronously
                     // we might need to wait few milliseconds until "actorUuidRole" for
                     // the playhead has been filled in.
-                    callbackTimer.setTimeout(function(index) { return function() {
-                        timelinePlayhead.uuid = theSessionData.get(playhead_idx, "actorUuidRole")
-                    }}( playhead_idx ), 200);
+                    if (retry < 3) {
+                        callbackTimer.setTimeout(function() { return function() {
+                            connectToModel(retry+1)
+                        }}(), 200);
+                    }
                 } else {
                     timelinePlayhead.uuid = playhead_uuid
                 }
+            } else if (retry < 3) {
+                callbackTimer.setTimeout(function() { return function() {
+                    connectToModel(retry+1)
+                }}(), 200);
+                return;
             }
 
             let sind = theSessionData.searchRecursive("PlayheadSelection", "typeRole", theTimeline.timelineModel.rootIndex.parent)
-
             if (sind.valid) {
                 timelinePlayheadSelectionIndex = helpers.makePersistent(sind)
             }
@@ -157,7 +162,7 @@ XsGradientRectangle{
 
         function onRootIndexChanged() {
 
-            timelinePlayhead.connectToModel()
+            timelinePlayhead.connectToModel(0)
         }
     }
 
@@ -175,9 +180,11 @@ XsGradientRectangle{
     XsHotkeyArea {
         id: hotkey_area
         anchors.fill: parent
-        context: "timeline"
+        context: hotkey_area_id
         focus: true
     }
+
+    property var hotkey_area_id: "timeline" + hotkey_area
 
     MouseArea {
         anchors.fill: parent

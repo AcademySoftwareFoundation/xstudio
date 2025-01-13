@@ -25,7 +25,6 @@
 #include "xstudio/plugin_manager/plugin_manager_actor.hpp"
 #include "xstudio/scanner/scanner_actor.hpp"
 #include "xstudio/studio/studio_actor.hpp"
-#include "xstudio/sync/sync_actor.hpp"
 #include "xstudio/thumbnail/thumbnail_manager_actor.hpp"
 #include "xstudio/ui/model_data/model_data_actor.hpp"
 #include "xstudio/ui/viewport/keypress_monitor.hpp"
@@ -48,6 +47,84 @@ using namespace xstudio::global;
 using namespace xstudio::utility;
 using namespace xstudio::global_store;
 
+APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
+    : caf::event_based_actor(cfg), global_(global) {
+
+    spdlog::debug("Created APIActor");
+    print_on_exit(this, "APIActor");
+
+    behavior_.assign(
+        make_get_version_handler(),
+        [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+
+        [=](get_application_mode_atom) -> result<std::string> {
+            // don't expose global..
+            auto rp = make_response_promise<std::string>();
+
+            request(global_, infinite, get_application_mode_atom_v)
+                .then(
+                    [=](const std::string &result) mutable { rp.deliver(result); },
+                    [=](caf::error &err) mutable { rp.deliver(err); });
+
+            return rp;
+        },
+
+        [=](authenticate_atom) -> result<caf::actor> {
+            if (allow_unauthenticated_ or
+                (current_sender() and current_sender()->node() == node()))
+                return global_;
+
+            return make_error(xstudio_error::error, "Authentication required.");
+        },
+
+        [=](authenticate_atom, const std::string &key) -> result<caf::actor> {
+            if (allow_unauthenticated_)
+                return global_;
+            else
+                for (const auto &i : authentication_keys_)
+                    if (key == i)
+                        return global_;
+
+            return make_error(xstudio_error::error, "Authentication failed.");
+        },
+
+        [=](authenticate_atom,
+            const std::string &user,
+            const std::string &pass) -> result<caf::actor> {
+            if (allow_unauthenticated_)
+                return global_;
+            else
+                for (const auto &i : authentication_passwords_)
+                    if (user == i.at("user") and pass == i.at("password"))
+                        return global_;
+
+            return make_error(xstudio_error::error, "Authentication failed.");
+        },
+
+        [=](json_store::update_atom,
+            const JsonStore & /*change*/,
+            const std::string & /*path*/,
+            const JsonStore &full) {
+            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+        },
+
+        [=](json_store::update_atom, const JsonStore &j) mutable {
+            try {
+                allow_unauthenticated_ =
+                    preference_value<bool>(j, "/core/api/authentication/allow_unauthenticated");
+
+                authentication_passwords_ =
+                    preference_value<JsonStore>(j, "/core/api/authentication/passwords");
+
+                authentication_keys_ =
+                    preference_value<JsonStore>(j, "/core/api/authentication/keys");
+
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
+        });
+}
+
 GlobalActor::GlobalActor(caf::actor_config &cfg, const utility::JsonStore &prefs)
     : caf::event_based_actor(cfg), rsm_(remote_session_path()) {
     init(prefs);
@@ -68,7 +145,6 @@ int GlobalActor::publish_port(
 
     return port;
 }
-
 
 void GlobalActor::init(const utility::JsonStore &prefs) {
     // launch global actors..
@@ -92,11 +168,11 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
         gsa = spawn<global_store::GlobalStoreActor>("GlobalStore", prefs);
     }
 
-    auto sga             = spawn<sync::SyncGatewayActor>();
-    auto sgma            = spawn<sync::SyncGatewayManagerActor>();
+    auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto keyboard_events = spawn<ui::keypress_monitor::KeypressMonitor>();
     auto ui_models       = spawn<ui::model_data::GlobalUIModelData>();
     auto metadata_mgr    = spawn<media::GlobalMetadataManager>();
+    auto audio           = spawn<audio::GlobalAudioOutputActor>();
     auto pm              = spawn<plugin_manager::PluginManagerActor>();
     auto colour          = spawn<colour_pipeline::GlobalColourPipelineActor>();
     auto gmma            = spawn<media_metadata::GlobalMediaMetadataActor>();
@@ -106,8 +182,6 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     auto gcca            = spawn<colour_pipeline::GlobalColourCacheActor>();
     auto gmha            = spawn<media_hook::GlobalMediaHookActor>();
     auto thumbnail       = spawn<thumbnail::ThumbnailManagerActor>();
-    auto audio           = spawn<audio::GlobalAudioOutputActor>();
-    auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
     auto pa              = spawn<embedded_python::EmbeddedPythonActor>("Python");
     auto scanner         = spawn<scanner::ScannerActor>();
     auto conform         = spawn<conform::ConformManagerActor>();
@@ -128,8 +202,6 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     link_to(phev);
     link_to(pm);
     link_to(scanner);
-    link_to(sga);
-    link_to(sgma);
     link_to(metadata_mgr);
     link_to(thumbnail);
     link_to(ui_models);
@@ -158,15 +230,10 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     port_maximum_   = 12345;
     bind_address_   = "127.0.0.1";
 
-    sync_connected_    = false;
-    sync_api_enabled_  = false;
-    sync_port_         = -1;
-    sync_port_minimum_ = 12346;
-    sync_port_maximum_ = 12346;
-    sync_bind_address_ = "127.0.0.1";
-
     event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
+
+    apia_ = spawn<APIActor>(this);
 
     try {
         auto prefs = GlobalStoreHelper(system());
@@ -174,10 +241,12 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
         join_broadcast(this, prefs.get_group(j));
         // spawn resident plugins (application level)
         anon_send(pm, plugin_manager::spawn_plugin_atom_v, j);
+        anon_send(apia_, json_store::update_atom_v, j);
         anon_send(this, json_store::update_atom_v, j);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
+
 
     behavior_.assign(
         make_get_version_handler(),
@@ -319,7 +388,8 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                                                                 auto prefs = global_store::
                                                                     GlobalStoreHelper(system());
                                                                 prefs.set_value(
-                                                                    fspath.string(),
+                                                                    to_string(posix_path_to_uri(
+                                                                        fspath.string())),
                                                                     "/core/session/autosave/"
                                                                     "last_auto_save");
                                                                 prefs.save("APPLICATION");
@@ -366,8 +436,6 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             return studio_;
         },
 
-        [=](get_api_mode_atom) -> std::string { return "FULL"; },
-
         [=](get_application_mode_atom) -> std::string {
             return (ui_studio_ ? "XSTUDIO_GUI" : "XSTUDIO");
         },
@@ -402,8 +470,9 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
         },
 
-
         [=](json_store::update_atom, const JsonStore &j) mutable {
+            anon_send(apia_, json_store::update_atom_v, j);
+
             try {
                 python_enabled_ = preference_value<bool>(j, "/core/python/enabled");
                 api_enabled_    = preference_value<bool>(j, "/core/api/enabled");
@@ -411,14 +480,9 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                 port_maximum_   = preference_value<int>(j, "/core/api/port_maximum");
                 bind_address_   = preference_value<std::string>(j, "/core/api/bind_address");
 
-                sync_api_enabled_  = preference_value<bool>(j, "/core/sync/enabled");
-                sync_port_minimum_ = preference_value<int>(j, "/core/sync/port_minimum");
-                sync_port_maximum_ = preference_value<int>(j, "/core/sync/port_maximum");
-                sync_bind_address_ =
-                    preference_value<std::string>(j, "/core/sync/bind_address");
-
                 session_autosave_interval_ =
                     preference_value<int>(j, "/core/session/autosave/interval");
+
                 try {
                     session_autosave_path_ = posix_path_to_uri(expand_envvars(
                         preference_value<std::string>(j, "/core/session/autosave/path")));
@@ -437,9 +501,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                 }
 
                 disconnect_api(pa);
-                disconnect_sync_api();
                 connect_api(pa);
-                connect_sync_api();
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             }
@@ -454,7 +516,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                     rsm_.remove_session(remote_api_session_name_);
                     remote_api_session_name_ = session_name;
                     rsm_.create_session_file(
-                        port_, false, remote_api_session_name_, "localhost", true);
+                        port_, remote_api_session_name_, "localhost", true);
 
                     spdlog::info(
                         "API enabled on {}:{}, session name {}",
@@ -477,9 +539,9 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             delegate(studio_, _atom, path, js);
         },
 
-        [=](bookmark::get_bookmark_atom atom) { delegate(studio_, atom); },
+        [=](bookmark::get_bookmark_atom atom) { delegate(studio_, atom); }
 
-        [=](sync::get_sync_atom _atm) { delegate(sgma, _atm); });
+    );
 }
 
 void GlobalActor::on_exit() {
@@ -487,26 +549,28 @@ void GlobalActor::on_exit() {
     // clear autosave.
     send(event_group_, exit_atom_v);
     auto prefs = global_store::GlobalStoreHelper(system());
-    prefs.set_value("", "/core/session/autosave/last_auto_save", false);
+    // prefs.set_value("", "/core/session/autosave/last_auto_save", false);
     prefs.save("APPLICATION");
+
     if (system().has_middleman()) {
-        system().middleman().unpublish(actor_cast<actor>(this), port_);
-        system().middleman().unpublish(actor_cast<actor>(this), sync_port_);
+        system().middleman().unpublish(apia_, port_);
     }
+    send_exit(apia_, caf::exit_reason::user_shutdown);
+    apia_ = caf::actor();
+
     system().registry().erase(global_registry);
     system().registry().erase(pc_audio_output_registry);
 }
 
 void GlobalActor::connect_api(const caf::actor &embedded_python) {
     if (not connected_ and api_enabled_) {
-        port_ = publish_port(port_minimum_, port_maximum_, bind_address_, this);
+        port_ = publish_port(port_minimum_, port_maximum_, bind_address_, apia_);
         if (port_ != -1) {
             rsm_.remove_session(remote_api_session_name_);
             if (remote_api_session_name_.empty())
-                remote_api_session_name_ = rsm_.create_session_file(port_, false);
+                remote_api_session_name_ = rsm_.create_session_file(port_);
             else
-                rsm_.create_session_file(
-                    port_, false, remote_api_session_name_, "localhost", true);
+                rsm_.create_session_file(port_, remote_api_session_name_, "localhost", true);
             spdlog::info(
                 "API enabled on {}:{}, session name {}",
                 bind_address_,
@@ -538,33 +602,6 @@ void GlobalActor::connect_api(const caf::actor &embedded_python) {
     }
 }
 
-void GlobalActor::connect_sync_api() {
-    if (not sync_connected_ and sync_api_enabled_) {
-        sync_port_ =
-            publish_port(sync_port_minimum_, sync_port_maximum_, sync_bind_address_, this);
-        if (sync_port_ != -1) {
-            rsm_.remove_session(remote_sync_session_name_);
-            if (remote_sync_session_name_.empty())
-                remote_sync_session_name_ = rsm_.create_session_file(sync_port_, true);
-            else
-                rsm_.create_session_file(
-                    sync_port_, true, remote_sync_session_name_, "localhost", true);
-            spdlog::info(
-                "SYNC API enabled on {}:{}, session name {}",
-                sync_bind_address_,
-                sync_port_,
-                remote_sync_session_name_);
-            sync_connected_ = true;
-        } else {
-            spdlog::warn(
-                "SYNC API failed to open  {}:{}-{}",
-                sync_bind_address_,
-                sync_port_minimum_,
-                sync_port_maximum_);
-        }
-    }
-}
-
 void GlobalActor::disconnect_api(const caf::actor &embedded_python, const bool force) {
     if (connected_ and
         (force or not api_enabled_ or port_ > port_maximum_ or port_ < port_minimum_)) {
@@ -584,24 +621,10 @@ void GlobalActor::disconnect_api(const caf::actor &embedded_python, const bool f
             send(event_group_, api_exit_atom_v);
 
             // wait..?
-            system().middleman().unpublish(actor_cast<actor>(this), port_);
+            system().middleman().unpublish(apia_, port_);
             rsm_.remove_session(remote_api_session_name_);
             spdlog::info("API disabled on port {}", port_);
         }
         port_ = -1;
-    }
-}
-
-void GlobalActor::disconnect_sync_api(const bool force) {
-    if (sync_connected_ and
-        (force or not sync_api_enabled_ or sync_port_ > sync_port_maximum_ or
-         sync_port_ < sync_port_minimum_)) {
-        sync_connected_ = false;
-        if (system().has_middleman()) {
-            system().middleman().unpublish(actor_cast<actor>(this), sync_port_);
-            rsm_.remove_session(remote_sync_session_name_);
-            spdlog::info("SYNC API disabled on port {}", sync_port_);
-        }
-        sync_port_ = -1;
     }
 }

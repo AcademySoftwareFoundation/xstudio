@@ -17,10 +17,11 @@ from xstudio.api.session.media.media import Media
 from xstudio.api.session.playlist.subset import Subset
 from xstudio.api.session.playlist.contact_sheet import ContactSheet
 from xstudio.api.session.playlist.timeline import Timeline
+from xstudio.api.auxiliary import NotificationHandler
 
 import json
 
-class Playlist(Container):
+class Playlist(Container, NotificationHandler):
     """Playlist object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -36,6 +37,7 @@ class Playlist(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+        NotificationHandler.__init__(self, self)
 
     @property
     def playhead(self):

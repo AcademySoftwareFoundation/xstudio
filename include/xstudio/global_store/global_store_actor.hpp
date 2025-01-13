@@ -43,6 +43,7 @@ namespace global_store {
         const std::string reg_value_;
         GlobalStore base_;
         caf::actor jsonactor_;
+        caf::actor ioactor_;
     };
 } // namespace global_store
 } // namespace xstudio

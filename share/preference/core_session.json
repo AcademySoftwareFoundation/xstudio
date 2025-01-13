@@ -29,7 +29,7 @@
 				"options": ["23.976", "24.0", "25.0", "29.97", "30.0", "48.0", "50.0", "59.94", "60.0", "90.0", "100.0", "119.88", "120.0"],
 				"category": "General",
 				"display_name": "Default media rate for new sessions."
-			},		
+			},
 			"compression": {
 				"path": "/core/session/compression",
 				"default_value": false,
@@ -81,6 +81,8 @@
 					"description": "Enable autosave of session.",
 					"value": true,
 					"datatype": "bool",
+					"display_name": "Enable Autosave",
+					"category": "General",
 					"context": ["APPLICATION"]
 				},
 				"interval": {

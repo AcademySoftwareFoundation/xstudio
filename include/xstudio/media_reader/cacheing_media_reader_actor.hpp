@@ -32,7 +32,10 @@ namespace media_reader {
                 caf::actor &playhead,
                 const utility::time_point &time,
                 timebase::flicks playhead_position)
-                : mptr_(mptr), playhead_(playhead), time_point_(time), playhead_position_(playhead_position) {}
+                : mptr_(mptr),
+                  playhead_(playhead),
+                  time_point_(time),
+                  playhead_position_(playhead_position) {}
 
             ImmediateImageReqest(const ImmediateImageReqest &) = default;
             ImmediateImageReqest()                             = default;

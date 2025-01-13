@@ -49,12 +49,27 @@ Item {
                     dynamic_widget.visible = true
                 }
             }
+            
             function xstudio_callback(data) {
                 if (typeof data == "object") {
                     // 'callback_data' is role data on the attribute in the 'dynamic_items'
                     // model. Setting it here sets it in the backend
                     callback_data = data
                 }
+            }
+
+            function python_callback(python_func_name, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10) {
+
+                var v = [_1, _2, _3, _4, _5, _6, _7, _8, _9, _10]                
+                while (v.length) {
+                    if (v[v.length-1] == null || v[v.length-1] == undefined) {
+                        v.pop()
+                    } else {
+                        break;
+                    }
+                }
+                return helpers.python_callback(python_func_name, module_uuid, v)
+
             }
         }
     }

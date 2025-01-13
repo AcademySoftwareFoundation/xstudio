@@ -32,7 +32,7 @@ namespace ui {
                 caf::actor_config &cfg,
                 caf::actor viewport,
                 std::map<utility::Uuid, caf::actor> overlay_actors,
-                const std::string &viewport_name, 
+                const std::string &viewport_name,
                 caf::actor colour_pipeline);
 
             ~ViewportFrameQueueActor() override;
@@ -44,8 +44,7 @@ namespace ui {
 
             caf::behavior behavior_;
 
-            caf::actor playhead_broadcast_group_;
-            caf::actor playhead_;
+            utility::UuidActor playhead_;
             utility::Uuid current_key_sub_playhead_id_, previous_key_sub_playhead_id_;
             /**
              *  @brief Receive frame buffer and colour pipeline data for drawing to screen.
@@ -69,14 +68,13 @@ namespace ui {
 
             void append_overlays_data(
                 caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
-                media_reader::ImageBufDisplaySet * result);
+                media_reader::ImageBufDisplaySet *result);
 
             void append_overlays_data(
                 caf::typed_response_promise<media_reader::ImageBufDisplaySetPtr> rp,
                 const int img_idx,
-                media_reader::ImageBufDisplaySet * result,
-                std::shared_ptr<int> response_count
-                );
+                media_reader::ImageBufDisplaySet *result,
+                std::shared_ptr<int> response_count);
 
             typedef std::map<timebase::flicks, media_reader::ImageBufPtr> OrderedImagesToDraw;
 
@@ -96,7 +94,8 @@ namespace ui {
 
             double average_video_refresh_period() const;
 
-            caf::typed_response_promise<bool> set_playhead(caf::actor playhead, const bool prefetch_inital_image);
+            caf::typed_response_promise<bool>
+            set_playhead(utility::UuidActor playhead, const bool prefetch_inital_image);
 
             bool playing_          = {false};
             bool playing_forwards_ = {true};
@@ -126,7 +125,6 @@ namespace ui {
             std::string viewport_layout_mode_name_;
 
             double playhead_velocity_ = {1.0};
-
         };
 
     } // namespace viewport
