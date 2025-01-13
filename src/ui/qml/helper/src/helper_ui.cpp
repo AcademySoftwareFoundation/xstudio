@@ -119,6 +119,9 @@ QString xstudio::ui::qml::getThumbnailURL(
 
 nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
 
+    if (not var.isValid())
+        return nlohmann::json();
+
     switch (QMetaType::Type(var.type())) {
     case QMetaType::Bool:
         return nlohmann::json(var.toBool());
@@ -176,6 +179,7 @@ nlohmann::json xstudio::ui::qml::qvariant_to_json(const QVariant &var) {
     } break;
     default: {
         // No QMetaType for QJSValue
+        // watchout there is a bug in toVariant when the QJSValue is an object..
         if (var.canConvert<QJSValue>()) {
             const auto m = var.value<QJSValue>();
             return xstudio::ui::qml::qvariant_to_json(m.toVariant());
@@ -453,6 +457,32 @@ void Helpers::inhibitScreenSaver(const bool inhibit) const {
 #endif
 }
 
+QVariant Helpers::python_callback(
+    QString method_name, QUuid python_plugin_uuid, const QVariant args) const {
+    try {
+
+        utility::JsonStore packed_args(xstudio::ui::qml::qvariant_to_json(args));
+        auto python_interp_actor =
+            CafSystemObject::get_actor_system().registry().template get<caf::actor>(
+                embedded_python_registry);
+
+        scoped_actor sys{CafSystemObject::get_actor_system()};
+        auto return_val = utility::request_receive<utility::JsonStore>(
+            *sys,
+            python_interp_actor,
+            embedded_python::python_exec_atom_v,
+            UuidFromQUuid(python_plugin_uuid),
+            StdFromQString(method_name),
+            packed_args);
+
+        return json_to_qvariant(return_val);
+
+    } catch (std::exception &e) {
+        spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+
+    return QVariant();
+}
 
 bool Helpers::startDetachedProcess(
     const QString &program,

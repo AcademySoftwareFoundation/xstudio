@@ -13,29 +13,27 @@ using namespace xstudio::ui::canvas;
 using namespace xstudio::ui::viewport;
 
 
-AnnotationsRenderer::AnnotationsRenderer() {
+AnnotationsRenderer::AnnotationsRenderer(const xstudio::ui::canvas::Canvas &interaction_canvas)
+    : interaction_canvas_(interaction_canvas) {
 
     canvas_renderer_.reset(new ui::opengl::OpenGLCanvasRenderer());
 }
 
-void AnnotationsRenderer::render_opengl(
+void AnnotationsRenderer::render_image_overlay(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
     const xstudio::media_reader::ImageBufPtr &frame,
     const bool have_alpha_buffer) {
 
-    utility::BlindDataObjectPtr render_data =
-        frame.plugin_blind_data(AnnotationsTool::PLUGIN_UUID);
-    const auto *data = dynamic_cast<const AnnotationRenderDataSet *>(render_data.get());
-
-    // if the uuid for the interaction canvas is null we always draw it because
-    // it is 'lazer' pen strokes
-    bool draw_interaction_canvas = data && data->current_edited_bookmark_uuid_.is_null();
-
+    std::unique_lock l(mutex_);
+    if (!annotations_visible_)
+        return;
     // the xstudio playhead takes care of attaching bookmark data to the
     // ImageBufPtr that we receive here. The bookmark data may have annotations
     // data attached which we can draw to screen....
+    bool draw_interaction_canvas = false;
+
     for (const auto &anno : frame.bookmarks()) {
 
         // .. we don't draw the annotation attached to the frame if its bookmark
@@ -43,8 +41,7 @@ void AnnotationsRenderer::render_opengl(
         // being edited. The reason is that the strokes and captions of this
         // annotation are already cloned into 'interaction_canvas_' which we
         // draw below.
-        if (data && anno->detail_.uuid_ == data->current_edited_bookmark_uuid_ &&
-            data->interaction_frame_key_ == to_string(frame.frame_id().key())) {
+        if (anno->detail_.uuid_ == current_edited_bookmark_uuid_) {
             draw_interaction_canvas = true;
             continue;
         }
@@ -63,23 +60,47 @@ void AnnotationsRenderer::render_opengl(
         }
     }
 
-    // xSTUDIO supports multiple viewports, each can show different media or
-    // different frames of the same media. If the user is drawing annotations in
-    // one viewport we may (or may not) want to draw those strokes in realtime
-    // in other viewports:
-    //
-    // When user is currently drawing, we store the 'key' for the frame they are
-    // drawing on. Current drawings are stored in data->interaction_canvas_ ...
-    // we only want to plot these if the frame we are rendering over here matches
-    // the key of the frame the user is being drawn on.
-    if (data && draw_interaction_canvas) {
+    if (draw_interaction_canvas || (current_edited_bookmark_uuid_.is_null() &&
+                                    (frame_being_annotated_ == frame.frame_id().key()))) {
         canvas_renderer_->render_canvas(
-            data->interaction_canvas_,
-            data->handle_,
+            interaction_canvas_,
+            handle_,
             transform_window_to_viewport_space,
             transform_viewport_to_image_space,
             viewport_du_dpixel,
             have_alpha_buffer,
             1.f);
     }
+}
+
+void AnnotationsRenderer::render_viewport_overlay(
+    const Imath::M44f &transform_window_to_viewport_space,
+    const Imath::M44f &transform_viewport_to_normalised_coords,
+    const float viewport_du_dpixel,
+    const bool have_alpha_buffer) {
+    std::unique_lock l(mutex_);
+    if (laser_drawing_mode_) {
+        canvas_renderer_->render_canvas(
+            interaction_canvas_,
+            handle_,
+            transform_window_to_viewport_space,
+            transform_viewport_to_normalised_coords,
+            viewport_du_dpixel,
+            have_alpha_buffer,
+            1.f);
+    }
+}
+
+void AnnotationsRenderer::update(
+    const bool show_annotations,
+    const xstudio::ui::canvas::HandleState &h,
+    const utility::Uuid &current_edited_bookmark_uuid,
+    const media::MediaKey &frame_being_annotated,
+    bool laser_mode) {
+    std::unique_lock l(mutex_);
+    handle_                       = h;
+    current_edited_bookmark_uuid_ = current_edited_bookmark_uuid;
+    laser_drawing_mode_           = laser_mode;
+    frame_being_annotated_        = frame_being_annotated;
+    annotations_visible_          = show_annotations;
 }

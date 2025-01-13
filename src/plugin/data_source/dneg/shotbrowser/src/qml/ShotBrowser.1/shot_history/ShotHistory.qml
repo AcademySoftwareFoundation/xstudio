@@ -53,6 +53,11 @@ Item{
         runQuery()
     }
 
+    XsPreference {
+        id: addAfterSelection
+        path: "/plugin/data_source/shotbrowser/add_after_selection"
+    }
+
     onOnScreenLogicalFrameChanged: {
         if(updateTimer.running) {
             updateTimer.restart()
@@ -176,11 +181,20 @@ Item{
                 queryCounter += 1
                 queryRunning += 1
                 let i = queryCounter
+
+
+                let customContext = {}
+                customContext["preset_name"] =  ShotBrowserEngine.presetsModel.get(
+                                    activeScopeIndex,
+                                    "nameRole"
+                                )
+
                 Future.promise(
                     ShotBrowserEngine.executeQuery(
                         [ShotBrowserEngine.presetsModel.get(activeScopeIndex, "jsonPathRole")],
                         {},
-                        custom
+                        custom,
+                        customContext
                     )
                 ).then(
                     function(json_string) {

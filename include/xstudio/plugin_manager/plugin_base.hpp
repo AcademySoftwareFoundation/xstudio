@@ -50,11 +50,19 @@ namespace plugin {
         the overlay can render ontop of the image, after it is drawn.
         If 'have_alpha_buffer' is false, the BeforeImage pass is not
         executed. */
-        virtual void render_opengl(
+        virtual void render_image_overlay(
             const Imath::M44f &transform_window_to_viewport_space,
             const Imath::M44f &transform_viewport_to_image_space,
             const float viewport_du_dpixel,
             const xstudio::media_reader::ImageBufPtr &frame,
+            const bool have_alpha_buffer){};
+
+        /* An overlay can render visuals to the viewport without an associated
+        image via this method. */
+        virtual void render_viewport_overlay(
+            const Imath::M44f &transform_window_to_viewport_space,
+            const Imath::M44f &transform_viewport_to_normalised_coords,
+            const float viewport_du_dpixel,
             const bool have_alpha_buffer){};
 
         [[nodiscard]] virtual RenderPass preferred_render_pass() const { return AfterImage; }
@@ -77,7 +85,6 @@ namespace plugin {
         }
 
       protected:
-
         void on_exit() override;
 
         virtual caf::message_handler message_handler_extensions() {
@@ -88,8 +95,9 @@ namespace plugin {
 
         // TODO: deprecate prepare_render_data and use this everywhere
         virtual utility::BlindDataObjectPtr onscreen_render_data(
-            const media_reader::ImageBufPtr & /*image*/, const std::string & /*viewport_name*/
-        ) const {
+            const media_reader::ImageBufPtr & /*image*/,
+            const std::string & /*viewport_name*/,
+            const utility::Uuid &playhead_uuid) const {
             return utility::BlindDataObjectPtr();
         }
 
@@ -101,13 +109,16 @@ namespace plugin {
             const bool /*playhead_playing*/
         ) {}
 
-        virtual ViewportOverlayRendererPtr make_overlay_renderer() {
+        virtual ViewportOverlayRendererPtr
+        make_overlay_renderer(const std::string &viewport_name) {
             return ViewportOverlayRendererPtr();
         }
 
         // Override this and return your own subclass of GPUPreDrawHook to allow
         // arbitrary GPU rendering (e.g. when in the viewport OpenGL context)
-        virtual GPUPreDrawHookPtr make_pre_draw_gpu_hook() { return GPUPreDrawHookPtr(); }
+        virtual GPUPreDrawHookPtr make_pre_draw_gpu_hook(const std::string &viewport_name) {
+            return GPUPreDrawHookPtr();
+        }
 
         // reimplement this function in an annotations plugin to return your
         // custom annotation class, based on bookmark::AnnotationBase base class.
@@ -129,11 +140,17 @@ namespace plugin {
         virtual void on_playhead_playing_changed(const bool // is playing
         ) {}
 
+        /* Reimplement to receive this notification telling us when the playhead driving a given
+        named viewport has changed */
+        virtual void
+        viewport_playhead_changed(const std::string &viewport_name, caf::actor playhead) {}
+
+
         /* Use this function to define the qml code that draws information over the xstudio
         viewport. See basic_viewport_masking and pixel_probe plugin examples. */
         void qml_viewport_overlay_code(const std::string &code);
 
-        /* Use this function to create a new bookmark on the given frame (as 
+        /* Use this function to create a new bookmark on the given frame (as
         per frame_details). See annotations_tool.cpp for example useage. */
         utility::Uuid create_bookmark_on_frame(
             const media::AVFrameID &frame_details,
@@ -204,10 +221,9 @@ namespace plugin {
         void join_studio_events();
 
         void __images_going_on_screen(
-            const media_reader::ImageBufDisplaySetPtr & image_set,
+            const media_reader::ImageBufDisplaySetPtr &image_set,
             const std::string viewport_name,
-            const bool playhead_playing
-        );
+            const bool playhead_playing);
 
         caf::actor_addr active_viewport_playhead_;
         caf::actor_addr playhead_media_events_group_;

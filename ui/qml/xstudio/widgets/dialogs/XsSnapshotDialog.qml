@@ -73,10 +73,12 @@ XsWindow {
                     0,
                     parseInt(widthInput.text),
                     parseInt(heightInput.text))
+
                 if (result != "") {
                     dialogHelpers.errorDialogFunc("Snapshot Failed", result)
                 } else {
-                    dlg.close()
+                    dialog.close()
+                    dialogHelpers.messageDialogFunc("Snapshot Saved", "Snapshot image saved to path " + fixedfileUrl)
                 }
             }
         }
@@ -182,7 +184,7 @@ XsWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: XsStyleSheet.widgetStdHeight
                     attr_title: "Display"
-                    attr_model_name: "offscreen_viewport1_toolbar"
+                    attr_model_name: "snapshot_viewport_toolbar"
                 }
 
                 XsLabel {
@@ -194,7 +196,7 @@ XsWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: XsStyleSheet.widgetStdHeight
                     attr_title: "View"
-                    attr_model_name: "offscreen_viewport1_toolbar"
+                    attr_model_name: "snapshot_viewport_toolbar"
                 }
 
             }

@@ -121,8 +121,8 @@ bool EmbeddedPython::connect(caf::actor actor) {
         // spdlog::warn("connect 1.5");
         auto pyactor = py::cast(actor);
         // spdlog::warn("connect 2.5");
-        auto local = py::dict("actor"_a = pyactor);
-
+        py::dict local;
+        local["actor"] = pyactor;
         // spdlog::warn("connect 2");
         exec(R"(
 XSTUDIO = Connection(
@@ -211,13 +211,17 @@ bool EmbeddedPython::remove_session(const utility::Uuid &session_uuid) {
 bool EmbeddedPython::input_session(
     const utility::Uuid &session_uuid, const std::string &input) {
     if (sessions_.count(session_uuid)) {
-        std::string clean_input = replace_all(input, "'", R"(\')");
+        std::string clean_input = rtrim(input);
         py::object scope        = py::module::import("__main__").attr("__dict__");
         py::exec(
-            "xstudio_sessions['" + to_string(session_uuid) + "'].interact_more('" +
-                rtrim(clean_input) + "')",
+            "xstudio_sessions['" + to_string(session_uuid) + "'].interact_more(\"\"\"" +
+                clean_input + "\"\"\")",
             scope);
         return true;
+    } else if (session_uuid.is_null()) {
+        std::string clean_input = rtrim(input);
+        py::object scope        = py::module::import("__main__").attr("__dict__");
+        py::exec(clean_input, scope);
     }
 
     return false;
@@ -296,6 +300,22 @@ void EmbeddedPython::add_message_callback(const py::tuple &cb_particulars) {
 
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
+    }
+}
+
+void EmbeddedPython::register_python_plugin_instance(const py::tuple &cb_particulars) {
+
+    if (cb_particulars.size() == 2) {
+
+        auto i                     = cb_particulars.begin();
+        auto plugin_object_instace = (*i).cast<py::object>();
+        i++;
+        auto plugin_instace_uuid              = (*i).cast<utility::Uuid>();
+        plugin_registry_[plugin_instace_uuid] = plugin_object_instace;
+
+    } else {
+        throw std::runtime_error("register_python_plugin_instance expecting tuple of size 2 "
+                                 "(plugin_object, plugin_uuid).");
     }
 }
 
@@ -385,6 +405,20 @@ void EmbeddedPython::run_callback(const utility::Uuid &id) {
     }
 }
 
+utility::JsonStore EmbeddedPython::run_plugin_callback(
+    const utility::Uuid &plugin_uuid,
+    const std::string method_name,
+    const utility::JsonStore &packed_args) {
+    if (plugin_registry_.find(plugin_uuid) == plugin_registry_.end()) {
+
+        throw std::runtime_error("Callback request supplied with python plugin UUID that is "
+                                 "not in plugin registry.");
+    }
+    py::object result =
+        plugin_registry_[plugin_uuid].attr("run_callback_func")(method_name, packed_args);
+    return result.cast<utility::JsonStore>();
+}
+
 void EmbeddedPython::s_add_message_callback(const py::tuple &cb_particulars) {
     if (s_instance_) {
         s_instance_->add_message_callback(cb_particulars);
@@ -403,12 +437,19 @@ void EmbeddedPython::s_run_callback_with_delay(const py::tuple &delayed_cb_args)
     }
 }
 
+void EmbeddedPython::s_register_python_plugin_instance(const py::tuple &args) {
+    if (s_instance_) {
+        s_instance_->register_python_plugin_instance(args);
+    }
+}
 
 PYBIND11_EMBEDDED_MODULE(XStudioExtensions, m) {
     // `m` is a `py::module_` which is used to bind functions and classes
     m.def("run_callback_with_delay", &EmbeddedPython::s_run_callback_with_delay);
     m.def("add_message_callback", &EmbeddedPython::s_add_message_callback);
     m.def("remove_message_callback", &EmbeddedPython::s_remove_message_callback);
+    m.def(
+        "register_python_plugin_instance", &EmbeddedPython::s_register_python_plugin_instance);
     py::class_<caf::message>(m, "CafMessage", py::module_local());
 }
 

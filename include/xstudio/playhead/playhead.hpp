@@ -79,7 +79,9 @@ namespace playhead {
         [[nodiscard]] timebase::flicks duration() const { return duration_; }
         [[nodiscard]] timebase::flicks effective_frame_period() const;
         [[nodiscard]] AssemblyMode assembly_mode() const { return assembly_mode_; }
-        [[nodiscard]] const utility::time_point & last_playhead_set_timepoint() const { return position_set_tp_; }
+        [[nodiscard]] const utility::time_point &last_playhead_set_timepoint() const {
+            return position_set_tp_;
+        }
 
         timebase::flicks clamp_timepoint_to_loop_range(const timebase::flicks pos) const;
 
@@ -167,9 +169,10 @@ namespace playhead {
         utility::Uuid step_backward_;
         utility::Uuid jump_to_first_frame_;
         utility::Uuid jump_to_last_frame_;
-        utility::Uuid jump_to_next_clip_;
-        utility::Uuid jump_to_previous_clip_;
+        utility::Uuid cycle_image_layer_up_;
+        utility::Uuid cycle_image_layer_down_;
 
+        bool deserialised_ = {false};
         float drag_start_x_;
         timebase::flicks drag_start_playhead_position_;
         utility::time_point click_timepoint_;

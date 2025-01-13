@@ -17,12 +17,11 @@ MediaKey::MediaKey(
     const int frame,
     const std::string &stream_id)
     : std::string(fmt::format(
-            fmt::runtime(key_format),
-            to_string(uri),
-            (frame == std::numeric_limits<int>::min() ? 0 : frame),
-            stream_id)) 
-{
-    hash_ = std::hash<std::string>{}(static_cast<const std::string&>(*this));
+          fmt::runtime(key_format),
+          to_string(uri),
+          (frame == std::numeric_limits<int>::min() ? 0 : frame),
+          stream_id)) {
+    hash_ = std::hash<std::string>{}(static_cast<const std::string &>(*this));
 }
 
 Media::Media(const JsonStore &jsn)

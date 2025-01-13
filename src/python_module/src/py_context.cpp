@@ -420,6 +420,21 @@ void py_context::py_remove_message_callback(const py::args &xs) {
     }
 }
 
+void py_context::py_register_python_plugin_instance(const py::args &xs) {
+
+    if (xs.size() == 2) {
+
+        auto i                     = xs.begin();
+        auto plugin_object_instace = (*i).cast<py::object>();
+        i++;
+        auto plugin_instace_uuid              = (*i).cast<xstudio::utility::Uuid>();
+        plugin_registry_[plugin_instace_uuid] = plugin_object_instace;
+
+    } else {
+        throw std::runtime_error("register_python_plugin_instance expecting tuple of size 2 "
+                                 "(plugin_object, plugin_uuid).");
+    }
+}
 
 void py_context::disconnect() {
     host_   = "";

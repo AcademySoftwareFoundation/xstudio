@@ -13,6 +13,7 @@ import xStudio 1.0
 
 import "./widgets"
 import "./delegates"
+import "./data_indicators"
 
 Rectangle{ id: header
     width: parent.width
@@ -22,6 +23,7 @@ Rectangle{ id: header
 
     property bool isSomeColumnResizedByDrag: false
     property alias model: repeater.model
+    property alias barWidth: titleBar.width
 
     property alias columns_model: columns_model
 
@@ -83,7 +85,6 @@ Rectangle{ id: header
         spacing: 0
 
         Repeater{
-
             id: repeater
             model: columns_model
         }
@@ -92,8 +93,7 @@ Rectangle{ id: header
         XsSecondaryButton{
 
             id: addBtn
-            // visible: false
-            Layout.preferredWidth: 20
+            Layout.preferredWidth: 25
             Layout.minimumHeight: XsStyleSheet.widgetStdHeight
             z: 1
             imgSrc: "qrc:/icons/add.svg"
@@ -116,18 +116,28 @@ Rectangle{ id: header
                     "resizable": true,
                     "size": 120,
                     "sortable": false,
-                    "title": "Frame Range"
+                    "title": "New Column"
                 }
-                columns_root_model.insertRowsData(
-                    columns_root_model.length-1,
+                var r = columns_root_model.rowCount()
+                columns_root_model.insertRowsSync(
+                    r,
                     1,
-                    columns_root_model.index(-1, -1),
-                    new_column)
+                    columns_root_model.index(-1, -1))                
+                columns_root_model.set(columns_root_model.index(r,0), new_column, "jsonRole")
+                
             }
 
 
         }
 
     }
+
+    // Expandable empty item
+    Item{
+        height: parent.height
+        anchors.left: titleBar.right
+        anchors.right: parent.right
+    }
+
 
 }

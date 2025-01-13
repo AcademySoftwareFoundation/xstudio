@@ -42,6 +42,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
     Q_PROPERTY(QDateTime requestedAt READ requestedAt NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap env READ env NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap context READ context NOTIFY stateChanged)
+    Q_PROPERTY(QVariant customContext READ customContext NOTIFY stateChanged)
 
     Q_PROPERTY(bool isGrouped READ isGrouped WRITE setIsGrouped NOTIFY isGroupedChanged)
     Q_PROPERTY(bool canBeGrouped READ canBeGrouped NOTIFY canBeGroupedChanged)
@@ -139,6 +140,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
     [[nodiscard]] QDateTime requestedAt() const;
     [[nodiscard]] QVariantMap env() const;
     [[nodiscard]] QVariantMap context() const;
+    [[nodiscard]] QVariant customContext() const;
 
     [[nodiscard]] bool isGrouped() const { return is_grouped_; }
     [[nodiscard]] bool canBeGrouped() const { return can_be_grouped_; }

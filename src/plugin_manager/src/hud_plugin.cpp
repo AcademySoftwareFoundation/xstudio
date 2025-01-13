@@ -18,7 +18,7 @@ HUDPluginBase::HUDPluginBase(
     const float toolbar_position)
     : plugin::StandardPlugin(cfg, name, init_settings) {
 
-    hud_data_ = add_boolean_attribute(name, name, true);
+    hud_data_ = add_boolean_attribute(name, name, false);
     hud_data_->expose_in_ui_attrs_group("hud_element_toggles");
 
     // add a preference path using the plugin name so that the status of the

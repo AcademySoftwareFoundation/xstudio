@@ -22,16 +22,12 @@ ContactSheetActor::ContactSheetActor(
     caf::actor_config &cfg, caf::actor playlist, const utility::JsonStore &jsn)
     : SubsetActor(cfg, playlist, jsn) {
 
-    if (jsn.contains("playhead")) {
-        playhead_serialisation_ = jsn["playhead"];
-    }
     init();
 }
 
 ContactSheetActor::ContactSheetActor(
     caf::actor_config &cfg, caf::actor playlist, const std::string &name)
-    : SubsetActor(cfg, playlist, name, "ContactSheet") 
-{
+    : SubsetActor(cfg, playlist, name, "ContactSheet") {
     init();
 }
 
@@ -40,92 +36,100 @@ void ContactSheetActor::init() {
     // here we join our own events channel. The 'change_event_group' just emits
     // change events when the underlying container (i.e. the SubSet base class)
     // changes, i.e. when media is added, removed or re-ordered
-    request(caf::actor_cast<caf::actor>(this), infinite, get_change_event_group_atom_v).then(
-        [=](caf::actor grp) {
-            join_broadcast(this, grp);
+    request(caf::actor_cast<caf::actor>(this), infinite, get_change_event_group_atom_v)
+        .then(
+            [=](caf::actor grp) { join_broadcast(this, grp); },
+            [=](caf::error &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            });
+
+
+    override_behaviour_ = caf::message_handler{
+
+        [=](duplicate_atom) -> result<UuidActor> {
+            // clone ourself..
+            auto actor =
+                spawn<ContactSheetActor>(caf::actor_cast<caf::actor>(playlist_), base_.name());
+            anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
+            // get uuid from actor..
+            try {
+                caf::scoped_actor sys(system());
+                // get uuid..
+                Uuid uuid = request_receive<Uuid>(*sys, actor, utility::uuid_atom_v);
+
+                // maybe not be safe.. as ordering isn't implicit..
+                std::vector<UuidActor> media_actors;
+                for (const auto &i : base_.media())
+                    media_actors.emplace_back(UuidActor(i, actors_[i]));
+
+                request_receive<bool>(
+                    *sys, actor, playlist::add_media_atom_v, media_actors, Uuid());
+
+                return UuidActor(uuid, actor);
+
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
+
+            return make_error(xstudio_error::error, "Invalid uuid");
         },
-        [=](caf::error &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-        });
-
-
-    override_behaviour_ = caf::message_handler {
 
         [=](playlist::create_playhead_atom) -> UuidActor {
-
             if (playhead_)
                 return playhead_;
             auto uuid  = utility::Uuid::generate();
             auto actor = spawn<playhead::PlayheadActor>(
                 std::string("Contact Sheet Playhead"),
+                playhead::GLOBAL_AUDIO,
                 selection_actor_,
                 uuid,
                 caf::actor_cast<caf::actor_addr>(this));
             link_to(actor);
 
             anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
-            
+
             playhead_ = UuidActor(uuid, actor);
 
-            // now get the playhead to load our media 
-            request(caf::actor_cast<caf::actor>(this), infinite, playlist::get_media_atom_v).then(
-                [=](const UuidActorVector &media) mutable {
-                    request(playhead_.actor(), infinite, playhead::source_atom_v, media).then(
-                        [=](bool) mutable {
-
-                            // restore the playhead state, if we have serialisation data
-                            if (!playhead_serialisation_.is_null()) {
-                                anon_send(playhead_.actor(), module::deserialise_atom_v, playhead_serialisation_);
-                            } else {
-                                anon_send(playhead_.actor(), playhead::compare_mode_atom_v, "Grid");
-                            }
-
-                        },
-                        [=](caf::error &err) {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        });
-                },
-                [=](caf::error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                });
-
-            return playhead_;
-
-        },
-        [=](utility::event_atom, utility::change_atom) {
-            if (!playhead_) return;
-            request(caf::actor_cast<caf::actor>(this), infinite, playlist::get_media_atom_v).then(
-                [=](const UuidActorVector &media) mutable {
-                    anon_send(playhead_.actor(), playhead::source_atom_v, media);
-                },
-                [=](caf::error &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                });
-
-        },
-        [=](utility::serialise_atom) -> result<JsonStore> {
-            auto rp = make_response_promise<JsonStore>();
-            JsonStore j;
-            j["base"] = SubsetActor::serialise();
-            if (playhead_) {
-                request(playhead_.actor(), infinite, utility::serialise_atom_v).then(
-                    [=](const utility::JsonStore &playhead_state) mutable {
-                        playhead_serialisation_ = playhead_state;
-                        j["playhead"] = playhead_state;
-                        rp.deliver(j);
+            // now get the playhead to load our media
+            request(caf::actor_cast<caf::actor>(this), infinite, playlist::get_media_atom_v)
+                .then(
+                    [=](const UuidActorVector &media) mutable {
+                        request(playhead_.actor(), infinite, playhead::source_atom_v, media)
+                            .then(
+                                [=](bool) mutable {
+                                    // restore the playhead state, if we have serialisation data
+                                    if (!playhead_serialisation_.is_null()) {
+                                        anon_send(
+                                            playhead_.actor(),
+                                            module::deserialise_atom_v,
+                                            playhead_serialisation_);
+                                    } else {
+                                        anon_send(
+                                            playhead_.actor(),
+                                            playhead::compare_mode_atom_v,
+                                            "Grid");
+                                    }
+                                },
+                                [=](caf::error &err) {
+                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                });
                     },
-                    [=](caf::error &err) mutable {
+                    [=](caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        rp.deliver(j);
                     });
 
-            } else {
-                if (!playhead_serialisation_.is_null()) {
-                    j["playhead"] = playhead_serialisation_;
-                }
-                rp.deliver(j);
-            }
-            return rp;
-        }
-        };
+            return playhead_;
+        },
+        [=](utility::event_atom, utility::change_atom) {
+            if (!playhead_)
+                return;
+            request(caf::actor_cast<caf::actor>(this), infinite, playlist::get_media_atom_v)
+                .then(
+                    [=](const UuidActorVector &media) mutable {
+                        anon_send(playhead_.actor(), playhead::source_atom_v, media);
+                    },
+                    [=](caf::error &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        }};
 }

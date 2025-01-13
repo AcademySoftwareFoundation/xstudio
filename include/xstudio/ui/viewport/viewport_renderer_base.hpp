@@ -41,7 +41,8 @@ namespace ui {
                 const media_reader::ImageBufDisplaySetPtr &images,
                 const Imath::M44f &window_to_viewport_matrix,
                 const Imath::M44f &viewport_to_image_matrix,
-                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) = 0;
+                const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
+                    &overlay_renderers) = 0;
 
             /**
              *  @brief Provide default preference dictionary for the viewport renderer
@@ -61,8 +62,8 @@ namespace ui {
              */
             virtual void set_prefs(const utility::JsonStore &prefs) = 0;
 
-            void
-            set_pre_renderer_hooks(const std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> &hooks) {
+            void set_pre_renderer_hooks(
+                const std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> &hooks) {
                 pre_render_gpu_hooks_ = hooks;
             }
 
@@ -86,15 +87,14 @@ namespace ui {
             }
 
           protected:
-
             /**
-             *  @brief Create a json dict with essential shader parameters for drawing 
+             *  @brief Create a json dict with essential shader parameters for drawing
              *  the image to the viewport.
              *
              *  @details The json dictionary returned from this function is as follows:
              *
-             *  mat4 to_coord_system (matrix to project from viewport to viewport coordinate system
-             *  mat4 to_canvas (matrix to transform from window area to viewport area)
+             *  mat4 to_coord_system (matrix to project from viewport to viewport coordinate
+             * system mat4 to_canvas (matrix to transform from window area to viewport area)
              *  bool use_bilinear_filtering (tells us whether to use bilinear pixel filtering)
              *  mat4 image_transform_matrix (transform image into viewport coordinate system)
              *
@@ -104,11 +104,11 @@ namespace ui {
                 const Imath::M44f &window_to_viewport_matrix,
                 const Imath::M44f &viewport_to_image_space,
                 const float viewport_du_dx,
-                const utility::JsonStore & layout_data,
+                const utility::JsonStore &layout_data,
                 const int image_index) const;
 
-        Imath::M44f mat;
-          
+            Imath::M44f mat;
+
             /**
              *  @brief Initialise the viewport.
              *

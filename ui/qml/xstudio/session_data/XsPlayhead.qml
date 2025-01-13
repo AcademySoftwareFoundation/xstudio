@@ -177,22 +177,35 @@ Item {
         id: __mediaTransitionFrames
         attributeTitle: "Media Transition Frames"
         model: playhead_attrs_model
-    }        
+    }
 
     XsAttributeValue {
         id: __sourceOffsetFrames
         attributeTitle: "Source Offset Frames"
         model: playhead_attrs_model
-    }            
+    }
 
     XsAttributeValue {
         id: __pinnedSourceMode
         attributeTitle: "Pinned Source Mode"
         model: playhead_attrs_model
-    }            
+    }
+
+    XsAttributeValue {
+        id: __stream
+        attributeTitle: "Stream"
+        model: playhead_attrs_model
+    }
+
+    XsAttributeValue {
+        id: __stream_options
+        role: "combo_box_options"
+        attributeTitle: "Stream"
+        model: playhead_attrs_model
+    }
 
         // access the value of the attribute called 'Compare' which is exposed in the
-    // viewport _toolbar. 
+    // viewport _toolbar.
     XsAttributeValue {
         id: __compare_mode
         attributeTitle: "Compare"
@@ -229,13 +242,15 @@ Item {
     property alias timecode: __playheadTimeCode.value
     property alias timecodeAsFrame: __playheadTimeCodeAsFrame.value
     property alias keySubplayheadIndex: __playheadKeyPlayheadIndex.value
-    property alias numSubPlayheads: __playheadNumSubPlayheads.value    
+    property alias numSubPlayheads: __playheadNumSubPlayheads.value
     property alias scrubbingFrames: __playheadScrubbing.value
     property alias mediaTransitionFrames: __mediaTransitionFrames.value
     property alias sourceOffsetFrames: __sourceOffsetFrames.value
     property alias pinnedSourceMode: __pinnedSourceMode.value
     property alias compare_mode: __compare_mode.value
     property alias timelineMode: __timelineMode.value
+    property alias current_image_stream: __stream.value
+    property alias image_stream_options: __stream_options.value
 
     /* This gives us a 'model' with one row - the row is the attribute data
     for the "Auto Align" attribute of the current playhead. We use it below

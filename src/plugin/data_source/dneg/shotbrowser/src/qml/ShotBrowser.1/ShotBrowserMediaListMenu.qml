@@ -352,6 +352,10 @@ Item {
             publish_to_dialog.show()
             publish_to_dialog.playlistProperties = viewedMediaSetProperties
         }
+        Component.onCompleted: {
+            helpers.setMenuPathPosition("Pipeline", "main menu bar", 3.0)
+        }
+
     }
 
     XsMenuModelItem {

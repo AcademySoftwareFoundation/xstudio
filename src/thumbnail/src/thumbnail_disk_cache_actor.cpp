@@ -370,7 +370,7 @@ TDCHelperActor::TDCHelperActor(caf::actor_config &cfg) : caf::event_based_actor(
                     }
                 }
                 return encode_save_thumb(thumbnail_path(path, thumb).string(), buffer);
-                
+
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
             }

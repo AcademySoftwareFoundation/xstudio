@@ -399,7 +399,7 @@ caf::message_handler BookmarksActor::message_handler() {
                 return std::vector<BookmarkDetail>();
 
             auto rp = make_response_promise<std::vector<BookmarkDetail>>();
-
+            auto w  = map_value_to_vec(bookmarks_);
             fan_out_request<policy::select_all>(
                 map_value_to_vec(bookmarks_), infinite, bookmark_detail_atom_v)
                 .then(
@@ -597,7 +597,8 @@ void BookmarksActor::init() {
 
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
-        for (auto it = std::begin(bookmarks_); it != std::end(bookmarks_); ++it) {
+        auto it = bookmarks_.begin();
+        while (it != bookmarks_.end()) {
             if (msg.source == it->second) {
                 demonitor(it->second);
                 // spdlog::warn("bookmark exited {}", to_string(it->first));
@@ -607,8 +608,9 @@ void BookmarksActor::init() {
                     utility::event_atom_v,
                     remove_bookmark_atom_v,
                     it->first);
-                bookmarks_.erase(it);
-                break;
+                it = bookmarks_.erase(it);
+            } else {
+                it++;
             }
         }
     });

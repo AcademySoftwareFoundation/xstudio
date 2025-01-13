@@ -24,11 +24,10 @@ namespace utility {
     class RemoteSessionFile {
       public:
         RemoteSessionFile(const std::string &file_path);
-        RemoteSessionFile(const std::string path, const int port, const bool sync = false);
+        RemoteSessionFile(const std::string path, const int port);
         RemoteSessionFile(
             const std::string path,
             const int port,
-            const bool sync,
             const std::string session_name,
             const std::string host   = "localhost",
             const bool force_cleanup = false);
@@ -37,12 +36,10 @@ namespace utility {
         [[nodiscard]] std::string path() const { return path_; }
         [[nodiscard]] std::string session_name() const { return session_name_; }
         [[nodiscard]] std::string filename() const {
-            return session_name_ + "_" + (sync_ ? "sync" : "api") + "_" + host_ + "_" +
-                   std::to_string(port_);
+            return session_name_ + "_api_" + host_ + "_" + std::to_string(port_);
         }
         [[nodiscard]] fs::path filepath() const;
         [[nodiscard]] std::string host() const { return host_; }
-        [[nodiscard]] bool sync() const { return sync_; }
         [[nodiscard]] int port() const { return port_; }
         [[nodiscard]] bool remove_on_delete() const { return remove_on_delete_; }
         void set_remove_on_delete(const bool remove = true) { remove_on_delete_ = remove; }
@@ -62,7 +59,6 @@ namespace utility {
         int port_              = {0};
         bool remove_on_delete_ = {false};
         pid_t pid_             = {0};
-        bool sync_             = {false};
         fs::file_time_type last_write_;
     };
 
@@ -73,10 +69,9 @@ namespace utility {
 
         void scan();
 
-        std::string create_session_file(const int port, const bool sync = false);
+        std::string create_session_file(const int port);
         void create_session_file(
             const int port,
-            const bool sync,
             const std::string session_name,
             const std::string host   = "localhost",
             const bool force_cleanup = false);
@@ -89,7 +84,6 @@ namespace utility {
 
 
         [[nodiscard]] std::optional<RemoteSessionFile> first_api() const;
-        [[nodiscard]] std::optional<RemoteSessionFile> first_sync() const;
         [[nodiscard]] std::optional<RemoteSessionFile>
         find(const std::string &session_name) const;
 

@@ -28,7 +28,7 @@ namespace playhead {
             const utility::TimeSourceMode time_source_mode_,
             const utility::FrameRate override_frame_rate_,
             const media::MediaType media_type,
-            const utility::Uuid & uuid = utility::Uuid::generate());
+            const utility::Uuid &uuid = utility::Uuid::generate());
         ~SubPlayhead();
 
         const char *name() const override { return NAME.c_str(); }
@@ -49,9 +49,7 @@ namespace playhead {
 
         void init();
 
-        caf::behavior make_behavior() override {
-            return behavior_;
-        }
+        caf::behavior make_behavior() override { return behavior_; }
 
         void broadcast_image_frame(
             const utility::time_point when_to_show_frame,
@@ -63,6 +61,8 @@ namespace playhead {
             const utility::time_point when_to_show_frame,
             std::shared_ptr<const media::AVFrameID> frame,
             const bool is_future_frame);
+
+        void broadcast_audio_samples();
 
         std::vector<timebase::flicks> get_lookahead_frame_pointers(
             media::AVFrameIDsAndTimePoints &result, const int max_num_frames);
@@ -125,7 +125,6 @@ namespace playhead {
         void bookmark_changed(const utility::UuidActor bookmark);
 
       protected:
-
         media::FrameTimeMap::iterator current_frame_iterator();
         media::FrameTimeMap::iterator current_frame_iterator(const timebase::flicks t);
 
@@ -146,13 +145,13 @@ namespace playhead {
 
         int logical_frame_                = {0};
         timebase::flicks position_flicks_ = timebase::k_flicks_zero_seconds;
-        bool playing_forwards_    = {true};
-        float playback_velocity_  = {1.0f};
-        int read_ahead_frames_    = {0};
-        int precache_start_frame_ = {std::numeric_limits<int>::lowest()};
-        int64_t frame_offset_         = {0};
+        bool playing_forwards_            = {true};
+        float playback_velocity_          = {1.0f};
+        int read_ahead_frames_            = {0};
+        int precache_start_frame_         = {std::numeric_limits<int>::lowest()};
+        int64_t frame_offset_             = {0};
         timebase::flicks forced_duration_ = timebase::k_flicks_zero_seconds;
-        utility::FrameRate default_rate_ = utility::FrameRate(timebase::k_flicks_24fps);
+        utility::FrameRate default_rate_  = utility::FrameRate(timebase::k_flicks_24fps);
         const bool source_is_timeline_;
 
         int pre_cache_read_ahead_frames_                           = {32};

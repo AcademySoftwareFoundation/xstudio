@@ -156,15 +156,15 @@ xstudio::media_reader::byte *ImageBuffer::allocate(const size_t _size) {
 }
 
 void ImageBufDisplaySet::finalise() {
-    
+
     utility::JsonStore image_info = nlohmann::json::parse("[]");
-    images_hash_ = 0;
+    images_hash_                  = 0;
     for (int i = 0; i < num_onscreen_images(); ++i) {
-        const auto & im = onscreen_image(i);
+        const auto &im = onscreen_image(i);
         nlohmann::json r;
         if (im) {
             r["image_size_in_pixels"] = im->image_size_in_pixels();
-            //r["image_pixels_bounding_box"] = im->image_pixels_bounding_box();
+            // r["image_pixels_bounding_box"] = im->image_pixels_bounding_box();
             r["pixel_aspect"] = im->pixel_aspect();
             images_hash_ += im.frame_id().key().hash();
         }
@@ -172,11 +172,10 @@ void ImageBufDisplaySet::finalise() {
     }
 
     as_json_.clear();
-    as_json_["image_info"] = image_info;
-    as_json_["hero_image_index"] = hero_sub_playhead_index_;
+    as_json_["image_info"]            = image_info;
+    as_json_["hero_image_index"]      = hero_sub_playhead_index_;
     as_json_["prev_hero_image_index"] = previous_hero_sub_playhead_index_;
-    hash_ = int64_t(std::hash<std::string>{}(as_json_.dump()));
-
+    hash_                             = int64_t(std::hash<std::string>{}(as_json_.dump()));
 }
 
 MediaReader::MediaReader(std::string name, const utility::JsonStore &)

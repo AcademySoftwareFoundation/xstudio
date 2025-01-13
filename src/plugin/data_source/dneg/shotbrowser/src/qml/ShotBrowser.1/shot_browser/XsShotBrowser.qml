@@ -212,6 +212,11 @@ Item{
         onValueChanged: setProjectIndex(true)
     }
 
+    XsPreference {
+        id: addAfterSelection
+        path: "/plugin/data_source/shotbrowser/add_after_selection"
+    }
+
     Item {
         // Hold properties that we want to persist between sessions.
         id: prefs
@@ -484,10 +489,9 @@ Item{
 
     function executeQuery() {
         if(currentPresetIndex && currentPresetIndex.valid) {
-
-            // nameFilter = ""
-            // pipeStep = ""
-            // onDisk = ""
+            let customContext = {}
+            customContext["project_name"] = projectPref.value
+            customContext["preset_name"] = ShotBrowserEngine.presetsModel.get(currentPresetIndex, "nameRole")
 
             resultsSelectionModel.clear()
 
@@ -499,7 +503,7 @@ Item{
 
                 Future.promise(
                     ShotBrowserEngine.executeQuery(
-                        [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], {}, [])
+                        [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], {}, [], customContext)
                     ).then(function(json_string) {
                         // console.log(json_string)
                         if(queryCounter == i) {
@@ -520,7 +524,7 @@ Item{
 
                 Future.promise(
                     ShotBrowserEngine.executeProjectQuery(
-                        [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], projectId, {}, [])
+                        [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], projectId, {}, [], customContext)
                     ).then(function(json_string) {
                         // console.log(json_string)
                         if(queryCounter == i) {
@@ -570,7 +574,7 @@ Item{
                     let i = queryCounter
                     Future.promise(
                         ShotBrowserEngine.executeProjectQuery(
-                            [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], projectId, {}, custom)
+                            [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], projectId, {}, custom, customContext)
                         ).then(function(json_string) {
                             // console.log(json_string)
                             if(queryCounter == i) {

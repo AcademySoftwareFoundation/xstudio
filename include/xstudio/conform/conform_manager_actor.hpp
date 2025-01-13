@@ -100,6 +100,7 @@ class ConformWorkerActor : public caf::event_based_actor {
     inline static const std::string NAME = "ConformWorkerActor";
     caf::behavior behavior_;
     std::vector<caf::actor> conformers_;
+    bool initialised_{false};
 };
 
 class ConformManagerActor : public caf::event_based_actor, public module::Module {

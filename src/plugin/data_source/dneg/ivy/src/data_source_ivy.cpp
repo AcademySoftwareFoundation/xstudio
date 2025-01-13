@@ -609,7 +609,7 @@ void IvyMediaWorker::get_show_stalk_uuid(
                 static std::regex res_re(R"(^\d+x\d+$)");
                 std::cmatch m;
                 auto dnuuid = utility::Uuid();
-                auto show   = std::string("");
+                auto show   = std::string();
 
                 // turn paths into possible dir locations...
                 std::set<fs::path> paths;
@@ -617,11 +617,25 @@ void IvyMediaWorker::get_show_stalk_uuid(
                     auto tmp            = fs::path(uri_to_posix_path(i.uri())).parent_path();
                     const auto filename = tmp.filename().string();
 
-                    if (std::regex_match(filename.c_str(), m, res_re))
-                        paths.insert(tmp.parent_path());
-                    else {
+                    if (std::regex_match(filename.c_str(), m, res_re)) {
+                        // depth is sort of random..
+                        // we recurse up till we reach the TWIGTYPE level e.g. SHOT/CG
+                        tmp = tmp.parent_path();
+                        paths.insert(tmp);
+
+                        while (true) {
+                            tmp      = tmp.parent_path();
+                            auto str = tmp.string();
+                            if (std::count_if(str.begin(), str.end(), [](char c) {
+                                    return c == '/';
+                                }) < 5)
+                                break;
+                            paths.insert(tmp);
+                        }
+                    } else {
                         // movie path...
                         // extract
+                        // best try...
                         auto stalk = filename;
                         tmp        = tmp.parent_path();
                         auto type  = to_upper(filename);

@@ -122,7 +122,6 @@ class PlaylistTree(object):
 
         return self._children
 
-
 class Container(ActorConnection):
     def __init__(self, connection, remote, uuid=None):
         """Create Container object.
@@ -157,7 +156,7 @@ class Container(ActorConnection):
                 (self.group, callback_function, self.remote)
                 )
         else:
-            self.connection.link.run_callback_with_delay(
+            self.connection.link.add_message_callback(
                 (self.group, callback_function, self.remote)
                 )
 
@@ -176,7 +175,7 @@ class Container(ActorConnection):
                 (self.group, callback_function)
                 )
         else:
-            self.connection.remove_message_callback(
+            self.connection.link.remove_message_callback(
                 (self.group, callback_function)
                 )
 

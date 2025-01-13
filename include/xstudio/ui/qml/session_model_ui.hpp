@@ -156,6 +156,10 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE void
     mergeRows(const QModelIndexList &indexes, const QString &name = "Combined Playlist");
 
+    Q_INVOKABLE QString getNextName(const QString &nameTemplate) const;
+
+    Q_INVOKABLE void setSessionSelection(const QModelIndexList &indexes) const;
+
     // begin timeline operations
 
     Q_INVOKABLE bool
@@ -184,6 +188,11 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
 
     Q_INVOKABLE QModelIndex
     getTimelineClipIndex(const QModelIndex &timelineIndex, const int frame);
+
+    Q_INVOKABLE int getNextTimelineClipFrame(const QModelIndex &timelineIndex, const int frame);
+
+    Q_INVOKABLE int
+    getPreviousTimelineClipFrame(const QModelIndex &timelineIndex, const int frame);
 
     Q_INVOKABLE void resetTimelineItemDragFlag(const QModelIndexList &items);
     Q_INVOKABLE void updateTimelineItemDragFlag(
@@ -282,7 +291,6 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         const QString &name = "Clip");
     Q_INVOKABLE QModelIndex splitTimelineClip(const int frame, const QModelIndex &index);
 
-
     Q_INVOKABLE bool moveTimelineItem(const QModelIndex &index, const int distance);
     Q_INVOKABLE bool moveRangeTimelineItems(
         const QModelIndex &track_index,
@@ -293,8 +301,9 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE bool
     alignTimelineItems(const QModelIndexList &indexes, const bool align_right = true);
 
-    Q_INVOKABLE QFuture<bool>
-    exportOTIO(const QModelIndex &timeline, const QUrl &path, const QString &type = "otio");
+    Q_INVOKABLE QFuture<bool> exportOTIO(
+        const QModelIndex &timeline, const QUrl &path, const QString &type = "otio_json");
+    Q_INVOKABLE QVariantList getTimelineExportTypes() const;
 
     // end timeline operations
 
@@ -402,7 +411,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE void updateSelection(
         const QModelIndex &index,
         const QModelIndexList &selection,
-        const QItemSelectionModel::SelectionFlags &mode = QItemSelectionModel::ClearAndSelect);
+        const int mode = QItemSelectionModel::ClearAndSelect);
     Q_INVOKABLE void
     updateMediaListFilterString(const QModelIndex &index, const QString &filter_string);
     Q_INVOKABLE void gatherMediaFor(const QModelIndex &index, const QModelIndexList &selection);
@@ -459,6 +468,8 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
 
     Q_INVOKABLE void
     setTimelineFocus(const QModelIndex &timeline, const QModelIndexList &indexes) const;
+    Q_INVOKABLE void
+    setTimelineSelection(const QModelIndex &timeline, const QModelIndexList &indexes) const;
 
     Q_INVOKABLE bool undo(const QModelIndex &index) { return undoFuture(index).result(); }
     Q_INVOKABLE bool redo(const QModelIndex &index) { return redoFuture(index).result(); }

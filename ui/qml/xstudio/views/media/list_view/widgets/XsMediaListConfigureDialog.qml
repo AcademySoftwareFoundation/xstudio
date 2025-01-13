@@ -513,6 +513,8 @@ metadata with media that isn't from your pipeline.`
                         "Are you sure you want to remove the " + column_title + " column?",
                         ["Remove Column", "Cancel"],
                         undefined)
+
+                        // dialog.visible = false
                 }
             }
 
@@ -521,9 +523,10 @@ metadata with media that isn't from your pipeline.`
                 Layout.preferredHeight: XsStyleSheet.widgetStdHeight
                 visible: !is_backup
                 onClicked: {
+                    console.log("model_index", model_index)
                     var r = model_index.row
                     if (r) {
-                        var p = model_index.parent
+                        var p = model_index
                         model_index.model.moveRows(
                             model_index.parent,
                             model_index.row,
@@ -531,7 +534,7 @@ metadata with media that isn't from your pipeline.`
                             model_index.parent,
                             model_index.row-1
                             )
-                        model_index = p.model.index(r-1, 0, p)
+                        model_index = p.model.index(r-1, 0)
                     }
                 }
             }
@@ -543,7 +546,7 @@ metadata with media that isn't from your pipeline.`
                 onClicked: {
                     var r = model_index.row
                     if (r < (model_index.model.rowCount(model_index.parent)-1)) {
-                        var p = model_index.parent
+                        var p = model_index
                         model_index.model.moveRows(
                             model_index.parent,
                             model_index.row,
@@ -551,7 +554,7 @@ metadata with media that isn't from your pipeline.`
                             model_index.parent,
                             model_index.row+2
                             )
-                        model_index = p.model.index(r+1, 0, p)
+                        model_index = p.model.index(r+1, 0)
                     }
                 }
             }

@@ -43,7 +43,6 @@ if(INSTALL_XSTUDIO)
 	add_src_and_test(shotgun_client)
 	add_src_and_test(studio)
 	add_src_and_test(subset)
-	add_src_and_test(sync)
 	add_src_and_test(thumbnail)
 	add_src_and_test(ui)
 

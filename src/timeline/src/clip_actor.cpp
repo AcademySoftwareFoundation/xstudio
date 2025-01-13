@@ -18,32 +18,6 @@ using namespace xstudio::utility;
 using namespace xstudio::timeline;
 using namespace caf;
 
-namespace {
-            class DebugTimer {
-          public:
-            DebugTimer(std::string p, int frame) : path_(std::move(p)), frame_(frame) {
-                t1_ = utility::clock::now();
-            }
-
-            ~DebugTimer() {
-                std::cerr << "Reading" << path_ << " @ " << frame_ << " done in "
-                          << double(std::chrono::duration_cast<std::chrono::microseconds>(
-                                        utility::clock::now() - t1_)
-                                        .count()) /
-                                 1000000.0
-                          << " seconds\n";
-            }
-            void gronk() {
-                std::cerr << "BAT\n";
-            }
-          private:
-            utility::time_point t1_;
-            const std::string path_;
-            const int frame_;
-        };
-
-
-}
 
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
@@ -123,7 +97,8 @@ ClipActor::ClipActor(
     init();
 }
 
-void ClipActor::link_media(caf::typed_response_promise<bool> rp, const UuidActor &media) {
+void ClipActor::link_media(
+    caf::typed_response_promise<bool> rp, const UuidActor &media, const bool refresh) {
 
     // spdlog::warn("link_media_atom {}", to_string(media));
     auto old_media_actor = caf::actor_cast<caf::actor>(media_);
@@ -132,9 +107,12 @@ void ClipActor::link_media(caf::typed_response_promise<bool> rp, const UuidActor
         leave_event_group(this, old_media_actor);
     }
 
-    monitor(media.actor());
-    join_event_group(this, media.actor());
-    media_ = caf::actor_cast<caf::actor_addr>(media.actor());
+    if(media.actor()) {
+        monitor(media.actor());
+        join_event_group(this, media.actor());
+        media_ = caf::actor_cast<caf::actor_addr>(media.actor());
+    } else
+        media_ = caf::actor_addr();
 
     auto jsn = base_.set_media_uuid(media.uuid());
     if (not jsn.is_null())
@@ -144,20 +122,28 @@ void ClipActor::link_media(caf::typed_response_promise<bool> rp, const UuidActor
     image_ptr_cache_.clear();
     audio_ptr_cache_.clear();
 
-    // force update ?
-    // cache available range ?
-    delayed_send(
-        caf::actor_cast<caf::actor>(this),
-        std::chrono::milliseconds(100),
-        media::acquire_media_detail_atom_v);
+    if (refresh) {
+        // force update ?
+        // cache available range ?
+        if(media.actor()) {
+            delayed_send(
+                caf::actor_cast<caf::actor>(this),
+                std::chrono::milliseconds(100),
+                media::acquire_media_detail_atom_v);
 
-    // replace clip name ?
-    request(media.actor(), infinite, name_atom_v)
-        .then(
-            [=](const std::string &value) mutable { anon_send(this, item_name_atom_v, value); },
-            [=](const caf::error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-            });
+            // replace clip name ?
+            request(media.actor(), infinite, name_atom_v)
+                .then(
+                    [=](const std::string &value) mutable {
+                        anon_send(this, item_name_atom_v, value);
+                    },
+                    [=](const caf::error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    });
+        } else {
+            anon_send(this, item_name_atom_v, "NO CLIP");
+        }
+    }
 
     rp.deliver(true);
 }
@@ -207,7 +193,8 @@ caf::message_handler ClipActor::message_handler() {
                 link_media(
                     rp,
                     UuidActor(
-                        swap.at(base_.media_uuid()), media.at(swap.at(base_.media_uuid()))));
+                        swap.at(base_.media_uuid()), media.at(swap.at(base_.media_uuid()))),
+                    false);
             } else
                 rp.deliver(false);
 
@@ -231,6 +218,8 @@ caf::message_handler ClipActor::message_handler() {
                 send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
             return jsn;
         },
+
+        [=](item_type_atom) -> ItemType { return base_.item().item_type(); },
 
         [=](item_lock_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_locked(value);
@@ -573,6 +562,13 @@ caf::message_handler ClipActor::message_handler() {
         },
 
         [=](utility::event_atom, utility::change_atom) {
+            // something has changed. It means we might need to re-generate our
+            // frame pointers for playback. For example, if media source metadata
+            // has changed that affects colour management, we need to re-gernerate
+            // the frame pointers that carry the colour management data to the
+            // playhead and up to the viewport.
+            image_ptr_cache_.clear();
+            audio_ptr_cache_.clear();
             send(base_.event_group(), utility::event_atom_v, utility::change_atom_v);
         },
 
@@ -635,7 +631,6 @@ caf::message_handler ClipActor::message_handler() {
             const media::MediaType media_type,
             const std::vector<FrameRate> &timepoints,
             const FrameRate &override_rate) -> result<media::AVFrameIDs> {
-
             if (media_) {
 
 
@@ -645,7 +640,8 @@ caf::message_handler ClipActor::message_handler() {
                 // the 'result' here is a vector of std::shared_ptr<const media::AVFrameID> -
                 // one element per frame timepoint. We initialise it with blank frames and
                 // the logic below will fill in actual frames where possible
-                media::AVFrameID blank = *(media::make_blank_frame(media_type, base_.media_uuid(), utility::Uuid(), base_.uuid()));
+                media::AVFrameID blank = *(media::make_blank_frame(
+                    media_type, base_.media_uuid(), utility::Uuid(), base_.uuid()));
                 auto blank_ptr         = std::make_shared<const media::AVFrameID>(blank);
 
                 // the result data
@@ -744,8 +740,10 @@ caf::message_handler ClipActor::message_handler() {
                                 auto mp = mps.begin();
                                 int ct  = 0;
                                 for (size_t i = 0; i < indexs.size(); i++) {
+
                                     auto ind = indexs[i];
                                     auto rng = ranges[i];
+
                                     for (auto ii = rng.first; ii <= rng.second; ii++, ind++) {
 
                                         // if we got our logic above correct this shouldn't
@@ -754,21 +752,22 @@ caf::message_handler ClipActor::message_handler() {
                                         if (mp == mps.end())
                                             break;
 
+                                        std::shared_ptr<const media::AVFrameID> foo = *mp;
+
                                         if (media_type == media::MediaType::MT_IMAGE) {
-                                            image_ptr_cache_[ii] = *mp;
-                                            (*result)[ind]       = *mp;//image_ptr_cache_[ii];
+                                            image_ptr_cache_[ii] = foo;
+                                            (*result)[ind]       = foo; // image_ptr_cache_[ii];
 
                                             // spdlog::warn("{}", (*mp)->key_);
                                         } else if (media_type == media::MediaType::MT_AUDIO) {
-                                            audio_ptr_cache_[ii] = *mp;
-                                            (*result)[ind]       = audio_ptr_cache_[ii];
+                                            audio_ptr_cache_[ii] = foo;
+                                            (*result)[ind]       = foo;
                                         }
                                         mp++;
                                     }
                                 }
                                 // spdlog::warn("deliver {}", result->size());
                                 rp.deliver(*result);
-
                             },
                             [=](error &err) mutable {
                                 // can get an error for missing media - instead
@@ -875,14 +874,9 @@ caf::message_handler ClipActor::message_handler() {
             const media::MediaType media_type,
             const utility::TimeSourceMode tsm,
             const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
-                
             // This is required by SubPlayhead actor to make the track
             // playable.
-            return base_.item().get_all_frame_IDs(
-                media_type,
-                tsm,
-                override_rate);
-
+            return base_.item().get_all_frame_IDs(media_type, tsm, override_rate);
         }};
 }
 
@@ -893,8 +887,11 @@ void ClipActor::init() {
     // we die if our media dies.
     set_down_handler([=](down_msg &msg) {
         if (msg.source == media_) {
-            demonitor(caf::actor_cast<caf::actor>(media_));
-            send_exit(this, caf::exit_reason::user_shutdown);
+            // just unset media.
+            // anon_send(this, link_media_atom_v, UuidActor());
+
+            // demonitor(caf::actor_cast<caf::actor>(media_));
+            // send_exit(this, caf::exit_reason::user_shutdown);
         }
     });
 }

@@ -62,6 +62,20 @@ XsListView {
             XsColourPreference {
             }
         }
+        DelegateChoice {
+            roleValue: "json"
+            Item {
+
+                id: parent_item
+                width: parent.width
+                height: XsStyleSheet.widgetStdHeight            
+                property var dynamic_widget
+                property var qml_code_: optionsRole
+                onQml_code_Changed: {
+                    dynamic_widget = Qt.createQmlObject(qml_code_, parent_item)
+                }
+            }
+        }
 
     }
 }

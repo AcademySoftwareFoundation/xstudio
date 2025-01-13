@@ -92,7 +92,7 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
         result = JSONTreeModel::removeRows(row, count, parent);
 
         if (media) {
-            //spdlog::warn("mediaCountRole 2 {}", rowCount(parent));
+            // spdlog::warn("mediaCountRole 2 {}", rowCount(parent));
             setData(parent.parent(), QVariant::fromValue(rowCount(parent)), mediaCountRole);
         }
     }
@@ -176,7 +176,8 @@ bool SessionModel::duplicateRows(int row, int count, const QModelIndex &parent) 
                     nlohmann::json &j = indexToData(index);
 
                     if (j.at("type") == "ContainerDivider" or j.at("type") == "Subset" or
-                        j.at("type") == "Timeline" or j.at("type") == "Playlist" or j.at("type") == "ContactSheet") {
+                        j.at("type") == "Timeline" or j.at("type") == "Playlist" or
+                        j.at("type") == "ContactSheet") {
                         auto pactor = actorFromIndex(index.parent(), true);
 
                         if (pactor) {
@@ -578,7 +579,11 @@ QModelIndexList SessionModel::insertRows(
 
                         for (auto i = 0; i < count; i++) {
                             anon_send(
-                                actor, playlist::create_contact_sheet_atom_v, name, before, false);
+                                actor,
+                                playlist::create_contact_sheet_atom_v,
+                                name,
+                                before,
+                                false);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -724,9 +729,6 @@ QModelIndexList SessionModel::insertRows(
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
-
-    qDebug() << "result " << result << "\n";
-
     return result;
 }
 

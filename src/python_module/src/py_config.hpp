@@ -220,23 +220,23 @@ class py_config : public caf::actor_system_config {
 
     class int_py_binding : public py_binding {
       public:
-      using py_binding::py_binding;
-      void append(message_builder &xs, py::handle x) const override { 
-        // Awkward! PyBind chucks an error if you try to cast a python int 
-        // (which is actually a long or long long) to a C int if the python 
-        // int value > INT_MAX.
-        long foo = 12412;
-        int64_t a = PyLong_AsLong(x.ptr());
-        int b = int(a);
-        if (a != int64_t(b)) {
-          xs.append(a); 
-        } else {
-          xs.append(b); 
-        }        
-      }
+        using py_binding::py_binding;
+        void append(message_builder &xs, py::handle x) const override {
+            // Awkward! PyBind chucks an error if you try to cast a python int
+            // (which is actually a long or long long) to a C int if the python
+            // int value > INT_MAX.
+            long foo  = 12412;
+            int64_t a = PyLong_AsLong(x.ptr());
+            int b     = int(a);
+            if (a != int64_t(b)) {
+                xs.append(a);
+            } else {
+                xs.append(b);
+            }
+        }
     };
 
-     void add_int_py() {
+    void add_int_py() {
         auto ptr = new int_py_binding("int");
         py_bindings_.emplace("int", py_binding_ptr{ptr});
         bindings_.emplace(std::move("int"), ptr);

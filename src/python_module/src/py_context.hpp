@@ -48,6 +48,7 @@ class py_context : public py_config {
     void py_run_xstudio_message_loop();
     void py_add_message_callback(const py::args &xs);
     void py_remove_message_callback(const py::args &xs);
+    void py_register_python_plugin_instance(const py::args &xs);
 
     actor py_self() { return self_; }
     actor py_remote() { return remote_; }
@@ -94,5 +95,6 @@ class py_context : public py_config {
     std::map<caf::actor_addr, std::vector<py::function>> message_handler_callbacks_;
     std::map<caf::actor_addr, py::function> message_conversion_function_;
     std::map<xstudio::utility::Uuid, py::function> delayed_callbacks_;
+    std::map<xstudio::utility::Uuid, py::object> plugin_registry_;
 };
 } // namespace caf::python

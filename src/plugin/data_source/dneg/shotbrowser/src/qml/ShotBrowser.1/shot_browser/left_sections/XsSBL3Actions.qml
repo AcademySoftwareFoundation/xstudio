@@ -109,13 +109,17 @@ Rectangle{
             // only run, if selection in tree.
             if(custom.length) {
 
+                let customContext = {}
+                customContext["preset_name"] = ShotBrowserEngine.presetsModel.get(queryIndex, "nameRole")
+                customContext["project_name"] = projectPref.value
+
                 let result_json = []
                 let result_count = custom.length
 
                 for(let i = 0; i< result_count;i++) {
                     Future.promise(
                         ShotBrowserEngine.executeProjectQuery(
-                            [ShotBrowserEngine.presetsModel.get(queryIndex, "jsonPathRole")], pi, {}, [custom[i]])
+                            [ShotBrowserEngine.presetsModel.get(queryIndex, "jsonPathRole")], pi, {}, [custom[i]], customContext)
                         ).then(function(json_string) {
                             result_json[i] = json_string
                             result_count -= 1
@@ -126,7 +130,7 @@ Rectangle{
                                     indexes.push(quickResults.index(j,0))
                                 }
                                 if(action == "playlist") {
-                                    ShotBrowserHelpers.addToCurrent(indexes, false)
+                                    ShotBrowserHelpers.addToCurrent(indexes, false, addAfterSelection.value)
                                 } else if(action == "sequence") {
                                     let seq_map = {}
 
@@ -153,7 +157,7 @@ Rectangle{
                                     indexes.push(quickResults.index(j,0))
 
                                 if(action == "playlist") {
-                                    ShotBrowserHelpers.addToCurrent(indexes, false)
+                                    ShotBrowserHelpers.addToCurrent(indexes, false, addAfterSelection.value)
                                 } else if(action == "sequence") {
 
                                 }

@@ -14,7 +14,7 @@ Rectangle{
     color: "transparent"
     property bool showBorder: false
     property bool forcedHover: hovered
-    property int highlightBorderThickness: 5
+    property int highlightBorderThickness: 6
     clip: true
 
     XsText{

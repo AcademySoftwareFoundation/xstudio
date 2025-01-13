@@ -5,6 +5,41 @@
 
 namespace xstudio::utility {
 
+Notification::Notification(const JsonStore &jsn) {
+    uuid_ = jsn.value("uuid", Uuid());
+
+    auto type = jsn.value("type", "UNKNOWN");
+    type_     = NT_UNKNOWN;
+
+    if (type == "INFO")
+        type_ = NT_INFO;
+    else if (type == "WARN")
+        type_ = NT_WARN;
+    else if (type == "PROCESSING")
+        type_ = NT_PROCESSING;
+    else if (type == "PROGRESS_RANGE")
+        type_ = NT_PROGRESS_RANGE;
+    else if (type == "PROGRESS_PERCENTAGE")
+        type_ = NT_PROGRESS_PERCENTAGE;
+
+    expires_ = jsn.value("expires", utility::sysclock::now());
+
+    if (type_ == NT_PROGRESS_RANGE) {
+        progress_minimum_ = jsn.value("min_progress", 0.f);
+        progress_maximum_ = jsn.value("max_progress", 0.f);
+        progress_         = jsn.value("progress", 0.f);
+        text_             = jsn.value("_text", "");
+    } else if (type_ == NT_PROGRESS_PERCENTAGE) {
+        progress_minimum_ = jsn.value("min_progress", 0.f);
+        progress_maximum_ = jsn.value("max_progress", 0.f);
+        progress_         = jsn.value("progress", 0.f);
+        text_             = jsn.value("_text", "");
+    } else {
+        text_ = jsn.value("_text", "");
+    }
+}
+
+
 void to_json(nlohmann::json &j, const Notification &n) {
     j["uuid"] = n.uuid_;
     switch (n.type_) {
@@ -35,14 +70,17 @@ void to_json(nlohmann::json &j, const Notification &n) {
         j["progress"]         = n.progress_;
         j["progress_percent"] = n.progress_percentage();
         j["text"]             = n.progress_text_range();
+        j["_text"]            = n.text_;
     } else if (n.type_ == NT_PROGRESS_PERCENTAGE) {
         j["min_progress"]     = n.progress_minimum_;
         j["max_progress"]     = n.progress_maximum_;
         j["progress"]         = n.progress_;
         j["progress_percent"] = n.progress_percentage();
         j["text"]             = n.progress_text_percentage();
+        j["_text"]            = n.text_;
     } else {
-        j["text"] = n.text_;
+        j["text"]  = n.text_;
+        j["_text"] = n.text_;
     }
 }
 
@@ -57,6 +95,12 @@ NotificationHandler::message_handler(caf::event_based_actor *act, caf::actor eve
 
     return caf::message_handler(
         {[=](notification_atom) -> JsonStore { return digest(); },
+         [=](notification_atom, notification_atom) -> std::vector<Notification> {
+             auto result = std::vector<Notification>();
+             result.reserve(notifications_.size());
+             result.insert(result.end(), notifications_.begin(), notifications_.end());
+             return result;
+         },
          [=](notification_atom, const Uuid &uuid) -> bool {
              auto result = remove_notification(uuid);
              if (result)

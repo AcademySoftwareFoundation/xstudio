@@ -19,10 +19,12 @@ import "./main_menu_bar/help_menu" // for XsReleaseNotes
 ApplicationWindow {
 
     id: appWindow
-    visible: true
+    visible: false
     color: "#000000"
     title: (sessionPathNative ? (theSessionData.modified ? sessionPathNative + " - modified": sessionPathNative) : "xSTUDIO")
     objectName: "xstudio_main_window"
+    minimumWidth: 150
+    minimumHeight: 100
 
     property var window_name: "main_window"
 
@@ -54,6 +56,7 @@ ApplicationWindow {
             appWindow.width = ui_layouts_model.get(ui_layouts_model.root_index, "width")
             appWindow.height = ui_layouts_model.get(ui_layouts_model.root_index, "height")
             numLayouts = ui_layouts_model.rowCount(root_index)
+            visible = true
         }
         property var numLayouts: 0
 
@@ -459,7 +462,6 @@ ApplicationWindow {
 
         // Now the main window is complete, we can load video output plugins
         studio.loadVideoOutputPlugins()
-
     }
 
     // here we instance 'singleton' items that may or may not be provided
@@ -530,7 +532,10 @@ ApplicationWindow {
             }
             Component {
                 id: popout
+
                 XsFloatingViewWindow {
+                    name: view_name
+                    content_qml: view_qml_source
                 }
             }
 

@@ -234,15 +234,12 @@ Rectangle {
         onSelectionChanged: {
             updateFocus()
             updateLoop()
+            theSessionData.setTimelineSelection(timeline_items.rootIndex, timelineSelection.selectedIndexes)
         }
     }
 
-    function viewedMediaSetChanged() {
-
-        if(viewedMediaSetProperties.index.valid && viewedMediaSetProperties.values.typeRole == "Timeline") {
-            forceActiveFocus()
+    function initTimeline(retry=true) {
             let timelineIndex = theSessionData.index(2, 0, viewedMediaSetProperties.index)
-            if (timelineIndex == timeline_items.rootIndex) return
 
             if (theSessionData.rowCount(timelineIndex) == 0) {
                 // the timeline item data hasn't been 'fetched' from the backend.
@@ -252,14 +249,10 @@ Rectangle {
                 // the timeline UI components)
                 timeline_items.srcModel = null_list
                 theSessionData.fetchMore(timelineIndex)
-                callbackTimer.setTimeout(function(index) { return function() {
-                    timeline_items.srcModel = theSessionData
-                    timeline_items.rootIndex = helpers.makePersistent(index)
-                    have_timeline = true
-                    updateConformSourceIndex()
-                    fitItems()
-                    // conformSourceIndex = getVideoTrackIndex(1)
-                    }}( timelineIndex ), 200);
+                callbackTimer.setTimeout(function() { return function() {
+                        initTimeline()
+                        }}(), 200);
+
             } else {
                 timeline_items.srcModel = theSessionData
                 timeline_items.rootIndex = helpers.makePersistent(timelineIndex)
@@ -269,6 +262,19 @@ Rectangle {
                     fitItems()
                     }}(), 200);
             }
+    }
+
+    function viewedMediaSetChanged() {
+
+        if(viewedMediaSetProperties.index.valid && viewedMediaSetProperties.values.typeRole == "Timeline") {
+            forceActiveFocus()
+
+            if (theSessionData.index(2, 0, viewedMediaSetProperties.index) == timeline_items.rootIndex)
+                return
+
+            callbackTimer.setTimeout(function() { return function() {
+                    initTimeline()
+                    }}(), 50);
 
         } else if (!timeline_items.rootIndex.valid) {
             // if the user has selected something that is not a timeline (playlist,
@@ -779,10 +785,6 @@ Rectangle {
                 vmedia.push(ind)
         }
 
-        if(timelinePlayheadSelectionIndex.valid)
-            theSessionData.updateSelection(timelinePlayheadSelectionIndex, vmedia, mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : mode & Qt.ControlModifier ? ItemSelectionModel.Select : ItemSelectionModel.ClearAndSelect)
-
-
         // mediaSelectionModel.select(
         //     helpers.createItemSelection(vmedia),
         //     mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : mode & Qt.ControlModifier ? ItemSelectionModel.Select : ItemSelectionModel.ClearAndSelect)
@@ -820,9 +822,22 @@ Rectangle {
                 amedia.push(ind)
         }
 
-        if(timelinePlayheadSelectionIndex.valid)
-            theSessionData.updateSelection(timelinePlayheadSelectionIndex, amedia,
-                mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : ItemSelectionModel.Select)
+        let msel = vmedia.concat(amedia)
+        if(timelinePlayheadSelectionIndex.valid && msel.length)
+            theSessionData.updateSelection(
+                timelinePlayheadSelectionIndex,
+                msel,
+                mode & Qt.ShiftModifier ?
+                    ItemSelectionModel.Deselect :
+                    (mode & Qt.ControlModifier ? ItemSelectionModel.Select : ItemSelectionModel.ClearAndSelect)
+            )
+
+
+        // if(timelinePlayheadSelectionIndex.valid)
+        //     theSessionData.updateSelection(
+        //         timelinePlayheadSelectionIndex, amedia,
+        //         mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : ItemSelectionModel.Select
+        //     )
 
         // mediaSelectionModel.select(
         //     helpers.createItemSelection(amedia),
@@ -905,14 +920,14 @@ Rectangle {
     XsHotkeyArea {
         id: hotkey_area
         anchors.fill: parent
-        context: "timeline"
+        context: hotkey_area_id
         focus: true
     }
 
     Keys.forwardTo: hotkey_area
 
     XsHotkey {
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Ctrl+Z"
         name: "Timeline Redo"
         description: "Re-does the last undone edit in the timeline"
@@ -923,7 +938,7 @@ Rectangle {
     }
 
     XsHotkey {
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "SHIFT+C"
         name: "Change Clip Colour"
         description: "Change Active Clip Colour"
@@ -960,7 +975,7 @@ Rectangle {
 
 
     XsHotkey {
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Ctrl+U"
         name: "Timeline Undo"
         description: "Jumps to the end frame"
@@ -971,7 +986,7 @@ Rectangle {
     }
 
     XsHotkey {
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Z"
         name: "Timeline Zoom"
         description: "Enables timeline zooming mode"
@@ -994,7 +1009,7 @@ Rectangle {
 
     XsHotkey {
         id: select_up_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "PgUp"
         name: "Move Selection Up"
         description: "Move Selection Up"
@@ -1004,7 +1019,7 @@ Rectangle {
 
     XsHotkey {
         id: select_down_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "PgDown"
         name: "Move Selection Down"
         description: "Move Selection Down"
@@ -1014,7 +1029,7 @@ Rectangle {
 
     XsHotkey {
         id: expand_up_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Ctrl+PgUp"
         name: "Expand Selection Up"
         description: "Expand Selection Up"
@@ -1024,7 +1039,7 @@ Rectangle {
 
     XsHotkey {
         id: expand_down_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Ctrl+PgDown"
         name: "Expand Selection Down"
         description: "Expand Selection Down"
@@ -1034,7 +1049,7 @@ Rectangle {
 
     XsHotkey {
         id: contract_up_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Shift+PgUp"
         name: "Contract Selection Up"
         description: "Contract Selection Up"
@@ -1044,7 +1059,7 @@ Rectangle {
 
     XsHotkey {
         id: contract_down_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Shift+PgDown"
         name: "Contract Selection Down"
         description: "Contract Selection Down"
@@ -1054,7 +1069,7 @@ Rectangle {
 
     XsHotkey {
         id: expand_up_down_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Alt+PgUp"
         name: "Expand Selection Up and Down"
         description: "Expand Selection Up and Down"
@@ -1064,7 +1079,7 @@ Rectangle {
 
     XsHotkey {
         id: contract_up_down_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Alt+PgDown"
         name: "Contract Selection Up and Down"
         description: "Contract Selection Up and Down"
@@ -1072,29 +1087,43 @@ Rectangle {
         componentName: "Timeline"
     }
 
-    XsHotkey {
+    // This hotkey is already regisetered by the playhead, but we can
+    // still get activation signal, filtered by our context so we can run
+    // our own logic. Playhead won't do anything if the context starts with
+    // "timeline"
+    XsHotkeyReference {
         id: select_next_hotkey
-        context: "timeline"
-        sequence:  "DOWN"
-        name: "Move Selection Right"
-        description: "Move Clip Selection Right"
-        onActivated: updateItemSelectionHorizontal(-1,1)
-        componentName: "Timeline"
+        hotkeyName: "Move Forwards through media/clips"
+        // Because the Playhead also watches this hotkey, we want to exclusively
+        // grab it if the timeline is active
+        exclusive: isPlayheadActive
+        onActivated: {
+            if(!timeline.timelineSelection.selectedIndexes.length){
+                // transportBar.skipToNext(true)
+                timelinePlayhead.logicalFrame = theSessionData.getNextTimelineClipFrame(timeline_items.rootIndex, timelinePlayhead.logicalFrame)
+            }
+            else
+                updateItemSelectionHorizontal(-1,1)
+        }
     }
 
-    XsHotkey {
+    // See note above
+    XsHotkeyReference {
         id: select_previous_hotkey
-        context: "timeline"
-        sequence:  "UP"
-        name: "Move Selection Left"
-        description: "Move Clip Selection Left"
-        onActivated: updateItemSelectionHorizontal(1,-1)
-        componentName: "Timeline"
+        hotkeyName: "Move backwards through media/clips"
+        exclusive: isPlayheadActive
+        onActivated: {
+            if(!timeline.timelineSelection.selectedIndexes.length) {
+                timelinePlayhead.logicalFrame = theSessionData.getPreviousTimelineClipFrame(timeline_items.rootIndex, timelinePlayhead.logicalFrame)
+            }
+            else
+                updateItemSelectionHorizontal(1,-1)
+        }
     }
 
     XsHotkey {
         id: expand_next_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Ctrl+DOWN"
         name: "Expand Selection Right"
         description: "Expand Clip Selection Right"
@@ -1104,7 +1133,7 @@ Rectangle {
 
     XsHotkey {
         id: expand_previous_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Ctrl+UP"
         name: "Expand Selection Left"
         description: "Expand Clip Selection Left"
@@ -1114,7 +1143,7 @@ Rectangle {
 
     XsHotkey {
         id: contract_next_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Shift+DOWN"
         name: "Contract Selection Right"
         description: "Contract Clip Selection Right"
@@ -1124,7 +1153,7 @@ Rectangle {
 
     XsHotkey {
         id: contract_previous_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Shift+UP"
         name: "Contract Selection Left"
         description: "Contract Clip Selection Left"
@@ -1134,7 +1163,7 @@ Rectangle {
 
     XsHotkey {
         id: expand_both_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Alt+DOWN"
         name: "Expand Selection"
         description: "Expand Selection"
@@ -1144,7 +1173,7 @@ Rectangle {
 
     XsHotkey {
         id: contract_both_hotkey
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "Alt+UP"
         name: "Contract Selection"
         description: "Contract Clip Selection"
@@ -1153,7 +1182,7 @@ Rectangle {
     }
 
     XsHotkey {
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "X"
         name: "Timeline Scroll"
         description: "Enables timeline scrolling mode"
@@ -1165,7 +1194,7 @@ Rectangle {
     }
 
     XsHotkey {
-        context: "timeline"
+        context: hotkey_area_id
         sequence:  "F"
         name: "Timeline fit"
         description: "Fits the timeline view to selected items"
@@ -1400,7 +1429,10 @@ Rectangle {
                     // set the aux playhead to drive the viewer - it will not
                     // show the timeline but just the bit of media we have
                     // double clicked on
-                    viewportCurrentMediaContainerIndex = currentMediaContainerIndex
+
+                    // make sure we're looking at the right thing.
+                    currentMediaContainerIndex = timelineModel.rootIndex.parent
+                    viewportCurrentMediaContainerIndex = timelineModel.rootIndex.parent
 
                     callbackTimer.setTimeout(function() { return function() {
                         // we 'un-pin' the timeline playhead so that instead of using
@@ -1566,6 +1598,8 @@ Rectangle {
                     theSessionData.beginTimelineItemDrag(timelineSelection.selectedIndexes, mode, rippleMode, overwriteMode)
                 else if(mode == "roll")
                     theSessionData.beginTimelineItemDrag(timelineSelection.selectedIndexes, mode)
+                else if(mode == "track")
+                    theSessionData.beginTimelineItemDrag(timelineSelection.selectedIndexes, mode)
             }
 
             function dragging(index, item, mode, x, y) {
@@ -1631,6 +1665,8 @@ Rectangle {
                     theSessionData.updateTimelineItemDrag(timelineSelection.selectedIndexes, mode, x, y, rippleMode, overwriteMode)
                 else if(mode == "roll")
                     theSessionData.updateTimelineItemDrag(timelineSelection.selectedIndexes, mode, x, 0)
+                else if(mode == "track")
+                    theSessionData.updateTimelineItemDrag(timelineSelection.selectedIndexes, mode, 0, y)
             }
 
 
@@ -1658,6 +1694,8 @@ Rectangle {
                 else if(mode == "middle")
                     theSessionData.endTimelineItemDrag(timelineSelection.selectedIndexes, mode, overwriteMode)
                 else if(mode == "roll")
+                    theSessionData.endTimelineItemDrag(timelineSelection.selectedIndexes, mode)
+                else if(mode == "track")
                     theSessionData.endTimelineItemDrag(timelineSelection.selectedIndexes, mode)
                 snapLine = -1
             }
@@ -1750,6 +1788,9 @@ Rectangle {
                                     timelineSelection.select(hovered.modelIndex(), new_state)
 
                                     if(hovered.itemTypeRole == "Clip" && hovered.mediaIndex.valid && timelinePlayheadSelectionIndex.valid) {
+                                        console.log(timelinePlayheadSelectionIndex,
+                                            [hovered.mediaIndex],
+                                            new_state)
                                         theSessionData.updateSelection(
                                             timelinePlayheadSelectionIndex,
                                             [hovered.mediaIndex],

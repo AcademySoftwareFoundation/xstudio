@@ -60,6 +60,11 @@ void py_link(py::module_ &m) {
             "Add a python callback function, called every time the given Actor's event group "
             "generates a message. ")
         .def(
+            "register_python_plugin_instance",
+            &caf::python::py_context::py_register_python_plugin_instance,
+            "Registers a plugin instance so that callbacks can be made to methods on the "
+            "instance.")
+        .def(
             "remove_message_callback",
             &caf::python::py_context::py_remove_message_callback,
             "Remove a python callback function. ")

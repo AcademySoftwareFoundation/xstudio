@@ -122,7 +122,6 @@ caf::message_handler MediaActor::default_event_handler() {
             const std::tuple<std::string, std::string> &) {},
         [=](utility::event_atom, add_media_source_atom, const utility::UuidActorVector &) {},
         [=](utility::event_atom, media_status_atom, const MediaStatus ms) {},
-        [=](utility::event_atom, media_status_atom, const MediaStatus ms) {},
         [=](json_store::update_atom,
             const JsonStore &,
             const std::string &,
@@ -669,7 +668,6 @@ caf::message_handler MediaActor::message_handler() {
         [=](get_media_pointer_atom atom,
             const MediaType media_type,
             const int logical_frame) -> caf::result<media::AVFrameID> {
-
             if (base_.empty() or not media_sources_.count(base_.current(media_type)))
                 return make_error(xstudio_error::error, "No MediaSources");
             auto rp = make_response_promise<media::AVFrameID>();
@@ -683,13 +681,16 @@ caf::message_handler MediaActor::message_handler() {
             const MediaType media_type,
             const utility::TimeSourceMode tsm,
             const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
-            auto rp = make_response_promise<media::FrameTimeMapPtr>();
-
             if (base_.empty() or not media_sources_.count(base_.current(media_type)))
                 return make_error(xstudio_error::error, "No MediaSources");
+            auto rp = make_response_promise<media::FrameTimeMapPtr>();
             rp.delegate(
-                media_sources_.at(base_.current(media_type)), atom, media_type, tsm, override_rate);
-                
+                media_sources_.at(base_.current(media_type)),
+                atom,
+                media_type,
+                tsm,
+                override_rate);
+
             return rp;
         },
 
@@ -740,16 +741,14 @@ caf::message_handler MediaActor::message_handler() {
                 utility::Uuid());
         },
 
-        [=](utility::rate_atom,
-            const media::MediaType media_type) -> caf::result<FrameRate> {
-
+        [=](utility::rate_atom, const media::MediaType media_type) -> caf::result<FrameRate> {
             auto rp = make_response_promise<FrameRate>();
-            request(caf::actor_cast<caf::actor>(this), infinite, media_reference_atom_v, media_type).then(
-                [=](const MediaReference &ref) mutable {
-                    rp.deliver(ref.rate());
-                },
-                [=](error &err) mutable { rp.deliver(err); });
-            
+            request(
+                caf::actor_cast<caf::actor>(this), infinite, media_reference_atom_v, media_type)
+                .then(
+                    [=](const MediaReference &ref) mutable { rp.deliver(ref.rate()); },
+                    [=](error &err) mutable { rp.deliver(err); });
+
             return rp;
         },
 
@@ -759,9 +758,7 @@ caf::message_handler MediaActor::message_handler() {
                 return make_error(xstudio_error::error, "No MediaSources");
 
             auto rp = make_response_promise<MediaReference>();
-            rp.delegate(
-                media_sources_.at(base_.current(media_type)),
-                atom);
+            rp.delegate(media_sources_.at(base_.current(media_type)), atom);
             return rp;
         },
 
@@ -1174,9 +1171,10 @@ caf::message_handler MediaActor::message_handler() {
                     [=](bool) mutable {
                         // ensures media sources have had their details filled in and
                         // we've set the media sources (image and audio) where possible
-                        if (base_.empty() or not media_sources_.count(base_.current()))
-                            return rp.deliver(
-                                make_error(xstudio_error::error, "No MediaSources"));
+                        if (base_.empty() or not media_sources_.count(base_.current())) {
+                            rp.deliver(make_error(xstudio_error::error, "No MediaSources"));
+                            return;
+                        }
 
                         rp.delegate(media_sources_.at(base_.current()), atom, default_rate);
                     },
@@ -1997,7 +1995,11 @@ void MediaActor::display_info_item(
     };
 
     const std::string data_type = item_query_info.value("data_type", "");
-    if (data_type == "metadata") {
+    if (data_type == "flag") {
+
+        rp.deliver(JsonStore(base_.flag()));
+
+    } else if (data_type == "metadata") {
 
         const std::string metadata_path = item_query_info.value("metadata_path", "");
 

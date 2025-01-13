@@ -174,7 +174,6 @@ void set_shader_pix_format_info(
     }
 
     jsn["yuv_conv"] = yuv_to_rgb.transposed();
-
 }
 
 
@@ -405,13 +404,6 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         image_buffer->set_pixel_aspect(1.0f);
     }
 
-    if (fpsNum_) {
-        if (fpsDen_)
-            image_buffer->set_duration_seconds(double(fpsDen_) / double(fpsNum_));
-        else
-            image_buffer->set_duration_seconds(1.0 / double(fpsNum_));
-    }
-
     // determine if image has alpha - if planar, look for 'a_linesize' != 0.
     // Otherwise check for interleaved RGB pix formats that have an alpha
     int rgb_format_code = jsn.value("rgb", 0);
@@ -631,21 +623,32 @@ FFMpegStream::FFMpegStream(
         throw std::runtime_error("No decoder found.");
     }
 
-    // Set the fps if it has been set correctly in the stream
-    if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
-        fpsNum_     = avc_stream_->avg_frame_rate.num;
-        fpsDen_     = avc_stream_->avg_frame_rate.den;
-        frame_rate_ = xstudio::utility::FrameRate(
-            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
-    } else if (avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
-        fpsNum_     = avc_stream_->r_frame_rate.num;
-        fpsDen_     = avc_stream_->r_frame_rate.den;
-        frame_rate_ = xstudio::utility::FrameRate(
-            static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+    if ((avc_stream_->disposition & AV_DISPOSITION_ATTACHED_PIC) ==
+        AV_DISPOSITION_ATTACHED_PIC) {
+
+        // for attached pic stream, we override frame rate to 24pfs
+        frame_rate_      = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
+        is_attached_pic_ = true;
+        decode_attached_pic();
+
     } else {
-        fpsNum_     = 0;
-        fpsDen_     = 0;
-        frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
+
+        // Set the fps if it has been set correctly in the stream
+        if (avc_stream_->avg_frame_rate.num != 0 && avc_stream_->avg_frame_rate.den != 0) {
+            fpsNum_     = avc_stream_->avg_frame_rate.num;
+            fpsDen_     = avc_stream_->avg_frame_rate.den;
+            frame_rate_ = xstudio::utility::FrameRate(
+                static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+        } else if (avc_stream_->r_frame_rate.num != 0 && avc_stream_->r_frame_rate.den != 0) {
+            fpsNum_     = avc_stream_->r_frame_rate.num;
+            fpsDen_     = avc_stream_->r_frame_rate.den;
+            frame_rate_ = xstudio::utility::FrameRate(
+                static_cast<double>(fpsDen_) / static_cast<double>(fpsNum_));
+        } else {
+            fpsNum_     = 0;
+            fpsDen_     = 0;
+            frame_rate_ = xstudio::utility::FrameRate(timebase::k_flicks_24fps);
+        }
     }
 }
 
@@ -898,12 +901,18 @@ int FFMpegStream::duration_frames() const {
 }
 
 
-/* Note 1: this experiment is disabled for now. The idea is that we circumvent
-// ffmpeg's buffer allocation and insert our own pixel buffer (owned by video_frame)
-// into which ffmpeg decodes. This will avoid the data copy happening in the
-// call to FFMPegStream::copy_avframe_to_xstudio_buffer and does indeed speed up
-// decoding. 2-3ms for typical HD res frame, more for UHD and so-on. However, the
-// approach doesn't work when ffmpeg is doing multithreading on frames as the buffer
-// allocation happens out of sync with the decode of a given video frame. Some more
-// work could be done to fix that problem and gain a few ms per frame which may
-// be needed for high res playback */
+void FFMpegStream::decode_attached_pic() {
+
+    int rx = send_packet(&(avc_stream_->attached_pic));
+    av_frame_unref(frame);
+    int rt = avcodec_receive_frame(codec_context_, frame);
+    if (rt == 0) {
+        attached_pic_ = get_ffmpeg_frame_as_xstudio_image();
+    } else {
+        try {
+            AVC_CHECK_THROW(rt, "avcodec_receive_frame");
+        } catch (std::exception &e) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+        }
+    }
+}

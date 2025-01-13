@@ -76,10 +76,7 @@ QMLViewport::QMLViewport(QQuickItem *parent) : QQuickItem(parent), cursor_(Qt::A
         SIGNAL(imageBoundariesInViewportChanged()));
 
     connect(
-        renderer_actor,
-        SIGNAL(resolutionsChanged()),
-        this,
-        SIGNAL(imageResolutionsChanged()));
+        renderer_actor, SIGNAL(resolutionsChanged()), this, SIGNAL(imageResolutionsChanged()));
 
     connect(
         this,
@@ -230,7 +227,6 @@ void QMLViewport::sync() {
         window()->devicePixelRatio());
 
     renderer_actor->prepareRenderData();
-
 }
 
 void QMLViewport::cleanup() {
@@ -450,9 +446,7 @@ void QMLViewport::showCursor() {
     }
 }
 
-QVariantList QMLViewport::imageResolutions() {
-    return renderer_actor->imageResolutions();
-}
+QVariantList QMLViewport::imageResolutions() { return renderer_actor->imageResolutions(); }
 
 QVariantList QMLViewport::imageBoundariesInViewport() {
     return renderer_actor->imageBoundariesInViewport();

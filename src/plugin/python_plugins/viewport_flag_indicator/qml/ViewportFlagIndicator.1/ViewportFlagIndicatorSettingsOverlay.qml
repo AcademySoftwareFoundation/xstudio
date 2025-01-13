@@ -15,9 +15,9 @@ import xstudio.qml.models 1.0
 // is on screen. If no flag is set, we don't show anything
 Rectangle {
 
-    width: indicatorSize
+    width: indicatorSize*(view.width/1920)
     height: width
-    radius: indicatorSize/2
+    radius: width/2
     color: flag ? flag : "transparent"
 
     property var flag: currentOnScreenMediaData.values.flagColourRole

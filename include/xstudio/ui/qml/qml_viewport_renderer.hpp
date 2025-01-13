@@ -62,7 +62,7 @@ namespace ui {
             }
 
             void set_playhead(caf::actor playhead);
-            
+
             [[nodiscard]] QVariantList imageResolutions() const;
             [[nodiscard]] QVariantList imageBoundariesInViewport() const;
             [[nodiscard]] caf::actor playhead() {

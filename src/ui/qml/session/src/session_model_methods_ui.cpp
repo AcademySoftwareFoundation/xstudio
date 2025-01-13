@@ -30,6 +30,36 @@ void SessionModel::removeNotification(const QModelIndex &index, const QUuid &uui
     }
 }
 
+QString SessionModel::getNextName(const QString &nameTemplate) const {
+    QString result = nameTemplate;
+
+    scoped_actor sys{system()};
+    try {
+        result = QStringFromStd(request_receive<std::string>(
+            *sys, session_actor_, name_atom_v, StdFromQString(nameTemplate), true));
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
+}
+
+void SessionModel::setSessionSelection(const QModelIndexList &indexes) const {
+    try {
+        UuidActorVector selection;
+
+        for (auto &i : indexes) {
+            selection.emplace_back(UuidActor(
+                UuidFromQUuid(i.data(actorUuidRole).toUuid()),
+                actorFromQString(system(), i.data(actorRole).toString())));
+        }
+        anon_send(session_actor_, timeline::item_selection_atom_v, selection);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+}
+
 QUuid SessionModel::infoNotification(
     const QModelIndex &index,
     const QString &text,
@@ -407,6 +437,7 @@ void SessionModel::setSessionActorAddr(const QString &addr) {
                 "name": null,
                 "actor_uuid": null,
                 "actor": null,
+                "notification": null,
                 "group_actor": null,
                 "container_uuid": null,
                 "rate": null,
@@ -979,6 +1010,8 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                 } else if (type == "Media") {
                     before = ij.at("actor_uuid");
                     target = actorFromIndex(index.parent().parent(), true);
+                } else if (type == "Media List") {
+                    target = actorFromIndex(index.parent(), true);
                 } else {
                     spdlog::warn("UNHANDLED {}", ij.at("type").get<std::string>());
                 }
@@ -1123,6 +1156,8 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
                 } else if (type == "Media") {
                     before = ij.at("actor_uuid");
                     target = actorFromIndex(index.parent().parent(), true);
+                } else if (type == "Media List") {
+                    target = actorFromIndex(index.parent(), true);
                 } else {
                     spdlog::warn("UNHANDLED {}", ij.at("type").get<std::string>());
                 }
@@ -1217,6 +1252,11 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
 }
 
 QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json) {
+    auto notify_processing = Notification::ProcessingNotification(
+        "Importing Session " + StdFromQString(path.path()));
+    auto notification_uuid = notify_processing.uuid();
+    anon_send(session_actor_, utility::notification_atom_v, notify_processing);
+
     return QtConcurrent::run([=]() {
         bool result = false;
         JsonStore js;
@@ -1225,6 +1265,10 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
             try {
                 js = utility::open_session(UriFromQUrl(path));
             } catch (const std::exception &err) {
+                auto notify = Notification::WarnNotification(
+                    std::string("Import Session Failed - ") + err.what());
+                notify.uuid(notification_uuid);
+                anon_send(session_actor_, utility::notification_atom_v, notify);
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 return false;
             }
@@ -1232,6 +1276,10 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
             try {
                 js = JsonStore(qvariant_to_json(json));
             } catch (const std::exception &err) {
+                auto notify = Notification::WarnNotification(
+                    std::string("Import Session Failed - ") + err.what());
+                notify.uuid(notification_uuid);
+                anon_send(session_actor_, utility::notification_atom_v, notify);
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 return false;
             }
@@ -1249,8 +1297,17 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
             spdlog::info(
                 "Session {} merged in {:.3} seconds.", StdFromQString(path.path()), sw);
 
-            result = true;
+            result      = true;
+            auto notify = Notification::InfoNotification(
+                "Import Session Succeeded", std::chrono::seconds(5));
+            notify.uuid(notification_uuid);
+            anon_send(session_actor_, utility::notification_atom_v, notify);
+
         } catch (const std::exception &err) {
+            auto notify = Notification::WarnNotification(
+                std::string("Import Session Failed - ") + err.what());
+            notify.uuid(notification_uuid);
+            anon_send(session_actor_, utility::notification_atom_v, notify);
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
@@ -1352,8 +1409,8 @@ void SessionModel::gatherMediaFor(const QModelIndex &index, const QModelIndexLis
         if (index.isValid()) {
             nlohmann::json &j = indexToData(index);
 
-            if (j.at("type") == "Playlist" or j.at("type") == "ContactSheet" or j.at("type") == "Subset" or
-                j.at("type") == "Timeline") {
+            if (j.at("type") == "Playlist" or j.at("type") == "ContactSheet" or
+                j.at("type") == "Subset" or j.at("type") == "Timeline") {
                 auto actor = actorFromString(system(), j.at("actor"));
                 if (actor) {
                     UuidList uv;
@@ -1542,7 +1599,8 @@ void SessionModel::sortByMediaDisplayInfo(
             nlohmann::json &j = indexToData(index);
             auto actor        = actorFromString(system(), j.at("actor"));
             auto type         = j.at("type").get<std::string>();
-            if (actor and (type == "Subset" or type == "ContactSheet" or type == "Playlist" or type == "Timeline")) {
+            if (actor and (type == "Subset" or type == "ContactSheet" or type == "Playlist" or
+                           type == "Timeline")) {
                 anon_send(
                     actor,
                     playlist::sort_by_media_display_info_atom_v,

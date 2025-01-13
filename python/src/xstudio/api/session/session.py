@@ -5,7 +5,7 @@ from xstudio.core import rename_container_atom, create_divider_atom, media_rate_
 from xstudio.core import reflag_container_atom, merge_playlist_atom, copy_container_to_atom
 from xstudio.core import get_bookmark_atom, save_atom, active_media_container_atom, current_media_atom, name_atom
 from xstudio.core import viewport_active_media_container_atom
-from xstudio.core import URI, Uuid, UuidVec
+from xstudio.core import URI, Uuid, UuidVec, item_selection_atom, type_atom
 
 from xstudio.api.session.container import Container, PlaylistTree, PlaylistItem
 from xstudio.api.session.playlist import Playlist
@@ -14,9 +14,10 @@ from xstudio.api.session.bookmark import Bookmarks
 from xstudio.api.session.playlist.subset import Subset
 from xstudio.api.session.playlist.contact_sheet import ContactSheet
 from xstudio.api.session.playlist.timeline import Timeline
+from xstudio.api.auxiliary import NotificationHandler
 
 
-class Session(Container):
+class Session(Container, NotificationHandler):
     """Session object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -32,6 +33,7 @@ class Session(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+        NotificationHandler.__init__(self, self)
 
     @property
     def selected_media(self):
@@ -47,6 +49,39 @@ class Session(Container):
             media.append(Media(self.connection, i.actor, i.uuid))
 
         return media
+
+    @property
+    def selected_containers(self):
+        """Get currently selected containers.
+
+        Returns:
+            container(Playlist,Subset,Timelime,ContactSheet): Container.
+        """
+
+        items = self.connection.request_receive(self.remote, item_selection_atom())[0]
+        result = []
+
+        for i in items:
+            item_type = self.connection.request_receive(i.actor, type_atom())[0]
+            if item_type == "Timeline":
+                result.append(
+                    Timeline(self.connection, i.actor, i.uuid)
+                )
+            elif item_type == "Subset":
+                result.append(
+                    Subset(self.connection, i.actor, i.uuid)
+                )
+            elif item_type == "ContactSheet":
+                result.append(
+                    ContactSheet(self.connection, i.actor, i.uuid)
+                )
+            elif item_type == "Playlist":
+                result.append(
+                    Playlist(self.connection, i.actor, i.uuid)
+                )
+
+
+        return result
 
     @property
     def viewed_playlist(self):

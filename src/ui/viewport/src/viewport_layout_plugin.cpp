@@ -13,15 +13,15 @@ using namespace xstudio::utility;
 using namespace xstudio::ui::viewport;
 
 ViewportLayoutPlugin::ViewportLayoutPlugin(
-    caf::actor_config &cfg,
-    const utility::JsonStore &init_settings) : 
-    plugin::StandardPlugin(cfg, init_settings.value("name", "ViewportLayoutPlugin"), init_settings), is_python_plugin_(init_settings.value("is_python", false)) 
-{
+    caf::actor_config &cfg, const utility::JsonStore &init_settings)
+    : plugin::StandardPlugin(
+          cfg, init_settings.value("name", "ViewportLayoutPlugin"), init_settings),
+      is_python_plugin_(init_settings.value("is_python", false)) {
     init();
 }
 
 void ViewportLayoutPlugin::init() {
-    
+
     handler_ = {
         [=](utility::get_event_group_atom) -> caf::actor {
             if (!event_group_) {
@@ -35,47 +35,50 @@ void ViewportLayoutPlugin::init() {
         },
         [=](viewport_layout_atom,
             const std::string &layout_mode,
-            const JsonStore &python_plugin_layout) {        
-
+            const JsonStore &python_plugin_layout) {
             // this comes in from Python - we can't get exchange size_t between
             // C++ and python, PyBind and caf get their knickers in a twist trying
             // to infer the integer type, so the hash is stringified at both
             // ends.
             try {
-                
+
                 size_t hash;
                 auto h = python_plugin_layout["hash"].get<std::string>();
                 sscanf(h.c_str(), "%zu", &hash);
-                delegate(caf::actor_cast<caf::actor>(this), viewport_layout_atom_v, layout_mode, python_plugin_layout, hash);
+                delegate(
+                    caf::actor_cast<caf::actor>(this),
+                    viewport_layout_atom_v,
+                    layout_mode,
+                    python_plugin_layout,
+                    hash);
 
-            } catch ( std::exception & e ) {
+            } catch (std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
             }
-            
         },
         [=](viewport_layout_atom,
             const std::string &layout_mode,
             const JsonStore &python_plugin_layout,
-            size_t hash) {        
-
-            media_reader::ImageSetLayoutDataPtr layout_data = python_layout_data_to_ours(python_plugin_layout);
+            size_t hash) {
+            media_reader::ImageSetLayoutDataPtr layout_data =
+                python_layout_data_to_ours(python_plugin_layout);
             if (layout_data) {
                 layouts_cache_[layout_mode][hash] = layout_data;
-                auto p = pending_responses_.find(hash);
+                auto p                            = pending_responses_.find(hash);
                 if (p != pending_responses_.end()) {
-                    for(auto &rp: p->second) {
+                    for (auto &rp : p->second) {
                         rp.deliver(layout_data);
                     }
                     pending_responses_.erase(p);
                 }
             }
-            
         },
         [=](viewport_layout_atom,
             const std::string &layout_mode,
-            const media_reader::ImageBufDisplaySetPtr &image_set) -> result<media_reader::ImageSetLayoutDataPtr> {
+            const media_reader::ImageBufDisplaySetPtr &image_set)
+            -> result<media_reader::ImageSetLayoutDataPtr> {
             auto rp = make_response_promise<media_reader::ImageSetLayoutDataPtr>();
-            auto p = layouts_cache_[layout_mode].find(image_set->images_layout_hash());
+            auto p  = layouts_cache_[layout_mode].find(image_set->images_layout_hash());
             if (p == layouts_cache_[layout_mode].end()) {
                 __do_layout(layout_mode, image_set, rp);
             } else {
@@ -83,15 +86,19 @@ void ViewportLayoutPlugin::init() {
             }
             return rp;
         },
-        [=](viewport_layout_atom, const std::string &layout_name, const xstudio::playhead::AssemblyMode mode, const xstudio::playhead::AutoAlignMode auto_align) {
+        [=](viewport_layout_atom,
+            const std::string &layout_name,
+            const xstudio::playhead::AssemblyMode mode,
+            const xstudio::playhead::AutoAlignMode auto_align) {
             // used by Python ViewportLayoutPlugin api
             add_layout_mode(layout_name, mode, auto_align);
         },
-        };
+    };
 
     make_behavior();
 
-    settings_toggle_ = add_boolean_attribute(module::Module::name(), module::Module::name(), true);
+    settings_toggle_ =
+        add_boolean_attribute(module::Module::name(), module::Module::name(), true);
     settings_toggle_->expose_in_ui_attrs_group("layout_plugins");
 
     // this tells the pop-up menu for Compare/Layouts that this plugin doesn't
@@ -99,16 +106,19 @@ void ViewportLayoutPlugin::init() {
     settings_toggle_->set_role_data(module::Attribute::DisabledValue, true);
 
     connect_to_ui();
-                
-    layouts_manager_ =
-                    system().registry().template get<caf::actor>(viewport_layouts_manager);
-    gobal_playhead_events_ = system().registry().template get<caf::actor>(global_playhead_events_actor);
-    anon_send(layouts_manager_, ui::viewport::viewport_layout_atom_v, caf::actor_cast<caf::actor>(this), Module::name());
 
+    layouts_manager_ = system().registry().template get<caf::actor>(viewport_layouts_manager);
+    gobal_playhead_events_ =
+        system().registry().template get<caf::actor>(global_playhead_events_actor);
+    anon_send(
+        layouts_manager_,
+        ui::viewport::viewport_layout_atom_v,
+        caf::actor_cast<caf::actor>(this),
+        Module::name());
 }
 
 void ViewportLayoutPlugin::on_exit() {
-    layouts_manager_ = caf::actor();
+    layouts_manager_       = caf::actor();
     gobal_playhead_events_ = caf::actor();
     plugin::StandardPlugin::on_exit();
 }
@@ -116,17 +126,18 @@ void ViewportLayoutPlugin::on_exit() {
 void ViewportLayoutPlugin::do_layout(
     const std::string &layout_mode,
     const media_reader::ImageBufDisplaySetPtr &image_set,
-    media_reader::ImageSetLayoutData &layout_data
-    )
-{
+    media_reader::ImageSetLayoutData &layout_data) {
     // For the default layout, the image(s) are not transformed in any way.
-    // We just need to set the aspect of the layout, which is the same as 
+    // We just need to set the aspect of the layout, which is the same as
     // the image aspect for the hero image
-    const media_reader::ImageBufPtr &hero_image = image_set->onscreen_image(image_set->hero_sub_playhead_index());
+    const media_reader::ImageBufPtr &hero_image =
+        image_set->onscreen_image(image_set->hero_sub_playhead_index());
     if (hero_image) {
-        layout_data.layout_aspect_ = hero_image->pixel_aspect()*hero_image->image_size_in_pixels().x/hero_image->image_size_in_pixels().y;
+        layout_data.layout_aspect_ = hero_image->pixel_aspect() *
+                                     hero_image->image_size_in_pixels().x /
+                                     hero_image->image_size_in_pixels().y;
     } else {
-        layout_data.layout_aspect_ = 16.0/9.0f;
+        layout_data.layout_aspect_ = 16.0 / 9.0f;
     }
 
     // this fills image_transform_matrices with unity matrices
@@ -134,51 +145,43 @@ void ViewportLayoutPlugin::do_layout(
 
     // we only draw the 'hero' image. No compositing or any other layout stuff
     // to do.
-    layout_data.image_draw_order_hint_ = std::vector<int>(1, image_set->hero_sub_playhead_index());
-
+    layout_data.image_draw_order_hint_ =
+        std::vector<int>(1, image_set->hero_sub_playhead_index());
 }
 
 void ViewportLayoutPlugin::__do_layout(
     const std::string &layout_mode,
     const media_reader::ImageBufDisplaySetPtr &image_set,
-    caf::typed_response_promise<media_reader::ImageSetLayoutDataPtr> rp
-    ) 
-{
+    caf::typed_response_promise<media_reader::ImageSetLayoutDataPtr> rp) {
 
     // if we have an event_group_ actor, this means there is a Python
     // plugin for doing viewport layouts. We send a message to the event_group_
     // which calls the do_layout' function of
     if (is_python_plugin_ && event_group_) {
-        // We need python side to receive the hash for the image layout inputs (image sizes and pixel aspects)
-        // but the hash is size_t which we can't interchange directly with python as it handles integers
-        // differently, so we stringify the hash. Python plugin then sends back the layout data
-        // with the hash as a string which we need to decode to size_t again.
+        // We need python side to receive the hash for the image layout inputs (image sizes and
+        // pixel aspects) but the hash is size_t which we can't interchange directly with python
+        // as it handles integers differently, so we stringify the hash. Python plugin then
+        // sends back the layout data with the hash as a string which we need to decode to
+        // size_t again.
         send(
             event_group_,
             viewport_layout_atom_v,
             layout_mode,
             image_set->as_json(),
-            fmt::format("{}",
-            image_set->images_layout_hash())
-            );
+            fmt::format("{}", image_set->images_layout_hash()));
         pending_responses_[image_set->images_layout_hash()].push_back(rp);
         return;
     }
 
     auto layout_data = new media_reader::ImageSetLayoutData;
 
-    // this will callback to the plugins' implementation (or our default 
+    // this will callback to the plugins' implementation (or our default
     // implementation) above.
-    do_layout(
-        layout_mode,
-        image_set,
-        *layout_data
-        );
+    do_layout(layout_mode, image_set, *layout_data);
 
     auto r = media_reader::ImageSetLayoutDataPtr(layout_data);
     rp.deliver(r);
     layouts_cache_[layout_mode][image_set->images_layout_hash()] = r;
-
 }
 
 /*void HUDPluginBase::hud_element_qml(
@@ -206,13 +209,11 @@ void ViewportLayoutPlugin::__do_layout(
     }
 }*/
 
-media_reader::ImageSetLayoutDataPtr ViewportLayoutPlugin::python_layout_data_to_ours(
-    const utility::JsonStore &python_data
-) const {
+media_reader::ImageSetLayoutDataPtr
+ViewportLayoutPlugin::python_layout_data_to_ours(const utility::JsonStore &python_data) const {
     auto result = new media_reader::ImageSetLayoutData;
 
     try {
-
 
 
         if (python_data.contains("layout_aspect_ratio")) {
@@ -221,7 +222,7 @@ media_reader::ImageSetLayoutDataPtr ViewportLayoutPlugin::python_layout_data_to_
 
         if (python_data.contains("image_draw_order")) {
             if (python_data["image_draw_order"].is_array()) {
-                for (const auto &v: python_data["image_draw_order"]) {
+                for (const auto &v : python_data["image_draw_order"]) {
                     result->image_draw_order_hint_.push_back(v.get<int>());
                 }
             } else {
@@ -233,17 +234,18 @@ media_reader::ImageSetLayoutDataPtr ViewportLayoutPlugin::python_layout_data_to_
 
         if (python_data.contains("transforms")) {
             if (python_data["transforms"].is_array()) {
-                for (const auto &v: python_data["transforms"]) {
+                for (const auto &v : python_data["transforms"]) {
                     if (v.is_array() && v.size() == 3) {
                         float tx = v[0].get<float>();
                         float ty = v[1].get<float>();
-                        float s = v[2].get<float>();
+                        float s  = v[2].get<float>();
                         Imath::M44f m;
                         m.translate(Imath::V3f(tx, ty, 0.0f));
                         m.scale(Imath::V3f(s, s, 1.0f));
                         result->image_transforms_.push_back(m);
                     } else {
-                    throw std::runtime_error("Elements of transforms entry must be an array of 3 floats.");
+                        throw std::runtime_error(
+                            "Elements of transforms entry must be an array of 3 floats.");
                     }
                 }
             } else {
@@ -253,36 +255,33 @@ media_reader::ImageSetLayoutDataPtr ViewportLayoutPlugin::python_layout_data_to_
             throw std::runtime_error("expected transforms entry");
         }
 
-    } catch (std::exception & e) {
+    } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
 
     return media_reader::ImageSetLayoutDataPtr(result);
 }
 
-void ViewportLayoutPlugin::add_layout_settings_attribute(module::Attribute *attr, const std::string &layout_name) {
+void ViewportLayoutPlugin::add_layout_settings_attribute(
+    module::Attribute *attr, const std::string &layout_name) {
     attr->expose_in_ui_attrs_group(layout_name + " Settings");
     // this means the 'settings' button WILL be visible!
     settings_toggle_->set_role_data(module::Attribute::DisabledValue, false);
 }
 
 void ViewportLayoutPlugin::add_viewport_layout_qml_overlay(
-        const std::string &layout_name,
-        const std::string &qml_code) {
+    const std::string &layout_name, const std::string &qml_code) {
 
     auto attr = add_boolean_attribute(layout_name, layout_name, true);
     attr->set_role_data(module::Attribute::QmlCode, qml_code);
     attr->expose_in_ui_attrs_group("viewport_overlay_plugins");
-
 }
 
 
 void ViewportLayoutPlugin::add_layout_mode(
-          const std::string &name, 
-          const playhead::AssemblyMode mode,
-          const playhead::AutoAlignMode default_auto_align
-          ) 
-{
+    const std::string &name,
+    const playhead::AssemblyMode mode,
+    const playhead::AutoAlignMode default_auto_align) {
 
     request(
         layouts_manager_,
@@ -291,7 +290,8 @@ void ViewportLayoutPlugin::add_layout_mode(
         caf::actor_cast<caf::actor>(this),
         name,
         mode,
-        default_auto_align).then(
+        default_auto_align)
+        .then(
             [=](bool accepted) {
                 if (accepted) {
                     auto layout_toggle = add_string_attribute(name, name, "");
@@ -305,9 +305,7 @@ void ViewportLayoutPlugin::add_layout_mode(
 }
 
 void ViewportLayoutPlugin::attribute_changed(
-    const utility::Uuid &attribute_uuid, const int role
-    ) 
-{
+    const utility::Uuid &attribute_uuid, const int role) {
     // this forces re-computation of the layout geometry
     layouts_cache_.clear();
     // now force viewports to redraw
@@ -315,13 +313,13 @@ void ViewportLayoutPlugin::attribute_changed(
     StandardPlugin::attribute_changed(attribute_uuid, role);
 }
 
-ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg) : caf::event_based_actor(cfg)
-{
+ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg)
+    : caf::event_based_actor(cfg) {
     spdlog::debug("Created ViewportLayoutManager");
     print_on_exit(this, "ViewportLayoutManager");
 
     system().registry().put(viewport_layouts_manager, this);
-    event_group_             = spawn<broadcast::BroadcastActor>(this);
+    event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
 
     behavior_ = {
@@ -355,7 +353,8 @@ ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg) : caf::even
                     fmt::format(
                         "A viewport layout name \"{}\" is already registered.", layout_name));
             }
-            viewport_layouts_[layout_name] = std::make_pair(layout_actor,std::make_pair(default_align_mode, mode));
+            viewport_layouts_[layout_name] =
+                std::make_pair(layout_actor, std::make_pair(default_align_mode, mode));
             return true;
         },
         [=](viewport_layout_atom,
@@ -371,8 +370,9 @@ ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg) : caf::even
             }
             return viewport_layouts_[layout_name].first;
         },
-        [=](playhead::compare_mode_atom,
-            const std::string &layout_name) -> result<std::pair<xstudio::playhead::AutoAlignMode, xstudio::playhead::AssemblyMode>> {
+        [=](playhead::compare_mode_atom, const std::string &layout_name)
+            -> result<
+                std::pair<xstudio::playhead::AutoAlignMode, xstudio::playhead::AssemblyMode>> {
             if (not viewport_layouts_.contains(layout_name)) {
                 return make_error(
                     xstudio_error::error,
@@ -384,11 +384,9 @@ ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg) : caf::even
         }};
 
     spawn_plugins();
-
 }
 
-ViewportLayoutManager::~ViewportLayoutManager() {
-}
+ViewportLayoutManager::~ViewportLayoutManager() {}
 
 void ViewportLayoutManager::on_exit() {
     viewport_layouts_.clear();
@@ -399,47 +397,34 @@ void ViewportLayoutManager::spawn_plugins() {
 
     // get the plugin manager
     auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
-    
-    const auto ptype = plugin_manager::PluginType(
-        plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER
-        );
+
+    const auto ptype =
+        plugin_manager::PluginType(plugin_manager::PluginFlags::PF_VIEWPORT_RENDERER);
 
     // SPAWN C++ PLUGINS (Python plugins are loaded in python startup script)
 
     // get details of viewport layout plugins
-    request(
-        pm,
-        infinite, utility::detail_atom_v,
-        ptype).then(
+    request(pm, infinite, utility::detail_atom_v, ptype)
+        .then(
 
-        [=](const std::vector<plugin_manager::PluginDetail> &renderer_plugin_details) {
+            [=](const std::vector<plugin_manager::PluginDetail> &renderer_plugin_details) {
+                // loop over plugin details
+                for (const auto &pd : renderer_plugin_details) {
 
-            // loop over plugin details
-            for (const auto &pd : renderer_plugin_details) {
-
-                // instance the plugin. Each plugin automatically registeres 
-                // itself with this class on construction (see above)
-                utility::JsonStore j;
-                j["name"] = pd.name_;
-                j["is_python_plugin"] = false;
-                request(
-                    pm,
-                    infinite,
-                    plugin_manager::spawn_plugin_atom_v,
-                    pd.uuid_,
-                    j
-                    ).then(
-                        [=](caf::actor) {
-                        },
-                        [=](caf::error &err) {
-                             spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        });
-
-            }
-        },
-        [=](caf::error &err) {
-            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-        });
-                
-
+                    // instance the plugin. Each plugin automatically registeres
+                    // itself with this class on construction (see above)
+                    utility::JsonStore j;
+                    j["name"]             = pd.name_;
+                    j["is_python_plugin"] = false;
+                    request(pm, infinite, plugin_manager::spawn_plugin_atom_v, pd.uuid_, j)
+                        .then(
+                            [=](caf::actor) {},
+                            [=](caf::error &err) {
+                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            });
+                }
+            },
+            [=](caf::error &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+            });
 }

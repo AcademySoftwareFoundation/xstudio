@@ -213,8 +213,8 @@ namespace timeline {
         [[nodiscard]] std::string flag() const { return flag_; }
         [[nodiscard]] utility::JsonStore prop() const { return prop_; }
         [[nodiscard]] bool transparent() const;
-        [[nodiscard]] utility::UuidActorVector
-        find_all_uuid_actors(const ItemType item_type, const bool only_enabled_items = false) const;
+        [[nodiscard]] utility::UuidActorVector find_all_uuid_actors(
+            const ItemType item_type, const bool only_enabled_items = false) const;
 
         [[nodiscard]] std::vector<std::reference_wrapper<const Item>>
         find_all_items(const ItemType item_type, const ItemType track_type = IT_NONE) const;
@@ -328,8 +328,7 @@ namespace timeline {
             const media::MediaType media_type,
             const utility::TimeSourceMode tsm,
             const utility::FrameRate &override_rate,
-            const utility::UuidSet &focus_list = utility::UuidSet()
-            );
+            const utility::UuidSet &focus_list = utility::UuidSet());
 
       private:
         bool process_event(const utility::JsonStore &event);
@@ -358,7 +357,6 @@ namespace timeline {
         [[nodiscard]] caf::actor_system &system() const { return *the_system_; }
 
       private:
-
         friend class BuildFrameIDsHelper;
 
         ItemType item_type_{IT_NONE};

@@ -27,21 +27,16 @@ XsListView {
 
     cacheBuffer: 80
     boundsBehavior: Flickable.StopAtBounds
-    // model: filteredMediaListData
+    isScrollbarVisibile: false
 
     property var dragTargetIndex
+    property bool dragToEnd: false
     property real itemRowHeight: rowHeight
 
     property real itemRowWidth: width
 
     delegate: XsMediaItemDelegate {
         width: itemRowWidth
-    }
-
-    Rectangle{ id: resultsBg
-        anchors.fill: parent
-        color: XsStyleSheet.panelBgColor
-        z: -1
     }
 
     model: mediaListModelData
@@ -51,6 +46,35 @@ XsListView {
         target: mediaList
         property: "contentY"
         duration: 100
+    }
+
+    XsPopupMenu {
+        id: flagMenu
+        visible: false
+        menu_model_name: "media_flag_menu_"+flagMenu
+        property var panelContext: helpers.contextPanel(flagMenu)
+        property var mediaIndex: null
+
+        XsFlagMenuInserter {
+            text: ""
+            menuPath: ""
+            panelContext: flagMenu.panelContext
+            menuModelName: flagMenu.menu_model_name
+            onFlagSet: {
+                theSessionData.set(flagMenu.mediaIndex, flag, "flagColourRole")
+
+                if (flag_text)
+                    theSessionData.set(flagMenu.mediaIndex, flag_text, "flagTextRole")
+            }
+        }
+    }
+
+    function showFlagMenu(mx, my, source, mediaIndex) {
+        let sp = mapFromItem(source, mx, my)
+        flagMenu.x = sp.x
+        flagMenu.y = sp.y
+        flagMenu.mediaIndex = mediaIndex
+        flagMenu.visible = true
     }
 
     // here we auto-scroll the list so that the on-screen media is visible in
@@ -78,15 +102,6 @@ XsListView {
 
         autoScrollAnimator.running = true
 
-    }
-
-    XsLabel {
-        anchors.fill: parent
-        visible: !mediaList.count
-        text: 'Click the "+" button or drop files/folders here to add Media'
-        color: XsStyleSheet.hintColor
-        font.pixelSize: XsStyleSheet.fontSize*1.2
-        font.weight: Font.Medium
     }
 
     XsMediaListMouseArea {
@@ -131,26 +146,27 @@ XsListView {
             if (idx == undefined || !idx.valid) {
                 idx = mediaListModelDataRoot
                 if (idx == undefined || !idx.valid) {
-                    idx = theSessionData.createPlaylist("New Playlist")
+                    idx = theSessionData.createPlaylist(theSessionData.getNextName("Playlist {}"))
                 } else {
                     // mediaListModelDataRoot is the 'MediaList' that lives
                     // underneath a Playist, Subset etc. We want to call
                     // handleDropFuture with the Playlist/Subset/Timeline index
-                    idx = idx.parent 
+                    idx = idx.parent
                 }
             }
 
             if (source == "External URIS") {
-                
+
 
                 Future.promise(
                     theSessionData.handleDropFuture(
                         Qt.CopyAction,
                         {"text/uri-list": data},
-                        idx)
+                        dragToEnd ? idx.parent : idx)
                 ).then(function(quuids){
                     if (idx) mediaSelectionModel.selectNewMedia(idx, quuids)
                 })
+                dragTargetIndex = undefined
                 return
 
             } else if (source == "External JSON") {
@@ -159,10 +175,11 @@ XsListView {
                     theSessionData.handleDropFuture(
                         Qt.CopyAction,
                         data,
-                        idx)
+                        dragToEnd ? idx.parent : idx)
                 ).then(function(quuids){
                     if (idx) mediaSelectionModel.selectNewMedia(idx, quuids)
                 })
+                dragTargetIndex = undefined
                 return
             }
 
@@ -178,10 +195,9 @@ XsListView {
                     beforeMoveContentY = contentY
                     theSessionData.moveRows(
                         data,
-                        dragTargetIndex.row,
+                        dragToEnd ? -1 : dragTargetIndex.row,
                         dragTargetIndex.parent.parent
                         )
-                    dragTargetIndex = undefined
                 }
             }
         }
@@ -196,6 +212,7 @@ XsListView {
     function computeTargetDropIndex(dropCoordY) {
 
         var oldDragTarget = dragTargetIndex
+        dragToEnd = false
 
         if (dropCoordY < 0 || dropCoordY > height) {
             dragTargetIndex = undefined
@@ -206,10 +223,18 @@ XsListView {
         }
 
         var idx = mediaList.indexAt(10, dropCoordY + contentY)
-        if (idx != -1) {
+        if (idx == -1 && mediaList.count) {
+            dragTargetIndex = mediaList.itemAtIndex(mediaList.count-1).modelIndex()
+            dragToEnd = true
+        } else if (idx != -1) {
             var y = mediaList.mapToItem(mediaList.itemAtIndex(idx), 10, dropCoordY).y
-            if (y > itemRowHeight/2 && idx < (mediaList.count-1)) {
+            if (y > itemRowHeight/2 && idx < mediaList.count) {
                 idx = idx+1
+            }
+
+            if (idx == mediaList.count) {
+                idx--;
+                dragToEnd = true
             }
 
             // the index that we are going to drop items into cannot

@@ -54,7 +54,16 @@ namespace ui {
 
         bool update(const Hotkey &o);
 
+        void add_watcher(caf::actor_addr w);
+
         void watcher_died(caf::actor_addr &watcher);
+
+        // setting an exclusive watcher means it is the only actor to get the
+        // hotkey event. Hotkey events are not broadcast to 'regular' watchers
+        // or to the general event_group of the global keyboard_events actor.
+        // The most recent actor to set itself exclusive is the  one that gets
+        // the events.
+        void exclusive_watcher(caf::actor_addr w, bool watch);
 
         void update_state(
             const std::set<int> &current_keys,
@@ -67,6 +76,8 @@ namespace ui {
         sequence_to_key_and_modifier(const std::string &sequence, int &keycode, int &modifier);
 
       private:
+
+        void notify(const std::string &context, const std::string &window, caf::actor keypress_monitor);
         void notify_watchers(const std::string &context, const std::string &window);
 
         int key_       = 0;
@@ -78,6 +89,7 @@ namespace ui {
         std::string description_;
         bool auto_repeat_;
         std::vector<caf::actor_addr> watchers_;
+        std::vector<caf::actor_addr> exclusive_watchers_;
 
       public:
         // This is a straight clone of the Qt::Key enums but instead we provide string

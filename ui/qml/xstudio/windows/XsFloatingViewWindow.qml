@@ -12,10 +12,14 @@ import xstudio.qml.helpers 1.0
 XsWindow {
 
     id: floatingWindow
-    title: view_name
+    title: name
+    minimumWidth: 150
+    minimumHeight: 100
+    property real defaultWidth: 1024
+    property real defaultHeight: 400
 
-    property var name: view_name // 'view_name' provided by model
-    property var content_qml: view_qml_source // 'view_qml_source' provided by model
+    property var name // 'view_name' provided by model
+    property var content_qml // 'view_qml_source' provided by model
     property var content_item
 
     // we need this to wipe hotkey_uuid property that might be visible in the
@@ -28,8 +32,9 @@ XsWindow {
         uiLayoutsModel.storeFloatingWindowData(name, user_data)
     }
 
-    onClosing: {
-        window_is_visible = false
+    onClosing: { 
+        if(typeof window_is_visible != 'undefined')
+            window_is_visible = false
     }
 
     onWidthChanged: {
@@ -56,8 +61,8 @@ XsWindow {
             // for now, hardcode panel size
             x = 200
             y = 200
-            width = 1024
-            height = 400
+            width = defaultWidth
+            height = defaultHeight
         }
 
         if (content_item) content_item.visible = visible

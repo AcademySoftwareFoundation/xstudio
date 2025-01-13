@@ -40,6 +40,28 @@ void SessionModel::setTimelineFocus(
     }
 }
 
+void SessionModel::setTimelineSelection(
+    const QModelIndex &timeline, const QModelIndexList &indexes) const {
+    try {
+        UuidActorVector selection;
+
+        if (timeline.isValid()) {
+            auto tactor = actorFromQString(system(), timeline.data(actorRole).toString());
+
+            for (auto &i : indexes) {
+                auto uuid  = UuidFromQUuid(i.data(idRole).toUuid());
+                auto actor = actorFromQString(system(), i.data(actorRole).toString());
+
+                selection.emplace_back(UuidActor(uuid, actor));
+            }
+
+            anon_send(tactor, timeline::item_selection_atom_v, selection);
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+}
+
 QRect SessionModel::timelineRect(const QModelIndexList &indexes) const {
     auto result     = QRect();
     auto box_inited = false;
@@ -306,6 +328,100 @@ int SessionModel::getTimelineFrameFromClip(
     return result;
 }
 
+int SessionModel::getNextTimelineClipFrame(const QModelIndex &timelineIndex, const int frame) {
+    auto result = frame;
+
+    auto tactor = actorFromQString(system(), timelineIndex.data(actorRole).toString());
+    if (timeline_lookup_.count(tactor)) {
+        auto &item   = timeline_lookup_.at(tactor);
+        auto frstart = FrameRate(item.rate().to_flicks() * frame);
+        auto frdur   = FrameRate(
+            item.front().trimmed_duration().to_flicks() -
+            (frstart.to_flicks() - item.front().trimmed_start().to_flicks()));
+
+        scoped_actor sys{system()};
+        try {
+            auto ri = request_receive<std::vector<std::optional<timeline::ResolvedItem>>>(
+                *sys, tactor, timeline::bake_atom_v, frstart, frdur);
+
+            if (not ri.empty()) {
+                auto fuuid = Uuid();
+                if (ri.front())
+                    fuuid = ri.front()->first.uuid();
+                // scan..
+                auto diff = FrameRate();
+                for (const auto &i : ri) {
+                    if ((fuuid.is_null() and i) or (not fuuid.is_null() and not i) or
+                        (not fuuid.is_null() and i and fuuid != i->first.uuid())) {
+
+                        result += diff / item.rate().to_flicks();
+                        break;
+                    }
+                    diff += item.rate();
+                }
+            }
+        } catch (...) {
+        }
+    }
+
+    return result;
+}
+
+int SessionModel::getPreviousTimelineClipFrame(
+    const QModelIndex &timelineIndex, const int frame) {
+    auto result = 0;
+
+    auto tactor = actorFromQString(system(), timelineIndex.data(actorRole).toString());
+    if (timeline_lookup_.count(tactor)) {
+        auto &item   = timeline_lookup_.at(tactor);
+        auto frstart = item.front().trimmed_start();
+        auto frdur   = FrameRate(
+            FrameRate(item.rate().to_flicks() * frame).to_flicks() - frstart.to_flicks());
+
+        scoped_actor sys{system()};
+        try {
+            auto ri = request_receive<std::vector<std::optional<timeline::ResolvedItem>>>(
+                *sys, tactor, timeline::bake_atom_v, frstart, frdur);
+
+            // slightly different behavior, as we jump to start of current clip before
+
+            if (not ri.empty()) {
+
+                // scan..
+                auto diff  = item.rate() * ri.size();
+                auto fuuid = Uuid();
+                if (ri.back())
+                    fuuid = ri.back()->first.uuid();
+
+                for (auto it = ri.rbegin(); it != ri.rend(); ++it) {
+                    if ((fuuid.is_null() and *it) or (not fuuid.is_null() and not *it) or
+                        (not fuuid.is_null() and *it and fuuid != (*it)->first.uuid())
+
+                    ) {
+                        // handle at front of clip..
+                        if (frame == diff / item.rate().to_flicks()) {
+                            auto prev = std::next(it, 1);
+                            if (prev != ri.rend()) {
+                                fuuid = Uuid();
+                                if (*prev)
+                                    fuuid = (*prev)->first.uuid();
+                            }
+                        } else {
+                            result = diff / item.rate().to_flicks();
+                            break;
+                        }
+                    }
+                    diff -= item.rate();
+                }
+            }
+        } catch (...) {
+        }
+    }
+
+    return result;
+}
+
+
 QModelIndex
 SessionModel::getTimelineClipIndex(const QModelIndex &timelineIndex, const int frame) {
     auto result = QModelIndex();
@@ -419,7 +535,6 @@ QModelIndexList SessionModel::getTimelineAudioClipIndexesFromRect(
         skipLocked);
 }
 
-
 QModelIndex SessionModel::getTimelineIndex(const QModelIndex &index) const {
     try {
         if (index.isValid()) {
@@ -434,6 +549,20 @@ QModelIndex SessionModel::getTimelineIndex(const QModelIndex &index) const {
     }
 
     return QModelIndex();
+}
+
+QVariantList SessionModel::getTimelineExportTypes() const {
+    auto result = QVariantList();
+    caf::scoped_actor sys(system());
+    auto global = system().registry().template get<caf::actor>(global_registry);
+    auto epa    = request_receive<caf::actor>(*sys, global, global::get_python_atom_v);
+
+    auto supported =
+        request_receive<std::vector<std::string>>(*sys, epa, session::export_atom_v);
+    for (const auto &i : supported)
+        result.push_back(QVariant::fromValue(QStringFromStd(to_upper(i) + " (*." + i + ")")));
+
+    return result;
 }
 
 QFuture<bool>
@@ -2287,149 +2416,155 @@ void SessionModel::beginTimelineItemDrag(
         auto orig_data = mapFromValue(i.data(userDataRole));
         auto data      = orig_data;
 
-        // reset all
-        data["adjust_duration"]          = 0;
-        data["adjust_start"]             = 0;
-        data["drag_value"]               = 0;
-        data["is_adjusting_start"]       = false;
-        data["is_adjusting_duration"]    = false;
-        data["is_adjusting_preceeding"]  = false;
-        data["is_adjusting_anteceeding"] = false;
-        data["is_anteceeding_track"]     = false;
-        data["adjust_track"]             = 0;
-        data["adjust_preceeding_gap"]    = 0;
-        data["adjust_anteceeding_gap"]   = 0;
-        data["move_x"]                   = 0;
-        data["move_Y"]                   = 0;
-        data["is_floating"]              = false;
+        data["drag_value"] = 0;
 
-        if (mode == QString("roll")) {
-            data["is_adjusting_start"] = true;
-        } else if (mode == QString("leftleft")) {
-            data["is_adjusting_start"]    = true;
-            data["is_adjusting_duration"] = true;
+        if (mode == QString("track")) {
+            data["move_y"] = 0;
+        } else {
+            // reset all
+            data["adjust_duration"]          = 0;
+            data["adjust_start"]             = 0;
+            data["is_adjusting_start"]       = false;
+            data["is_adjusting_duration"]    = false;
+            data["is_adjusting_preceeding"]  = false;
+            data["is_adjusting_anteceeding"] = false;
+            data["is_anteceeding_track"]     = false;
+            data["adjust_track"]             = 0;
+            data["adjust_preceeding_gap"]    = 0;
+            data["adjust_anteceeding_gap"]   = 0;
+            data["move_x"]                   = 0;
+            data["move_y"]                   = 0;
+            data["is_floating"]              = false;
 
-            auto preceeding = index(i.row() - 1, 0, i.parent());
-            auto orig_data2 = mapFromValue(preceeding.data(userDataRole));
-            auto data2      = orig_data2;
+            if (mode == QString("roll")) {
+                data["is_adjusting_start"] = true;
+            } else if (mode == QString("leftleft")) {
+                data["is_adjusting_start"]    = true;
+                data["is_adjusting_duration"] = true;
 
-            data2["adjust_duration"]       = 0;
-            data2["is_adjusting_duration"] = true;
-
-            if (orig_data2 != data2)
-                setData(preceeding, mapFromValue(data2), userDataRole);
-        } else if (mode == QString("rightright")) {
-            data["is_adjusting_duration"] = true;
-
-            auto anteceeding = index(i.row() + 1, 0, i.parent());
-            auto orig_data2  = mapFromValue(anteceeding.data(userDataRole));
-            auto data2       = orig_data2;
-
-            data2["adjust_duration"]       = 0;
-            data2["adjust_start"]          = 0;
-            data2["drag_value"]            = 0;
-            data2["is_adjusting_start"]    = true;
-            data2["is_adjusting_duration"] = true;
-
-            if (orig_data2 != data2)
-                setData(anteceeding, mapFromValue(data2), userDataRole);
-        } else if (mode == QString("left")) {
-            data["is_adjusting_start"]    = true;
-            data["is_adjusting_duration"] = true;
-
-            if (isOverwrite) {
-                data["is_floating"] = true;
-            } else {
                 auto preceeding = index(i.row() - 1, 0, i.parent());
-                if (preceeding.isValid()) {
-                    auto type = preceeding.data(typeRole).toString();
-                    if (type == QString("Gap")) {
-                        data["is_adjusting_preceeding"] = true;
-                        auto orig_data2 = mapFromValue(preceeding.data(userDataRole));
-                        auto data2      = orig_data2;
+                auto orig_data2 = mapFromValue(preceeding.data(userDataRole));
+                auto data2      = orig_data2;
 
-                        data2["adjust_duration"]       = 0;
-                        data2["is_adjusting_duration"] = true;
+                data2["adjust_duration"]       = 0;
+                data2["is_adjusting_duration"] = true;
 
-                        if (orig_data2 != data2)
-                            setData(preceeding, mapFromValue(data2), userDataRole);
-                    }
-                }
-            }
-        } else if (mode == QString("right")) {
-            data["is_adjusting_duration"] = true;
+                if (orig_data2 != data2)
+                    setData(preceeding, mapFromValue(data2), userDataRole);
+            } else if (mode == QString("rightright")) {
+                data["is_adjusting_duration"] = true;
 
-            if (not isRipple) {
+                auto anteceeding = index(i.row() + 1, 0, i.parent());
+                auto orig_data2  = mapFromValue(anteceeding.data(userDataRole));
+                auto data2       = orig_data2;
+
+                data2["adjust_duration"]       = 0;
+                data2["adjust_start"]          = 0;
+                data2["drag_value"]            = 0;
+                data2["is_adjusting_start"]    = true;
+                data2["is_adjusting_duration"] = true;
+
+                if (orig_data2 != data2)
+                    setData(anteceeding, mapFromValue(data2), userDataRole);
+            } else if (mode == QString("left")) {
+                data["is_adjusting_start"]    = true;
+                data["is_adjusting_duration"] = true;
+
                 if (isOverwrite) {
                     data["is_floating"] = true;
                 } else {
-                    auto anteceeding = index(i.row() + 1, 0, i.parent());
-                    if (anteceeding.isValid()) {
-                        auto type = anteceeding.data(typeRole).toString();
+                    auto preceeding = index(i.row() - 1, 0, i.parent());
+                    if (preceeding.isValid()) {
+                        auto type = preceeding.data(typeRole).toString();
                         if (type == QString("Gap")) {
-                            auto orig_data2 = mapFromValue(anteceeding.data(userDataRole));
+                            data["is_adjusting_preceeding"] = true;
+                            auto orig_data2 = mapFromValue(preceeding.data(userDataRole));
                             auto data2      = orig_data2;
-
-                            data["is_adjusting_anteceeding"] = true;
 
                             data2["adjust_duration"]       = 0;
                             data2["is_adjusting_duration"] = true;
 
                             if (orig_data2 != data2)
-                                setData(anteceeding, mapFromValue(data2), userDataRole);
+                                setData(preceeding, mapFromValue(data2), userDataRole);
                         }
-                    } else {
-                        data["is_anteceeding_track"] = true;
                     }
                 }
-            }
-        } else if (mode == QString("middle")) {
-            if (isOverwrite) {
-                data["is_floating"] = true;
-            } else {
-                auto preceeding  = index(i.row() - 1, 0, i.parent());
-                auto anteceeding = index(i.row() + 1, 0, i.parent());
-
-                auto preceeding_type  = preceeding.isValid()
-                                            ? preceeding.data(typeRole).toString()
-                                            : QString("Track");
-                auto anteceeding_type = anteceeding.isValid()
-                                            ? anteceeding.data(typeRole).toString()
-                                            : QString("Track");
-
-                if (preceeding_type == QString("Gap")) {
-                    auto orig_data2 = mapFromValue(preceeding.data(userDataRole));
-                    auto data2      = orig_data2;
-
-                    data["is_adjusting_preceeding"] = true;
-                    data2["adjust_duration"]        = 0;
-                    data2["is_adjusting_duration"]  = true;
-
-                    if (orig_data2 != data2)
-                        setData(preceeding, mapFromValue(data2), userDataRole);
-                } else {
-                    data["is_adjusting_preceeding"] = true;
-                }
+            } else if (mode == QString("right")) {
+                data["is_adjusting_duration"] = true;
 
                 if (not isRipple) {
-                    if (anteceeding_type == QString("Gap")) {
-                        auto orig_data2 = mapFromValue(anteceeding.data(userDataRole));
+                    if (isOverwrite) {
+                        data["is_floating"] = true;
+                    } else {
+                        auto anteceeding = index(i.row() + 1, 0, i.parent());
+                        if (anteceeding.isValid()) {
+                            auto type = anteceeding.data(typeRole).toString();
+                            if (type == QString("Gap")) {
+                                auto orig_data2 = mapFromValue(anteceeding.data(userDataRole));
+                                auto data2      = orig_data2;
+
+                                data["is_adjusting_anteceeding"] = true;
+
+                                data2["adjust_duration"]       = 0;
+                                data2["is_adjusting_duration"] = true;
+
+                                if (orig_data2 != data2)
+                                    setData(anteceeding, mapFromValue(data2), userDataRole);
+                            }
+                        } else {
+                            data["is_anteceeding_track"] = true;
+                        }
+                    }
+                }
+            } else if (mode == QString("middle")) {
+                if (isOverwrite) {
+                    data["is_floating"] = true;
+                } else {
+                    auto preceeding  = index(i.row() - 1, 0, i.parent());
+                    auto anteceeding = index(i.row() + 1, 0, i.parent());
+
+                    auto preceeding_type  = preceeding.isValid()
+                                                ? preceeding.data(typeRole).toString()
+                                                : QString("Track");
+                    auto anteceeding_type = anteceeding.isValid()
+                                                ? anteceeding.data(typeRole).toString()
+                                                : QString("Track");
+
+                    if (preceeding_type == QString("Gap")) {
+                        auto orig_data2 = mapFromValue(preceeding.data(userDataRole));
                         auto data2      = orig_data2;
 
-                        data["is_adjusting_anteceeding"] = true;
-                        data2["adjust_duration"]         = 0;
-                        data2["is_adjusting_duration"]   = true;
+                        data["is_adjusting_preceeding"] = true;
+                        data2["adjust_duration"]        = 0;
+                        data2["is_adjusting_duration"]  = true;
 
                         if (orig_data2 != data2)
-                            setData(anteceeding, mapFromValue(data2), userDataRole);
-                    } else if (anteceeding_type != QString("Track")) {
-                        data["is_adjusting_anteceeding"] = true;
+                            setData(preceeding, mapFromValue(data2), userDataRole);
                     } else {
-                        data["is_anteceeding_track"] = true;
+                        data["is_adjusting_preceeding"] = true;
+                    }
+
+                    if (not isRipple) {
+                        if (anteceeding_type == QString("Gap")) {
+                            auto orig_data2 = mapFromValue(anteceeding.data(userDataRole));
+                            auto data2      = orig_data2;
+
+                            data["is_adjusting_anteceeding"] = true;
+                            data2["adjust_duration"]         = 0;
+                            data2["is_adjusting_duration"]   = true;
+
+                            if (orig_data2 != data2)
+                                setData(anteceeding, mapFromValue(data2), userDataRole);
+                        } else if (anteceeding_type != QString("Track")) {
+                            data["is_adjusting_anteceeding"] = true;
+                        } else {
+                            data["is_anteceeding_track"] = true;
+                        }
                     }
                 }
             }
         }
+
 
         if (orig_data != data)
             setData(i, mapFromValue(data), userDataRole);
@@ -2453,7 +2588,19 @@ void SessionModel::updateTimelineItemDrag(
 
         auto orig_data = mapFromValue(i.data(userDataRole));
         auto data      = orig_data;
-        if (mode == QString("roll")) {
+
+        if (mode == QString("track")) {
+
+            if (i.row() + trackChange < 0)
+                trackChange = -i.row();
+            else if (i.row() + trackChange > rowCount(i.parent())) {
+                trackChange = (rowCount(i.parent()) - 1) - i.row();
+            }
+
+            data["move_y"] = trackChange;
+            if (orig_data != data)
+                setData(i, mapFromValue(data), userDataRole);
+        } else if (mode == QString("roll")) {
             auto trimmedStart      = i.data(trimmedStartRole).toInt();
             auto availableStart    = i.data(availableStartRole).toInt();
             auto trimmedDuration   = i.data(trimmedDurationRole).toInt();
@@ -2625,7 +2772,7 @@ void SessionModel::endTimelineItemDrag(
             data["adjust_anteceeding_gap"]   = 0;
             data["adjust_track"]             = 0;
             data["move_x"]                   = 0;
-            data["move_Y"]                   = 0;
+            data["move_y"]                   = 0;
             data["is_floating"]              = false;
 
 
@@ -2635,128 +2782,38 @@ void SessionModel::endTimelineItemDrag(
             }
         };
 
-        if (mode == QString("roll")) {
-            auto trimmedStart = i.data(trimmedStartRole).toInt();
-            setData(
-                i,
-                QVariant::fromValue(trimmedStart + data["adjust_start"].get<int>()),
-                activeStartRole);
-        } else if (mode == "leftleft") {
-            auto preceeding      = index(i.row() - 1, 0, i.parent());
-            auto orig_data2      = mapFromValue(preceeding.data(userDataRole));
-            auto data2           = orig_data2;
-            auto trimmedStart    = i.data(trimmedStartRole).toInt();
-            auto trimmedDuration = i.data(trimmedDurationRole).toInt();
-            auto startFrame      = trimmedStart + (not data["is_adjusting_start"].is_null() and
-                                                      data["is_adjusting_start"]
-                                                       ? data["adjust_start"].get<int>()
-                                                       : 0);
-            auto durationFrame =
-                trimmedDuration +
-                (not data["is_adjusting_duration"].is_null() and data["is_adjusting_duration"]
-                     ? data["adjust_duration"].get<int>()
-                     : 0);
-            auto trimmedDuration2 = preceeding.data(trimmedDurationRole).toInt();
-            auto durationFrame2 =
-                trimmedDuration2 +
-                (not data2["is_adjusting_duration"].is_null() and data2["is_adjusting_duration"]
-                     ? data2["adjust_duration"].get<int>()
-                     : 0);
-
-            setData(i, startFrame, activeStartRole);
-            setData(i, durationFrame, activeDurationRole);
-            setData(preceeding, durationFrame2, activeDurationRole);
-
-            data2["is_adjusting_start"]    = false;
-            data2["is_adjusting_duration"] = false;
-            data2["adjust_start"]          = 0;
-            data2["adjust_duration"]       = 0;
-            data2["drag_value"]            = 0;
-
-            if (orig_data2 != data2)
-                setData(preceeding, mapFromValue(data2), userDataRole);
-        } else if (mode == "rightright") {
-            auto anteceeding     = index(i.row() + 1, 0, i.parent());
-            auto orig_data2      = mapFromValue(anteceeding.data(userDataRole));
-            auto data2           = orig_data2;
-            auto trimmedDuration = i.data(trimmedDurationRole).toInt();
-            auto durationFrame =
-                trimmedDuration +
-                (not data["is_adjusting_duration"].is_null() and data["is_adjusting_duration"]
-                     ? data["adjust_duration"].get<int>()
-                     : 0);
-            auto trimmedStart2    = anteceeding.data(trimmedStartRole).toInt();
-            auto trimmedDuration2 = anteceeding.data(trimmedDurationRole).toInt();
-            auto startFrame2 = trimmedStart2 + (not data2["is_adjusting_start"].is_null() and
-                                                        data2["is_adjusting_start"]
-                                                    ? data2["adjust_start"].get<int>()
-                                                    : 0);
-            auto durationFrame2 =
-                trimmedDuration2 +
-                (not data2["is_adjusting_duration"].is_null() and data2["is_adjusting_duration"]
-                     ? data2["adjust_duration"].get<int>()
-                     : 0);
-
-            setData(i, durationFrame, activeDurationRole);
-            setData(anteceeding, startFrame2, activeStartRole);
-            setData(anteceeding, durationFrame2, activeDurationRole);
-
-            data2["is_adjusting_start"]    = false;
-            data2["is_adjusting_duration"] = false;
-            data2["adjust_start"]          = 0;
-            data2["adjust_duration"]       = 0;
-            data2["drag_value"]            = 0;
-
-            if (orig_data2 != data2)
-                setData(anteceeding, mapFromValue(data2), userDataRole);
-        } else if (mode == "left") {
-            auto trimmedStart    = i.data(trimmedStartRole).toInt();
-            auto trimmedDuration = i.data(trimmedDurationRole).toInt();
-            auto startFrame      = trimmedStart + (not data["is_adjusting_start"].is_null() and
-                                                      data["is_adjusting_start"]
-                                                       ? data["adjust_start"].get<int>()
-                                                       : 0);
-            auto durationFrame =
-                trimmedDuration +
-                (not data["is_adjusting_duration"].is_null() and data["is_adjusting_duration"]
-                     ? data["adjust_duration"].get<int>()
-                     : 0);
-            setData(i, startFrame, activeStartRole);
-            setData(i, durationFrame, activeDurationRole);
-
-            // remove material we overwrote
-            if (isOverwrite) {
-                // we got smaller, either extend or insert gap
-                if (durationFrame < trimmedDuration) {
-                    auto gap = trimmedDuration - durationFrame;
-                    auto fps = i.data(rateFPSRole).toDouble();
-
-                    auto previous = index(i.row() - 1, 0, i.parent());
-
-                    if (not previous.isValid() or
-                        previous.data(typeRole) != QVariant::fromValue(QString("Gap"))) {
-                        flushChange();
-                        insertTimelineGap(i.row(), i.parent(), gap, fps, "Gap");
-                    } else {
-                        auto gduration = previous.data(trimmedDurationRole).toInt();
-                        setData(previous, gduration + gap, activeDurationRole);
-                        setData(previous, gduration + gap, availableDurationRole);
-                    }
-                } else if (durationFrame > trimmedDuration and i.row()) {
-                    // expanding..
-                    // delete preceeding
-                    auto start =
-                        std::max(0, startFrameInParent(i) - (durationFrame - trimmedDuration));
-                    flushChange();
-                    removeTimelineItems(
-                        getTimelineTrackIndex(i), start, startFrameInParent(i) - start);
-                }
+        if (mode == QString("track")) {
+            auto val = data["move_y"].get<int>();
+            if (val != 0) {
+                moveTimelineItem(i, val > 0 ? val + 1 : val);
+                data["move_y"] = 0;
             }
-
-            if (data["is_adjusting_preceeding"]) {
-                auto preceeding       = index(i.row() - 1, 0, i.parent());
-                auto orig_data2       = mapFromValue(preceeding.data(userDataRole));
-                auto data2            = orig_data2;
+            if (orig_data != data) {
+                setData(i, mapFromValue(data), userDataRole);
+                orig_data = data;
+            }
+        } else {
+            if (mode == QString("roll")) {
+                auto trimmedStart = i.data(trimmedStartRole).toInt();
+                setData(
+                    i,
+                    QVariant::fromValue(trimmedStart + data["adjust_start"].get<int>()),
+                    activeStartRole);
+            } else if (mode == "leftleft") {
+                auto preceeding      = index(i.row() - 1, 0, i.parent());
+                auto orig_data2      = mapFromValue(preceeding.data(userDataRole));
+                auto data2           = orig_data2;
+                auto trimmedStart    = i.data(trimmedStartRole).toInt();
+                auto trimmedDuration = i.data(trimmedDurationRole).toInt();
+                auto startFrame = trimmedStart + (not data["is_adjusting_start"].is_null() and
+                                                          data["is_adjusting_start"]
+                                                      ? data["adjust_start"].get<int>()
+                                                      : 0);
+                auto durationFrame =
+                    trimmedDuration + (not data["is_adjusting_duration"].is_null() and
+                                               data["is_adjusting_duration"]
+                                           ? data["adjust_duration"].get<int>()
+                                           : 0);
                 auto trimmedDuration2 = preceeding.data(trimmedDurationRole).toInt();
                 auto durationFrame2 =
                     trimmedDuration2 + (not data2["is_adjusting_duration"].is_null() and
@@ -2764,296 +2821,413 @@ void SessionModel::endTimelineItemDrag(
                                             ? data2["adjust_duration"].get<int>()
                                             : 0);
 
-                if (durationFrame2 == 0) {
-                    flushChange();
-                    removeTimelineItems(QModelIndexList({preceeding}));
-                } else {
-                    setData(preceeding, durationFrame2, activeDurationRole);
-                    setData(preceeding, durationFrame2, availableDurationRole);
-                    data2["is_adjusting_duration"] = false;
-                    data2["adjust_duration"]       = 0;
-                    if (orig_data2 != data2)
-                        setData(preceeding, mapFromValue(data2), userDataRole);
-                }
-            } else if (data["adjust_preceeding_gap"] > 0) {
-                auto gap = data["adjust_preceeding_gap"].get<int>();
-                auto fps = i.data(rateFPSRole).toDouble();
-                flushChange();
-                insertTimelineGap(i.row(), i.parent(), gap, fps, "Gap");
-            }
-        } else if (mode == "right") {
-            auto trimmedDuration = i.data(trimmedDurationRole).toInt();
-            auto durationFrame =
-                trimmedDuration +
-                (not data["is_adjusting_duration"].is_null() and data["is_adjusting_duration"]
-                     ? data["adjust_duration"].get<int>()
-                     : 0);
-            setData(i, durationFrame, activeDurationRole);
+                setData(i, startFrame, activeStartRole);
+                setData(i, durationFrame, activeDurationRole);
+                setData(preceeding, durationFrame2, activeDurationRole);
 
-            // remove material we overwrote
-            if (isOverwrite) {
-                // only remove if we're not the last item.
-                if (durationFrame > trimmedDuration and rowCount(i.parent()) - 1 != i.row()) {
-                    flushChange();
+                data2["is_adjusting_start"]    = false;
+                data2["is_adjusting_duration"] = false;
+                data2["adjust_start"]          = 0;
+                data2["adjust_duration"]       = 0;
+                data2["drag_value"]            = 0;
 
-                    removeTimelineItems(
-                        getTimelineTrackIndex(i),
-                        startFrameInParent(i) + durationFrame,
-                        durationFrame - trimmedDuration);
-                } else if (
-                    durationFrame < trimmedDuration and rowCount(i.parent()) - 1 != i.row()) {
-                    auto gap = trimmedDuration - durationFrame;
-                    auto fps = i.data(rateFPSRole).toDouble();
-
-                    // check next item isn't a gap..
-                    auto next_item = index(i.row() + 1, 0, i.parent());
-                    if (next_item.data(typeRole) == QVariant::fromValue(QString("Gap"))) {
-                        auto gduration = next_item.data(trimmedDurationRole).toInt();
-                        setData(next_item, gduration + gap, activeDurationRole);
-                        setData(next_item, gduration + gap, availableDurationRole);
-                    } else {
-                        flushChange();
-                        insertTimelineGap(i.row() + 1, i.parent(), gap, fps, "Gap");
-                    }
-                }
-            }
-
-            if (data["is_adjusting_anteceeding"]) {
-                auto anteceeding      = index(i.row() + 1, 0, i.parent());
-                auto orig_data2       = mapFromValue(anteceeding.data(userDataRole));
-                auto data2            = orig_data2;
+                if (orig_data2 != data2)
+                    setData(preceeding, mapFromValue(data2), userDataRole);
+            } else if (mode == "rightright") {
+                auto anteceeding     = index(i.row() + 1, 0, i.parent());
+                auto orig_data2      = mapFromValue(anteceeding.data(userDataRole));
+                auto data2           = orig_data2;
+                auto trimmedDuration = i.data(trimmedDurationRole).toInt();
+                auto durationFrame =
+                    trimmedDuration + (not data["is_adjusting_duration"].is_null() and
+                                               data["is_adjusting_duration"]
+                                           ? data["adjust_duration"].get<int>()
+                                           : 0);
+                auto trimmedStart2    = anteceeding.data(trimmedStartRole).toInt();
                 auto trimmedDuration2 = anteceeding.data(trimmedDurationRole).toInt();
+                auto startFrame2 =
+                    trimmedStart2 +
+                    (not data2["is_adjusting_start"].is_null() and data2["is_adjusting_start"]
+                         ? data2["adjust_start"].get<int>()
+                         : 0);
                 auto durationFrame2 =
                     trimmedDuration2 + (not data2["is_adjusting_duration"].is_null() and
                                                 data2["is_adjusting_duration"]
                                             ? data2["adjust_duration"].get<int>()
                                             : 0);
 
-                if (durationFrame2 == 0) {
-                    removeTimelineItems(QModelIndexList({anteceeding}));
-                } else {
-                    setData(anteceeding, durationFrame2, activeDurationRole);
-                    setData(anteceeding, durationFrame2, availableDurationRole);
+                setData(i, durationFrame, activeDurationRole);
+                setData(anteceeding, startFrame2, activeStartRole);
+                setData(anteceeding, durationFrame2, activeDurationRole);
 
-                    data2["is_adjusting_duration"] = false;
-                    data2["adjust_duration"]       = 0;
-                    if (orig_data2 != data2)
-                        setData(anteceeding, mapFromValue(data2), userDataRole);
-                }
-            } else if (data["adjust_anteceeding_gap"] > 0) {
-                auto gap = data["adjust_anteceeding_gap"].get<int>();
-                auto fps = i.data(rateFPSRole).toDouble();
+                data2["is_adjusting_start"]    = false;
+                data2["is_adjusting_duration"] = false;
+                data2["adjust_start"]          = 0;
+                data2["adjust_duration"]       = 0;
+                data2["drag_value"]            = 0;
 
-                insertTimelineGap(i.row() + 1, i.parent(), gap, fps, "Gap");
-            }
-        } else if (mode == "middle") {
-            auto preceeding  = index(i.row() - 1, 0, i.parent());
-            auto anteceeding = index(i.row() + 1, 0, i.parent());
-            auto preceeding_type =
-                preceeding.isValid() ? preceeding.data(typeRole).toString() : QString("Track");
-            auto anteceeding_type = anteceeding.isValid()
-                                        ? anteceeding.data(typeRole).toString()
-                                        : QString("Track");
-
-            if (isOverwrite) {
-                auto frame_offset = data["move_x"].get<int>();
-                auto track_offset = data["move_y"].get<int>();
-                auto duration     = i.data(trimmedDurationRole).toInt();
-                auto start        = startFrameInParent(i);
-
-                // order of indexes is important,
-                // check for correct order ..
-                if (i == pitems.front()) {
-                    auto sorted = QModelIndexList(items.begin(), items.end());
-
-                    if (frame_offset > 0) {
-                        std::sort(
-                            sorted.begin(), sorted.end(), [](QModelIndex &a, QModelIndex &b) {
-                                return a.row() > b.row();
-                            });
-
-                        if (sorted != items) {
-                            endTimelineItemDrag(sorted, mode, isOverwrite);
-                            return;
-                        }
-                    } else {
-                        std::sort(
-                            sorted.begin(), sorted.end(), [](QModelIndex &a, QModelIndex &b) {
-                                return a.row() < b.row();
-                            });
-
-                        if (sorted != items) {
-                            endTimelineItemDrag(sorted, mode, isOverwrite);
-                            return;
-                        }
-                    }
-                }
-
-                // ouch...
-                if (data["is_adjusting_preceeding"] and preceeding_type == QString("Gap")) {
-                    auto data2 = mapFromValue(preceeding.data(userDataRole));
-                    data2["is_adjusting_duration"] = false;
-                    data2["adjust_duration"]       = 0;
-                    setData(preceeding, mapFromValue(data2), userDataRole);
-                }
-                if (data["is_adjusting_anteceeding"] and anteceeding_type == QString("Gap")) {
-                    auto data2 = mapFromValue(anteceeding.data(userDataRole));
-                    data2["is_adjusting_duration"] = false;
-                    data2["adjust_duration"]       = 0;
+                if (orig_data2 != data2)
                     setData(anteceeding, mapFromValue(data2), userDataRole);
-                }
-                flushChange();
+            } else if (mode == "left") {
+                auto trimmedStart    = i.data(trimmedStartRole).toInt();
+                auto trimmedDuration = i.data(trimmedDurationRole).toInt();
+                auto startFrame = trimmedStart + (not data["is_adjusting_start"].is_null() and
+                                                          data["is_adjusting_start"]
+                                                      ? data["adjust_start"].get<int>()
+                                                      : 0);
+                auto durationFrame =
+                    trimmedDuration + (not data["is_adjusting_duration"].is_null() and
+                                               data["is_adjusting_duration"]
+                                           ? data["adjust_duration"].get<int>()
+                                           : 0);
+                setData(i, startFrame, activeStartRole);
+                setData(i, durationFrame, activeDurationRole);
 
-                // this involves a ton of track modifications..
-                if (track_offset) {
-                    auto target_track_index =
-                        index(i.parent().row() + track_offset, 0, i.parent().parent());
+                // remove material we overwrote
+                if (isOverwrite) {
+                    // we got smaller, either extend or insert gap
+                    if (durationFrame < trimmedDuration) {
+                        auto gap = trimmedDuration - durationFrame;
+                        auto fps = i.data(rateFPSRole).toDouble();
 
-                    if (track_offset < 0) {
-                        for (auto tr = 0; tr >= track_offset; tr--) {
-                            target_track_index =
-                                index(i.parent().row() + tr, 0, i.parent().parent());
+                        auto previous = index(i.row() - 1, 0, i.parent());
 
-                            if (not target_track_index.isValid()) {
-                                // create new track
-                                auto type_role = i.parent().data(typeRole).toString();
-
-                                target_track_index = insertRowsSync(
-                                    type_role == "Video Track" ? 0
-                                                               : rowCount(i.parent().parent()),
-                                    1,
-                                    type_role,
-                                    type_role,
-                                    i.parent().parent())[0];
-                            }
+                        if (not previous.isValid() or
+                            previous.data(typeRole) != QVariant::fromValue(QString("Gap"))) {
+                            flushChange();
+                            insertTimelineGap(i.row(), i.parent(), gap, fps, "Gap");
+                        } else {
+                            auto gduration = previous.data(trimmedDurationRole).toInt();
+                            setData(previous, gduration + gap, activeDurationRole);
+                            setData(previous, gduration + gap, availableDurationRole);
                         }
-                    } else if (track_offset > 0) {
-                        for (auto tr = 0; tr <= track_offset; tr++) {
-                            target_track_index =
-                                index(i.parent().row() + tr, 0, i.parent().parent());
-
-                            if (not target_track_index.isValid()) {
-                                // create new track
-                                auto type_role = i.parent().data(typeRole).toString();
-
-                                target_track_index = insertRowsSync(
-                                    type_role == "Video Track" ? 0
-                                                               : rowCount(i.parent().parent()),
-                                    1,
-                                    type_role,
-                                    type_role,
-                                    i.parent().parent())[0];
-                            }
-                        }
+                    } else if (durationFrame > trimmedDuration and i.row()) {
+                        // expanding..
+                        // delete preceeding
+                        auto start = std::max(
+                            0, startFrameInParent(i) - (durationFrame - trimmedDuration));
+                        flushChange();
+                        removeTimelineItems(
+                            getTimelineTrackIndex(i), start, startFrameInParent(i) - start);
                     }
-
-                    auto new_clips =
-                        duplicateTimelineClipsTo(QModelIndexList({i}), target_track_index);
-                    moveRangeTimelineItems(
-                        getTimelineTrackIndex(new_clips[0].parent()),
-                        startFrameInParent(new_clips[0]),
-                        duration,
-                        start + frame_offset,
-                        false);
-
-                    removeTimelineItems(QModelIndexList({i}));
-                    // wait for index to become invalidated..
-                    while (i.isValid()) {
-                        QCoreApplication::processEvents(
-                            QEventLoop::WaitForMoreEvents | QEventLoop::ExcludeUserInputEvents,
-                            50);
-                    }
-
-                } else if (frame_offset)
-                    moveRangeTimelineItems(
-                        getTimelineTrackIndex(i.parent()),
-                        start,
-                        duration,
-                        start + frame_offset,
-                        false);
-            } else {
-                auto delete_preceeding    = false;
-                auto delete_anteceeding   = false;
-                auto adjustPreceedingGap  = data["adjust_preceeding_gap"].get<int>();
-                auto adjustAnteceedingGap = data["adjust_anteceeding_gap"].get<int>();
-                auto insert_preceeding =
-                    data["is_adjusting_preceeding"] and adjustPreceedingGap;
-                auto insert_anteceeding =
-                    data["is_adjusting_anteceeding"] and adjustAnteceedingGap;
-
-                // adjust duration of preceeding gap or delete
-                if (data["is_adjusting_preceeding"] and preceeding_type == QString("Gap")) {
-                    auto trimmedDuration = preceeding.data(trimmedDurationRole).toInt();
-                    auto data2           = mapFromValue(preceeding.data(userDataRole));
-                    auto preceedingDurationFrame =
-                        trimmedDuration + (not data2["is_adjusting_duration"].is_null() and
-                                                   data2["is_adjusting_duration"]
-                                               ? data2["adjust_duration"].get<int>()
-                                               : 0);
-                    if (preceedingDurationFrame) {
-                        setData(preceeding, preceedingDurationFrame, activeDurationRole);
-                        setData(preceeding, preceedingDurationFrame, availableDurationRole);
-                    } else {
-                        delete_preceeding = true;
-                    }
-
-                    data2["is_adjusting_duration"] = false;
-                    data2["adjust_duration"]       = 0;
-                    setData(preceeding, mapFromValue(data2), userDataRole);
                 }
 
-                // adjust duration of anteceeding gap or delete
-                if (data["is_adjusting_anteceeding"] and anteceeding_type == QString("Gap")) {
-                    auto trimmedDuration = anteceeding.data(trimmedDurationRole).toInt();
-                    auto data2           = mapFromValue(anteceeding.data(userDataRole));
-                    auto anteceedingDurationFrame =
-                        trimmedDuration + (not data2["is_adjusting_duration"].is_null() and
-                                                   data2["is_adjusting_duration"]
-                                               ? data2["adjust_duration"].get<int>()
-                                               : 0);
-                    if (anteceedingDurationFrame) {
-                        setData(anteceeding, anteceedingDurationFrame, activeDurationRole);
-                        setData(anteceeding, anteceedingDurationFrame, availableDurationRole);
-                    } else {
-                        delete_anteceeding = true;
-                    }
-                    data2["is_adjusting_duration"] = false;
-                    data2["adjust_duration"]       = 0;
-                    setData(anteceeding, mapFromValue(data2), userDataRole);
-                }
+                if (data["is_adjusting_preceeding"]) {
+                    auto preceeding       = index(i.row() - 1, 0, i.parent());
+                    auto orig_data2       = mapFromValue(preceeding.data(userDataRole));
+                    auto data2            = orig_data2;
+                    auto trimmedDuration2 = preceeding.data(trimmedDurationRole).toInt();
+                    auto durationFrame2 =
+                        trimmedDuration2 + (not data2["is_adjusting_duration"].is_null() and
+                                                    data2["is_adjusting_duration"]
+                                                ? data2["adjust_duration"].get<int>()
+                                                : 0);
 
-                flushChange();
-                // spdlog::warn("insert_preceeding {} delete_preceeding {} insert_anteceeding {}
-                // delete_anteceeding {}", insert_preceeding, delete_preceeding,
-                // insert_anteceeding, delete_anteceeding );
-
-                // some operations are moves
-                if (insert_preceeding and delete_anteceeding)
-                    moveTimelineItem(i, 1);
-                else if (delete_preceeding and insert_anteceeding)
-                    moveTimelineItem(i, -1);
-                else {
-                    if (delete_preceeding)
+                    if (durationFrame2 == 0) {
+                        flushChange();
                         removeTimelineItems(QModelIndexList({preceeding}));
+                    } else {
+                        setData(preceeding, durationFrame2, activeDurationRole);
+                        setData(preceeding, durationFrame2, availableDurationRole);
+                        data2["is_adjusting_duration"] = false;
+                        data2["adjust_duration"]       = 0;
+                        if (orig_data2 != data2)
+                            setData(preceeding, mapFromValue(data2), userDataRole);
+                    }
+                } else if (data["adjust_preceeding_gap"] > 0) {
+                    auto gap = data["adjust_preceeding_gap"].get<int>();
+                    auto fps = i.data(rateFPSRole).toDouble();
+                    flushChange();
+                    insertTimelineGap(i.row(), i.parent(), gap, fps, "Gap");
+                }
+            } else if (mode == "right") {
+                auto trimmedDuration = i.data(trimmedDurationRole).toInt();
+                auto durationFrame =
+                    trimmedDuration + (not data["is_adjusting_duration"].is_null() and
+                                               data["is_adjusting_duration"]
+                                           ? data["adjust_duration"].get<int>()
+                                           : 0);
+                setData(i, durationFrame, activeDurationRole);
 
-                    if (delete_anteceeding)
-                        removeTimelineItems(QModelIndexList({anteceeding}));
+                // remove material we overwrote
+                if (isOverwrite) {
+                    // only remove if we're not the last item.
+                    if (durationFrame > trimmedDuration and
+                        rowCount(i.parent()) - 1 != i.row()) {
+                        flushChange();
 
-                    if (insert_preceeding) {
+                        removeTimelineItems(
+                            getTimelineTrackIndex(i),
+                            startFrameInParent(i) + durationFrame,
+                            durationFrame - trimmedDuration);
+                    } else if (
+                        durationFrame < trimmedDuration and
+                        rowCount(i.parent()) - 1 != i.row()) {
+                        auto gap = trimmedDuration - durationFrame;
                         auto fps = i.data(rateFPSRole).toDouble();
-                        insertTimelineGap(i.row(), i.parent(), adjustPreceedingGap, fps, "Gap");
+
+                        // check next item isn't a gap..
+                        auto next_item = index(i.row() + 1, 0, i.parent());
+                        if (next_item.data(typeRole) == QVariant::fromValue(QString("Gap"))) {
+                            auto gduration = next_item.data(trimmedDurationRole).toInt();
+                            setData(next_item, gduration + gap, activeDurationRole);
+                            setData(next_item, gduration + gap, availableDurationRole);
+                        } else {
+                            flushChange();
+                            insertTimelineGap(i.row() + 1, i.parent(), gap, fps, "Gap");
+                        }
+                    }
+                }
+
+                if (data["is_adjusting_anteceeding"]) {
+                    auto anteceeding      = index(i.row() + 1, 0, i.parent());
+                    auto orig_data2       = mapFromValue(anteceeding.data(userDataRole));
+                    auto data2            = orig_data2;
+                    auto trimmedDuration2 = anteceeding.data(trimmedDurationRole).toInt();
+                    auto durationFrame2 =
+                        trimmedDuration2 + (not data2["is_adjusting_duration"].is_null() and
+                                                    data2["is_adjusting_duration"]
+                                                ? data2["adjust_duration"].get<int>()
+                                                : 0);
+
+                    if (durationFrame2 == 0) {
+                        removeTimelineItems(QModelIndexList({anteceeding}));
+                    } else {
+                        setData(anteceeding, durationFrame2, activeDurationRole);
+                        setData(anteceeding, durationFrame2, availableDurationRole);
+
+                        data2["is_adjusting_duration"] = false;
+                        data2["adjust_duration"]       = 0;
+                        if (orig_data2 != data2)
+                            setData(anteceeding, mapFromValue(data2), userDataRole);
+                    }
+                } else if (data["adjust_anteceeding_gap"] > 0) {
+                    auto gap = data["adjust_anteceeding_gap"].get<int>();
+                    auto fps = i.data(rateFPSRole).toDouble();
+
+                    insertTimelineGap(i.row() + 1, i.parent(), gap, fps, "Gap");
+                }
+            } else if (mode == "middle") {
+                auto preceeding       = index(i.row() - 1, 0, i.parent());
+                auto anteceeding      = index(i.row() + 1, 0, i.parent());
+                auto preceeding_type  = preceeding.isValid()
+                                            ? preceeding.data(typeRole).toString()
+                                            : QString("Track");
+                auto anteceeding_type = anteceeding.isValid()
+                                            ? anteceeding.data(typeRole).toString()
+                                            : QString("Track");
+
+                if (isOverwrite) {
+                    auto frame_offset = data["move_x"].get<int>();
+                    auto track_offset = data["move_y"].get<int>();
+                    auto duration     = i.data(trimmedDurationRole).toInt();
+                    auto start        = startFrameInParent(i);
+
+                    // order of indexes is important,
+                    // check for correct order ..
+                    if (i == pitems.front()) {
+                        auto sorted = QModelIndexList(items.begin(), items.end());
+
+                        if (frame_offset > 0) {
+                            std::sort(
+                                sorted.begin(),
+                                sorted.end(),
+                                [](QModelIndex &a, QModelIndex &b) {
+                                    return a.row() > b.row();
+                                });
+
+                            if (sorted != items) {
+                                endTimelineItemDrag(sorted, mode, isOverwrite);
+                                return;
+                            }
+                        } else {
+                            std::sort(
+                                sorted.begin(),
+                                sorted.end(),
+                                [](QModelIndex &a, QModelIndex &b) {
+                                    return a.row() < b.row();
+                                });
+
+                            if (sorted != items) {
+                                endTimelineItemDrag(sorted, mode, isOverwrite);
+                                return;
+                            }
+                        }
                     }
 
-                    if (insert_anteceeding) {
-                        auto fps = i.data(rateFPSRole).toDouble();
-                        insertTimelineGap(
-                            i.row() + 1, i.parent(), adjustAnteceedingGap, fps, "Gap");
+                    // ouch...
+                    if (data["is_adjusting_preceeding"] and preceeding_type == QString("Gap")) {
+                        auto data2 = mapFromValue(preceeding.data(userDataRole));
+                        data2["is_adjusting_duration"] = false;
+                        data2["adjust_duration"]       = 0;
+                        setData(preceeding, mapFromValue(data2), userDataRole);
+                    }
+                    if (data["is_adjusting_anteceeding"] and
+                        anteceeding_type == QString("Gap")) {
+                        auto data2 = mapFromValue(anteceeding.data(userDataRole));
+                        data2["is_adjusting_duration"] = false;
+                        data2["adjust_duration"]       = 0;
+                        setData(anteceeding, mapFromValue(data2), userDataRole);
+                    }
+                    flushChange();
+
+                    // this involves a ton of track modifications..
+                    if (track_offset) {
+                        auto target_track_index =
+                            index(i.parent().row() + track_offset, 0, i.parent().parent());
+
+                        if (track_offset < 0) {
+                            for (auto tr = 0; tr >= track_offset; tr--) {
+                                target_track_index =
+                                    index(i.parent().row() + tr, 0, i.parent().parent());
+
+                                if (not target_track_index.isValid()) {
+                                    // create new track
+                                    auto type_role = i.parent().data(typeRole).toString();
+
+                                    target_track_index = insertRowsSync(
+                                        type_role == "Video Track"
+                                            ? 0
+                                            : rowCount(i.parent().parent()),
+                                        1,
+                                        type_role,
+                                        type_role,
+                                        i.parent().parent())[0];
+                                }
+                            }
+                        } else if (track_offset > 0) {
+                            for (auto tr = 0; tr <= track_offset; tr++) {
+                                target_track_index =
+                                    index(i.parent().row() + tr, 0, i.parent().parent());
+
+                                if (not target_track_index.isValid()) {
+                                    // create new track
+                                    auto type_role = i.parent().data(typeRole).toString();
+
+                                    target_track_index = insertRowsSync(
+                                        type_role == "Video Track"
+                                            ? 0
+                                            : rowCount(i.parent().parent()),
+                                        1,
+                                        type_role,
+                                        type_role,
+                                        i.parent().parent())[0];
+                                }
+                            }
+                        }
+
+                        auto new_clips =
+                            duplicateTimelineClipsTo(QModelIndexList({i}), target_track_index);
+                        moveRangeTimelineItems(
+                            getTimelineTrackIndex(new_clips[0].parent()),
+                            startFrameInParent(new_clips[0]),
+                            duration,
+                            start + frame_offset,
+                            false);
+
+                        removeTimelineItems(QModelIndexList({i}));
+                        // wait for index to become invalidated..
+                        while (i.isValid()) {
+                            QCoreApplication::processEvents(
+                                QEventLoop::WaitForMoreEvents |
+                                    QEventLoop::ExcludeUserInputEvents,
+                                50);
+                        }
+
+                    } else if (frame_offset)
+                        moveRangeTimelineItems(
+                            getTimelineTrackIndex(i.parent()),
+                            start,
+                            duration,
+                            start + frame_offset,
+                            false);
+                } else {
+                    auto delete_preceeding    = false;
+                    auto delete_anteceeding   = false;
+                    auto adjustPreceedingGap  = data["adjust_preceeding_gap"].get<int>();
+                    auto adjustAnteceedingGap = data["adjust_anteceeding_gap"].get<int>();
+                    auto insert_preceeding =
+                        data["is_adjusting_preceeding"] and adjustPreceedingGap;
+                    auto insert_anteceeding =
+                        data["is_adjusting_anteceeding"] and adjustAnteceedingGap;
+
+                    // adjust duration of preceeding gap or delete
+                    if (data["is_adjusting_preceeding"] and preceeding_type == QString("Gap")) {
+                        auto trimmedDuration = preceeding.data(trimmedDurationRole).toInt();
+                        auto data2           = mapFromValue(preceeding.data(userDataRole));
+                        auto preceedingDurationFrame =
+                            trimmedDuration + (not data2["is_adjusting_duration"].is_null() and
+                                                       data2["is_adjusting_duration"]
+                                                   ? data2["adjust_duration"].get<int>()
+                                                   : 0);
+                        if (preceedingDurationFrame) {
+                            setData(preceeding, preceedingDurationFrame, activeDurationRole);
+                            setData(preceeding, preceedingDurationFrame, availableDurationRole);
+                        } else {
+                            delete_preceeding = true;
+                        }
+
+                        data2["is_adjusting_duration"] = false;
+                        data2["adjust_duration"]       = 0;
+                        setData(preceeding, mapFromValue(data2), userDataRole);
+                    }
+
+                    // adjust duration of anteceeding gap or delete
+                    if (data["is_adjusting_anteceeding"] and
+                        anteceeding_type == QString("Gap")) {
+                        auto trimmedDuration = anteceeding.data(trimmedDurationRole).toInt();
+                        auto data2           = mapFromValue(anteceeding.data(userDataRole));
+                        auto anteceedingDurationFrame =
+                            trimmedDuration + (not data2["is_adjusting_duration"].is_null() and
+                                                       data2["is_adjusting_duration"]
+                                                   ? data2["adjust_duration"].get<int>()
+                                                   : 0);
+                        if (anteceedingDurationFrame) {
+                            setData(anteceeding, anteceedingDurationFrame, activeDurationRole);
+                            setData(
+                                anteceeding, anteceedingDurationFrame, availableDurationRole);
+                        } else {
+                            delete_anteceeding = true;
+                        }
+                        data2["is_adjusting_duration"] = false;
+                        data2["adjust_duration"]       = 0;
+                        setData(anteceeding, mapFromValue(data2), userDataRole);
+                    }
+
+                    flushChange();
+                    // spdlog::warn("insert_preceeding {} delete_preceeding {}
+                    // insert_anteceeding {} delete_anteceeding {}", insert_preceeding,
+                    // delete_preceeding, insert_anteceeding, delete_anteceeding );
+
+                    // some operations are moves
+                    if (insert_preceeding and delete_anteceeding)
+                        moveTimelineItem(i, 1);
+                    else if (delete_preceeding and insert_anteceeding)
+                        moveTimelineItem(i, -1);
+                    else {
+                        if (delete_preceeding)
+                            removeTimelineItems(QModelIndexList({preceeding}));
+
+                        if (delete_anteceeding)
+                            removeTimelineItems(QModelIndexList({anteceeding}));
+
+                        if (insert_preceeding) {
+                            auto fps = i.data(rateFPSRole).toDouble();
+                            insertTimelineGap(
+                                i.row(), i.parent(), adjustPreceedingGap, fps, "Gap");
+                        }
+
+                        if (insert_anteceeding) {
+                            auto fps = i.data(rateFPSRole).toDouble();
+                            insertTimelineGap(
+                                i.row() + 1, i.parent(), adjustAnteceedingGap, fps, "Gap");
+                        }
                     }
                 }
             }
-        }
 
-        flushChange();
+            flushChange();
+        }
     }
 }
 

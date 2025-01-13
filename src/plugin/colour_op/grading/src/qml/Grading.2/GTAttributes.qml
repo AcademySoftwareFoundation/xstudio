@@ -72,20 +72,6 @@ Item {
     property alias colour_space: __colour_space.value
 
     XsAttributeValue {
-        id: __grade_in
-        attributeTitle: "grade_in"
-        model: grading_tool_attrs_data
-    }
-    property alias grade_in: __grade_in.value
-
-    XsAttributeValue {
-        id: __grade_out
-        attributeTitle: "grade_out"
-        model: grading_tool_attrs_data
-    }
-    property alias grade_out: __grade_out.value
-
-    XsAttributeValue {
         id: __mask_tool_active
         attributeTitle: "mask_tool_active"
         model: grading_tool_attrs_data

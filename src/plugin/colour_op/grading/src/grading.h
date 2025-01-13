@@ -25,7 +25,8 @@ class GradingTool : public plugin::StandardPlugin {
     ~GradingTool() override = default;
 
     utility::BlindDataObjectPtr onscreen_render_data(
-        const media_reader::ImageBufPtr &, const std::string & /*viewport_name*/) const override;
+        const media_reader::ImageBufPtr &, const std::string & /*viewport_name*/,
+        const utility::Uuid &/*playhead_uuid*/) const override;
 
     // Annotations (grading)
 
@@ -104,8 +105,6 @@ class GradingTool : public plugin::StandardPlugin {
     module::StringAttribute       *grading_bookmark_ {nullptr};
     module::StringAttribute       *working_space_    {nullptr};
     module::StringChoiceAttribute *colour_space_     {nullptr};
-    module::IntegerAttribute      *grade_in_         {nullptr};
-    module::IntegerAttribute      *grade_out_        {nullptr};
 
     module::FloatVectorAttribute  *slope_      {nullptr};
     module::FloatVectorAttribute  *offset_     {nullptr};
@@ -153,6 +152,8 @@ class GradingTool : public plugin::StandardPlugin {
     int playhead_media_frame_ = {0};
 
     media_reader::ImageBufDisplaySetPtr viewport_current_images_;
+    std::string current_viewport_;
+    media::AVFrameID current_frame_id_;
 
     // Grading
     ui::viewport::GradingData grading_data_;

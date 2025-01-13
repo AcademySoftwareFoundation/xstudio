@@ -329,6 +329,10 @@ BookmarkModel::BookmarkModel(QObject *parent) : super(parent) {
 QVector<int> BookmarkModel::getRoleChanges(
     const bookmark::BookmarkDetail &ood, const bookmark::BookmarkDetail &nbd) const {
     QVector<int> roles;
+    if (ood.annotation_hash_ && nbd.annotation_hash_ &&
+        *(ood.annotation_hash_) != *(nbd.annotation_hash_)) {
+        roles.push_back(thumbnailRole);
+    }
     return roles;
 }
 
@@ -415,7 +419,7 @@ void BookmarkModel::init(caf::actor_system &_system) {
                         // a note, for example
                         auto change = getRoleChanges(bookmarks_.at(ua.uuid()), detail);
 
-                        if (change.empty() || change.contains(thumbnailRole)) {
+                        if (change.contains(thumbnailRole)) {
                             out_of_date_thumbnails_.insert(detail.uuid_);
                         }
 
@@ -591,6 +595,9 @@ BookmarkModel::createJsonFromDetail(const bookmark::BookmarkDetail &detail) cons
     auto result = R"({"uuid": null, "thumbnailURL": "qrc:///feather_icons/film.svg"})"_json;
 
     result["uuid"] = detail.uuid_;
+    if (detail.annotation_hash_) {
+        result["annotation_hash"] = *(detail.annotation_hash_);
+    }
     // spdlog::warn("{} {} {}", bool(detail.owner_) , to_string((*(detail.owner_)).actor()),
     // bool(detail.logical_start_frame_) );
 

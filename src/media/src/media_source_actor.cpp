@@ -54,6 +54,8 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
             utility::Uuid::generate(),
             static_cast<JsonStore>(jsn["store"]),
             std::chrono::milliseconds(50));
+        // assuming metadata had been loaded and stored before serilisation
+        media_metadata_up_to_date_ = true;
     }
     link_to(json_store_);
     join_event_group(this, json_store_);
@@ -520,7 +522,6 @@ caf::message_handler MediaSourceActor::message_handler() {
         [=](get_media_pointer_atom atom,
             const MediaType media_type,
             const int logical_frame) -> caf::result<media::AVFrameID> {
-
             auto rp = make_response_promise<media::AVFrameID>();
             request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v)
                 .then(
@@ -531,51 +532,63 @@ caf::message_handler MediaSourceActor::message_handler() {
                         auto dur = base_.media_reference(base_.current(media_type)).duration();
                         LogicalFrameRanges ranges;
                         ranges.emplace_back(logical_frame, logical_frame);
-                        request(caf::actor_cast<caf::actor>(this), infinite, get_media_pointers_atom_v, media_type, ranges).then(
-                            [=](const media::AVFrameIDs &ids) mutable{
-                                if (ids.size() && ids[0]) {
-                                    rp.deliver(*(ids[0]));
-                                } else {
-                                    rp.deliver(make_error(xstudio_error::error, "No frame"));
-                                }
-                            },
-                            [=](const error &err) mutable { rp.deliver(err); });
+                        request(
+                            caf::actor_cast<caf::actor>(this),
+                            infinite,
+                            get_media_pointers_atom_v,
+                            media_type,
+                            ranges)
+                            .then(
+                                [=](const media::AVFrameIDs &ids) mutable {
+                                    if (ids.size() && ids[0]) {
+                                        rp.deliver(*(ids[0]));
+                                    } else {
+                                        rp.deliver(
+                                            make_error(xstudio_error::error, "No frame"));
+                                    }
+                                },
+                                [=](const error &err) mutable { rp.deliver(err); });
                     },
                     [=](const error &err) mutable { rp.deliver(err); });
             return rp;
-
         },
 
         [=](get_media_pointers_atom atom,
             const MediaType media_type,
             const utility::TimeSourceMode tsm,
             const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
-
             auto rp = make_response_promise<media::FrameTimeMapPtr>();
             request(caf::actor_cast<caf::actor>(this), infinite, acquire_media_detail_atom_v)
                 .then(
                     [=](bool) mutable {
                         if (base_.current(media_type).is_null()) {
                             rp.deliver(make_error(xstudio_error::error, "No streams"));
+                            return;
                         }
-                        const auto dur = base_.media_reference(base_.current(media_type)).duration();
+                        const auto dur =
+                            base_.media_reference(base_.current(media_type)).duration();
                         LogicalFrameRanges ranges;
-                        ranges.emplace_back(0, dur.frames()-1);
-                        request(caf::actor_cast<caf::actor>(this), infinite, atom, media_type, ranges).then(
-                            [=](const media::AVFrameIDs ids) mutable {
-                                media::FrameTimeMap * result = new media::FrameTimeMap;
-                                timebase::flicks t(0);
-                                for (const auto &fid: ids) {
-                                    (*result)[t] = fid;
-                                    t += dur.rate().to_flicks();
-                                }
-                                rp.deliver(media::FrameTimeMapPtr(result));
-                            },
-                            [=](const error &err) mutable { rp.deliver(err); });
+                        ranges.emplace_back(0, dur.frames() - 1);
+                        request(
+                            caf::actor_cast<caf::actor>(this),
+                            infinite,
+                            atom,
+                            media_type,
+                            ranges)
+                            .then(
+                                [=](const media::AVFrameIDs ids) mutable {
+                                    media::FrameTimeMap *result = new media::FrameTimeMap;
+                                    timebase::flicks t(0);
+                                    for (const auto &fid : ids) {
+                                        (*result)[t] = fid;
+                                        t += dur.rate().to_flicks();
+                                    }
+                                    rp.deliver(media::FrameTimeMapPtr(result));
+                                },
+                                [=](const error &err) mutable { rp.deliver(err); });
                     },
                     [=](const error &err) mutable { rp.deliver(err); });
             return rp;
-
         },
 
         [=](get_media_pointers_atom,
@@ -921,6 +934,9 @@ caf::message_handler MediaSourceActor::message_handler() {
         },
 
         [=](media_metadata::get_metadata_atom) -> caf::result<bool> {
+            if (media_metadata_up_to_date_)
+                return true;
+
             auto m_actor =
                 system().registry().template get<caf::actor>(media_metadata_registry);
             if (not m_actor)
@@ -952,6 +968,7 @@ caf::message_handler MediaSourceActor::message_handler() {
                                         true)
                                         .then(
                                             [=](const bool &done) mutable {
+                                                media_metadata_up_to_date_ = true;
                                                 rp.deliver(done);
                                                 // notify any watchers that metadata is updated
                                                 send(
@@ -1014,6 +1031,7 @@ caf::message_handler MediaSourceActor::message_handler() {
                                     "/metadata/media/@")
                                     .then(
                                         [=](const bool &done) mutable {
+                                            media_metadata_up_to_date_ = true;
                                             rp.deliver(done);
                                             // notify any watchers that metadata is updated
                                             send(
@@ -1295,7 +1313,6 @@ void MediaSourceActor::get_media_pointers_for_frames(
                     get_stream_detail_atom_v)
                     .then(
                         [=](const StreamDetail &detail) mutable {
-
                             media::AVFrameIDs result;
                             media::AVFrameID base_frame_id;
                             auto timecode =
@@ -1349,14 +1366,13 @@ void MediaSourceActor::get_media_pointers_for_frames(
                                                 media_type,
                                                 timecode);
                                         }
-                                        
-                                        result.emplace_back(
-                                                new media::AVFrameID(
-                                                    base_frame_id,
-                                                    *_uri,
-                                                    frame,
-                                                    detail.key_format_,
-                                                    timecode));
+
+                                        result.emplace_back(new media::AVFrameID(
+                                            base_frame_id,
+                                            *_uri,
+                                            frame,
+                                            detail.key_format_,
+                                            timecode));
 
                                         timecode = timecode + 1;
 

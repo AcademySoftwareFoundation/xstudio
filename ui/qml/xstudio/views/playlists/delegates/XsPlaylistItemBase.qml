@@ -103,14 +103,6 @@ Item {
 
     }
 
-    // flag
-    Rectangle{
-        y: indicator_height
-        color: flagColourRole
-        height: itemRowStdHeight
-        width: flagIndicatorWidth
-    }
-
     /* modelIndex should be set to point into the session data model and get
     to the playlist that we are representing */
     property var modelIndex
@@ -154,6 +146,23 @@ Item {
         height: parent.height
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+        // flag
+        MouseArea {
+            id: fma
+            y: indicator_height
+            height: itemRowStdHeight
+            width: flagIndicatorWidth
+            hoverEnabled: true
+            onClicked: showFlagMenu(mouse.x, mouse.y, this, modelIndex)
+            cursorShape: Qt.PointingHandCursor
+            Rectangle{
+                anchors.fill: parent
+                color: flagColourRole
+                border.width: 1
+                border.color: fma.containsMouse ? palette.highlight : "transparent"
+            }
+        }
 
         /*onMouseXChanged: checkInspectHover()
         onMouseYChanged: checkInspectHover()

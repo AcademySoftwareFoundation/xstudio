@@ -10,6 +10,14 @@
 				"maximum": 600,
 				"datatype": "int",
 				"context": ["APPLICATION"]
+			},
+			"autosave_enable": {
+				"path": "/core/global_store/autosave_enable",
+				"default_value": true,
+				"description": "Enable autosave of preferences.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
 			}
 		}
 	}

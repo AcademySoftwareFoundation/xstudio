@@ -4,7 +4,7 @@
             "ivy": {
                 "enable_audio_autoload": {
                     "context": [
-                        "APPLICATION"
+                        "PLUGIN"
                     ],
                     "datatype": "bool",
                     "default_value": true,

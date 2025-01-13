@@ -31,7 +31,7 @@ namespace viewport {
 
       public:
 
-        GradingMaskRenderer();
+        GradingMaskRenderer(const std::string &viewport_name);
 
         void pre_viewport_draw_gpu_hook(
             const Imath::M44f &transform_window_to_viewport_space,
@@ -59,6 +59,7 @@ namespace viewport {
 
         std::vector<RenderLayer> render_layers_;
         std::unique_ptr<opengl::OpenGLCanvasRenderer> canvas_renderer_;
+        const std::string viewport_name_;
     };
 
     using GradingMaskRendererSPtr = std::shared_ptr<GradingMaskRenderer>;

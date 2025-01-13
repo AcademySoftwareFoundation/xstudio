@@ -96,7 +96,7 @@ Item{ id: thisItem
 
         onDoubleClicked: (mouse)=> {
             // need to know context, Which panel am I in.
-            ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser")
+            ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addAfterSelection.value)
         }
 
         Rectangle{

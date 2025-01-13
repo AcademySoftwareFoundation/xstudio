@@ -35,7 +35,6 @@ namespace playhead {
         caf::behavior make_behavior() override { return behavior_; }
 
       protected:
-
         void on_exit() override;
 
         caf::behavior behavior_;

@@ -22,7 +22,8 @@ namespace xstudio {
 namespace ui {
     namespace qml {
 
-        class CONFORM_QML_EXPORT ConformEngineUI : public caf::mixin::actor_object<JSONTreeModel> {
+        class CONFORM_QML_EXPORT ConformEngineUI
+            : public caf::mixin::actor_object<JSONTreeModel> {
             Q_OBJECT
 
           public:

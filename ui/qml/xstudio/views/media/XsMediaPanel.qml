@@ -90,6 +90,7 @@ Item{
             sourceComponent: is_list_view ? list_view : grid_view
             Layout.fillWidth: true
             Layout.fillHeight: true
+            clip: true
         }
 
         Component {

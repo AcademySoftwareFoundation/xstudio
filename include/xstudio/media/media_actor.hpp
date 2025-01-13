@@ -159,6 +159,7 @@ namespace media {
         caf::actor_addr parent_;
         utility::Uuid parent_uuid_;
         std::vector<caf::typed_response_promise<bool>> pending_stream_detail_requests_;
+        bool media_metadata_up_to_date_ = {false};
     };
 
     class MediaStreamActor : public caf::event_based_actor {

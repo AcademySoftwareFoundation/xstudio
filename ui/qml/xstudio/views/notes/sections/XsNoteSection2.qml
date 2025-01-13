@@ -82,23 +82,50 @@ Rectangle{
                     width: flickDiv.width
                     height: lineCount<=6? flickDiv.height : flickDiv.height*lineCount
 
-                    text: noteRole
+                    property var noteRoleFollower: noteRole
+                    onNoteRoleFollowerChanged: {
+                        if (!activeFocus) text = noteRole
+                    }
+
                     hint: activeFocus? "" : "Enter note here..."
                     onCursorRectangleChanged: flickDiv.ensureVisible(cursorRectangle)
 
                     focus: (mArea.containsMouse || activeFocus)
                     onFocusChanged: if(focus) forceActiveFocus()
 
-                    onEditingFinished: { //#TODO
+                    // N.B. It's possible for the user to finish entering text
+                    // but we don't get the onEditingFinished signal - it 
+                    // depends on where they go next with the mouse pointer.
+                    // For this reason we 'brute force' update the backend
+                    // noteRole but do it with a timer so it's not too
+                    // granular. But we do the update here anyway incase the
+                    // QML objects here are destroyed before the timer has
+                    // timed out.
+                    onEditingFinished: {
                         noteRole = text
                     }
 
                     onTextChanged: {
-                        if (noteRole != text) {
-                            noteRole = text
+                        // user is entering text - push the entered text to
+                        // the backend but not on every key stroke
+                        if (activeFocus && !update_backend_timer.running) {
+                            console.log("Starting timer")
+                            update_backend_timer.running = true
                         }
                     }
 
+                    XsTimer {
+                        id: update_backend_timer
+                        interval: 5000
+                        running: false
+                        repeat: false
+                        onTriggered: {
+                            if (noteRole != notesEdit.text) {
+                                console.log("Setting backend")
+                                noteRole = notesEdit.text
+                            }
+                        }
+                    }
                 }
             }
 

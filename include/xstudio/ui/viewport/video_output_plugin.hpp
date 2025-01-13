@@ -133,7 +133,7 @@ namespace ui {
                         send_exit(audio_output_, caf::exit_reason::user_shutdown);
                     }
                     audio_output_ = spawn<audio::AudioOutputActor>(
-                        std::shared_ptr<audio::AudioOutputDevice>(audio_dev));
+                        std::shared_ptr<audio::AudioOutputDevice>(audio_dev), true);
                     link_to(audio_output_);
                 }
             }

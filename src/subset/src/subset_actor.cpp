@@ -25,11 +25,32 @@ SubsetActor::SubsetActor(
 
     anon_send(this, playhead::source_atom_v, playlist, UuidUuidMap());
 
+    if (jsn.contains("playhead")) {
+        playhead_serialisation_ = jsn["playhead"];
+    }
+
+    if (jsn.contains("selection_actor")) {
+        try {
+
+            selection_actor_ = system().spawn<playhead::PlayheadSelectionActor>(
+                static_cast<utility::JsonStore>(jsn["selection_actor"]),
+                caf::actor_cast<caf::actor>(this));
+            link_to(selection_actor_);
+
+        } catch (const std::exception &e) {
+            spdlog::error("{}", e.what());
+        }
+    }
+
     // need to scan playlist to relink our media..
     init();
 }
 
-SubsetActor::SubsetActor(caf::actor_config &cfg, caf::actor playlist, const std::string &name, const std::string &override_type)
+SubsetActor::SubsetActor(
+    caf::actor_config &cfg,
+    caf::actor playlist,
+    const std::string &name,
+    const std::string &override_type)
     : caf::event_based_actor(cfg),
       playlist_(caf::actor_cast<actor_addr>(playlist)),
       base_(name, override_type) {
@@ -433,6 +454,7 @@ caf::message_handler SubsetActor::message_handler() {
             auto uuid  = utility::Uuid::generate();
             auto actor = spawn<playhead::PlayheadActor>(
                 std::string("Subset Playhead"),
+                playhead::GLOBAL_AUDIO,
                 selection_actor_,
                 uuid,
                 caf::actor_cast<caf::actor_addr>(this));
@@ -440,7 +462,14 @@ caf::message_handler SubsetActor::message_handler() {
 
             anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
 
+
             playhead_ = UuidActor(uuid, actor);
+
+            if (!playhead_serialisation_.is_null()) {
+                anon_send(
+                    playhead_.actor(), module::deserialise_atom_v, playhead_serialisation_);
+            }
+
             return playhead_;
         },
         [=](playlist::get_playhead_atom) {
@@ -701,10 +730,40 @@ caf::message_handler SubsetActor::message_handler() {
             delegate(caf::actor_cast<caf::actor>(playlist_), session::session_atom_v);
         },
 
-        [=](utility::serialise_atom) -> JsonStore {
-            JsonStore jsn;
-            jsn["base"] = base_.serialise();
-            return jsn;
+        [=](utility::serialise_atom) -> result<JsonStore> {
+            auto rp = make_response_promise<JsonStore>();
+            JsonStore j;
+            j["base"] = SubsetActor::serialise();
+            request(selection_actor_, infinite, utility::serialise_atom_v)
+                .then(
+                    [=](const utility::JsonStore &selection_state) mutable {
+                        j["selection_actor"] = selection_state;
+                        if (playhead_) {
+                            request(playhead_.actor(), infinite, utility::serialise_atom_v)
+                                .then(
+                                    [=](const utility::JsonStore &playhead_state) mutable {
+                                        playhead_serialisation_ = playhead_state;
+                                        j["playhead"]           = playhead_state;
+                                        rp.deliver(j);
+                                    },
+                                    [=](caf::error &err) mutable {
+                                        spdlog::warn(
+                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                        rp.deliver(j);
+                                    });
+
+                        } else {
+                            if (!playhead_serialisation_.is_null()) {
+                                j["playhead"] = playhead_serialisation_;
+                            }
+                            rp.deliver(j);
+                        }
+                    },
+                    [=](caf::error &err) mutable {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(j);
+                    });
+            return rp;
         }};
 }
 
@@ -715,9 +774,11 @@ void SubsetActor::init() {
     change_event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(change_event_group_);
 
-    selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
-        "SubsetPlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
-    link_to(selection_actor_);
+    if (!selection_actor_) {
+        selection_actor_ = spawn<playhead::PlayheadSelectionActor>(
+            "SubsetPlayheadSelectionActor", caf::actor_cast<caf::actor>(this));
+        link_to(selection_actor_);
+    }
 
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..

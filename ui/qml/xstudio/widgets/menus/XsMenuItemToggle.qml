@@ -41,7 +41,7 @@ Item {
 
     property color textColor: palette.text
     property color hotKeyColor: XsStyleSheet.secondaryTextColor
-    
+
     property real borderWidth: XsStyleSheet.widgetBorderWidth
 
     enabled: is_enabled
@@ -49,7 +49,7 @@ Item {
 
     function hideSubMenus() {}
 
-    signal clicked()
+    signal clicked(mouse: var)
 
     MouseArea{
         id: menuMouseArea
@@ -57,7 +57,7 @@ Item {
         hoverEnabled: true
         propagateComposedEvents: true
         onClicked: {
-            widget.clicked()
+            widget.clicked(mouse)
         }
     }
 

@@ -273,6 +273,8 @@ caf::message_handler StackActor::message_handler() {
             return jsn;
         },
 
+        [=](item_type_atom) -> ItemType { return base_.item().item_type(); },
+
         [=](utility::rate_atom) -> FrameRate { return base_.item().rate(); },
 
         [=](utility::rate_atom atom, const media::MediaType media_type) {

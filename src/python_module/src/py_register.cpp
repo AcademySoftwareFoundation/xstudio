@@ -31,6 +31,7 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/timecode.hpp"
 #include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/frame_range.hpp"
+#include "xstudio/utility/notification_handler.hpp"
 
 
 namespace py = pybind11;
@@ -78,6 +79,93 @@ void register_uuid_class(py::module &m, const std::string &name) {
         .def(py::self != py::self)
         .def("__hash__", hash_impl)
         .def("__str__", str_impl);
+}
+
+void register_notification_class(py::module &m, const std::string &name) {
+    py::class_<utility::Notification>(m, name.c_str())
+        .def(py::init<>())
+        .def("type", [](const utility::Notification &x) { return x.type(); })
+        .def("uuid", [](const utility::Notification &x) { return x.uuid(); })
+        .def("text", [](const utility::Notification &x) { return x.text(); })
+        .def("progress", [](const utility::Notification &x) { return x.progress(); })
+        .def(
+            "progress_maximum",
+            [](const utility::Notification &x) { return x.progress_maximum(); })
+        .def(
+            "progress_minimum",
+            [](const utility::Notification &x) { return x.progress_minimum(); })
+        .def(
+            "progress_percentage",
+            [](const utility::Notification &x) { return x.progress_percentage(); })
+        .def(
+            "progress_text_percentage",
+            [](const utility::Notification &x) { return x.progress_text_percentage(); })
+        .def(
+            "progress_text_range",
+            [](const utility::Notification &x) { return x.progress_text_range(); })
+
+        .def(
+            "set_type",
+            [](utility::Notification &x, const utility::NotificationType value) {
+                x.type(value);
+            })
+        .def(
+            "set_uuid",
+            [](utility::Notification &x, const utility::Uuid &value) { x.uuid(value); })
+        .def(
+            "set_text",
+            [](utility::Notification &x, const std::string &value) { x.text(value); })
+        .def(
+            "set_progress",
+            [](utility::Notification &x, const float value) { x.progress(value); })
+        .def(
+            "set_progress_minimum",
+            [](utility::Notification &x, const float value) { x.progress_maximum(value); })
+        .def(
+            "set_progress_maximum",
+            [](utility::Notification &x, const float value) { x.progress_maximum(value); })
+        .def(
+            "set_expires_in",
+            [](utility::Notification &x, const int seconds) {
+                x.expires_in(std::chrono::seconds(seconds));
+            })
+
+
+        .def(
+            "InfoNotification",
+            [](const std::string &text, const int seconds) {
+                return utility::Notification::InfoNotification(
+                    text, std::chrono::seconds(seconds));
+            })
+        .def(
+            "WarnNotification",
+            [](const std::string &text, const int seconds) {
+                return utility::Notification::WarnNotification(
+                    text, std::chrono::seconds(seconds));
+            })
+        .def(
+            "ProcessingNotification",
+            [](const std::string &text) {
+                return utility::Notification::ProcessingNotification(text);
+            })
+        .def(
+            "ProgressPercentageNotification",
+            [](const std::string &text, const float progress = 0.0f, const int seconds = 600) {
+                return utility::Notification::ProgressPercentageNotification(
+                    text, progress, std::chrono::seconds(seconds));
+            })
+        .def(
+            "ProgressRangeNotification",
+            [](const std::string &text,
+               const float progress     = 0.0f,
+               const float progress_min = 0.0f,
+               const float progress_max = 100.0f,
+               const int seconds        = 600) {
+                return utility::Notification::ProgressRangeNotification(
+                    text, progress, progress_min, progress_max, std::chrono::seconds(seconds));
+            })
+
+        ;
 }
 
 void register_plugindetail_class(py::module &m, const std::string &name) {
@@ -248,9 +336,7 @@ void register_mediakey_class(py::module &m, const std::string &name) {
 }
 
 void register_jsonstore_class(py::module &m, const std::string &name) {
-    auto str_impl = [](const utility::JsonStore &x) -> std::string {
-        return x.dump();
-    };
+    auto str_impl = [](const utility::JsonStore &x) -> std::string { return x.dump(); };
     auto get_preferences_impl = [](const utility::JsonStore &x,
                                    const std::set<std::string> &context =
                                        std::set<std::string>()) {
@@ -330,6 +416,19 @@ void register_FrameRateDuration_class(py::module &m, const std::string &name) {
         .def("set_frames", &utility::FrameRateDuration::set_frames)
         .def("rate", &utility::FrameRateDuration::rate)
         .def("__str__", str_impl);
+}
+
+void register_colour_triplet_class(py::module &m, const std::string &name) {
+    auto str_impl = [](const utility::ColourTriplet &x) { return to_string(x); };
+    py::class_<utility::ColourTriplet>(m, name.c_str())
+        .def(py::init<>())
+        .def(py::init<float, float, float>())
+        .def_property("red", &utility::ColourTriplet::red, &utility::ColourTriplet::setRed)
+        .def_property(
+            "green", &utility::ColourTriplet::green, &utility::ColourTriplet::setGreen)
+        .def_property("blue", &utility::ColourTriplet::blue, &utility::ColourTriplet::setBlue)
+        .def("__str__", str_impl)
+        .def("__repr__", str_impl);
 }
 
 void register_actor_class(py::module &m, const std::string &name) {

@@ -39,12 +39,6 @@ def control_main():
     )
 
     parser.add_argument(
-        "-r", "--require-sync", action="store_true",
-        help="Downgrade FULL to SYNC.",
-        default=False
-    )
-
-    parser.add_argument(
         "-i", "--info", action="store_true",
         help="Print connection info.",
         default=False
@@ -67,19 +61,19 @@ def control_main():
         m = RemoteSessionManager(remote_session_path())
         s = m.find(args.session)
         conn = Connection(debug=args.debug)
-        conn.connect_remote(s.host(), s.port.port(), args.require_sync)
+        conn.connect_remote(s.host(), s.port.port())
 
     elif args.host:
         conn = Connection(debug=args.debug)
-        conn.connect_remote(args.host, args.port, args.require_sync)
+        conn.connect_remote(args.host, args.port)
     else:
         conn = Connection(debug=args.debug)
-        conn.connect_remote("localhost", args.port, args.require_sync)
+        conn.connect_remote("localhost", args.port)
 
     if args.info:
         print(
-            "    App: {}\n    API: {}\nVersion: {}\nSession: {}\n".format(
-                conn.app_type, conn.api_type,
+            "    App: {}\n    Version: {}\nSession: {}\n".format(
+                conn.app_type,
                 conn.app_version, conn.api.app.session.name
             )
         )

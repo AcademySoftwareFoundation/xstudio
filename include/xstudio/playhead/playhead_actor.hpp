@@ -15,19 +15,14 @@
 namespace xstudio {
 namespace playhead {
 
+    enum AudioPath { GLOBAL_AUDIO, INDEPENDENT_AUDIO, NO_AUDIO };
+
     class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
       public:
-
-        PlayheadActor(
-            caf::actor_config &cfg,
-            const utility::JsonStore &jsn,
-            caf::actor playlist_selection   = caf::actor(),
-            const utility::Uuid uuid        = utility::Uuid::generate(),
-            caf::actor_addr parent_playlist = caf::actor_addr());
-
         PlayheadActor(
             caf::actor_config &cfg,
             const std::string &name,
+            const AudioPath                 = GLOBAL_AUDIO,
             caf::actor playlist_selection   = caf::actor(),
             const utility::Uuid uuid        = utility::Uuid::generate(),
             caf::actor_addr parent_playlist = caf::actor_addr());
@@ -54,7 +49,8 @@ namespace playhead {
         void rebuild_from_timeline_sources();
         void rebuild_from_dynamic_sources();
 
-        void connect_to_playlist_selection_actor(caf::actor playlist_selection);
+        void connect_to_playlist_selection_actor(
+            caf::actor playlist_selection, caf::typed_response_promise<bool> rp);
         void new_source_list();
         void switch_key_playhead(int idx);
         void calculate_duration();
@@ -100,7 +96,6 @@ namespace playhead {
         void on_exit() override;
 
       protected:
-
         void attribute_changed(const utility::Uuid &attr_uuid, const int /*role*/) override;
         void hotkey_pressed(
             const utility::Uuid &hotkey_uuid,
@@ -113,6 +108,8 @@ namespace playhead {
         void connected_to_ui_changed() override;
         void check_if_loop_range_makes_sense();
         void make_source_menu_model();
+        void apply_compare_prefs();
+        void step_to_next_media(const bool forwards);
 
         caf::message_handler behavior_;
 
@@ -130,6 +127,7 @@ namespace playhead {
         utility::UuidActor video_string_out_actor_;
         utility::UuidActor timeline_actor_;
         utility::UuidActorVector source_actors_;
+        utility::UuidActorVector previous_source_actors_;
         utility::UuidActorVector timeline_track_actors_;
         utility::UuidActorVector dynamic_source_actors_;
 
@@ -148,7 +146,7 @@ namespace playhead {
         utility::Uuid previous_source_uuid_;
         utility::Uuid current_source_uuid_;
         std::map<utility::Uuid, int> media_frame_per_media_uuid_;
-        std::map<utility::Uuid, int> switch_key_playhead_hotkeys_;        
+        std::map<utility::Uuid, int> switch_key_playhead_hotkeys_;
         utility::Uuid move_selection_up_hotkey_;
         utility::Uuid move_selection_down_hotkey_;
         utility::Uuid jump_to_previous_note_hotkey_;
@@ -171,6 +169,7 @@ namespace playhead {
         bool wrap_sources_                              = {false};
         bool contact_sheet_mode_                        = {false};
         int sub_playhead_precache_idx_                  = {0};
+        const AudioPath audio_path_;
 
         utility::UuidActorVector to_uuid_actor_vec(const std::vector<caf::actor> &actors);
     };

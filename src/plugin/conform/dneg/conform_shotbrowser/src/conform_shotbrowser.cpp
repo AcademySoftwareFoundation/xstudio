@@ -260,14 +260,26 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         // clip metadata has precedence
                         auto media_uuid = metadata.value("media_uuid", Uuid());
                         if (not media_uuid.is_null() and crequest.metadata_.count(media_uuid)) {
-                            auto tmp               = crequest.metadata_.at(media_uuid);
+                            auto tmp = crequest.metadata_.at(media_uuid);
+
+                            // if source clip media is edit ref, don't use it
+                            // as it'll be pointing to a sequence movie,,
+                            // but this fails if we're conforming a edit ref clip..
+                            // check the medi asn't also linked to a sequence instead of a shot
+                            // ?
+
+                            auto sg_entity_type = nlohmann::json::json_pointer(
+                                "/metadata/shotgun/version/relationships/entity/data/type");
                             auto sg_twig_type_code = nlohmann::json::json_pointer(
                                 "/metadata/shotgun/version/attributes/sg_twig_type_code");
-                            if (tmp.value(sg_twig_type_code, "") != "cut" and
-                                tmp.value(sg_twig_type_code, "") != "edl") {
+
+                            if (tmp.value(sg_entity_type, "") == "Sequence" and
+                                (tmp.value(sg_twig_type_code, "") == "cut" or
+                                 tmp.value(sg_twig_type_code, "") == "edl")) {
+                                // ignore media metadata
+                            } else {
                                 tmp.update(metadata, true);
                                 metadata = tmp;
-                                // spdlog::warn("{}", metadata.dump(2));
                             }
                             // metadata.update(crequest.metadata_.at(media_uuid));
                         }

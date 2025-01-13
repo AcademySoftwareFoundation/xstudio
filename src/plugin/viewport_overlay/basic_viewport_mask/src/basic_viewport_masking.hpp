@@ -24,7 +24,7 @@ namespace ui {
         class BasicMaskRenderer : public plugin::ViewportOverlayRenderer {
 
           public:
-            void render_opengl(
+            void render_image_overlay(
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dpixel,
@@ -63,9 +63,12 @@ namespace ui {
             void register_hotkeys() override;
 
             utility::BlindDataObjectPtr onscreen_render_data(
-                const media_reader::ImageBufPtr &, const std::string &/*viewport_name*/) const override;
+                const media_reader::ImageBufPtr &,
+                const std::string & /*viewport_name*/,
+                const utility::Uuid &playhead_uuid) const override;
 
-            plugin::ViewportOverlayRendererPtr make_overlay_renderer() override {
+            plugin::ViewportOverlayRendererPtr
+            make_overlay_renderer(const std::string &viewport_name) override {
                 return plugin::ViewportOverlayRendererPtr(new BasicMaskRenderer());
             }
 

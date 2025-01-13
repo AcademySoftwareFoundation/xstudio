@@ -438,6 +438,11 @@ void FFMpegDecoder::decode_video_frame(
 
     try {
 
+        if (decode_stream_ && decode_stream_->is_attached_pic()) {
+            image_buffer = decode_stream_->attached_pic();
+            return;
+        }
+
         requested_decode_frame_ = frame_num;
 
         decoding_backwards_ = (last_requested_frame_ - frame_num) == 1 ||
@@ -618,7 +623,6 @@ void FFMpegDecoder::pull_video_buffer_from_stream(StreamPtr &video_stream) {
         // an appropriate timestamp ... we can then attach audio frames to this
         // video buffer to send back to playback engine.
         buf.reset(new ImageBuffer("No Video"));
-        buf->set_duration_seconds(frame_rate().to_seconds());
         buf->set_display_timestamp_seconds(requested_decode_frame_ * frame_rate().to_seconds());
         buf->set_decoder_frame_number(requested_decode_frame_);
     }

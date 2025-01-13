@@ -12,7 +12,6 @@ import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
 
 XsPrimaryButton{ id: thisItem
-    isActive: isSelected //#TODO
     isActiveIndicatorAtLeft: true
 
     property var delegateModel: null
@@ -21,14 +20,148 @@ XsPrimaryButton{ id: thisItem
 
     opacity: hiddenRole ? 0.5 : 1.0
 
+    property bool isActive: presetModelIndex() == currentPresetIndex
     property bool isSelected: selectionModel.isSelected(presetModelIndex())
     property bool isModified: updateRole != undefined ? updateRole : false
-    property bool isRunning: queryRunning && presetModelIndex() == currentPresetIndex
+    property bool isRunning: queryRunning && isActive
+    property bool itemDragging: isDragging && isSelected
+    property int itemDraggingOffset: itemDragging ? draggingOffset : 0
+
+    property int oldY: 0
+    property var oldParent: null
+
+    x: height
+
+    onItemDraggingOffsetChanged: {
+
+        if(itemDragging) {
+            let offset = itemDraggingOffset
+
+            // calculate offset based on position in selection.
+            let ordered = [].concat(selectionModel.selectedIndexes)
+            ordered.sort((a,b) => a.row - b.row)
+            for(let i=0; i < ordered.length; i++) {
+                if(ordered[i] == presetModelIndex())
+                    break
+                offset += 1
+            }
+
+            thisItem.y = draggingY + (offset  * (btnHeight-1)) - parent.contentY + (btnHeight/2)
+        }
+    }
+
+    onItemDraggingChanged: {
+        if(itemDragging) {
+            thisItem.x = height * 2
+            oldY = mapToItem(thisItem.parent, 0, 0).y
+            oldParent = parent
+            thisItem.parent = thisItem.parent.parent
+        } else if(oldParent) {
+            parent = oldParent
+            thisItem.y = oldY
+            thisItem.x = height
+            oldParent = null
+        }
+    }
 
     Connections {
         target: selectionModel
         function onSelectionChanged(selected, deselected) {
             isSelected = selectionModel.isSelected(presetModelIndex())
+        }
+    }
+
+    // TapHandler {
+    //     acceptedModifiers: Qt.NoModifier
+    //     onSingleTapped: {
+    //         let g = mapToGlobal(0,0)
+    //         control.tapped(Qt.LeftButton, g.x, g.y, Qt.NoModifier)
+    //     }
+    // }
+
+    // TapHandler {
+    //     acceptedModifiers: Qt.ShiftModifier
+    //     onSingleTapped: {
+    //         let g = mapToGlobal(0,0)
+    //         control.tapped(Qt.LeftButton, g.x, g.y, Qt.ShiftModifier)
+    //     }
+    // }
+
+    // TapHandler {
+    //     acceptedModifiers: Qt.ControlModifier
+    //     onSingleTapped: {
+    //         let g = mapToGlobal(0,0)
+    //         control.tapped(Qt.LeftButton, g.x, g.y, Qt.ControlModifier)
+    //     }
+    // }
+
+    Item {
+        id: dummy
+    }
+
+    DragHandler {
+        cursorShape: Qt.PointingHandCursor
+        xAxis.enabled: false
+        target: dummy
+
+        dragThreshold: 5
+
+        onTranslationChanged: {
+            let offset = Math.floor(translation.y / (btnHeight-1))
+            let row_count = filterModelIndex().model.rowCount(filterModelIndex().parent)
+
+            if(filterModelIndex().row + offset < 0) {
+                draggingOffset = -(filterModelIndex().row+1)
+            }
+            else if(filterModelIndex().row + offset > row_count-1){
+                draggingOffset = (row_count - 1 - filterModelIndex().row)
+            } else {
+                draggingOffset = offset
+            }
+        }
+        onActiveChanged: {
+            if(active) {
+                // primary drag
+                draggingOffset = 0
+                draggingY = mapToItem(thisItem.parent, 0, 0).y
+                isDragging = true
+            } else {
+                isDragging = false
+                if(draggingOffset) {
+                    // need to move stuff..
+                    let pis = []
+                    let ordered = [].concat(selectionModel.selectedIndexes)
+                    ordered.sort((a,b) => a.row - b.row)
+                    for(let i = 0; i< ordered.length; i++)
+                        pis.push(helpers.makePersistent(ordered[i]))
+
+                    // have list of persistent indexes.
+                    let destRow = (presetModelIndex().row+draggingOffset) +1
+
+
+                    if(draggingOffset < 0) {
+                        for(let i = 0;i < pis.length; i++) {
+                            ShotBrowserEngine.presetsModel.moveRows(
+                                pis[i].parent,
+                                pis[i].row,
+                                1,
+                                pis[i].parent,
+                                destRow + i
+                            )
+                        }
+                    } else {
+                        for(let i = 0;i < pis.length; i++) {
+                            ShotBrowserEngine.presetsModel.moveRows(
+                                pis[i].parent,
+                                pis[i].row,
+                                1,
+                                pis[i].parent,
+                                destRow
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -85,7 +218,7 @@ XsPrimaryButton{ id: thisItem
         anchors.bottom: parent.bottom
         width: borderWidth*9
         height: parent.height
-        color: isActive? bgColorPressed : "transparent"
+        color: isActive ? bgColorPressed : "transparent"
     }
     RowLayout{
         anchors.fill: parent
@@ -153,7 +286,6 @@ XsPrimaryButton{ id: thisItem
             showHoverOnActive: favouriteRole && !thisItem.hovered
             isColoured: favouriteRole// && thisItem.hovered
             imgSrc: "qrc:///shotbrowser_icons/favorite.svg"
-            // isActive: favouriteRole
             scale: 0.95
             opacity: groupFavouriteRole ? 1.0 : 0.5
             onClicked: favouriteRole = !favouriteRole

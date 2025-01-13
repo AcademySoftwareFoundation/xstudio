@@ -4,7 +4,6 @@ import QtQml.Models 2.14
 import xStudio 1.0
 
 Item {
-
     Rectangle{
         width: parent.width
         height: parent.height
@@ -19,4 +18,11 @@ Item {
         color: headerThumbColor
     }
 
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+            showFlagMenu(mouse.x, mouse.y, this, modelIndex())
+        }
+    }
 }

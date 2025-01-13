@@ -10,6 +10,7 @@ SplitView {
     property real thumbWidth: XsStyleSheet.panelPadding/2
     property color colorNormal: XsStyleSheet.primaryTextColor
     property color colorActive: XsStyleSheet.accentColor
+    property color colorHandleBg: XsStyleSheet.panelBgColor
 
     focus: false
 
@@ -18,7 +19,7 @@ SplitView {
     handle: Rectangle {
         implicitWidth: thumbWidth
         implicitHeight: thumbWidth
-        color: XsStyleSheet.panelBgColor
+        color: colorHandleBg
 
         Rectangle{
             anchors.fill: parent

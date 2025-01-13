@@ -31,7 +31,7 @@ XsPopupMenu {
                 plusMenu.addPlaylist,
                 "Add Playlist",
                 "Enter a name for the new playlist.",
-                "New Playlist",
+                theSessionData.getNextName("Playlist {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -48,7 +48,7 @@ XsPopupMenu {
                 plusMenu.addSubset,
                 "Add Subset",
                 "Enter a name for the new subset.",
-                "New Subset",
+                theSessionData.getNextName("Subset {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -65,7 +65,7 @@ XsPopupMenu {
                 plusMenu.addTimeline,
                 "Add Sequence",
                 "Enter a name for the new sequence.",
-                "New Sequence",
+                theSessionData.getNextName("Sequence {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -82,7 +82,7 @@ XsPopupMenu {
                 plusMenu.addContactSheet,
                 "Add Contact Sheet",
                 "Enter a name for the new contact sheet.",
-                "New Contact Sheet",
+                theSessionData.getNextName("Contact Sheet {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -107,6 +107,14 @@ XsPopupMenu {
         panelContext: plusMenu.panelContext
     }
 
+    XsMenuModelItem {
+        text: "Add Media From Clipboard"
+        menuPath: ""
+        menuItemPosition: 6
+        menuModelName: plusMenu.menu_model_name
+        onActivated: file_functions.addMediaFromClipboard()
+    }
+
     function addPlaylist(new_name, button) {
         if (button == "Add") {
             let pl = theSessionData.createPlaylist(new_name)
@@ -124,7 +132,7 @@ XsPopupMenu {
         if (button == "Add") {
             addToNewContactSheet(new_name)
         }
-    }    
+    }
 
     function addTimeline(new_name, button) {
         if (button == "Add") {

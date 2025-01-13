@@ -65,15 +65,6 @@
 				"datatype": "string",
 				"context": ["QML_UI"]
 			},
-			"autosave": {
-				"path": "/ui/qml/autosave",
-				"default_value": true,
-				"description": "Enable autosave.",
-				"value": true,
-				"datatype": "bool",
-				"context": ["QML_UI"],
-				"category": "General"
-			},
 			"start_play_on_load": {
 				"path": "/ui/qml/start_play_on_load",
 				"default_value": true,

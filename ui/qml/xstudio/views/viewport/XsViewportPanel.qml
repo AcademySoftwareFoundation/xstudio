@@ -239,10 +239,9 @@ Rectangle{
     onCurrentLayoutChanged:{
         if (currentLayout !== "Present") {
             menuBarVisible = true
+        } else {
+            menuBarVisible = elementsVisible
         }
-        // else{
-        //     menuBarVisible = elementsVisible
-        // }
     }
 
     property bool elementsVisible: true

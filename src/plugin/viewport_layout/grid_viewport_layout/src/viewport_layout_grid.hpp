@@ -5,41 +5,36 @@
 
 namespace xstudio {
 namespace ui {
-namespace viewport {
+    namespace viewport {
 
-    /**
-     *  @brief GridViewportLayout class.
-     *
-     *  @details
-     *  This plugin provides a layout plugin for arranging multiple images 
-     *  in a grid
-     */
+        /**
+         *  @brief GridViewportLayout class.
+         *
+         *  @details
+         *  This plugin provides a layout plugin for arranging multiple images
+         *  in a grid
+         */
 
-    class GridViewportLayout : public ViewportLayoutPlugin {
-      public:
+        class GridViewportLayout : public ViewportLayoutPlugin {
+          public:
+            GridViewportLayout(caf::actor_config &cfg, const utility::JsonStore &init_settings);
 
-        GridViewportLayout(
-            caf::actor_config &cfg,
-            const utility::JsonStore &init_settings);
+            ~GridViewportLayout() override = default;
 
-        ~GridViewportLayout() override = default;
+            inline static const utility::Uuid PLUGIN_UUID = {
+                "b2f442c8-a185-4267-af98-66af43fdce68"};
 
-        inline static const utility::Uuid PLUGIN_UUID = {"b2f442c8-a185-4267-af98-66af43fdce68"};
+          protected:
+            ViewportRenderer *make_renderer(const std::string &window_id) override;
 
-      protected:
+            void do_layout(
+                const std::string &layout_mode,
+                const media_reader::ImageBufDisplaySetPtr &image_set,
+                media_reader::ImageSetLayoutData &layout_data) override;
 
-        ViewportRenderer * make_renderer(const std::string &window_id) override;
-
-        void do_layout(
-            const std::string &layout_mode,
-            const media_reader::ImageBufDisplaySetPtr &image_set,
-            media_reader::ImageSetLayoutData &layout_data) override;
-
-        module::FloatAttribute * spacing_;
-        module::StringChoiceAttribute * aspect_mode_;
-
-
-    };
-} // namespace viewport
+            module::FloatAttribute *spacing_;
+            module::StringChoiceAttribute *aspect_mode_;
+        };
+    } // namespace viewport
 } // namespace ui
 } // namespace xstudio

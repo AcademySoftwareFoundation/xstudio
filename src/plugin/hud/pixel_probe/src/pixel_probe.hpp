@@ -12,7 +12,7 @@ namespace ui {
 
         /*class PixelProbeHUDRenderer : public plugin::ViewportOverlayRenderer {
           public:
-            void render_opengl(
+            void render_image_overlay(
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
                 const float viewport_du_dpixel,
@@ -49,7 +49,9 @@ namespace ui {
             bool pointer_event(const ui::PointerEvent &e) override;
 
           private:
-            void update_onscreen_info(const std::string &viewport_name = std::string(), const Imath::V2f &pointer = Imath::V2f(-1,-1));
+            void update_onscreen_info(
+                const std::string &viewport_name = std::string(),
+                const Imath::V2f &pointer        = Imath::V2f(-1, -1));
             caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
             void make_pixel_info_onscreen_text(const media_reader::PixelInfo &pixel_info);
 

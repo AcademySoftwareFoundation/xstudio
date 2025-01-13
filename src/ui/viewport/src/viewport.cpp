@@ -107,9 +107,7 @@ std::string make_viewport_name() {
 
 
 Viewport::Viewport(
-    const utility::JsonStore &state_data,
-    caf::actor parent_actor,
-    const std::string &_name)
+    const utility::JsonStore &state_data, caf::actor parent_actor, const std::string &_name)
     : Module(_name.empty() ? make_viewport_name() : _name),
       parent_actor_(std::move(parent_actor)) {
 
@@ -123,7 +121,7 @@ Viewport::Viewport(
         // so they get their own OpenGL resource object (so it has its own
         // texture etc.)
         static int idx = 0;
-        window_id_ = window_id_ + fmt::format("{}", idx++);
+        window_id_     = window_id_ + fmt::format("{}", idx++);
     }
 
     // TODO: set these up via Json prefs coming in from framework
@@ -271,16 +269,14 @@ Viewport::Viewport(
         {"Mirror Horizontally", "Mirror Vertically", "Mirror Both", "Off"},
         {"Mirror Horizontally", "Mirror Vertically", "Mirror Both", "Off"});
 
-    // window_id_ will be "xstudio_main_window" for any viewport embedded in 
+    // window_id_ will be "xstudio_main_window" for any viewport embedded in
     // the main interface or "xstudio_popout_window" for the pop-out window.
     // These viewports should be zoom/pan/fit/compare mode synced. All other
     // viewport must not sync these settings.
-    sync_to_main_viewport_ =
-        add_boolean_attribute(
-            "Sync To Main Viewport",
-            "Sync To Main Viewport",
-            window_id_ == "xstudio_main_window" || window_id_ == "xstudio_popout_window"
-            );
+    sync_to_main_viewport_ = add_boolean_attribute(
+        "Sync To Main Viewport",
+        "Sync To Main Viewport",
+        window_id_ == "xstudio_main_window" || window_id_ == "xstudio_popout_window");
 
     filter_mode_preference_ = add_string_choice_attribute(
         "Viewport Filter Mode", "Vp. Filtering", ViewportRenderer::pixel_filter_mode_names);
@@ -360,7 +356,8 @@ Viewport::Viewport(
         module::Module::set_parent_actor_addr(caf::actor_cast<actor_addr>(parent_actor_));
 
         global_playhead_events_group_ =
-            self()->home_system().registry().template get<caf::actor>(global_playhead_events_actor);
+            self()->home_system().registry().template get<caf::actor>(
+                global_playhead_events_actor);
 
         caf::scoped_actor sys(self()->home_system());
         fps_monitor_ = sys->spawn<ui::fps_monitor::FpsMonitor>();
@@ -499,6 +496,14 @@ void Viewport::register_hotkeys() {
         false,
         "Viewer");
 
+    hover_select_ = register_hotkey(
+        "F7",
+        "Pointer select media in viewport",
+        "While holding this key, the image in the viewport under the mouse pointer sets the "
+        "'hero' media in the selected media set.",
+        false,
+        "Viewer");
+
     zoom_mode_toggle_->set_role_data(module::Attribute::HotkeyUuid, zoom_hotkey_);
     pan_mode_toggle_->set_role_data(module::Attribute::HotkeyUuid, pan_hotkey_);
 
@@ -581,15 +586,13 @@ void Viewport::set_pointer_event_viewport_coords(PointerEvent &pointer_event) {
     // coordinates, which tells us how much the effective viewport zoom is in
     // display pixels. We can use this when detecting if the mouse cursor is within
     // N screen pixels of something in the viewport regardless of the zoom
-    Imath::V4f d_zero = Imath::V4f(1.0f / state_.size_.x, 0.0f, 0.0f, 1.0f) *
-                        projection_matrix_;
-    Imath::V4f delta =
-        Imath::V4f(0.0f, 0.0f, 0.0f, 1.0f) * projection_matrix_;
+    Imath::V4f d_zero =
+        Imath::V4f(1.0f / state_.size_.x, 0.0f, 0.0f, 1.0f) * projection_matrix_;
+    Imath::V4f delta = Imath::V4f(0.0f, 0.0f, 0.0f, 1.0f) * projection_matrix_;
 
     Imath::V4f p = state_.pointer_position_;
 
     pointer_event.set_pos_in_coord_sys(p.x, p.y, (d_zero - delta).x);
-
 }
 
 bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
@@ -618,10 +621,11 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
 
         if (pointer_event.buttons() == ui::Signature::Button::Left && compare_mode_ == "Grid") {
 
-            grid_mode_media_select(pointer_event);
-
+            pointer_select_media(pointer_event);
         }
+    } else if (hover_image_select_ && pointer_event.type() == Signature::EventType::Move) {
 
+        pointer_select_media(pointer_event);
     }
 
     if (pointer_event_handlers_.find(pointer_event.signature()) !=
@@ -750,7 +754,6 @@ void Viewport::apply_fit_mode() {
             state_.translate_.y = 0.5f / screen_pix_size_y;
         }
     }
-
 }
 
 float Viewport::pixel_zoom() const {
@@ -918,19 +921,19 @@ void Viewport::calc_image_bounds_in_viewport_pixels() {
         return;
     }
 
-    const auto old = image_bounds_in_viewport_pixels_;
-    const auto & im_order = on_screen_frames_->layout_data()->image_draw_order_hint_;
+    const auto old       = image_bounds_in_viewport_pixels_;
+    const auto &im_order = on_screen_frames_->layout_data()->image_draw_order_hint_;
     image_bounds_in_viewport_pixels_.clear();
-    for (const auto &i: im_order) {
+    for (const auto &i : im_order) {
 
         const media_reader::ImageBufPtr &im = on_screen_frames_->onscreen_image(i);
-        const float aspect = 1.0f / (im ? im->image_aspect() : 16.0f/9.0f);
+        const float aspect                  = 1.0f / (im ? im->image_aspect() : 16.0f / 9.0f);
 
         Imath::Vec4<float> a(-1.0f, -aspect, 0.0f, 1.0f);
-        a *= im.layout_transform()*m;
+        a *= im.layout_transform() * m;
 
         Imath::Vec4<float> b(1.0f, aspect, 0.0f, 1.0f);
-        b *= im.layout_transform()*m;
+        b *= im.layout_transform() * m;
 
         // note projection matrix includes the 'Flip' mode so bottom left corner
         // of image might be drawn top right etc.
@@ -940,11 +943,12 @@ void Viewport::calc_image_bounds_in_viewport_pixels() {
         const float y0 = (-a.y / a.w + 1.0f) / 2.0f;
         const float y1 = (-b.y / b.w + 1.0f) / 2.0f;
 
-        Imath::V2f bottomLeft(std::min(x0, x1)*state_.size_.x, std::min(y0, y1)*state_.size_.y);
-        Imath::V2f topRight(std::max(x0, x1)*state_.size_.x, std::max(y0, y1)*state_.size_.y);
+        Imath::V2f bottomLeft(
+            std::min(x0, x1) * state_.size_.x, std::min(y0, y1) * state_.size_.y);
+        Imath::V2f topRight(
+            std::max(x0, x1) * state_.size_.x, std::max(y0, y1) * state_.size_.y);
 
         image_bounds_in_viewport_pixels_.emplace_back(Imath::Box2f(bottomLeft, topRight));
-
     }
 
     if (old != image_bounds_in_viewport_pixels_) {
@@ -961,10 +965,10 @@ void Viewport::update_image_resolutions() {
         }
         return;
     }
-    auto old = image_resolutions_;
-    const auto & im_order = on_screen_frames_->layout_data()->image_draw_order_hint_;
+    auto old             = image_resolutions_;
+    const auto &im_order = on_screen_frames_->layout_data()->image_draw_order_hint_;
     image_resolutions_.clear();
-    for (const auto &i: im_order) {
+    for (const auto &i : im_order) {
         const media_reader::ImageBufPtr &im = on_screen_frames_->onscreen_image(i);
         if (im) {
             image_resolutions_.push_back(im->image_size_in_pixels());
@@ -975,7 +979,6 @@ void Viewport::update_image_resolutions() {
     if (image_resolutions_ != old) {
         event_callback(ImageResolutionsChanged);
     }
-
 }
 
 std::list<std::pair<FitMode, std::string>> Viewport::fit_modes() {
@@ -1025,12 +1028,12 @@ caf::message_handler Viewport::message_handler() {
                     const Imath::V2f pan,
                     const std::string &viewport_name,
                     const std::string &window_id) {
-
                     if (viewport_name == name())
                         return;
 
-                    if (sync_to_main_viewport_->value() && 
-                        (window_id == "xstudio_popout_window" || window_id == "xstudio_main_window")) {
+                    if (sync_to_main_viewport_->value() &&
+                        (window_id == "xstudio_popout_window" ||
+                         window_id == "xstudio_main_window")) {
 
                         broadcast_fit_details_ = false;
 
@@ -1095,8 +1098,9 @@ caf::message_handler Viewport::message_handler() {
                     // To use
                     // we only sync changes in main window to popout and vice versa. Two
                     // viewport in the same window do not sync. quickview windows do not sync
-                    if (sync_to_main_viewport_->value() && 
-                        (window_id == "xstudio_popout_window" || window_id == "xstudio_main_window")) {
+                    if (sync_to_main_viewport_->value() &&
+                        (window_id == "xstudio_popout_window" ||
+                         window_id == "xstudio_main_window")) {
                         set_pan(xpan, ypan);
                         event_callback(Redraw);
                     }
@@ -1125,8 +1129,9 @@ caf::message_handler Viewport::message_handler() {
                     const std::string &window_id) {
                     // we only sync changes in main window to popout and vice versa. Two
                     // viewport in the same window do not sync. quickview windows do not sync
-                    if (sync_to_main_viewport_->value() && 
-                        (window_id == "xstudio_popout_window" || window_id == "xstudio_main_window")) {
+                    if (sync_to_main_viewport_->value() &&
+                        (window_id == "xstudio_popout_window" ||
+                         window_id == "xstudio_main_window")) {
                         set_scale(scale);
                         event_callback(Redraw);
                     }
@@ -1187,7 +1192,7 @@ caf::message_handler Viewport::message_handler() {
                         serialNumber);
                 },
 
-                [=](playhead::compare_mode_atom, const std::string & compare_mode) {
+                [=](playhead::compare_mode_atom, const std::string &compare_mode) {
                     // the message comes from current playhead when compare mode
                     // is changed
                     set_compare_mode(compare_mode);
@@ -1260,7 +1265,10 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
 
         if (playhead_viewport_events_group_)
             utility::request_receive<bool>(
-                *sys, playhead_viewport_events_group_, broadcast::join_broadcast_atom_v, self());
+                *sys,
+                playhead_viewport_events_group_,
+                broadcast::join_broadcast_atom_v,
+                self());
 
         playhead_uuid_ =
             utility::request_receive<utility::Uuid>(*sys, playhead, utility::uuid_atom_v);
@@ -1290,11 +1298,19 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
             // pass the new playhead to the actor that manages the queue of images
             // to be display now and in the near future
             utility::request_receive<bool>(
-                *sys, display_frames_queue_actor_, viewport_playhead_atom_v, playhead, true);
+                *sys,
+                display_frames_queue_actor_,
+                viewport_playhead_atom_v,
+                UuidActor(playhead_uuid_, playhead),
+                true);
 
         } else {
 
-            anon_send(display_frames_queue_actor_, viewport_playhead_atom_v, playhead, false);
+            anon_send(
+                display_frames_queue_actor_,
+                viewport_playhead_atom_v,
+                UuidActor(playhead_uuid_, playhead),
+                false);
 
             // here we tell any viewport plugins that the playhead has changed
             for (auto p : overlay_plugin_instances_) {
@@ -1306,7 +1322,8 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
             }
         }
 
-        set_compare_mode(utility::request_receive<std::string>(*sys, playhead, playhead::compare_mode_atom_v));
+        set_compare_mode(utility::request_receive<std::string>(
+            *sys, playhead, playhead::compare_mode_atom_v));
 
         // tell the playhead events actor that the on-screen playhead has changed
         anon_send(
@@ -1437,8 +1454,7 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
             set_mirror_mode(MirrorMode::Both);
         else
             set_mirror_mode(MirrorMode::Off);
-
-    } 
+    }
 }
 
 void Viewport::menu_item_activated(
@@ -1458,7 +1474,8 @@ void Viewport::update_attrs_from_preferences(const utility::JsonStore &j) {
     // TODO: proper preferences handling for the viewport renderer class
     utility::JsonStore p;
     p["texture_mode"] = texture_mode_preference_->value();
-    if (active_renderer_) active_renderer_->set_prefs(p);
+    if (active_renderer_)
+        active_renderer_->set_prefs(p);
 }
 
 void Viewport::hotkey_pressed(
@@ -1483,6 +1500,8 @@ void Viewport::hotkey_pressed(
         switch_mirror_mode();
     } else if (hotkey_uuid == reset_hotkey_) {
         reset();
+    } else if (hotkey_uuid == hover_select_) {
+        hover_image_select_ = true;
     }
 }
 
@@ -1494,6 +1513,8 @@ void Viewport::hotkey_released(
     } else if (hotkey_uuid == pan_hotkey_) {
         pan_mode_toggle_->set_role_data(module::Attribute::Activated, false);
         pan_mode_toggle_->set_value(false);
+    } else if (hotkey_uuid == hover_select_) {
+        hover_image_select_ = false;
     }
 }
 
@@ -1504,6 +1525,7 @@ void Viewport::reset() {
 
     pan_mode_toggle_->set_value(false);
     zoom_mode_toggle_->set_value(false);
+    hover_image_select_ = false;
 
     if (colour_pipeline_)
         anon_send(colour_pipeline_, module::reset_module_atom_v);
@@ -1523,7 +1545,7 @@ media_reader::ImageBufPtr Viewport::get_onscreen_image(const bool force_playhead
 void Viewport::update_onscreen_frame_info(const media_reader::ImageBufDisplaySetPtr &images) {
 
     on_screen_frames_ = images;
-    needs_redraw_ = false;
+    needs_redraw_     = false;
 
     if (images && images->images_layout_hash() != image_bounds_hash_) {
         calc_image_bounds_in_viewport_pixels();
@@ -1539,7 +1561,9 @@ void Viewport::update_onscreen_frame_info(const media_reader::ImageBufDisplaySet
         return;
     }
 
-    if (state_.layout_aspect_ != images->layout_aspect()) {
+    if (state_.layout_aspect_ != images->layout_aspect() ||
+        state_.image_size_ != images->hero_image()->image_size_in_pixels()) {
+        state_.image_size_    = images->hero_image()->image_size_in_pixels();
         state_.layout_aspect_ = images->layout_aspect();
         update_matrix();
     }
@@ -1565,6 +1589,19 @@ void Viewport::framebuffer_swapped(const utility::time_point swap_time) {
         swap_time,
         screen_refresh_period_);
 
+    /*if (on_screen_hero_frame_) {
+        int f = on_screen_hero_frame_.playhead_logical_frame();
+        static auto f0 = f;
+        if (f != f0 && (f-f0) != 1) {
+            std::cerr << " dropped ";
+        }
+        f0 = f;
+        auto t = utility::clock::now();
+        static auto t0 = t;
+        std::cerr << std::chrono::duration_cast<std::chrono::milliseconds>(t-t0).count() << " ";
+        t0 = t;
+    }*/
+
     if (next_on_screen_hero_frame_ != on_screen_hero_frame_) {
 
         on_screen_hero_frame_ = next_on_screen_hero_frame_;
@@ -1572,16 +1609,12 @@ void Viewport::framebuffer_swapped(const utility::time_point swap_time) {
             fps_monitor(),
             ui::fps_monitor::framebuffer_swapped_atom_v,
             swap_time,
-            on_screen_hero_frame_.playhead_logical_frame()
-            );
-
+            on_screen_hero_frame_.playhead_logical_frame());
     }
-
 }
 
 media_reader::ImageBufDisplaySetPtr Viewport::get_frames_for_display(
-    const bool force_playhead_sync,
-    const utility::time_point &when_being_displayed) {
+    const bool force_playhead_sync, const utility::time_point &when_being_displayed) {
 
     media_reader::ImageBufDisplaySetPtr result;
 
@@ -1592,26 +1625,35 @@ media_reader::ImageBufDisplaySetPtr Viewport::get_frames_for_display(
     try {
 
         result = when_being_displayed == utility::time_point()
-                          ? request_receive_wait<media_reader::ImageBufDisplaySetPtr>(
-                                *sys,
-                                display_frames_queue_actor_,
-                                std::chrono::milliseconds(1000),
-                                viewport_get_next_frames_for_display_atom_v,
-                                force_playhead_sync)
-                          : request_receive_wait<media_reader::ImageBufDisplaySetPtr>(
-                                *sys,
-                                display_frames_queue_actor_,
-                                std::chrono::milliseconds(1000),
-                                viewport_get_next_frames_for_display_atom_v,
-                                when_being_displayed);
+                     ? request_receive_wait<media_reader::ImageBufDisplaySetPtr>(
+                           *sys,
+                           display_frames_queue_actor_,
+                           std::chrono::milliseconds(1000),
+                           viewport_get_next_frames_for_display_atom_v,
+                           force_playhead_sync)
+                     : request_receive_wait<media_reader::ImageBufDisplaySetPtr>(
+                           *sys,
+                           display_frames_queue_actor_,
+                           std::chrono::milliseconds(1000),
+                           viewport_get_next_frames_for_display_atom_v,
+                           when_being_displayed);
 
-        size_t image_set_hash = result ? result->images_layout_hash() + result->images_keys_hash() : 0;
-        if (last_images_hash_ !=image_set_hash) {
+        // TED - note, I've removed the check on image_keys_hash to test if
+        // the images have changed. Reason is that bookmarks might change which
+        // (at the moment) doesn't change the image hash.
+
+        /*size_t image_set_hash =
+            result ? result->images_layout_hash() + result->images_keys_hash() : 0;
+        if (last_images_hash_ != image_set_hash) {
             last_images_hash_ = image_set_hash;
             // pass on-screen images to overlay plugins
             for (auto p : overlay_plugin_instances_) {
                 anon_send(p.second, playhead::show_atom_v, result, name(), playing_);
             }
+        }*/
+
+        for (auto p : overlay_plugin_instances_) {
+            anon_send(p.second, playhead::show_atom_v, result, name(), playing_);
         }
 
     } catch (const std::exception &e) {
@@ -1622,7 +1664,8 @@ media_reader::ImageBufDisplaySetPtr Viewport::get_frames_for_display(
     return result;
 }
 
-media_reader::ImageBufDisplaySetPtr Viewport::prepare_image_for_display(const media_reader::ImageBufPtr &image_buf) const {
+media_reader::ImageBufDisplaySetPtr
+Viewport::prepare_image_for_display(const media_reader::ImageBufPtr &image_buf) const {
 
     media_reader::ImageBufDisplaySetPtr result;
 
@@ -1633,11 +1676,11 @@ media_reader::ImageBufDisplaySetPtr Viewport::prepare_image_for_display(const me
     try {
 
         result = request_receive_wait<media_reader::ImageBufDisplaySetPtr>(
-                    *sys,
-                    display_frames_queue_actor_,
-                    std::chrono::milliseconds(1000),
-                    viewport_get_next_frames_for_display_atom_v,
-                    image_buf);
+            *sys,
+            display_frames_queue_actor_,
+            std::chrono::milliseconds(1000),
+            viewport_get_next_frames_for_display_atom_v,
+            image_buf);
 
     } catch (const std::exception &e) {
 
@@ -1645,7 +1688,6 @@ media_reader::ImageBufDisplaySetPtr Viewport::prepare_image_for_display(const me
     }
 
     return result;
-
 }
 
 void Viewport::instance_overlay_plugins() {
@@ -1660,7 +1702,8 @@ void Viewport::instance_overlay_plugins() {
         utility::JsonStore plugin_init_data;
 
         // get the OCIO colour pipeline plugin (the only one implemented right now)
-        auto pm = self()->home_system().registry().template get<caf::actor>(plugin_manager_registry);
+        auto pm =
+            self()->home_system().registry().template get<caf::actor>(plugin_manager_registry);
         auto overlay_plugin_details =
             request_receive<std::vector<plugin_manager::PluginDetail>>(
                 *sys,
@@ -1688,14 +1731,14 @@ void Viewport::instance_overlay_plugins() {
                 anon_send(overlay_actor, module::connect_to_ui_atom_v);
 
                 auto overlay_renderer = request_receive<plugin::ViewportOverlayRendererPtr>(
-                    *sys, overlay_actor, overlay_render_function_atom_v);
+                    *sys, overlay_actor, overlay_render_function_atom_v, name());
 
                 if (overlay_renderer) {
                     viewport_overlay_renderers_[pd.uuid_] = overlay_renderer;
                 }
 
                 auto pre_render_hook = request_receive<plugin::GPUPreDrawHookPtr>(
-                    *sys, overlay_actor, pre_render_gpu_hook_atom_v);
+                    *sys, overlay_actor, pre_render_gpu_hook_atom_v, name());
 
                 if (pre_render_hook) {
                     overlay_pre_render_hooks_[pd.uuid_] = pre_render_hook;
@@ -1729,14 +1772,14 @@ void Viewport::instance_overlay_plugins() {
                 anon_send(overlay_actor, module::connect_to_ui_atom_v);
 
                 auto overlay_renderer = request_receive<plugin::ViewportOverlayRendererPtr>(
-                    *sys, overlay_actor, overlay_render_function_atom_v);
+                    *sys, overlay_actor, overlay_render_function_atom_v, name());
 
                 if (overlay_renderer) {
                     viewport_overlay_renderers_[pd.uuid_] = overlay_renderer;
                 }
 
                 auto pre_render_hook = request_receive<plugin::GPUPreDrawHookPtr>(
-                    *sys, overlay_actor, pre_render_gpu_hook_atom_v);
+                    *sys, overlay_actor, pre_render_gpu_hook_atom_v, name());
 
                 if (pre_render_hook) {
                     overlay_pre_render_hooks_[pd.uuid_] = pre_render_hook;
@@ -1748,14 +1791,14 @@ void Viewport::instance_overlay_plugins() {
             }
         }
 
-        display_frames_queue_actor_ =
-            sys->spawn<ViewportFrameQueueActor>(self(), overlay_plugin_instances_, name(), colour_pipeline_);
+        display_frames_queue_actor_ = sys->spawn<ViewportFrameQueueActor>(
+            self(), overlay_plugin_instances_, name(), colour_pipeline_);
 
     } catch (std::exception &e) {
 
         if (!display_frames_queue_actor_) {
-            display_frames_queue_actor_ =
-                sys->spawn<ViewportFrameQueueActor>(self(), overlay_plugin_instances_, name(), colour_pipeline_);
+            display_frames_queue_actor_ = sys->spawn<ViewportFrameQueueActor>(
+                self(), overlay_plugin_instances_, name(), colour_pipeline_);
         }
 
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -1763,7 +1806,6 @@ void Viewport::instance_overlay_plugins() {
 
     auto a = caf::actor_cast<caf::event_based_actor *>(self());
     a->link_to(display_frames_queue_actor_);
-
 }
 
 void Viewport::get_colour_pipeline() {
@@ -1784,9 +1826,10 @@ void Viewport::get_colour_pipeline() {
             colour_pipeline_ = colour_pipe;
 
             auto colour_pipe_gpu_hook = request_receive<plugin::GPUPreDrawHookPtr>(
-                *sys, colour_pipeline_, pre_render_gpu_hook_atom_v);
+                *sys, colour_pipeline_, pre_render_gpu_hook_atom_v, name());
             if (colour_pipe_gpu_hook) {
-                overlay_pre_render_hooks_[utility::Uuid("4aefe9d8-a53d-46a3-9237-9ff686790c46")] = colour_pipe_gpu_hook;
+                overlay_pre_render_hooks_[utility::Uuid(
+                    "4aefe9d8-a53d-46a3-9237-9ff686790c46")] = colour_pipe_gpu_hook;
             }
         }
 
@@ -1845,7 +1888,8 @@ void Viewport::quickview_media(
     auto playhead = quickview_playhead_;
     if (!playhead) {
         // create a new quickview playhead, or use existing one.
-        playhead = sys->spawn<playhead::PlayheadActor>("QuickviewPlayhead");
+        playhead = sys->spawn<playhead::PlayheadActor>(
+            "QuickviewPlayhead", playhead::INDEPENDENT_AUDIO);
     }
     // set the compare  mode
     anon_send(
@@ -1877,7 +1921,6 @@ void Viewport::quickview_media(
     set_playhead(playhead, true);
 
     quickview_playhead_ = playhead;
-
 }
 
 void Viewport::set_visibility(bool is_visible) {
@@ -1894,13 +1937,12 @@ utility::JsonStore ViewportRenderer::core_shader_params(
     const Imath::M44f &window_to_viewport_matrix,
     const Imath::M44f &viewport_to_image_space,
     const float viewport_du_dx,
-    const utility::JsonStore & layout_data,
-    const int image_index) const 
-{
+    const utility::JsonStore &layout_data,
+    const int image_index) const {
 
     utility::JsonStore shader_params;
-    shader_params["to_coord_system"]        = viewport_to_image_space.inverse();
-    shader_params["to_canvas"]              = window_to_viewport_matrix;
+    shader_params["to_coord_system"] = viewport_to_image_space.inverse();
+    shader_params["to_canvas"]       = window_to_viewport_matrix;
 
     if (image_to_be_drawn) {
         // here we can work out the ratio of image pixels to screen pixels
@@ -1912,9 +1954,8 @@ utility::JsonStore ViewportRenderer::core_shader_params(
         else if (render_hints_ == BilinearWhenZoomedOut)
             shader_params["use_bilinear_filtering"] =
                 image_pix_to_screen_pix > 1.00001f; // filter_mode_ == BilinearWhenZoomedOut
-        shader_params["image_aspect"] = image_to_be_drawn->image_aspect();
+        shader_params["image_aspect"]           = image_to_be_drawn->image_aspect();
         shader_params["image_transform_matrix"] = image_to_be_drawn.layout_transform();
-
     }
     return shader_params;
 }
@@ -1927,8 +1968,7 @@ void Viewport::render() const {
             render_data_->images,
             render_data_->window_to_viewport_matrix,
             render_data_->projection_matrix,
-            render_data_->overlay_renderers
-            );
+            render_data_->overlay_renderers);
     }
 }
 
@@ -1941,36 +1981,38 @@ void Viewport::render(const utility::time_point &when_going_on_screen) {
 
 void Viewport::render(const media_reader::ImageBufPtr &image_buf) {
 
-    // rendering in the same thread, rendering a single image 
+    // rendering in the same thread, rendering a single image
     // - used by offscreen renderer
 
-    RenderData * rdata = new RenderData;
-    rdata->images = prepare_image_for_display(image_buf);
+    RenderData *rdata = new RenderData;
+    rdata->images     = prepare_image_for_display(image_buf);
     update_onscreen_frame_info(rdata->images);
     rdata->window_to_viewport_matrix = window_to_viewport_matrix();
-    rdata->projection_matrix = projection_matrix();
-    rdata->overlay_renderers = viewport_overlay_renderers_;
-    rdata->renderer = active_renderer_;
+    rdata->projection_matrix         = projection_matrix();
+    rdata->overlay_renderers         = viewport_overlay_renderers_;
+    rdata->renderer                  = active_renderer_;
     render_data_.reset(rdata);
 
     render();
 }
 
-void Viewport::prepare_render_data(const utility::time_point &when_going_on_screen) {
+void Viewport::prepare_render_data(
+    const utility::time_point &when_going_on_screen, const bool sync_to_playhead) {
     // here we make data for rendering in separate thread
-    RenderData * rdata = new RenderData;
-    rdata->images = get_frames_for_display(false, when_going_on_screen);
+    RenderData *rdata = new RenderData;
+    rdata->images     = get_frames_for_display(sync_to_playhead, when_going_on_screen);
     update_onscreen_frame_info(rdata->images);
     rdata->window_to_viewport_matrix = window_to_viewport_matrix();
-    rdata->projection_matrix = projection_matrix();
-    rdata->overlay_renderers = viewport_overlay_renderers_;
-    rdata->renderer = active_renderer_;
+    rdata->projection_matrix         = projection_matrix();
+    rdata->overlay_renderers         = viewport_overlay_renderers_;
+    rdata->renderer                  = active_renderer_;
     render_data_.reset(rdata);
 }
 
 void Viewport::set_compare_mode(const std::string &compare_mode) {
 
-    if (compare_mode_ == compare_mode) return;
+    if (compare_mode_ == compare_mode)
+        return;
 
     compare_mode_ = compare_mode;
 
@@ -1979,7 +2021,7 @@ void Viewport::set_compare_mode(const std::string &compare_mode) {
         caf::scoped_actor sys(self()->home_system());
 
         auto layouts_manager =
-                self()->home_system().registry().template get<caf::actor>(viewport_layouts_manager);
+            self()->home_system().registry().template get<caf::actor>(viewport_layouts_manager);
 
         // get the actor that provides the layout
         auto layout_actor = request_receive<caf::actor>(
@@ -1988,23 +2030,16 @@ void Viewport::set_compare_mode(const std::string &compare_mode) {
             viewport_layout_atom_v,
             compare_mode,
             sync_to_main_viewport_->value(),
-            name()
-            );
+            name());
 
         // pass it over to the frame queue actor, which sends the image
         // set to the layout actor to do the actual layout
         anon_send(
-            display_frames_queue_actor_,
-            viewport_layout_atom_v,
-            layout_actor,
-            compare_mode);
+            display_frames_queue_actor_, viewport_layout_atom_v, layout_actor, compare_mode);
 
         // get the viewport renderer for the layout/compare mode
         active_renderer_ = request_receive<ViewportRendererPtr>(
-            *sys,
-            layout_actor,
-            viewport_renderer_atom_v,
-            window_id_);
+            *sys, layout_actor, viewport_renderer_atom_v, window_id_);
 
         active_renderer_->set_pre_renderer_hooks(overlay_pre_render_hooks_);
 
@@ -2014,45 +2049,52 @@ void Viewport::set_compare_mode(const std::string &compare_mode) {
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
-
 }
 
 
-void Viewport::grid_mode_media_select(const PointerEvent &pointer_event) {
+void Viewport::pointer_select_media(const PointerEvent &pointer_event) {
 
-    if (!(pointer_event.modifiers() == Signature::Modifier::ControlModifier || 
-            pointer_event.modifiers() == Signature::Modifier::NoModifier)) return;
+    if (!(pointer_event.modifiers() == Signature::Modifier::ControlModifier ||
+          pointer_event.modifiers() == Signature::Modifier::NoModifier))
+        return;
 
-    // special case. In grid mode, detect which image was clicked on 
-    // to adjust the selection, where possible.
-    // We should already have up-to-date info on the positions of the images
-    // in the viewport..
-    int idx = 0;
+    if (!on_screen_frames_ || !on_screen_frames_->layout_data())
+        return;
 
-    // loop through image bounds - these are the images visible in the layout
-    for (const auto &im_bounds: image_bounds_in_viewport_pixels_) {
+    const auto &im_order = on_screen_frames_->layout_data()->image_draw_order_hint_;
 
+    if (im_order.size() != image_bounds_in_viewport_pixels_.size())
+        return;
+
+    // lazy!
+    thread_local utility::Uuid last_im_id;
+
+    // lreverse oop through image bounds (last one is drawn on-top)
+    // these are the images visible in the layout
+    for (int i = (int(image_bounds_in_viewport_pixels_.size()) - 1); i >= 0; --i) {
+
+        const auto &im_bounds = image_bounds_in_viewport_pixels_[i];
+
+        // is the mouse inside the image boundary?
         if (im_bounds.min.x <= pointer_event.x() && im_bounds.max.x >= pointer_event.x() &&
             im_bounds.min.y <= pointer_event.y() && im_bounds.max.y >= pointer_event.y()) {
-            // send the playhead the index
-            if (on_screen_frames_ && on_screen_frames_->layout_data()) {
-                // resolve the image idx in the layout to the image index in the
-                // onscreen image set ...
-                const auto & im_order = on_screen_frames_->layout_data()->image_draw_order_hint_;
-                if (idx < im_order.size()) {
-                    const media_reader::ImageBufPtr & im = on_screen_frames_->onscreen_image(im_order[idx]);
-                    if (im && playhead_addr_) {
-                        anon_send(
-                            caf::actor_cast<caf::actor>(playhead_addr_),
-                            playlist::select_media_atom_v,
-                            im.frame_id().media_uuid(),
-                            pointer_event.modifiers() == Signature::Modifier::ControlModifier
-                            );
-                    }
-                }
 
+            // .. yes. send the corresponding media UUID to the playhead
+
+            // resolve the image idx in the layout to the image index in the
+            // onscreen image set ...
+            const media_reader::ImageBufPtr &im =
+                on_screen_frames_->onscreen_image(im_order[i]);
+            if (im && playhead_addr_ && last_im_id != im.frame_id().media_uuid()) {
+                last_im_id = im.frame_id().media_uuid();
+                anon_send(
+                    caf::actor_cast<caf::actor>(playhead_addr_),
+                    playlist::select_media_atom_v,
+                    im.frame_id().media_uuid(),
+                    i,
+                    pointer_event.modifiers() == Signature::Modifier::ControlModifier);
+                break;
             }
         }
-        idx++;
     }
 }

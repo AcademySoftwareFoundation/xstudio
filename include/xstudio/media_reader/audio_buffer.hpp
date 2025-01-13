@@ -104,13 +104,15 @@ namespace media_reader {
         AudioBufPtr() = default;
         AudioBufPtr(AudioBuffer *imbuf) : Base(imbuf) {}
         AudioBufPtr(const AudioBufPtr &o)
-            : Base(static_cast<const Base &>(o)), when_to_display_(o.when_to_display_), tts_(o.tts_) {}
+            : Base(static_cast<const Base &>(o)),
+              when_to_display_(o.when_to_display_),
+              tts_(o.tts_) {}
 
         AudioBufPtr &operator=(const AudioBufPtr &o) {
             Base &b          = static_cast<Base &>(*this);
             b                = static_cast<const Base &>(o);
             when_to_display_ = o.when_to_display_;
-            tts_ = o.tts_;
+            tts_             = o.tts_;
             return *this;
         }
 

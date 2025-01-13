@@ -55,6 +55,11 @@ Item {
         description: "Closes the xSTUDIO session and application."
     }
 
+    XsPreference {
+        id: autoSavePath
+        path: "/core/session/autosave/last_auto_save"
+    }
+
     /**************************************************************
 
     MENU ITEMS
@@ -91,9 +96,8 @@ Item {
     }
 
     XsMenuModelItem {
-        id: me
-        text: "Import Session ..."
-        menuPath: "File"
+        text: "Session ..."
+        menuPath: "File|Import"
         menuItemPosition: 3
         menuModelName: "main menu bar"
         onActivated: {
@@ -103,12 +107,25 @@ Item {
     }
 
     XsMenuModelItem {
-        text: "Import OTIO ..."
-        menuPath: "File"
+        text: "OTIO ..."
+        menuPath: "File|Import"
         menuItemPosition: 3.1
         menuModelName: "main menu bar"
         onActivated: {
             file_functions.importOTIO()
+        }
+        Component.onCompleted: {
+            setMenuPathPosition("File|Import", 3)
+        }
+    }
+
+    XsMenuModelItem {
+        text: "Open Last Auto-Save"
+        menuPath: "File"
+        menuItemPosition: 3.2
+        menuModelName: "main menu bar"
+        onActivated: {
+            file_functions.doLoadSession(autoSavePath.value)
         }
     }
 

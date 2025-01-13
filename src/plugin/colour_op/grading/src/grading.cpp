@@ -65,12 +65,6 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     working_space_ = add_string_attribute("working_space", "working_space", "");
     working_space_->expose_in_ui_attrs_group("grading_settings");
 
-    grade_in_ = add_integer_attribute("grade_in", "grade_in", -1);
-    grade_in_->expose_in_ui_attrs_group("grading_settings");
-
-    grade_out_ = add_integer_attribute("grade_out", "grade_out", -1);
-    grade_out_->expose_in_ui_attrs_group("grading_settings");
-
     // Slope
     slope_ = add_float_vector_attribute(
         "Slope",
@@ -251,7 +245,9 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
 }
 
 utility::BlindDataObjectPtr GradingTool::onscreen_render_data(
-    const media_reader::ImageBufPtr &image, const std::string & /*viewport_name*/) const {
+    const media_reader::ImageBufPtr &image,
+    const std::string & /*viewport_name*/,
+    const utility::Uuid & /*playhead_uuid*/) const {
 
     // This callback is made just before viewport redraw. We want to check
     // if the image to be drawn is from the same media to which a grade is
@@ -305,15 +301,35 @@ void GradingTool::images_going_on_screen(
     // user starts drawing when there is a bookmark on screen then we can
     // add the strokes to that existing bookmark instead of making a brand
     // new note
-    if (!playhead_playing && images) {
- 
+    if (images && current_frame_id_ != images->hero_image().frame_id()) {
+
+        current_viewport_        = viewport_name;
         viewport_current_images_ = images;
-        playhead_media_frame_ = images->hero_image().frame_id().frame() - images->hero_image().frame_id().first_frame();
+        playhead_media_frame_    = images->hero_image().frame_id().frame() -
+                                images->hero_image().frame_id().first_frame();
+        current_frame_id_ = images->hero_image().frame_id();
 
-    } else {
+        if (!grading_data_.bookmark_uuid_.is_null()) {
+            // here we check if the current edited bookmark is still on-screen,
+            // i.e. has the user scrubbed away from the frame with a grade on
+            // that they were editing?
+            bool current_grade_is_onscreen = false;
+            for (const auto &bm : images->hero_image().bookmarks()) {
+                if (bm->detail_.uuid_ == grading_data_.bookmark_uuid_) {
+                    current_grade_is_onscreen = true;
+                    break;
+                }
+            }
+            if (!current_grade_is_onscreen) {
+                select_bookmark(utility::Uuid());
+            }
+        }
+
+    } else if (!images) {
         viewport_current_images_.reset();
+        select_bookmark(utility::Uuid());
+        current_frame_id_ = media::AVFrameID();
     }
-
 }
 
 void GradingTool::on_screen_media_changed(
@@ -332,7 +348,6 @@ void GradingTool::on_screen_media_changed(
 
     working_space_->set_value(working_space);
     media_colour_managed_->set_value(!is_unmanaged);
-
 }
 
 void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
@@ -384,6 +399,38 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
         } else if (grading_action_->value() == "Remove CC") {
 
             remove_bookmark();
+
+        } else if (utility::starts_with(grading_action_->value(), "Set Bookmark Full Range")) {
+
+            auto d = utility::split(grading_action_->value(), '|');
+            if (d.size() != 2)
+                return;
+            utility::Uuid bm_uuid(d[1]);
+            auto bmd = get_bookmark_detail(bm_uuid);
+            if (bmd.media_reference_) {
+
+                bmd.start_    = timebase::k_flicks_low;
+                bmd.duration_ = timebase::k_flicks_max;
+                update_bookmark_detail(bm_uuid, bmd);
+            }
+            select_bookmark(bm_uuid);
+
+        } else if (utility::starts_with(grading_action_->value(), "Set Bookmark One Frame")) {
+
+            auto d = utility::split(grading_action_->value(), '|');
+            if (d.size() != 3)
+                return;
+            utility::Uuid bm_uuid(d[1]);
+            auto bmd        = get_bookmark_detail(bm_uuid);
+            int media_frame = std::atoi(d[2].c_str());
+            if (bmd.media_reference_) {
+                auto &media   = bmd.media_reference_.value();
+                bmd.start_    = media_frame * media.rate().to_flicks();
+                bmd.duration_ = timebase::k_flicks_zero_seconds;
+                update_bookmark_detail(bm_uuid, bmd);
+            }
+
+            select_bookmark(bm_uuid);
         }
 
         grading_action_->set_value("");
@@ -445,64 +492,6 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
     } else if (attribute_uuid == display_mode_attribute_->uuid()) {
 
         refresh_current_grade_from_ui();
-
-    } else if (grade_in_ && attribute_uuid == grade_in_->uuid()) {
-
-        auto bmd = get_bookmark_detail(current_bookmark());
-        if (bmd.media_reference_) {
-
-            auto &media = bmd.media_reference_.value();
-
-            if (grade_in_->value() == -1) {
-                grade_out_->set_value(-1, false);
-            } else if (grade_out_->value() == -1) {
-                grade_out_->set_value(media.frame_count(), false);
-            }
-
-            if (grade_in_->value() > grade_out_->value()) {
-                grade_out_->set_value(grade_in_->value());
-            }
-
-            if (grade_in_->value() != -1 && grade_out_->value() != -1) {
-                bmd.start_    = grade_in_->value() * media.rate().to_flicks();
-                bmd.duration_ = std::min(
-                    (grade_out_->value() - grade_in_->value()) * media.rate().to_flicks(),
-                    media.frame_count() * media.rate().to_flicks());
-            } else {
-                bmd.start_    = timebase::k_flicks_low;
-                bmd.duration_ = timebase::k_flicks_max;
-            }
-
-            update_bookmark_detail(current_bookmark(), bmd);
-        }
-
-    } else if (grade_out_ && attribute_uuid == grade_out_->uuid()) {
-
-        auto bmd = get_bookmark_detail(current_bookmark());
-        if (bmd.media_reference_) {
-
-            auto &media = bmd.media_reference_.value();
-
-            if (grade_out_->value() == -1) {
-                grade_in_->set_value(-1, false);
-            } else if (grade_in_->value() == -1) {
-                grade_in_->set_value(0, false);
-            }
-
-            if (grade_out_->value() < grade_in_->value()) {
-                grade_in_->set_value(grade_out_->value());
-            }
-
-            if (grade_in_->value() != -1 && grade_out_->value() != -1) {
-                bmd.start_ = grade_in_->value() * media.rate().to_flicks();
-                bmd.duration_ =
-                    (grade_out_->value() - grade_in_->value()) * media.rate().to_flicks();
-            } else {
-                bmd.start_    = timebase::k_flicks_low;
-                bmd.duration_ = timebase::k_flicks_max;
-            }
-            update_bookmark_detail(current_bookmark(), bmd);
-        }
 
     } else if (colour_space_ && attribute_uuid == colour_space_->uuid()) {
 
@@ -1038,19 +1027,6 @@ void GradingTool::refresh_ui_from_current_grade() {
         mask_selected_shape_->set_value(mask_shapes_.size());
     else
         mask_selected_shape_->set_value(-1);
-
-    auto bmd = get_bookmark_detail(current_bookmark());
-    if (bmd.media_reference_ && bmd.start_ && bmd.start_.value() != timebase::k_flicks_low &&
-        bmd.duration_ && bmd.duration_.value() != timebase::k_flicks_max) {
-
-        auto &media = bmd.media_reference_.value();
-        grade_in_->set_value(bmd.start_.value() / media.rate().to_flicks(), false);
-        grade_out_->set_value(
-            (bmd.start_.value() + bmd.duration_.value()) / media.rate().to_flicks(), false);
-    } else {
-        grade_in_->set_value(-1, false);
-        grade_out_->set_value(-1, false);
-    }
 }
 
 utility::Uuid GradingTool::current_bookmark() const {
@@ -1060,7 +1036,9 @@ utility::Uuid GradingTool::current_bookmark() const {
 
 utility::UuidList GradingTool::current_clip_bookmarks() {
 
-    //const utility::UuidList bookmarks_list = get_bookmarks_on_current_media(current_viewport_);
+    // const utility::UuidList bookmarks_list =
+    utility::UuidList d = get_bookmarks_on_current_media(current_viewport_);
+
     utility::UuidList filtered_list;
     if (viewport_current_images_ && viewport_current_images_->hero_image()) {
 
@@ -1119,8 +1097,6 @@ void GradingTool::create_bookmark() {
 
 void GradingTool::select_bookmark(const utility::Uuid &uuid) {
 
-    // spdlog::warn("Select bookmark {}", utility::to_string(uuid));
-
     if (grading_data_.bookmark_uuid_ == uuid)
         return;
 
@@ -1145,18 +1121,28 @@ void GradingTool::select_bookmark(const utility::Uuid &uuid) {
 
 void GradingTool::update_boomark_shape(const utility::Uuid &uuid) {
 
-    auto bmd = get_bookmark_detail(uuid);
+    auto bmd    = get_bookmark_detail(uuid);
+    bool update = false;
     if (bmd.user_data_) {
 
         (*bmd.user_data_)["mask_active"] = !mask_shapes_.empty();
-        update_bookmark_detail(uuid, bmd);
+        update                           = true;
     }
 
     // First shape added on the layer, switch to Single frame mode
     if (mask_shapes_.size() == 1) {
 
-        grade_in_->set_value(playhead_media_frame_);
-        grade_out_->set_value(playhead_media_frame_);
+        if (bmd.media_reference_) {
+
+            auto &media   = bmd.media_reference_.value();
+            bmd.start_    = playhead_media_frame_ * media.rate().to_flicks();
+            bmd.duration_ = timebase::k_flicks_zero_seconds;
+            update        = true;
+        }
+    }
+
+    if (update) {
+        update_bookmark_detail(uuid, bmd);
     }
 }
 
@@ -1175,14 +1161,9 @@ void GradingTool::remove_bookmark() {
     if (current_bookmark()) {
 
         // spdlog::warn("Removing bookmark {}", utility::to_string(current_bookmark()));
-        StandardPlugin::remove_bookmark(current_bookmark());
-    }
-
-    auto clip_layers = current_clip_bookmarks();
-    if (!clip_layers.empty()) {
-        select_bookmark(clip_layers.back());
-    } else {
+        auto bm = current_bookmark();
         select_bookmark(utility::Uuid());
+        StandardPlugin::remove_bookmark(bm);
     }
 }
 

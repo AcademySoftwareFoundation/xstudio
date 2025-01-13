@@ -346,12 +346,14 @@ namespace ui {
                 const QStringList &preset_paths,
                 const int project_id,
                 const QVariantMap &env           = QVariantMap(),
-                const QVariantList &custom_terms = QVariantList());
+                const QVariantList &custom_terms = QVariantList(),
+                const QVariantMap &customContext = QVariantMap());
 
             QFuture<QString> executeQuery(
                 const QStringList &preset_paths,
                 const QVariantMap &env           = QVariantMap(),
-                const QVariantList &custom_terms = QVariantList());
+                const QVariantList &custom_terms = QVariantList(),
+                const QVariantMap &customContext = QVariantMap());
 
             QVariant mergeQueries(
                 const QVariant &dst,

@@ -817,7 +817,19 @@ void Canvas::end_draw_no_lock() {
     }
 }
 
-void Canvas::changed() { last_change_time_ = utility::clock::now(); }
+void Canvas::changed() {
+    last_change_time_ = utility::clock::now();
+    // the canvas hash is guaranteed to change if the appearance of the canvas
+    // has *changed*. But two different canvases could easily have the same
+    // hash. So not a real hash at all.
+    hash_ = items_.size();
+    if (items_.size()) {
+        if (std::holds_alternative<Caption>(items_.back())) {
+            auto &caption = std::get<Caption>(items_.back());
+            hash_ += std::hash<std::string>{}(caption.hash());
+        }
+    }
+}
 
 
 void xstudio::ui::canvas::from_json(const nlohmann::json &j, Canvas &c) {

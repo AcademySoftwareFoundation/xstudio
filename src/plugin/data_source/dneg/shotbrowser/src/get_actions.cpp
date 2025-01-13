@@ -850,7 +850,7 @@ void ShotBrowser::get_data(
             if (type == "department")
                 get_data_department(rp, type);
             else if (type == "project")
-                get_data_project(rp, type);
+                get_data_project(rp, type, expand_envvars(username_->value()));
             else if (type == "location")
                 get_data_location(rp, type);
             else if (type == "review_location")
@@ -940,14 +940,23 @@ void ShotBrowser::get_data_department(
 }
 
 void ShotBrowser::get_data_project(
-    caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &type,
+    const std::string &user) {
+
+    auto filter = FilterBy().And(
+        StatusList("sg_status").is_not("Archive"), Text("sg_type").is_not("Template"));
 
     request(
         shotgun_,
         infinite,
-        shotgun_projects_atom_v,
+        shotgun_entity_search_atom_v,
+        "Projects",
+        JsonStore(filter),
         ProjectFields,
-        std::vector<std::string>({"name"}))
+        std::vector<std::string>({"name"}),
+        1,
+        4999)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1616,9 +1625,9 @@ void ShotBrowser::get_data_sequence(
 
                             // ["sg_status_list", "in", ["na","del"]]
 
-                            auto getShotData = GetData;
+                            auto getShotData          = GetData;
                             getShotData["project_id"] = project_id;
-                            getShotData["type"] = "sequence_shot";
+                            getShotData["type"]       = "sequence_shot";
 
                             request(
                                 caf::actor_cast<caf::actor>(this),

@@ -15,10 +15,12 @@ import xstudio.qml.viewport 1.0
 ApplicationWindow {
 
     id: appWindow
-    visible: true
+    visible: false
     color: "#00000000"
     title: fileName
     objectName: "xstudio_popout_window"
+    minimumWidth: 150
+    minimumHeight: 100
 
     // this gives us access to the 'role' data of the entry in the session model
     // for the current on-screen media SOURCE
@@ -49,6 +51,7 @@ ApplicationWindow {
                 appWindow.width = ui_layouts_model.get(ui_layouts_model.root_index, "width")
                 appWindow.height = ui_layouts_model.get(ui_layouts_model.root_index, "height")
                 appWindow.user_data = ui_layouts_model.get(ui_layouts_model.root_index, "user_data")
+                visible = true
             }
         }
     }

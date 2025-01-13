@@ -79,7 +79,7 @@ namespace ui {
              *  an active OpenGL context). Thread safe, as required by QML integration where
              *  render thread is separate to main GUI thread.
              *
-             *  prepare_render_data should be called from GUI thread before calling this 
+             *  prepare_render_data should be called from GUI thread before calling this
              *  method.
              */
             void render() const;
@@ -111,12 +111,14 @@ namespace ui {
 
             /**
              *  @brief Any pre-render interaction with Viewport state data etc. must be done
-             *  in this function. All necessary data for rendering the viewport must be gatherered
-             *  and finalised within this function. The data should be made thread safe, as the
-             *  rendering can/will be executed in a separate thread to the main GUI thread that
-             *  the Viewport lives in.                    
+             *  in this function. All necessary data for rendering the viewport must be
+             * gatherered and finalised within this function. The data should be made thread
+             * safe, as the rendering can/will be executed in a separate thread to the main GUI
+             * thread that the Viewport lives in.
              */
-            void prepare_render_data(const utility::time_point &when_going_on_screen = utility::time_point());
+            void prepare_render_data(
+                const utility::time_point &when_going_on_screen = utility::time_point(),
+                const bool sync_to_playhead                     = false);
 
             /**
              *  @brief Initialise the viewport.
@@ -124,7 +126,10 @@ namespace ui {
              *  @details Carry out first time render one-shot initialisation of any member
              * data or other state/data initialisation of graphics resources
              */
-            void init() { if (active_renderer_) active_renderer_->init(); }
+            void init() {
+                if (active_renderer_)
+                    active_renderer_->init();
+            }
 
             /**
              *  @brief Inform the viewport of how its coordinate system maps to the
@@ -210,7 +215,7 @@ namespace ui {
              *  @brief Get the bounding box, in the viewport area, of the current image
              *
              */
-            const std::vector<Imath::Box2f> & image_bounds_in_viewport_pixels() const {
+            const std::vector<Imath::Box2f> &image_bounds_in_viewport_pixels() const {
                 return image_bounds_in_viewport_pixels_;
             }
 
@@ -218,7 +223,7 @@ namespace ui {
              *  @brief Get the resolution of the current images
              *
              */
-            const std::vector<Imath::V2i> & image_resolutions() const {
+            const std::vector<Imath::V2i> &image_resolutions() const {
                 return image_resolutions_;
             }
 
@@ -230,7 +235,13 @@ namespace ui {
 
             caf::message_handler message_handler() override;
 
-            enum ChangeCallbackId { Redraw, TranslationChanged, ImageResolutionsChanged, ImageBoundsChanged, PlayheadChanged };
+            enum ChangeCallbackId {
+                Redraw,
+                TranslationChanged,
+                ImageResolutionsChanged,
+                ImageBoundsChanged,
+                PlayheadChanged
+            };
 
             typedef std::function<void(ChangeCallbackId)> ChangeCallback;
 
@@ -238,9 +249,9 @@ namespace ui {
 
             void set_playhead(caf::actor playhead, const bool wait_for_refresh = false);
 
-            void set_compare_mode(const std::string & compare_mode);
+            void set_compare_mode(const std::string &compare_mode);
 
-            void grid_mode_media_select(const PointerEvent &pointer_event);
+            void pointer_select_media(const PointerEvent &pointer_event);
 
             caf::actor fps_monitor() { return fps_monitor_; }
 
@@ -300,7 +311,7 @@ namespace ui {
                 Imath::V4f pointer_position_;
                 FitMode fit_mode_       = {Height};
                 MirrorMode mirror_mode_ = {Off};
-                float layout_aspect_     = {16.0f / 9.0f};
+                float layout_aspect_    = {16.0f / 9.0f};
             } state_, interact_start_state_;
 
             struct FitModeStat {
@@ -343,8 +354,8 @@ namespace ui {
                 const int in_pt  = -1,
                 const int out_pt = -1);
 
-            media_reader::ImageBufDisplaySetPtr prepare_image_for_display(
-                const media_reader::ImageBufPtr &image_buf) const;
+            media_reader::ImageBufDisplaySetPtr
+            prepare_image_for_display(const media_reader::ImageBufPtr &image_buf) const;
 
             void calc_image_bounds_in_viewport_pixels();
 
@@ -384,19 +395,20 @@ namespace ui {
             ChangeCallback event_callback_;
 
           protected:
-
-            bool done_init_  = {false};
-            bool playing_    = {false};
-            bool is_visible_ = {false};
+            bool done_init_          = {false};
+            bool playing_            = {false};
+            bool is_visible_         = {false};
             size_t last_images_hash_ = {0};
-            bool needs_redraw_ = {true};
+            bool needs_redraw_       = {true};
+            bool hover_image_select_ = {false};
             std::set<int> held_keys_;
             std::vector<Imath::Box2f> image_bounds_in_viewport_pixels_;
             std::vector<Imath::V2i> image_resolutions_;
             size_t image_bounds_hash_ = {0};
             std::map<utility::Uuid, caf::actor> overlay_plugin_instances_;
             std::map<utility::Uuid, caf::actor> hud_plugin_instances_;
-            std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> viewport_overlay_renderers_;
+            std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
+                viewport_overlay_renderers_;
             std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> overlay_pre_render_hooks_;
 
             module::BooleanAttribute *zoom_mode_toggle_;
@@ -418,6 +430,7 @@ namespace ui {
             utility::Uuid reset_hotkey_;
             utility::Uuid fit_mode_hotkey_;
             utility::Uuid mirror_mode_hotkey_;
+            utility::Uuid hover_select_;
 
             utility::Uuid reset_menu_item_;
 
@@ -436,7 +449,6 @@ namespace ui {
                 caf::actor viewport_layout_controller_;
                 ViewportRendererPtr viewport_layout_renderer_;
                 std::vector<std::pair<std::string, playhead::AssemblyMode>> compare_modes_;
-
             };
             std::vector<ViewportLayout> viewport_layouts_;
 

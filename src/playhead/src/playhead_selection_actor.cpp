@@ -21,35 +21,13 @@ PlayheadSelectionActor::PlayheadSelectionActor(
       base_(static_cast<utility::JsonStore>(jsn["base"])),
       playlist_(std::move(monitored_playlist)) {
 
-
-    // how do we restore.. ?
-
-    // // parse and generate tracks/stacks.
-    // for (const auto& [key, value] : jsn["actors"].items()) {
-    // 	if(value["base"]["container"]["type"] == "TrackActor"){
-    // 		try {
-    // 			actors_[key] = spawn<TrackActor>(playlist,
-    // static_cast<utility::JsonStore>(value)); 			link_to(actors_[key]);
-    // } catch (const std::exception &e) { 			spdlog::error("{}", e.what());
-    // 		}
-    // 	}
-    // 	else if(value["base"]["container"]["type"] == "ClipActor"){
-    // 		try {
-    // 			actors_[key] = spawn<ClipActor>(playlist,
-    // static_cast<utility::JsonStore>(value)); 			link_to(actors_[key]);
-    // } catch (const std::exception &e) { 			spdlog::error("{}", e.what());
-    // 		}
-    // 	}
-    // 	else if(value["base"]["container"]["type"] == "StackActor"){
-    // 		try {
-    // 			actors_[key] = spawn<StackActor>(playlist,
-    // static_cast<utility::JsonStore>(value)); 			link_to(actors_[key]);
-    // } catch (const std::exception &e) { 			spdlog::error("{}", e.what());
-    // 		}
-    // 	}
-    // }
-
     init();
+
+    // a bit clunky, but to finish deserialisation we need to re-select the
+    // media, thus:
+    UuidVector serialised_selection = base_.items_vec();
+    base_.clear();
+    select_media(serialised_selection);
 }
 
 PlayheadSelectionActor::PlayheadSelectionActor(
@@ -148,9 +126,16 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
 
         [=](playlist::select_all_media_atom) { select_all(); },
 
+        [=](playlist::select_media_atom, const UuidList &media_uuids) {
+            UuidVector v;
+            for (auto &i : media_uuids)
+                v.push_back(i);
+            delegate(caf::actor_cast<caf::actor>(this), playlist::select_media_atom_v, v);
+        },
+
         [=](playlist::select_media_atom, const UuidVector &media_uuids, bool retry) -> bool {
             if (media_uuids.empty()) {
-                select_one();
+                anon_send(this, playlist::select_media_atom_v, utility::UuidVector());
             } else {
                 select_media(media_uuids, false);
             }
@@ -159,7 +144,8 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
 
         [=](playlist::select_media_atom, const UuidVector &media_uuids) -> bool {
             if (media_uuids.empty()) {
-                select_one();
+                delayed_anon_send(
+                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
             } else {
                 select_media(media_uuids);
             }
@@ -171,7 +157,8 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
             const bool retry,
             const playhead::SelectionMode mode) -> bool {
             if (media_uuids.empty()) {
-                select_one();
+                delayed_anon_send(
+                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
             } else {
                 select_media(media_uuids, retry, mode);
             }
@@ -182,18 +169,18 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
             const UuidVector &media_uuids,
             const playhead::SelectionMode mode) -> bool {
             if (media_uuids.empty())
-                select_one();
+                delayed_anon_send(
+                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
             else
                 select_media(media_uuids, true, mode);
 
             return true;
         },
 
-        [=](playlist::media_filter_string, const std::string &filter_string) {
-            filter_string_ = filter_string;
+        [=](playlist::select_media_atom, const bool one) {
+            if (base_.empty())
+                select_one();
         },
-
-        [=](playlist::media_filter_string) -> std::string { return filter_string_; },
 
         [=](playlist::select_media_atom) -> bool {
             // clears the selection
@@ -204,6 +191,13 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
         [=](playlist::select_media_atom, utility::Uuid media_uuid) {
             select_media(UuidVector({media_uuid}), true, SM_SELECT);
         },
+
+        [=](playlist::media_filter_string, const std::string &filter_string) {
+            filter_string_ = filter_string;
+        },
+
+        [=](playlist::media_filter_string) -> std::string { return filter_string_; },
+
 
         [=](utility::event_atom, utility::change_atom) {
             if (current_sender() == playlist_) {
@@ -234,9 +228,9 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
         },
         [=](utility::event_atom, playlist::remove_media_atom, const UuidVector &) {},
         [=](utility::event_atom, playlist::add_media_atom, const utility::UuidActorVector &) {
-            if (base_.items().empty()) {
-                select_one();
-            }
+            if (base_.empty())
+                delayed_anon_send(
+                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
         }};
 }
 
@@ -342,7 +336,7 @@ void PlayheadSelectionActor::select_media(
                     for (const auto &i : selected) {
                         // make sure they not already active..
                         if (not media_uas.count(i)) {
-                            spdlog::warn("Invalid media uuid in selection {}", to_string(i));
+                            spdlog::debug("Invalid media uuid in selection {}", to_string(i));
                         } else if (media_uas.at(i)) {
                             if (not source_actors_.count(i)) {
                                 // add to selection..
@@ -391,7 +385,7 @@ void PlayheadSelectionActor::select_one() {
     request(playlist_, infinite, playlist::get_media_atom_v)
         .then(
             [=](std::vector<UuidActor> media_actors) mutable {
-                if (!media_actors.empty()) {
+                if (not media_actors.empty()) {
                     // select only the first item in the playlist
                     select_media(UuidVector({media_actors[0].uuid()}));
 

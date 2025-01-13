@@ -483,6 +483,8 @@ caf::message_handler TrackActor::message_handler() {
             return rp;
         },
 
+        [=](item_type_atom) -> ItemType { return base_.item().item_type(); },
+
         [=](remove_item_at_frame_atom,
             const int frame,
             const int duration,
@@ -772,14 +774,9 @@ caf::message_handler TrackActor::message_handler() {
             const media::MediaType media_type,
             const utility::TimeSourceMode tsm,
             const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
-                
             // This is required by SubPlayhead actor to make the track
             // playable.
-            return base_.item().get_all_frame_IDs(
-                media_type,
-                tsm,
-                override_rate);
-
+            return base_.item().get_all_frame_IDs(media_type, tsm, override_rate);
         }
 
     };

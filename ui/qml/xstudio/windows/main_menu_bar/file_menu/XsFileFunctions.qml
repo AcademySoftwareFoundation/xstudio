@@ -55,12 +55,12 @@ Item {
     function exportSequencePath(chaserFunc=undefined) {
         dialogHelpers.showFileDialog(
             function(fileUrl, undefined, func) {
-                exportSequence(fileUrl, "otio", func)
+                exportSequence(fileUrl, "", func)
             },
             defaultSessionFolder(),
             "Export Sequence",
-            "otio",
-            ["OTIO (*.otio)"],
+            ".otio",
+            ["All Files (*.*)"].concat(theSessionData.getTimelineExportTypes()),
             false,
             false,
             chaserFunc
@@ -305,7 +305,7 @@ Item {
 
         if(!index.valid) {
             // create new playlist..
-            index = theSessionData.createPlaylist("New Playlist")
+            index = theSessionData.createPlaylist(theSessionData.getNextName("Playlist {}"))
         }
 
         callbackTimer.setTimeout(function(capture) { return function(){

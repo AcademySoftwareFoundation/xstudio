@@ -151,22 +151,37 @@ XsPopupMenu {
         id: createTrackRepeater
         model: createTrack.value
         Item {
-        XsMenuModelItem {
-            text: modelData["name"]
-            menuItemType: "button"
-            menuPath: "Create Tracks"
-            menuItemPosition: index
-            menuModelName: timelineMenu.menu_model_name
-            onActivated: {
-              for(let i=0;i<modelData["video tracks"].length;i++)
-                theTimeline.addTrack("Video Track", false, modelData["video tracks"][i])
-              for(let i=0;i<modelData["audio tracks"].length;i++)
-                theTimeline.addTrack("Audio Track", false, modelData["audio tracks"][i])
+            XsMenuModelItem {
+                text: modelData["name"]
+                menuItemType: "button"
+                menuPath: "Create Tracks"
+                menuItemPosition: index
+                menuModelName: timelineMenu.menu_model_name
+                onActivated: {
+                    for(let i=0;i<modelData["video tracks"].length;i++) {
+                        if(modelData["video tracks"][i] instanceof Object) {
+                            let t = theTimeline.addTrack("Video Track", true, modelData["video tracks"][i]["name"])[0]
+                            let c = modelData["video tracks"][i]["colour"]
+                            if(c != undefined)
+                                theSessionData.set(t, c, "flagColourRole")
+                        } else {
+                            theTimeline.addTrack("Video Track", true, modelData["video tracks"][i])
+                        }
+                    }
+                    for(let i=0;i<modelData["audio tracks"].length;i++) {
+                        if(modelData["audio tracks"][i] instanceof Object) {
+                            let t = theTimeline.addTrack("Audio Track", true, modelData["audio tracks"][i]["name"])[0]
+                            let c = modelData["audio tracks"][i]["colour"]
+                            if(c != undefined)
+                                theSessionData.set(t, c, "flagColourRole")
+                        } else {
+                            theTimeline.addTrack("Audio Track", true, modelData["audio tracks"][i])
+                        }
+                    }
+                }
             }
         }
-      }
     }
-
 }
 
     // XsMenuModelItem {

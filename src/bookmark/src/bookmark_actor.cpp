@@ -459,7 +459,6 @@ void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
                 [=](const error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 });
+        send(base_.event_group(), utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
     }
-
-    send(base_.event_group(), utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
 }

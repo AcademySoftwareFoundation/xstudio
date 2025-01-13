@@ -36,9 +36,11 @@ Item {
                 closeButton ? ["Close"] : [])
         
             // try again in 200 milliseconds
-            callbackTimer.setTimeout(function() { return function() {
-                dialogHelpers.hideLastDialog()
-            }}(), timeoutSecs*1000);
+            if (timeoutSecs != 0) {
+                callbackTimer.setTimeout(function() { return function() {
+                    dialogHelpers.hideLastDialog()
+                }}(), timeoutSecs*1000);
+            }
                 
         }
 

@@ -10,9 +10,8 @@ namespace contact_sheet {
 
     class ContactSheetActor : public subset::SubsetActor {
 
-       public:
-
-       ContactSheetActor(
+      public:
+        ContactSheetActor(
             caf::actor_config &cfg, caf::actor playlist, const utility::JsonStore &jsn);
         ContactSheetActor(caf::actor_config &cfg, caf::actor playlist, const std::string &name);
 
@@ -20,13 +19,11 @@ namespace contact_sheet {
             return override_behaviour_.or_else(subset::SubsetActor::make_behavior());
         }
 
-       private:
-
+      private:
         void init();
         inline static const std::string NAME = "ContactSheetActor";
 
         caf::message_handler override_behaviour_;
-        utility::JsonStore playhead_serialisation_;
     };
 
     /*class ContactSheetActor : public caf::event_based_actor {

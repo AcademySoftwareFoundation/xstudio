@@ -45,7 +45,8 @@ namespace playlist {
         caf::behavior make_behavior() override {
             return message_handler()
                 .or_else(base_.container_message_handler(this))
-                .or_else(notification_.message_handler(this, base_.event_group()));
+                .or_else(notification_.message_handler(this, base_.event_group()))
+                .or_else(utility::NotificationHandler::default_event_handler());
         }
 
         void add_media(
@@ -98,9 +99,9 @@ namespace playlist {
             const utility::UuidUuidMap &media_map);
 
       private:
-        caf::behavior behavior_;
         Playlist base_;
         utility::NotificationHandler notification_;
+        utility::JsonStore playhead_serialisation_;
 
         caf::actor_addr session_;
         utility::UuidActor playhead_;

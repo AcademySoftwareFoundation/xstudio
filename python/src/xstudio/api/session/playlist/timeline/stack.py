@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from xstudio.core import insert_item_atom, remove_item_atom, erase_item_atom, move_item_atom
-from xstudio.core import Uuid, actor, UuidActor, ItemType, UuidActorVec
+from xstudio.core import Uuid, actor, UuidActor, ItemType, UuidActorVec, MediaType
 from xstudio.api.session.playlist.timeline.item import Item
 from xstudio.api.session.playlist.timeline import create_item_container
+from xstudio.api.session.playlist.timeline.track import Track
 
 class Stack(Item):
     """Timeline object."""
@@ -30,6 +31,48 @@ class Stack(Item):
         """
         return len(self.item)
 
+    @property
+    def tracks(self):
+        return self.children
+
+    @property
+    def audio_tracks(self):
+        return self.children_of_type([ItemType.IT_AUDIO_TRACK])
+
+    @property
+    def video_tracks(self):
+        return self.children_of_type([ItemType.IT_VIDEO_TRACK])
+
+    def insert_video_track(self, name="Video Track", index=0):
+        """Insert video track
+
+        Args:
+            name(str): Name of new track.
+            index(int): Position to insert
+
+        Returns:
+            success(Item): New item
+        """
+
+        result = Track(ItemType.IT_VIDEO_TRACK, self.connection, self.connection.remote_spawn("Track", name, self.rate, MediaType.MT_IMAGE))
+        self.insert_child(result, index)
+        return result
+
+    def insert_audio_track(self, name="Audio Track", index=-1):
+        """Insert audio track
+
+        Args:
+            name(str): Name of new track.
+            index(int): Position to insert
+
+        Returns:
+            success(Item): New item
+        """
+
+        result = Track(ItemType.IT_AUDIO_TRACK, self.connection, self.connection.remote_spawn("Track", name, self.rate, MediaType.MT_AUDIO))
+        self.insert_child(result, index)
+        return result
+
     def insert_child(self, obj, index=-1):
         """Insert child obj
 
@@ -49,8 +92,8 @@ class Stack(Item):
 
         return self.connection.request_receive(self.remote, insert_item_atom(), index, uav)[0]
 
-    def remove_child(self, index=-1):
-        """Remove child obj
+    def remove_child_at_index(self, index=-1):
+        """Remove child obj, removed item must be released or reparented.
 
         Args:
             index(int): Index to remove
@@ -60,7 +103,7 @@ class Stack(Item):
         """
         return self.connection.request_receive(self.remote, remove_item_atom(), index)[0]
 
-    def erase_child(self, index=-1):
+    def erase_child_at_index(self, index=-1):
         """Remove and destroy child obj
 
         Args:
@@ -70,6 +113,28 @@ class Stack(Item):
             success(bool): Item erased
         """
         return self.connection.request_receive(self.remote, erase_item_atom(), index, True)[0]
+
+    def remove_child(self, child):
+        """Remove child obj, removed item must be released or reparented.
+
+        Args:
+            child(Item): Child to remove
+
+        Returns:
+            item(Item): Item removed
+        """
+        return self.connection.request_receive(self.remote, remove_item_atom(), child.uuid)[0]
+
+    def erase_child(self, child):
+        """Remove and destroy child obj
+
+        Args:
+            child(Item): Child to erase
+
+        Returns:
+            success(bool): Item erased
+        """
+        return self.connection.request_receive(self.remote, erase_item_atom(), child.uuid, True)[0]
 
     def move_children(self, start, count, dest):
         """Move child items

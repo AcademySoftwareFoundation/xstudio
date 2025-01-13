@@ -5,8 +5,8 @@
 using namespace xstudio::utility;
 
 TEST(SessionFileTest, Test) {
-    RemoteSessionFile local(".", 12345, false);
-    RemoteSessionFile remote(".", 12346, false, "remotetest", "cookham", true);
+    RemoteSessionFile local(".", 12345);
+    RemoteSessionFile remote(".", 12346, "remotetest", "cookham", true);
     RemoteSessionFile remote2(remote.filepath());
     remote2.set_remove_on_delete();
 
@@ -21,8 +21,8 @@ TEST(SessionFileTest, Test) {
 TEST(SessionFileManager, Test) {
     RemoteSessionManager rsm(".");
     rsm.create_session_file(1234);
-    rsm.create_session_file(12346, false, "remotetest", "cookham", true);
-    rsm.create_session_file(12346, false, "local", "localhost");
+    rsm.create_session_file(12346, "remotetest", "cookham", true);
+    rsm.create_session_file(12346, "local", "localhost");
 
     auto first_local = rsm.first_api();
     auto find_remote = rsm.find("remotetest");

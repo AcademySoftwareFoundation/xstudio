@@ -32,6 +32,8 @@ T.ComboBox { id: widget
     property real borderRadius: 0
     property real framePadding: 6
 
+    property string defaultText: ""
+
     property real fontSize: XsStyleSheet.fontSize
     property var fontFamily: XsStyleSheet.fontFamily
 
@@ -82,7 +84,7 @@ T.ComboBox { id: widget
     contentItem:
     T.TextField{ id: textField
 
-        text: activeFocus && widget.editable ? widget.displayText: textMetrics.elidedText
+        text: activeFocus && widget.editable ? widget.displayText : (textMetrics.elidedText ? textMetrics.elidedText : defaultText)
 
         onFocusChanged: {
             if(focus) {

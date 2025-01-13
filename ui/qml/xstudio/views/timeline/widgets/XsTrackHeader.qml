@@ -33,6 +33,12 @@ Item {
 	signal conformSourceClicked()
 	signal flagSet(string flag, string flag_text)
 
+	signal draggingStarted(mode: string)
+	signal dragging(mode: string, x: real, y: real)
+	signal draggingStopped(mode: string)
+	signal tapped(button: int, x: real, y: real, modifiers: int)
+
+
 	XsGradientRectangle {
 		id: control_background
 
@@ -46,6 +52,46 @@ Item {
 
         topColor: isSelected ? Qt.darker(palette.highlight, 2) : XsStyleSheet.panelBgGradTopColor
         bottomColor: isSelected ? Qt.darker(palette.highlight, 2) :  XsStyleSheet.panelBgGradBottomColor
+
+        TapHandler {
+        	acceptedModifiers: Qt.NoModifier
+        	onSingleTapped: {
+        		let g = mapToGlobal(0,0)
+		        control.tapped(Qt.LeftButton, g.x, g.y, Qt.NoModifier)
+        	}
+        }
+
+        TapHandler {
+        	acceptedModifiers: Qt.ShiftModifier
+        	onSingleTapped: {
+        		let g = mapToGlobal(0,0)
+		        control.tapped(Qt.LeftButton, g.x, g.y, Qt.ShiftModifier)
+        	}
+        }
+
+        TapHandler {
+        	acceptedModifiers: Qt.ControlModifier
+        	onSingleTapped: {
+        		let g = mapToGlobal(0,0)
+		        control.tapped(Qt.LeftButton, g.x, g.y, Qt.ControlModifier)
+        	}
+        }
+
+	    DragHandler {
+	        cursorShape: Qt.PointingHandCursor
+	        xAxis.enabled: false
+
+	        dragThreshold: 5
+
+	        onTranslationChanged: dragging("track", translation.x, translation.y)
+	        onActiveChanged: {
+	        	if(active) {
+	        		draggingStarted("track")
+	        	} else {
+	        		draggingStopped("track")
+	            }
+	        }
+	    }
 
 		RowLayout {
 			spacing: 10

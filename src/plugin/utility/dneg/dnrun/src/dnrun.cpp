@@ -375,7 +375,7 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                         *sys,
                                         session,
                                         session::get_playlist_atom_v,
-                                        "QuickView Playlist");
+                                        "QuickView Media");
                                 } catch (...) {
                                 }
                             }
@@ -392,10 +392,7 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                             if (!playlist) {
 
                                 playlist = request_receive<caf::actor>(
-                                    *sys,
-                                    session,
-                                    session::get_playlist_atom_v,
-                                    "DNRun Playlist");
+                                    *sys, session, session::get_playlist_atom_v, "Added Media");
                             }
 
                             // third, make a new 'Ivy Media' playlist
@@ -405,7 +402,7 @@ template <typename T> class DNRunPluginActor : public caf::event_based_actor {
                                                *sys,
                                                session,
                                                session::add_playlist_atom_v,
-                                               "DNRun Playlist")
+                                               "Added Media")
                                                .second.actor();
                             }
 

@@ -25,11 +25,7 @@ QMLViewportRenderer::QMLViewportRenderer(QObject *parent)
     init_system();
 }
 
-QMLViewportRenderer::~QMLViewportRenderer() { 
-
-    delete viewport_renderer_; 
-
-}
+QMLViewportRenderer::~QMLViewportRenderer() { delete viewport_renderer_; }
 
 static QQuickWindow *win = nullptr;
 
@@ -116,7 +112,8 @@ void QMLViewportRenderer::setSceneCoordinates(
 }
 
 void QMLViewportRenderer::prepareRenderData() {
-    if (viewport_renderer_) viewport_renderer_->prepare_render_data();
+    if (viewport_renderer_)
+        viewport_renderer_->prepare_render_data();
 }
 
 void QMLViewportRenderer::init_system() {
@@ -149,9 +146,8 @@ void QMLViewportRenderer::make_xstudio_viewport() {
     };
     viewport_renderer_->set_change_callback(callback);
 
-    viewport_qml_item_->setPlayheadUuid(
-                QUuidFromUuid(viewport_renderer_->playhead_uuid()));
-                
+    viewport_qml_item_->setPlayheadUuid(QUuidFromUuid(viewport_renderer_->playhead_uuid()));
+
     /* The Viewport object provides a message handler that will process update events like new
     frame buffers coming from the playhead and so-on. Instead of being an actor itself, the
     Viewport is a regular class but it will process messages received by a parent actor (like
@@ -212,7 +208,6 @@ void QMLViewportRenderer::make_xstudio_viewport() {
     holds a key down, and sends messages back to the viewport only once when a key is pressed
     and released */
     keypress_monitor_ = system().registry().template get<caf::actor>(keyboard_events);
-
 }
 void QMLViewportRenderer::set_playhead(caf::actor playhead) {
     if (viewport_renderer_)
@@ -245,9 +240,9 @@ bool QMLViewportRenderer::pointerEvent(const PointerEvent &e) {
 
 QVariantList QMLViewportRenderer::imageResolutions() const {
     QVariantList v;
-    const auto & image_resolutions = viewport_renderer_->image_resolutions();
-    for (const auto &r: image_resolutions) {        
-        v.append(QSize(r.x ,r.y));
+    const auto &image_resolutions = viewport_renderer_->image_resolutions();
+    for (const auto &r : image_resolutions) {
+        v.append(QSize(r.x, r.y));
     }
     return v;
 }
@@ -255,13 +250,11 @@ QVariantList QMLViewportRenderer::imageResolutions() const {
 QVariantList QMLViewportRenderer::imageBoundariesInViewport() const {
 
     QVariantList v;
-    const std::vector<Imath::Box2f> image_boxes = viewport_renderer_->image_bounds_in_viewport_pixels();
-    for (const auto &box: image_boxes) {
+    const std::vector<Imath::Box2f> image_boxes =
+        viewport_renderer_->image_bounds_in_viewport_pixels();
+    for (const auto &box : image_boxes) {
         QRectF imageBoundsInViewportPixels(
-            box.min.x,
-            box.min.y,
-            box.max.x - box.min.x,
-            box.max.y - box.min.y);
+            box.min.x, box.min.y, box.max.x - box.min.x, box.max.y - box.min.y);
         v.append(imageBoundsInViewportPixels);
     }
     return v;

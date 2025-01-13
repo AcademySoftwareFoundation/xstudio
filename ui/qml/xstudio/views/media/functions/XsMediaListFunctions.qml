@@ -136,18 +136,18 @@ Item {
     }
 
     function deleteIndexes(indexes) {
-        let items = []
-        for(let i=0;i<indexes.length;++i)
-            items[i] = indexes[i]
-        items = items.sort((a,b) => b.row - a.row )
+        if(indexes.length) {
+            let items = [].concat(indexes)
+            items = items.sort((a,b) => b.row - a.row )
 
-        var onscreen_idx = mediaIndexAfterRemoved(items)
-        mediaSelectionModel.setCurrentIndex(onscreen_idx, ItemSelectionModel.setCurrentIndex)
-        mediaSelectionModel.select(onscreen_idx, ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
+            var onscreen_idx = mediaIndexAfterRemoved(items)
+            mediaSelectionModel.setCurrentIndex(onscreen_idx, ItemSelectionModel.setCurrentIndex)
+            mediaSelectionModel.select(onscreen_idx, ItemSelectionModel.ClearAndSelect | ItemSelectionModel.setCurrentIndex)
 
-        items.forEach(function (item, index) {
-            item.model.removeRows(item.row, 1, false, item.parent)
-        })
+            items.forEach(function (item, index) {
+                item.model.removeRows(item.row, 1, false, item.parent)
+            })
+        }
     }
 
     function deleteSelectedCallback(response) {
@@ -220,5 +220,5 @@ Item {
         theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, sub)
     }
 
-    
+
 }

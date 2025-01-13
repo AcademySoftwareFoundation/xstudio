@@ -26,31 +26,59 @@ using namespace caf;
 ConformWorkerActor::ConformWorkerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
 
     // get hooks
-    {
-        auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
-        scoped_actor sys{system()};
-        auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys,
-            pm,
-            utility::detail_atom_v,
-            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_CONFORM));
+    // {
+    //     auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
+    //     scoped_actor sys{system()};
+    //     auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
+    //         *sys,
+    //         pm,
+    //         utility::detail_atom_v,
+    //         plugin_manager::PluginType(plugin_manager::PluginFlags::PF_CONFORM));
 
-        for (const auto &i : details) {
-            if (i.enabled_) {
-                auto actor = request_receive<caf::actor>(
-                    *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
-                link_to(actor);
-                conformers_.push_back(actor);
-            }
-        }
-    }
+    //     for (const auto &i : details) {
+    //         if (i.enabled_) {
+    //             auto actor = request_receive<caf::actor>(
+    //                 *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
+    //             link_to(actor);
+    //             conformers_.push_back(actor);
+    //         }
+    //     }
+    // }
 
     // distribute to all conformers.
+    delayed_anon_send(
+        caf::actor_cast<caf::actor>(this), std::chrono::seconds(4), conform_tasks_atom_v);
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
         [=](conform_tasks_atom) -> result<std::vector<std::string>> {
+            if (not initialised_) {
+                // should be the first function called by the manager
+                auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
+                scoped_actor sys{system()};
+                try {
+                    auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
+                        *sys,
+                        pm,
+                        utility::detail_atom_v,
+                        plugin_manager::PluginType(plugin_manager::PluginFlags::PF_CONFORM));
+
+                    for (const auto &i : details) {
+                        if (i.enabled_) {
+                            auto actor = request_receive<caf::actor>(
+                                *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
+                            link_to(actor);
+                            conformers_.push_back(actor);
+                        }
+                    }
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+
+                initialised_ = true;
+            }
+
             if (not conformers_.empty()) {
                 auto rp = make_response_promise<std::vector<std::string>>();
                 fan_out_request<policy::select_all>(conformers_, infinite, conform_tasks_atom_v)

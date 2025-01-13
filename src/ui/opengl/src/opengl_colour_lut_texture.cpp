@@ -8,7 +8,7 @@
 #include "xstudio/utility/chrono.hpp"
 
 using namespace xstudio::ui::opengl;
- 
+
 GLint GLColourLutTexture::interpolation() {
     switch (descriptor_.interpolation_) {
     case colour_pipeline::LUTDescriptor::NEAREST:

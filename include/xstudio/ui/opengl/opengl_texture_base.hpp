@@ -19,7 +19,6 @@ namespace ui {
         class GLBlindTex {
 
           public:
-
             GLBlindTex();
             ~GLBlindTex();
 
@@ -31,7 +30,9 @@ namespace ui {
             }
 
 
-            [[nodiscard]] const media::MediaKey &pending_media_key() const { return pending_media_key_; }
+            [[nodiscard]] const media::MediaKey &pending_media_key() const {
+                return pending_media_key_;
+            }
             [[nodiscard]] const media::MediaKey &media_key() const { return media_key_; }
             [[nodiscard]] const utility::time_point &when_last_used() const {
                 return when_last_used_;
@@ -44,10 +45,9 @@ namespace ui {
             void cancel_upload();
 
           protected:
-
-            virtual uint8_t *map_buffer_for_upload(const size_t buffer_size)             = 0;
-            virtual void __bind(int tex_index, Imath::V2i &dims) = 0;
-            virtual size_t tex_size_bytes() const                = 0;
+            virtual uint8_t *map_buffer_for_upload(const size_t buffer_size) = 0;
+            virtual void __bind(int tex_index, Imath::V2i &dims)             = 0;
+            virtual size_t tex_size_bytes() const                            = 0;
 
             void wait_on_upload_pixels();
 
@@ -59,13 +59,13 @@ namespace ui {
             media::MediaKey pending_media_key_;
             media_reader::ImageBufPtr pending_source_frame_;
 
-            uint8_t * gpu_mapped_mem_ = nullptr;
+            uint8_t *gpu_mapped_mem_ = nullptr;
 
             std::thread upload_thread_;
             std::mutex mutex_;
             std::condition_variable cv_;
             bool pending_upload_ = {false};
-            bool in_progress_ = {false};
+            bool in_progress_    = {false};
         };
     } // namespace opengl
 } // namespace ui

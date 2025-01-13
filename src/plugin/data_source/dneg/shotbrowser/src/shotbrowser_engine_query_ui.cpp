@@ -69,7 +69,10 @@ QVariant ShotBrowserEngine::mergeQueries(
 }
 
 QFuture<QString> ShotBrowserEngine::executeQuery(
-    const QStringList &preset_paths, const QVariantMap &env, const QVariantList &custom_terms) {
+    const QStringList &preset_paths,
+    const QVariantMap &env,
+    const QVariantList &custom_terms,
+    const QVariantMap &customContext) {
 
 
     // spdlog::warn("ShotBrowserEngine::executeQuery{}", live_link_metadata_.dump(2));
@@ -81,7 +84,7 @@ QFuture<QString> ShotBrowserEngine::executeQuery(
         // if (not project_id)
         //     throw std::runtime_error("Project metadata not found.");
 
-        return executeProjectQuery(preset_paths, project_id, env, custom_terms);
+        return executeProjectQuery(preset_paths, project_id, env, custom_terms, customContext);
     } catch (const std::exception &err) {
         spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), live_link_metadata_.dump(2));
         return QtConcurrent::run([=]() { return QString(); });
@@ -92,7 +95,8 @@ QFuture<QString> ShotBrowserEngine::executeProjectQuery(
     const QStringList &preset_paths,
     const int project_id,
     const QVariantMap &env,
-    const QVariantList &custom_terms) {
+    const QVariantList &custom_terms,
+    const QVariantMap &customContext) {
 
     // spdlog::warn("{} project_id - {}", __PRETTY_FUNCTION__, project_id);
     cacheProject(project_id);
@@ -117,11 +121,23 @@ QFuture<QString> ShotBrowserEngine::executeProjectQuery(
                 "visual_source": [],
                 "flag_text": "",
                 "flag_colour": "",
-                "truncated": false
+                "truncated": false,
+                "custom": null
             })"_json;
 
-            request["env"]          = qvariant_to_json(env);
-            request["custom_terms"] = qvariant_to_json(custom_terms);
+            try {
+                request["env"]               = qvariant_to_json(env);
+                request["custom_terms"]      = qvariant_to_json(custom_terms);
+                request["context"]["custom"] = qvariant_to_json(customContext);
+
+                if (not request["context"]["custom"].contains("project_name")) {
+                    request["context"]["custom"]["project_name"] =
+                        query_engine_.get_project_name(live_link_metadata_);
+                }
+
+            } catch (const std::exception &err) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            }
 
             request["context"]["epoc"] = utility::to_epoc_milliseconds(utility::clock::now());
             request["context"]["type"] = "result";

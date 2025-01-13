@@ -6,6 +6,8 @@ import xStudio 1.0
 
 ApplicationWindow {
     id: window
+    minimumWidth: 150
+    minimumHeight: 100
 
     flags: Qt.platform.os === "windows" ? Qt.Window : Qt.WindowStaysOnTopHint | Qt.Dialog
 

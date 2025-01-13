@@ -29,7 +29,7 @@ XsPopupMenu {
                 plusMenu.addPlaylist,
                 "Add Playlist",
                 "Enter a name for the new playlist.",
-                "New Playlist",
+                theSessionData.getNextName("Playlist {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -46,7 +46,7 @@ XsPopupMenu {
                 plusMenu.addSubset,
                 "Add Subset",
                 "Enter a name for the new subset.",
-                "New Subset",
+                theSessionData.getNextName("Subset {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -63,7 +63,7 @@ XsPopupMenu {
                 plusMenu.addTimeline,
                 "Add Sequence",
                 "Enter a name for the new sequence.",
-                "New Sequence",
+                theSessionData.getNextName("Sequence {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -80,7 +80,7 @@ XsPopupMenu {
                 plusMenu.addContactSheet,
                 "Add Contact Sheet",
                 "Enter a name for the new contact sheet.",
-                "New Contact Sheet",
+                theSessionData.getNextName("Contact Sheet {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext
@@ -104,7 +104,7 @@ XsPopupMenu {
                 plusMenu.addDivider,
                 "Add Playlist Divider",
                 "Enter a name for the new divider.",
-                "New Divider",
+                theSessionData.getNextName("Divider {}"),
                 ["Cancel", "Add"])
         }
         panelContext: plusMenu.panelContext

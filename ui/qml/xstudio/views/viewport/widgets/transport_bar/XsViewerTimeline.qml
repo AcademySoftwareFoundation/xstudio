@@ -81,7 +81,7 @@ Item {
         anchors.bottom: parent.bottom
         x: scaleFactor*viewportPlayhead.loopStartFrame
         width: scaleFactor*(viewportPlayhead.loopEndFrame - viewportPlayhead.loopStartFrame)
-        visible: viewportPlayhead.enableLoopRange != 0 && viewportPlayhead.loopStartFrame != 0 && viewportPlayhead.loopEndFrame < viewportPlayhead.durationFrames
+        visible: viewportPlayhead.enableLoopRange && (viewportPlayhead.loopStartFrame || viewportPlayhead.loopEndFrame < (viewportPlayhead.durationFrames-1))
         color: XsStyleSheet.accentColor
     }
 

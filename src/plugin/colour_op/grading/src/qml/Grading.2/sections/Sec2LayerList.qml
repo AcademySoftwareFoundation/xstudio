@@ -24,55 +24,12 @@ Item{ id: listDiv
             spacing: itemSpacing
 
             property bool userSelect: false
-            property var lastSelected: (new Map())
 
             ScrollBar.vertical: XsScrollBar {
                 visible: bookmarkList.height < bookmarkList.contentHeight
             }
 
-            onCurrentIndexChanged: {
-                if(userSelect) {
-                    userSelect = false
-                } else if (currentIndex < 0) {
-                    attrs.grading_bookmark = helpers.QUuidToQString("00000000-0000-0000-0000-000000000000")
-                } else if (currentIndex == 0 && bookmarkFilterModel.length) {
-                    if(currentIndex != bookmarkFilterModel.length) {
-                        if(lastSelected.get(bookmarkFilterModel.currentMedia)  != undefined) {
-                            var index = bookmarkFilterModel.sourceModel.search(
-                                helpers.QVariantFromUuidString(lastSelected.get(bookmarkFilterModel.currentMedia)), "uuidRole")
-                            if (index.valid) {
-                                var row = bookmarkFilterModel.mapFromSource(index).row
-                                if (row >= 0 && row < bookmarkList.count && row != currentIndex) {
-                                    userSelect = true
-                                    currentIndex = row
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            onCurrentItemChanged: {
-                if (currentItem) {
-                    var backendUuid = helpers.QVariantFromUuidString(attrs.grading_bookmark)
-                    var selectedUuid = currentItem.uuid
-                    lastSelected.set(bookmarkFilterModel.currentMedia, selectedUuid)
-
-                    if (backendUuid != selectedUuid && selectedUuid) {
-                        attrs.grading_bookmark = helpers.QUuidToQString(selectedUuid)
-                    }
-                }
-            }
-            onCountChanged: {
-                var index = bookmarkFilterModel.sourceModel.search(
-                    helpers.QVariantFromUuidString(attrs.grading_bookmark), "uuidRole")
-                if (index.valid) {
-                    var row = bookmarkFilterModel.mapFromSource(index).row
-                    if (row >= 0 && row < bookmarkList.count && row != currentIndex) {
-                        currentIndex = row
-                    }
-                }
-            }
+            property var curr_bookmark_id: helpers.QUuidFromUuidString(attrs.grading_bookmark)
 
             delegate: XsPrimaryButton { id: bookmark
                 width: bookmarkList.width
@@ -83,8 +40,8 @@ Item{ id: listDiv
                 activeIndicator.width: (1*3) * 3
 
                 property var uuid: uuidRole
-
-                readonly property bool isSelected: index == ListView.view.currentIndex
+        
+                readonly property bool isSelected: uuid == bookmarkList.curr_bookmark_id
                 property bool isHovered: hovered
 
                 MouseArea {
@@ -92,9 +49,12 @@ Item{ id: listDiv
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                     onClicked: (mouse) => {
-                        if (mouse.button == Qt.LeftButton){
-                            bookmarkList.userSelect = true
-                            bookmarkList.currentIndex = index
+                        if (mouse.button == Qt.LeftButton && attrs.grading_bookmark != uuidRole){
+                            if (currentPlayhead.mediaFrame < startFrameRole || currentPlayhead.mediaFrame > endFrameRole) {
+                                // jump to frame of grade
+                                currentPlayhead.logicalFrame = currentPlayhead.logicalFrame + (startFrameRole-currentPlayhead.mediaFrame)
+                            }
+                            attrs.grading_bookmark = uuidRole
                         }
                         else if(mouse.button == Qt.RightButton){
                             if(moreMenu.visible) moreMenu.visible = false
@@ -138,20 +98,54 @@ Item{ id: listDiv
                         }
                     }
                     Item{ id: maskDiv
-                        Layout.preferredWidth: height * 1.2
+                        Layout.preferredWidth: !maskBtn.visible? 0 : height * 1.2
                         Layout.fillHeight: true
 
-                        XsPrimaryButton{ id: maskBtn
+                        XsSecondaryButton{ id: maskBtn
                             width: parent.width - 1
                             height: parent.height - 4
                             anchors.verticalCenter: parent.verticalCenter
 
-                            isActiveViaIndicator: false
                             isActive: false
                             visible: userDataRole.mask_active
                             imgSrc: "qrc:/grading_icons/mask_domino.svg"
                             text: "Mask Active"
                             scale: 0.95
+                            imageSrcSize: 20
+                            hoverEnabled: false
+                            enabled: false
+                            onlyVisualyEnabled: true
+                        }
+                    }
+                    Item{ id: rangeDiv
+                        Layout.preferredWidth: height * 1.2
+                        Layout.fillHeight: true
+
+                        XsPrimaryButton{ id: rangeBtn
+                            width: parent.width - 1
+                            height: parent.height - 4
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            property bool isFullClip: startFrameRole != -1 && startFrameRole != endFrameRole
+
+                            isActiveViaIndicator: false
+                            isActive: false
+                            // enabled: hasActiveGrade()
+                            imgSrc: isFullClip? "qrc:/grading_icons/all_inclusive.svg" : "qrc:/grading_icons/step_into.svg"
+                            text: isFullClip? "Full Clip" : "Single Frame"
+                            scale: 0.95
+
+                            onClicked: {                                
+                                if(!isFullClip){
+                                    
+                                    attrs.grading_action = "Set Bookmark Full Range|" + uuidRole
+
+                                } else {
+
+                                    attrs.grading_action = "Set Bookmark One Frame|" + uuidRole + "|" + currentPlayhead.mediaFrame
+                                }
+                            }
+
                         }
                     }
                     Item{ id: visibilityDiv

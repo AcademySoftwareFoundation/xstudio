@@ -152,15 +152,16 @@ Item {
 
     Rectangle {
 
+        id: theTabBar
         color: XsStyleSheet.panelBgColor
         visible: tabsVisible
-        id: theTabBar
 
         width: parent.width
         height: tabsHeight
+        clip: true
 
         RowLayout {
-
+            anchors.fill: parent
             spacing: 0
 
             Repeater {
@@ -191,17 +192,37 @@ Item {
 
             }
 
+            Item {
+                Layout.fillWidth: true
+            }
+
+            // XsSecondaryButton{
+            //     id: menuBtn
+            //     Layout.minimumWidth: buttonSize + panelPadding
+            //     Layout.preferredWidth: buttonSize + panelPadding
+            //     Layout.maximumWidth: buttonSize + panelPadding
+            //     Layout.preferredHeight: tabsHeight
+            //     imgSrc: "qrc:/icons/menu.svg"
+            //     isActive: panelMenu.visible
+            //     forcedBgColorNormal: XsStyleSheet.baseColor
+            //     onClicked: {
+            //         panelMenu.showMenu(menuBtn, 0, 0)
+            //     }
+            // }
+
         }
+
 
         XsSecondaryButton{
             id: menuBtn
-            width: buttonSize
+            width: buttonSize + panelPadding
             height: tabsHeight
             anchors.right: parent.right
-            anchors.rightMargin: panelPadding
+            // anchors.rightMargin: panelPadding
             anchors.verticalCenter: parent.verticalCenter
             imgSrc: "qrc:/icons/menu.svg"
             isActive: panelMenu.visible
+            forcedBgColorNormal: XsStyleSheet.baseColor
             onClicked: {
                 panelMenu.showMenu(menuBtn, 0, 0)
             }

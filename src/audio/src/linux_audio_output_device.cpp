@@ -64,8 +64,9 @@ void LinuxAudioOutputDevice::connect_to_soundcard() {
               nullptr,
               nullptr,
               &error))) {
-        spdlog::warn(
+        std::string err = fmt::format(
             "{}  pa_simple_new() failed: {} ", __PRETTY_FUNCTION__, pa_strerror(error));
+        throw std::runtime_error(err.c_str());
     }
 
     spdlog::debug("{} Connected to soundcard : {} ", __PRETTY_FUNCTION__, sound_card.c_str());

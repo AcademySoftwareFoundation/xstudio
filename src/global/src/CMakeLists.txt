@@ -37,7 +37,6 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::scanner
 		xstudio::session
 		xstudio::studio
-		xstudio::sync
 		xstudio::thumbnail
 		xstudio::ui::model_data
 		xstudio::ui::viewport

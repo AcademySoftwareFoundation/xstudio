@@ -36,6 +36,32 @@
 				"value": "127.0.0.1",
 				"datatype": "string",
 				"context": ["APPLICATION"]
+			},
+			"authentication": {
+				"allow_unauthenticated": {
+					"path": "/core/api/authentication/allow_unauthenticated",
+					"default_value": false,
+					"description": "Allow unauthenticated access.",
+					"value": true,
+					"datatype": "bool",
+					"context": ["APPLICATION"]
+				},
+				"keys": {
+					"path": "/core/api/authentication/keys",
+					"default_value": [],
+					"description": "Authentication client/keys.",
+					"value": [],
+					"datatype": "json",
+					"context": ["APPLICATION"]
+				},
+				"passwords": {
+					"path": "/core/api/authentication/passwords",
+					"default_value": [],
+					"description": "Authentication user/passwords.",
+					"value": [],
+					"datatype": "json",
+					"context": ["APPLICATION"]
+				}
 			}
 		}
 	}

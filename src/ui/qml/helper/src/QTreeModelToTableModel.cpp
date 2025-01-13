@@ -6,6 +6,7 @@
 // #include <QtCore/qstack.h>
 // #include <QtCore/qdebug.h>
 #include <QStack>
+#include <QDebug>
 
 #include "xstudio/ui/qml/QTreeModelToTableModel.hpp"
 
@@ -90,7 +91,13 @@ void QTreeModelToTableModel::clearModelData() {
 QModelIndex QTreeModelToTableModel::rootIndex() const { return m_rootIndex; }
 
 void QTreeModelToTableModel::setRootIndex(const QModelIndex &idx) {
-    if (m_rootIndex == idx)
+
+    // sometimes, idx is not valid and neither is m_rootIndex but length > 0.
+    // This can happen if m_rootIndex has gone invalid because the node it
+    // points to has been deleted from the source model.
+    // In this case, we don't want to return here but continue to rebuild the
+    // model.
+    if (m_rootIndex == idx && m_rootIndex.isValid() || !length())
         return;
 
     if (m_model)

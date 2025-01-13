@@ -203,33 +203,59 @@ namespace ui {
             QUuid hotkey_uuid_;
         };
 
+        /*XsHotkeyReference item. This lets us 'watch' an already existing hotkey.
+        We use the name of the hotkey to identify it.*/
         class VIEWPORT_QML_EXPORT HotkeyReferenceUI : public QMLActor {
 
             Q_OBJECT
 
             Q_PROPERTY(QString sequence READ sequence NOTIFY sequenceChanged)
             Q_PROPERTY(
-                QUuid hotkeyUuid READ hotkeyUuid WRITE setHotkeyUuid NOTIFY hotkeyUuidChanged)
+                QString hotkeyName READ hotkeyName WRITE setHotkeyName NOTIFY hotkeyNameChanged)
+            Q_PROPERTY(QUuid uuid READ uuid NOTIFY uuidChanged)
+            Q_PROPERTY(QString context READ context WRITE setContext NOTIFY contextChanged)
+            Q_PROPERTY(bool exclusive READ exclusive WRITE setExclusive NOTIFY exclusiveChanged)
 
           public:
             explicit HotkeyReferenceUI(QObject *parent = nullptr);
-            ~HotkeyReferenceUI() override = default;
+            ~HotkeyReferenceUI() override;
 
             void init(caf::actor_system &system) override;
 
-            void setHotkeyUuid(const QUuid &uuid);
+            void setHotkeyName(const QString &name);
 
-            [[nodiscard]] const QUuid &hotkeyUuid() const { return uuid_; }
+            [[nodiscard]] const QString &hotkeyName() const { return hotkey_name_; }
             [[nodiscard]] const QString &sequence() const { return sequence_; }
+            [[nodiscard]] QUuid uuid() const { return hotkey_uuid_; }
+            [[nodiscard]] const QString context() const { return QStringFromStd(context_); }
+            [[nodiscard]] bool exclusive() const { return exclusive_; }
+
+            void setContext(const QString &context) {
+                context_ = StdFromQString(context);
+                emit contextChanged();
+            }
+
+            void setExclusive(const bool exclusive);
 
           signals:
 
             void sequenceChanged();
-            void hotkeyUuidChanged();
+            void hotkeyNameChanged();
+            void activated(const QString context);
+            void uuidChanged();
+            void contextChanged();
+            void exclusiveChanged();
 
           private:
+
+            void notifyExclusiveChanged();
+            
             QString sequence_;
-            QUuid uuid_;
+            QString hotkey_name_;
+            QUuid hotkey_uuid_;
+            std::string context_;
+            bool exclusive_ = {false};
+
         };
 
     } // namespace qml

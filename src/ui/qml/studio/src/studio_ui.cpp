@@ -188,19 +188,22 @@ bool StudioUI::clearImageCache() {
 
 QUrl StudioUI::userDocsUrl() const {
     std::string docs_index = utility::xstudio_root("/../docs/index.html");
-    if (docs_index.find("/") == 0) docs_index.erase(docs_index.begin());
+    if (docs_index.find("/") == 0)
+        docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 QUrl StudioUI::apiDocsUrl() const {
     std::string docs_index = utility::xstudio_root("/../docs/api/index.html");
-    if (docs_index.find("/") == 0) docs_index.erase(docs_index.begin());
+    if (docs_index.find("/") == 0)
+        docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 QUrl StudioUI::releaseDocsUrl() const {
     std::string docs_index = utility::xstudio_root("/user_docs/release_notes/index.html");
-    if (docs_index.find("/") == 0) docs_index.erase(docs_index.begin());
+    if (docs_index.find("/") == 0)
+        docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 

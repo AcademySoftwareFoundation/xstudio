@@ -35,9 +35,10 @@ namespace ui {
             Q_OBJECT
 
             Q_PROPERTY(QPoint mousePosition READ mousePosition NOTIFY mousePositionChanged)
-            Q_PROPERTY(QVariantList imageBoundariesInViewport READ imageBoundariesInViewport NOTIFY
-                           imageBoundariesInViewportChanged)
-            Q_PROPERTY(QVariantList imageResolutions READ imageResolutions NOTIFY imageResolutionsChanged)
+            Q_PROPERTY(QVariantList imageBoundariesInViewport READ imageBoundariesInViewport
+                           NOTIFY imageBoundariesInViewportChanged)
+            Q_PROPERTY(QVariantList imageResolutions READ imageResolutions NOTIFY
+                           imageResolutionsChanged)
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
             Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
 

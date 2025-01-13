@@ -80,16 +80,6 @@ class ViewportFlagIndicatorPlugin(HUDPlugin):
         # attribute to the settings panel for the plugin
         self.add_hud_settings_attribute(self.indicator_size)
 
-        # Adding an attribute whose value is a Json dictionary. The entries in
-        # the dictionary will be the on-screen media flag colour for each
-        # viewport. There will on be one instance of this plugin, but xSTUDIO
-        # can have multiple viewports showing different media so we need to 
-        # track multiple 'flag' colours
-        self.flag_colours_attr = self.add_attribute(
-            "Flag Colours",
-            JsonStore({}))
-        self.flag_colours_attr.expose_in_ui_attrs_group("vp_flag_indicator")
-
         # here we provide the QML code to instance the item that will draw
         # the overlay graphics
         self.hud_element_qml(

@@ -21,7 +21,6 @@ RowLayout {
     }
 
     function spangle(oof) {
-        console.log("Setting ", valueRole, oof)
         if (valueRole != oof) {
             valueRole = oof
         }

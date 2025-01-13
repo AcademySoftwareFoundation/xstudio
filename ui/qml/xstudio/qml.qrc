@@ -84,6 +84,7 @@
 	    <file>views/timeline/delegates/XsDelegateGap.qml</file>
 	    <file>views/timeline/delegates/XsDelegateStack.qml</file>
 	    <file>views/timeline/delegates/XsDelegateVideoTrack.qml</file>
+	    <file>views/timeline/delegates/XsDelegateTrack.qml</file>
 	    <file>views/timeline/widgets/XsClipItem.qml</file>
 	    <file>views/timeline/widgets/XsClipDragBoth.qml</file>
 	    <file>views/timeline/widgets/XsClipDragLeft.qml</file>
@@ -118,9 +119,10 @@
 	    <file>views/viewport/widgets/XsViewportToolBar.qml</file>
 	    <file>views/viewport/widgets/XsViewportInfoBar.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerAnyMenuButton.qml</file>
-	    <file>views/viewport/widgets/toolbar/XsViewerCompareModeButton.qml</file>		
+	    <file>views/viewport/widgets/toolbar/XsViewerCompareModeButton.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerToggleButton.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerSourceSelectorButton.qml</file>
+	    <file>views/viewport/widgets/toolbar/XsViewerSourceSelectorPopupWindow.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerHUDButton.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerToolbarButtonBase.qml</file>
 	    <file>views/viewport/widgets/toolbar/XsViewerToolbarValueScrubber.qml</file>
@@ -183,6 +185,7 @@
 	    <file>widgets/dialogs/hotkeys/delegates/XsHotkeyDetails.qml</file>
 	    <file>widgets/dialogs/preferences/XsPreferencesDialog.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsColourPreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsCompareModePref.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsPreferenceCategory.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsFloatPreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsIntegerPreference.qml</file>
@@ -282,6 +285,7 @@
 		<file alias="chevron_right.svg">assets/icons/chevron_right.svg</file>
 		<file alias="close.svg">assets/icons/close.svg</file>
 		<file alias="cloud-download.svg">assets/icons/cloud-download.svg</file>
+		<file alias="communities.svg">assets/icons/communities.svg</file>
 		<file alias="content_copy.svg">assets/icons/content_copy.svg</file>
 		<file alias="content_cut.svg">assets/icons/content_cut.svg</file>
 		<file alias="content_paste.svg">assets/icons/content_paste.svg</file>
@@ -384,6 +388,7 @@
 		<file alias="video_cam.svg">assets/icons/video_cam.svg</file>
 		<file alias="view.svg">assets/icons/view.svg</file>
 		<file alias="view_grid.svg">assets/icons/view_grid.svg</file>
+		<file alias="view_object_track.svg">assets/icons/view_object_track.svg</file>
 		<file alias="view_timeline.svg">assets/icons/view_timeline.svg</file>
 		<file alias="visibility.svg">assets/icons/visibility.svg</file>
 		<file alias="visibility_off.svg">assets/icons/visibility_off.svg</file>

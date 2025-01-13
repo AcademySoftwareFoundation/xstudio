@@ -25,7 +25,7 @@ RowLayout {
         text: "Add"
         onClicked: {
             if( ! special_sauce.includes(resultsBaseModel.groupId))
-                ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, false)
+                ShotBrowserHelpers.addToCurrent(resultsSelectionModel.selectedIndexes, false, addAfterSelection.value)
             else
                 ShotBrowserHelpers.addSequencesToNewPlaylist(resultsSelectionModel.selectedIndexes)
         }

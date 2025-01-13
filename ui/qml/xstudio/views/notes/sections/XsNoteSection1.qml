@@ -85,7 +85,7 @@ Rectangle{ id: sec1
 
         XsText{
             visible: sec1.isHovered
-            text: "Go To Frame: "+startFrameRole
+            text: "Go To Frame"//: "+startFrameRole
             anchors.centerIn: thumb
             style: Text.Outline
             font.pixelSize: XsStyleSheet.fontSize + 4

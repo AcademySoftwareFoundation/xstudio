@@ -74,7 +74,7 @@ XsPopupMenu {
                 },
                 "Add To New Playlist",
                 "Enter New Playlist Name",
-                "Untitled Playlist",
+                theSessionData.getNextName("Playlist {}"),
                 ["Cancel", "Move Media", "Copy Media"])
         }
 
@@ -96,7 +96,7 @@ XsPopupMenu {
                 },
                 "Add To New Subset",
                 "Enter New Subset Name",
-                "Untitled Subset",
+                theSessionData.getNextName("Subset {}"),
                 ["Cancel", "Add Media"])
         }
         panelContext: btnMenu.panelContext
@@ -117,7 +117,7 @@ XsPopupMenu {
                 },
                 "Add To New Contact Sheet",
                 "Enter New Contact Sheet Name",
-                "Untitled Contact Sheet",
+                theSessionData.getNextName("Contact Sheet {}"),
                 ["Cancel", "Add Media"])
         }
     }
@@ -136,7 +136,7 @@ XsPopupMenu {
                 },
                 "Add To New Sequence",
                 "Enter New Sequence Name",
-                "Untitled Sequence",
+                theSessionData.getNextName("Sequence {}"),
                 ["Cancel", "Add Media"])
         }
         panelContext: btnMenu.panelContext

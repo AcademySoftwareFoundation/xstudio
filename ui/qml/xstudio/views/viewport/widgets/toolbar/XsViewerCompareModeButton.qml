@@ -50,6 +50,7 @@ XsViewerAnyMenuButton  {
                 // Awkward two way binding needed here...
                 onActivated: {
                     compare_mode = title
+                    hide_menu()
                 }
                 enabled: title == "String" ? !viewportPlayhead.timelineMode : true
             }

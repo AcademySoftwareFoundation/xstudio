@@ -39,7 +39,7 @@ namespace ui {
           private:
             void emitPointerEvent(viewport::Signature::EventType t, QMouseEvent *event);
 
-            opengl:: viewport_;
+            opengl::viewport_;
             caf::actor player_;
         };
     } // namespace qt

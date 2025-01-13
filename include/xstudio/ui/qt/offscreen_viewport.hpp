@@ -77,10 +77,11 @@ namespace ui {
             void renderToImageBuffer(
                 const int w,
                 const int h,
-                media_reader::ImageBufPtr &image,
+                media_reader::ImageBufPtr &dest_image,
                 const viewport::ImageFormat format,
                 const bool force_sync,
-                const utility::time_point &tp = utility::time_point());
+                const utility::time_point &tp                 = utility::time_point(),
+                const media_reader::ImageBufPtr &image_to_use = media_reader::ImageBufPtr());
 
             void initGL();
 
