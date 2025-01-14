@@ -62,6 +62,20 @@ ApplicationWindow {
 
     }
 
+
+    XsPreference {
+        id: bufferedUIDelay
+        path: globalStoreModel ? "/core/playhead/remote_desktop_optimisation_delay" : ""
+    }
+    Timer {
+        id: bufferedUITimer
+        interval: bufferedUIDelay.value != undefined ? bufferedUIDelay.value : 0
+        running: false
+        repeat: false
+
+    }
+    property alias bufferedUITimer: bufferedUITimer
+
     XsPreference {
         id: __tabsVisibility
         index: globalStoreModel.searchRecursive("/ui/qml/tabs_visibility", "pathRole")

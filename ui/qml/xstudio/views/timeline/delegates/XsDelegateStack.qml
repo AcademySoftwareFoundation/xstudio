@@ -401,7 +401,7 @@ Rectangle {
 		                    frameRate: timelineDetail.fps
 		                    totalFrames: playheadActive ? currentFrame : lastFrame
 
-		                    property int currentFrame: timelinePlayhead.logicalFrame + timelineDetail.start
+		                    property int currentFrame: control.playheadFrame + timelineDetail.start
 		                    property int lastFrame: 0
 	                        property bool playheadActive: timelinePlayhead.pinnedSourceMode ? currentPlayhead.uuid == timelinePlayhead.uuid : false
 

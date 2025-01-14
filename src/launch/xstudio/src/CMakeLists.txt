@@ -1,21 +1,23 @@
 project(xstudio VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
+
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(Qt5 COMPONENTS Core Quick Gui Widgets OpenGL QuickCompiler REQUIRED)
+find_package(OpenSSL)
+find_package(ZLIB)
+find_package(fmt REQUIRED)
+
+qtquick_compiler_add_resources(QML_RESOURCES ../../../../ui/qml/xstudio/qml.qrc)
 set(SOURCES
 	xstudio.cpp
-	../../../../ui/qml/xstudio/qml.qrc
-)
+	${QML_RESOURCES}
+	)	
 
 if(WIN32)
     # Add the /bigobj option for xstudio.cpp
     set_source_files_properties(xstudio.cpp PROPERTIES COMPILE_FLAGS "/bigobj")
 endif()
-
-find_package(OpenGL REQUIRED)
-find_package(GLEW REQUIRED)
-find_package(Qt5 COMPONENTS Core Quick Gui Widgets OpenGL REQUIRED)
-find_package(OpenSSL)
-find_package(ZLIB)
-find_package(fmt REQUIRED)
 
 if(NOT ${OTIO_SUBMODULE})
 	find_package(OpenTime REQUIRED)
@@ -24,7 +26,6 @@ endif()
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 

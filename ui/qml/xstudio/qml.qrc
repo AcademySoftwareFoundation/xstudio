@@ -254,6 +254,8 @@
 	<qresource prefix="/">
 	    <file>helpers/XsDialogHelpers.qml</file>
 	    <file>helpers/XsTimer.qml</file>
+	    <file>helpers/XsBufferedProperty.qml</file>
+	    <file>helpers/XsBufferedUIProperty.qml</file>
 	</qresource>
 
 	<qresource prefix="/feather_icons">

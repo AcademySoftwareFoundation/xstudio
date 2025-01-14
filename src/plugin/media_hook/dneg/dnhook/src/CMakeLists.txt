@@ -3,6 +3,7 @@ find_package(OpenColorIO CONFIG)
 SET(LINK_DEPS
 	xstudio::media_hook
 	xstudio::utility
+	xstudio::module
 	OpenColorIO::OpenColorIO
 )
 
