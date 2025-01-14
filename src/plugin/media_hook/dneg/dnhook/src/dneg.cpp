@@ -403,7 +403,7 @@ class DNegMediaHook : public MediaHook {
             static const std::regex review_regex(".+\\.review[0-9]\\.mov$");
             static const std::regex internal_regex(".+\\.dneg.mov$");
 
-            const std::string ext = utility::to_lower(fs::path(path).extension());
+            const std::string ext = utility::to_lower(fs::path(path).extension().string());
             static const std::set<std::string> linear_ext{".exr", ".sxr", ".mxr", ".movieproc"};
             static const std::set<std::string> log_ext{".cin", ".dpx"};
             static const std::set<std::string> stills_ext{

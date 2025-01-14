@@ -83,7 +83,14 @@ XsViewerTextDisplay
     }
 
 
-    text: selected == 0 ? duration : selected == 1 ? remaining : fps
+    text: bufferedPlayheadFrame.value
+
+    XsBufferedUIProperty {
+        id: bufferedPlayheadFrame
+        source: selected == 0 ? duration : selected == 1 ? remaining : fps
+        playing: viewportPlayhead.playing
+    }
+
 
     function timeStr(tt) {
         let result = "--:--:--"

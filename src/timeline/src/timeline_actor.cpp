@@ -39,8 +39,9 @@ namespace {
 
 auto __sysclock_now() {
 #ifdef _MSC_VER
-    auto tp = sysclock::now();
-    return std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();
+    /*auto tp = sysclock::now();
+    return std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();*/
+    return sysclock::now();
 #else
     return sysclock::now();
 #endif

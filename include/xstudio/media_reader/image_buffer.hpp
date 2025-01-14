@@ -150,6 +150,10 @@ namespace media_reader {
                 return false;
             }
 
+            if (bookmarks_ != o.bookmarks_) {
+                return false;
+            }
+
             return true;
         }
 

@@ -3357,7 +3357,7 @@ void PlayheadActor::step_to_next_media(const bool forwards) {
 
             auto playlist_selection = caf::actor_cast<caf::actor>(playlist_selection_addr_);
             if (playlist_selection) {
-                anon_send(playlist_selection, playhead::select_next_media_atom_v, 1);
+                anon_send(playlist_selection, playhead::select_next_media_atom_v, forwards ? 1 : -1);
             }
 
         } else {

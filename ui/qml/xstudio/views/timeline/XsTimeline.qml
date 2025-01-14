@@ -81,6 +81,14 @@ Rectangle {
     signal jumpToEnd()
     signal jumpToFrame(int frame, bool center)
 
+    XsBufferedUIProperty {
+        id: bufferedPlayheadFrame
+        source: timelinePlayhead.logicalFrame ? timelinePlayhead.logicalFrame : 0
+        playing: timelinePlayhead.playing != undefined ? timelinePlayhead.playing : false
+    }
+
+    property alias playheadFrame: bufferedPlayheadFrame.value
+
     onScaleYChanged: verticalScale = scaleY
 
     onScalingModeActiveChanged: {
@@ -1867,7 +1875,7 @@ Rectangle {
                 property real trackHeaderWidth: timeline.trackHeaderWidth
                 property var setTrackHeaderWidth: timeline.setTrackHeaderWidth
                 property var timelineSelection: timeline.timelineSelection
-                property int playheadFrame: timelinePlayhead.logicalFrame ? timelinePlayhead.logicalFrame : 0
+                property int playheadFrame: timeline.playheadFrame
                 property string itemFlag: defaultClip
 
                 property var draggingStarted: ma.draggingStarted

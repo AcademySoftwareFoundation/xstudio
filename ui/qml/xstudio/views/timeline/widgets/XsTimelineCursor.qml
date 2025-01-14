@@ -27,14 +27,10 @@ Item {
 
     property bool showBobble: true
 
-    // layer.enabled: true
-    // layer.samples: 4
-
     Rectangle {
         id: line
         width: 1
         color: control.color
-
         x: cursorX
         height: parent.height
     }
