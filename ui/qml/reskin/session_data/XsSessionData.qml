@@ -11,13 +11,13 @@ import Qt.labs.qmlmodels 1.0
 
 Item {
 
-    id: collecion
+    id: collection
     property var sessionActorAddr
 
     XsSessionModel {
 
         id: sessionData
-        sessionActorAddr: collecion.sessionActorAddr
+        sessionActorAddr: collection.sessionActorAddr
 
     }
     property alias session: sessionData
@@ -83,7 +83,7 @@ Item {
 
     /* playheadSelectionIndex is the index into the model that points to the 'active'
     playheadSelectionActor - Each playlist, subset, timeline has its own
-    playheadSelectionActor and this is the object that selectes media from the
+    playheadSelectionActor and this is the object that selects media from the
     playlist to be shown in the viewport (and compared with A/B, String compare
     modes etc.) */
     property var playheadSelectionIndex
@@ -107,7 +107,7 @@ Item {
     flexible 'XsModuleData' that can be set-up (in the backend) to include some
     or all of the data from one or several backend objects.
 
-    At some point we may rationalise this and build into the singe Session model*/
+    At some point we may rationalise this and build into the single Session model*/
     XsModuleData {
 
         id: current_playhead_data
@@ -132,7 +132,7 @@ Item {
         }
 
         // This is pretty baffling..... Shouldn't the backend playhead
-        // selectin actor update the model for us instead of this gubbins?
+        // selection actor update the model for us instead of this gubbins?
         function updateSelection() {
 
             // the playheadSelection item is a child of the playlist (or subset,

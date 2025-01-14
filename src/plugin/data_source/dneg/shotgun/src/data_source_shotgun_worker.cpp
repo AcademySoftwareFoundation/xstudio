@@ -189,7 +189,7 @@ ShotgunMediaWorker::ShotgunMediaWorker(caf::actor_config &cfg, const caf::actor_
 
                     if (jsn.at("attributes").at("frame_range").is_null()) {
                         // no frame range specified..
-                        // try and aquire from filesystem..
+                        // try and acquire from filesystem..
                         uri = parse_cli_posix_path(
                             jsn.at("attributes").at("sg_path_to_frames"), frame_list, true);
                     } else {

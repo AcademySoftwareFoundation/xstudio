@@ -97,7 +97,7 @@ namespace playhead {
         caf::actor empty_clip_;
         caf::actor broadcast_;
         caf::actor event_group_;
-        caf::actor fps_moniotor_group_;
+        caf::actor fps_monitor_group_;
         caf::actor viewport_events_group_;
         caf::actor playhead_media_events_group_;
         std::vector<caf::actor> sub_playheads_;

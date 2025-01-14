@@ -9,10 +9,10 @@
 // media actor will be a collection of actors..
 // it'll delegate to the correct endpoint..
 
-// this needs to be plugin enbabled
+// this needs to be plugin enabled
 // we also need a way of deciding which plugin should be used..
 // make plugins register support
-// extension / 16bytes ? buffer match / free function, NATIVE flag to notified prefered plugin
+// extension / 16bytes ? buffer match / free function, NATIVE flag to notified preferred plugin
 // for collision? use above to decide which plugin to use.. The worker actor should wrap the
 // underlying class.
 

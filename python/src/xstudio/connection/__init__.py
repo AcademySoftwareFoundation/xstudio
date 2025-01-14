@@ -443,7 +443,7 @@ class Connection(object):
         return result
 
     def send(self, *args):
-        """Send message, ignore reponse
+        """Send message, ignore response
 
         Args:
            args (args): Arguments to send.
@@ -585,7 +585,7 @@ class Connection(object):
                 self.load_plugins_in_path(search_path)
 
     def load_plugins_in_path(self, path):
-        """Load plugins found under the given directoy path
+        """Load plugins found under the given directory path
 
         Args:
             path (str): Path to a directory on filesystem

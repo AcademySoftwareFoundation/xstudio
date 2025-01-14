@@ -13,7 +13,7 @@ namespace xstudio::audio {
 
 /**
  *  @brief Class for delivering audio to soundcard by maintaining a smoothed
- *  measurment of the playhead position and re-sampling audio sources as
+ *  measurement of the playhead position and re-sampling audio sources as
  *  required
  */
 

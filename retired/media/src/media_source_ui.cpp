@@ -321,7 +321,7 @@ void MediaSourceUI::init(actor_system &system_) {
                     thumbnail_position_in_clip_duration_ = position_in_source_duration;
                     emit thumbnailChanged(thumbnail_, thumbnail_position_in_clip_duration_);
                 } else if (!tnail) {
-                    spdlog::warn("Thumbanil load failuer: {}", err_msg);
+                    spdlog::warn("Thumbnail load failure: {}", err_msg);
                 }
             }};
     });

@@ -112,7 +112,7 @@ GlobalModuleAttrEventsActor::GlobalModuleAttrEventsActor(caf::actor_config &cfg)
             const utility::JsonStore &role_value,
             const bool redraw_viewport) {
             // This is notification that an attribute has actually changed - we pass it on to
-            // attribute watchers (like UI componenets) so that they can update to reflect the
+            // attribute watchers (like UI components) so that they can update to reflect the
             // change
             send(
                 module_backend_events_group_,

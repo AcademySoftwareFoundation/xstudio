@@ -170,13 +170,13 @@ void PlayheadActor::init() {
 
     broadcast_                   = spawn<broadcast::BroadcastActor>(this);
     event_group_                 = spawn<broadcast::BroadcastActor>(this);
-    fps_moniotor_group_          = spawn<broadcast::BroadcastActor>(this);
+    fps_monitor_group_           = spawn<broadcast::BroadcastActor>(this);
     viewport_events_group_       = spawn<broadcast::BroadcastActor>(this);
     playhead_media_events_group_ = spawn<broadcast::BroadcastActor>(this);
 
     link_to(broadcast_);
     link_to(event_group_);
-    link_to(fps_moniotor_group_);
+    link_to(fps_monitor_group_);
     link_to(viewport_events_group_);
     link_to(playhead_media_events_group_);
 
@@ -239,7 +239,7 @@ void PlayheadActor::init() {
 
         [=](dropped_frame_atom) { throttle(); },
 
-        [=](fps_event_group_atom) -> caf::actor { return fps_moniotor_group_; },
+        [=](fps_event_group_atom) -> caf::actor { return fps_monitor_group_; },
 
         [=](viewport_events_group_atom) -> caf::actor { return viewport_events_group_; },
 
@@ -251,7 +251,7 @@ void PlayheadActor::init() {
             // playhead position - it does this during scrubbing when it
             // has to skip a frame broadcast because the reader can't keep
             // up with the speed that the playhead is being moved at. If it
-            // skips the frame but the user happend to have just stopped
+            // skips the frame but the user happened to have just stopped
             // scrubbing, we need to re-request the frame until the reader
             // finally responds and we do this with using the 'jump' atom
             // in a loop between sub-playhead and parent playhead like this:
@@ -274,7 +274,7 @@ void PlayheadActor::init() {
         [=](jump_atom, const int frame) -> result<bool> {
             auto rp = make_response_promise<bool>();
             // by requesting duration from self we ensure that we have updated
-            // internal data about source duration, incase this jump message
+            // internal data about source duration, in case this jump message
             // has come immediately after a change in the source, for example
             request(caf::actor_cast<caf::actor>(this), infinite, duration_flicks_atom_v)
                 .then(
@@ -327,7 +327,7 @@ void PlayheadActor::init() {
         [=](jump_atom, const utility::Uuid &media_uuid) { jump_to_source(media_uuid); },
 
         [=](key_child_playhead_atom) {
-            // fetch the Uuid of the key_child_playehad
+            // fetch the Uuid of the key_child_playhead
             delegate(key_playhead_, uuid_atom_v);
         },
 
@@ -439,7 +439,7 @@ void PlayheadActor::init() {
             set_forward(forward);
             update_child_playhead_positions(true);
             send(event_group_, utility::event_atom_v, play_forward_atom_v, forward);
-            send(fps_moniotor_group_, utility::event_atom_v, play_forward_atom_v, forward);
+            send(fps_monitor_group_, utility::event_atom_v, play_forward_atom_v, forward);
             return unit;
         },
 
@@ -622,7 +622,7 @@ void PlayheadActor::init() {
             if (child_playhead_uuid == key_playhead_uuid_) {
 
                 // Tell anything measuring FPS that a new frame has been sent for display
-                send(fps_moniotor_group_, show_atom_v);
+                send(fps_monitor_group_, show_atom_v);
 
                 if (playhead_events_actor_) {
                     send(playhead_events_actor_, show_atom_v, buf);
@@ -636,10 +636,10 @@ void PlayheadActor::init() {
             const media::AVFrameIDsAndTimePoints &frame_ids_for_colour_mgmnt_lookeahead) {
             // For each media source that is within the lookahead read region, during playback,
             // we have one AVFrameID .. these will get forwarded to the colour management
-            // plugin so it has a chance to load and parse newcerssary LUTs ahead of time so
+            // plugin so it has a chance to load and parse necessary LUTs ahead of time so
             // playback doesn't stutter when we have to put a source on the screen that
             // hasn't been encountered yet and needs some heavy computation/IO for its colour
-            // managment particulars
+            // management particulars
             send(
                 broadcast_,
                 colour_pipeline_lookahead_atom_v,
@@ -735,7 +735,7 @@ void PlayheadActor::init() {
         },
 
         /* During playback, this message comes from a PlayLoopActor, which
-        will then receive a timepoint reponse which tells it when to re-send
+        will then receive a timepoint response which tells it when to re-send
         the step_atom message again and so-on. This is how the playback loop
         works. */
         [=](step_atom) -> PlayheadBase::OptionalTimePoint {
@@ -748,7 +748,7 @@ void PlayheadActor::init() {
             }
 
             // If we are playing, the base tells us when we should step it again,
-            // an empty opyional is returned if we aren't looping and we've hit
+            // an empty optional is returned if we aren't looping and we've hit
             // the end of the duration
             PlayheadBase::OptionalTimePoint next_step_timepoint = play_step();
 
@@ -920,13 +920,13 @@ void PlayheadActor::init() {
         [=](source_atom, const std::vector<caf::actor> &source_list) -> result<bool> {
             auto rp = make_response_promise<bool>();
 
-            // This message can be pushed to a playhead so it can start p[laying
-            // medioa - the contents of the incoming source_list must be MediaActor type
+            // This message can be pushed to a playhead so it can start playing
+            // media - the contents of the incoming source_list must be MediaActor type
             // or a wrapper that has the message handlers for playback
             new_source_list(source_list);
 
             // calling source_atom on SubPlayhead and waiting for response
-            // ensures that the SubPlayhead is 'up-to-date' in other wordfs
+            // ensures that the SubPlayhead is 'up-to-date' in other words
             // it has got all the data it needs from its source to start playback
             // like duration, timecode and AVFrameID list
             fan_out_request<policy::select_all>(sub_playheads_, infinite, source_atom_v)
@@ -1032,7 +1032,7 @@ void PlayheadActor::init() {
                 velocity_multiplier_atom_v,
                 velocity_multiplier);
             send(
-                fps_moniotor_group_,
+                fps_monitor_group_,
                 utility::event_atom_v,
                 velocity_multiplier_atom_v,
                 velocity_multiplier);
@@ -1648,7 +1648,7 @@ void PlayheadActor::update_playback_rate() {
                         set_playhead_rate(rate);
                     }
                     send(
-                        fps_moniotor_group_,
+                        fps_monitor_group_,
                         utility::event_atom_v,
                         actual_playback_rate_atom_v,
                         rate);
@@ -1858,7 +1858,7 @@ void PlayheadActor::align_clip_frame_numbers() {
 
     } catch (std::exception &e) {
 
-        // supressing errors as 'No Frames' is thrown when the source is empty,
+        // suppressing errors as 'No Frames' is thrown when the source is empty,
         // which isn't really an error
         spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -1892,7 +1892,7 @@ void PlayheadActor::move_playhead_to_last_viewed_frame_of_current_source() {
 
         anon_send(this, jump_atom_v);
 
-        // supressing errors as 'No Frames' is thrown when the source is empty,
+        // suppressing errors as 'No Frames' is thrown when the source is empty,
         // which isn't really an error
         spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
     }
@@ -1929,16 +1929,16 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
     if (attr_uuid == compare_mode_->uuid() || attr_uuid == auto_align_mode_->uuid()) {
         rebuild();
     } else if (attr_uuid == velocity_->uuid()) {
-        send(fps_moniotor_group_, utility::event_atom_v, velocity_atom_v, velocity());
+        send(fps_monitor_group_, utility::event_atom_v, velocity_atom_v, velocity());
     } else if (attr_uuid == velocity_multiplier_->uuid()) {
         send(
-            fps_moniotor_group_,
+            fps_monitor_group_,
             utility::event_atom_v,
             velocity_multiplier_atom_v,
             velocity_multiplier());
     } else if (attr_uuid == forward_->uuid()) {
         update_child_playhead_positions(true);
-        send(fps_moniotor_group_, utility::event_atom_v, play_forward_atom_v, forward());
+        send(fps_monitor_group_, utility::event_atom_v, play_forward_atom_v, forward());
         send(broadcast_, play_forward_atom_v, forward());
     } else if (attr_uuid == image_source_->uuid() && !updating_source_list_) {
         switch_media_source(image_source_->value(), media::MT_IMAGE);
@@ -1964,7 +1964,7 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
             global::busy_atom_v,
             playing());
         send(event_group_, utility::event_atom_v, play_atom_v, playing());
-        send(fps_moniotor_group_, utility::event_atom_v, play_atom_v, playing());
+        send(fps_monitor_group_, utility::event_atom_v, play_atom_v, playing());
         update_child_playhead_positions(true);
 
     } else if (attr_uuid == playhead_logical_frame_->uuid()) {
@@ -1983,13 +1983,13 @@ void PlayheadActor::connected_to_ui_changed() {
 
         restart_readahead_cacheing(true);
         update_playback_rate();
-        send(fps_moniotor_group_, utility::event_atom_v, velocity_atom_v, velocity());
+        send(fps_monitor_group_, utility::event_atom_v, velocity_atom_v, velocity());
         send(
-            fps_moniotor_group_,
+            fps_monitor_group_,
             utility::event_atom_v,
             velocity_multiplier_atom_v,
             velocity_multiplier());
-        send(fps_moniotor_group_, utility::event_atom_v, play_forward_atom_v, forward());
+        send(fps_monitor_group_, utility::event_atom_v, play_forward_atom_v, forward());
 
         request(key_playhead_, infinite, media_source_atom_v)
             .then(
@@ -2006,7 +2006,7 @@ void PlayheadActor::connected_to_ui_changed() {
                 });
 
     } else {
-        // stop all cacheing
+        // stop all caching
         for (auto ph : sub_playheads_) {
             anon_send(ph, clear_precache_queue_atom_v);
         }
@@ -2141,7 +2141,7 @@ void PlayheadActor::switch_media_source(
         .then(
 
             [=](bool switched) mutable {
-                // re-kick cacheing following switch
+                // re-kick caching following switch
                 if (switched && connected_to_ui()) {
                     restart_readahead_cacheing(false, true);
                 }

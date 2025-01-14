@@ -366,7 +366,7 @@ bool default_is_sequence(const Entry &entry) {
 #else
     std::string ext = std::filesystem::path(entry.name_).extension();
 #endif
-    // we don't try and handle case, as that get's trick when utf-8 is in use..
+    // we don't try and handle case, as that gets trick when utf-8 is in use..
     // we assume that it'll not be mixed..
     if (not_sequence_ext_set.count(to_lower(ext)))
         return false;

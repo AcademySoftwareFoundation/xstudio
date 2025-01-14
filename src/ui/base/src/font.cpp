@@ -21,7 +21,7 @@
 #define VECTOR_FONT_DECOMPOSE_SCALE 128
 
 /* forward declaration of this function from tessellation_helpers.cpp */
-namespace xstudio::ui::tesslator {
+namespace xstudio::ui::tesselator {
 bool tessellate_vtx_loop_nil(
     std::vector<unsigned int> &result,
     const std::vector<Imath::V2f>::iterator shape_outline_begin,
@@ -35,7 +35,7 @@ void make_glyph_sdf(
     const Imath::V2f bdb_top_right,
     const std::vector<Imath::V2f>::const_iterator shape_outline_begin,
     const std::vector<Imath::V2f>::const_iterator shape_outline_end);
-} // namespace xstudio::ui::tesslator
+} // namespace xstudio::ui::tesselator
 
 using namespace xstudio::ui;
 
@@ -589,7 +589,7 @@ VectorFont::VectorFont(const std::string &font_path, const float glyph_pixel_siz
     for (unsigned char c = 0; c < 128; c++) {
         // load character glyph
         if (FT_Load_Char(face, c, FT_LOAD_NO_BITMAP)) {
-            std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
+            std::cout << "ERROR::FREETYPE: Failed to load Glyph" << std::endl;
             continue;
         }
 
@@ -631,7 +631,7 @@ const VectorFont::CharacterMetrics &VectorFont::get_character(char c) const {
 
 void VectorFont::move_to(const Imath::V2f &v) {
 
-    // move_to always gets called at the beggining of each shape within a
+    // move_to always gets called at the begining of each shape within a
     // glyph, so we need to tesselate the last shape of the current glyph before
     // we start building a new one
     glyph_shape_decomposition_complete();
@@ -690,7 +690,7 @@ void VectorFont::glyph_shape_decomposition_complete() {
     }
 
     size_t i0     = triangle_indeces_.size();
-    bool positive = tesslator::tessellate_vtx_loop_nil(
+    bool positive = tesselator::tessellate_vtx_loop_nil(
         triangle_indeces_,
         outline_points_.begin() + last_tesselated_point_index_,
         outline_points_.end(),
@@ -809,7 +809,7 @@ void SDFBitmapFont::generate_atlas(const std::string &font_path, const int glyph
     atlas_.resize(atlas_width_ * atlas_height_ * 4, -glyph_pixel_size * 0.5f);
 
     // put the main work in a function so we can easily thread it as this is
-    // a bit expensive (see notes in tesslator::make_glyph_sdf)
+    // a bit expensive (see notes in tesselator::make_glyph_sdf)
     auto work_func = [=](std::vector<unsigned char> &jobs,
                          std::mutex &m,
                          const VectorFont &vector_font) mutable {
@@ -862,7 +862,7 @@ void SDFBitmapFont::generate_atlas(const std::string &font_path, const int glyph
                 auto outline_verts_end =
                     outline_verts_begin + shape_details.num_outline_points_;
 
-                tesslator::make_glyph_sdf(
+                tesselator::make_glyph_sdf(
                     buffer,
                     buffer_width,
                     buffer_height,
@@ -879,7 +879,7 @@ void SDFBitmapFont::generate_atlas(const std::string &font_path, const int glyph
                 auto outline_verts_end =
                     outline_verts_begin + shape_details.num_outline_points_;
 
-                tesslator::make_glyph_sdf(
+                tesselator::make_glyph_sdf(
                     neg_buffer,
                     buffer_width,
                     buffer_height,

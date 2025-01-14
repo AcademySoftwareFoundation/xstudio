@@ -210,11 +210,11 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                                         to_display_data);
                                 },
                                 [=](caf::error &err) mutable {
-                                    deliver_on_reponse_promises(err, transform_id);
+                                    deliver_on_response_promises(err, transform_id);
                                 });
                     },
                     [=](caf::error &err) mutable {
-                        deliver_on_reponse_promises(err, transform_id);
+                        deliver_on_response_promises(err, transform_id);
                     });
 
             return rp;
@@ -537,7 +537,7 @@ void ColourPipeline::add_colour_op_plugin_data(
 
     // now we need colour_op_plugins_ to add in their own data ...
     if (!colour_op_plugins_.size()) {
-        deliver_on_reponse_promises(result, transform_id);
+        deliver_on_response_promises(result, transform_id);
         return;
     }
 
@@ -555,17 +555,17 @@ void ColourPipeline::add_colour_op_plugin_data(
                     (*rcount)--;
                     if (!(*rcount)) {
 
-                        deliver_on_reponse_promises(result, transform_id);
+                        deliver_on_s_promises(result, transform_id);
                     }
                 },
                 [=](const caf::error &err) mutable {
                     (*rcount) = 0;
-                    deliver_on_reponse_promises(err, transform_id);
+                    deliver_on_response_promises(err, transform_id);
                 });
     }
 }
 
-void ColourPipeline::deliver_on_reponse_promises(
+void ColourPipeline::deliver_on_response_promises(
     ColourPipelineDataPtr &result, const std::string &transform_id) {
     auto r = in_flight_requests_.find(transform_id);
     if (r != in_flight_requests_.end()) {
@@ -576,7 +576,7 @@ void ColourPipeline::deliver_on_reponse_promises(
     }
 }
 
-void ColourPipeline::deliver_on_reponse_promises(
+void ColourPipeline::deliver_on_response_promises(
     const caf::error &err, const std::string &transform_id) {
     auto r = in_flight_requests_.find(transform_id);
     if (r != in_flight_requests_.end()) {

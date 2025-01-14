@@ -4,7 +4,7 @@
 
 The xSTUDIO project is governed by its Committers in collaboration with the Open Review Initiative (ORI) Steering Committee (TSC).
 
-xSTUDIO is a relatively new project and is still under very active development as we approach a version 1.0 release. An xSTUDIO TSC will be formed whern the project has reached both a level of stability and community engagement which demands such governance. Until then discussions about the direction of the project will be held in the ORI  Community Meetings or with direct interaction with the current [COMMITERS](COMMITERS.md).
+xSTUDIO is a relatively new project and is still under very active development as we approach a version 1.0 release. An xSTUDIO TSC will be formed when the project has reached both a level of stability and community engagement which demands such governance. Until then discussions about the direction of the project will be held in the ORI  Community Meetings or with direct interaction with the current [COMMITTERS](COMMITTERS.md).
 
 ## Contributors
 
@@ -12,7 +12,7 @@ Contributors include anyone in the community that contributes code, documentatio
 
 ## Committers
 
-The xSTUDIO GitHub repository is maintained by the [COMMITERS](COMMITERS.md). Committers are Contributors who have earned the ability to modify source code, documentation, or other technical artifacts to the project. Upon becoming Committers, they become members of the xSTUDIO leadership team.
+The xSTUDIO GitHub repository is maintained by the [COMMITTERS](COMMITTERS.md). Committers are Contributors who have earned the ability to modify source code, documentation, or other technical artifacts to the project. Upon becoming Committers, they become members of the xSTUDIO leadership team.
 
 Their privileges include, but are not limited to:
 
@@ -29,7 +29,7 @@ Typical activities of a Committer include:
 * Participation in Open Review Initiative community meetings
 * Merging pull requests
 
-The xSTDUIO TSC, when it has been formed, will periodically review the Committer list to identify inactive Committers. Past Committers are typically given Emeritus status. Emeriti may request that the TSC restore them to active Committer status.
+The xSTUDIO TSC, when it has been formed, will periodically review the Committer list to identify inactive Committers. Past Committers are typically given Emeritus status. Emeriti may request that the TSC restore them to active Committer status.
 
 ## Technical Steering Committee
 

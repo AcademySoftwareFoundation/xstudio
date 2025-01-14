@@ -400,7 +400,7 @@ void PluginManagerActor::enable_resident(
     }
 }
 
-// only change initial enabled state don't acutally action it.
+// only change initial enabled state don't actually action it.
 void PluginManagerActor::update_from_preferences(const utility::JsonStore &json) {
     try {
         auto prefs = preference_value<JsonStore>(json, "/core/plugin_manager/enable_plugin");

@@ -552,7 +552,7 @@ class Playlist(Container):
         return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(new_metadata))
 
     def get_metadata(self, path):
-        """Get metdata at JSON path
+        """Get metadata at JSON path
 
         Args:
             path(str): JSON Pointer
@@ -564,7 +564,7 @@ class Playlist(Container):
         return json.loads(self.connection.request_receive(self.remote, get_json_atom(), path)[0].dump())
 
     def set_metadata(self, data, path):
-        """Get metdata at JSON path
+        """Get metadata at JSON path
 
         Args:
             data(json): JSON Data

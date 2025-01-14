@@ -812,7 +812,7 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
             auto valid_index = index.isValid();
             Uuid before;
 
-            // plugin and finaly text
+            // plugin and final text
             // forward to datasources for non file paths
             auto pm     = system().registry().template get<caf::actor>(plugin_manager_registry);
             auto target = caf::actor();
@@ -1297,7 +1297,7 @@ SessionModel::conformInsertFuture(const QString &task, const QModelIndexList &in
                     playlist_ua,
                     media_uas);
 
-                // we've got come new stuff, we maybe to contruct them,
+                // we've got some new stuff, we maybe need to construct them,
                 // or they may already exist of have been created for us.
             }
         } catch (const std::exception &err) {

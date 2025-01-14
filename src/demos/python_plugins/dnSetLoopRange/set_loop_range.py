@@ -10,13 +10,13 @@ from xstudio.core import KeyboardModifier
 
 DnSetLoopRange - Demo xSTUDIO Python Plugin
 
-This simple plugin demostrates how to add menu items to xSTUDIO's main menus
+This simple plugin demonstrates how to add menu items to xSTUDIO's main menus
 which will trigger a callback when the user clicks on the menu item. Creating
 a hotkey and associating it with the menu item is also illustrated.
 
 In this case the menu action will modify the loop frame range of the playhead
 based on metadata of the current media item on the screen. Thus we also
-demostrate how to access the on-screen media item, its metadata and modify
+demonstrate how to access the on-screen media item, its metadata and modify
 the playhead properties.
 
 Note that the metadata fields that we access in this plugin are specific to
@@ -113,7 +113,7 @@ class DnSetLoopRange(PluginBase):
 
     def loop_on_cut_range(self, activated=True):
 
-        # Here we access the metadata propery of the on screen media item.
+        # Here we access the metadata property of the on screen media item.
         playhead = super().current_playhead()
         if activated and playhead.on_screen_media and playhead.on_screen_media.metadata:
 

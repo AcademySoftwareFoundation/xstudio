@@ -40,7 +40,7 @@ void BroadcastActor::init() {
 
     set_default_handler(
         [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
-            //  UNCOMMENT TO DEBUG UNEXPECT MESSAGES
+            //  UNCOMMENT TO DEBUG UNEXPECTED MESSAGES
 
             // spdlog::warn("Got broadcast from {} {}", to_string(current_sender()),
             //     to_string(msg)

@@ -7,7 +7,7 @@
 using namespace xstudio::ui::keypress_monitor;
 
 /* This actor's job is to monitor key down and key up events and maintain an
-up-to date list of keys that are held down, broacasting to interested actors
+up-to date list of keys that are held down, broadcasting to interested actors
 (particularly 'Module' type actors).*/
 
 KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
@@ -117,8 +117,8 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             return hks;
         },
 
-        [=](hotkey_atom, const utility::Uuid kotkey_uuid) -> result<Hotkey> {
-            auto p = active_hotkeys_.find(kotkey_uuid);
+        [=](hotkey_atom, const utility::Uuid hotkey_uuid) -> result<Hotkey> {
+            auto p = active_hotkeys_.find(hotkey_uuid);
             if (p != active_hotkeys_.end()) {
                 return p->second;
             }

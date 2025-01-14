@@ -1527,7 +1527,7 @@ void PlaylistActor::init() {
             if (result) {
                 if (remove_orphans && !check_media.empty()) {
                     // for (const auto &i : check_media)
-                    //     spdlog::info("candiate {}", to_string(i));
+                    //     spdlog::info("candidate {}", to_string(i));
                     anon_send(actor_cast<caf::actor>(this), remove_orphans_atom_v, check_media);
                 }
                 send(event_group_, utility::event_atom_v, remove_container_atom_v, cuuid);

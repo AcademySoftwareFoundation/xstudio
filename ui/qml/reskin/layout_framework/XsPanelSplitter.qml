@@ -12,7 +12,7 @@ recursively subdivide a window into many resizable panels. It's all based
 on the 'panels_layout_model' that is a tree like structure that drives the
 recursion. The 'panels_layout_model' is itself backed by json data that comes
 from the xstudio preferences files. Look for 'reskin_windows_and_panels_model'
-in the preference files for more. In practice we problably don't need anything
+in the preference files for more. In practice we probably don't need anything
 this flexible but the capability is there in case we do need it one day. */
 Rectangle {
 
@@ -73,7 +73,7 @@ Rectangle {
 
                 function buildSubPanels() {                    
 
-                    // if 'split_horizontal' is defined (either true or fale),
+                    // if 'split_horizontal' is defined (either true or false),
                     // then we have hit another splitter
                     if (split_horizontal !== undefined) {
 

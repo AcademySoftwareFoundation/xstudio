@@ -1011,7 +1011,7 @@ caf::message_handler Viewport::message_handler() {
                             true,  // two way link (change in one is synced to other, both ways)
                             viewport_index_ ==
                                 0 // push sync (if we are main viewport, sync the
-                                  // attrs on the other colour pipelin to ourselves)
+                                  // attrs on the other colour pipeline to ourselves)
                         );
                     }
                 },
@@ -1132,7 +1132,7 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
     try {
 
 
-        // leave previous playhead's broacast events group
+        // leave previous playhead's broadcast events group
         if (playhead_viewport_events_group_) {
             try {
                 utility::request_receive<bool>(
@@ -1149,7 +1149,7 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
             return;
         }
 
-        // and join the new playhead's broacast events group that concern the
+        // and join the new playhead's broadcast events group that concern the
         // viewport
         playhead_viewport_events_group_ = utility::request_receive<caf::actor>(
             *sys, playhead, playhead::viewport_events_group_atom_v);

@@ -386,8 +386,8 @@ Flickable {
         property var dragging_group: []
         property var not_dragging_group: []
 
-        property var dragged_item_intial_pos_x
-        property var dragged_item_intial_pos_y
+        property var dragged_item_initial_pos_x
+        property var dragged_item_initial_pos_y
         property var under_mouse_idx: 0
 
         property var drag_drop_uuids: []
@@ -417,7 +417,7 @@ Flickable {
                         multiSelect(under_mouse.currentIndex)
                     } else {
                         // if the user is clicking for a second time on the only selected item, don't
-                        // do anytjhing incase they are doing a drag-drop playlist reorder.
+                        // do anything in case they are doing a drag-drop playlist reorder.
                         if (!(selection_uuids.length == 1 && under_mouse.uuid == selection_uuids[0]))
                         {
                             selectSingleItem(under_mouse.currentIndex)
@@ -465,7 +465,7 @@ Flickable {
 
                 drag_drop_uuids = []
 
-                var top_of_first_drag_item = dragged_item_intial_pos_y - under_mouse_idx*item_height + (mouseY - y_drag_start)
+                var top_of_first_drag_item = dragged_item_initial_pos_y - under_mouse_idx*item_height + (mouseY - y_drag_start)
                 var target_idx = Math.min(Math.max(Math.round(top_of_first_drag_item/item_height),0), not_dragging_group.length)
 
                 for (var i = 0; i < dragging_group.length; ++i) {
@@ -616,8 +616,8 @@ Flickable {
 
                         makeDragDropGroups()
 
-                        dragged_item_intial_pos_x = under_mouse.x;
-                        dragged_item_intial_pos_y = under_mouse.y;
+                        dragged_item_initial_pos_x = under_mouse.x;
+                        dragged_item_initial_pos_y = under_mouse.y;
 
                         updateDragDropAnimation(dx, dy, true)
 
@@ -650,8 +650,8 @@ Flickable {
 
                         makeDragDropGroups()
 
-                        dragged_item_intial_pos_x = under_mouse.x;
-                        dragged_item_intial_pos_y = under_mouse.y;
+                        dragged_item_initial_pos_x = under_mouse.x;
+                        dragged_item_initial_pos_y = under_mouse.y;
 
                         startDragOutside(dx, dy)
 
@@ -717,7 +717,7 @@ Flickable {
 
             // this is the index in the list where the drag/drop set
             // would be dropped
-            var top_of_first_drag_item = dragged_item_intial_pos_y - under_mouse_idx*item_height + dy
+            var top_of_first_drag_item = dragged_item_initial_pos_y - under_mouse_idx*item_height + dy
             var target_idx = Math.min(
                 Math.max(
                     Math.round(top_of_first_drag_item/item_height),
@@ -751,8 +751,8 @@ Flickable {
                 for (var i = 0; i < dragging_group.length; ++i) {
 
                     dragging_group[i].drag_animation(
-                        dragged_item_intial_pos_x + dx,
-                        dragged_item_intial_pos_y + (i - under_mouse_idx)*item_height + dy,
+                        dragged_item_initial_pos_x + dx,
+                        dragged_item_initial_pos_y + (i - under_mouse_idx)*item_height + dy,
                         100.0
                         )
 
@@ -761,8 +761,8 @@ Flickable {
                 for (var i = 0; i < dragging_group.length; ++i) {
 
                     dragging_group[i].immediate_drag(
-                        dragged_item_intial_pos_x + dx,
-                        dragged_item_intial_pos_y + (i - under_mouse_idx)*item_height + dy
+                        dragged_item_initial_pos_x + dx,
+                        dragged_item_initial_pos_y + (i - under_mouse_idx)*item_height + dy
                         )
 
                 }

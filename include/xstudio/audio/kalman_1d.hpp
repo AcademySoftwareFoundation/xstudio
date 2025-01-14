@@ -42,10 +42,10 @@ class KalmanFilter1D {
      *
      *  @details Returns the updated estimate
      */
-    double update(double measurment) {
+    double update(double measurement) {
         est_error_         = est_error_ + process_noise_;
         double kalman_gain = est_error_ / (est_error_ + sensor_noise_);
-        est_val_           = est_val_ + kalman_gain * (measurment - est_val_);
+        est_val_           = est_val_ + kalman_gain * (measurement - est_val_);
         est_error_         = (1 - kalman_gain) * est_error_;
         return est_val_;
     }

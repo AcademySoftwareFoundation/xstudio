@@ -19,7 +19,7 @@ XsMenuNew {
         // Menu events like 'activated' are passed through the backend model
         // and therefore when they come back up to the UI layer, if we didn't
         // have unique models per timeline panel, the 'onActivated' would be
-        // trigged on multiple instances of the correspondin XsMenuModelItem.
+        // triggered on multiple instances of the corresponding XsMenuModelItem.
         modelDataName: "timelineMenu" + timelineMenu 
         onJsonChanged: {
             timelineMenu.menu_model_index = index(-1, -1)

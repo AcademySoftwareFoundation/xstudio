@@ -401,7 +401,7 @@ void SessionUI::init(actor_system &system_) {
         }
     }
 
-    // make sure the audio output is connected to the UI (i.e. it is broacasting and receiveing
+    // make sure the audio output is connected to the UI (i.e. it is broadcasting and receiving
     // events to do with its Module attributes)
     auto audio_output_actor =
         system().registry().template get<caf::actor>(audio_output_registry);
@@ -438,7 +438,7 @@ void SessionUI::init(actor_system &system_) {
             [=](const group_down_msg &) {},
 
             [=](utility::event_atom, playlist::add_media_atom, const UuidActor &ua) {
-                // not sure we recieve these.. as we listen to session events not playlist
+                // not sure we receive these.. as we listen to session events not playlist
                 // ones.
                 emit mediaAdded(QUuidFromUuid(ua.uuid()));
             },

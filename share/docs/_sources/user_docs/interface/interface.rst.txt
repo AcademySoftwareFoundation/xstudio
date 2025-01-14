@@ -79,7 +79,7 @@ The toolbar and transport controls are found immediately below the Viewer. The t
 Toolbar
 +++++++
 
-The toolbar is a collection of controls that affect on-screen information in the viewport, colour visualisation, playback behaviour and so-on. xSTUDIO plugins are able to add toolbar controls but here we only list the 'native' tooblar controls that are present by default.
+The toolbar is a collection of controls that affect on-screen information in the viewport, colour visualisation, playback behaviour and so-on. xSTUDIO plugins are able to add toolbar controls but here we only list the 'native' toolbar controls that are present by default.
 
 .. topic:: HUD
 
@@ -103,7 +103,7 @@ The toolbar is a collection of controls that affect on-screen information in the
 
 .. topic:: Pan
 
-    As for zoom, this enters a pan mode where you can click and drag in the view to move the image within the window. The 'P' hotkey can be held down to activate this mode. (Note that you can also pan directly in the viewer using a middle mouse button drag, and zoom by holding CTRL key and middle mouse drag)
+    As for zoom, this enters a pan mode where you can click and drag in the view to move the image within the window. The 'P' hotkey can be held down to activate this mode. (Note that you can also pan directly in the viewer using a middle mouse button drag, and zoom by holding CTRL key and middle mouse drag).
 
 .. topic:: 'Fit'
     this setting dictates how the image is auto-fitted into the viewport area. 
@@ -139,9 +139,9 @@ Timeline
 Transport Controls
 ++++++++++++++++++
 
-These are pretty universal and don't need much explanation. There's a play/pause button, step forwards/backwards buttons and fast forard/fast rewind buttons.
+These are pretty universal and don't need much explanation. There's a play/pause button, step forwards/backwards buttons and fast forward/fast rewind buttons.
 
-Frame Indiator
+Frame Indicator
 ++++++++++++++
 
 Immediately to the left of the timeline is the 'current frame' indicator. Click on this to get a list of options as to how the current position of the playhead is displayed:
@@ -156,9 +156,9 @@ Timeline and Playhead UI
 The compact timeline UI in this version of xSTUDIO is a horizontal slider representing the full frame range of the current on-screen source(s). The 'playhead' (indicating the current on-screen frame) is shown as a vertical line. Other information that is visualised is as follows:
 
     - *Playhead:* This vertical line butted by triangles indicates the current on screen frame. Click and drag left/right to 'scrub' the viewed frame.
-    - *In/Out Loops Points:* If you are looping on a sub section of the source frame range, this is indicated by solid grey background in the timline for the areas that are outside the loop range.
+    - *In/Out Loops Points:* If you are looping on a sub section of the source frame range, this is indicated by solid grey background in the timeline for the areas that are outside the loop range.
     - *Cache Status:* Frames that are 'cached' (i.e. which frames have been decoded off the filesystem and are in memory ready for immediate display) are indicated by a horizontal bar through the middle of the timeline. When you start viewing a new source you should see the cache status refresh as xSTUDIO loads frames ready for playback. For a detailed explanation please refer to the 'Playhead' section.
-    - *Note Indicator:* Any notes that are attached to the on-screen source are visualised with a brown horiontal bar (showing the curresponding in/out points of the note) at the bottom of the timeline.
+    - *Note Indicator:* Any notes that are attached to the on-screen source are visualised with a brown horizontal bar (showing the corresponding in/out points of the note) at the bottom of the timeline.
 
 FPS/Duration/Remaining
 ++++++++++++++++++++++
@@ -171,11 +171,11 @@ The box immediately to the right of the timeline shows more information about th
 Player/Viewer Controls
 ++++++++++++++++++++++
 
-Four buttons to the right of the timline provide the following interactions
+Four buttons to the right of the timeline provide the following interactions
     - *Volume/mute control:* click once to get a pop-up volume control. Double click to toggle muting of audio.
     - *Loop mode:* set whether the playhead will loop a source in playback, play it once and stop on the final frame or 'ping-pong' loop.
     - *Screenshot:* this button shows an interface for grabbing the current on-screen frame (plus overlays like annotation sketches) and saving to disk as an image file.
-    - *Show/Hide Popout Viewer:* xSTUDIO provides a second viewer for dual screen set-ups. Note that the second viewer has all the same features and behavoiur as the main viewer that is embedded in the main UI window.
+    - *Show/Hide Popout Viewer:* xSTUDIO provides a second viewer for dual screen set-ups. Note that the second viewer has all the same features and behaviour as the main viewer that is embedded in the main UI window.
 
 For a more in-depth description of xSTUDIO's playback behaviours and user interactions please refer to the 'Playback' section of these docs.
 

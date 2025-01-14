@@ -119,14 +119,14 @@ void PlayheadBase::add_attributes() {
     play_forwards_hotkey_ = register_hotkey(
         int('L'),
         ui::NoModifier,
-        "Play Forwards, Accellerate",
+        "Play Forwards, Accelerate",
         "This hotkey starts forward playback, repeated presses thereon increase the playback "
         "speed");
 
     play_backwards_hotkey_ = register_hotkey(
         int('J'),
         ui::NoModifier,
-        "Play Backwards, Accellerate",
+        "Play Backwards, Accelerate",
         "This hotkey starts backward playback, repeated presses thereon increase the playback "
         "speed");
 

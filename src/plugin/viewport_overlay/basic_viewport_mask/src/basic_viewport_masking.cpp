@@ -123,7 +123,7 @@ void BasicMaskRenderer::render_opengl(
 
     auto aspect = data->mask_shader_params_["mask_aspect_ratio"].get<float>();
 
-    // to make the label a costant size, regardless of the viewport transformation,
+    // to make the label a constant size, regardless of the viewport transformation,
     // we scale the font plotting size with 'viewport_du_dx'
     auto font_scale = data->label_size_ * 1920.0f * viewport_du_dpixel;
 
@@ -205,7 +205,7 @@ BasicViewportMasking::BasicViewportMasking(
     : plugin::StandardPlugin(cfg, "BasicViewportMasking", init_settings) {
     // The function Attribute::expose_in_ui_attrs_group allows you to declare
     // a XsModuleAttributes or XsModuleAttributesModel item in QML code - by
-    // setting the 'attributesGroupNames' attrubte on these items to match the
+    // setting the 'attributesGroupNames' attribute on these items to match the
     // group name that we set here, we get a connection between QML and this
     // class that allows us to update QML when the backend attribute (owned by
     // this class) changes or vice/versa.
@@ -236,7 +236,7 @@ BasicViewportMasking::BasicViewportMasking(
     mask_opacity_ = add_float_attribute("Mask Opacity", "Opac.", 1.0f, 0.0f, 1.0f, 0.1f);
     mask_opacity_->expose_in_ui_attrs_group("viewport_mask_settings");
     mask_opacity_->set_tool_tip("Sets the opacity of the black masking overlay. Set to zero to "
-                                "hids the mask completely.");
+                                "hide the mask completely.");
 
     safety_percent_ = add_float_attribute("Safety Percent", "Safety", 0.0f, 0.0f, 20.0f, 0.1f);
     safety_percent_->expose_in_ui_attrs_group("viewport_mask_settings");
@@ -304,7 +304,7 @@ BasicViewportMasking::BasicViewportMasking(
         )");
 
     // we can register a preference path with each of these attributes. xStudio
-    // will then automatically intialised the attribute values from preference
+    // will then automatically initialised the attribute values from preference
     // file(s) and also, if the attribute is changed, the new value will be
     // written out to preference files.
     mask_aspect_ratio_->set_preference_path("/plugin/basic_masking/mask_aspect_ratio");
@@ -353,7 +353,7 @@ utility::BlindDataObjectPtr BasicViewportMasking::prepare_overlay_data(
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
     } else {
-        // Unvalidate existing shader, so it won't be displayed if mask is off
+        // Invalidate existing shader, so it won't be displayed if mask is off
         r.reset();
     }
 

@@ -8,7 +8,7 @@ xSTUDIO has a python API allowing you to control playback, load media, explore p
 The Communications Port
 =======================
 
-xSTUDIO opens a port on startup for remote control which is subsequently used by the Python API and also for 'pushing' media to a running session through the command line. The range of port numbers that xSTUDIO will try to open can be specified as a command line option or in the preferences files. When creating a Connection object in Python, you can specify the port number of the xSTUDIO session that you want to connect with. For studios that are interested in managing mulitple instances of xSTUDIO to support a workflow this can be exploited with appopriate wrapper scripts and python integration code
+xSTUDIO opens a port on startup for remote control which is subsequently used by the Python API and also for 'pushing' media to a running session through the command line. The range of port numbers that xSTUDIO will try to open can be specified as a command line option or in the preferences files. When creating a Connection object in Python, you can specify the port number of the xSTUDIO session that you want to connect with. For studios that are interested in managing multiple instances of xSTUDIO to support a workflow this can be exploited with appropriate wrapper scripts and python integration code.
 
 Launch xSTUDIO with a specific port::
 
@@ -38,7 +38,7 @@ Python Plugins
 
 xSTUDIO now provides a Python plugin API. The features of this API are still being expanded (Q2 2023) but it is ready to be used for some purposes. For example, it's possible to create Viewport overlay graphics, add menu items to some of xSTUDIO's menus that execute callback methods in your plugin. You can create attributes on your python plugin class instance that can be exposed in the QML UI layer to, for example, add buttons to the toolbar or launch fully customised QML interfaces.
 
-To learn more about the plugin API we reccommend that you look at the examples available in the xSTUDIO source repository. These can be found in the **src/demos/python_plugins** subfolder. Note that the dnSetLoopRange is dependent on metadata that is specific to DNEG's pipeline but it is nevertheless commented for 3rd party users to refer to.
+To learn more about the plugin API we recommend that you look at the examples available in the xSTUDIO source repository. These can be found in the **src/demos/python_plugins** subfolder. Note that the dnSetLoopRange is dependent on metadata that is specific to DNEG's pipeline but it is nevertheless commented for 3rd party users to refer to.
 
 To 'install' Python plugins you simply need to copy your plugins to an appropriate location and set the 'XSTUDIO_PYTHON_PLUGIN_PATH' environment variable to point to this location before running the xstudio binary. Typically at a studio sys-admins would advise on this and set-up appropriate wrapper scripts for xSTUDIO that ensure your environment variables are set. However, it's also very straightforward for an individual user. The env var should be a colon separated list of file system paths that include the python-importable module folder of your plugin(s).
 

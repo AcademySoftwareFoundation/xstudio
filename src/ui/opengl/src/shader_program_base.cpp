@@ -702,7 +702,7 @@ void GLShaderProgram::inject_colour_op_shader(const std::string &colour_op_shade
 
         std::stringstream ss;
         ss << "The following shader does not declare required function with "
-           << "signature : vec4 colour_tranform_op(vec4 rgba)\n\n"
+           << "signature : vec4 colour_transform_op(vec4 rgba)\n\n"
            << colour_op_shader << "\n";
         spdlog::error("Colour operation shader error error: {}", ss.str());
         return;
@@ -765,7 +765,7 @@ void GLShaderProgram::compile() {
 
     } catch (...) {
 
-        // a shader hasn't compiled ... delete anthing that did compile
+        // a shader hasn't compiled ... delete anything that did compile
         std::for_each(
             shaders_.begin(), shaders_.end(), [](GLuint shdr) { glDeleteShader(shdr); });
         throw;

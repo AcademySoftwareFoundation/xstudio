@@ -148,7 +148,7 @@ QFuture<QList<QUuid>> SubsetUI::handleDropFuture(const QVariantMap &drop) {
         auto playlist = request_receive<caf::actor>(*sys, backend_, playhead::source_atom_v);
 
 
-        // conver to json..
+        // convert to json..
         if (jsn.count("text/uri-list")) {
             for (const auto &path : jsn["text/uri-list"]) {
                 auto uri = caf::make_uri(path);

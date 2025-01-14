@@ -119,7 +119,7 @@ caf::message_handler MediaActor::default_event_handler() {
 }
 
 void MediaActor::init() {
-    // only parial..
+    // only partial..
     event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
 

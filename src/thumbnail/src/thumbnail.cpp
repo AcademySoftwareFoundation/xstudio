@@ -207,7 +207,7 @@ void quickSquash(
                 contrib_double_pos[x] = 1;
             }
 
-            // check that we're not trying to write past the edge of the outpu image
+            // check that we're not trying to write past the edge of the output image
             if (contrib_pos1[x] < 0) {
                 contrib_pos1[x]       = 0;
                 contrib_coeff1[x]     = 0;
@@ -479,7 +479,7 @@ void quickSquash(
                 contrib_double_pos[x] = 1;
             }
 
-            // check that we're not trying to write past the edge of the outpu image
+            // check that we're not trying to write past the edge of the output image
             if (contrib_pos1[x] < 0) {
                 contrib_pos1[x]       = 0;
                 contrib_coeff1[x]     = 0;

@@ -27,7 +27,7 @@ namespace ui {
 
         N.B. any subclass of this must access the Canvas passes into redo
         and undo directly to its member data as a friend class, not via public
-        accessor methods. The reason is that redo and undo are excecuted by the
+        accessor methods. The reason is that redo and undo are executed by the
         Canvas class  itself *AFTER* it has acquired a unique_lock on its mutex.
         As such, if the CanvasUndoRedo class tries to use a public method on the
         Canvas during the undo or redo calls a deadlock will result. */

@@ -43,7 +43,7 @@ class MaskPlugin(PluginBase):
         # be a list(str).
         self.mask = self.add_attribute(
             "dnMask", #attr name
-            "Off", #attr intial value
+            "Off", #attr initial value
             {
                 "combo_box_options": ["Off", "1.77", "1.89", "2.0"],
                 "groups": ["main_toolbar", "popout_toolbar", "dnmask_values"], #same as calling 'expose_in_ui_attrs_group' with these values later

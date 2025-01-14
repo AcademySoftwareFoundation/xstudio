@@ -50,7 +50,7 @@ XsPopup {
                     
                     XsMenuItemNew { 
                         // again, we pass in the model to the menu item and
-                        // step one level deeper into the tree by useing row=index
+                        // step one level deeper into the tree by using row=index
                         menu_model: the_popup.menu_model
                         menu_model_index: the_popup.menu_model.index(
                             index, // row = child index
@@ -70,7 +70,7 @@ XsPopup {
                     
                     XsMenuItemNew { 
                         // again, we pass in the model to the menu item and
-                        // step one level deeper into the tree by useing row=index
+                        // step one level deeper into the tree by using row=index
                         menu_model: the_popup.menu_model
                         menu_model_index: the_popup.menu_model.index(
                             index, // row = child index

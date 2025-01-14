@@ -274,7 +274,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">set_json_atom</span><span class="p">(),</span> <span class="n">Uuid</span><span class="p">(),</span> <span class="n">JsonStore</span><span class="p">(</span><span class="n">new_metadata</span><span class="p">))</span>
 
 <div class="viewcode-block" id="Media.get_metadata"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.get_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get metdata at JSON path</span>
+        <span class="sd">&quot;&quot;&quot;Get metadata at JSON path</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            path(str): JSON Pointer</span>
@@ -286,7 +286,7 @@
         <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">(),</span> <span class="n">Uuid</span><span class="p">(),</span> <span class="n">path</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dump</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="Media.set_metadata"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.set_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">set_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get metdata at JSON path</span>
+        <span class="sd">&quot;&quot;&quot;Get metadata at JSON path</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            data(json): JSON Data</span>

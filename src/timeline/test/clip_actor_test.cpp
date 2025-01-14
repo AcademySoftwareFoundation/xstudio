@@ -112,7 +112,7 @@ TEST(ClipActorTest, Test) {
 
 // // try and get frame 0.. should return frame 2 (sequence starts at 1).
 // // try and get frame 4.. should return frame 6.
-// // try and get frame 5 whould raise error.
+// // try and get frame 5 would raise error.
 // EXPECT_EQ(
 //     request_receive<media::AVFrameID>(
 //         *(f.self), clip1, media::get_media_pointer_atom_v, 0)

@@ -164,7 +164,7 @@ CachingMediaReaderActor::CachingMediaReaderActor(
         },
 
         [=](read_precache_image_atom, const media::AVFrameID &mptr) -> result<ImageBufPtr> {
-            // note the caller (GlobalMediaReaderActor) handles the cacheing
+            // note the caller (GlobalMediaReaderActor) handles the caching
             // of this image buffer
             auto rp = make_response_promise<media_reader::ImageBufPtr>();
             request(precache_worker_, infinite, get_image_atom_v, mptr)
@@ -175,7 +175,7 @@ CachingMediaReaderActor::CachingMediaReaderActor(
         },
 
         [=](read_precache_audio_atom, const media::AVFrameID &mptr) -> result<AudioBufPtr> {
-            // note the caller (GlobalMediaReaderActor) handles the cacheing
+            // note the caller (GlobalMediaReaderActor) handles the caching
             // of this image buffer
             auto rp = make_response_promise<media_reader::AudioBufPtr>();
             request(precache_worker_, infinite, get_audio_atom_v, mptr)
@@ -263,7 +263,7 @@ void CachingMediaReaderActor::receive_image_buffer_request(
                 } else {
                     // image is not cached. Update the request to load the image
                     pending_get_image_requests_[playhead_uuid] =
-                        ImmediateImageReqest(mptr, playhead, tp);
+                        ImmediateImageRequest(mptr, playhead, tp);
                     send(this, get_image_atom_v);
                 }
             },

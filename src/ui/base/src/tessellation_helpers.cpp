@@ -4,7 +4,7 @@
 #include <map>
 #include <vector>
 
-namespace xstudio::ui::tesslator {
+namespace xstudio::ui::tesselator {
 
 struct TessellationVertex {
 
@@ -474,4 +474,4 @@ void make_glyph_sdf(
     }
 }
 
-} // namespace xstudio::ui::tesslator
+} // namespace xstudio::ui::tesselator

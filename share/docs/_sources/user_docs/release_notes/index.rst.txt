@@ -29,14 +29,14 @@ v0.11.0 (Alpha)
 v0.10.0 (Alpha)
 ==============
 
-This intial open source version of xSTUDIO should be considered as a 'preview' release as the development team get to grips with maintaining the code base on a public repo. There are still some major features under development so we expect some parts of the code to change and expand considerably.
+This initial open source version of xSTUDIO should be considered as a 'preview' release as the development team get to grips with maintaining the code base on a public repo. There are still some major features under development so we expect some parts of the code to change and expand considerably.
 
 This version provides the following headline features:
 
 **Playlists**
 
   - Create any number of playlists
-  - Drag and drop within or betweemn playlists to reorder and organise media
+  - Drag and drop within or between playlists to reorder and organise media
 
 **Media**
 

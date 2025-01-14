@@ -14,7 +14,7 @@
 			"static_cache_delay_milliseconds": {
 				"path": "/core/playhead/static_cache_delay_milliseconds",
 				"default_value": 500,
-				"description": "Number of milliseconds to wait after playhead has stopped moving to re-start full timeline cacheing.",
+				"description": "Number of milliseconds to wait after playhead has stopped moving to re-start full timeline caching.",
 				"value": 500,
 				"minimum": 50,
 				"maximum": 120000,

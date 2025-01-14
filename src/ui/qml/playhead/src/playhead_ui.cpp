@@ -238,7 +238,7 @@ void PlayheadUI::init(actor_system &system_) {
                 if (frames_ != frames) {
                     frames_ = frames;
                     emit framesChanged();
-                    // reaquire cache..
+                    // reacquire cache..
                     rebuild_cache();
                     rebuild_bookmarks();
                     // emit cachedFramesChanged();

@@ -117,7 +117,7 @@ namespace colour_pipeline {
         shader/LUTs so it should be factored into the hash computation.
 
         This function should be as fast as possible as it is called every time
-        an image is displayed. Implement your own cacheing system if necessary
+        an image is displayed. Implement your own caching system if necessary
         to avoid expensive evaluations that can otherwise be stored.
         */
         [[nodiscard]] virtual std::string linearise_op_hash(
@@ -180,12 +180,12 @@ namespace colour_pipeline {
         The mechanism relies on (automatic) syncing the Attributes on the
         workers with the main instance: if the above five functions will always
         return the same result for a given state of the Attributes belonging to
-        your class then workers can be used to paralellise colour operations.
+        your class then workers can be used to parallelise colour operations.
         If these functions in your ColourPipeline rely on state data other than
         Attributes, however, you cannot use workers. */
         virtual bool allow_workers() const { return false; }
 
-        /* In conjunction with the allow_wokers method, you will also need to
+        /* In conjunction with the allow_workers method, you will also need to
         re-implement this function. If your class is called MyColourPipe the
         reimplementation would look exactly like this:
         caf::actor self_spawn(const utility::JsonStore &s) override { return
@@ -229,11 +229,11 @@ namespace colour_pipeline {
             ColourPipelineDataPtr result,
             const std::string transform_id);
 
-        void deliver_on_reponse_promises(
+        void deliver_on_response_promises(
             ColourPipelineDataPtr &result, const std::string &transform_id);
 
         void
-        deliver_on_reponse_promises(const caf::error &err, const std::string &transform_id);
+        deliver_on_response_promises(const caf::error &err, const std::string &transform_id);
 
         void finalise_colour_pipeline_data(
             const media::AVFrameID &media_ptr,

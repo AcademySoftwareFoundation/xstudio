@@ -195,7 +195,7 @@ QFuture<QList<QUuid>> PlaylistUI::handleDropFuture(const QVariantMap &drop) {
 
         auto jsn = dropToJsonStore(drop);
 
-        // conver to json..
+        // convert to json..
         if (jsn.count("text/uri-list")) {
             for (const auto &path : jsn["text/uri-list"]) {
                 auto uri = caf::make_uri(path);

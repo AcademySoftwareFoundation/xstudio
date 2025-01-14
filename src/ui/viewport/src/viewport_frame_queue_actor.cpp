@@ -38,7 +38,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             caf::actor playhead,
             const bool prefetch_inital_image) -> result<bool> {
             auto rp = make_response_promise<bool>();
-            // join the playhead's broadcast grop
+            // join the playhead's broadcast group
             request(playhead, infinite, utility::get_group_atom_v)
                 .then(
                     [=](caf::actor broadcast_group) mutable {
@@ -70,7 +70,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
                 .then(
                     [=](const utility::Uuid &curr_playhead_uuid) mutable {
                         current_playhead_ = curr_playhead_uuid;
-                        // fetch a frame so we have somethign to show immediately
+                        // fetch a frame so we have something to show immediately
                         if (prefetch_inital_image) {
                             request(playhead, infinite, playhead::buffer_atom_v)
                                 .then(
@@ -115,7 +115,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             // they aren't going to immediately be on screen. This should give enough time to do
             // slow work and prevent stuttering that would otherwise happen while we wait for
             // colour pipe to do its thing at draw time. We assume that the colour_pipeline_ has
-            // an effective local cacheing system so when we do actually need that data
+            // an effective local caching system so when we do actually need that data
             // immediately at draw time it will be available immediately.
             if (colour_pipeline_ && viewport_index_ >= 0) {
                 anon_send(
@@ -483,9 +483,9 @@ timebase::flicks ViewportFrameQueueActor::predicted_playhead_position_at_next_vi
         // To enact a stable pulldown we need to round this value down to a multiple of the
         // video_refresh_period. There is a catch, though. The playhead is 'free running' and is
         // not synced in any way to the video refresh. There will be some error in
-        // 'estimate_playhead_position_at_next_redraw' due to jitter or innacuracies in the
+        // 'estimate_playhead_position_at_next_redraw' due to jitter or inaccuracies in the
         // video refresh signal we get from the UI layer. Doing a straight rounding of the
-        // number could therefore mean dropping frames or otherwise innacurate pulldown as the
+        // number could therefore mean dropping frames or otherwise inaccurate pulldown as the
         // rounded playhead position might erratically bounce around the frame transition
         // boundary in the timeline. To overcome this we add a 'phase adjustment' that tries to
         // ensure we are about mid way between video refresh beats before we do the rounding.
@@ -551,14 +551,14 @@ xstudio::utility::time_point ViewportFrameQueueActor::next_video_refresh(
     } else if (video_refresh_data_.refresh_history_.size() > 64) {
 
         // refresh_history_ is a list of recent timepoints (system steady clock) when we were
-        // told (utlimately by Qt or graphics driver) that the video frame buffer was swapped.
+        // told (ultimately by Qt or graphics driver) that the video frame buffer was swapped.
         // We're using this data to predict when the video buffer will be swapped to the
         // screen NEXT time and therefore pick the correct frame to go up on the screen.
         //
         // We might know the video refresh exactly, or we might have been lied to, but either
         // way we need to know the phase of the refresh beat to predict when the next refresh
         // is due. So we need to fit a line to the video refresh events (as measured by the
-        // system clock) and filter out events that are innaccurate and also take account
+        // system clock) and filter out events that are inaccurate and also take account
         // of moments when a video refresh was missed completely.
 
 
@@ -633,7 +633,7 @@ timebase::flicks ViewportFrameQueueActor::compute_video_refresh() const {
         // call completes. Also the assumption is that the UI redraw is limited to
         // the display refresh rate (which happens if the draw time isn't longer than
         // the refresh period and also that the swap buffers is synced to VBlank).
-        // Here we try to match out measurement with commong video refresh rates:
+        // Here we try to match out measurement with common video refresh rates:
 
         // Assume 24fps is the minimum refresh we'll ever encounter
         const int hertz_refresh =

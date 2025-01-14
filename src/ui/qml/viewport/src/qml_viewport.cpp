@@ -554,7 +554,7 @@ void QMLViewport::setNoAlphaChannel(bool no_alpha_channel) {
 class CleanupJob : public QRunnable {
   public:
     /* N.B. - we use a shared_ptr to manage the deletion of the viewport. The
-    reason is that sometimes (on xstudio shotdown) the CleanupJob instance
+    reason is that sometimes (on xstudio shutdown) the CleanupJob instance
     is created but run does NOT get executed. */
     CleanupJob(QMLViewportRenderer *vp) : renderer(vp) {}
     void run() override { renderer.reset(); }
@@ -568,7 +568,7 @@ void QMLViewport::releaseResources() {
     /* This is the recommended way to delete the object that manages OpenGL
     resources. Scheduling a render job means that it is run when the OpenGL
     context is valid and as such in the destructor of the ViewportRenderer
-    we can do the appropriare release of OpenGL resources*/
+    we can do the appropriate release of OpenGL resources*/
     window()->scheduleRenderJob(
         new CleanupJob(renderer_actor), QQuickWindow::BeforeSynchronizingStage);
     renderer_actor = nullptr;

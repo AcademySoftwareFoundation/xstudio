@@ -21,7 +21,7 @@ namespace colour_pipeline {
     // By adding appropriate attributes to your class you can create UI elements
     // that will modify the attributes. By naming attributes the same as
     // uniforms in your shader, xSTUDIO will ensure that the uniform value is
-    // updated at draw time to match the correspondin attribute value.
+    // updated at draw time to match the corresponding attribute value.
     class ColourOpPlugin : public plugin::StandardPlugin {
 
       protected:
@@ -48,7 +48,7 @@ namespace colour_pipeline {
         Typically this result will be static for all sources but there is the
         possibility to have data that depends on properties (like metadata) of
         the media_source if required. It is up to the plugin write to make this
-        call efficient and have cacheing of shader data where that might
+        call efficient and have caching of shader data where that might
         be appropriate.*/
         virtual ColourOperationDataPtr colour_op_graphics_data(
             utility::UuidActor &media_source,

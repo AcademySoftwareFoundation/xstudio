@@ -716,7 +716,7 @@ void GlobalUIModelData::push_to_prefs(const std::string &model_name, const bool 
         if (models_[model_name]->preference_path_.empty())
             return;
 
-        // if we haven't sheduled and update, mark as pending and send ourselves
+        // if we haven't scheduled and update, mark as pending and send ourselves
         // a delayed message to actually do the update.
         //
         // The reason is that we don't want to update the prefs store with
@@ -785,10 +785,10 @@ void GlobalUIModelData::insert_into_menu_model(
 
         // If menu path is, say "Publish|Annotations|Latest", we need to find
         // the top level node where "name"=="Publish". Then we search that node's
-        // children for one where "name"=="Annotaitons". Then we search that
+        // children for one where "name"=="Annotations". Then we search that
         // node's children for one where "name"=="Latest". If we do not find
         // the matching child, we break as this is where we need to start
-        // creating children items to build the sub-menu heirachy
+        // creating children items to build the sub-menu hierarchy
         std::vector<std::string> parent_menus = utility::split(menu_path, '|');
 
         while (parent_menus.size()) {

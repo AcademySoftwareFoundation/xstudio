@@ -105,7 +105,7 @@ Rectangle {
     // When the viewerLayoutsMenu is visible, a click outside
     // of it should hide it, to do this we need a mouse area
     // underneath it that captures all mouse events while it
-    // is visisble
+    // is visible
     MouseArea {
         anchors.fill: parent
         propagateComposedEvents: true
@@ -322,7 +322,7 @@ Rectangle {
 
         XsPaneContainer {
 
-            id: timline_container
+            id: timeline_container
             title: "Media"
             visible: height > 0
 
@@ -395,7 +395,7 @@ Rectangle {
             child_widget_A: session_panel_container
             child_widget_B: media_list_container
             child_widget_C: player_container
-            child_widget_D: timline_container
+            child_widget_D: timeline_container
         }
 
         XsPresentationLayout {
@@ -413,7 +413,7 @@ Rectangle {
     property alias browse_layout: browse_layout
     property alias review_layout: review_layout
     property var the_layout: review_layout
-    property var all_panels: [session_panel_container, player_container, media_list_container, timline_container]
+    property var all_panels: [session_panel_container, player_container, media_list_container, timeline_container]
 
     onLayout_nameChanged: {
         previous_layout = prefs.values.layout_name
@@ -504,14 +504,14 @@ Rectangle {
 
     function toggleTimelinePane() {
 
-        the_layout.toggle_widget_vis(timline_container)
+        the_layout.toggle_widget_vis(timeline_container)
 
     }
 
     property var media_pane_visible: media_list_container.visible
     property var session_pane_visible: session_panel_container.visible
     property var player_pane_visible: player_container.visible
-    property var timeline_pane_visible: timline_container.visible
+    property var timeline_pane_visible: timeline_container.visible
     property var settings_dialog_visible: settings_dialog ? settings_dialog.visible : false
     property var settings_dialog: undefined
 

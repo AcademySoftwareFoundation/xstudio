@@ -280,7 +280,7 @@ namespace module {
         caf::actor module_events_group_;
         caf::actor attribute_events_group_;
 
-        caf::actor_addr attr_sync_source_adress_;
+        caf::actor_addr attr_sync_source_address_;
         std::set<caf::actor_addr> partially_linked_modules_;
         std::set<caf::actor_addr> fully_linked_modules_;
         std::set<utility::Uuid> linked_attrs_;

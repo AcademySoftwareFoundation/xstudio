@@ -68,7 +68,7 @@
 			"check_unsaved_session": {
 				"path": "/ui/qml/check_unsaved_session",
 				"default_value": true,
-				"description": "Warn user on quiting with unsaved session.",
+				"description": "Warn user on quitting with unsaved session.",
 				"value": true,
 				"datatype": "bool",
 				"context": ["QML_UI"]

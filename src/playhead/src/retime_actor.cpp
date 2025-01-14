@@ -310,7 +310,7 @@ void RetimeActor::recursive_deliver_all_media_pointers(
     caf::typed_response_promise<media::FrameTimeMap> rp) {
 
     // this function is crucial. It works by recursively self calling until the
-    // 'clip_index' is greater than the number of clips (incrementind clip_index)
+    // 'clip_index' is greater than the number of clips (incrementing clip_index)
     // in this edit list.
     // We use it to get a full list of media pointers for this edit list from
     // start to finish. A 'AVFrameID' is a struct that contains all the
@@ -385,7 +385,7 @@ void RetimeActor::recursive_deliver_all_media_pointers(
                             // re-use the pointer we were given
                             (*result)[time_point] = mps[retime_frame];
                         } else {
-                            // dupliacte frame, need to duplicate the data
+                            // duplicate frame, need to duplicate the data
                             media::AVFrameID mptr(*mps[retime_frame]);
                             if (r == HELD_FRAME) {
                                 mptr.params_["HELD_FRAME"] = true;

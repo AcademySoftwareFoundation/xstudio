@@ -71,7 +71,7 @@ void Module::set_parent_actor_addr(caf::actor_addr addr) {
 
 
     // Some 'Modules' might try and register their hotkeys before they have been
-    // hooked in to an actor - here we are able to register tham
+    // hooked in to an actor - here we are able to register them
     if (unregistered_hotkeys_.size()) {
         if (!keypress_monitor_actor_) {
             keypress_monitor_actor_ =
@@ -114,7 +114,7 @@ void Module::link_to_module(
     caf::actor other_module,
     const bool link_all_attrs,
     const bool both_ways,
-    const bool intial_push_sync) {
+    const bool initial_push_sync) {
 
     auto addr = caf::actor_cast<caf::actor_addr>(other_module);
     if (addr) {
@@ -124,7 +124,7 @@ void Module::link_to_module(
         else
             partially_linked_modules_.insert(addr);
 
-        if (intial_push_sync) {
+        if (initial_push_sync) {
 
             // send state of all attrs to 'other_module' so it can update its copies as required
             for (auto &attribute : attributes_) {
@@ -512,8 +512,8 @@ caf::message_handler Module::message_handler() {
              const int role,
              bool notify,
              const utility::JsonStore &value,
-             caf::actor_addr attr_sync_source_adress) -> bool {
-             attr_sync_source_adress_ = attr_sync_source_adress;
+             caf::actor_addr attr_sync_source_address) -> bool {
+             attr_sync_source_address_ = attr_sync_source_address;
              auto attr                = get_attribute(attr_title);
 
              if (attr) {
@@ -523,7 +523,7 @@ caf::message_handler Module::message_handler() {
                      spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
                  }
              }
-             attr_sync_source_adress_ = caf::actor_addr();
+             attr_sync_source_address_ = caf::actor_addr();
              return true;
          },
 
@@ -681,8 +681,8 @@ caf::message_handler Module::message_handler() {
              caf::actor linkwith,
              bool all_attrs,
              bool both_ways,
-             bool intial_push_sync) {
-             link_to_module(linkwith, all_attrs, both_ways, intial_push_sync);
+             bool initial_push_sync) {
+             link_to_module(linkwith, all_attrs, both_ways, initial_push_sync);
          },
 
          [=](link_module_atom, caf::actor linkwith, bool unlink) {
@@ -750,7 +750,7 @@ caf::message_handler Module::message_handler() {
 
              if (default_keycode == -1) {
                  std::stringstream ss;
-                 ss << "Unkown keyboard key name \"" << key_name << "\"";
+                 ss << "Unknown keyboard key name \"" << key_name << "\"";
                  return make_error(xstudio_error::error, ss.str().c_str());
              }
 
@@ -1001,14 +1001,14 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
         return;
     }
 
-    auto my_adress = caf::actor_cast<caf::actor_addr>(self());
+    auto my_address = caf::actor_cast<caf::actor_addr>(self());
     if (linked_attrs_.find(attr_uuid) != linked_attrs_.end()) {
         for (auto &linked_module_addr : partially_linked_modules_) {
 
             // If the attribute is changed because of a sync coming from another
             // linked module, we don't want to broadcast the change *back* to
             // that module. That's what this line does!
-            if (linked_module_addr == attr_sync_source_adress_)
+            if (linked_module_addr == attr_sync_source_address_)
                 continue;
 
             auto linked_module = caf::actor_cast<caf::actor>(linked_module_addr);
@@ -1024,11 +1024,11 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
                 role_id,
                 notify,
                 utility::JsonStore(attr_role_data),
-                my_adress);
+                my_address);
         }
     }
     for (auto &linked_module_addr : fully_linked_modules_) {
-        if (linked_module_addr == attr_sync_source_adress_)
+        if (linked_module_addr == attr_sync_source_address_)
             continue;
         auto linked_module = caf::actor_cast<caf::actor>(linked_module_addr);
         if (!linked_module)
@@ -1043,7 +1043,7 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
             role_id,
             notify,
             utility::JsonStore(attr_role_data),
-            my_adress);
+            my_address);
     }
 
     if (notify)

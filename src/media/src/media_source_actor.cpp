@@ -62,7 +62,7 @@ MediaSourceActor::MediaSourceActor(caf::actor_config &cfg, const JsonStore &jsn)
                 join_event_group(this, media_streams_[Uuid(key)]);
 
                 // as of xSTUDIO v2 media detail has been extended to have
-                // reoslution and pixel aspect info. If we're reading from
+                // resolution and pixel aspect info. If we're reading from
                 // an older session file we need to update the media details
                 re_aquire_detail |= !value["base"].contains("resolution");
 
@@ -139,7 +139,7 @@ MediaSourceActor::MediaSourceActor(
     mr.set_timecode_from_frames();
     base_.set_media_reference(mr);
 
-    // special case , when duplicating, as that'll suppy streams.
+    // special case , when duplicating, as that'll supply streams.
     // anon_send(actor_cast<actor>(this), acquire_media_detail_atom_v, media_reference.rate());
 
     init();
@@ -1417,7 +1417,7 @@ void MediaSourceActor::get_media_pointers_for_frames(
                             for (const auto &i : ranges) {
                                 for (auto logical_frame = i.first; logical_frame <= i.second;
                                      logical_frame++) {
-                                    // the try block catches posible 'out_of_range'
+                                    // the try block catches possible 'out_of_range'
                                     // exception coming from MediaReference::uri()
                                     try {
 

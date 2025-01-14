@@ -369,7 +369,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
         [=](colour_pipeline::colour_pipeline_atom atom) {
             // 'colour' is the colour pipeline manager. To get to the
-            // actual colour pipelin actor (OCIO plugin) we delegate to
+            // actual colour pipeline actor (OCIO plugin) we delegate to
             // the manager. Getting to the manager alon is not interesting.
             delegate(colour, atom);
         },

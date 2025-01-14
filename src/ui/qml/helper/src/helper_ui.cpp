@@ -59,7 +59,7 @@ caf::actor xstudio::ui::qml::actorFromQString(actor_system &sys, const QString &
 
 QString xstudio::ui::qml::getThumbnailURL(
     actor_system &system, const caf::actor &actor, const int frame, const bool cache_to_disk) {
-    //  we introduce a random component to allow reaquiring of thumb.
+    //  we introduce a random component to allow reacquiring of thumb.
     // this is for the default thumb which maybe generated before the media source is fully
     // loaded.
     QString thumburl("qrc:///feather_icons/film.svg");

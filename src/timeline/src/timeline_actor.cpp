@@ -335,7 +335,7 @@ void timeline_importer(
 
         // spdlog::warn("{} {}", active_key, active_path);
 
-        // WARNING this may inadvertantly skip auxiliary sources we want..
+        // WARNING this may inadvertently skip auxiliary sources we want..
         if (active_path.empty() or target_url_map.count(active_path)) {
             // spdlog::warn("SKIP");
             continue;
@@ -754,7 +754,7 @@ void TimelineActor::init() {
 
         // handle child change events.
         // [=](event_atom, item_atom, const Item &item) {
-        //     // it's possibly one of ours.. so try and substitue the record
+        //     // it's possibly one of ours.. so try and substitute the record
         //     if(base_.item().replace_child(item)) {
         //         base_.item().refresh();
         //         send(this, utility::event_atom_v, change_atom_v);
@@ -1090,7 +1090,7 @@ void TimelineActor::init() {
 
         [=](timeline::duration_atom, const timebase::flicks &new_duration) -> bool {
             // attempt by playhead to force trim the duration (to support compare
-            // modes for sources of different lenght). Here we ignore it.
+            // modes for sources of different length). Here we ignore it.
             return false;
         },
 

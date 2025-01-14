@@ -45,7 +45,7 @@ MediaStreamActor::MediaStreamActor(
 }
 
 void MediaStreamActor::init() {
-    // only parial..
+    // only partial..
     // spdlog::debug(
     //     "Created MediaStreamActor {} {} {}",
     //     base_.name(),

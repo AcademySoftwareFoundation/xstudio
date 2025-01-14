@@ -73,7 +73,7 @@ namespace ui {
              *
              *  @details This allows for the double click behaviour on the fit and zoom
              * buttons to toggle the fit/zoom back to what it was before the last
-             * interactino started.
+             * interaction started.
              */
             void revert_fit_zoom_to_previous(const bool synced = false);
 
@@ -147,7 +147,7 @@ namespace ui {
              *
              *  @details The matrix translating & scaling the image so that the active 'fit
              * mode' works as required is dependent on the resolution of the image being
-             * displaye. This function receives the resolution of the current image being
+             * displayed. This function receives the resolution of the current image being
              * displayed and updates the fit mode matrix as required.
              */
             void update_fit_mode_matrix(
@@ -266,7 +266,7 @@ namespace ui {
              *
              *  @details When a viewport is set to auto-connect to the playhead,
              *  this means that when the 'active' playlist/subset/timeline at
-             *  the session level changes (e.g. if the user double cliks on a
+             *  the session level changes (e.g. if the user double clicks on a
              *  playlist in the playlist panel interface) then the viewport
              *  will automatically connect to the playhead for that playlist/
              *  subset/timeline such that it shows the select media therein.

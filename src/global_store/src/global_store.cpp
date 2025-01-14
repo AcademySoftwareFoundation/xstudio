@@ -188,7 +188,7 @@ void load_override(utility::JsonStore &json, const fs::path &path) {
             json.set(it.value(), it.key());
 
             spdlog::debug(
-                "Property overriden {} {} {}", it.key(), to_string(it.value()), path.string());
+                "Property overridden {} {} {}", it.key(), to_string(it.value()), path.string());
             // tag it.
             set_preference_overridden_path(json, path.string(), property);
             if (set_as_overridden)

@@ -114,10 +114,10 @@ void SubPlayhead::init() {
 
     set_default_handler(
         [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
-            //  UNCOMMENT TO DEBUG UNEXPECT MESSAGES
+            //  UNCOMMENT TO DEBUG UNEXPECTED MESSAGES
 
             spdlog::warn(
-                "Got unwanted messate from {} {}", to_string(current_sender()), to_string(msg));
+                "Got unwanted message from {} {}", to_string(current_sender()), to_string(msg));
 
             return message{};
         });
@@ -332,7 +332,7 @@ void SubPlayhead::init() {
                     // note the >= .... if logical_media_frame is *less* than
                     // the frame's media frame, we return the timestamp for
                     // 'frame'. The reason is that if we've been asked to get
-                    // the time stamp for frame zero, but we have frame nubers
+                    // the time stamp for frame zero, but we have frame numbers
                     // that start at 1001, say, we just fall back to returning
                     // the first frame
                     return frame->first;
@@ -559,7 +559,7 @@ void SubPlayhead::init() {
 
                     [=](ImageBufPtr image_buffer) mutable {
                         image_buffer.when_to_display_ = utility::clock::now();
-                        image_buffer.set_timline_timestamp(timeline_pts);
+                        image_buffer.set_timeline_timestamp(timeline_pts);
                         image_buffer.set_frame_id(*(frame.get()));
                         add_annotations_data_to_frame(image_buffer);
 
@@ -701,7 +701,7 @@ void SubPlayhead::init() {
             auto rp = make_response_promise<bool>();
             if (start_precache && (precache_start_frame_ != logical_frame_ || force)) {
                 // we've been asked to start precaching, and the previous
-                // sarting point is different to current position, so go ahead
+                // starting point is different to current position, so go ahead
                 precache_start_frame_ = logical_frame_;
                 make_static_precache_request(rp, start_precache);
             } else if (!start_precache) {
@@ -722,7 +722,7 @@ void SubPlayhead::init() {
                 // logical frame is not changing! Kick off a full precache
                 anon_send(this, full_precache_atom_v, true, false);
             } else if (logical_frame != logical_frame_) {
-                // otherwise stop any pre cacheing
+                // otherwise stop any pre caching
                 precache_start_frame_ = std::numeric_limits<int>::lowest();
             }
         },
@@ -913,7 +913,7 @@ void SubPlayhead::broadcast_image_frame(
 
             [=](ImageBufPtr image_buffer) mutable {
                 image_buffer.when_to_display_ = when_to_show_frame;
-                image_buffer.set_timline_timestamp(timeline_pts);
+                image_buffer.set_timeline_timestamp(timeline_pts);
                 image_buffer.set_frame_id(*(frame_media_pointer.get()));
                 add_annotations_data_to_frame(image_buffer);
 
@@ -1068,7 +1068,7 @@ void SubPlayhead::request_future_frames() {
                 auto tp   = timeline_pts_vec.begin();
                 auto idsp = future_frames.begin();
                 for (auto &imbuf : image_buffers) {
-                    imbuf.set_timline_timestamp(*(tp++));
+                    imbuf.set_timeline_timestamp(*(tp++));
                     std::shared_ptr<const media::AVFrameID> av_idx = (idsp++)->second;
                     if (av_idx) {
                         imbuf.set_frame_id(*(av_idx.get()));
@@ -1183,9 +1183,9 @@ void SubPlayhead::receive_image_from_cache(
     if (mptr.playhead_logical_frame_ < (int)full_timeline_frames_.size()) {
         auto p = full_timeline_frames_.begin();
         std::advance(p, mptr.playhead_logical_frame_);
-        image_buffer.set_timline_timestamp(p->first);
+        image_buffer.set_timeline_timestamp(p->first);
     } else {
-        image_buffer.set_timline_timestamp(position_flicks_);
+        image_buffer.set_timeline_timestamp(position_flicks_);
     }
     image_buffer.set_frame_id(mptr);
     add_annotations_data_to_frame(image_buffer);
@@ -1236,7 +1236,7 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
                     // evaluate the full duration of what's being played. We need to drop
                     // in an empty frame at the end, with a timestamp that matches the
                     // point just *after* the last frame's timestamp plus its duration.
-                    // Thus, for a single frame sourc that is 24pfs, say, we will have
+                    // Thus, for a single frame source that is 24pfs, say, we will have
                     // two entries in full_timeline_frames_ ... one entry a t=0that is
                     // the frame. The second is a nullptr at t = 1.0/24.0s.
                     //
@@ -1419,7 +1419,7 @@ void SubPlayhead::full_bookmarks_update() {
         .then(
             [=](caf::actor bookmarks_manager) {
                 // here we get all bookmarks that match any and all of the media
-                // that appear in our timline
+                // that appear in our timeline
                 request(
                     bookmarks_manager,
                     infinite,
@@ -1451,7 +1451,7 @@ void SubPlayhead::full_bookmarks_update() {
                             // WARNING!! This is potentially expensive for very long timelines
                             // ... Need to look for an optimisation
 
-                            // loop over the timeline frames, kkep track of current
+                            // loop over the timeline frames, keep track of current
                             // media (for efficiency) and check against the bookmarks
                             int logical_playhead_frame = 0;
                             for (const auto &f : full_timeline_frames_) {
@@ -1533,7 +1533,7 @@ void SubPlayhead::fetch_bookmark_annotations(BookmarkRanges bookmark_ranges) {
     request(global, infinite, bookmark::get_bookmark_atom_v)
         .then(
             [=](caf::actor bookmarks_manager) {
-                // get the bookmark actors for bookmarks that are in our timline
+                // get the bookmark actors for bookmarks that are in our timeline
                 request(
                     bookmarks_manager, infinite, bookmark::get_bookmark_atom_v, bookmark_ids)
                     .then(
@@ -1573,7 +1573,7 @@ void SubPlayhead::fetch_bookmark_annotations(BookmarkRanges bookmark_ranges) {
                                             (*count)--;
                                             if (!*count) {
 
-                                                // sortf bookmarks by start frame - makes
+                                                // sorts bookmarks by start frame - makes
                                                 // searching them faster
                                                 std::sort(
                                                     result->begin(),
@@ -1676,7 +1676,7 @@ void SubPlayhead::bookmark_deleted(const utility::Uuid &bookmark_uuid) {
 
 void SubPlayhead::bookmark_changed(const utility::UuidActor bookmark) {
 
-    // if a bookmark has changed, and its a bookmar that is in our timleine,
+    // if a bookmark has changed, and its a bookmark that is in our timeline,
     // do a full rebuild to make sure we're fully up to date.
     for (auto &p : bookmarks_) {
         if (p->detail_.uuid_ == bookmark.uuid()) {

@@ -23,7 +23,7 @@ class BuildPlaylistMediaJob {
         std::string preferred_visual_source,
         std::string preferred_audio_source,
         std::shared_ptr<event::Event> event,
-        std::shared_ptr<utility::UuidList> ordererd_uuids,
+        std::shared_ptr<utility::UuidList> ordered_uuids,
         utility::Uuid before,
         std::string flag_colour,
         std::string flag_text,
@@ -38,7 +38,7 @@ class BuildPlaylistMediaJob {
           preferred_visual_source_(std::move(preferred_visual_source)),
           preferred_audio_source_(std::move(preferred_audio_source)),
           event_msg_(std::move(event)),
-          ordererd_uuids_(std::move(ordererd_uuids)),
+          ordered_uuids_(std::move(ordered_uuids)),
           before_(std::move(before)),
           flag_colour_(std::move(flag_colour)),
           flag_text_(std::move(flag_text)),
@@ -46,7 +46,7 @@ class BuildPlaylistMediaJob {
           result_(std::move(result)),
           result_count_(result_count) {
         // increment a shared counter - the counter is shared between
-        // all the indiviaual Media creation jobs in a single build playlist
+        // all the individual Media creation jobs in a single build playlist
         // task
         (*result_count)++;
     }
@@ -70,7 +70,7 @@ class BuildPlaylistMediaJob {
             // match the ordering in the playlist
             utility::UuidActorVector reordered;
             reordered.reserve(result_->size());
-            for (const auto &uuid : (*ordererd_uuids_)) {
+            for (const auto &uuid : (*ordered_uuids_)) {
                 for (auto uai = result_->begin(); uai != result_->end(); uai++) {
                     if ((*uai).uuid() == uuid) {
                         reordered.push_back(*uai);
@@ -91,7 +91,7 @@ class BuildPlaylistMediaJob {
     std::string preferred_visual_source_;
     std::string preferred_audio_source_;
     std::shared_ptr<event::Event> event_msg_;
-    std::shared_ptr<utility::UuidList> ordererd_uuids_;
+    std::shared_ptr<utility::UuidList> ordered_uuids_;
     utility::Uuid before_;
     std::string flag_colour_;
     std::string flag_text_;

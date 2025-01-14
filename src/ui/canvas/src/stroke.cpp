@@ -119,7 +119,7 @@ std::vector<Imath::V2f> Stroke::vertices() const {
 }
 
 // Note the below is slightly more complex than it could because
-// we try to maintain bakward compatibility with previous format.
+// we try to maintain backward compatibility with previous format.
 
 void xstudio::ui::canvas::from_json(const nlohmann::json &j, Stroke &s) {
 

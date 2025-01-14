@@ -154,7 +154,7 @@ std::string dneg_ocio_default_display(
     New style is to have a 'Playback' display. Fallback to old-style where
     we check whether the hostname is one of the display options.
     Note that for DCI, playback display default view is a straight
-    DCI-P3 output (playback characterization tranforms are identity matrix
+    DCI-P3 output (playback characterization transforms are identity matrix
     and 1D LUT).
     */
 

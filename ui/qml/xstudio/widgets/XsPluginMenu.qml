@@ -12,7 +12,7 @@ Item {
     property string backendId
 
     property var plugin_ui
-    // substitue menus  ?
+    // substitute menus  ?
 
     function loadUI() {
 		plugin_ui = Qt.createQmlObject(

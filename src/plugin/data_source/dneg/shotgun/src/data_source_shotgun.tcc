@@ -112,7 +112,7 @@ ShotgunDataSourceActor<T>::ShotgunDataSourceActor(
     shotgun_ = spawn<ShotgunClientActor>();
     link_to(shotgun_);
 
-    // we need to recieve authentication updates.
+    // we need to receive authentication updates.
     join_event_group(this, shotgun_);
 
     // we are the source of the secret..
@@ -1023,7 +1023,7 @@ void ShotgunDataSourceActor<T>::do_add_media_sources_from_shotgun(
                     caf::infinite,
                     playlist::add_media_atom_v,
                     ua,
-                    *(build_media_task_data->ordererd_uuids_),
+                    *(build_media_task_data->ordered_uuids_),
                     build_media_task_data->before_)
                     .then(
 
@@ -1066,7 +1066,7 @@ void ShotgunDataSourceActor<T>::do_add_media_sources_from_ivy(
     auto continue_processing_job_queue = [=]() {
         build_tasks_in_flight_--;
         delayed_send(this, JOB_DISPATCH_DELAY, playlist::add_media_atom_v);
-        /* Commented out bevause we're not including ivy leaf addition
+        /* Commented out because we're not including ivy leaf addition
         in progress indicator now.
         if (ivy_media_task_data->event_msg) {
             ivy_media_task_data->event_msg->increment_progress();

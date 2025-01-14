@@ -307,7 +307,7 @@ utility::BlindDataObjectPtr GradingTool::prepare_overlay_data(
 
             auto render_data = std::make_shared<GradingMaskRenderData>();
 
-            // N.B. this means we copy the entirity of grading_data_ (it's strokes
+            // N.B. this means we copy the entirety of grading_data_ (it's strokes
             // basically) on every redraw. Should be ok in the wider scheme of
             // things but not exactly efficient. Another approach would be making
             // GradingData thread safe (Canvas class already is) and share a

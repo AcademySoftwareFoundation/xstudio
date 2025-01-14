@@ -51,7 +51,7 @@ namespace ui {
             /**
              *  @brief Make a given attribute visible in the settings panel for the HUD plugin
              *
-             *  @details Calling this with an attribte will ensure that the attribute will
+             *  @details Calling this with an attribute will ensure that the attribute will
              * appear in the settings pop-up dialog for the plugin
              */
             void add_hud_settings_attribute(module::Attribute *attr);

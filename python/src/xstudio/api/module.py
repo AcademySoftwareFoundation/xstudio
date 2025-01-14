@@ -171,7 +171,7 @@ class ModuleBase(ActorConnection):
 
     def disconnect_from_ui(self):
         """Call this method to de-activate the plugin and hide or stop updating
-        any UI elemnts that were created by the plugin"""
+        any UI elements that were created by the plugin"""
 
         self.connection.request_receive(
             self.remote,
@@ -268,7 +268,7 @@ class ModuleBase(ActorConnection):
 
     def subscribe_to_playhead_events(self, playhead_event_callback):
         """Set the callback function for receiving events specific to
-        the playhead and subscrive to the playheads events broadcast
+        the playhead and subscribe to the playheads events broadcast
         group.
 
         Args:

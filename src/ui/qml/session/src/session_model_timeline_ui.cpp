@@ -780,7 +780,7 @@ QFuture<QList<QUuid>> SessionModel::handleTimelineIdDropFuture(
                 return std::get<0>(a).row() < std::get<0>(b).row();
             });
 
-            // valid desination ?
+            // valid destination ?
             if (valid_index) {
                 auto before_type         = StdFromQString(index.data(typeRole).toString());
                 auto before_uuid         = UuidFromQUuid(index.data(idRole).toUuid());

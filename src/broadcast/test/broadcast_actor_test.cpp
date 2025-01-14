@@ -48,7 +48,7 @@ class TestActor : public caf::event_based_actor {
                     to_string(current_sender()));
             },
             [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {
-                spdlog::warn("broadcast down recieved");
+                spdlog::warn("broadcast down received");
             },
             [=](xstudio::broadcast::leave_broadcast_atom) {
                 request(broadcast_, infinite, leave_broadcast_atom_v)

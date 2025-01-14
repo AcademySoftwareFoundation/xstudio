@@ -5,7 +5,7 @@
 #include <Imath/ImathVec.h>
 
 
-// If a pen stroke has thickness of 1, it will be 1 pixel thick agains
+// If a pen stroke has thickness of 1, it will be 1 pixel thick against
 // an image that 3860 pixels in width.
 #define PEN_STROKE_THICKNESS_SCALE 3860.0f
 

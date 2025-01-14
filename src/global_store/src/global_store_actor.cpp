@@ -45,7 +45,7 @@ GlobalStoreActor::GlobalStoreActor(
 }
 
 void GlobalStoreActor::init() {
-    // only parial..
+    // only partial..
     spdlog::debug("Created GlobalStoreActor {}", base_.name());
     print_on_exit(this, "GlobalStoreActor");
 

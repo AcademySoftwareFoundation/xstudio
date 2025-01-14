@@ -167,7 +167,7 @@ void SessionModel::init(caf::actor_system &_system) {
                             j,
                             childrenRole);
                     } else {
-                        spdlog::warn("FAIELD");
+                        spdlog::warn("FAILED");
                     }
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -245,7 +245,7 @@ void SessionModel::init(caf::actor_system &_system) {
                     }
                 } else {
                     // ignore this message from the session actor..
-                    // not sure why it want's this..
+                    // not sure why it wants this..
                 }
             },
 
@@ -739,7 +739,7 @@ void SessionModel::init(caf::actor_system &_system) {
                             j,
                             childrenRole);
                     } else {
-                        spdlog::warn("FAIELD");
+                        spdlog::warn("FAILED");
                     }
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -782,7 +782,7 @@ void SessionModel::init(caf::actor_system &_system) {
             },
 
             [=](utility::event_atom, utility::change_atom) {
-                // arbitary change ..
+                // arbitrary change ..
                 // try {
                 //     auto src     = caf::actor_cast<caf::actor>(self()->current_sender());
                 //     auto src_str = actorToString(system(), src);

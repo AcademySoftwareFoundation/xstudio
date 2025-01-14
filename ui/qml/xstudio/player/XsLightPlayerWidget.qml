@@ -190,7 +190,7 @@ Rectangle {
     // When certain custom pop-up widgets are visible a click outside
     // of it should hide it, to do this we need a mouse area
     // underneath it that captures all mouse events while it
-    // is visisble
+    // is visible
     MouseArea {
         anchors.fill: parent
         propagateComposedEvents: true

@@ -25,18 +25,18 @@ namespace media_reader {
         const char *name() const override { return NAME.c_str(); }
 
       private:
-        struct ImmediateImageReqest {
+        struct ImmediateImageRequest {
 
-            ImmediateImageReqest(
+            ImmediateImageRequest(
                 const media::AVFrameID mptr,
                 caf::actor &playhead,
                 const utility::time_point &time)
                 : mptr_(mptr), playhead_(playhead), time_point_(time) {}
 
-            ImmediateImageReqest(const ImmediateImageReqest &) = default;
-            ImmediateImageReqest()                             = default;
+            ImmediateImageRequest(const ImmediateImageRequest &) = default;
+            ImmediateImageRequest()                             = default;
 
-            ImmediateImageReqest &operator=(const ImmediateImageReqest &o) = default;
+            ImmediateImageRequest &operator=(const ImmediateImageRequest &o) = default;
 
             media::AVFrameID mptr_;
             caf::actor playhead_;
@@ -50,7 +50,7 @@ namespace media_reader {
             const utility::Uuid playhead_uuid,
             const utility::time_point &tp);
 
-        std::map<const utility::Uuid, ImmediateImageReqest> pending_get_image_requests_;
+        std::map<const utility::Uuid, ImmediateImageRequest> pending_get_image_requests_;
 
         inline static const std::string NAME = "CachingMediaReaderActor";
 

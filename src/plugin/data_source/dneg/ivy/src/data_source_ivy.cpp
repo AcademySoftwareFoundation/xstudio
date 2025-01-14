@@ -1004,7 +1004,7 @@ void IvyDataSourceActor<T>::ivy_load_file(
                 try {
                     auto jsn = nlohmann::json::parse(response.body);
                     // spdlog::warn("ivy_load_file {}", jsn.dump(2));
-                    // check result and distribuite to loader..
+                    // check result and distribute to loader..
                     if (jsn.count("errors")) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, jsn.dump(2));
                         rp.deliver(UuidActorVector());

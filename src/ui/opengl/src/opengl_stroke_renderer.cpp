@@ -279,7 +279,7 @@ void OpenGLStrokeRenderer::render_strokes(
         // the strokes don't draw correctly so we must use depth-test to prevent
         // this.
         // Anti-aliasing the boundary is tricky as we don't want to put down
-        // anti-alised edge pixels where there will be solid pixels due to some
+        // anti-aliased edge pixels where there will be solid pixels due to some
         // other segment of the same stroke, or the depth test means we punch
         // little holes in the solid bit with anti-aliased edges where there
         // is self-overlapping
@@ -293,7 +293,7 @@ void OpenGLStrokeRenderer::render_strokes(
         // soft edge plotting overlaps in an awkward way and you get bad artifacts
         // if you try other strategies ....
         // Drawing different, bright colours over each other where opacity is
-        // not 1.0 shows up a subtle but noticeable flourescent glow effect.
+        // not 1.0 shows up a subtle but noticeable fluorescent glow effect.
         // Solutions on a postcard please!
 
         // so this prevents overlapping quads from same stroke accumulating together
@@ -305,7 +305,7 @@ void OpenGLStrokeRenderer::render_strokes(
             glBlendEquation(GL_FUNC_ADD);
         }
 
-        // set up the shader uniforms - strok thickness, colour etc
+        // set up the shader uniforms - stroke thickness, colour etc
         shader_params2["z_adjust"]           = depth;
         shader_params2["brush_colour"]       = stroke.colour;
         shader_params2["brush_opacity"]      = stroke.opacity;

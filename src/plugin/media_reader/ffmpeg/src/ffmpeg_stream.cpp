@@ -849,7 +849,7 @@ int64_t FFMpegStream::receive_frame() {
     if (!rt && nothing_decoded_yet_)
         nothing_decoded_yet_ = false;
 
-    // no error, but might need more packet data to receive aother frame or we've
+    // no error, but might need more packet data to receive another frame or we've
     // hit the end of the file
 
     return rt;

@@ -801,7 +801,7 @@ QFuture<QString> BookmarkModel::exportCSVFuture(const QUrl &path) {
                 o << std::get<0>(data);
                 o.close();
 
-                return QStringFromStd("CSV Exported successfuly.");
+                return QStringFromStd("CSV Exported successfully.");
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 return QStringFromStd(failed + err.what());

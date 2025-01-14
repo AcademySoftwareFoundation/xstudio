@@ -22,7 +22,7 @@ Rectangle {
 
     onValue_Changed: {
         // need this check to stop nasty feedback, as ui event changes the 
-        // value in the backend, that is broacast back to the front end that
+        // value in the backend, that is broadcast back to the front end that
         // changes the value here, which changes the backend value ad infinitum
         if (!slider.pressed) {
             slider.value = value_;

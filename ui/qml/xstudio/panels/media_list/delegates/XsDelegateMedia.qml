@@ -80,7 +80,7 @@ DelegateChoice {
 				return media_item_model_index
 			}
 
-			function imageSouceIndex() {
+			function imageSourceIndex() {
 				return image_source_model_index
 			}
 
@@ -90,7 +90,7 @@ DelegateChoice {
 		        onValueChanged: {
 		            if(key == "display" || key == "view") {
 
-						// the colour managment settings have changed. We
+						// the colour management settings have changed. We
 						// update the thumbnails to match.
 						if(media_thumbnail.value) {
 			                Future.promise(control.media_thumbnail.index.model.getThumbnailURLFuture(control.media_thumbnail.index, 0.5)

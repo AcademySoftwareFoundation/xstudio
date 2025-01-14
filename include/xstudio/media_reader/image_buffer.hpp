@@ -194,7 +194,7 @@ namespace media_reader {
             plugin_blind_data_;
 
         [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
-        void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
+        void set_timeline_timestamp(const timebase::flicks tts) { tts_ = tts; }
 
         [[nodiscard]] const bookmark::BookmarkAndAnnotations &bookmarks() const {
             return bookmarks_;

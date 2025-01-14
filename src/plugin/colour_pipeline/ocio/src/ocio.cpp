@@ -575,7 +575,7 @@ std::string OCIOColourPipeline::preferred_ocio_view(
             }
         }
     }
-    // If view is not avaialble return the default view
+    // If view is not available return the default view
     return ocio_config->getDefaultView(default_display.c_str());
 }
 

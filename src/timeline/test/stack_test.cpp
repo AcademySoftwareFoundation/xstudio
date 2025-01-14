@@ -172,7 +172,7 @@ TEST(StackRefreshTest, Test) {
 
     // we've added gaps so we need to refresh our state.
     auto ru4 = s.item().refresh(1);
-    // this will modify our availiable range. So we capture that.
+    // this will modify our available range. So we capture that.
     // Or should it be part of the insertion?
     EXPECT_TRUE(s.item().available_range());
     EXPECT_NE(av, s.item().available_range());

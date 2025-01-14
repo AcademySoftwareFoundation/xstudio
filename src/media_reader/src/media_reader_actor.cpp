@@ -501,7 +501,7 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             auto rp = make_response_promise<bool>();
             auto tt = utility::clock::now();
 
-            // we've been told to start background cacheing, so assume playback
+            // we've been told to start background caching, so assume playback
             // read-ahead can be cancelled. Keep a note of the timepoint of the
             // first frame in the request queue - anything with an older time
             // in the cache can be discarded when the cache is full
@@ -753,8 +753,8 @@ void GlobalMediaReaderActor::do_precache() {
                         // we have been unable to create a reader - the file is
                         // unreadable for some reason. We do not want to report an
                         // error because we are currently pre-cacheing. The error
-                        // *will* get reported when we actaully want to show the
-                        // image as an immediate frame request wlil be made as the
+                        // *will* get reported when we actually want to show the
+                        // image as an immediate frame request will be made as the
                         // image isn't in the cache, and at that point error message
                         // propagation will give the user feedback about the frame
                         // being unreadable
@@ -797,7 +797,7 @@ void GlobalMediaReaderActor::read_and_cache_image(
         .then(
             [=](media_reader::ImageBufPtr buf) mutable {
                 // store the image in our cache. We use a different store message
-                // if background cacheing
+                // if background caching
                 if (is_background_cache) {
                     request(
                         image_cache_,
@@ -813,7 +813,7 @@ void GlobalMediaReaderActor::read_and_cache_image(
                                 mark_playhead_received_precache_result(playhead_uuid);
 
                                 if (!stored) {
-                                    // cache is full ... stop background cacheing
+                                    // cache is full ... stop background caching
                                     background_precache_request_queue_.clear_pending_requests(
                                         playhead_uuid);
                                 } else {
@@ -890,7 +890,7 @@ void GlobalMediaReaderActor::read_and_cache_audio(
                             mark_playhead_received_precache_result(playhead_uuid);
 
                             if (!stored && is_background_cache) {
-                                // cache is full ... stop background cacheing
+                                // cache is full ... stop background caching
                                 background_precache_request_queue_.clear_pending_requests(
                                     playhead_uuid);
                             } else {

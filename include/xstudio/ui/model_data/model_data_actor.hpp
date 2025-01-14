@@ -22,7 +22,7 @@ namespace ui {
         The model data can be exposed in the UI as QAbstractItemModel, allowing
         for data in a tree structure to be iterated over in the UI. For example,
         menus, sub-menus, sub-sub-menus going to multiple levels can be
-        maintained this way. A backend actor can add aslo data to the model or
+        maintained this way. A backend actor can add also data to the model or
         change data causing a refresh to the UI or add new menus at run time.
 
         Model data can also be retrieved and written to preferences files. In

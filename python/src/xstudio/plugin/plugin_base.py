@@ -32,7 +32,7 @@ class PluginBase(ModuleBase):
         """Create python plugin base class.
 
         Args:
-            name(str): Name of pytho plugin
+            name(str): Name of python plugin
             base_class_name(str): Name of underlying C++ plugin class. This
         """
         a = connection.request_receive(

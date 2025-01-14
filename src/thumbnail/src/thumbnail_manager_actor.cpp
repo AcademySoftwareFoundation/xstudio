@@ -277,7 +277,7 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
 
 
 void ThumbnailManagerActor::on_exit() {
-    // fufil pending queries.
+    // fullfil pending queries.
     while (not request_queue_.empty()) {
         auto [r, m, t, h, c, i] = request_queue_.front();
         r.deliver(make_error(xstudio_error::error, "System shutting down"));
@@ -363,7 +363,7 @@ void ThumbnailManagerActor::process_queue() {
         }
         // delayed send prevents 'tight loop' in the message queue,
         // so incoming messages such as cancelled thumbnail requests
-        // are able to be adressed between processing thumbnails
+        // are able to be addressed between processing thumbnails
         if (request_queue_.size()) {
             delayed_anon_send(
                 caf::actor_cast<caf::actor>(this),

@@ -124,7 +124,7 @@ Item {
     }
 
     // Note this is a naive log scale, in case the min and max are not
-    // mirrored around mid, the derivate will not be continous at the
+    // mirrored around mid, the derivate will not be continuous at the
     // mid point.
 
     // Colour wheels only support adding / scaling up values.

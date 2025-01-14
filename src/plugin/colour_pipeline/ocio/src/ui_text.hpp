@@ -54,7 +54,7 @@ struct UiText {
          "Luminance"},
         {int('C'),
          xstudio::ui::NoModifier,
-         "Rever to RGB Mode",
+         "Revert to RGB Mode",
          "Returns to regular RGB colour view mode",
          "RGB"}};
 

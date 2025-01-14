@@ -23,7 +23,7 @@ namespace ui {
      *  @brief Font classes.
      *
      *  @details
-     *   Thes classes provide a simple interface for loading common font definition
+     *   These classes provide a simple interface for loading common font definition
      *   files such as .ttf files. The font glyphs are made accessible for efficient
      *   drawing to screen using one of 3 methods - alpha bitmap, SDF (signed
      *   distance function) bitmap or Vector. In each case the glyphs are packed
@@ -51,7 +51,7 @@ namespace ui {
         ~AlphaBitmapFont() = default;
 
         /**
-         * @brief Render text into some graphics surce - this depends on graphics
+         * @brief Render text into some graphics source - this depends on graphics
          * api specific implementations of virtual render_text method
          */
         void render_text2(
@@ -109,7 +109,7 @@ namespace ui {
             const float line_spacing) const;
 
         /**
-         * @brief For given string and 'cursor' as an interator within the string,
+         * @brief For given string and 'cursor' as an iterator within the string,
          * compute the screen position of the corresponding character right bounds.
          */
 

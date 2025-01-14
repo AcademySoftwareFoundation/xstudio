@@ -48,7 +48,7 @@ def test_session_move_playlist(spawn):
 
     assert t.size == 2
 
-    # first entry shold be TEST2, but we don't mirror the playlist name here..
+    # first entry should be TEST2, but we don't mirror the playlist name here..
     # we probably should though.
     children = t.children
     assert len(children) == 2

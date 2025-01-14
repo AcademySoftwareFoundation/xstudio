@@ -224,7 +224,7 @@ TEST(TrackUndoActorTest, Test) {
     request_receive<bool>(*(f.self), t, history::undo_atom_v, hist2);
     // validate changes have been applied.
     // we may have a slight issue as we really needed to capture the change event at the track
-    // level so our track availiable range will be off..
+    // level so our track available range will be off..
     gitem = request_receive<Item>(*(f.self), gap1, item_atom_v);
     EXPECT_EQ(gitem.trimmed_range(), range1);
 

@@ -505,7 +505,7 @@ void OffscreenViewport::renderToImageBuffer(
 
     setupTextureAndFrameBuffer(w, h, format);
 
-    // intialises shaders and textures where necessary
+    // initialises shaders and textures where necessary
     viewport_renderer_->init();
 
     auto t1 = utility::clock::now();

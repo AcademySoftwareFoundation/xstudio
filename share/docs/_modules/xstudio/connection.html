@@ -262,7 +262,7 @@
 <span class="sd">           remote (Actor): Target actor.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            broadcast(Actor): Broadcast actore for remote.</span>
+<span class="sd">            broadcast(Actor): Broadcast actor for remote.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_event_group_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span></div>
 
@@ -311,7 +311,7 @@
 
 <span class="sd">        Args:</span>
 <span class="sd">           timeout (int): Millisecs to process for.</span>
-<span class="sd">           forever (bool): Don&#39;t return until API shutsdown.</span>
+<span class="sd">           forever (bool): Don&#39;t return until API shutdown.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keep_processing</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">connected</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_processing</span><span class="p">:</span>
@@ -669,7 +669,7 @@
                 <span class="k">if</span> <span class="n">req_id</span> <span class="o">==</span> <span class="n">watch_for</span><span class="p">:</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># assumed a brocast msg.. May not be..</span>
+                <span class="c1"># assumed a broadcast msg.. May not be..</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">handle_broadcast</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
             <span class="c1"># handle non responses</span>
@@ -736,7 +736,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">load_plugins_in_path</span><span class="p">(</span><span class="n">search_path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Connection.load_plugins_in_path"><a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.load_plugins_in_path">[docs]</a>    <span class="k">def</span> <span class="nf">load_plugins_in_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Load plugins found under the given directoy path</span>
+        <span class="sd">&quot;&quot;&quot;Load plugins found under the given directory path</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            path (str): Path to a directory on filesystem</span>

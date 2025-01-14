@@ -30,12 +30,12 @@ namespace fs = std::filesystem;
  *  where large amounts of memory are allocated and deleted at a high rate.
  *  Some testing is suggesting the application will consume an unexpectedly
  *  large amount of memory under these circumstances, though we're not sure
- *  exactly what's happenind. As such, we can hang on to the allocated memory in
+ *  exactly what's happening. As such, we can hang on to the allocated memory in
  *  another smaller cache here.
  *
  *  Assuming that during playback the size of the allocation is the same (for
  *  some give image format) it's probably going to be much better to hang onto
- *  the recenly de -allocated memory and re-use it when the reader wants to
+ *  the recently de -allocated memory and re-use it when the reader wants to
  *  allocate a new ImageBuffer. Due to threading and frame pools used by ffmpeg,
  *  for example, the allocation of image frames can be 'lumpy' with the reader
  *  asking for several new frames at once. Since the xStudio cache will ditch
@@ -59,7 +59,7 @@ class ImageBufferRecyclerCache {
             // of mixed formats it's likely that the cache is deleting frames
             // of a different size to the one that the readers are currently asking
             // for. However, it's going to be quite complex to address that
-            // problem and we have to fallback on the OS memory managment coping
+            // problem and we have to fallback on the OS memory management coping
             // with rapid allocation/deallocation ok. The general case is that
             // the xStudio session is loaded with common format sources, though.
             auto p = size_by_time_.begin();

@@ -56,7 +56,7 @@ void OCIOColourPipeline::media_source_changed(
     if (!global_view_->value()) {
         // When the main viewport gets the event and change the view here,
         // it will be propagated to the popout viewer because the view_
-        // attribute is linked accross viewports. If the popout viewport
+        // attribute is linked across viewports. If the popout viewport
         // hasn't got the source change event, or didn't process it yet,
         // it might receive the view_ attribute_changed event and go on
         // to update the per media parameters with the new view for the

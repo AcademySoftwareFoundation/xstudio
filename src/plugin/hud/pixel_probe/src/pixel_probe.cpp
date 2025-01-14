@@ -98,8 +98,8 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
     enabled_->set_preference_path("/plugin/pixel_probe/enabled");
     enabled_->set_role_data(module::Attribute::ToolbarPosition, 3.0f);
 
-    // Here we declare QML code that is reponsible for drawing the pixel info over the xSTUDIO
-    // viewport. The main Viewport class will take care of instanciating the qml object from
+    // Here we declare QML code that is responsible for drawing the pixel info over the xSTUDIO
+    // viewport. The main Viewport class will take care of instantiating the qml object from
     // this code.
     hud_element_qml(
         R"(
@@ -117,12 +117,12 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
     auto font_opacity =
         add_float_attribute("Font Opacity", "Font Opacity", 0.8f, 0.0f, 1.0f, 0.05f);
     font_opacity->expose_in_ui_attrs_group("pixel_info_attributes");
-    font_opacity->set_tool_tip("Sets the opactity for the pixel info text.");
+    font_opacity->set_tool_tip("Sets the opacity for the pixel info text.");
     add_hud_settings_attribute(font_opacity);
 
     auto bg_opacity = add_float_attribute("Bg Opacity", "Bg Opacity", 0.5f, 0.0f, 1.0f, 0.05f);
     bg_opacity->expose_in_ui_attrs_group("pixel_info_attributes");
-    bg_opacity->set_tool_tip("Sets the opactity for dark backdrop behind the pixel info text.");
+    bg_opacity->set_tool_tip("Sets the opacity for dark backdrop behind the pixel info text.");
     add_hud_settings_attribute(bg_opacity);
 
     show_code_values_ = add_boolean_attribute("Code Values", "Code Values", false);
@@ -135,7 +135,7 @@ PixelProbeHUD::PixelProbeHUD(caf::actor_config &cfg, const utility::JsonStore &i
         add_boolean_attribute("Raw Pixel RGB Channel Values", "Raw Pix Vals", false);
     add_hud_settings_attribute(show_raw_pixel_values_);
     show_raw_pixel_values_->set_tool_tip(
-        "Toggles whether raw pixel values are shown (after conversion to nermalized RGB).");
+        "Toggles whether raw pixel values are shown (after conversion to normalized RGB).");
 
     show_linear_pixel_values_ =
         add_boolean_attribute("Linear Pixel Channel Values", "Lin Pix Vals", false);

@@ -431,7 +431,7 @@ namespace utility {
         long int max_offset(0);
         K key;
 
-        // set to our proposed time, if we're bigger than every chache entry we fail.
+        // set to our proposed time, if we're bigger than every cache entry we fail.
         if (not force_eviction)
             max_offset = std::abs(
                 std::chrono::duration_cast<std::chrono::microseconds>(ntp - newtp).count());
@@ -578,7 +578,7 @@ namespace utility {
 
     template <typename K, typename V>
     void TimeCache<K, V>::unpreserve(const utility::Uuid &uuid) {
-        // set the 'required by' time point on all cache entries that mathch uuid
+        // set the 'required by' time point on all cache entries that match uuid
         // backwards by one hour so that it can be dropped from the cache in
         // favour of new incoming data,
         auto it = std::begin(cache_);

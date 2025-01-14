@@ -103,7 +103,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#timeline">Timeline</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#transport-controls">Transport Controls</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#frame-indiator">Frame Indiator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#frame-indiator">Frame Indicator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#timeline-and-playhead-ui">Timeline and Playhead UI</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#fps-duration-remaining">FPS/Duration/Remaining</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#player-viewer-controls">Player/Viewer Controls</a></li>
@@ -273,7 +273,7 @@
 <p>The toolbar and transport controls are found immediately below the Viewer. The toolbar provides controls for modifying the appearance and behaviour of the viewer:</p>
 <div class="section" id="toolbar">
 <h3>Toolbar<a class="headerlink" href="#toolbar" title="Permalink to this headline">¶</a></h3>
-<p>The toolbar is a collection of controls that affect on-screen information in the viewport, colour visualisation, playback behaviour and so-on. xSTUDIO plugins are able to add toolbar controls but here we only list the ‘native’ tooblar controls that are present by default.</p>
+<p>The toolbar is a collection of controls that affect on-screen information in the viewport, colour visualisation, playback behaviour and so-on. xSTUDIO plugins are able to add toolbar controls but here we only list the ‘native’ toolbar controls that are present by default.</p>
 <div class="topic">
 <p class="topic-title first">HUD</p>
 <p>Click this to toggle the HUD (heads up display) on or off or enter the HUD settings. The HUD is currently a very minimal plugin that provides an overlay showing the data window (for EXRs) and the image boundary.</p>
@@ -305,10 +305,10 @@
 <img alt="../../_images/timeline-01.png" class="align-center" src="../../_images/timeline-01.png" />
 <div class="section" id="transport-controls">
 <h3>Transport Controls<a class="headerlink" href="#transport-controls" title="Permalink to this headline">¶</a></h3>
-<p>These are pretty universal and don’t need much explanation. There’s a play/pause button, step forwards/backwards buttons and fast forard/fast rewind buttons.</p>
+<p>These are pretty universal and don’t need much explanation. There’s a play/pause button, step forwards/backwards buttons and fast forward/fast rewind buttons.</p>
 </div>
 <div class="section" id="frame-indiator">
-<h3>Frame Indiator<a class="headerlink" href="#frame-indiator" title="Permalink to this headline">¶</a></h3>
+<h3>Frame Indicator<a class="headerlink" href="#frame-indiator" title="Permalink to this headline">¶</a></h3>
 <dl class="simple">
 <dt>Immediately to the left of the timeline is the ‘current frame’ indicator. Click on this to get a list of options as to how the current position of the playhead is displayed:</dt><dd><ul class="simple">
 <li><p><em>Frames:</em> absolute frame, i.e. the first frame of the media is always frame 1.</p></li>
@@ -325,9 +325,9 @@
 <blockquote>
 <div><ul class="simple">
 <li><p><em>Playhead:</em> This vertical line butted by triangles indicates the current on screen frame. Click and drag left/right to ‘scrub’ the viewed frame.</p></li>
-<li><p><em>In/Out Loops Points:</em> If you are looping on a sub section of the source frame range, this is indicated by solid grey background in the timline for the areas that are outside the loop range.</p></li>
+<li><p><em>In/Out Loops Points:</em> If you are looping on a sub section of the source frame range, this is indicated by solid grey background in the timeline for the areas that are outside the loop range.</p></li>
 <li><p><em>Cache Status:</em> Frames that are ‘cached’ (i.e. which frames have been decoded off the filesystem and are in memory ready for immediate display) are indicated by a horizontal bar through the middle of the timeline. When you start viewing a new source you should see the cache status refresh as xSTUDIO loads frames ready for playback. For a detailed explanation please refer to the ‘Playhead’ section.</p></li>
-<li><p><em>Note Indicator:</em> Any notes that are attached to the on-screen source are visualised with a brown horiontal bar (showing the curresponding in/out points of the note) at the bottom of the timeline.</p></li>
+<li><p><em>Note Indicator:</em> Any notes that are attached to the on-screen source are visualised with a brown horizontal bar (showing the corresponding in/out points of the note) at the bottom of the timeline.</p></li>
 </ul>
 </div></blockquote>
 </div>
@@ -345,11 +345,11 @@
 <div class="section" id="player-viewer-controls">
 <h3>Player/Viewer Controls<a class="headerlink" href="#player-viewer-controls" title="Permalink to this headline">¶</a></h3>
 <dl class="simple">
-<dt>Four buttons to the right of the timline provide the following interactions</dt><dd><ul class="simple">
+<dt>Four buttons to the right of the timeline provide the following interactions</dt><dd><ul class="simple">
 <li><p><em>Volume/mute control:</em> click once to get a pop-up volume control. Double click to toggle muting of audio.</p></li>
 <li><p><em>Loop mode:</em> set whether the playhead will loop a source in playback, play it once and stop on the final frame or ‘ping-pong’ loop.</p></li>
 <li><p><em>Screenshot:</em> this button shows an interface for grabbing the current on-screen frame (plus overlays like annotation sketches) and saving to disk as an image file.</p></li>
-<li><p><em>Show/Hide Popout Viewer:</em> xSTUDIO provides a second viewer for dual screen set-ups. Note that the second viewer has all the same features and behavoiur as the main viewer that is embedded in the main UI window.</p></li>
+<li><p><em>Show/Hide Popout Viewer:</em> xSTUDIO provides a second viewer for dual screen set-ups. Note that the second viewer has all the same features and behaviour as the main viewer that is embedded in the main UI window.</p></li>
 </ul>
 </dd>
 </dl>

@@ -43,7 +43,7 @@ def export_timeline_to_file(timeline, path, adapter_name=None):
     otio = oTimeline()
 
     # our timeline has one stack, so does otio.
-    # we just need to start porcessing it.
+    # we just need to start processing it.
     for i in reversed(timeline.video_tracks):
         __process_obj(i, otio.tracks, oTrack.Kind.Video)
     for i in timeline.audio_tracks:
@@ -65,7 +65,7 @@ def __process_obj(obj, otio, context=oTrack.Kind.Video):
         s = oStack()
         s.name = obj.name
 
-        s.availiable_range = TimeRange(RationalTime(ar.frame_start().frames(), ar.rate().fps()), RationalTime(ar.frame_duration().frames(), ar.rate().fps()))
+        s.available_range = TimeRange(RationalTime(ar.frame_start().frames(), ar.rate().fps()), RationalTime(ar.frame_duration().frames(), ar.rate().fps()))
         s.source_range = TimeRange(RationalTime(sr.frame_start().frames(), sr.rate().fps()), RationalTime(sr.frame_duration().frames(), sr.rate().fps()))
 
         if context == oTrack.Kind.Video:
@@ -82,7 +82,7 @@ def __process_obj(obj, otio, context=oTrack.Kind.Video):
         t.name = obj.name
         t.kind = oTrack.Kind.Video if obj.is_video else oTrack.Kind.Audio
 
-        t.availiable_range = TimeRange(RationalTime(ar.frame_start().frames(), ar.rate().fps()), RationalTime(ar.frame_duration().frames(), ar.rate().fps()))
+        t.available_range = TimeRange(RationalTime(ar.frame_start().frames(), ar.rate().fps()), RationalTime(ar.frame_duration().frames(), ar.rate().fps()))
         t.source_range = TimeRange(RationalTime(sr.frame_start().frames(), sr.rate().fps()), RationalTime(sr.frame_duration().frames(), sr.rate().fps()))
         for i in obj.children:
             __process_obj(i, t, context)
@@ -98,7 +98,7 @@ def __process_obj(obj, otio, context=oTrack.Kind.Video):
             ext = ExternalReference(str(media.media_source().media_reference.uri()), TimeRange(RationalTime(ar.frame_start().frames(), ar.rate().fps()), RationalTime(ar.frame_duration().frames(), ar.rate().fps())))
             ext.name = media.name
             c.media_reference = ext
-        # c.availiable_range = TimeRange(RationalTime(ar.frame_start().frames(), ar.rate().fps()), RationalTime(ar.frame_duration().frames(), ar.rate().fps()))
+        # c.available_range = TimeRange(RationalTime(ar.frame_start().frames(), ar.rate().fps()), RationalTime(ar.frame_duration().frames(), ar.rate().fps()))
         c.source_range = TimeRange(RationalTime(sr.frame_start().frames(), sr.rate().fps()), RationalTime(sr.frame_duration().frames(), sr.rate().fps()))
         otio.append(c)
 

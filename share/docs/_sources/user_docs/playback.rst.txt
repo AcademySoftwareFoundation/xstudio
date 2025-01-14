@@ -22,7 +22,7 @@ The toolbar button labelled 'Compare' sets the compare mode for the current play
     - *Grid, Horizontal, Vertical:* These compare modes are still under development and not available yet, but will allow multiple sources to be viewed on-screen at the same time.
 
 .. note::
-    Comparing media in A/B mode makes your computer work harder during playback as it is decoding and storing frames for all of your selected media at the same time. xSTUDIO is optimised to get the most out of your system and in many cases you may be able to A/B compare several sources without imapcting performance, but if you try to A/B compare too many sources at once playback performance may eventually be affected.
+    Comparing media in A/B mode makes your computer work harder during playback as it is decoding and storing frames for all of your selected media at the same time. xSTUDIO is optimised to get the most out of your system and in many cases you may be able to A/B compare several sources without impacting performance, but if you try to A/B compare too many sources at once playback performance may eventually be affected.
 
 
 Playhead Loop Modes
@@ -33,7 +33,7 @@ Use the loop mode button to switch between 'play once', 'loop' and 'ping-pong' w
 Playhead Rate
 -------------
 
-The playhead rate can be adjusted by clicking and dragging left/right on the 'Rate' button in the toolbar. This is a simple multiplier applied to the speed that the playhead avances during playback. A value of 0.5 will play your media at half speed, for example. Double click on the button to reset to 1.0.
+The playhead rate can be adjusted by clicking and dragging left/right on the 'Rate' button in the toolbar. This is a simple multiplier applied to the speed that the playhead advances during playback. A value of 0.5 will play your media at half speed, for example. Double click on the button to reset to 1.0.
 
 Playhead Specific Hotkeys
 -------------------------
@@ -63,5 +63,5 @@ The cache status is indicated in the timeline with a horizontal coloured bar - t
 
 In most cases xSTUDIO should be able to play back through cached frames at the required frame rate of the media. Although the Viewer has been optimised to get the most out of your graphics card, slow playback can result if you are trying to view very high resolution images and your computer's video hardware can't match the required data transfer rates.
 
-For media that can be decoded faster than the playback rate, like many common compressed video stream codecs or EXRs compressed with the DWA/DWB, you should be able to largely ignore xSTUDIO's cacheing activity as it will be able to stream data off the disk for playback on demand.
+For media that can be decoded faster than the playback rate, like many common compressed video stream codecs or EXRs compressed with the DWA/DWB, you should be able to largely ignore xSTUDIO's caching activity as it will be able to stream data off the disk for playback on demand.
 

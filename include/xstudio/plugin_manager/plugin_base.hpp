@@ -21,7 +21,7 @@ namespace plugin {
         Note that 'image' is a non-const reference and as-such the colour
         pipeline data object ptr that is a member of ImageBufPtr can be
         overwritten with new data that the plugin (if it's a ColourOP) can
-        access at draw time (like LUTS & texture). Similiarly ViewportOverlay
+        access at draw time (like LUTS & texture). Similarly ViewportOverlay
         plugins could use this to do pixel analysis and put the result into
         texture data. This could be useful for doing waveform overlays, for
         example.
@@ -45,9 +45,9 @@ namespace plugin {
         enum RenderPass { BeforeImage, AfterImage };
 
         /* An overlay can render before the image is rendered - the
-        image is themn plotted with an 'Under' blend operation. This
+        image is then plotted with an 'Under' blend operation. This
         allows for alpha blending on a black background. Alternatively
-        the overlay can render ontop of the image, after it is drawn.
+        the overlay can render on top of the image, after it is drawn.
         If 'have_alpha_buffer' is false, the BeforeImage pass is not
         executed. */
         virtual void render_opengl(
@@ -96,7 +96,7 @@ namespace plugin {
             return utility::BlindDataObjectPtr();
         }
 
-        // reimpliment this function to receive the image buffer(s) that are
+        // reimplement this function to receive the image buffer(s) that are
         // currently being displayed on the given viewport
         virtual void images_going_on_screen(
             const std::vector<media_reader::ImageBufPtr> & /*images*/,
@@ -154,7 +154,7 @@ namespace plugin {
             const std::string &viewport_name,
             const std::string &bookmark_subject,
             const bookmark::BookmarkDetail &detail,
-            const bool bookmark_entire_duratio = false);
+            const bool bookmark_entire_duration = false);
 
 
         /* Call this function to update the annotation data attached to the

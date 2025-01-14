@@ -123,7 +123,7 @@ AnnotationsButton {
     text_bgr_opacity_->set_preference_path("/plugin/annotations/text_bgr_opacity");
 
     // we can register a preference path with each of these attributes. xStudio
-    // will then automatically intialised the attribute values from preference
+    // will then automatically initialised the attribute values from preference
     // file(s) and also, if the attribute is changed, the new value will be
     // written out to preference files.
 
@@ -193,7 +193,7 @@ caf::message_handler AnnotationsTool::message_handler_extensions() {
     // callbacks to fade the laser pen strokes
     return caf::message_handler(
         [=](utility::event_atom, bool) {
-            // this message is sent when the user finishes a laser bruish stroke
+            // this message is sent when the user finishes a laser brush stroke
             if (!fade_looping_) {
                 fade_looping_ = true;
                 anon_send(this, utility::event_atom_v);
@@ -560,7 +560,7 @@ void AnnotationsTool::images_going_on_screen(
             clear_caption_handle();
             current_bookmark_uuid_ = utility::Uuid();
 
-            // calling these updates the renderes with the now cleared
+            // calling these updates the renderer with the now cleared
             // interaction canvas data
         }
     }

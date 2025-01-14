@@ -110,7 +110,7 @@ void FFMpegDecoder::calc_duration_frames() {
 
         // xSTUDIO requires that streams within a given source have the same frame rate.
         // We force other streams to have a frame rate that matches the 'primary' video
-        // stream. Particulary for audio streams, which typically deliver frames at a
+        // stream. Particularly for audio streams, which typically deliver frames at a
         // different rate to video, we then re-parcel audio samples in a sort-of pull-down
         // to match the video rate. See the note immediately below for a bit more detail.
         for (auto &stream : streams_) {
@@ -655,7 +655,7 @@ void FFMpegDecoder::pull_audio_buffer_from_stream(StreamPtr &audio_stream) {
         auto p = audio_frame_mini_cache_.find(virtual_frame);
         if (p != audio_frame_mini_cache_.end()) {
 
-            // these samepls have a DTS that falls into the period of a virtual
+            // these samples have a DTS that falls into the period of a virtual
             // frame for which we already have some samples. We append these samples
             // to the existing samples.
             p->second->extend(*buf);
@@ -675,7 +675,7 @@ void FFMpegDecoder::pull_audio_buffer_from_stream(StreamPtr &audio_stream) {
 
 void FFMpegDecoder::do_seek(const int seek_frame, bool force) {
 
-    // tring a couple of tricks here ... the assumption is any codec that can't
+    // trying a couple of tricks here ... the assumption is any codec that can't
     // seek to an exact frame can only decode forwards efficiently. If we are
     // decoding backwards, it's best to go a good few frames back and then
     // decode forwards until we get the frame we need. All the intermediate

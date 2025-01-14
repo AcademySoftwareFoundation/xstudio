@@ -57,7 +57,7 @@ namespace media_reader {
         void extend(const AudioBuffer &o) {
             if (o.sample_format() != sample_format() || o.num_channels() != num_channels()) {
                 throw std::runtime_error(
-                    "AudioBuffer::extend mistmatch in audio buffer formats.");
+                    "AudioBuffer::extend mismatch in audio buffer formats.");
             }
             extend_size(o.size());
             memcpy(buffer() + num_samples() * num_channels() * 2, o.buffer(), o.size());

@@ -547,7 +547,7 @@ class CafRequest : public ControllableJob<QMap<int, QString>> {
                             }
                             try {
                                 // get media actor to try the current media source
-                                // if it doesn't have this metadata item iteself
+                                // if it doesn't have this metadata item itself
                                 auto data = request_receive<JsonStore>(
                                     *sys,
                                     actorFromString(system_, json_.at("actor")),

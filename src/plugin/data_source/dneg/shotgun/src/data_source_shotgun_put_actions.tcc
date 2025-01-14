@@ -31,7 +31,7 @@ void ShotgunDataSourceActor<T>::update_playlist_versions(
         auto media =
             request_receive<std::vector<UuidActor>>(*sys, playlist, playlist::get_media_atom_v);
 
-        // foreach medai actor get it's shogtun metadata.
+        // foreach media actor get it's shotgun metadata.
         auto jsn = R"({"versions":[]})"_json;
         auto ver = R"({"id": 0, "type": "Version"})"_json;
 

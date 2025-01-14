@@ -55,7 +55,7 @@ class BuildPlaylistMediaJob {
         std::string preferred_visual_source,
         std::string preferred_audio_source,
         std::shared_ptr<event::Event> event,
-        std::shared_ptr<utility::UuidList> ordererd_uuids,
+        std::shared_ptr<utility::UuidList> ordered_uuids,
         utility::Uuid before,
         std::string flag_colour,
         std::string flag_text,
@@ -70,7 +70,7 @@ class BuildPlaylistMediaJob {
           preferred_visual_source_(std::move(preferred_visual_source)),
           preferred_audio_source_(std::move(preferred_audio_source)),
           event_msg_(std::move(event)),
-          ordererd_uuids_(std::move(ordererd_uuids)),
+          ordered_uuids_(std::move(ordered_uuids)),
           before_(std::move(before)),
           flag_colour_(std::move(flag_colour)),
           flag_text_(std::move(flag_text)),
@@ -78,7 +78,7 @@ class BuildPlaylistMediaJob {
           result_(std::move(result)),
           result_count_(result_count) {
         // increment a shared counter - the counter is shared between
-        // all the indiviaual Media creation jobs in a single build playlist
+        // all the individual Media creation jobs in a single build playlist
         // task
         (*result_count)++;
     }
@@ -102,7 +102,7 @@ class BuildPlaylistMediaJob {
             // match the ordering in the playlist
             UuidActorVector reordered;
             reordered.reserve(result_->size());
-            for (const auto &uuid : (*ordererd_uuids_)) {
+            for (const auto &uuid : (*ordered_uuids_)) {
                 for (auto uai = result_->begin(); uai != result_->end(); uai++) {
                     if ((*uai).uuid() == uuid) {
                         reordered.push_back(*uai);
@@ -123,7 +123,7 @@ class BuildPlaylistMediaJob {
     std::string preferred_visual_source_;
     std::string preferred_audio_source_;
     std::shared_ptr<event::Event> event_msg_;
-    std::shared_ptr<utility::UuidList> ordererd_uuids_;
+    std::shared_ptr<utility::UuidList> ordered_uuids_;
     utility::Uuid before_;
     std::string flag_colour_;
     std::string flag_text_;
@@ -339,7 +339,7 @@ ShotgunMediaWorker::ShotgunMediaWorker(caf::actor_config &cfg, const caf::actor_
 
                     if (jsn.at("attributes").at("frame_range").is_null()) {
                         // no frame range specified..
-                        // try and aquire from filesystem..
+                        // try and acquire from filesystem..
                         uri = parse_cli_posix_path(
                             jsn.at("attributes").at("sg_path_to_frames"), frame_list, true);
                     } else {
@@ -640,7 +640,7 @@ ShotgunDataSourceActor<T>::ShotgunDataSourceActor(
     shotgun_ = spawn<ShotgunClientActor>();
     link_to(shotgun_);
 
-    // we need to recieve authentication updates.
+    // we need to receive authentication updates.
     join_event_group(this, shotgun_);
 
     // we are the source of the secret..
@@ -1343,7 +1343,7 @@ void ShotgunDataSourceActor<T>::update_playlist_versions(
         auto media =
             request_receive<std::vector<UuidActor>>(*sys, playlist, playlist::get_media_atom_v);
 
-        // foreach medai actor get it's shogtun metadata.
+        // for each media actor get it's shotgun metadata.
         auto jsn = R"({"versions":[]})"_json;
         auto ver = R"({"id": 0, "type": "Version"})"_json;
 
@@ -3244,7 +3244,7 @@ void ShotgunDataSourceActor<T>::do_add_media_sources_from_shotgun(
                     caf::infinite,
                     playlist::add_media_atom_v,
                     ua,
-                    *(build_media_task_data->ordererd_uuids_),
+                    *(build_media_task_data->ordered_uuids_),
                     build_media_task_data->before_)
                     .then(
 
@@ -3287,7 +3287,7 @@ void ShotgunDataSourceActor<T>::do_add_media_sources_from_ivy(
     auto continue_processing_job_queue = [=]() {
         build_tasks_in_flight_--;
         delayed_send(this, JOB_DISPATCH_DELAY, playlist::add_media_atom_v);
-        /* Commented out bevause we're not including ivy leaf addition
+        /* Commented out because we're not including ivy leaf addition
         in progress indicator now.
         if (ivy_media_task_data->event_msg) {
             ivy_media_task_data->event_msg->increment_progress();

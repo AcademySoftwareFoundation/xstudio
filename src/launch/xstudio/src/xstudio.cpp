@@ -210,7 +210,7 @@ caf::behavior connect_to_remote(caf::event_based_actor *self) {
 
 
 struct CLIArguments {
-    args::ArgumentParser parser = {"xstudio. v" PROJECT_VERSION, "Launchs xstudio."};
+    args::ArgumentParser parser = {"xstudio. v" PROJECT_VERSION, "Launch xstudio."};
     args::HelpFlag help         = {parser, "help", "Display this help menu", {'h', "help"}};
 
     args::PositionalList<std::string> media_paths = {parser, "PATH", "Path to media"};
@@ -251,7 +251,7 @@ struct CLIArguments {
     args::Flag new_session = {
         misc, "NEW", "Launch new session, instead of adding to current.", {'n', "new-session"}};
     args::ValueFlag<std::string> playlist_name = {
-        misc, "PLAYLIST", "Name for new playist to add media to", {"playlist"}};
+        misc, "PLAYLIST", "Name for new playlist to add media to", {"playlist"}};
 
     args::ValueFlagList<std::string> cli_pref_paths = {
         misc, "PATH", "Path to preferences", {"pref"}};
@@ -389,7 +389,7 @@ struct Launcher {
             //     count += p.value().size();
             // if(count == 1)
             //     actions["player"] = true;
-            // DIRTY HACK.. We need a way of controling this from the backend..
+            // DIRTY HACK.. We need a way of controlling this from the backend..
             // if(actions.value("player",false))
 
 
@@ -1095,7 +1095,7 @@ int main(int argc, char **argv) {
                 std::this_thread::sleep_for(1s);
             }
 
-            // in the case where ther are actors that are still 'alive'
+            // in the case where there are actors that are still 'alive'
             // we do not exit this scope as actor_system will block in
             // its destructor (due to await_actors_before_shutdown(true)).
             // The exit_timeout_killer will kill the process after some

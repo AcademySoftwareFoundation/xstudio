@@ -197,7 +197,7 @@ Playhead ‘Compare Modes’</p>
 </div></blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Comparing media in A/B mode makes your computer work harder during playback as it is decoding and storing frames for all of your selected media at the same time. xSTUDIO is optimised to get the most out of your system and in many cases you may be able to A/B compare several sources without imapcting performance, but if you try to A/B compare too many sources at once playback performance may eventually be affected.</p>
+<p>Comparing media in A/B mode makes your computer work harder during playback as it is decoding and storing frames for all of your selected media at the same time. xSTUDIO is optimised to get the most out of your system and in many cases you may be able to A/B compare several sources without impacting performance, but if you try to A/B compare too many sources at once playback performance may eventually be affected.</p>
 </div>
 </div>
 <div class="section" id="playhead-loop-modes">
@@ -206,7 +206,7 @@ Playhead ‘Compare Modes’</p>
 </div>
 <div class="section" id="playhead-rate">
 <h2>Playhead Rate<a class="headerlink" href="#playhead-rate" title="Permalink to this headline">¶</a></h2>
-<p>The playhead rate can be adjusted by clicking and dragging left/right on the ‘Rate’ button in the toolbar. This is a simple multiplier applied to the speed that the playhead avances during playback. A value of 0.5 will play your media at half speed, for example. Double click on the button to reset to 1.0.</p>
+<p>The playhead rate can be adjusted by clicking and dragging left/right on the ‘Rate’ button in the toolbar. This is a simple multiplier applied to the speed that the playhead advances during playback. A value of 0.5 will play your media at half speed, for example. Double click on the button to reset to 1.0.</p>
 </div>
 <div class="section" id="playhead-specific-hotkeys">
 <h2>Playhead Specific Hotkeys<a class="headerlink" href="#playhead-specific-hotkeys" title="Permalink to this headline">¶</a></h2>
@@ -257,7 +257,7 @@ Playhead ‘Compare Modes’</p>
 <p>If you are not actively playing back media: when you select a new piece of media for viewing, or whenever the position of the playhead is moved, xSTUDIO will start loading images going forward from the playhead position until it has either exhausted the frame range of the clip that you are viewing or until the cache is full. Images that were previously loaded will be deleted from the cache in order to make space for the new images.</p>
 <p>The cache status is indicated in the timeline with a horizontal coloured bar - this should be obvious as you can see it growing as xSTUDIO loads frames in the background. Thus if you want to view media that is slow to read off disk, like high resolution EXR images, the workflow is to wait for xSTUDIO to cache the frames before starting playback/looping. The size of the cache (set via the Preferences panel) will limit the maximum number of frames that can be loaded.</p>
 <p>In most cases xSTUDIO should be able to play back through cached frames at the required frame rate of the media. Although the Viewer has been optimised to get the most out of your graphics card, slow playback can result if you are trying to view very high resolution images and your computer’s video hardware can’t match the required data transfer rates.</p>
-<p>For media that can be decoded faster than the playback rate, like many common compressed video stream codecs or EXRs compressed with the DWA/DWB, you should be able to largely ignore xSTUDIO’s cacheing activity as it will be able to stream data off the disk for playback on demand.</p>
+<p>For media that can be decoded faster than the playback rate, like many common compressed video stream codecs or EXRs compressed with the DWA/DWB, you should be able to largely ignore xSTUDIO’s caching activity as it will be able to stream data off the disk for playback on demand.</p>
 </div>
 </div>
 
