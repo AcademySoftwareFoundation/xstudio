@@ -873,16 +873,6 @@ QFuture<QString> ShotBrowserPresetModel::restorePresetsFuture(const QUrl &qpath)
     });
 }
 
-nlohmann::json JSONTreeModel::modelData() const {
-    // build json from tree..
-    return tree_to_json(data_, children_);
-}
-
-nlohmann::json JSONTreeModel::indexToFullData(const QModelIndex &index, const int depth) const {
-    return tree_to_json(*indexToTree(index), children_, depth);
-}
-
-
 void ShotBrowserPresetFilterModel::setShowHidden(const bool value) {
     if (value != show_hidden_) {
         show_hidden_ = value;

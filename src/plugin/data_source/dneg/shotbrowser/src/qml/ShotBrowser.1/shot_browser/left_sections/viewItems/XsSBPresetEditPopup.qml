@@ -37,6 +37,8 @@ XsWindow{
 
     onPresetIndexChanged: {
         if(presetIndex.valid) {
+            presetTermModel.model = null
+            presetTermModel.model = ShotBrowserEngine.presetsModel
             presetTermModel.rootIndex = presetIndex
             presetList.model.newTermParent = presetIndex
         }

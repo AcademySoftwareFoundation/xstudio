@@ -1,6 +1,23 @@
 {
 	"core": {
 		"playhead":{
+			"remote_desktop_optimisation": {
+				"path": "/core/playhead/remote_desktop_optimisation",
+				"default_value": false,
+				"description": "Reduce UI updates whilst playing.",
+				"value": false,
+				"datatype": "bool",
+				"category": "Playback",
+				"context": ["APPLICATION"]
+			},
+			"remote_desktop_optimisation_delay": {
+				"path": "/core/playhead/remote_desktop_optimisation_delay",
+				"default_value": 250,
+				"description": "UI refresh delay.",
+				"value": 500,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
 			"read_ahead": {
 				"path": "/core/playhead/read_ahead",
 				"default_value": 128,

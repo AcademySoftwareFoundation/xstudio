@@ -153,5 +153,7 @@ XsListView                1.0 ../widgets/outputs/XsListView.qml
 XsSplitView               1.0 ../widgets/outputs/XsSplitView.qml
 XsDialogHelpers           1.0 ../helpers/XsDialogHelpers.qml
 XsTimer                   1.0 ../helpers/XsTimer.qml
+XsBufferedProperty        1.0 ../helpers/XsBufferedProperty.qml
+XsBufferedUIProperty      1.0 ../helpers/XsBufferedUIProperty.qml
 
 singleton XsStyleSheet    1.0 ../xStudio/XsStyleSheet.qml

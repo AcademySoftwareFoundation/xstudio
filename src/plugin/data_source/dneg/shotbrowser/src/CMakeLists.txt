@@ -44,6 +44,7 @@ target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::module
 		xstudio::plugin_manager
+		xstudio::playlist
 		xstudio::ui::qml::helper
 		xstudio::shotgun_client
 		Qt5::Widgets

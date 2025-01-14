@@ -69,5 +69,11 @@ XsViewerTextDisplay
         return result
     }
 
-    text: selected == 0 ? frame : selected == 1 ? seconds : selected == 2 ? timecode : timecodeFrame
+    XsBufferedUIProperty {
+        id: bufferedPlayheadFrame
+        source: selected == 0 ? frame : selected == 1 ? seconds : selected == 2 ? timecode : timecodeFrame
+        playing: viewportPlayhead.playing
+    }
+
+    text: bufferedPlayheadFrame.value
 }

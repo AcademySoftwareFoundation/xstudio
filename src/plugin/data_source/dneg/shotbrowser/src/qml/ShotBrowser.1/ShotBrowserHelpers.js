@@ -97,10 +97,12 @@ function revealMediaInIvy(indexes=[]) {
 		for(let i = 0; i< indexes.length; i++) {
 			let mindex = indexes[i]
 	        Future.promise(
-	            mindex.model.getJSONFuture(mindex, "/metadata/shotgun/version/attributes/sg_ivy_dnuuid")
-	        ).then(function(json_string) {
-	            json_string = json_string.replace(/^"|"$/g, '')
-	            helpers.startDetachedProcess("dnenv-do", [helpers.getEnv("SHOW"), helpers.getEnv("SHOT"), "--", "ivybrowser", json_string])
+	            mindex.model.getJSONObjectFuture(mindex, "/metadata/shotgun/version")
+	        ).then(function(json_obj) {
+	        	let uuid = json_obj.attributes.sg_ivy_dnuuid
+	        	let job = json_obj.relationships.project.data.name
+	        	let shot = json_obj.relationships.entity.data.name
+	            helpers.startDetachedProcess("dnenv-do", [job, shot, "--", "ivybrowser", "--no-prefs", uuid])
 	        })
 		}
 	}
@@ -126,7 +128,7 @@ function revealInIvy(indexes=[]) {
 			}
 		}
 		if(uuids.length)
-            helpers.startDetachedProcess("dnenv-do", [project, shot, "--", "ivybrowser"].concat(uuids))
+            helpers.startDetachedProcess("dnenv-do", [project, shot, "--", "ivybrowser", "--no-prefs"].concat(uuids))
 	}
 }
 

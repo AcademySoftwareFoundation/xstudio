@@ -115,14 +115,20 @@ Item {
     }
 
     // Draws the image cache indicator bar(s)
+    XsBufferedUIProperty {
+        id: bufferedCachedFrames
+        source: viewportPlayhead.cachedFrames
+        playing: viewportPlayhead.playing
+    }
+
     Item {
         Repeater {
-            model: viewportPlayhead.cachedFrames ? viewportPlayhead.cachedFrames.length/2 : []
-            Rectangle { 
+            model: bufferedCachedFrames.value ? bufferedCachedFrames.value.length/2 : 0
+            Rectangle {
                 color: "green"
                 opacity: 0.5
-                x: scaleFactor*viewportPlayhead.cachedFrames[index*2]
-                width: scaleFactor*(viewportPlayhead.cachedFrames[index*2+1])
+                x: scaleFactor*bufferedCachedFrames.value[index*2]
+                width: scaleFactor*(bufferedCachedFrames.value[index*2+1])
                 height: 5
                 y: 10
             }
@@ -134,9 +140,16 @@ Item {
 
     // This is the playhead widget - a vertical line with a little upside-down
     // house shape at the top
+
+    XsBufferedUIProperty {
+        id: bufferedX
+        source: scaleFactor*viewportPlayhead.logicalFrame
+        playing: viewportPlayhead.playing
+    }
+
     Item {
 
-        x: scaleFactor*viewportPlayhead.logicalFrame - width/2
+        x: bufferedX.value - width/2
         width: control.handleWidth
         property alias handleColour: control.handleColour
 
