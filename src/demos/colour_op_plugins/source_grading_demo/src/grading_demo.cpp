@@ -169,7 +169,7 @@ void GradingDemoColourOp::onscreen_media_source_changed(
 }
 
 
-} // namespace
+// namespace
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
     return new plugin_manager::PluginFactoryCollection(

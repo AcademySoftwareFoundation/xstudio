@@ -70,7 +70,7 @@ rt["solarise"] = gamma_->value();
 return rt;
 }
 
-} // namespace
+// namespace
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
     return new plugin_manager::PluginFactoryCollection(
