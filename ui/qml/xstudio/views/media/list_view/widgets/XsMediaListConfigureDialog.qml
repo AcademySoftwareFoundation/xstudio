@@ -412,7 +412,11 @@ metadata with media that isn't from your pipeline.`
                 text: "Show Advanced Options : "
                 Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
                 Layout.preferredHeight: XsStyleSheet.widgetStdHeight
-                tooltipText: regex_tooltip
+                XsToolTip{
+                    text: regex_tooltip
+                    visible: hovered
+                }
+            
             }
 
             XsCheckBox{
@@ -426,7 +430,10 @@ metadata with media that isn't from your pipeline.`
                 text: "Capture Expression : "
                 horizontalAlignment: Text.AlignRight
                 visible: advanced.checked
-                tooltipText: regex_tooltip
+                XsToolTip{
+                    text: regex_tooltip
+                    visible: hovered
+                }
             }
 
             XsTextField {
@@ -446,7 +453,10 @@ metadata with media that isn't from your pipeline.`
                 text: "Format Expression : "
                 horizontalAlignment: Text.AlignRight
                 visible: advanced.checked
-                tooltipText: regex_tooltip
+                XsToolTip{
+                    text: regex_tooltip
+                    visible: hovered
+                }
             }
 
             XsTextField {
@@ -473,7 +483,6 @@ metadata with media that isn't from your pipeline.`
                 text: model_index.model.rowCount(model_index) ? qsTr("Configure Backup") : qsTr("Add Backup")
                 Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
                 Layout.preferredHeight: XsStyleSheet.widgetStdHeight
-                tooltipText: backup_tooltip
                 visible: advanced.checked && !is_backup
                 onClicked: {
                     if (model_index.model.rowCount(model_index)) {
@@ -485,6 +494,11 @@ metadata with media that isn't from your pipeline.`
                         is_backup = true
                     }
                 }
+                XsToolTip{
+                    text: backup_tooltip
+                    visible: hovered
+                }
+
             }
 
         }

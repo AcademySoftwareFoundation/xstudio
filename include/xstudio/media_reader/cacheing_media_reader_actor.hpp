@@ -25,17 +25,14 @@ namespace media_reader {
         const char *name() const override { return NAME.c_str(); }
 
       private:
+      
         struct ImmediateImageReqest {
 
             ImmediateImageReqest(
                 const media::AVFrameID mptr,
-                caf::actor &playhead,
-                const utility::time_point &time,
-                timebase::flicks playhead_position)
+                caf::typed_response_promise<ImageBufPtr> &rp)
                 : mptr_(mptr),
-                  playhead_(playhead),
-                  time_point_(time),
-                  playhead_position_(playhead_position) {}
+                  response_promise_(rp) {}
 
             ImmediateImageReqest(const ImmediateImageReqest &) = default;
             ImmediateImageReqest()                             = default;
@@ -43,18 +40,13 @@ namespace media_reader {
             ImmediateImageReqest &operator=(const ImmediateImageReqest &o) = default;
 
             media::AVFrameID mptr_;
-            caf::actor playhead_;
-            utility::time_point time_point_;
-            timebase::flicks playhead_position_;
+            caf::typed_response_promise<ImageBufPtr> response_promise_;
         };
 
         void do_urgent_get_image();
-        void receive_image_buffer_request(
+        caf::typed_response_promise<ImageBufPtr> receive_image_buffer_request(
             const media::AVFrameID &mptr,
-            caf::actor playhead,
-            const utility::Uuid playhead_uuid,
-            const utility::time_point &tp,
-            const timebase::flicks playhead_position);
+            const utility::Uuid playhead_uuid);
 
         std::map<const utility::Uuid, ImmediateImageReqest> pending_get_image_requests_;
 

@@ -65,6 +65,8 @@ namespace ui {
                 const int h,
                 const media_reader::ImageBufPtr &image = media_reader::ImageBufPtr());
 
+            media_reader::ImageBufPtr renderToImageBuf(const int width, const int height);
+
             thumbnail::ThumbnailBufferPtr renderToThumbnail(
                 const thumbnail::THUMBNAIL_FORMAT format,
                 const int width,
@@ -86,6 +88,12 @@ namespace ui {
             void initGL();
 
             void exportToEXR(const media_reader::ImageBufPtr &image, const caf::uri path);
+
+            media_reader::ImageBufPtr renderMediaFrameToImage(
+                caf::actor media_actor,
+                const int media_frame,
+                const int width,
+                const int height);
 
             thumbnail::ThumbnailBufferPtr renderMediaFrameToThumbnail(
                 caf::actor media_actor,

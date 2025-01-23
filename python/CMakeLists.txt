@@ -55,7 +55,7 @@ if(INSTALL_PYTHON_MODULE)
 endif()
 
 if(WIN32)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio DESTINATION ${CMAKE_INSTALL_PREFIX}/python/ FILES_MATCHING PATTERN "*.py")
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio DESTINATION python FILES_MATCHING PATTERN "*.py")
 endif()
 
 # install(CODE "execute_process(COMMAND ${PYTHON} ${SETUP_PY} install)")

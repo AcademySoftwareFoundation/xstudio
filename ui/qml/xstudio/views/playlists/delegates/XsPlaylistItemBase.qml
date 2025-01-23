@@ -351,9 +351,22 @@ Item {
             leftPadding: itemPadding
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
-            tooltipText: text
+            /*tooltipText: text
             tooltipVisibility: hovered && truncated
-            toolTipWidth: contentDiv.width*2
+            toolTipWidth: contentDiv.width*2*/
+            MouseArea{
+                id: mArea
+                anchors.fill: parent
+                hoverEnabled: true
+                propagateComposedEvents: true
+            }
+            XsToolTip {
+                text: nameRole
+                visible: mArea.containsMouse && parent.truncated
+                x: 0 //#TODO: flex/pointer
+                y_reposition: -1.0
+            }
+        
         }
 
         Repeater {

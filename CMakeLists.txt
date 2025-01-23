@@ -9,10 +9,12 @@ if (USE_VCPKG)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
 endif()
 
-set(XSTUDIO_GLOBAL_VERSION "1.0.0" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "2.4.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
+
+set(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION OFF)
 
 cmake_policy(VERSION 3.26)
 
@@ -275,4 +277,52 @@ if(USE_VCPKG)
   # To provide reliable ordering, we need to make this install script happen in a subdirectory.
   # Otherwise, Qt deploy will happen before we have the rest of the application deployed.
   add_subdirectory("scripts/qt_install")
+endif()
+
+if (WIN32)
+  set(CPACK_PACKAGE_VERSION "2.4.0")
+  set(CPACK_PACKAGE_VERSION_MAJOR "2")
+  set(CPACK_PACKAGE_VERSION_MINOR "4")
+  set(CPACK_PACKAGE_VERSION_PATCH "0")
+  set(CPACK_PACKAGE_VENDOR "DNEG / Academy Software Foundation")
+  set (CPACK_NSIS_MUI_ICON
+      "${CMAKE_CURRENT_SOURCE_DIR}/ui/icons\\\\xstudio_app.ico")
+  set (CPACK_PACKAGE_NAME "xSTUDIO")
+  set (CPACK_NSIS_PACKAGE_NAME "xSTUDIO")
+  set (CPACK_PACKAGE_ICON
+      "${CMAKE_CURRENT_SOURCE_DIR}/ui/icons\\\\xstudio_app.ico")
+  set (CPACK_RESOURCE_FILE_LICENSE
+      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+  set (CPACK_CREATE_DESKTOP_LINKS xstudio)
+  set (CPACK_NSIS_MENU_LINKS
+      "share/docs/index.html"
+      "xSTUDIO Help")
+
+  set(CPACK_NSIS_CREATE_ICONS_EXTRA
+    "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\xSTUDIO.lnk' '$INSTDIR\\\\bin\\\\xstudio.exe' '--allow-qt-warnings'"
+  )
+  #set (CPACK_PACKAGE_EXECUTABLES "xstudio" "xSTUDIO" )
+
+  set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+      WriteRegStr HKCR '.xst' '' 'XStudioSession'
+      WriteRegStr HKCR 'XStudioSession' '' 'xSTUDIO Session File'
+      WriteRegStr HKCR 'XStudioSession\\\\shell' '' 'open'
+      WriteRegStr HKCR 'XStudioSession\\\\DefaultIcon' \\\\
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe,0'
+      WriteRegStr HKCR 'XStudioSession\\\\shell\\\\open\\\\command' \\\\
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\"%1\\"'
+      WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit' \\\\
+                        '' 'Edit xSTUDIO Session File'
+      WriteRegStr HKCR 'XStudioSession\\\\shell\\\\edit\\\\command' \\\\
+                        '' '$INSTDIR\\\\bin\\\\xstudio.exe \\"%1\\"'
+      System::Call \\\\
+        'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
+      ")
+
+  set (CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+      DeleteRegKey HKCR '.xst'
+      DeleteRegKey HKCR 'XStudioSession'
+      ")
+
+  include(CPack)
 endif()

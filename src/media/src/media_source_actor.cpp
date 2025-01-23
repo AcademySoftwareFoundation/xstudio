@@ -309,13 +309,16 @@ void MediaSourceActor::acquire_detail(
                         // base_.media_reference().set_duration(
                         //     FrameRateDuration(1, base_.media_reference().duration().rate()));
                         spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                        base_.send_changed();
-                        send(base_.event_group(), utility::event_atom_v, change_atom_v);
-                        base_.set_error_detail(to_string(err));
+                        if (base_.error_detail() != to_string(err)) {
+                            base_.send_changed();
+                            send(base_.event_group(), utility::event_atom_v, change_atom_v);
+                            base_.set_error_detail(to_string(err));
+                        }
                         for (auto &_rp : pending_stream_detail_requests_) {
                             _rp.deliver(false);
                         }
                         pending_stream_detail_requests_.clear();
+                        base_.set_media_status(MS_UNREADABLE);
                     });
         } else {
             for (auto &_rp : pending_stream_detail_requests_) {

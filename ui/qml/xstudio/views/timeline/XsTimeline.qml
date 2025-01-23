@@ -195,7 +195,7 @@ Rectangle {
                     [minFrame, maxFrame] = findItemBounds(timelineSelection.selectedIndexes[i], minFrame, maxFrame)
                 }
                 timelinePlayhead.loopStartFrame = minFrame
-                timelinePlayhead.loopEndFrame = maxFrame
+                timelinePlayhead.loopEndFrame = maxFrame-1
             } else {
                 timelinePlayhead.enableLoopRange = false
             }

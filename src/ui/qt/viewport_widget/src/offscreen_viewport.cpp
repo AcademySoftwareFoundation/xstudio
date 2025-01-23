@@ -273,6 +273,36 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_ov
 
             [=](render_viewport_to_image_atom,
                 caf::actor media_actor,
+                const int media_frame,
+                const int width,
+                const int height,
+                const caf::uri path) -> result<bool> {
+                try {
+
+                    media_reader::ImageBufPtr image = renderMediaFrameToImage(media_actor, media_frame, width, height);
+                    auto p = fs::path(xstudio::utility::uri_to_posix_path(path));
+                    std::string ext = xstudio::utility::ltrim_char(
+#ifdef _WIN32
+                        xstudio::utility::to_upper_path(p.extension()),
+#else
+                        xstudio::utility::to_upper(p.extension()),
+#endif
+                        '.'); // yuk!
+
+                    if (ext == "EXR") {
+                        this->exportToEXR(image, path);
+                    } else {
+                        this->exportToCompressedFormat(image, path, ext);
+                    }            
+
+                } catch (std::exception &e) {
+                    return caf::make_error(xstudio_error::error, e.what());
+                }
+                return true;
+            },
+
+            [=](render_viewport_to_image_atom,
+                caf::actor media_actor,
                 const timebase::flicks playhead_timepoint,
                 const thumbnail::THUMBNAIL_FORMAT format,
                 const int width,
@@ -1036,23 +1066,54 @@ thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
 thumbnail::ThumbnailBufferPtr OffscreenViewport::renderToThumbnail(
     const thumbnail::THUMBNAIL_FORMAT format, const int width, const int height) {
 
-    media_reader::ImageBufPtr image2 = viewport_renderer_->get_onscreen_image(true);
+    media_reader::ImageBufPtr image = renderToImageBuf(width, height);
+    thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(image);
+    r->convert_to(format);
+    return r;
 
+}
+
+media_reader::ImageBufPtr OffscreenViewport::renderToImageBuf(const int width, const int height) {
+
+    media_reader::ImageBufPtr image2 = viewport_renderer_->get_onscreen_image(true);
     if (!image2) {
         std::string err(fmt::format(
             "{} Failed to pull images to offscreen renderer.", __PRETTY_FUNCTION__));
         throw std::runtime_error(err.c_str());
     }
-
     media_reader::ImageBufPtr image(new media_reader::ImageBuffer());
-
     renderToImageBuffer(
         width, height, image, ImageFormat::RGBA_16F, true, utility::clock::now(), image2);
-    thumbnail::ThumbnailBufferPtr r = rgb96thumbFromHalfFloatImage(image);
-    r->convert_to(format);
-    return r;
+    return image;
 }
 
+media_reader::ImageBufPtr OffscreenViewport::renderMediaFrameToImage(
+    caf::actor media_actor,
+    const int media_frame,
+    const int width,
+    const int height) {
+
+    if (!local_playhead_) {
+        auto a          = caf::actor_cast<caf::event_based_actor *>(as_actor());
+        local_playhead_ = a->spawn<playhead::PlayheadActor>(
+            "Offscreen Viewport Local Playhead", playhead::NO_AUDIO);
+
+        a->link_to(local_playhead_);
+    }
+    // first, set the local playhead to be our image source
+    viewport_renderer_->set_playhead(local_playhead_);
+
+    scoped_actor sys{as_actor()->home_system()};
+
+    // now set the media source on the local playhead
+    utility::request_receive<bool>(
+        *sys, local_playhead_, playhead::source_atom_v, std::vector<caf::actor>({media_actor}));
+
+    // now move the playhead to requested frame
+    utility::request_receive<bool>(*sys, local_playhead_, playhead::jump_atom_v, media_frame);
+
+    return renderToImageBuf(width, height);
+}
 
 thumbnail::ThumbnailBufferPtr OffscreenViewport::renderMediaFrameToThumbnail(
     caf::actor media_actor,

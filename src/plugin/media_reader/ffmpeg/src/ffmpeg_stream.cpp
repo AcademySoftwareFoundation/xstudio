@@ -539,8 +539,6 @@ AudioBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_audio(const int soundcard_
     return audio_buffer;
 }
 
-static int asd = 0;
-
 FFMpegStream::FFMpegStream(
     AVFormatContext *fmt_ctx, AVStream *stream, int index, int thread_count, std::string path)
     : stream_index_(index),

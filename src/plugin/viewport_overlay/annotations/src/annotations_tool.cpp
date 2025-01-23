@@ -43,9 +43,9 @@ std::vector<utility::Uuid> annotations_uuids(const std::vector<AnnotationPtr> &a
     return res;
 }
 
-} // anonymous namespace
-
 static int __a_idx = 0;
+
+} // anonymous namespace
 
 AnnotationsTool::AnnotationsTool(
     caf::actor_config &cfg, const utility::JsonStore &init_settings)

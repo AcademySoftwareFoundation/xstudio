@@ -19,7 +19,8 @@ Rectangle {
     height: metrics.height+margin
     color: "transparent"
     border.color: palette.highlight
-    border.width: mouseArea.containsMouse ? 1 : 0
+    border.width: hovered ? 1 : 0
+    property bool hovered: mouseArea.containsMouse
 
     XsGradientRectangle{
         id: bgDiv
@@ -53,16 +54,6 @@ Rectangle {
         id: metrics
         text: widget.text
     }
-
-    property var tooltipText: ""
-
-    XsToolTip{
-        id: toolTip
-        text: tooltipText
-        visible: mouseArea.containsMouse && text
-        width: metrics.width
-    }
-
 
 }
 

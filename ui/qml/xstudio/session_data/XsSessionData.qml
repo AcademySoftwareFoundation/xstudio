@@ -313,6 +313,11 @@ Item {
         uuid: sessionData.onScreenPlayheadUuid
         onMediaUuidChanged: {
             current_onscreen_media_data.index = session.searchRecursive(mediaUuid, "actorUuidRole", sessionData.viewportCurrentMediaContainerIndex)
+            if (!current_onscreen_media_data.index.valid) {
+                callbackTimer.setTimeout(function() { return function() {
+                    current_onscreen_media_data.index = session.searchRecursive(mediaUuid, "actorUuidRole", sessionData.viewportCurrentMediaContainerIndex)
+                    }}(), 200);
+            }
         }
     }
     property alias current_playhead: current_playhead
@@ -485,12 +490,16 @@ Item {
             return ms
         }
 
-        function getSelectedMediaUrl(role="pathRole") {
+        function getSelectedMediaUrl(role="pathRole", sourceName="") {
             let result = []
             let sel = mediaSelectionModel.selectedIndexes
             for(let i =0;i<sel.length;i++) {
                 let mi = sel[i]
-                let ms = mi.model.searchRecursive(mi.model.get(mi, "imageActorUuidRole"), "actorUuidRole", mi)
+                let ms = null
+                if(sourceName.length)
+                    ms = mi.model.searchRecursive(sourceName, "nameRole", mi)
+                else
+                    ms = mi.model.searchRecursive(mi.model.get(mi, "imageActorUuidRole"), "actorUuidRole", mi)
 
                 if(ms.valid) {
                     let v = mi.model.get(ms, role)

@@ -120,6 +120,7 @@ namespace playhead {
         caf::actor viewport_events_group_;
         caf::actor playhead_media_events_group_;
         caf::actor event_group_;
+        caf::actor media_actor_;
 
         utility::UuidActor hero_sub_playhead_;
         utility::UuidActorVector sub_playheads_;

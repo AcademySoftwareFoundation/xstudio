@@ -6,7 +6,9 @@ using namespace xstudio;
 
 std::map<long, std::shared_ptr<AnnotationSerialiser>> AnnotationSerialiser::serialisers;
 
+namespace {
 static const std::string ANNO_VERSION_KEY("Annotation Serialiser Version");
+}
 
 utility::JsonStore AnnotationSerialiser::serialise(const Annotation *anno) {
     if (serialisers.empty()) {

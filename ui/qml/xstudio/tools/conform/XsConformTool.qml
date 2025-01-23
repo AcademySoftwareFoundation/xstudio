@@ -162,6 +162,8 @@ Item{
     function conformSelectionTimeline(task, selection) {
         let clips = theSessionData.duplicateTimelineClips(selection, task, "");
         for(let i=0; i< clips.length; i++) {
+            // reset clip colours.
+            clips[i].model.set(clips[i], "", "flagColourRole")
             Future.promise(
                 engine.conformItemsFuture(task,
                     clips[i].model.getContainerIndex(clips[i]),

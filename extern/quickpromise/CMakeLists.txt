@@ -43,13 +43,10 @@ target_link_libraries(quickpromise PRIVATE Qt5::Core Qt5::Quick)
 # Add resource and header files to the library
 target_sources(quickpromise PRIVATE ${QML_FILES} ${RESOURCES})
 
-# Set install paths
-set(QML_INSTALL_DIR ${INSTALL_ROOT}/bin/QuickPromise)
-
 # Install the library and qml files
 if(WIN32)
-    install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT}/bin)
-    install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickPromise)
+    install(TARGETS quickpromise DESTINATION bin)
+    install(FILES ${QML_FILES} DESTINATION share/xstudio/plugin/qml/QuickPromise)
 else()
     install(TARGETS quickpromise DESTINATION ${INSTALL_ROOT})
     install(FILES ${QML_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/xstudio/plugin/qml/QuickPromise)

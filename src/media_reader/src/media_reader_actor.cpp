@@ -292,6 +292,7 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                         });
                             } else {
                                 // request new reader instance.
+                                auto tp = utility::clock::now();
                                 request(
                                     pool_,
                                     infinite,
@@ -372,6 +373,7 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
             const utility::Uuid playhead_uuid,
             const utility::time_point &tp,
             const timebase::flicks playhead_position) {
+
             request(image_cache_, infinite, media_cache::retrieve_atom_v, mptr.key())
                 .then(
                     [=](const media_reader::ImageBufPtr &buf) mutable {
@@ -381,16 +383,33 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                             auto reader =
                                 check_cached_reader(reader_key(mptr.uri(), mptr.actor_addr()));
                             if (reader) {
-                                anon_send(
+                                request(
                                     *reader,
+                                    infinite,
                                     get_image_atom_v,
                                     mptr,
-                                    playhead,
-                                    playhead_uuid,
-                                    tp,
-                                    playhead_position);
+                                    playhead_uuid).then(
+                                        [=](const media_reader::ImageBufPtr &buf) mutable {
+                                            send(playhead, push_image_atom_v, buf, mptr, tp, playhead_position);
+                                        },
+                                        [=](caf::error &err) {});
                             } else {
+
+                                // This prevents a load of requests for new readers to pile up
+                                // on pool_ when the same image is requested multiple times
+                                auto request_details = std::make_shared<ImmediateFrameRequest>();
+                                auto rkey = reader_key(mptr.uri(), mptr.actor_addr());
+                                request_details->mptr = mptr;
+                                request_details->playhead = playhead;
+                                request_details->playhead_uuid = playhead_uuid;
+                                request_details->tp = tp;
+                                request_details->playhead_position = playhead_position;
+                                immediate_frame_requests_[rkey].push_back(request_details);
+
+                                if (immediate_frame_requests_[rkey].size() > 1) return;
+
                                 // get reader..
+                                auto tp2 = utility::clock::now();
                                 request(
                                     pool_,
                                     infinite,
@@ -399,17 +418,31 @@ GlobalMediaReaderActor::GlobalMediaReaderActor(
                                     mptr.reader())
                                     .then(
                                         [=](caf::actor &new_reader) mutable {
+
                                             new_reader = add_reader(
                                                 new_reader,
-                                                reader_key(mptr.uri(), mptr.actor_addr()));
-                                            anon_send(
-                                                new_reader,
-                                                get_image_atom_v,
-                                                mptr,
-                                                playhead,
-                                                playhead_uuid,
-                                                tp,
-                                                playhead_position);
+                                                rkey);
+
+                                            auto p = immediate_frame_requests_.find(rkey);
+                                            if (p == immediate_frame_requests_.end()) return;
+                                            auto rr = p->second;
+                                            immediate_frame_requests_.erase(p);
+
+                                            for (size_t i = 0; i < rr.size(); ++i) {
+
+                                                std::shared_ptr<ImmediateFrameRequest> r = rr[i];
+
+                                                request(
+                                                    new_reader,
+                                                    infinite,
+                                                    get_image_atom_v,
+                                                    r->mptr,
+                                                    r->playhead_uuid).then(
+                                                        [=](const media_reader::ImageBufPtr &buf) mutable {
+                                                            send(r->playhead, push_image_atom_v, buf, r->mptr, r->tp, r->playhead_position);
+                                                        },
+                                                        [=](caf::error &err) {});
+                                            }
                                         },
                                         [=](const caf::error &err) mutable {
                                             send_error_to_source(mptr.actor_addr(), err);
@@ -620,21 +653,8 @@ caf::actor GlobalMediaReaderActor::get_reader(
     if (cached_reader)
         return *cached_reader;
 
-    caf::actor reader;
-
-    try {
-        scoped_actor sys{system()};
-        // spdlog::stopwatch sw;
-        reader = request_receive<caf::actor>(*sys, pool_, get_reader_atom_v, _uri, hint);
-        if (reader)
-            reader = add_reader(reader, key);
-
-        // spdlog::warn("get_reader {} {:.3f}", to_string(_uri), sw);
-    } catch (const std::exception &err) {
-        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-    }
-
-    return reader;
+    return caf::actor();
+    
 }
 
 std::string
@@ -788,8 +808,29 @@ void GlobalMediaReaderActor::do_precache() {
                         auto reader =
                             get_reader(mptr->uri(), mptr->actor_addr(), mptr->reader());
                         if (not reader) {
-                            mark_playhead_received_precache_result(playhead_uuid);
-                            continue_precacheing();
+                            // we need a new reader
+                            request(pool_, infinite, get_reader_atom_v, mptr->uri(), mptr->reader()).then(
+                                [=](caf::actor new_reader) mutable {
+                                    auto key = reader_key(mptr->uri(), mptr->actor_addr());
+                                    new_reader = add_reader(new_reader, key);
+                                    if (cache_actor == image_cache_) {
+                                        read_and_cache_image(
+                                            new_reader,
+                                            *fr,
+                                            cache_out_of_date_threshold,
+                                            is_background_cache);
+                                    } else {
+                                        read_and_cache_audio(
+                                            new_reader,
+                                            *fr,
+                                            cache_out_of_date_threshold,
+                                            is_background_cache);
+                                    }
+                                },
+                                [=](caf::error &err) {
+                                    mark_playhead_received_precache_result(playhead_uuid);
+                                    continue_precacheing();
+                                });
                         } else {
                             if (cache_actor == image_cache_) {
                                 read_and_cache_image(

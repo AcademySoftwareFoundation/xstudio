@@ -29,7 +29,6 @@ Rectangle{
     property bool isActive: isOnScreen
     property bool isSelected: false
     property bool isDragTarget: false
-    property bool isHovered: toolTipMArea.containsMouse
     property bool showDetails: cellSize > standardCellSize
 
     property var gotBookmark: false
@@ -292,13 +291,6 @@ Rectangle{
 
             property real divHeight: (btnHeight - 2)
 
-            isHovered: toolTipMArea.containsMouse
-            MouseArea{
-                id: toolTipMArea
-                anchors.fill: parent
-                hoverEnabled: true
-                propagateComposedEvents: true
-            }
         }
 
     }

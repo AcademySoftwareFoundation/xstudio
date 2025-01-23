@@ -1,0 +1,3 @@
+message("Running windeployqt... with args: ${CMAKE_INSTALL_PREFIX}/bin/xstudio.exe --qmldir @CMAKE_SOURCE_DIR@/ui")
+execute_process(COMMAND "@windeployqt_exe@" ${CMAKE_INSTALL_PREFIX}/bin/xstudio.exe --qmldir @CMAKE_SOURCE_DIR@/ui
+    WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}")

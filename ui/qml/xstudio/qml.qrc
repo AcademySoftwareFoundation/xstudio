@@ -361,8 +361,6 @@
 		<file alias="select.svg">assets/icons/select.svg</file>
 		<file alias="settings.svg">assets/icons/settings.svg</file>
 		<file alias="skip_next.svg">assets/icons/skip_next.svg</file>
-		<file alias="skip_next.svg">assets/icons/skip_next.svg</file>
-		<file alias="skip_previous.svg">assets/icons/skip_previous.svg</file>
 		<file alias="skip_previous.svg">assets/icons/skip_previous.svg</file>
 		<file alias="sort.svg">assets/icons/sort.svg</file>
 		<file alias="sort_flipped.png">assets/icons/sort_flipped.png</file>

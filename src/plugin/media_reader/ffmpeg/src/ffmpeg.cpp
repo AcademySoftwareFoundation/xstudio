@@ -383,9 +383,6 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
     }
 }
 
-static std::mutex m;
-static int ct = 0;
-
 ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
 
     if (mptr.stream_id() == "stream -1") {

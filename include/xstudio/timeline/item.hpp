@@ -477,7 +477,7 @@ namespace timeline {
         auto result = std::set<utility::Uuid>();
 
         for (const auto &i : events)
-            result.insert(i.at("undo").at("event_id"));
+            result.insert(utility::Uuid(i.at("undo").at("event_id")));
 
         return result;
     }

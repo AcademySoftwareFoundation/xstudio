@@ -667,6 +667,20 @@ std::string xstudio::utility::expand_envvars(
     const std::string &src, const std::map<std::string, std::string> &additional) {
 
 #ifdef _WIN32
+    // some prefs have ${HOME} which is Linux Windows only, on WIN we want
+    // ${USERPROFILE}
+    if (src.find("${HOME}") != std::string::npos) {
+        std::string unix_home = utility::replace_once(src, "${HOME}", "${USERPROFILE}");
+        return expand_envvars(unix_home, additional);
+    }
+    if (src.find("${TMPDIR}") != std::string::npos) {
+        std::string unix_home = utility::replace_once(src, "${TMPDIR}", "${TMP}");
+        return expand_envvars(unix_home, additional);
+    }
+    if (src.find("${USER}") != std::string::npos) {
+        std::string unix_home = utility::replace_once(src, "${USER}", "${USERNAME}");
+        return expand_envvars(unix_home, additional);
+    }
 #else
     // some prefs have ${USERPROFILE} which is MS Windows only, on UNIX we want
     // ${HOME}

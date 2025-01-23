@@ -60,9 +60,10 @@ add_subdirectory(qml)
 
 # add_custom_target(COPY_SO)
 
+if(NOT WIN32)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                  COMMAND ${CMAKE_COMMAND} -E
                      copy ${CMAKE_BINARY_DIR}/bin/plugin/libshotbrowser.so ${CMAKE_BINARY_DIR}/bin/plugin/qml/ShotBrowser.1/)
-
+endif()
 
 # add_dependencies(${PROJECT_NAME} COPY_SO)

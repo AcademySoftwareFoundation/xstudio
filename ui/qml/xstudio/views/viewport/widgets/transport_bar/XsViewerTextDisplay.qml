@@ -31,9 +31,19 @@ Rectangle {
         color: textColor
         width: parent.width
         anchors.centerIn: parent
-        tooltipVisibility: isHovered && textDiv.truncated
         font.family: widget.fontFamily
         font.pixelSize: widget.fontSize
+        MouseArea{
+            id: mm
+            anchors.fill: parent
+            hoverEnabled: true
+            propagateComposedEvents: true
+        }
+        XsToolTip {
+            text: textDiv.text
+            visible: mm.containsMouse && parent.truncated
+            x: 0 //#TODO: flex/pointer
+        }
     }
 
     MouseArea{

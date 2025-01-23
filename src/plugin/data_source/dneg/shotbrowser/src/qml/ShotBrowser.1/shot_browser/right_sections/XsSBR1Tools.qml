@@ -109,7 +109,7 @@ ColumnLayout{
             }
 
             XsToolTip {
-                timeout: 0
+                delay: 0
                 visible: parent.containsMouse
                 text: "Execution time " + resultsBaseModel.executionMilliseconds + " ms."
             }

@@ -23,8 +23,6 @@ using namespace xstudio::media_reader;
 using namespace xstudio::colour_pipeline;
 using namespace caf;
 
-static int II = 0;
-
 SubPlayhead::SubPlayhead(
     caf::actor_config &cfg,
     const std::string &name,
@@ -1988,8 +1986,7 @@ void SubPlayhead::set_in_and_out_frames() {
         out_frame_ = retimed_frames_.upper_bound(loop_out_point_);
         if (out_frame_ != first_frame_)
             out_frame_--;
-        if (out_frame_ != first_frame_)
-            out_frame_--;
+
     }
 
     if (loop_in_point_ > out_frame_->first) {

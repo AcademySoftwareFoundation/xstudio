@@ -23,11 +23,21 @@ Item {
         modelDataName: "grading_tool_overlay_shapes"
     }
 
+    // Note: Viewport has property imageBoundariesInViewport - this is a vector
+    // of QRect desribing the coordinates of the image(s) in the viewport.
+    // We use this, with the keySubplayheadIndex of the playhead, to work out
+    // the geometry of the image being modified in the viewport.
+    // If multiple images are visibe (e.g. contact sheet/grid layout) then we
+    // are modifying the image in the vector with an index that is the
+    // keySubplayheadIndex. If only one image is visible, this image is coming
+    // from keySubplayheadIndex so we use index zero.
+    property var keyPlayheadIdx: viewportPlayhead.keySubplayheadIndex
+    property var imBoundaries: view.imageBoundariesInViewport
+    property var imResolutions: view.imageResolutions
+
     property var viewportName: view.name
-    property var ib: view.imageBoundariesInViewport[viewportPlayhead.keySubplayheadIndex]
-    property var imageBox: ib ? ib : Qt.rect(0,0,0,0)
-    property var ir: view.imageResolutions[viewportPlayhead.keySubplayheadIndex]
-    property var imageResolution: ir ? ir : Qt.size(0, 0)
+    property var imageBox: keyPlayheadIdx < imBoundaries.length ? imBoundaries[keyPlayheadIdx] : imBoundaries.length ? imBoundaries[0] : Qt.rect(0,0,0,0)
+    property var imageResolution: keyPlayheadIdx < imResolutions.length ? imResolutions[keyPlayheadIdx] : imResolutions.length ? imResolutions[0] : Qt.size(0, 0)
     property real imageAspectRatio: imageBox.width/imageBox.height
     property real viewportScale: 1.0
     property var viewportOffset: Qt.point(0, 0)

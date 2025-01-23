@@ -68,5 +68,5 @@ else()
 endif(INSTALL_XSTUDIO)
 
 if(WIN32)
-install(TARGETS ${PROJECT_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/python/xstudio/core")
+install(TARGETS ${PROJECT_NAME} DESTINATION python/xstudio/core)
 endif()

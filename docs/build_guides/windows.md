@@ -35,6 +35,15 @@
   * Edit the `CMAKE_INSTALL_PREFIX` to your desired output location
     * This should be outside the build directory in a location where you have permissions to write to.
 
+* Powershell Build (without running VisualStudio)
+  * 'cd' to ${CLONE_ROOT}
+  * First, you may need to find the path to the 'cmake.exe' tool that is part of the VisualStudio install. Substitute as appropriate into the following commands.
+  * Run these two commands (perhaps change the value after --parallel to match the number of cores on your machine):
+    * 'C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe' -B build -G 'Visual Studio 17 2022' --preset Release
+    * 'C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe' --build .\build\ --target PACKAGE --config Release --parallel 20
+  * Note: The first step can take MANY HOURS to complete! This is because VCPKG builds all of xSTUDIO's dependencies from source, some of which (notably ffmpeg) are large.
+  * On completion, there should be a file 'xSTUDIO-1.0.0.exe' in the ./build/ folder in ${CLONE_ROOT}. This is the installer executable. Run this to install xSTUDIO to your PC.
+
 * Open VisualStudio 2022
   * Use Open Folder to point at the ${CLONE_ROOT}
   * Visual Studio should start configuring the project, including downloading dependencies via VCPKG

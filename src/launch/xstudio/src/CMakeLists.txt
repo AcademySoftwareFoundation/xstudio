@@ -9,11 +9,18 @@ find_package(ZLIB)
 find_package(fmt REQUIRED)
 
 qtquick_compiler_add_resources(QML_RESOURCES ../../../../ui/qml/xstudio/qml.qrc)
+if(WIN32)
+set(SOURCES
+	xstudio.cpp
+	xstudio_win_resource.rc
+	${QML_RESOURCES}
+	)	
+else()
 set(SOURCES
 	xstudio.cpp
 	${QML_RESOURCES}
 	)	
-
+endif()
 if(WIN32)
     # Add the /bigobj option for xstudio.cpp
     set_source_files_properties(xstudio.cpp PROPERTIES COMPILE_FLAGS "/bigobj")
@@ -89,6 +96,7 @@ if(WIN32)
 		VS_DEBUGGER_ENVIRONMENT XSTUDIO_ROOT=${CMAKE_BINARY_DIR}/bin/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>
 		LINK_DEPENDS_NO_SHARED true
 	)
+
 else()
 	set_target_properties(${PROJECT_NAME}
 		PROPERTIES
@@ -106,6 +114,13 @@ if(WIN32)
 	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.bat
 	  DESTINATION bin
 	  RENAME xstudio)
+
+	get_target_property(_qmake_executable Qt5::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+    find_program(windeployqt_exe windeployqt HINTS "${_qt_bin_dir}")
+	configure_file(windeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake @ONLY)
+	install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake)
+
 else()
 	install(PROGRAMS
 	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.sh

@@ -12,13 +12,6 @@ Text {
     property var textElide: widget.elide
     property real textWidth: metrics.advanceWidth
 
-    property bool toolTipEnabled: true
-    property bool isHovered: false //toolTipMA.containsMouse
-
-    property alias toolTip: toolTip
-    property alias tooltipText: toolTip.text
-    property alias tooltipVisibility: toolTip.visible
-    property real toolTipWidth: widget.width+15 //150
     opacity: enabled ? 1.0 : 0.5
     text: ""
     color: textColorNormal
@@ -44,24 +37,5 @@ Text {
         id: metrics
         font: widget.font
     }
-    // MouseArea{
-    //     id: mArea
-    //     anchors.fill: parent
-    //     hoverEnabled: true
-    //     propagateComposedEvents: true
-    // }
 
-    //Type1
-    ToolTip.text: text
-    ToolTip.visible: toolTipEnabled && truncated && isHovered
-    ToolTip.delay: 1000
-
-    //Type2
-    XsToolTip {
-        id: toolTip
-        text: widget.text
-        visible: false //mArea.containsMouse && parent.truncated
-        width: metrics.width == 0? 0 : toolTipWidth
-        x: 0 //#TODO: flex/pointer
-    }
 }
