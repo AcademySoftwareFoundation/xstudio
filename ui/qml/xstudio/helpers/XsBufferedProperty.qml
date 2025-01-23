@@ -17,10 +17,17 @@ Item {
         }
     }
 
+    onEnableBufferingChanged: {
+    	if(!delay && !enableBuffering)
+    		value = source
+    }
+
 	onSourceChanged: {
-		if(enableBuffering && delay) {
-			if(!updateTimer.running)
+		if(enableBuffering) {
+			if(delay && !updateTimer.running) {
+				console.log(delay, updateTimer.running)
                 updateTimer.start()
+			}
 		}
 		else
 			value = source

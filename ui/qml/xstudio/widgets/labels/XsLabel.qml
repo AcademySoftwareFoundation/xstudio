@@ -11,10 +11,8 @@ Label{
     property color textColorNormal: palette.text
     property var textElide: widget.elide
     property real textWidth: metrics.width
-    property alias toolTip: toolTip
-    property alias tooltipVisibility: toolTip.visible
-    property real toolTipWidth: widget.width+5 //150
     property bool shadow: false
+    property bool hovered: mArea.containsMouse
 
     text: ""
     color: textColorNormal
@@ -60,12 +58,4 @@ Label{
          propagateComposedEvents: true
     }
 
-    property var tooltipText: ""
-
-    XsToolTip{
-        id: toolTip
-        text: tooltipText ? tooltipText : ""
-        visible: mArea.containsMouse && tooltipText
-        width: metrics.width
-    }
 }

@@ -175,7 +175,7 @@ Rectangle {
                 verticalAlignment: Text.AlignTop
                 topPadding: 2
 
-                isHovered: nameTooltip.containsMouse
+                property bool isHovered: nameTooltip.containsMouse
 
                 MouseArea { id: nameTooltip
                     anchors.fill: parent
@@ -199,7 +199,7 @@ Rectangle {
                 topPadding: 2
                 rightPadding: 2
 
-                isHovered: deptTooltip.containsMouse
+                property bool isHovered: deptTooltip.containsMouse
 
                 MouseArea { id: deptTooltip
                     anchors.fill: parent
@@ -224,7 +224,7 @@ Rectangle {
                 verticalAlignment: Text.AlignBottom
                 bottomPadding: 2
 
-                isHovered: dateTooltip.containsMouse
+                property bool isHovered: dateTooltip.containsMouse
 
                 MouseArea { id: dateTooltip
                     anchors.fill: parent
@@ -254,7 +254,7 @@ Rectangle {
                 verticalAlignment: Text.AlignBottom
                 bottomPadding: 2
 
-                isHovered: timeTooltip.containsMouse
+                property bool isHovered: timeTooltip.containsMouse
 
                 MouseArea { id: timeTooltip
                     anchors.fill: parent
@@ -275,7 +275,7 @@ Rectangle {
                 verticalAlignment: Text.AlignBottom
                 bottomPadding: 2
 
-                isHovered: typeTooltip.containsMouse
+                property bool isHovered: typeTooltip.containsMouse
 
                 MouseArea { id: typeTooltip
                     anchors.fill: parent
@@ -295,7 +295,7 @@ Rectangle {
                 bottomPadding: 2
                 rightPadding: 2
 
-                isHovered: authorTooltip.containsMouse
+                property bool isHovered: authorTooltip.containsMouse
 
                 MouseArea { id: authorTooltip
                     anchors.fill: parent

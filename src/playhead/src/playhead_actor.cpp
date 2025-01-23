@@ -27,8 +27,6 @@ using namespace xstudio::playhead;
 using namespace xstudio::media_reader;
 using namespace caf;
 
-static caf::actor media_actor_;
-
 namespace {
 /* Simple one-trick actor that enacts the playback loop. */
 class PlayLoopActor : public caf::event_based_actor {
@@ -2589,11 +2587,16 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
         try {
 
             scoped_actor sys{system()};
+            // if loop end is set to frame 100, say, we need to include the 
+            // duration of frame 100. So we compute the flicks for frame 101 and
+            // then subtract playback_step_increment, which ensures the loop 
+            // end is just inside the duration of frame 100.
             const timebase::flicks loop_end_flicks = request_receive<timebase::flicks>(
                 *sys,
                 hero_sub_playhead_.actor(),
                 logical_frame_to_flicks_atom_v,
-                loop_end_frame_->value());
+                loop_end_frame_->value()+1);
+
             if (set_loop_end(loop_end_flicks - PlayheadBase::playback_step_increment)) {
                 // position or loop end were also changed
                 notify_loop_start_changed();
@@ -2750,7 +2753,15 @@ void PlayheadActor::hotkey_pressed(
     } else if (hotkey_uuid == set_loop_in_) {
         anon_send(caf::actor_cast<caf::actor>(this), simple_loop_start_atom_v, position());
     } else if (hotkey_uuid == set_loop_out_) {
-        anon_send(caf::actor_cast<caf::actor>(this), simple_loop_end_atom_v, position());
+
+        request(hero_sub_playhead_.actor(), infinite, flicks_to_logical_frame_atom_v, position()).then(
+            [=](int logical) {
+                loop_end_frame_->set_value(logical);
+            },
+            [=](caf::error &err) {
+
+            });
+        
     } else if (hotkey_uuid == step_forward_) {
 
         set_playing(false);

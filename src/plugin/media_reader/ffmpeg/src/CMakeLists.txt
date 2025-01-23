@@ -37,8 +37,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 if(WIN32)
 
 # We want the externally defined ffmpeg dlls to be installed into the bin directory.
-instalL(DIRECTORY ${FFMPEG_ROOT}/bin DESTINATION ${CMAKE_INSTALL_PREFIX}/ FILES_MATCHING PATTERN "*.dll")
+instalL(DIRECTORY ${FFMPEG_ROOT}/bin DESTINATION bin FILES_MATCHING PATTERN "*.dll")
 
 # We don't want the vcpkg install, or it will install linked dlls.
-_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/plugin)
+_install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION plugin)
 endif()

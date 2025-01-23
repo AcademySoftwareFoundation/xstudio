@@ -25,14 +25,8 @@ add_custom_target(
 	snippets-copy ALL DEPENDS
   ${snippets}
 )
-if(WIN32)
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    DESTINATION ${CMAKE_INSTALL_PREFIX}
-    FILES_MATCHING PATTERN "*.py"
-  )
-else()
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DESTINATION share/xstudio
     FILES_MATCHING PATTERN "*.py"
   )
-endif()

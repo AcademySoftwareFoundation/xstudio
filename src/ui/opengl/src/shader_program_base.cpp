@@ -70,15 +70,30 @@ uniform mat4 image_transform_matrix;
 uniform mat4 to_coord_system;
 uniform mat4 to_canvas;
 uniform float image_aspect;
+uniform ivec2 image_bounds_min;
+uniform ivec2 image_bounds_max;
 
 vec2 calc_pixel_coordinate(vec2 viewport_coordinate);
 
 void main()
 {
+    // awkward scale/translate to accommodate overscan where image_bounds (i.e.
+    // exr data window) is different to image_dims (i.e. display window size)
+    // This could/should go in image_transform_matrix!
+    float bdbx = float(image_bounds_max.x-image_bounds_min.x);
+    float bdby = float(image_bounds_max.y-image_bounds_min.y);
+    float alpha = float(image_bounds_min.x + image_bounds_max.x)/float(image_dims.x) - 1.0f;
+    float beta = bdbx/float(image_dims.x);
+    float alpha_y = float(image_bounds_min.y + image_bounds_max.y)/float(image_dims.y) - 1.0f;
+    float beta_y = bdby/float(image_dims.y);
     vec4 rpos = aPos;
+
+    rpos.x = alpha + beta*rpos.x;
+    rpos.y = alpha_y + beta_y*rpos.y;
     rpos.y = rpos.y/image_aspect;
+
     gl_Position = rpos*image_transform_matrix*to_coord_system*to_canvas;
-    texPosition = vec2((aPos.x + 1.0f) * float(image_dims.x), (aPos.y + 1.0f) * float(image_dims.y))*0.5f;
+    texPosition = vec2(image_bounds_min.x + bdbx*(aPos.x + 1.0f)*0.5f, image_bounds_min.y + bdby*(aPos.y + 1.0f)*0.5f);
 }
 )";
 
@@ -304,6 +319,7 @@ vec4 pack_RGB_10_10_10_2(vec4 rgb)
 
 void main(void)
 {
+
     if (texPosition.x < image_bounds_min.x || texPosition.x > image_bounds_max.x) FragColor = vec4(0.0,0.0,0.0,1.0);
     else if (texPosition.y < image_bounds_min.y || texPosition.y > image_bounds_max.y) FragColor = vec4(0.0,0.0,0.0,1.0);
     else {

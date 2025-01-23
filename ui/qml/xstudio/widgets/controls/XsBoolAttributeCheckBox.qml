@@ -64,11 +64,4 @@ Rectangle {
         }
     }
 
-    property string tooltip_text: ""
-
-    ToolTip.delay: 500
-    ToolTip.visible: mouseArea.containsMouse && tooltip_text != ""
-    ToolTip.text: tooltip_text
-
-
 }

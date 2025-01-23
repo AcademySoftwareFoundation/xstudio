@@ -158,11 +158,8 @@ CachingMediaReaderActor::CachingMediaReaderActor(
 
         [=](get_image_atom,
             const media::AVFrameID &mptr,
-            caf::actor playhead,
-            const utility::Uuid playhead_uuid,
-            const time_point &tp,
-            const timebase::flicks playhead_position) {
-            receive_image_buffer_request(mptr, playhead, playhead_uuid, tp, playhead_position);
+            const utility::Uuid playhead_uuid) -> result<ImageBufPtr> {
+            return receive_image_buffer_request(mptr, playhead_uuid);
         },
 
         [=](read_precache_image_atom, const media::AVFrameID &mptr) -> result<ImageBufPtr> {
@@ -198,10 +195,8 @@ void CachingMediaReaderActor::do_urgent_get_image() {
 
     auto p                      = pending_get_image_requests_.begin();
     const media::AVFrameID mptr = p->second.mptr_;
-    caf::actor playhead         = p->second.playhead_;
-    auto tp                     = p->second.time_point_;
-    auto playhead_uuid          = p->first;
-    auto tps                    = p->second.playhead_position_;
+    auto rp                     = p->second.response_promise_;
+    auto playhead_uuid = p->first;
     pending_get_image_requests_.erase(p);
 
     urgent_worker_busy_ = true;
@@ -209,7 +204,7 @@ void CachingMediaReaderActor::do_urgent_get_image() {
         .then(
             [=](media_reader::ImageBufPtr buf) mutable {
                 // send the image back to the playhead that requested it
-                send(playhead, push_image_atom_v, buf, mptr, tp, tps);
+                rp.deliver(buf);
 
                 // store the image in our cache
                 anon_send<message_priority::high>(
@@ -240,38 +235,35 @@ void CachingMediaReaderActor::do_urgent_get_image() {
 
                 // make an empty image buffer that holds the error message
                 media_reader::ImageBufPtr buf(new media_reader::ImageBuffer(err_msg.str()));
-
-                // send the image back to the playhead that requested it
-                send(playhead, push_image_atom_v, buf, mptr, tp, tps);
+                rp.deliver(buf);
 
                 urgent_worker_busy_ = false;
                 anon_send(this, get_image_atom_v);
             });
 }
 
-void CachingMediaReaderActor::receive_image_buffer_request(
+caf::typed_response_promise<ImageBufPtr> CachingMediaReaderActor::receive_image_buffer_request(
     const media::AVFrameID &mptr,
-    caf::actor playhead,
-    const utility::Uuid playhead_uuid,
-    const time_point &tp,
-    const timebase::flicks playhead_position) {
+    const utility::Uuid playhead_uuid) {
 
+    auto rt = make_response_promise<ImageBufPtr>();
     // first, check if the image we want is cached
     request(image_cache_, infinite, media_cache::retrieve_atom_v, mptr.key())
         .then(
             [=](media_reader::ImageBufPtr buf) mutable {
                 if (buf) {
-                    std::string path = uri_to_posix_path(mptr.uri());
                     // send the image back to the playhead that requested it
-                    send(playhead, push_image_atom_v, buf, mptr, tp, playhead_position);
+                    rt.deliver(buf);
                 } else {
                     // image is not cached. Update the request to load the image
                     pending_get_image_requests_[playhead_uuid] =
-                        ImmediateImageReqest(mptr, playhead, tp, playhead_position);
+                        ImmediateImageReqest(mptr, rt);
                     send(this, get_image_atom_v);
                 }
             },
             [=](const caf::error &err) mutable {
+                rt.deliver(err);
                 spdlog::warn("Failed cache retrieve buffer {} {}", mptr.key(), to_string(err));
             });
+    return rt;
 }

@@ -37,12 +37,6 @@ T.ComboBox { id: widget
     property real fontSize: XsStyleSheet.fontSize
     property var fontFamily: XsStyleSheet.fontFamily
 
-    property string tooltip_text: ""
-    ToolTip.delay: 500
-    ToolTip.visible: hovered && tooltip_text != ""
-    ToolTip.text: tooltip_text
-
-
     rightPadding: editable? (padding*2 + indicator.width): (padding)
 
     focusPolicy: Qt.StrongFocus

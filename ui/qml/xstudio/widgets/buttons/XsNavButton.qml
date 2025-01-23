@@ -59,8 +59,6 @@ Button {
             XsToolTip{
                 text: widget.text
                 visible: widget.hovered && parent.truncated
-                width: metricsDiv.width == 0? 0 : textWidth+22
-                // x: 0 //#TODO: flex/pointer
             }
         }
     }
