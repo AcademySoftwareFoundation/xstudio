@@ -14,7 +14,7 @@
 				"path": "/core/playhead/remote_desktop_optimisation_delay",
 				"default_value": 250,
 				"description": "UI refresh delay.",
-				"value": 500,
+				"value": 250,
 				"datatype": "int",
 				"context": ["APPLICATION"]
 			},

@@ -1220,7 +1220,7 @@ caf::message_handler SessionActor::message_handler() {
             return PlaylistTree(**found);
         },
 
-        /*[=](bookmark::render_annotations_atom, const std::string path) {
+        [=](bookmark::render_annotations_atom, const std::string path) {
             // This is for debugging but may be useful in the future. It will
             // render all the annotations in the session as a sequential set of
             // image files.
@@ -1250,6 +1250,7 @@ caf::message_handler SessionActor::message_handler() {
                                 caf::actor owner = d.owner_->actor();
                                 sprintf(buf.data(), path.c_str(), idx);
                                 caf::uri u = posix_path_to_uri(buf.data());
+                                std::cerr << "buf.data() " << buf.data() << "\n";
                                 request(
                                     offscreen_renderer,
                                     infinite,
@@ -1272,7 +1273,7 @@ caf::message_handler SessionActor::message_handler() {
                     [=](caf::error err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
-        },*/
+        },
 
         [=](playlist::get_media_atom) -> result<std::vector<UuidActor>> {
             if (playlists_.empty()) {

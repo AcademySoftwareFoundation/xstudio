@@ -52,11 +52,9 @@ Rectangle{
                     XsToolTip{
                         id: toolTip
                         text: parent.lineCount>15 ? parent.getFormattedText(0, parent.text.length) : parent.text
-                        font.pixelSize: XsStyleSheet.fontSize*0.8
+                        scaling: 0.8
                         visible: toolTipMArea.containsMouse && (scrollView.contentHeight > scrollView.height || scrollView.contentWidth > scrollView.width) //parent.lineCount>7
-                        width: metricsDiv.width == 0? 0 : parent.width<200? parent.width+40 : parent.width
-                        x: 0
-                        timeout: 0
+                        fixedWidth: parent.width<200? parent.width+40 : parent.width
                     }
 
                 }

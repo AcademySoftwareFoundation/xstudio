@@ -6,7 +6,9 @@ using namespace xstudio;
 
 std::map<long, std::shared_ptr<GradingDataSerialiser>> GradingDataSerialiser::serialisers;
 
+namespace {
 static const std::string GRADING_VERSION_KEY("Grading Serialiser Version");
+}
 
 utility::JsonStore GradingDataSerialiser::serialise(const GradingData *grading_data) {
 

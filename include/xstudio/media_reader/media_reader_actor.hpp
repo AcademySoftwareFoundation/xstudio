@@ -74,6 +74,7 @@ namespace media_reader {
         void process_get_media_detail_queue();
 
       private:
+
         caf::actor pool_;
         caf::actor image_cache_;
         caf::actor audio_cache_;
@@ -95,6 +96,17 @@ namespace media_reader {
 
         FrameRequestQueue playback_precache_request_queue_;
         FrameRequestQueue background_precache_request_queue_;
+
+        struct ImmediateFrameRequest {
+            media::AVFrameID mptr;
+            caf::actor playhead;
+            utility::Uuid playhead_uuid;
+            utility::time_point tp;
+            timebase::flicks playhead_position;
+        };
+        std::map<std::string, std::vector<std::shared_ptr<ImmediateFrameRequest>>> immediate_frame_requests_;
+
+
     };
 
 } // namespace media_reader
