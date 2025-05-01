@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtGraphicalEffects 1.0
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import Qt.labs.qmlmodels
+
 import QuickFuture 1.0
 import QuickPromise 1.0
-import QtQml 2.14
 
 import xStudio 1.0
 import xstudio.qml.helpers 1.0
@@ -449,10 +447,10 @@ Rectangle {
 						duration: Math.ceil(width / control.scaleX)
 						fps: rateFPSRole
 
-						onFramePressed: {
+						onFramePressed: frame => {
 							timelinePlayhead.logicalFrame = frame
 						}
-						onFrameDragging:{
+						onFrameDragging: frame => {
 							timelinePlayhead.logicalFrame = frame
 						}
 					}
@@ -598,7 +596,7 @@ Rectangle {
 
     			cursorShape: Qt.SizeVerCursor
 
-    			onPositionChanged: {
+    			onPositionChanged: (mouse)=> {
     				if(pressed) {
     					let ppos = mapToItem(splitView, 0, mouse.y)
     					topView.Layout.preferredHeight = ppos.y - (sizer.handleSize/2)

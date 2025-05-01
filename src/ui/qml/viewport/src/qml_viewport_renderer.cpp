@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/ui/qml/qml_viewport_renderer.hpp"
 #include "xstudio/ui/qml/qml_viewport.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
@@ -51,6 +53,8 @@ void QMLViewportRenderer::paint() {
 
     if (viewport_qml_item_ && viewport_qml_item_->isVisible() && viewport_renderer_) {
 
+        m_window->beginExternalCommands();
+
         // TODO: again, this init call probably shouldn't happen in the main
         // draw call. see above.
 
@@ -62,10 +66,12 @@ void QMLViewportRenderer::paint() {
         viewport_renderer_->render();
         glPopClientAttrib();
 
-        m_window->resetOpenGLState();
+        // m_window->resetOpenGLState();
         if (viewport_renderer_->playing()) {
             emit(doRedraw());
         }
+
+        m_window->endExternalCommands();
     }
 }
 
@@ -97,17 +103,21 @@ void QMLViewportRenderer::setSceneCoordinates(
     // Qml item changes. viewport_coords_.set returns true only when
     // these values have changed since the last call
 
+    // devicePixelRatio allows us to account for high DPI scaling, giving
+    // us the window size in actual device pixels
+
     if (viewport_coords_.set(topleft, topright, bottomright, bottomleft, sceneSize)) {
 
-        anon_send(
-            self(),
+        anon_mail(
             viewport_set_scene_coordinates_atom_v,
-            Imath::V2f(topleft.x(), topleft.y()),
-            Imath::V2f(topright.x(), topright.y()),
-            Imath::V2f(bottomright.x(), bottomright.y()),
-            Imath::V2f(bottomleft.x(), bottomleft.y()),
-            Imath::V2i(sceneSize.width(), sceneSize.height()),
-            devicePixelRatio);
+            float(topleft.x()),
+            float(topleft.y()),
+            float(topright.x() - topleft.x()),
+            float(bottomleft.y() - topleft.y()),
+            float(sceneSize.width()) ,
+            float(sceneSize.height()),
+            devicePixelRatio)
+            .send(self());
     }
 }
 
@@ -120,8 +130,6 @@ void QMLViewportRenderer::init_system() {
     QMLActor::init(CafSystemObject::get_actor_system());
 
     spdlog::debug("QMLViewportRenderer init");
-
-    self()->set_default_handler(caf::drop);
 }
 
 void QMLViewportRenderer::make_xstudio_viewport() {
@@ -233,7 +241,7 @@ bool QMLViewportRenderer::pointerEvent(const PointerEvent &e) {
     } else {
         // viewport did not consume pointer event, forward it on to the
         // mouse/leyboard event manager
-        anon_send(keypress_monitor_, ui::keypress_monitor::mouse_event_atom_v, _e);
+        anon_mail(ui::keypress_monitor::mouse_event_atom_v, _e).send(keypress_monitor_);
     }
     return false; // pointer event not used
 }
@@ -287,8 +295,8 @@ void QMLViewportRenderer::quickViewSource(
         }
     }
     if (!media.empty()) {
-        anon_send(
-            self(), quickview_media_atom_v, media, StdFromQString(compareMode), in_pt, out_pt);
+        anon_mail(quickview_media_atom_v, media, StdFromQString(compareMode), in_pt, out_pt)
+            .send(self());
     }
 }
 
@@ -330,4 +338,12 @@ void QMLViewportRenderer::setIsQuickViewer(const bool is_quick_viewer) {}
 void QMLViewportRenderer::visibleChanged(const bool is_visible) {
     if (viewport_renderer_)
         viewport_renderer_->set_visibility(is_visible);
+}
+
+QPointF QMLViewportRenderer::toViewportCoords(const QPointF &in) const {
+    Imath::V4f ptr(in.x(), in.y(), 0.0f, 1.0f);
+
+    if (viewport_renderer_)
+        ptr *= viewport_renderer_->projection_matrix();
+    return QPointF(ptr.x / ptr.w, -ptr.y / ptr.w);
 }

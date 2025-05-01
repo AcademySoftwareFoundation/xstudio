@@ -29,7 +29,10 @@ namespace ui::qml {
             "nameRole",
             "projectStatusRole",
             "sgTypeRole",
-            "typeRole"};
+            "statusRole",
+            "subtypeRole",
+            "typeRole",
+            "unitRole"};
 
         enum Roles {
             createdRole = JSONTreeModel::Roles::LASTROLE,
@@ -38,7 +41,10 @@ namespace ui::qml {
             nameRole,
             projectStatusRole,
             sgTypeRole,
+            statusRole,
+            subtypeRole,
             typeRole,
+            unitRole,
             LASTROLE
         };
 
@@ -51,11 +57,16 @@ namespace ui::qml {
     };
 
     class ShotBrowserSequenceModel : public ShotBrowserListModel {
+        Q_OBJECT
+
+        Q_PROPERTY(QStringList types READ types WRITE setTypes NOTIFY typesChanged)
 
       public:
-        const static inline std::vector<std::string> RoleNames = {"statusRole", "unitRole"};
+        const static inline std::vector<std::string> RoleNames = {"assetNameRole"};
 
-        enum Roles { statusRole = ShotBrowserListModel::Roles::LASTROLE, unitRole };
+        enum Roles {
+            assetNameRole = ShotBrowserListModel::Roles::LASTROLE,
+        };
 
         ShotBrowserSequenceModel(QObject *parent = nullptr) : ShotBrowserListModel(parent) {
             auto roles = ShotBrowserListModel::RoleNames;
@@ -63,13 +74,28 @@ namespace ui::qml {
             setRoleNames(roles);
         }
 
-        static nlohmann::json flatToTree(const nlohmann::json &src);
+
+        void setTypes(const QStringList &value) {
+            if (types_ != value) {
+                types_ = value;
+                emit typesChanged();
+            }
+        }
+
+        static nlohmann::json flatToTree(const nlohmann::json &src, QStringList &_types);
+        static nlohmann::json flatToAssetTree(const nlohmann::json &src, QStringList &_types);
 
         [[nodiscard]] QVariant
         data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
+        [[nodiscard]] QStringList types() const { return types_; }
+
+      signals:
+        void typesChanged();
+
       private:
-        static nlohmann::json sortByName(const nlohmann::json &json);
+        static nlohmann::json sortByNameAndType(const nlohmann::json &json);
+        QStringList types_{};
     };
 
     class ShotBrowserSequenceFilterModel : public QSortFilterProxyModel {
@@ -82,6 +108,9 @@ namespace ui::qml {
 
         Q_PROPERTY(QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY
                        unitFilterChanged)
+
+        Q_PROPERTY(QVariantList typeFilter READ typeFilter WRITE setTypeFilter NOTIFY
+                       typeFilterChanged)
 
         QML_NAMED_ELEMENT("ShotBrowserSequenceFilterModel")
 
@@ -102,6 +131,7 @@ namespace ui::qml {
         [[nodiscard]] bool hideEmpty() const { return hide_empty_; }
         [[nodiscard]] QStringList hideStatus() const;
         [[nodiscard]] QVariantList unitFilter() const { return filter_unit_; }
+        [[nodiscard]] QVariantList typeFilter() const { return filter_type_; }
 
         void setHideStatus(const QStringList &value);
 
@@ -123,10 +153,20 @@ namespace ui::qml {
             }
         }
 
+        void setTypeFilter(const QVariantList &filter) {
+            if (filter_type_ != filter) {
+                filter_type_ = filter;
+                emit typeFilterChanged();
+                invalidateFilter();
+                emit filterChanged();
+            }
+        }
+
 
       signals:
         void hideStatusChanged();
         void unitFilterChanged();
+        void typeFilterChanged();
         void hideEmptyChanged();
         void filterChanged();
 
@@ -138,6 +178,7 @@ namespace ui::qml {
       private:
         std::set<QString> hide_status_;
         QVariantList filter_unit_;
+        QVariantList filter_type_;
         bool hide_empty_{false};
     };
 

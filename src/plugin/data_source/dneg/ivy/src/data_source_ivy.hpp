@@ -66,6 +66,14 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
     void on_exit() override;
 
   private:
+    void get_version(
+        caf::typed_response_promise<utility::JsonStore> rp,
+        const std::string &show,
+        const utility::Uuid &id);
+
+    void
+    pipequery(caf::typed_response_promise<utility::JsonStore> rp, const std::string &query);
+
     void ivy_load(
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const caf::uri &uri,
@@ -85,6 +93,7 @@ template <typename T> class IvyDataSourceActor : public caf::event_based_actor {
         caf::typed_response_promise<utility::UuidActorVector> rp,
         const std::string &show,
         const utility::Uuid &stalk_dnuuid,
+        const caf::actor &media_actor,
         const utility::FrameRate &media_rate);
 
     void ivy_load_audio_sources(

@@ -169,6 +169,10 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     polygon_init_->set_redraw_viewport_on_change(true);
     polygon_init_->expose_in_ui_attrs_group("mask_tool_settings");
 
+    interacting_ = add_boolean_attribute("interacting", "interacting", false);
+    interacting_->set_redraw_viewport_on_change(true);
+    interacting_->expose_in_ui_attrs_group("mask_tool_settings");
+
     mask_selected_shape_ =
         add_integer_attribute("mask_selected_shape", "mask_selected_shape", -1);
     mask_selected_shape_->expose_in_ui_attrs_group("mask_tool_settings");
@@ -189,20 +193,6 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     make_behavior();
     listen_to_playhead_events(true);
 
-    // we have to maintain a list of GradingColourOperator instances that are
-    // alive to send them messages about our state (currently only the state
-    // of the bypass attr)
-    set_down_handler([=](down_msg &msg) {
-        auto it = grading_colour_op_actors_.begin();
-        while (it != grading_colour_op_actors_.end()) {
-            if (msg.source == *it) {
-                it = grading_colour_op_actors_.erase(it);
-            } else {
-                it++;
-            }
-        }
-    });
-
     connect_to_ui();
 
     // Register the QML code that instances the grading tool UI in an
@@ -210,8 +200,8 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
     register_ui_panel_qml(
         "Grading Tools",
         R"(
-            import QtGraphicalEffects 1.15
-            import QtQuick 2.15
+            
+            import QtQuick
             import Grading 2.0
 
             import xStudio 1.0
@@ -247,7 +237,8 @@ GradingTool::GradingTool(caf::actor_config &cfg, const utility::JsonStore &init_
 utility::BlindDataObjectPtr GradingTool::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
-    const utility::Uuid & /*playhead_uuid*/) const {
+    const utility::Uuid & /*playhead_uuid*/,
+    const bool is_hero_image) const {
 
     // This callback is made just before viewport redraw. We want to check
     // if the image to be drawn is from the same media to which a grade is
@@ -275,6 +266,7 @@ utility::BlindDataObjectPtr GradingTool::onscreen_render_data(
             // reference/pointer to grading_data_ here so when drawing happens we're
             // using the interaction member data of this class.
             render_data->interaction_grading_data_ = grading_data_;
+
             return render_data;
         }
     }
@@ -501,7 +493,7 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
     } else if (attribute_uuid == grading_bypass_->uuid()) {
 
         for (auto &a : grading_colour_op_actors_) {
-            send(a, utility::event_atom_v, "bypass", grading_bypass_->value());
+            mail(utility::event_atom_v, "bypass", grading_bypass_->value()).send(a);
         }
 
     } else if (
@@ -555,6 +547,18 @@ void GradingTool::attribute_changed(const utility::Uuid &attribute_uuid, const i
             auto user_data      = mask_shapes_[id]->role_data_as_json(module::Attribute::Value);
             user_data["invert"] = shape_invert_->value();
             mask_shapes_[id]->set_role_data(module::Attribute::Value, user_data);
+        }
+
+    } else if (attribute_uuid == interacting_->uuid()) {
+
+        // this toggle allows us to 'grab' all mouse events, so that they arent'
+        // passwed on to the playhead, for example, which would otherwise mean
+        // the playhead would scrub frames when we drag a grading shape point to
+        // move it in the viewport
+        if (interacting_->value()) {
+            grab_mouse_focus();
+        } else {
+            release_mouse_focus();
         }
 
     } else if (attribute_uuid == polygon_init_->uuid()) {
@@ -672,14 +676,13 @@ bool GradingTool::pointer_event(const ui::PointerEvent &e) {
 
     if (drawing_tool_->value() == "Draw" || drawing_tool_->value() == "Erase") {
 
-        if (e.type() == ui::Signature::EventType::ButtonDown &&
+        if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_stroke(pointer_pos);
         } else if (
-            e.type() == ui::Signature::EventType::Drag &&
-            e.buttons() == ui::Signature::Button::Left) {
+            e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
             update_stroke(pointer_pos);
-        } else if (e.type() == ui::Signature::EventType::ButtonRelease) {
+        } else if (e.type() == ui::EventType::ButtonRelease) {
             end_drawing();
         }
     } else {
@@ -735,7 +738,7 @@ void GradingTool::start_quad(const std::vector<Imath::V2f> &corners) {
     shape_data["tr"]       = corners[2];
     shape_data["br"]       = corners[3];
     shape_data["colour"]   = pen_colour_->value();
-    shape_data["softness"] = pen_softness_->value();
+    shape_data["softness"] = 0.f;
     shape_data["opacity"]  = 100.f;
     shape_data["invert"]   = false;
 
@@ -758,7 +761,7 @@ void GradingTool::start_polygon(const std::vector<Imath::V2f> &points) {
     shape_data["points"]   = points;
     shape_data["count"]    = points.size();
     shape_data["colour"]   = pen_colour_->value();
-    shape_data["softness"] = pen_softness_->value();
+    shape_data["softness"] = 0.f;
     shape_data["opacity"]  = 100.f;
     shape_data["invert"]   = false;
 
@@ -768,8 +771,9 @@ void GradingTool::start_polygon(const std::vector<Imath::V2f> &points) {
     const std::string name = fmt::format("Polygon{}", id);
     mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
     expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
-
     end_drawing();
+    // calling this runs our code to update the mask data on the grading_data_ object
+    attribute_changed(mask_shapes_.back()->uuid(), module::Attribute::Value);
 }
 
 void GradingTool::start_ellipse(
@@ -784,7 +788,7 @@ void GradingTool::start_ellipse(
     shape_data["radius"]   = radius;
     shape_data["angle"]    = angle;
     shape_data["colour"]   = pen_colour_->value();
-    shape_data["softness"] = pen_softness_->value();
+    shape_data["softness"] = 0.f;
     shape_data["opacity"]  = 100.f;
     shape_data["invert"]   = false;
 
@@ -794,8 +798,9 @@ void GradingTool::start_ellipse(
     std::string name = fmt::format("Ellipse{}", id);
     mask_shapes_.push_back(add_attribute(name, shape_data, additional_roles));
     expose_attribute_in_model_data(mask_shapes_.back(), "grading_tool_overlay_shapes");
-
     end_drawing();
+    // calling this runs our code to update the mask data on the grading_data_ object
+    attribute_changed(mask_shapes_.back()->uuid(), module::Attribute::Value);
 }
 
 void GradingTool::remove_shape(int id) {
@@ -1171,12 +1176,25 @@ caf::message_handler GradingTool::message_handler_extensions() {
     return caf::message_handler({[=](const std::string &desc, caf::actor grading_colour_op) {
                if (desc == "follow_bypass") {
                    grading_colour_op_actors_.push_back(grading_colour_op);
-                   monitor(grading_colour_op);
-                   send(
+
+                   // we have to maintain a list of GradingColourOperator instances that are
+                   // alive to send them messages about our state (currently only the state
+                   // of the bypass attr)
+                   monitor(
                        grading_colour_op,
-                       utility::event_atom_v,
-                       "bypass",
-                       grading_bypass_->value());
+                       [this, addr = grading_colour_op.address()](const error &) {
+                           auto it = grading_colour_op_actors_.begin();
+                           while (it != grading_colour_op_actors_.end()) {
+                               if (addr == *it) {
+                                   it = grading_colour_op_actors_.erase(it);
+                               } else {
+                                   it++;
+                               }
+                           }
+                       });
+
+                   mail(utility::event_atom_v, "bypass", grading_bypass_->value())
+                       .send(grading_colour_op);
                }
            }})
         .or_else(StandardPlugin::message_handler_extensions());

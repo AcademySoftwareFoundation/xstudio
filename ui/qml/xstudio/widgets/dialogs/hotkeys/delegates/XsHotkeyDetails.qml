@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtQuick.Layouts 1.3
-import QtQuick.Window 2.2
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+
 
 import xstudio.qml.models 1.0
 import xStudio 1.0
@@ -26,6 +24,7 @@ Item {
         spacing: 10
 
         XsLabel {
+            id: lab1
             Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
             Layout.preferredWidth: row_widths[0]
             Layout.topMargin: 4
@@ -34,10 +33,11 @@ Item {
             Layout.rightMargin: 10
             text: hotkeyName
             horizontalAlignment: Text.AlignLeft
-            onTextWidthChanged: {
-                setRowMinWidth(textWidth, 0)
+            TextMetrics {
+                font: lab1.font
+                text: lab1.text
+                onWidthChanged: setRowMinWidth(width, 0)
             }
-
         }
 
         Rectangle {
@@ -68,6 +68,7 @@ Item {
         }*/
 
         XsLabel {
+            id: lab2
             Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
             Layout.preferredWidth: row_widths[2]
             Layout.bottomMargin: 4
@@ -76,8 +77,10 @@ Item {
             Layout.rightMargin: 10
             text: hotkeySequence
             horizontalAlignment: Text.AlignLeft
-            onTextWidthChanged: {
-                setRowMinWidth(textWidth, 2)
+            TextMetrics {
+                font: lab2.font
+                text: lab2.text
+                onWidthChanged: setRowMinWidth(width, 2)
             }
         }
 
@@ -92,7 +95,7 @@ Item {
             Layout.preferredWidth: 20
             Layout.fillHeight: true
 
-            XsImage {
+            XsIcon {
 
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
@@ -101,16 +104,13 @@ Item {
                 height: parent.height -2
                 source: "qrc:/icons/help.svg"
                 imgOverlayColor: ma.containsMouse ? palette.highlight : XsStyleSheet.hintColor
-                antialiasing: true
-                smooth: true
+                // antialiasing: true
+                // smooth: true
 
                 MouseArea {
                     id: ma
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: {
-                        tooltip.visible = true
-                    }
                 }
 
             }
@@ -118,7 +118,7 @@ Item {
             XsToolTip {
                 id: tooltip
                 text: hotkeyDescription
-                width: Math.min(300, metricsDiv.width)
+                width: 300 //Math.min(300, metricsDiv.width)
                 visible: ma.containsMouse
             }
 

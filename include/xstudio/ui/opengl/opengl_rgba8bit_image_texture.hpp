@@ -2,8 +2,12 @@
 #pragma once
 
 // clang-format off
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
 // clang-format on
 
 #include "opengl_texture_base.hpp"
@@ -24,7 +28,7 @@ namespace ui {
             void __bind(int tex_index, Imath::V2i &dims) override;
 
           private:
-            void resize(const size_t required_size_bytes);
+            bool resize(const size_t required_size_bytes);
             void pixel_upload();
 
             [[nodiscard]] size_t tex_size_bytes() const override {
@@ -34,6 +38,8 @@ namespace ui {
             GLuint bytes_per_pixel_     = {0};
             GLuint tex_id_              = {0};
             GLuint pixel_buf_object_id_ = {0};
+
+            uint8_t *mapped_address_ = {nullptr};
 
             int tex_width_  = {0};
             int tex_height_ = {0};

@@ -15,7 +15,34 @@ using namespace xstudio::utility;
 using namespace xstudio::global_store;
 using namespace xstudio;
 
+// when blocks of audio samples aren't contiguous then to avoid a transient
+// at the border between the blocks we fade out samples at the tail of the
+// current block and the head of the next block. The window for this fade out
+// is defined here. It still causes distortion but much less bad.
+#define FADE_FUNC_SAMPS 256
+
 namespace {
+
+// sine envelope for fading/blending samples to avoid transients heading
+// to the soundcard
+static std::vector<float> fade_in_coeffs;
+static std::vector<float> fade_out_coeffs;
+
+struct MakeCoeffs {
+    MakeCoeffs() {
+        if (fade_in_coeffs.empty()) {
+            fade_in_coeffs.resize(FADE_FUNC_SAMPS);
+            fade_out_coeffs.resize(FADE_FUNC_SAMPS);
+            for (int i = 0; i < FADE_FUNC_SAMPS; ++i) {
+                fade_out_coeffs[i] =
+                    (cos(float(i) * M_PI / float(FADE_FUNC_SAMPS)) + 1.0f) * 0.5f;
+                fade_in_coeffs[i] = 1.0f - fade_out_coeffs[i];
+            }
+        }
+    }
+};
+
+static MakeCoeffs s_mk_coeffs;
 
 template <typename T>
 void changing_volume_adjust(
@@ -114,6 +141,15 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     long &num_samps_pushed,
     const int num_channels,
     const int fade_in_out);
+
+template <typename T>
+bool copy_samples_to_scrub_buffer(
+    T *&stream,
+    const long total_samps_needed,
+    long &total_samps_pushed,
+    media_reader::AudioBufPtr &current_buf,
+    const long buffer_offset_sample,
+    const long num_channels);
 
 template <typename T>
 void reverse_audio_buffer(const T *in, T *out, const int num_channels, const int num_samples);
@@ -215,107 +251,147 @@ void AudioOutputControl::prepare_samples_for_soundcard_playback(
     }
 }
 
+void AudioOutputControl::prepare_samples_for_audio_scrubbing(
+    const std::vector<media_reader::AudioBufPtr> &audio_frames,
+    const timebase::flicks playhead_position) {
 
-void AudioOutputControl::prepare_samples_for_soundcard_scrubbing(
-    std::vector<int16_t> &v,
-    const long num_samps_to_push,
-    const long microseconds_delay,
-    const int num_channels,
-    const int sample_rate) {
+    playhead_position_ = playhead_position;
 
-    try {
+    // audio_frames is unlikely to have a frame with a timestamp that exactly
+    // matches playhead_position. So we pick the first frame with a timestamp
+    // that is less than playhead position and then start copying samples from
+    // the appropriate position.
 
-        // when scrubbing we're hard-coded here to play the audio from
+    // Also note that the timestamps in audio_frames correspond exactly to video
+    // frame timestamps ... however, because ffmpeg typically delivers audio in
+    // chunks that don't line up with video frames (for example, often an audio
+    // frame from ffmpeg is 1024 samples, regardless of sample rate and video
+    // frame rate). In the xstudio ffmpeg reader we are just gluing together
+    // the smaller audio frames to roughly match the beat of the video frames
+    // but when we do this we store the offset between the first audio stamp
+    // and the 'timeline_timestamp' so we can take account of the difference.
 
-        v.resize(num_samps_to_push * num_channels);
-        memset(v.data(), 0, v.size() * sizeof(int16_t));
+    // store bufs in our map
+    sample_data_.clear();
+    for (const auto &_frame : audio_frames) {
 
-        int16_t *d            = v.data();
-        long n                = num_samps_to_push;
-        long num_samps_pushed = 0;
+        if (!_frame)
+            continue;
+        const auto adjusted_timeline_timestamp = std::chrono::duration_cast<timebase::flicks>(
+            _frame.timeline_timestamp() + _frame->time_delta_to_video_frame());
 
-
-        while (n > 0) {
-
-            if (!current_buf_ && sample_data_.size()) {
-
-                // get the audio frame closest to current playhead position
-                auto r = sample_data_.lower_bound(playhead_position_);
-                if (r == sample_data_.end()) {
-                    break;
-                    return;
-                }
-
-                // get et the audio buf with a 'show' time that is CLOSEST
-                // to now, need to look at the previous element to see if
-                // it's nearer
-                if (r != sample_data_.begin()) {
-                    auto r2 = r;
-                    r2--;
-                    const auto d2 = playhead_position_ - r2->first;
-                    const auto d1 = r->first - playhead_position_;
-
-                    if (d1 > d2) {
-                        r = r2;
-                    }
-                }
-
-                current_buf_     = r->second;
-                current_buf_pos_ = 0;
-
-                if (current_buf_ == previous_buf_) {
-                    // never play the same audio frame that we just played
-                    current_buf_.reset();
-                    break;
-                }
-                r++;
-                if (r != sample_data_.end())
-                    next_buf_ = r->second;
-                else
-                    next_buf_.reset();
-
-
-                // blend the first few samples up from zero amplitude to full
-                // to avoid transients
-                fade_in_out_ = DoFadeHead;
-
-            } else if (sample_data_.empty()) {
-                break;
-            }
-
-            copy_from_xstudio_audio_buffer_to_soundcard_buffer(
-                d,
-                current_buf_,
-                current_buf_pos_,
-                n,
-                num_samps_pushed,
-                num_channels,
-                fade_in_out_);
-
-            if (current_buf_pos_ == (long)current_buf_->num_samples()) {
-                // current buf is exhausted, move on to next_buf_
-                if (next_buf_) {
-                    previous_buf_    = current_buf_;
-                    current_buf_     = next_buf_;
-                    current_buf_pos_ = 0;
-                    // blend the last few samples down to zero amplitude
-                    // to avoid transients
-                    fade_in_out_ = DoFadeTail;
-                    next_buf_.reset();
-                } else {
-                    current_buf_.reset();
-                }
-            } else {
-                break;
-            }
-        }
-
-        static_volume_adjust(v, volume() / 100.0f);
-        last_volume_ = volume();
-
-    } catch (std::exception &e) {
-        spdlog::debug("{} {}", __PRETTY_FUNCTION__, e.what());
+        sample_data_[adjusted_timeline_timestamp] = _frame;
     }
+
+    // now pick nearest buffer
+    auto r = sample_data_.lower_bound(playhead_position_);
+    if (r != sample_data_.begin()) {
+        r--;
+    }
+    if (r == sample_data_.end())
+        return;
+
+    const long num_channels = r->second->num_channels();
+
+    // time diff from first audio sample to playhead position
+    auto delta = playhead_position_ - r->first;
+
+    long samples_offset = long(
+        round(std::max(0.0, timebase::to_seconds(delta)) * double(r->second->sample_rate())));
+
+
+    if (samples_offset < 0 || samples_offset >= r->second->num_samples()) {
+        // the offset into our 'best' audio buffer from the playhead_position_
+        // to the timestamp for the audio buf is outside the duration of the
+        // audio buffer
+        // we haven't found an audio buffer that corresponds to the playhead_position_
+        // so must clear the buffer (i.e. play no audio)
+        scrubbing_samples_buf_.clear();
+        return;
+    }
+
+    // what's the video frame rate ? We can deduce this from the timeline
+    // timestamps which match corresponding video frames for the scrub. We
+    // should have been delivered 2 or more coniguouse audio frames for the
+    // scrub. We use the audio buffer duration as a fallback
+    timebase::flicks video_frame_duration = timebase::to_flicks(r->second->duration_seconds());
+    auto r_plus                           = r;
+    r_plus++;
+    if (r_plus != sample_data_.end()) {
+        video_frame_duration = r_plus->first - r->first;
+    }
+
+    // how many samples do we want to sound for this scrub event?
+    long num_scrub_samps = long(
+        round(timebase::to_seconds(video_frame_duration) * double(r->second->sample_rate())));
+
+    // now we fill our scrub samples buffer.
+
+    // What if there are samples left in the buffer from the previous scrub event that
+    // haven't played out yet? We want to overwrite them, but we need to do a
+    // blend so there isn't a discontinuity with the last samples that were
+    // dispatched to the soundcard
+    const size_t data_in_buffer = scrubbing_samples_buf_.size();
+    scrubbing_samples_buf_.resize(num_scrub_samps * num_channels);
+
+    if (data_in_buffer < scrubbing_samples_buf_.size()) {
+        // any new samples added to buffer must be zero
+        memset(
+            scrubbing_samples_buf_.data() + data_in_buffer,
+            0,
+            (scrubbing_samples_buf_.size() - data_in_buffer) * sizeof(int16_t));
+    }
+
+    int16_t *samps = scrubbing_samples_buf_.data();
+    long n         = 0;
+    while (r != sample_data_.end() && r->second &&
+           copy_samples_to_scrub_buffer(
+               samps, num_scrub_samps, n, r->second, samples_offset, num_channels)) {
+        samples_offset = 0;
+        r++;
+    }
+
+    // we need to modulate the last samples put into the buffer with an envelope
+    // that smoothly takes the amplitude to zero so we don't get transients
+    // going to the soundcard should we not be streaming more samples to
+    // the soundcard after this buffer is exhausted
+
+    long fade_samps = std::min(long(FADE_FUNC_SAMPS), n);
+    samps           = scrubbing_samples_buf_.data() + (n - fade_samps) * num_channels;
+    float *f        = fade_out_coeffs.data() + long(FADE_FUNC_SAMPS) - fade_samps;
+    while (fade_samps) {
+        for (int chn = 0; chn < num_channels; ++chn) {
+            (*samps++) = round((*samps) * (*f));
+        }
+        f++;
+        fade_samps--;
+    }
+}
+
+long AudioOutputControl::copy_samples_to_buffer_for_scrubbing(
+    std::vector<int16_t> &v, const long num_samps_to_push) {
+
+    size_t nn = std::min(v.size(), scrubbing_samples_buf_.size());
+    if (!nn)
+        return 0;
+    memcpy(v.data(), scrubbing_samples_buf_.data(), nn * sizeof(int16_t));
+
+    if (nn < scrubbing_samples_buf_.size()) {
+        std::vector<int16_t> remaining_samps(scrubbing_samples_buf_.size() - nn);
+        memcpy(
+            remaining_samps.data(),
+            scrubbing_samples_buf_.data() + nn,
+            (scrubbing_samples_buf_.size() - nn) * sizeof(int16_t));
+        scrubbing_samples_buf_ = std::move(remaining_samps);
+    } else {
+        scrubbing_samples_buf_.clear();
+    }
+
+    if (volume() != 100.0f) {
+        static_volume_adjust(v, volume() / 100.0f);
+    }
+
+    return (long)nn;
 }
 
 void AudioOutputControl::queue_samples_for_playing(
@@ -566,11 +642,6 @@ AudioOutputControl::check_if_buffer_is_contiguous_with_previous_and_next(
     return (AudioOutputControl::Fade)result;
 }
 
-// when blocks of audio samples aren't contiguous then to avoid a transient
-// at the border between the blocks we fade out samples at the tail of the
-// current block and the head of the next block. The window for this fade out
-// is defined here. It still causes distortion but much less bad.
-#define FADE_FUNC_SAMPS 128
 
 template <typename T>
 void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
@@ -581,14 +652,6 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     long &num_samps_pushed,
     const int num_channels,
     const int fade_in_out) {
-
-    static std::vector<float> fade_coeffs;
-    if (fade_coeffs.empty()) {
-        fade_coeffs.resize(FADE_FUNC_SAMPS);
-        for (int i = 0.0f; i < FADE_FUNC_SAMPS; ++i) {
-            fade_coeffs[i] = (sin(float(i) * M_PI / float(FADE_FUNC_SAMPS)) + 1.0f) * 0.5f;
-        }
-    }
 
     if (fade_in_out == AudioOutputControl::NoFade) {
 
@@ -626,7 +689,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
                    current_buf_position < current_buf->num_samples()) {
 
                 for (int chn = 0; chn < num_channels; ++chn) {
-                    (*stream++) = T(round((*tt++) * fade_coeffs[current_buf_position]));
+                    (*stream++) = T(round((*tt++) * fade_in_coeffs[current_buf_position]));
                 }
                 num_samples_to_copy--;
                 current_buf_position++;
@@ -653,7 +716,7 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
             while (num_samples_to_copy && current_buf_position < current_buf->num_samples()) {
 
                 const int i   = current_buf->num_samples() - current_buf_position - 1;
-                const float f = i < FADE_FUNC_SAMPS ? fade_coeffs[i] : 1.0f;
+                const float f = i < FADE_FUNC_SAMPS ? fade_in_coeffs[i] : 1.0f;
 
                 for (int chn = 0; chn < num_channels; ++chn) {
                     (*stream++) = T(round((*tt++) * f));
@@ -667,6 +730,44 @@ void copy_from_xstudio_audio_buffer_to_soundcard_buffer(
     }
 }
 
+template <typename T>
+bool copy_samples_to_scrub_buffer(
+    T *&stream,
+    const long total_samps_needed,
+    long &total_samps_pushed,
+    media_reader::AudioBufPtr &current_buf,
+    const long buffer_offset_sample,
+    const long num_channels) {
+
+
+    const long buffer_size_samples = current_buf->num_samples();
+    long buffer_position           = buffer_offset_sample;
+
+    T *tt = ((T *)current_buf->buffer()) + buffer_offset_sample * num_channels;
+
+    long n = total_samps_needed;
+    // when we fill the first samples of 'stream' we blend with any samples
+    // already in the buffer to avoid the transients
+    while (total_samps_pushed < FADE_FUNC_SAMPS && buffer_position < buffer_size_samples && n) {
+
+        const float f = fade_in_coeffs[total_samps_pushed];
+        // blend incoming samps with whatever samps are already in the buffer
+        for (int chn = 0; chn < num_channels; ++chn) {
+            (*stream++) = T(round((*tt++) * f)) + T(round((*stream) * (1.0f - f)));
+        }
+        buffer_position++;
+        total_samps_pushed++;
+        n--;
+    }
+
+    long remaining_samples = std::min(
+        buffer_size_samples - buffer_position, total_samps_needed - total_samps_pushed);
+    memcpy(stream, tt, remaining_samples * sizeof(T) * num_channels);
+    stream += remaining_samples * num_channels;
+    total_samps_pushed += remaining_samples;
+
+    return total_samps_pushed < total_samps_needed;
+}
 
 template <typename T>
 void reverse_audio_buffer(const T *in, T *out, const int num_samples, const int num_channels) {

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "ocio_shared_settings.hpp"
 
 #include "xstudio/utility/string_helpers.hpp"
@@ -96,16 +98,6 @@ OCIOGlobalControls::OCIOGlobalControls(
     // make sure the colour menu appears in the right place in the main menu bar.
     set_submenu_position_in_parent("main menu bar", "Colour", 30.0f);
 
-    set_down_handler([=](down_msg &msg) {
-        auto p = watchers_.begin();
-        while (p != watchers_.end()) {
-            if (msg.source == *p)
-                p = watchers_.erase(p);
-            else
-                p++;
-        }
-    });
-
     ui_initialized_ = true;
 
     // the user_view_display_settings_ attr should be updated from the preferences
@@ -138,9 +130,18 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
                 // viewport is the reference. This handler would then accept optionaly
                 // the list of attributes to synchronize.
                 [=](global_ocio_controls_atom, caf::actor watcher) {
-                    monitor(watcher);
+                    monitor(watcher, [this, addr = watcher.address()](const error &) {
+                        auto p = watchers_.begin();
+                        while (p != watchers_.end()) {
+                            if (addr == *p)
+                                p = watchers_.erase(p);
+                            else
+                                p++;
+                        }
+                    });
+
                     watchers_.push_back(watcher);
-                    send(watcher, global_ocio_controls_atom_v, settings_json());
+                    mail(global_ocio_controls_atom_v, settings_json()).send(watcher);
                 },
                 // Allow new viewport to query the last Display/View settings for
                 // a given config
@@ -182,7 +183,8 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
                     const std::string &window_id) {
                     for (auto &watcher : watchers_) {
                         if (watcher != current_sender()) {
-                            send(watcher, atom, attr_title, attr_role, attr_value, window_id);
+                            mail(atom, attr_title, attr_role, attr_value, window_id)
+                                .send(watcher);
                         }
                     }
                 },
@@ -210,14 +212,9 @@ caf::message_handler OCIOGlobalControls::message_handler_extensions() {
 
                     for (auto &watcher : watchers_) {
                         if (watcher != current_sender()) {
-                            send(
-                                watcher,
-                                atom,
-                                ocio_config,
-                                attr_title,
-                                attr_role,
-                                attr_value,
-                                window_id);
+                            mail(
+                                atom, ocio_config, attr_title, attr_role, attr_value, window_id)
+                                .send(watcher);
                         }
                     }
                 }})
@@ -260,6 +257,6 @@ utility::JsonStore OCIOGlobalControls::settings_json() {
 void OCIOGlobalControls::synchronize_attributes() {
 
     for (auto &watcher : watchers_) {
-        send(watcher, global_ocio_controls_atom_v, settings_json());
+        mail(global_ocio_controls_atom_v, settings_json()).send(watcher);
     }
 }

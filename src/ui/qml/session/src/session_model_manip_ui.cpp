@@ -10,13 +10,6 @@
 #include "xstudio/ui/qml/session_model_ui.hpp"
 #include "xstudio/ui/qml/caf_response_ui.hpp"
 
-CAF_PUSH_WARNINGS
-#include <QThreadPool>
-#include <QFutureWatcher>
-#include <QtConcurrent>
-#include <QSignalSpy>
-CAF_POP_WARNINGS
-
 using namespace caf;
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -40,19 +33,19 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
                     auto pactor = actorFromIndex(index.parent(), true);
                     if (pactor) {
                         if (j.at("type") == "ContainerDivider" and pactor == session_actor_) {
-                            anon_send(
-                                pactor,
+                            anon_mail(
                                 playlist::remove_container_atom_v,
-                                j.at("container_uuid").get<Uuid>());
+                                j.at("container_uuid").get<Uuid>())
+                                .send(pactor);
                         } else {
                             // spdlog::warn("Send remove {} {}",
                             // j.at("type").get<std::string>(),
                             // j["container_uuid"].get<std::string>());
-                            anon_send(
-                                pactor,
+                            anon_mail(
                                 playlist::remove_container_atom_v,
                                 j.at("container_uuid").get<Uuid>(),
-                                deep);
+                                deep)
+                                .send(pactor);
                         }
                         can_delete = true;
                     }
@@ -60,10 +53,10 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
                     auto pactor = actorFromIndex(index.parent(), true);
                     if (pactor) {
                         // spdlog::warn("Send remove {}", j["container_uuid"]);
-                        anon_send(
-                            pactor,
+                        anon_mail(
                             playlist::remove_container_atom_v,
-                            j.at("container_uuid").get<Uuid>());
+                            j.at("container_uuid").get<Uuid>())
+                            .send(pactor);
                         can_delete = true;
                         emit playlistsChanged();
                     }
@@ -73,10 +66,8 @@ SessionModel::removeRows(int row, int count, const bool deep, const QModelIndex 
                     media       = true;
                     if (pactor) {
                         // spdlog::warn("Send remove {}", j["container_uuid"]);
-                        anon_send(
-                            pactor,
-                            playlist::remove_media_atom_v,
-                            j.at("actor_uuid").get<Uuid>());
+                        anon_mail(playlist::remove_media_atom_v, j.at("actor_uuid").get<Uuid>())
+                            .send(pactor);
                         can_delete = true;
                     }
                 } else {
@@ -182,12 +173,12 @@ bool SessionModel::duplicateRows(int row, int count, const QModelIndex &parent) 
 
                         if (pactor) {
                             // spdlog::warn("Send Duplicate {}", j["container_uuid"]);
-                            anon_send(
-                                pactor,
+                            anon_mail(
                                 playlist::duplicate_container_atom_v,
                                 j.at("container_uuid").get<Uuid>(),
                                 before,
-                                false);
+                                false)
+                                .send(pactor);
                             can_duplicate = true;
                             emit playlistsChanged();
                         }
@@ -196,14 +187,14 @@ bool SessionModel::duplicateRows(int row, int count, const QModelIndex &parent) 
                         auto uuid = actorUuidFromIndex(parent, true);
 
                         if (not uuid.is_null()) {
-                            anon_send(
-                                session_actor_,
+                            anon_mail(
                                 playlist::copy_media_atom_v,
                                 uuid,
                                 UuidVector({j.at("actor_uuid").get<Uuid>()}),
                                 true,
                                 before,
-                                false);
+                                false)
+                                .send(session_actor_);
                         }
 
                     } else {
@@ -267,9 +258,12 @@ QModelIndexList SessionModel::copyRows(
                                 *sys, actor, utility::duplicate_atom_v);
 
                             // reset state..
-                            anon_send(actor_uuid.actor(), timeline::item_lock_atom_v, false);
-                            anon_send(actor_uuid.actor(), plugin_manager::enable_atom_v, true);
-                            // anon_send(actor_uuid.actor(), timeline::item_flag_atom_v, "");
+                            anon_mail(timeline::item_lock_atom_v, false)
+                                .send(actor_uuid.actor());
+                            anon_mail(plugin_manager::enable_atom_v, true)
+                                .send(actor_uuid.actor());
+                            // anon_mail(timeline::item_flag_atom_v,
+                            // "").send(actor_uuid.actor());
 
                             auto insertion_json =
                                 R"({"type": null, "id": null,  "placeholder": true, "actor": null})"_json;
@@ -283,11 +277,11 @@ QModelIndexList SessionModel::copyRows(
 
                             JSONTreeModel::insertRows(insertion_row, 1, parent, insertion_json);
 
-                            anon_send(
-                                pactor,
+                            anon_mail(
                                 timeline::insert_item_atom_v,
                                 insertion_row,
-                                UuidActorVector({actor_uuid}));
+                                UuidActorVector({actor_uuid}))
+                                .send(pactor);
 
                             result.push_back(index(insertion_row, 0, parent));
 
@@ -336,14 +330,8 @@ QModelIndexList SessionModel::copyRows(
             }
 
             // send action to backend.
-            anon_send(
-                session_actor_,
-                playlist::copy_media_atom_v,
-                target,
-                media_uuids,
-                false,
-                before,
-                false);
+            anon_mail(playlist::copy_media_atom_v, target, media_uuids, false, before, false)
+                .send(session_actor_);
         }
 
 
@@ -524,8 +512,8 @@ QModelIndexList SessionModel::insertRows(
 
                         for (auto i = 0; i < count; i++) {
                             // if (not sync) {
-                            anon_send(
-                                actor, playlist::create_divider_atom_v, name, before, false);
+                            anon_mail(playlist::create_divider_atom_v, name, before, false)
+                                .send(actor);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -551,8 +539,8 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            anon_send(
-                                actor, playlist::create_subset_atom_v, name, before, false);
+                            anon_mail(playlist::create_subset_atom_v, name, before, false)
+                                .send(actor);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -578,12 +566,9 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            anon_send(
-                                actor,
-                                playlist::create_contact_sheet_atom_v,
-                                name,
-                                before,
-                                false);
+                            anon_mail(
+                                playlist::create_contact_sheet_atom_v, name, before, false)
+                                .send(actor);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -609,13 +594,9 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            anon_send(
-                                actor,
-                                playlist::create_timeline_atom_v,
-                                name,
-                                before,
-                                false,
-                                true);
+                            anon_mail(
+                                playlist::create_timeline_atom_v, name, before, false, true)
+                                .send(actor);
                             result.push_back(index(row + i, 0, parent));
                         }
                     }
@@ -639,7 +620,8 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            anon_send(actor, session::add_playlist_atom_v, name, before, false);
+                            anon_mail(session::add_playlist_atom_v, name, before, false)
+                                .send(actor);
                             result.push_back(index(row + i, 0, parent));
                         }
                         emit playlistsChanged();
@@ -742,12 +724,8 @@ void SessionModel::mergeRows(const QModelIndexList &indexes, const QString &name
         }
 
         if (not playlists.empty())
-            anon_send(
-                session_actor_,
-                session::merge_playlist_atom_v,
-                StdFromQString(name),
-                Uuid(),
-                playlists);
+            anon_mail(session::merge_playlist_atom_v, StdFromQString(name), Uuid(), playlists)
+                .send(session_actor_);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }

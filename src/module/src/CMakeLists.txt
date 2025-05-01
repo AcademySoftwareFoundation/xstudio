@@ -3,7 +3,7 @@ SET(LINK_DEPS
 	xstudio::utility
 	xstudio::global_store
 	xstudio::ui::base
-	caf::core
+	CAF::core
 )
 
-create_component(module 0.1.0 "${LINK_DEPS}")
+create_component(module ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

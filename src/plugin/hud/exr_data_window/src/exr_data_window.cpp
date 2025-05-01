@@ -6,8 +6,12 @@
 #include "xstudio/utility/blind_data.hpp"
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
@@ -64,7 +68,7 @@ class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
                 frame ? frame->image_pixels_bounding_box().min : Imath::V2i();
             auto image_bounds_max =
                 frame ? frame->image_pixels_bounding_box().max : Imath::V2i();
-            auto pixel_aspect = frame ? frame->pixel_aspect() : 1.0f;
+            auto pixel_aspect = frame.frame_id().pixel_aspect();
 
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -80,6 +84,7 @@ class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
                 image_bounds_max, image_dims, transform_matrix, pixel_aspect);
 
             glUseProgram(0);
+#ifndef __OPENGL_4_1__
             glLineWidth(w);
             glColor4f(c.r, c.g, c.b, 1.0f);
             glBegin(GL_LINE_LOOP);
@@ -88,6 +93,7 @@ class EXRDataWindowRenderer : public plugin::ViewportOverlayRenderer {
             glVertex2f(bottom_right.x, bottom_right.y);
             glVertex2f(top_left.x, bottom_right.y);
             glEnd();
+#endif
         }
     }
 };
@@ -117,7 +123,8 @@ EXRDataWindowHUD::~EXRDataWindowHUD() = default;
 utility::BlindDataObjectPtr EXRDataWindowHUD::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
-    const utility::Uuid &playhead_uuid) const {
+    const utility::Uuid &playhead_uuid,
+    const bool is_hero_image) const {
 
     auto r = utility::BlindDataObjectPtr();
 

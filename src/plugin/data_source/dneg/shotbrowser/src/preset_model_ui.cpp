@@ -19,13 +19,22 @@ using namespace xstudio::ui::qml;
 using namespace std::chrono_literals;
 using namespace xstudio::global_store;
 
+namespace {
+const static auto q_shot_history_scope = QStringFromStd("Shot History Scope");
+const static auto q_note_history_scope = QStringFromStd("Note History Scope");
+const static auto q_note_history_type  = QStringFromStd("Note History Type");
+const static auto q_quick_load         = QStringFromStd("Quick Load");
+}; // namespace
+
 ShotBrowserPresetModel::ShotBrowserPresetModel(QueryEngine &query_engine, QObject *parent)
     : query_engine_(query_engine), JSONTreeModel(parent) {
     setRoleNames(std::vector<std::string>(
         {"enabledRole",
          "entityRole",
          "favouriteRole",
+         "flagRole",
          "groupFavouriteRole",
+         "groupFlagRole",
          "groupIdRole",
          "groupUserDataRole",
          "hiddenRole",
@@ -48,6 +57,278 @@ ShotBrowserPresetModel::ShotBrowserPresetModel(QueryEngine &query_engine, QObjec
         }
         term_lists_->insert(QStringFromStd(i.key()), QVariant::fromValue(terms));
     }
+
+    connect(this, &JSONTreeModel::modelReset, this, &ShotBrowserPresetModel::modelModelReset);
+
+    connect(
+        this,
+        &JSONTreeModel::rowsInserted,
+        this,
+        &ShotBrowserPresetModel::modelRowsInsertedRemoved);
+
+    connect(
+        this,
+        &JSONTreeModel::rowsRemoved,
+        this,
+        &ShotBrowserPresetModel::modelRowsInsertedRemoved);
+
+    connect(this, &JSONTreeModel::rowsMoved, this, &ShotBrowserPresetModel::modelRowsMoved);
+
+    connect(this, &JSONTreeModel::dataChanged, this, &ShotBrowserPresetModel::modelDataChanged);
+}
+QStringList ShotBrowserPresetModel::groupFlags() const {
+    auto result = QStringList();
+
+    for (auto &i : GroupFlags)
+        result.append(QStringFromStd(i));
+
+    return result;
+}
+
+void ShotBrowserPresetModel::modelDataChanged(
+    const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
+    if (roles.contains(flagRole)) {
+        // could be optimised.
+        emit noteHistoryScopeChanged();
+        emit noteHistoryTypeChanged();
+        emit shotHistoryScopeChanged();
+        emit quickLoadChanged();
+    } else {
+        // build list of indexes changed
+        auto indexes = QItemSelection(topLeft, bottomRight).indexes();
+
+        for (auto &i : indexes) {
+            auto itype = StdFromQString(i.data(typeRole).toString());
+            if (itype == "preset") {
+                auto group_i = i.parent().parent();
+                auto flags   = group_i.data(flagRole).toStringList();
+                if (not reset_shot_history_scope_ and flags.contains(q_shot_history_scope)) {
+                    reset_shot_history_scope_ = true;
+                    emit shotHistoryScopeChanged();
+                }
+                if (not reset_note_history_scope_ and flags.contains(q_note_history_scope)) {
+                    reset_note_history_scope_ = true;
+                    emit noteHistoryScopeChanged();
+                }
+                if (not reset_note_history_type_ and flags.contains(q_note_history_type)) {
+                    reset_note_history_type_ = true;
+                    emit noteHistoryTypeChanged();
+                }
+                if (not reset_quick_load_ and flags.contains(q_quick_load)) {
+                    reset_quick_load_ = true;
+                    emit quickLoadChanged();
+                }
+            } else if (
+                itype == "group" and roles.contains(favouriteRole) and
+                i.data(favouriteRole).toBool() == false) {
+                auto flags = i.data(flagRole).toStringList();
+                if (flags.contains(q_shot_history_scope))
+                    emit shotHistoryScopeChanged();
+                if (flags.contains(q_note_history_scope))
+                    emit noteHistoryScopeChanged();
+                if (flags.contains(q_note_history_type))
+                    emit noteHistoryTypeChanged();
+                if (flags.contains(q_quick_load))
+                    emit quickLoadChanged();
+            }
+        }
+    }
+}
+
+void ShotBrowserPresetModel::modelRowsMoved(
+    const QModelIndex &sourceParent,
+    int sourceStart,
+    int sourceEnd,
+    const QModelIndex &destinationParent,
+    int destinationRow) {
+    modelRowsInsertedRemoved(sourceParent, sourceStart, sourceEnd);
+}
+
+void ShotBrowserPresetModel::modelRowsInsertedRemoved(
+    const QModelIndex &parent, int first, int last) {
+    // check inserted rows are of interest to our looks ups.
+    auto ptype = StdFromQString(parent.data(typeRole).toString());
+
+    if (ptype == "root" or ptype == "") {
+        // can be optimised..
+        emit noteHistoryScopeChanged();
+        emit noteHistoryTypeChanged();
+        emit shotHistoryScopeChanged();
+        emit quickLoadChanged();
+    } else if (ptype == "presets") {
+        auto group_i = parent.parent();
+        auto flags   = group_i.data(flagRole).toStringList();
+
+        if (group_i.data(favouriteRole).toBool() == true and
+            group_i.data(favouriteRole).toBool() == false) {
+            if (flags.contains(q_shot_history_scope))
+                emit shotHistoryScopeChanged();
+            if (flags.contains(q_note_history_scope))
+                emit noteHistoryScopeChanged();
+            if (flags.contains(q_note_history_type))
+                emit noteHistoryTypeChanged();
+            if (flags.contains(q_quick_load))
+                emit quickLoadChanged();
+        }
+    }
+}
+
+void ShotBrowserPresetModel::modelModelReset() {
+    emit noteHistoryScopeChanged();
+    emit noteHistoryTypeChanged();
+    emit shotHistoryScopeChanged();
+    emit quickLoadChanged();
+}
+
+QVariantList ShotBrowserPresetModel::quickLoad() {
+    // scan structure and return QVariantList of hearted presets in groups with the flags
+    // containing "Shot History Scope"
+    const static auto qv_group = QVariant::fromValue(QStringFromStd("group"));
+    auto result                = QVariantList();
+
+    if (reset_quick_load_) {
+        reset_quick_load_ = false;
+        QTimer::singleShot(100, this, &ShotBrowserPresetModel::quickLoadChanged);
+    } else {
+        try {
+            for (auto i = 0; i < rowCount(); i++) {
+                auto gi = index(i, 0);
+                if (gi.data(favouriteRole).toBool() == true and
+                    gi.data(hiddenRole).toBool() == false and gi.data(typeRole) == qv_group) {
+                    auto flags = gi.data(flagRole).toStringList();
+
+                    if (flags.contains(q_quick_load)) {
+                        // collect indexes of favourited presets..
+                        auto gpi = index(1, 0, gi);
+                        for (auto j = 0; j < rowCount(gpi); j++) {
+                            auto pi = index(j, 0, gpi);
+                            if (pi.data(favouriteRole).toBool() == true and
+                                pi.data(hiddenRole).toBool() == false)
+                                result.push_back(QPersistentModelIndex(pi));
+                        }
+                    }
+                }
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
+}
+
+QVariantList ShotBrowserPresetModel::shotHistoryScope() {
+    // scan structure and return QVariantList of hearted presets in groups with the flags
+    // containing "Shot History Scope"
+    const static auto qv_group = QVariant::fromValue(QStringFromStd("group"));
+    auto result                = QVariantList();
+
+    if (reset_shot_history_scope_) {
+        reset_shot_history_scope_ = false;
+        QTimer::singleShot(100, this, &ShotBrowserPresetModel::shotHistoryScopeChanged);
+    } else {
+        try {
+
+            for (auto i = 0; i < rowCount(); i++) {
+                auto gi = index(i, 0);
+                if (gi.data(favouriteRole).toBool() == true and
+                    gi.data(hiddenRole).toBool() == false and gi.data(typeRole) == qv_group) {
+                    auto flags = gi.data(flagRole).toStringList();
+
+                    if (flags.contains(q_shot_history_scope)) {
+                        // collect indexes of favourited presets..
+                        auto gpi = index(1, 0, gi);
+                        for (auto j = 0; j < rowCount(gpi); j++) {
+                            auto pi = index(j, 0, gpi);
+                            if (pi.data(favouriteRole).toBool() == true and
+                                pi.data(hiddenRole).toBool() == false)
+                                result.push_back(QPersistentModelIndex(pi));
+                        }
+                    }
+                }
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
+}
+
+QVariantList ShotBrowserPresetModel::noteHistoryScope() {
+    // scan structure and return QVariantList of hearted presets in groups with the flags
+    // containing "Shot History Scope"
+    const static auto qv_group = QVariant::fromValue(QStringFromStd("group"));
+    auto result                = QVariantList();
+
+    if (reset_note_history_scope_) {
+        reset_note_history_scope_ = false;
+        QTimer::singleShot(100, this, &ShotBrowserPresetModel::noteHistoryScopeChanged);
+    } else {
+        try {
+
+            for (auto i = 0; i < rowCount(); i++) {
+                auto gi = index(i, 0);
+                if (gi.data(favouriteRole).toBool() == true and
+                    gi.data(hiddenRole).toBool() == false and gi.data(typeRole) == qv_group) {
+                    auto flags = gi.data(flagRole).toStringList();
+
+                    if (flags.contains(q_note_history_scope)) {
+                        // collect indexes of favourited presets..
+                        auto gpi = index(1, 0, gi);
+                        for (auto j = 0; j < rowCount(gpi); j++) {
+                            auto pi = index(j, 0, gpi);
+                            if (pi.data(favouriteRole).toBool() == true and
+                                pi.data(hiddenRole).toBool() == false)
+                                result.push_back(QPersistentModelIndex(pi));
+                        }
+                    }
+                }
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
+}
+
+QVariantList ShotBrowserPresetModel::noteHistoryType() {
+    // scan structure and return QVariantList of hearted presets in groups with the flags
+    // containing "Shot History Scope"
+    const static auto qv_group = QVariant::fromValue(QStringFromStd("group"));
+    auto result                = QVariantList();
+
+    if (reset_note_history_type_) {
+        reset_note_history_type_ = false;
+        QTimer::singleShot(100, this, &ShotBrowserPresetModel::noteHistoryTypeChanged);
+    } else {
+        try {
+
+            for (auto i = 0; i < rowCount(); i++) {
+                auto gi = index(i, 0);
+                if (gi.data(favouriteRole).toBool() == true and
+                    gi.data(hiddenRole).toBool() == false and gi.data(typeRole) == qv_group) {
+                    auto flags = gi.data(flagRole).toStringList();
+
+                    if (flags.contains(q_note_history_type)) {
+                        // collect indexes of favourited presets..
+                        auto gpi = index(1, 0, gi);
+                        for (auto j = 0; j < rowCount(gpi); j++) {
+                            auto pi = index(j, 0, gpi);
+                            if (pi.data(favouriteRole).toBool() == true and
+                                pi.data(hiddenRole).toBool() == false)
+                                result.push_back(QPersistentModelIndex(pi));
+                        }
+                    }
+                }
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
 }
 
 
@@ -138,6 +419,10 @@ bool ShotBrowserPresetModel::paste(
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 }
             } else if (parent_type == "presets" and i.at("type") == "preset") {
+                QueryEngine::regenerate_ids(i);
+                insertRows(current_row, 1, adjusted_parent, i);
+                current_row++;
+            } else if (parent_type == "preset" and i.at("type") == "term") {
                 QueryEngine::regenerate_ids(i);
                 insertRows(current_row, 1, adjusted_parent, i);
                 current_row++;
@@ -281,6 +566,17 @@ QVariant ShotBrowserPresetModel::data(const QModelIndex &index, int role) const 
 
             case Roles::userDataRole:
                 result = QString::fromStdString(j.value("userdata", ""));
+                break;
+
+            case Roles::groupFlagRole:
+                if (j.at("type") == "group")
+                    result = mapFromValue(j.value("flags", R"([])"_json));
+                else
+                    result = getPresetGroup(index).data(Roles::flagRole);
+                break;
+
+            case Roles::flagRole:
+                result = mapFromValue(j.value("flags", R"([])"_json));
                 break;
 
             case Roles::groupIdRole:
@@ -463,6 +759,23 @@ bool ShotBrowserPresetModel::setData(
             preset_changed = true;
             if (result)
                 markedAsUpdated(index.parent());
+            break;
+
+        case Roles::flagRole:
+            result = baseSetData(index, value, "flags", QVector<int>({role}), true);
+            // if changed mark update field.
+            preset_changed = true;
+            if (result) {
+                if (index.data(typeRole).toString() == "group") {
+                    auto presets = ShotBrowserPresetModel::index(1, 0, index);
+                    emit dataChanged(
+                        ShotBrowserPresetModel::index(0, 0, presets),
+                        ShotBrowserPresetModel::index(rowCount(presets) - 1, 0, presets),
+                        QVector<int>({groupFlagRole}));
+                }
+
+                markedAsUpdated(index.parent());
+            }
             break;
 
         case Roles::termRole:
@@ -679,16 +992,13 @@ QObject *ShotBrowserPresetModel::termModel(
 
         if (cache) {
             if (not term_models_.contains(qkey)) {
-
-                // if(key == "Pipeline Step")
-                //     spdlog::warn("{}", cache->dump(2));
-
                 auto model = new ShotBrowserListModel(this);
                 if (cache->is_object()) {
                     auto data = R"([])"_json;
 
+                    auto item = R"({"name": null, "id":null})"_json;
+
                     for (const auto i : cache->items()) {
-                        auto item = R"({"name": null, "id":null})"_json;
                         // don't expose ids if they are numbers
                         if (not i.value().at("id").is_string() and
                             std::to_string(i.value().at("id").get<long>()) == i.key())
@@ -696,6 +1006,23 @@ QObject *ShotBrowserPresetModel::termModel(
                         item["name"] = i.key();
                         item["id"]   = i.value().at("id");
                         data.push_back(item);
+                    }
+
+                    // try and trim results to something sensible.
+                    // order by id desc
+                    if (term == "Playlist" and data.size() > 4000) {
+                        std::map<long, std::string> pl_map;
+                        for (const auto &i : data)
+                            pl_map.insert(std::make_pair(
+                                i.at("id").get<long>(), i.at("name").get<std::string>()));
+                        data.clear();
+                        size_t icount = 0;
+                        for (auto it = pl_map.rbegin(); it != pl_map.rend() and icount < 4000;
+                             ++it, icount++) {
+                            item["id"]   = it->first;
+                            item["name"] = it->second;
+                            data.push_back(item);
+                        }
                     }
                     model->setModelData(data);
                 } else if (cache->is_array()) {
@@ -711,11 +1038,14 @@ QObject *ShotBrowserPresetModel::termModel(
                     model->setModelData(*cache);
                 } else if (
                     cache->is_object() and
-                    static_cast<int>(cache->size()) != model->rowCount()) {
+                    static_cast<int>(cache->size()) != model->rowCount() and
+                    not(model->rowCount() == 4000 and term == "Playlist")) {
+
+                    // pruning playlist might mess this up.. watch out..
                     auto data = R"([])"_json;
 
+                    auto item = R"({"name": null, "id":null})"_json;
                     for (const auto i : cache->items()) {
-                        auto item = R"({"name": null, "id":null})"_json;
                         // don't expose ids if they are numbers
                         if (not i.value().at("id").is_string() and
                             std::to_string(i.value().at("id").get<long>()) == i.key())
@@ -724,6 +1054,24 @@ QObject *ShotBrowserPresetModel::termModel(
                         item["id"]   = i.value().at("id");
                         data.push_back(item);
                     }
+
+                    // try and trim results to something sensible.
+                    // order by id desc
+                    if (term == "Playlist" and data.size() > 4000) {
+                        std::map<long, std::string> pl_map;
+                        for (const auto &i : data)
+                            pl_map.insert(std::make_pair(
+                                i.at("id").get<long>(), i.at("name").get<std::string>()));
+                        data.clear();
+                        size_t icount = 0;
+                        for (auto it = pl_map.rbegin(); it != pl_map.rend() and icount < 4000;
+                             ++it, icount++) {
+                            item["id"]   = it->first;
+                            item["name"] = it->second;
+                            data.push_back(item);
+                        }
+                    }
+
                     model->setModelData(data);
                 }
             }
@@ -746,8 +1094,6 @@ QObject *ShotBrowserPresetModel::termModel(
 void ShotBrowserPresetModel::updateTermModel(const std::string &key, const bool cache) {
     const auto qkey = QStringFromStd(key);
     // if in model, refresh data.
-    // spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, key, cache);
-
     if (term_models_.contains(qkey)) {
         auto data = query_engine_.get_cache(key);
         if (not data)
@@ -897,10 +1243,10 @@ void ShotBrowserPresetFilterModel::setOnlyShowPresets(const bool value) {
     }
 }
 
-void ShotBrowserPresetFilterModel::setIgnoreSpecialGroups(const bool value) {
-    if (value != ignore_special_groups_) {
-        ignore_special_groups_ = value;
-        emit ignoreSpecialGroupsChanged();
+void ShotBrowserPresetFilterModel::setIgnoreToolbar(const bool value) {
+    if (value != ignore_tool_bar_) {
+        ignore_tool_bar_ = value;
+        emit ignoreToolbarChanged();
         invalidateFilter();
     }
 }
@@ -956,8 +1302,10 @@ bool ShotBrowserPresetFilterModel::filterAcceptsRow(
             source_index.data(ShotBrowserPresetModel::Roles::hiddenRole) == hidden)
             accept = false;
         else if (
-            only_show_favourite_ and type == preset and not favoured.isNull() and
-            (favoured == not_favourite or group_favoured == not_favourite))
+            only_show_favourite_ and
+            ((type == preset and not favoured.isNull() and
+              (favoured == not_favourite or group_favoured == not_favourite)) or
+             (type == grp and favoured == not_favourite)))
             accept = false;
         else if (
             not filter_user_data_.isNull() and type == preset and
@@ -965,9 +1313,9 @@ bool ShotBrowserPresetFilterModel::filterAcceptsRow(
                 filter_user_data_.toString())
             accept = false;
         else if (
-            ignore_special_groups_ and
-            special_groups_.count(UuidFromQUuid(
-                source_index.data(ShotBrowserPresetModel::Roles::groupIdRole).toUuid())))
+            ignore_tool_bar_ and source_index.data(ShotBrowserPresetModel::Roles::groupFlagRole)
+                                     .toStringList()
+                                     .contains("Ignore Toolbar"))
             accept = false;
     }
 

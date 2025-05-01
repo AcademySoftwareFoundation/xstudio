@@ -104,42 +104,38 @@ NotificationHandler::message_handler(caf::event_based_actor *act, caf::actor eve
          [=](notification_atom, const Uuid &uuid) -> bool {
              auto result = remove_notification(uuid);
              if (result)
-                 actor_->send(
-                     event_group_, utility::event_atom_v, notification_atom_v, digest());
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
              return result;
          },
          [=](notification_atom, const bool check_expire) {
              if (check_expired()) {
-                 actor_->send(
-                     event_group_, utility::event_atom_v, notification_atom_v, digest());
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
                  utility::sys_time_point next_expires = next_expire();
                  if (next_expires != utility::sys_time_point()) {
                      if (next_expires > utility::sysclock::now())
-                         act->delayed_anon_send(
-                             act,
-                             next_expires - utility::sysclock::now(),
-                             notification_atom_v,
-                             true);
+                         anon_mail(notification_atom_v, true)
+                             .delay(next_expires - utility::sysclock::now())
+                             .send(act, weak_ref);
                      else
-                         act->anon_send(act, notification_atom_v, true);
+                         anon_mail(notification_atom_v, true).send(act);
                  }
              }
          },
          [=](notification_atom, const Notification &notification) -> bool {
              auto result = add_update_notification(notification);
              if (result) {
-                 actor_->send(
-                     event_group_, utility::event_atom_v, notification_atom_v, digest());
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
                  utility::sys_time_point next_expires = next_expire();
                  if (next_expires != utility::sys_time_point()) {
                      if (next_expires > utility::sysclock::now())
-                         act->delayed_anon_send(
-                             act,
-                             next_expires - utility::sysclock::now(),
-                             notification_atom_v,
-                             true);
+                         anon_mail(notification_atom_v, true)
+                             .delay(next_expires - utility::sysclock::now())
+                             .send(act, weak_ref);
                      else
-                         act->anon_send(act, notification_atom_v, true);
+                         anon_mail(notification_atom_v, true).send(act);
                  }
              }
              return result;
@@ -147,8 +143,8 @@ NotificationHandler::message_handler(caf::event_based_actor *act, caf::actor eve
          [=](notification_atom, const Uuid &uuid, const float progress) -> bool {
              auto result = update_progress(uuid, progress);
              if (result)
-                 actor_->send(
-                     event_group_, utility::event_atom_v, notification_atom_v, digest());
+                 actor_->mail(utility::event_atom_v, notification_atom_v, digest())
+                     .send(event_group_);
              return result;
          }});
 }

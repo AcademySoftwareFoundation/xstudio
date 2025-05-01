@@ -1,7 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 1.4
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import Qt.labs.qmlmodels
+
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -87,7 +86,6 @@ Item {
         id: view
         anchors.fill: parent
         orientation: ListView.Horizontal
-        isScrollbarVisibile: false
         interactive: false
 
         model: DelegateModel {

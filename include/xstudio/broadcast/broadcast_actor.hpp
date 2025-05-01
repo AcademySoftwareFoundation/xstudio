@@ -22,10 +22,13 @@ namespace broadcast {
 
         caf::skippable_result broadcast_message(caf::scheduled_actor *, caf::message &);
 
+        void monitor_subscriber(const caf::actor &actor);
+
       private:
         caf::behavior behavior_;
         caf::actor_addr owner_;
         std::set<caf::actor_addr> subscribers_;
+        std::map<caf::actor_addr, caf::disposable> monitor_;
     };
 
 } // namespace broadcast

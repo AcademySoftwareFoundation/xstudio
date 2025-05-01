@@ -501,8 +501,6 @@ namespace ui {
                 return QtConcurrent::run([=]() { return QDesktopServices::openUrl(url); });
             }
 
-            Q_INVOKABLE [[nodiscard]] QModelIndex qModelIndex() const { return QModelIndex(); }
-
             Q_INVOKABLE [[nodiscard]] bool showURIS(const QList<QUrl> &urls) const {
                 auto uris = QStringList();
                 for (const auto &i : urls)
@@ -569,9 +567,38 @@ namespace ui {
                 return url.path().replace("//", "/");
             }
 
+            Q_INVOKABLE [[nodiscard]] QModelIndex qModelIndex() const { return QModelIndex(); }
+            Q_INVOKABLE [[nodiscard]] QModelIndex
+            qModelIndex(const QPersistentModelIndex &index) const {
+                return QModelIndex(index);
+            }
+            Q_INVOKABLE [[nodiscard]] QModelIndex qModelIndex(const QModelIndex &index) const {
+                return index;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QPersistentModelIndex
+            qPersistentModelIndex(const QPersistentModelIndex &index) const {
+                return index;
+            }
+            Q_INVOKABLE [[nodiscard]] QPersistentModelIndex
+            qPersistentModelIndex(const QModelIndex &index) const {
+                return QPersistentModelIndex(index);
+            }
+
+
             Q_INVOKABLE [[nodiscard]] QPersistentModelIndex
             makePersistent(const QModelIndex &index) const {
-                return QPersistentModelIndex(index);
+                return qPersistentModelIndex(index);
+            }
+
+            Q_INVOKABLE [[nodiscard]] bool
+            compareIndex(const QModelIndex &a, const QPersistentModelIndex &b) const {
+                return a == b;
+            }
+
+            Q_INVOKABLE [[nodiscard]] bool
+            compareIndex(const QPersistentModelIndex &a, const QModelIndex &b) const {
+                return a == b;
             }
 
             Q_INVOKABLE [[nodiscard]] QUrl QUrlFromQString(const QString &str) const {
@@ -720,7 +747,7 @@ namespace ui {
 
             Q_INVOKABLE [[nodiscard]] QColor
             saturate(const QColor &color, const double factor = 1.5) const {
-                double h, s, l, a;
+                float h, s, l, a;
                 color.getHslF(&h, &s, &l, &a);
                 s = std::max(0.0, std::min(1.0, s * factor));
                 return QColor::fromHslF(h, s, l, a);
@@ -728,7 +755,7 @@ namespace ui {
 
             Q_INVOKABLE [[nodiscard]] QColor
             luminate(const QColor &color, const double factor = 1.5) const {
-                double h, s, l, a;
+                float h, s, l, a;
                 color.getHslF(&h, &s, &l, &a);
                 l = std::max(0.0, std::min(1.0, l * factor));
                 return QColor::fromHslF(h, s, l, a);
@@ -745,7 +772,7 @@ namespace ui {
                 const QColor &color,
                 const double sfactor = 1.0,
                 const double lfactor = 1.0) const {
-                double h, s, l, a;
+                float h, s, l, a;
                 color.getHslF(&h, &s, &l, &a);
                 s = std::max(0.0, std::min(1.0, s * sfactor));
                 l = std::max(0.0, std::min(1.0, l * lfactor));

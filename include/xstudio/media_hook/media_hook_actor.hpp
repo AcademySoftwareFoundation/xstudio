@@ -19,6 +19,13 @@ namespace media_hook {
       private:
         inline static const std::string NAME = "MediaHookWorkerActor";
         caf::behavior behavior_;
+        std::vector<caf::actor> hooks_;
+
+        void do_clip_hook(
+            caf::typed_response_promise<bool> rp,
+            const caf::actor &clip_actor,
+            const utility::JsonStore &clip_meta,
+            const utility::JsonStore &media_meta);
     };
 
     class GlobalMediaHookActor : public caf::event_based_actor {

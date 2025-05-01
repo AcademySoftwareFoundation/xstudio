@@ -21,6 +21,11 @@ namespace xstudio {
 namespace ui {
     namespace qml {
 
+        void setup_xstudio_qml_emgine(
+            QQmlEngine *engine,
+            caf::actor_system &system
+            );
+
         //  top level utility actor, for stuff that lives out side the session.
         class STUDIO_QML_EXPORT StudioUI : public QMLActor {
 

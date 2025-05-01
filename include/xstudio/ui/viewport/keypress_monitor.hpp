@@ -5,6 +5,10 @@
 
 #include "xstudio/ui/keyboard.hpp"
 
+#ifdef __apple__
+#undef nil
+#endif
+
 #include <caf/actor_system_config.hpp>
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>

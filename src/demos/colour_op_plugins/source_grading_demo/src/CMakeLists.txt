@@ -1,4 +1,4 @@
-project(grading_demo VERSION 0.1.0 LANGUAGES CXX)
+project(grading_demo VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 find_package(Imath)
 
@@ -23,4 +23,4 @@ target_link_libraries(${PROJECT_NAME}
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
-add_subdirectory(qml)
+add_plugin_qml(${PROJECT_NAME} qml)

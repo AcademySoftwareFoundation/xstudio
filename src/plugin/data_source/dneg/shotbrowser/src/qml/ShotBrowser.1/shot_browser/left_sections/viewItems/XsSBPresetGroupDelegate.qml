@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQml.Models
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
 import ShotBrowser 1.0
 
-
+ 
 MouseArea {
     id: thisItem
 
@@ -18,6 +17,7 @@ MouseArea {
     property var selectionModel: null
     property var expandedModel: null
 
+    property bool isUserGroup: updateRole == undefined
     property bool isRunning: queryRunning && presetModelIndex() == currentPresetIndex
     // property bool isActive: isSelected //#TODO
     property bool isExpanded: expandedModel.isSelected(presetModelIndex())
@@ -39,7 +39,6 @@ MouseArea {
     property var oldParent: null
 
     x: 0
-
 
     function presetModelIndex() {
         try {
@@ -199,7 +198,8 @@ MouseArea {
         property bool isDivSelected: false
         property int slNumber: index+1
 
-        color: isSelected? Qt.darker(palette.highlight, 2): Qt.lighter(palette.base, 1.5) //XsStyleSheet.widgetBgNormalColor
+        color: isSelected ? Qt.darker(palette.highlight, 2) :
+            isUserGroup ? Qt.lighter(palette.base, 1.7) :  Qt.lighter(palette.base, 1.5) //XsStyleSheet.widgetBgNormalColor
 
         opacity: hiddenRole ? 0.5 : 1.0
 
@@ -252,7 +252,8 @@ MouseArea {
                     //     presetsTreeModel.expandRow(index)
 
                     expandedModel.select(presetModelIndex(), ItemSelectionModel.Toggle)
-                    expandedModel.select(ind.model.index(1, 0, ind), ItemSelectionModel.Select)
+                    if(expandedModel.model.rowCount(ind.model.index(1, 0, ind)))
+                        expandedModel.select(ind.model.index(1, 0, ind), ItemSelectionModel.Select)
                 }
             }
 
@@ -263,7 +264,7 @@ MouseArea {
                 // Layout.preferredWidth: 100
                 Layout.fillHeight: true
 
-                text: nameRole+"..."
+                text: nameRole + "..."
                 color: Qt.lighter(XsStyleSheet.hintColor, 1.2)
                 horizontalAlignment: Text.AlignLeft
                 verticalAlignment: Text.AlignVCenter

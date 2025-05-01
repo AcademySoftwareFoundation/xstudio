@@ -27,7 +27,8 @@ namespace shotgun_client {
                 // spdlog::error("NOT AUTH REQUEST IT {}",
                 // to_string(caf::actor_cast<caf::actor>(this)));
 
-                request(actor_cast<caf::actor>(this), infinite, shotgun_acquire_token_atom_v)
+                mail(shotgun_acquire_token_atom_v)
+                    .request(actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](const std::pair<std::string, std::string> &) mutable { lambda(); },
                         [=](error &err) mutable {
@@ -50,8 +51,8 @@ namespace shotgun_client {
                     // spdlog::error("FAILED REQUEST NOT AUTH");
 
                     // try and authorise..
-                    request(
-                        actor_cast<caf::actor>(this), infinite, shotgun_acquire_token_atom_v)
+                    mail(shotgun_acquire_token_atom_v)
+                        .request(actor_cast<caf::actor>(this), infinite)
                         .then(
                             [=](const std::pair<std::string, std::string> &) mutable {
                                 lambda();

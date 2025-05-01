@@ -161,6 +161,13 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     Q_INVOKABLE void setSessionSelection(const QModelIndexList &indexes) const;
 
     // begin timeline operations
+    Q_INVOKABLE QFuture<QVariant> importTimelineFuture(
+        const QModelIndex &playlist_index, const QUrl &path, const QUuid &before = QUuid());
+    Q_INVOKABLE QModelIndex importTimeline(
+        const QModelIndex &playlist_index, const QUrl &path, const QUuid &before = QUuid()) {
+        return importTimelineFuture(playlist_index, path, before).result().toModelIndex();
+    }
+
 
     Q_INVOKABLE bool
     removeTimelineItems(const QModelIndexList &indexes, const bool isRipple = false);
@@ -302,7 +309,10 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     alignTimelineItems(const QModelIndexList &indexes, const bool align_right = true);
 
     Q_INVOKABLE QFuture<bool> exportOTIO(
-        const QModelIndex &timeline, const QUrl &path, const QString &type = "otio_json");
+        const QModelIndex &timeline,
+        const QUrl &path,
+        const QString &type   = "otio_json",
+        const QString &schema = "");
     Q_INVOKABLE QVariantList getTimelineExportTypes() const;
 
     // end timeline operations
@@ -432,6 +442,13 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     getMediaSourceNames(const QModelIndex &media_index, bool image_sources);
     Q_INVOKABLE QStringList setMediaSource(
         const QModelIndex &media_index, const QString &mediaSourceName, bool image_source);
+
+    Q_INVOKABLE bool
+    setJSONObject(const QModelIndex &index, const QVariant &json, const QString &path = "") {
+        return setJSONObjectFuture(index, json, path).result();
+    }
+    Q_INVOKABLE QFuture<bool> setJSONObjectFuture(
+        const QModelIndex &index, const QVariant &json, const QString &path = "");
 
 
     Q_INVOKABLE bool
@@ -641,6 +658,52 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
     QMap<QString, QImage> media_thumbnails_; // key is actor string
     utility::UuidSet processed_events_;
     std::queue<utility::Uuid> processed_events_queue_;
+};
+
+class SESSION_QML_EXPORT MediaListFilterModel : public QSortFilterProxyModel {
+
+    Q_OBJECT
+
+    Q_PROPERTY(
+        QString searchString READ searchString WRITE setSearchString NOTIFY searchStringChanged)
+
+  public:
+    using super = QSortFilterProxyModel;
+
+    MediaListFilterModel(QObject *parent = nullptr);
+
+    const QString &searchString() const { return search_string_; }
+
+    void setSearchString(const QString &ss) {
+        if (ss != search_string_) {
+            search_string_ = ss;
+            emit searchStringChanged();
+            invalidateFilter();
+        }
+    }
+
+    [[nodiscard]] QHash<int, QByteArray> roleNames() const override {
+        if (!sourceModel())
+            return QHash<int, QByteArray>();
+        return sourceModel()->roleNames();
+    }
+
+    Q_INVOKABLE [[nodiscard]] QModelIndex rowToSourceIndex(const int row) const;
+
+    Q_INVOKABLE [[nodiscard]] int sourceIndexToRow(const QModelIndex &) const;
+
+    Q_INVOKABLE [[nodiscard]] int
+    getRowWithMatchingRoleData(const QVariant &searchValue, const QString &searchRole) const;
+
+  protected:
+    [[nodiscard]] bool
+    filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+
+  signals:
+    void searchStringChanged();
+
+  private:
+    QString search_string_;
 };
 
 } // namespace xstudio::ui::qml

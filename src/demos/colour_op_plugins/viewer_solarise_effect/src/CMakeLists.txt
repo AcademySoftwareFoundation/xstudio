@@ -6,4 +6,4 @@ SET(LINK_DEPS
 	Imath::Imath
 )
 
-create_plugin_with_alias(viewer_solarise_effect xstudio::colour_pipeline::viewer_solarise_effect 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(viewer_solarise_effect xstudio::colour_pipeline::viewer_solarise_effect ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")

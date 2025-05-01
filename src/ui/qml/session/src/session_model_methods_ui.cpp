@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/conform/conformer.hpp"
 #include "xstudio/media/media.hpp"
@@ -11,10 +12,7 @@
 #include "xstudio/utility/notification_handler.hpp"
 
 CAF_PUSH_WARNINGS
-#include <QThreadPool>
-#include <QFutureWatcher>
 #include <QtConcurrent>
-#include <QSignalSpy>
 CAF_POP_WARNINGS
 
 using namespace caf;
@@ -26,7 +24,7 @@ void SessionModel::removeNotification(const QModelIndex &index, const QUuid &uui
     if (index.isValid()) {
         auto actor = actorFromQString(system(), index.data(actorRole).toString());
         if (actor)
-            anon_send(actor, utility::notification_atom_v, UuidFromQUuid(uuid));
+            anon_mail(utility::notification_atom_v, UuidFromQUuid(uuid)).send(actor);
     }
 }
 
@@ -54,7 +52,7 @@ void SessionModel::setSessionSelection(const QModelIndexList &indexes) const {
                 UuidFromQUuid(i.data(actorUuidRole).toUuid()),
                 actorFromQString(system(), i.data(actorRole).toString())));
         }
-        anon_send(session_actor_, timeline::item_selection_atom_v, selection);
+        anon_mail(timeline::item_selection_atom_v, selection).send(session_actor_);
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
@@ -75,7 +73,7 @@ QUuid SessionModel::infoNotification(
             if (not replace_uuid.is_null())
                 n.uuid(replace_uuid);
             result = QUuidFromUuid(n.uuid());
-            anon_send(actor, utility::notification_atom_v, n);
+            anon_mail(utility::notification_atom_v, n).send(actor);
         }
     }
 
@@ -98,7 +96,7 @@ QUuid SessionModel::warnNotification(
             if (not replace_uuid.is_null())
                 n.uuid(replace_uuid);
             result = QUuidFromUuid(n.uuid());
-            anon_send(actor, utility::notification_atom_v, n);
+            anon_mail(utility::notification_atom_v, n).send(actor);
         }
     }
 
@@ -112,7 +110,7 @@ QUuid SessionModel::processingNotification(const QModelIndex &index, const QStri
         if (actor) {
             auto n = Notification::ProcessingNotification(StdFromQString(text));
             result = QUuidFromUuid(n.uuid());
-            anon_send(actor, utility::notification_atom_v, n);
+            anon_mail(utility::notification_atom_v, n).send(actor);
         }
     }
 
@@ -127,7 +125,7 @@ QUuid SessionModel::progressPercentageNotification(
         if (actor) {
             auto n = Notification::ProgressPercentageNotification(StdFromQString(text));
             result = QUuidFromUuid(n.uuid());
-            anon_send(actor, utility::notification_atom_v, n);
+            anon_mail(utility::notification_atom_v, n).send(actor);
         }
     }
 
@@ -143,7 +141,7 @@ QUuid SessionModel::progressRangeNotification(
             auto n =
                 Notification::ProgressRangeNotification(StdFromQString(text), min, min, max);
             result = QUuidFromUuid(n.uuid());
-            anon_send(actor, utility::notification_atom_v, n);
+            anon_mail(utility::notification_atom_v, n).send(actor);
         }
     }
 
@@ -156,7 +154,7 @@ void SessionModel::updateProgressNotification(
     if (index.isValid()) {
         auto actor = actorFromQString(system(), index.data(actorRole).toString());
         if (actor) {
-            anon_send(actor, utility::notification_atom_v, UuidFromQUuid(uuid), value);
+            anon_mail(utility::notification_atom_v, UuidFromQUuid(uuid), value).send(actor);
         }
     }
 }
@@ -187,7 +185,7 @@ void SessionModel::setSelectedMedia(const QModelIndexList &indexes) {
         media.emplace_back(UuidActor(muuid, mactor));
     }
 
-    anon_send(session_actor_, media::current_media_atom_v, media);
+    anon_mail(media::current_media_atom_v, media).send(session_actor_);
 }
 
 
@@ -227,7 +225,7 @@ Q_INVOKABLE void SessionModel::purgePlaylist(const QModelIndex &index) {
     if (index.isValid() and index.data(typeRole).toString() == QString("Playlist")) {
         auto actor = actorFromQString(system(), index.data(actorRole).toString());
         if (actor)
-            anon_send(actor, playlist::remove_orphans_atom_v, UuidVector());
+            anon_mail(playlist::remove_orphans_atom_v, UuidVector()).send(actor);
     }
 }
 
@@ -298,10 +296,9 @@ Q_INVOKABLE void SessionModel::decomposeMedia(const QModelIndexList &indexes) {
             if (plindex.isValid()) {
                 auto actor = actorFromQString(system(), plindex.data(actorRole).toString());
                 if (actor)
-                    anon_send(
-                        actor,
-                        media::decompose_atom_v,
-                        UuidFromQUuid(i.data(actorUuidRole).toUuid()));
+                    anon_mail(
+                        media::decompose_atom_v, UuidFromQUuid(i.data(actorUuidRole).toUuid()))
+                        .send(actor);
             }
         }
     }
@@ -314,10 +311,9 @@ Q_INVOKABLE void SessionModel::rescanMedia(const QModelIndexList &indexes) {
             if (plindex.isValid()) {
                 auto actor = actorFromQString(system(), plindex.data(actorRole).toString());
                 if (actor)
-                    anon_send(
-                        actor,
-                        media::rescan_atom_v,
-                        UuidFromQUuid(i.data(actorUuidRole).toUuid()));
+                    anon_mail(
+                        media::rescan_atom_v, UuidFromQUuid(i.data(actorUuidRole).toUuid()))
+                        .send(actor);
             }
         }
     }
@@ -340,14 +336,14 @@ Q_INVOKABLE void SessionModel::relinkMedia(const QModelIndexList &indexes, const
                         auto actor =
                             actorFromQString(system(), iind.data(actorRole).toString());
                         if (actor)
-                            anon_send(scanner, media::relink_atom_v, actor, uri);
+                            anon_mail(media::relink_atom_v, actor, uri).send(scanner);
                     }
 
                     if (aind.isValid() and aind != iind) {
                         auto actor =
                             actorFromQString(system(), aind.data(actorRole).toString());
                         if (actor)
-                            anon_send(scanner, media::relink_atom_v, actor, uri);
+                            anon_mail(media::relink_atom_v, actor, uri).send(scanner);
                     }
                 }
             }
@@ -403,11 +399,11 @@ QStringList SessionModel::setMediaSource(
             if (j.at("actor").is_string()) {
                 auto actor = actorFromString(system(), j.at("actor"));
                 if (actor) {
-                    anon_send(
-                        actor,
+                    anon_mail(
                         playhead::media_source_atom_v,
                         StdFromQString(mediaSourceName),
-                        image_source ? media::MT_IMAGE : media::MT_AUDIO);
+                        image_source ? media::MT_IMAGE : media::MT_AUDIO)
+                        .send(actor);
                 }
             }
         }
@@ -715,33 +711,33 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
                         }
 
                         if (local_mode) {
-                            anon_send(
-                                target,
+                            anon_mail(
                                 playlist::move_media_atom_v,
                                 vector_to_uuid_vector(media),
-                                before);
+                                before)
+                                .send(target);
                         } else {
                             if (proposedAction == Qt::MoveAction) {
                                 // spdlog::warn("proposedAction == Qt::MoveAction");
                                 // move media to new playlist
-                                anon_send(
-                                    session_actor_,
+                                anon_mail(
                                     playlist::move_media_atom_v,
                                     target_uuid,
                                     media_owner_uuid,
                                     vector_to_uuid_vector(media),
                                     before,
-                                    false);
+                                    false)
+                                    .send(session_actor_);
                             } else {
                                 // spdlog::warn("proposedAction == Qt::CopyAction");
-                                anon_send(
-                                    session_actor_,
+                                anon_mail(
                                     playlist::copy_media_atom_v,
                                     target_uuid,
                                     vector_to_uuid_vector(media),
                                     false,
                                     before,
-                                    false);
+                                    false)
+                                    .send(session_actor_);
                             }
                         }
 
@@ -764,11 +760,11 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
                                 auto new_uuid = utility::Uuid::generate();
                                 auto new_item =
                                     self()->spawn<timeline::ClipActor>(i, "", new_uuid);
-                                anon_send(
-                                    track_actor,
+                                anon_mail(
                                     timeline::insert_item_atom_v,
                                     row,
-                                    UuidActorVector({UuidActor(new_uuid, new_item)}));
+                                    UuidActorVector({UuidActor(new_uuid, new_item)}))
+                                    .send(track_actor);
                             }
                         }
                     }
@@ -793,24 +789,24 @@ QFuture<QList<QUuid>> SessionModel::handleMediaIdDropFuture(
 
                     if (proposedAction == Qt::MoveAction) {
                         // move media to new playlist
-                        anon_send(
-                            session_actor_,
+                        anon_mail(
                             playlist::move_media_atom_v,
                             uua.second.uuid(),
                             media_owner_uuid,
                             vector_to_uuid_vector(media),
                             Uuid(),
-                            false);
+                            false)
+                            .send(session_actor_);
                     } else {
                         // copy media to new playlist.
-                        anon_send(
-                            session_actor_,
+                        anon_mail(
                             playlist::copy_media_atom_v,
                             uua.second.uuid(),
                             vector_to_uuid_vector(media),
                             false,
                             Uuid(),
-                            false);
+                            false)
+                            .send(session_actor_);
                     }
                 }
             }
@@ -1020,6 +1016,7 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                     for (const auto &path : jdrop.at("text/uri-list")) {
                         auto path_string = path.get<std::string>();
                         auto uri         = caf::make_uri(url_clean(path_string));
+
                         if (uri) {
                             // uri maybe timeline...
                             // hacky...
@@ -1051,7 +1048,8 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
 
                     if (sub_target) {
                         for (const auto &i : new_media)
-                            anon_send(sub_target, playlist::add_media_atom_v, i.uuid(), Uuid());
+                            anon_mail(playlist::add_media_atom_v, i.uuid(), Uuid())
+                                .send(sub_target);
 
                         // post process timeline drops..
                         if (type == "Video Track" or type == "Audio Track" or type == "Gap" or
@@ -1072,11 +1070,11 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                                 auto new_uuid = utility::Uuid::generate();
                                 auto new_item =
                                     self()->spawn<timeline::ClipActor>(i, "", new_uuid);
-                                anon_send(
-                                    track_actor,
+                                anon_mail(
                                     timeline::insert_item_atom_v,
                                     row,
-                                    UuidActorVector({UuidActor(new_uuid, new_item)}));
+                                    UuidActorVector({UuidActor(new_uuid, new_item)}))
+                                    .send(track_actor);
                             }
                         }
                     }
@@ -1089,7 +1087,7 @@ QFuture<QList<QUuid>> SessionModel::handleUriListDropFuture(
                     if (uri)
                         uris.emplace_back(*uri);
                 }
-                anon_send(session_actor_, session::load_uris_atom_v, uris, false, true);
+                anon_mail(session::load_uris_atom_v, uris, false, true).send(session_actor_);
             }
 
             for (const auto &i : new_media)
@@ -1186,7 +1184,7 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
                     // lets assume they are media... (WARNING this may not be the
                     // case...) create new playlist and add them...
                     for (const auto &i : plugin_media_tmp)
-                        anon_send(target, playlist::add_media_atom_v, i, before);
+                        anon_mail(playlist::add_media_atom_v, i, before).send(target);
 
                     new_media.insert(
                         new_media.end(), plugin_media_tmp.begin(), plugin_media_tmp.end());
@@ -1207,7 +1205,8 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
 
                 if (sub_target) {
                     for (const auto &i : new_media)
-                        anon_send(sub_target, playlist::add_media_atom_v, i.uuid(), Uuid());
+                        anon_mail(playlist::add_media_atom_v, i.uuid(), Uuid())
+                            .send(sub_target);
 
                     // post process timeline drops..
                     if (type == "Video Track" or type == "Audio Track" or type == "Gap" or
@@ -1227,11 +1226,11 @@ QFuture<QList<QUuid>> SessionModel::handleOtherDropFuture(
                         for (const auto &i : new_media) {
                             auto new_uuid = utility::Uuid::generate();
                             auto new_item = self()->spawn<timeline::ClipActor>(i, "", new_uuid);
-                            anon_send(
-                                track_actor,
+                            anon_mail(
                                 timeline::insert_item_atom_v,
                                 row,
-                                UuidActorVector({UuidActor(new_uuid, new_item)}));
+                                UuidActorVector({UuidActor(new_uuid, new_item)}))
+                                .send(track_actor);
                         }
                     }
                 }
@@ -1255,7 +1254,7 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
     auto notify_processing = Notification::ProcessingNotification(
         "Importing Session " + StdFromQString(path.path()));
     auto notification_uuid = notify_processing.uuid();
-    anon_send(session_actor_, utility::notification_atom_v, notify_processing);
+    anon_mail(utility::notification_atom_v, notify_processing).send(session_actor_);
 
     return QtConcurrent::run([=]() {
         bool result = false;
@@ -1268,7 +1267,7 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
                 auto notify = Notification::WarnNotification(
                     std::string("Import Session Failed - ") + err.what());
                 notify.uuid(notification_uuid);
-                anon_send(session_actor_, utility::notification_atom_v, notify);
+                anon_mail(utility::notification_atom_v, notify).send(session_actor_);
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 return false;
             }
@@ -1279,7 +1278,7 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
                 auto notify = Notification::WarnNotification(
                     std::string("Import Session Failed - ") + err.what());
                 notify.uuid(notification_uuid);
-                anon_send(session_actor_, utility::notification_atom_v, notify);
+                anon_mail(utility::notification_atom_v, notify).send(session_actor_);
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 return false;
             }
@@ -1301,13 +1300,13 @@ QFuture<bool> SessionModel::importFuture(const QUrl &path, const QVariant &json)
             auto notify = Notification::InfoNotification(
                 "Import Session Succeeded", std::chrono::seconds(5));
             notify.uuid(notification_uuid);
-            anon_send(session_actor_, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(session_actor_);
 
         } catch (const std::exception &err) {
             auto notify = Notification::WarnNotification(
                 std::string("Import Session Failed - ") + err.what());
             notify.uuid(notification_uuid);
-            anon_send(session_actor_, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(session_actor_);
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
@@ -1393,7 +1392,7 @@ QFuture<bool> SessionModel::clearCacheFuture(const QModelIndexList &indexes) {
                 if (j.at("type") == "Media") {
                     auto actor = actorFromString(system(), j.at("actor"));
                     if (actor) {
-                        anon_send(actor, media::invalidate_cache_atom_v);
+                        anon_mail(media::invalidate_cache_atom_v).send(actor);
                         result = true;
                     }
                 }
@@ -1417,7 +1416,7 @@ void SessionModel::gatherMediaFor(const QModelIndex &index, const QModelIndexLis
                     for (const auto &i : selection)
                         uv.emplace_back(UuidFromQUuid(i.data(actorUuidRole).toUuid()));
 
-                    anon_send(actor, media_hook::gather_media_sources_atom_v, uv);
+                    anon_mail(media_hook::gather_media_sources_atom_v, uv).send(actor);
                 }
             }
         }
@@ -1551,6 +1550,47 @@ QFuture<QString> SessionModel::getJSONFuture(
     });
 }
 
+QFuture<bool> SessionModel::setJSONObjectFuture(
+    const QModelIndex &index, const QVariant &json, const QString &path) {
+    return QtConcurrent::run([=]() {
+        bool result = false;
+        try {
+            if (index.isValid()) {
+                nlohmann::json &j = indexToData(index);
+                auto actor        = actorFromString(system(), j.at("actor"));
+                auto type         = j.at("type").get<std::string>();
+                if (actor) {
+                    scoped_actor sys{system()};
+
+                    try {
+                        if (type == "Media") {
+                            result = request_receive<bool>(
+                                *sys,
+                                actor,
+                                json_store::set_json_atom_v,
+                                Uuid(),
+                                JsonStore(mapFromValue(json)),
+                                StdFromQString(path));
+                        } else {
+                            result = request_receive<bool>(
+                                *sys,
+                                actor,
+                                json_store::set_json_atom_v,
+                                JsonStore(mapFromValue(json)),
+                                StdFromQString(path));
+                        }
+                    } catch (...) {
+                    }
+                }
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+        return result;
+    });
+}
+
+
 QFuture<bool> SessionModel::setJSONFuture(
     const QModelIndex &index, const QString &json, const QString &path) {
     return QtConcurrent::run([=]() {
@@ -1601,11 +1641,9 @@ void SessionModel::sortByMediaDisplayInfo(
             auto type         = j.at("type").get<std::string>();
             if (actor and (type == "Subset" or type == "ContactSheet" or type == "Playlist" or
                            type == "Timeline")) {
-                anon_send(
-                    actor,
-                    playlist::sort_by_media_display_info_atom_v,
-                    sort_column_idx,
-                    ascending);
+                anon_mail(
+                    playlist::sort_by_media_display_info_atom_v, sort_column_idx, ascending)
+                    .send(actor);
             }
         }
 

@@ -10,6 +10,12 @@ using namespace xstudio::utility;
 
 void xstudio::utility::start_logger(
     const spdlog::level::level_enum lvl, const std::string &logfile) {
+
+    static bool logging_started = false;
+    if (logging_started)
+        return;
+    logging_started = true;
+
     // spdlog::init_thread_pool(8192, 1);
     auto stderr_sink = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
     stderr_sink->set_level(lvl);

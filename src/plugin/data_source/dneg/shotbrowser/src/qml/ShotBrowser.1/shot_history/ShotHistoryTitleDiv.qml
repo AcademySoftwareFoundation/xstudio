@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -15,76 +11,6 @@ RowLayout {id: titleDiv
     property int titleButtonCount: 4
     property real titleButtonSpacing: 1
     property real titleButtonHeight: XsStyleSheet.widgetStdHeight+4
-
-    ShotBrowserPresetFilterModel {
-        id: filterModel
-        showHidden: false
-        onlyShowFavourite: true
-        sourceModel: ShotBrowserEngine.presetsModel
-    }
-
-    DelegateModel {
-        id: groupModel
-        property var srcModel: filterModel
-        onSrcModelChanged: model = srcModel
-
-        delegate: XsPrimaryButton{
-            width: ListView.view.width / ListView.view.count
-            height: titleButtonHeight
-            text: nameRole
-            isActive: activeScopeIndex == groupModel.srcModel.mapToSource(groupModel.modelIndex(index))
-
-            onClicked: {
-                activateScope(groupModel.srcModel.mapToSource(groupModel.modelIndex(index)))
-            }
-        }
-    }
-
-    // make sure index is updated
-    XsModelProperty {
-        index: groupModel.rootIndex
-        onIndexChanged: {
-            if(!index.valid)
-                scopeList.model = []
-            populateModels()
-        }
-    }
-
-    Timer {
-        id: populateTimer
-        interval: 100
-        running: false
-        repeat: false
-        onTriggered: {
-            let ind = filterModel.mapFromSource(ShotBrowserEngine.presetsModel.searchRecursive(
-                "c5ce1db6-dac0-4481-a42b-202e637ac819", "idRole", ShotBrowserEngine.presetsModel.index(-1, -1), 0, 1
-            ))
-            if(ind.valid) {
-                groupModel.rootIndex = ind
-                scopeList.model = groupModel
-            } else {
-                scopeList.model = []
-                populateTimer.start()
-            }
-        }
-    }
-
-    function populateModels() {
-        populateTimer.start()
-    }
-
-    Component.onCompleted: {
-        if(ShotBrowserEngine.ready)
-            populateModels()
-    }
-
-    Connections {
-        target: ShotBrowserEngine
-        function onReadyChanged() {
-            if(ShotBrowserEngine.ready)
-                 populateModels()
-        }
-    }
 
     XsPrimaryButton{ id: updateScopeBtn
         Layout.preferredWidth: 40
@@ -114,13 +40,36 @@ RowLayout {id: titleDiv
                 text: "Scope: "
             }
 
-            XsListView{ id: scopeList
+            RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+
+                enabled: isPanelEnabled && !isPaused
                 spacing: titleButtonSpacing
 
-                orientation: ListView.Horizontal
-                enabled: isPanelEnabled && !isPaused
+                Repeater {
+                    model: ShotBrowserEngine.presetsModel.shotHistoryScope
+
+                    XsPrimaryButton{
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        text: ShotBrowserEngine.presetsModel.get(modelData, "nameRole")
+                        isActive: activeScopeIndex == modelData
+                        property bool isRunning: queryRunning && isActive
+
+                        onClicked: {
+                            activateScope(modelData)
+                        }
+                        XsBusyIndicator{
+                            x: 4
+                            width: height
+                            height: parent.height
+                            running: visible
+                            visible: isRunning
+                            scale: 0.5
+                        }
+                    }
+                }
             }
         }
         RowLayout{

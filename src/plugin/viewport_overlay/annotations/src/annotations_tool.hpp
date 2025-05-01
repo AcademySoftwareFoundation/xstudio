@@ -49,6 +49,11 @@ namespace ui {
                 const std::string viewport_name,
                 const bool playhead_playing) override;
 
+            utility::BlindDataObjectPtr onscreen_render_data(
+                const media_reader::ImageBufPtr &, const std::string & /*viewport_name*/,
+                const utility::Uuid &/*playhead_uuid*/,
+                const bool is_hero_image) const override;            
+
             void viewport_dockable_widget_activated(std::string &widget_name) override;
 
             void viewport_dockable_widget_deactivated(std::string &widget_name) override;
@@ -158,7 +163,6 @@ namespace ui {
             std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
             media_reader::ImageBufPtr image_being_annotated_;
 
-            std::map<std::string, plugin::ViewportOverlayRendererPtr> renderers_;
         };
 
     } // namespace viewport

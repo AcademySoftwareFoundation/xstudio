@@ -4,9 +4,8 @@
 #include <caf/all.hpp>
 
 #include "xstudio/timeline/timeline.hpp"
-#include "xstudio/utility/json_store.hpp"
-#include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/notification_handler.hpp"
+#include "xstudio/json_store/json_store_handler.hpp"
 
 namespace xstudio {
 namespace timeline {
@@ -38,7 +37,8 @@ namespace timeline {
         caf::behavior make_behavior() override {
             return message_handler()
                 .or_else(base_.container_message_handler(this))
-                .or_else(notification_.message_handler(this, base_.event_group()));
+                .or_else(notification_.message_handler(this, base_.event_group()))
+                .or_else(jsn_handler_.message_handler());
         }
 
         void add_item(const utility::UuidActor &ua);
@@ -95,11 +95,14 @@ namespace timeline {
             caf::typed_response_promise<bool> rp,
             const std::string &otio_str,
             const caf::uri &path,
-            const std::string &type);
+            const std::string &type,
+            const std::string &target_schema = "");
 
         void export_otio_as_string(caf::typed_response_promise<std::string> rp);
 
       private:
+        void monitor_media(const caf::actor &actor);
+
         Timeline base_;
         caf::actor change_event_group_;
 
@@ -108,7 +111,7 @@ namespace timeline {
 
         caf::actor selection_actor_;
 
-        utility::UuidActorMap actors_;
+        utility::UuidActorMap item_actors_;
         utility::UuidActorMap media_actors_;
 
         utility::JsonStore playhead_serialisation_;
@@ -124,6 +127,10 @@ namespace timeline {
         utility::UuidActorVector selection_;
 
         utility::NotificationHandler notification_;
+
+        std::map<caf::actor_addr, caf::disposable> monitor_;
+
+        json_store::JsonStoreHandler jsn_handler_;
     };
 
 } // namespace timeline

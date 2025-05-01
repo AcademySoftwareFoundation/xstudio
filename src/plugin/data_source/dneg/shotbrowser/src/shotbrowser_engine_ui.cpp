@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/atoms.hpp"
 
 #include "shotbrowser_engine_ui.hpp"
@@ -112,12 +114,8 @@ QObject *ShotBrowserEngine::presetsModel() { return dynamic_cast<QObject *>(pres
 void ShotBrowserEngine::JSONTreeSendEventFunc(const utility::JsonStore &event) {
     // spdlog::warn("{} {}", __PRETTY_FUNCTION__, event.dump(2));
     if (backend_) {
-        anon_send(
-            backend_,
-            utility::event_atom_v,
-            json_store::sync_atom_v,
-            user_preset_event_id_,
-            event);
+        anon_mail(utility::event_atom_v, json_store::sync_atom_v, user_preset_event_id_, event)
+            .send(backend_);
     }
 }
 
@@ -143,6 +141,14 @@ void ShotBrowserEngine::createSequenceModels(const int project_id) {
     if (not sequences_tree_map_.count(project_id)) {
         sequences_tree_map_[project_id] = new ShotBrowserSequenceModel(this);
         getSequencesFuture(project_id);
+        getTreeFuture(project_id);
+    }
+}
+
+void ShotBrowserEngine::createAssetModels(const int project_id) {
+    if (not asset_tree_map_.count(project_id)) {
+        asset_tree_map_[project_id] = new ShotBrowserSequenceModel(this);
+        getAssetFuture(project_id);
     }
 }
 
@@ -151,12 +157,26 @@ QObject *ShotBrowserEngine::sequenceTreeModel(const int project_id) {
     return sequences_tree_map_[project_id];
 }
 
+QObject *ShotBrowserEngine::assetTreeModel(const int project_id) {
+    createAssetModels(project_id);
+    return asset_tree_map_[project_id];
+}
+
 void ShotBrowserEngine::createShotCache(const int project_id) {
     const auto key = query_engine_.cache_name("Shot", project_id);
 
     if (not query_engine_.get_lookup(key)) {
         query_engine_.set_lookup(key, R"([])"_json);
         getShotsFuture(project_id);
+    }
+}
+
+void ShotBrowserEngine::createEpisodeCache(const int project_id) {
+    const auto key = query_engine_.cache_name("Episode", project_id);
+
+    if (not query_engine_.get_lookup(key)) {
+        query_engine_.set_lookup(key, R"([])"_json);
+        getEpisodesFuture(project_id);
     }
 }
 
@@ -178,6 +198,15 @@ void ShotBrowserEngine::createUnitCache(const int project_id) {
     }
 }
 
+void ShotBrowserEngine::createAssetCache(const int project_id) {
+    const auto key = query_engine_.cache_name("Asset", project_id);
+
+    if (not query_engine_.get_cache(key)) {
+        query_engine_.set_cache(key, R"([])"_json);
+        getAssetFuture(project_id);
+    }
+}
+
 void ShotBrowserEngine::createPlaylistCache(const int project_id) {
     const auto key = query_engine_.cache_name("Playlist", project_id);
 
@@ -194,8 +223,10 @@ void ShotBrowserEngine::cacheProject(const int project_id) {
         createUserCache(project_id);
         createSequenceModels(project_id);
         createShotCache(project_id);
+        createEpisodeCache(project_id);
         createPlaylistCache(project_id);
         createUnitCache(project_id);
+        createAssetCache(project_id);
         createStageCache(project_id);
     }
 }
@@ -215,21 +246,20 @@ QString ShotBrowserEngine::getProjectFromMetadata() const {
     return result;
 }
 
-QString ShotBrowserEngine::getShotSequenceFromMetadata() const {
-    auto result = QString();
+QVariant ShotBrowserEngine::getEntityFromMetadata() const {
+    auto result = QVariant();
     try {
-        auto jp =
-            json::json_pointer("/metadata/shotgun/version/relationships/entity/data/name");
+        static const auto jp =
+            json::json_pointer("/metadata/shotgun/version/relationships/entity/data");
 
         if (live_link_metadata_.contains(jp)) {
-            result = QStringFromStd(live_link_metadata_.at(jp));
+            result = mapFromValue(live_link_metadata_.at(jp));
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
     return result;
 }
-
 
 void ShotBrowserEngine::setLiveLinkKey(const QVariant &key) {
     if (live_link_key_ != key) {
@@ -264,26 +294,66 @@ void ShotBrowserEngine::setLiveLinkMetadata(QString &data) {
     }
 }
 
-QString ShotBrowserEngine::getShotgunUserName() {
-    QString result; // = QString(get_user_name());
+JsonStore ShotBrowserEngine::getUserData() const {
+    JsonStore result;
 
-    // auto ind =
-    //     qvariant_cast<ShotBrowserListModel *>(term_models_->value("userModel"))
-    //         ->search(QVariant::fromValue(QString(get_login_name().c_str())), "loginRole");
-    // if (ind != -1)
-    //     result = qvariant_cast<ShotBrowserListModel *>(term_models_->value("userModel"))
-    //                  ->get(ind)
-    //                  .toString();
+    auto users = query_engine_.get_cache("User");
+    if (users) {
+        auto login = get_login_name();
+        try {
+            for (const auto &i : *users) {
+                if (i.at("attributes").at("login") == login) {
+                    result = i;
+                    break;
+                }
+            }
+
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
 
     return result;
 }
+
+QString ShotBrowserEngine::shotGridUserName() {
+    QString result = QStringFromStd(get_user_name());
+
+    auto jsn = getUserData();
+    if (not jsn.is_null()) {
+        try {
+            result = QStringFromStd(jsn.at("attributes").at("name"));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return result;
+}
+
+QString ShotBrowserEngine::shotGridUserType() {
+    QString result = "User";
+
+    auto jsn = getUserData();
+    if (not jsn.is_null()) {
+        try {
+            result = QStringFromStd(
+                jsn.at("relationships").at("permission_rule_set").at("data").at("name"));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+    }
+
+    return QString("REPLACE_WITH_RESULT");
+}
+
 
 void ShotBrowserEngine::init(caf::actor_system &system) {
     QMLActor::init(system);
 
     // access global data store to retrieve stored filters.
     // delay this just in case we're to early..
-    delayed_anon_send(as_actor(), std::chrono::seconds(2), shotgun_preferences_atom_v);
+    anon_mail(shotgun_preferences_atom_v).delay(std::chrono::seconds(2)).send(as_actor());
 
     // request data for presets.
 
@@ -347,8 +417,13 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
                                 query_engine_.cache_name("User", project_id), data);
                         } else {
                             updateQueryValueCache("User", data);
+                            query_engine_.set_cache(query_engine_.cache_name("User"), data);
                             if (not ready_)
                                 checkReady();
+
+                            // we can now return correct name
+                            emit shotGridUserNameChanged();
+                            emit shotGridUserTypeChanged();
                         }
                     } else if (request.at("type") == "department") {
                         updateQueryValueCache("Department", data);
@@ -380,6 +455,23 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
                         updateQueryValueCache("Unit", data, project_id);
                         query_engine_.set_cache(
                             query_engine_.cache_name("Unit", project_id), data);
+                    } else if (request.at("type") == "asset") {
+                        const auto project_id = request.at("project_id").get<int>();
+                        updateQueryValueCache("Asset", data, project_id);
+                        query_engine_.set_cache(
+                            query_engine_.cache_name("Asset", project_id), data);
+
+                        query_engine_.set_asset_list_cache(
+                            QueryEngine::cache_name("AssetList", project_id), data);
+
+                        // if mode exists populate it..
+                        if (asset_tree_map_.count(project_id)) {
+                            auto types = QStringList();
+                            asset_tree_map_[request.at("project_id")]->setModelData(
+                                ShotBrowserSequenceModel::flatToAssetTree(data, types));
+                            asset_tree_map_[request.at("project_id")]->setTypes(types);
+                        }
+
                     } else if (request.at("type") == "stage") {
                         const auto project_id = request.at("project_id").get<int>();
                         updateQueryValueCache("Stage", data, project_id);
@@ -413,12 +505,20 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
                     } else if (request.at("type") == "sequence") {
                         updateQueryValueCache(
                             "Sequence", data, request.at("project_id").get<int>());
-
+                    } else if (request.at("type") == "tree") {
+                        const auto project_id = request.at("project_id").get<int>();
+                        auto types            = QStringList();
                         sequences_tree_map_[request.at("project_id")]->setModelData(
-                            ShotBrowserSequenceModel::flatToTree(data));
+                            ShotBrowserSequenceModel::flatToTree(data, types));
+                        sequences_tree_map_[request.at("project_id")]->setTypes(types);
+                        query_engine_.set_shot_sequence_list_cache(
+                            QueryEngine::cache_name("ShotSequenceList", project_id), data);
                     } else if (request.at("type") == "shot") {
                         updateQueryValueCache(
                             "Shot", data, request.at("project_id").get<int>());
+                    } else if (request.at("type") == "episode") {
+                        updateQueryValueCache(
+                            "Episode", data, request.at("project_id").get<int>());
                     } else if (request.at("type") == "playlist") {
                         updateQueryValueCache(
                             "Playlist", data, request.at("project_id").get<int>());
@@ -431,12 +531,8 @@ void ShotBrowserEngine::init(caf::actor_system &system) {
             // catchall for dealing with results from shotgun
             [=](shotgun_info_atom, const JsonStore &request) {},
 
-
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg & /*msg*/) {
-                //      if(msg.source == store_events)
-                // unsubscribe();
-            }};
+        };
     });
 }
 
@@ -451,7 +547,7 @@ void ShotBrowserEngine::setConnected(const bool connected) {
 }
 
 void ShotBrowserEngine::authenticate(const bool cancel) {
-    anon_send(backend_, shotgun_acquire_authentication_atom_v, cancel);
+    anon_mail(shotgun_acquire_authentication_atom_v, cancel).send(backend_);
 }
 
 void ShotBrowserEngine::set_backend(caf::actor backend) {
@@ -472,7 +568,6 @@ void ShotBrowserEngine::set_backend(caf::actor backend) {
                 *sys, backend_events_, broadcast::leave_broadcast_atom_v, as_actor());
         } catch (const std::exception &) {
         }
-        // self()->demonitor(backend_events_);
         backend_events_ = caf::actor();
     }
 
@@ -484,8 +579,8 @@ void ShotBrowserEngine::set_backend(caf::actor backend) {
                 *sys, backend_events_, broadcast::join_broadcast_atom_v, as_actor());
         } catch (const std::exception &) {
         }
-        anon_send(backend_, module::connect_to_ui_atom_v);
-        anon_send(backend_, shotgun_authentication_source_atom_v, as_actor());
+        anon_mail(module::connect_to_ui_atom_v).send(backend_);
+        anon_mail(shotgun_authentication_source_atom_v, as_actor()).send(backend_);
     }
 }
 
@@ -631,6 +726,47 @@ QFuture<bool> ShotBrowserEngine::redoFuture() {
                 backend_,
                 history::redo_atom_v,
                 utility::sys_time_duration(std::chrono::milliseconds(500)));
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
+        return result;
+    });
+}
+
+QFuture<QUrl> ShotBrowserEngine::getSequencePathFuture(
+    const QStringList &preferred, const QString &project, const QUuid &stalk) {
+    return QtConcurrent::run([=]() {
+        auto result = QUrl();
+
+        try {
+            scoped_actor sys{system()};
+
+            auto ivy = system().registry().template get<caf::actor>("IVYDATASOURCE");
+
+            if (not ivy)
+                throw std::runtime_error("Failed to find Ivy Datasource");
+
+            auto jsn = request_receive<JsonStore>(
+                *sys,
+                ivy,
+                data_source::get_data_atom_v,
+                StdFromQString(project),
+                UuidFromQUuid(stalk));
+
+            for (const auto &i : preferred) {
+                auto p_name = StdFromQString(i);
+                for (const auto &file : jsn.at("data").at("versions_by_id").at(0).at("files")) {
+                    if (file.at("name") == p_name and fs::exists(forward_remap_file_path(file.at("path")))) {
+                        result = QUrlFromUri(posix_path_to_uri(file.at("path")));
+                        break;
+                    }
+                }
+                if (result != QUrl()) {
+                    break;
+                }
+            }
+
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }

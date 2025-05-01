@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
+import QtQuick
 
 Item {
 	property bool enableBuffering: false
@@ -13,14 +13,14 @@ Item {
         running: false
         repeat: false
         onTriggered: {
-            value = source
-        }
+            value = source 
+        } 
     }
 
     onEnableBufferingChanged: {
     	if(!delay && !enableBuffering)
     		value = source
-    }
+    } 
 
 	onSourceChanged: {
 		if(enableBuffering) {
@@ -33,7 +33,7 @@ Item {
 			value = source
 	}
 
-	Component.onCompleted: {
+	Component.onCompleted: { 
 		value = source
 	}
 }

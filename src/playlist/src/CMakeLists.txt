@@ -1,5 +1,5 @@
 SET(LINK_DEPS
-	caf::core
+	CAF::core
 	xstudio::audio_output
 	xstudio::contact_sheet
 	xstudio::media
@@ -9,4 +9,4 @@ SET(LINK_DEPS
 	xstudio::utility
 )
 
-create_component(playlist 0.1.0 "${LINK_DEPS}")
+create_component(playlist ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

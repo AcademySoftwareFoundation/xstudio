@@ -3,29 +3,25 @@
 
 #include "xstudio/timeline/timeline.hpp"
 #include "xstudio/utility/helpers.hpp"
-#include "xstudio/utility/json_store.hpp"
 
 using namespace xstudio::timeline;
 using namespace xstudio::utility;
 
 Timeline::Timeline(
-    const std::string &name,
-    const utility::FrameRate &rate,
-    const utility::Uuid &_uuid,
-    const caf::actor &actor)
+    const std::string &name, const FrameRate &rate, const Uuid &_uuid, const caf::actor &actor)
     : Container(name, "Timeline", _uuid),
       item_(
           ItemType::IT_TIMELINE,
-          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor)),
+          UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor)),
           {},
-          utility::FrameRange(FrameRateDuration(0, rate))) {
+          FrameRange(FrameRateDuration(0, rate))) {
     item_.set_name(name);
 }
 
 Timeline::Timeline(const JsonStore &jsn)
-    : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
-      item_(static_cast<utility::JsonStore>(jsn.at("item"))),
-      media_list_(static_cast<utility::JsonStore>(jsn.at("media"))) {}
+    : Container(static_cast<JsonStore>(jsn.at("container"))),
+      item_(static_cast<JsonStore>(jsn.at("item"))),
+      media_list_(static_cast<JsonStore>(jsn.at("media"))) {}
 
 JsonStore Timeline::serialise() const {
     JsonStore jsn;
@@ -38,7 +34,7 @@ JsonStore Timeline::serialise() const {
 }
 
 Timeline Timeline::duplicate() const {
-    utility::JsonStore jsn;
+    JsonStore jsn;
 
     auto dup_container = Container::duplicate();
     auto dup_item      = item_;

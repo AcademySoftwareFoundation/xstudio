@@ -17,7 +17,6 @@ GTWheelDivHorz      2.0 delegates/GTWheelDivHorz.qml
 GTWheelDivVert      2.0 delegates/GTWheelDivVert.qml
 
 GTSlider            2.0 widgets/GTSlider.qml
-GTToolButton        2.0 widgets/GTToolButton.qml
 GTToolButtonHorz    2.0 widgets/GTToolButtonHorz.qml
 GTValueEditor       2.0 widgets/GTValueEditor.qml
 GTWheel             2.0 widgets/GTWheel.qml

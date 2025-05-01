@@ -46,6 +46,7 @@ namespace utility {
         [[nodiscard]] bool container() const { return container_; }
         [[nodiscard]] int frame_count() const { return duration_.frames(); }
         [[nodiscard]] int offset() const { return offset_; }
+        [[nodiscard]] int start_frame_offset() const { return start_frame_offset_; }
         [[nodiscard]] double seconds(const FrameRate &override = FrameRate()) const {
             return duration_.seconds(override);
         }
@@ -56,11 +57,17 @@ namespace utility {
         [[nodiscard]] std::optional<caf::uri>
         uri(const int logical_frame, int &file_frame) const;
 
+        // extend and/or fill-out the frame list for numbered frames that are
+        // not on disk but that are between the first and last numbered frames
+        // that ARE on disk
+        void fill_partial_sequences();
+
         void set_timecode_from_frames();
         void set_uri(const caf::uri &uri);
         void set_frame_list(const FrameList &fl);
         void set_rate(const FrameRate &rate);
         void set_offset(const int offset);
+        void set_start_frame_offset(const int offset) { start_frame_offset_ = offset; }
 
         void set_duration(const FrameRateDuration &frd) { duration_ = frd; }
         [[nodiscard]] FrameRate rate() const { return duration_.rate(); }
@@ -79,6 +86,7 @@ namespace utility {
                 f.field("dur", x.duration_),
                 f.field("fl", x.frame_list_),
                 f.field("tc", x.timecode_),
+                f.field("sfo", x.start_frame_offset_),
                 f.field("off", x.offset_));
         }
 
@@ -101,6 +109,9 @@ namespace utility {
         FrameRateDuration duration_;
         FrameList frame_list_;
         Timecode timecode_;
+
+        // if we've modified the apparent start, so we can get back to the real range/start
+        int start_frame_offset_{0};
 
         int offset_{0};
     };

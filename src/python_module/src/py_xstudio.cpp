@@ -26,6 +26,19 @@ CAF_POP_WARNINGS
 #include "xstudio/utility/serialise_headers.hpp"
 #include "xstudio/media_reader/pixel_info.hpp"
 
+#ifdef __apple__
+namespace caf {
+namespace detail {
+
+    template <> struct int_types_by_size<16> {
+        using unsigned_type = __uint128_t;
+        using signed_type   = __int128;
+    };
+
+} // namespace detail
+} // namespace caf
+#endif
+
 using namespace xstudio;
 namespace py = pybind11;
 
@@ -90,6 +103,16 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
         .value("ST_BUSY", global::StatusType::ST_BUSY)
         .export_values();
 
+    py::enum_<spdlog::level::level_enum>(m, "LogLevel")
+        .value("SPDLOG_LEVEL_TRACE", spdlog::level::level_enum::trace)
+        .value("SPDLOG_LEVEL_DEBUG", spdlog::level::level_enum::debug)
+        .value("SPDLOG_LEVEL_INFO", spdlog::level::level_enum::info)
+        .value("SPDLOG_LEVEL_WARN", spdlog::level::level_enum::warn)
+        .value("SPDLOG_LEVEL_ERROR", spdlog::level::level_enum::err)
+        .value("SPDLOG_LEVEL_CRITICAL", spdlog::level::level_enum::critical)
+        .value("SPDLOG_LEVEL_OFF", spdlog::level::level_enum::off)
+        .export_values();
+
     py::enum_<utility::MediaReference::FramePadFormat>(m, "FramePadFormat")
         .value("FPF_XSTUDIO", utility::MediaReference::FramePadFormat::FPF_XSTUDIO)
         .value("FPF_NUKE", utility::MediaReference::FramePadFormat::FPF_NUKE)
@@ -140,7 +163,10 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
     // set XSTUDIO_LOCAL_PLUGIN_PATH so we can load python plugins that are
     // provided as part of the xstudio install/distribution
     m.add_object(
-        "XSTUDIO_LOCAL_PLUGIN_PATH", py::cast(utility::xstudio_root("/plugin-python")));
+        "XSTUDIO_LOCAL_PLUGIN_PATH", py::cast(utility::xstudio_resources_dir("plugin-python")));
+
+    py::bind_vector<std::vector<std::string>>(m, "VectorString");
+    py::bind_vector<std::vector<xstudio::utility::Uuid>>(m, "VectorUuid");
 
     py_remote_session_file(m);
     py_playhead(m);

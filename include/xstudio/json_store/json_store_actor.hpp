@@ -5,7 +5,6 @@
 #include <caf/actor_config.hpp>
 #include <caf/behavior.hpp>
 #include <caf/event_based_actor.hpp>
-#include <caf/group.hpp>
 #include <map>
 
 #include "xstudio/utility/json_store.hpp"

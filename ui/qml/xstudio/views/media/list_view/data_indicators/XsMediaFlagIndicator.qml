@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQml.Models 2.14
+import QtQuick
 import xStudio 1.0
 
 Item {
@@ -21,7 +20,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
-        onClicked: {
+        onClicked: (mouse)=> {
             showFlagMenu(mouse.x, mouse.y, this, modelIndex())
         }
     }

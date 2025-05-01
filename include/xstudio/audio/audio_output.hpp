@@ -46,12 +46,8 @@ class AudioOutputControl {
      *  audio during timeline scrubbing.
      *
      */
-    void prepare_samples_for_soundcard_scrubbing(
-        std::vector<int16_t> &samples,
-        const long num_samps_to_push,
-        const long microseconds_delay,
-        const int num_channels,
-        const int sample_rate);
+    long copy_samples_to_buffer_for_scrubbing(
+        std::vector<int16_t> &samples, const long num_samps_to_push);
 
     /**
      *  @brief The audio volume (range is 0-1)
@@ -67,6 +63,14 @@ class AudioOutputControl {
      *   @brief Queue audio buffer for streaming to the soundcard
      */
     void queue_samples_for_playing(const std::vector<media_reader::AudioBufPtr> &audio_buffers);
+
+    /**
+     *   @brief Queue audio buffer for streaming to the soundcard during
+     *   timeline scrubbing
+     */
+    void prepare_samples_for_audio_scrubbing(
+        const std::vector<media_reader::AudioBufPtr> &audio_buffers,
+        const timebase::flicks playhead_position);
 
     /**
      *   @brief Fine grained update of playhead position
@@ -113,7 +117,14 @@ class AudioOutputControl {
         const media_reader::AudioBufPtr &next_buf,
         const media_reader::AudioBufPtr &previous_buf_);
 
+    // the actual sound samples that we are about to play, measured against
+    // their timestamp in the xstudio plyhead timeline
     std::map<timebase::flicks, media_reader::AudioBufPtr> sample_data_;
+
+    // a dynamic buffer of samples to be streamed to soundcard during
+    // scrubbing.
+    std::vector<int16_t> scrubbing_samples_buf_;
+
     media_reader::AudioBufPtr current_buf_;
     media_reader::AudioBufPtr previous_buf_;
     media_reader::AudioBufPtr next_buf_;
@@ -127,12 +138,13 @@ class AudioOutputControl {
     utility::time_point playhead_position_update_tp_;
     timebase::flicks last_buffer_pts_;
 
-    bool audio_repitch_    = {false};
-    bool audio_scrubbing_  = {false};
-    float volume_          = {100.0f};
-    bool muted_            = {false};
-    bool playing_          = {false};
-    float override_volume_ = {100.0f};
-    float last_volume_     = {100.0f};
+    bool audio_repitch_                = {false};
+    bool audio_scrubbing_              = {false};
+    float volume_                      = {100.0f};
+    bool muted_                        = {false};
+    bool playing_                      = {false};
+    float override_volume_             = {100.0f};
+    float last_volume_                 = {100.0f};
+    float scrub_chunk_duration_frames_ = {1.0f};
 };
 } // namespace xstudio::audio

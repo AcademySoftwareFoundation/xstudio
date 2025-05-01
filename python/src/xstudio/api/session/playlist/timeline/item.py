@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import Uuid, actor, item_atom, enable_atom, item_prop_atom, item_lock_atom
-from xstudio.core import active_range_atom, available_range_atom, item_name_atom, item_flag_atom
+from xstudio.core import Uuid, actor, item_atom, enable_atom, item_prop_atom, item_lock_atom, JsonStore
+from xstudio.core import active_range_atom, available_range_atom, item_name_atom, item_flag_atom, trimmed_range_atom
 from xstudio.api.session.container import Container
 
 import json
@@ -84,6 +84,9 @@ class Item(Container):
         Args:
             state(bool): Set enabled state.
         """
+        if not isinstance(x, JsonStore):
+            x = JsonStore(x)
+
         self.connection.request_receive(self.remote, item_prop_atom(), x)
 
     @property
@@ -162,6 +165,16 @@ class Item(Container):
     @property
     def trimmed_range(self):
         return self.item.trimmed_range()
+
+    @trimmed_range.setter
+    def trimmed_range(self, x):
+        """Set available_range.
+
+        Args:
+            x(FrameRange): Set available_range.
+        """
+        self.connection.request_receive(self.remote, trimmed_range_atom(), x, x)
+
 
     @property
     def rate(self):

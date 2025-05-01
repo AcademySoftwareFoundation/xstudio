@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtGraphicalEffects 1.15
+import QtQuick
 
 import xStudio 1.0
 
@@ -26,7 +24,7 @@ Item {
         cursorShape: Qt.PointingHandCursor
     }
 
-    XsImage {
+    XsIcon {
         source: control.type == "INFO" ? "qrc:/icons/check_circle.svg" : "qrc:/icons/warning.svg"
         visible: ["INFO", "WARN"].includes(control.type)
         imgOverlayColor: control.type == "INFO" ? palette.highlight : "RED"

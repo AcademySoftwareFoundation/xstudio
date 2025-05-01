@@ -20,12 +20,6 @@ import os
 import sys
 import traceback
 
-try:
-    import XStudioExtensions
-except:
-    XStudioExtensions = None
-
-
 class ModuleAttribute:
 
     """Simple wrapper providing attribute object interface"""
@@ -51,17 +45,25 @@ class ModuleAttribute:
         if uuid:
             self.uuid = uuid
         else:
-            # as yet, I haven't worked out how to allow type conversion from 
+            # as yet, I haven't worked out how to allow type conversion from
             # custom python type (like ColourTriplet) and JsonStore !!
             if isinstance(attribute_value, ColourTriplet):
                 # backend knows to interpret this back into a ColourTriplet
                 attribute_value = ["colour", 1, attribute_value.red, attribute_value.green, attribute_value.blue]
 
+            converted_val = JsonStore()
+            if type(attribute_value) == dict or type(attribute_value) == list:
+                converted_val.parse_string(json.dumps(attribute_value)) 
+            elif type(attribute_value) == type(JsonStore()):
+                converted_val = attribute_value                
+            else:
+                converted_val = JsonStore(attribute_value)                
+
             self.uuid = connection.request_receive(
                 parent_remote,
                 add_attribute_atom(),
                 attribute_name,
-                attribute_value if type(attribute_value) == type(JsonStore()) else JsonStore(attribute_value),
+                converted_val,
                 JsonStore(attribute_role_data)
             )[0]
 
@@ -81,7 +83,7 @@ class ModuleAttribute:
                 group_list.append(group_name)
             elif type(group_name) == list:
                 group_list = group_list+group_name
-        except:            
+        except:
             if type(group_name) == str:
                 group_list = [group_name]
             elif type(group_name) == list:
@@ -139,11 +141,18 @@ class ModuleAttribute:
 
     def set_value(self, value):
 
+        if isinstance(value, list):
+            v = JsonStore()
+            v.parse_string(json.dumps(value))
+            value = v
+        elif not isinstance(value, JsonStore):
+            value = JsonStore(value)
+
         self.connection.send(
             self.parent_remote,
             attribute_value_atom(),
             self.uuid,
-            JsonStore(value))
+            value)
 
     def add_to_preferences(self):
 
@@ -161,7 +170,13 @@ class ModuleAttribute:
             True
             )[0].get()
 
-class ModuleBase(ActorConnection):
+class ModuleMeta(type):
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        instance.setup_message_handler()
+        return instance
+
+class ModuleBase(ActorConnection, metaclass=ModuleMeta):
 
     """Wrapper for Module class instances"""
 
@@ -198,20 +213,16 @@ class ModuleBase(ActorConnection):
             self.attrs_by_name_[attr_wrapper.name] = attr_wrapper
             self.attrs_by_uuid_[attr_uuid] = attr_wrapper
 
-        # this call gets the event group for Module attribute change events
-        remote_event_group = connection.request_receive(remote, get_event_group_atom(), True)[0]
-
-        if XStudioExtensions:
-            XStudioExtensions.add_message_callback(
-                (remote_event_group, self.incoming_msg)
-            )
-        else:
-            self.connection.link.add_message_callback(
-                remote_event_group, self.incoming_msg
-            )
-
         self.__attribute_changed = None
-        self.__playhead_event_callback = None        
+
+    def setup_message_handler(self):
+
+        # this call gets the event group for Module attribute change events
+        remote_event_group = self.connection.request_receive(self.remote, get_event_group_atom(), True)[0]
+
+        self.connection.link.add_message_callback(
+            remote_event_group, self.message_handler
+            )
 
     def connect_to_ui(self):
         """Call this method to 'activate' the plugin and forward live data about
@@ -265,7 +276,7 @@ class ModuleBase(ActorConnection):
                 attribute
             attribute_role_data(dict): Other role data of the attribute
             preference_path(str): If provided the attribute value will be
-                recorded in the users preferences data when xstudio closes and 
+                recorded in the users preferences data when xstudio closes and
                 the value restored next time xstudio starts up.
         """
 
@@ -311,16 +322,17 @@ class ModuleBase(ActorConnection):
         else:
             raise Exception("No attribute named {0}".format(attr_name))
 
-    def set_attribute_changed_event_handler(self, handler):
-        """Set the callback function that receives events from
-        the xSTUDIO messaging system
+    def attribute_changed(self, attr, role):
+        """Override this method to get callbacks when an attribute's role
+        data has changed
 
         Args:
-            handler(Callable): Call back function
+            attr(ModuleAttribute): The attribute that has changed
+            role(int): The index for the role data that has changed
         """
-        self.__attribute_changed = handler
+        pass
 
-    def subscribe_to_playhead_events(self, playhead_event_callback=None):
+    def subscribe_to_playhead_events(self, playhead_event_callback):
         """Set the callback function for receiving events specific to
         the playhead and subscrive to the playheads events broadcast
         group.
@@ -333,22 +345,9 @@ class ModuleBase(ActorConnection):
             self.connection.remote(),
             get_global_playhead_events_atom())[0]
 
-        playhead_event_group = get_event_group(self.connection, gphev)
-
-        if XStudioExtensions:
-
-            XStudioExtensions.add_message_callback(
-                (gphev, self.__playhead_events)
-                )
-
-        else:
-            self.connection.link.add_message_callback(
-                (gphev, self.__playhead_events)
-                )
-
-    def __caf_message_to_tuple(self, caf_message):
-
-        return self.connection.link.tuple_from_message(caf_message[0])
+        self.connection.link.add_message_callback(
+            gphev, playhead_event_callback
+            )
 
     def subscribe_to_event_group(self, event_source, callback_method):
         """Set the callback function for receiving events specific to
@@ -370,34 +369,12 @@ class ModuleBase(ActorConnection):
         if not event_group:
             raise Exception("Actor has no event group.")
 
-        if XStudioExtensions:
-
-            XStudioExtensions.add_message_callback(
-                (event_group, callback_method, event_source.remote, self.__caf_message_to_tuple)
-                )
-
-        else:
-            self.connection.link.add_message_callback(
-                (event_group, callback_method, event_source.remote, self.__caf_message_to_tuple)
-                )
+        self.connection.link.add_message_callback(
+            event_group, callback_method
+            )
 
     def menu_item_activated(self, menu_item_data, user_data):
         pass
-
-    def playhead_event_handler(self, event_args):
-
-        pass
-
-    def __playhead_events(self, *args):
-
-        try:
-            message_content = self.connection.caf_message_to_tuple(args[0][0])
-            self.playhead_event_handler(message_content)
-
-        except Exception as e:
-            print (e)
-            print (traceback.format_exc())
-            pass
 
     def register_hotkey(self,
                         hotkey_callback,
@@ -523,7 +500,7 @@ class ModuleBase(ActorConnection):
 
         self.menu_item_ids.append(menu_item_uuid)
 
-        return menu_item_uuid        
+        return menu_item_uuid
 
     def set_submenu_position(
         self,
@@ -538,7 +515,7 @@ class ModuleBase(ActorConnection):
 
         Args:
             menu_model_name(str): The name of the menu model
-            submenu_path(str): The submenu name (preceded by parent submenus 
+            submenu_path(str): The submenu name (preceded by parent submenus
                 separated by a pipe symbol e.g. 'Publish|Notes' if you wish to
                 set the position of the Notes submenu within the Publish submenu.
             menu_item_position(float): The relative position in the parent menu.
@@ -588,28 +565,28 @@ class ModuleBase(ActorConnection):
                 module_remove_menu_item_atom(),
                 menu_uuid)
 
-    def message_handler(self, sender, req_id, message_content):
+    def message_handler(self, message_content):
 
         try:
             atom = message_content[0] if len(message_content) else None
-            
+
             # message handler for attribute change
             if isinstance(atom, type(change_attribute_event_atom())):
                 role = message_content[3]
                 attr_uuid = message_content[2] if len(
                     message_content) > 2 else Uuid()
-                if self.__attribute_changed and attr_uuid in self.attrs_by_uuid_:                        
-                    self.__attribute_changed(self.attrs_by_uuid_[attr_uuid], role)
+                if attr_uuid in self.attrs_by_uuid_:
+                    self.attribute_changed(self.attrs_by_uuid_[attr_uuid], role)
                 if attr_uuid in self.menu_trigger_callbacks:
                     self.menu_trigger_callbacks[attr_uuid]()
 
             elif isinstance(atom, type(hotkey_event_atom())):
                 hotkey_uuid = str(message_content[1]) if len(
-                    message_content) > 1 else ""                
+                    message_content) > 1 else ""
                 activated = bool(message_content[2]) if len(
                     message_content) > 2 else False
                 context = str(message_content[3]) if len(
-                    message_content) > 3 else ""                
+                    message_content) > 3 else ""
                 if hotkey_uuid in self.hotkey_callbacks:
                     self.hotkey_callbacks[hotkey_uuid](activated, context)
 
@@ -624,42 +601,10 @@ class ModuleBase(ActorConnection):
                         self.menu_item_activated(menu_item_data, user_data)
                     if uuid in self.menu_trigger_callbacks:
                         self.menu_trigger_callbacks[uuid]()
-                
+
         except Exception as err:
             print (err)
             print (traceback.format_exc())
-
-    def run_callback_with_delay(
-        self,
-        delay_microseconds,
-        callback_fn
-        ):
-        """Run a callback after specified delay in microseconds
-        Args:
-            delay_microseconds(int): The delay in microseconds
-            callback_fn(method): Callback function to be executed
-        """
-
-        if XStudioExtensions:
-            XStudioExtensions.run_callback_with_delay(
-                (callback_fn, delay_microseconds)
-            )
-        else:
-            self.connection.link.run_callback_with_delay(
-                (callback_fn, delay_microseconds)
-            )
-
-
-    def incoming_msg(self, *args):
-
-        try:
-            self.message_handler(
-                None,
-                None,
-                self.connection.caf_message_to_tuple(args[0][0])
-            )
-        except Exception as err:
-            pass
 
     @property
     def uuid(self):

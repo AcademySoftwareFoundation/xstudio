@@ -9,7 +9,7 @@ SET(LINK_DEPS
 	xstudio::utility
 	xstudio::media
 	xstudio::playhead
-	caf::core
+	CAF::core
 	Imath::Imath
 	fmt::fmt
 	OTIO::opentime
@@ -19,12 +19,12 @@ SET(LINK_DEPS
 SET(STATIC_LINK_DEPS
 	xstudio::utility_static
 	xstudio::media_static
-	caf::core
+	CAF::core
 	Imath::Imath
 	fmt::fmt
 	OTIO::opentime
 	OTIO::opentimelineio
 )
 
-create_component_static(timeline 0.1.0 "${LINK_DEPS}" "${STATIC_LINK_DEPS}")
+create_component_static(timeline ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${STATIC_LINK_DEPS}")
 

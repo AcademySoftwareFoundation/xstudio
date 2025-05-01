@@ -75,6 +75,7 @@
 	    <file>views/playlists/delegates/XsContactSheetItemDelegate.qml</file>
 	    <file>views/playlists/delegates/XsSubsetItemDelegate.qml</file>
 	    <file>views/playlists/delegates/XsTimelineItemDelegate.qml</file>
+	    <file>views/playlists/widgets/XsPlaylistRemoveMenu.qml</file>
 	    <file>views/playlists/widgets/XsPlaylistPlusMenu.qml</file>
 	    <file>views/playlists/widgets/XsPlaylistContextMenu.qml</file>
 
@@ -110,10 +111,10 @@
 	    <file>views/viewport/XsOffscreenViewportOverlays.qml</file>
 	    <file>views/viewport/XsViewportPanel.qml</file>
 	    <file>views/viewport/XsViewport.qml</file>
+	    <file>views/viewport/XsViewportWidget.qml</file>
 	    <file>views/viewport/hud/XsHudItem.qml</file>
 	    <file>views/viewport/hud/XsViewportHUD.qml</file>
 	    <file>views/viewport/hud/XsViewportOverlays.qml</file>
-	    <file>views/viewport/hud/XsViewportFrameErrorIndicator.qml</file>
 	    <file>views/viewport/widgets/XsViewportActionBar.qml</file>
 	    <file>views/viewport/widgets/XsViewportTransportBar.qml</file>
 	    <file>views/viewport/widgets/XsViewportToolBar.qml</file>
@@ -161,6 +162,7 @@
 	    <file>widgets/buttons/XsSortButton.qml</file>
 
 	    <file>widgets/controls/XsCheckBox.qml</file>
+	    <file>widgets/controls/XsCheckBoxSimple.qml</file>
 	    <file>widgets/controls/XsAttrComboBox.qml</file>
 	    <file>widgets/controls/XsComboBox.qml</file>
 	    <file>widgets/controls/XsComboBoxEditable.qml</file>
@@ -177,15 +179,16 @@
 
 	    <file>widgets/dialogs/XsAttributesPanel.qml</file>
 	    <file>widgets/dialogs/XsPopup.qml</file>
-	    <file>widgets/dialogs/XsOpenSessionDialog.qml</file>
 	    <file>widgets/dialogs/XsSnapshotDialog.qml</file>
 	    <file>widgets/dialogs/XsStringRequestDialog.qml</file>
+	    <file>widgets/dialogs/XsTextEditDialog.qml</file>
 	    <file>widgets/dialogs/XsWindow.qml</file>
 	    <file>widgets/dialogs/hotkeys/XsHotkeysDialog.qml</file>
 	    <file>widgets/dialogs/hotkeys/delegates/XsHotkeyDetails.qml</file>
 	    <file>widgets/dialogs/preferences/XsPreferencesDialog.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsColourPreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsCompareModePref.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsJsonPreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsPreferenceCategory.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsFloatPreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsIntegerPreference.qml</file>
@@ -225,6 +228,7 @@
 	    <file>widgets/menus/XsPopupMenu.qml</file>
 
 	    <file>widgets/outputs/XsGridView.qml</file>
+	    <file>widgets/outputs/XsIcon.qml</file>
 	    <file>widgets/outputs/XsImage.qml</file>
 	    <file>widgets/outputs/XsListView.qml</file>
 	    <file>widgets/outputs/XsSplitView.qml</file>
@@ -247,6 +251,7 @@
 	</qresource>
 
 	<qresource prefix="/images">
+	    <file alias="xstudio_backdrop.svg">assets/images/xstudio_backdrop_v004_03.svg</file>
 	    <file alias="sample.png">assets/images/sample.png</file>
 	    <file alias="xstudio_logo_256_v1.svg">assets/icons/xstudio_logo_256_v1.svg</file>
 	</qresource>
@@ -272,9 +277,11 @@
 	<qresource prefix="/icons">
 		<file alias="ad_group.svg">assets/icons/ad_group.svg</file>
 		<file alias="add.svg">assets/icons/add.svg</file>
+		<file alias="arrow_circle_up.svg">assets/icons/arrow_circle_up.svg</file>
 		<file alias="arrow_drop_down.svg">assets/icons/arrow_drop_down.svg</file>
 		<file alias="arrow_range.svg">assets/icons/arrow_range.svg</file>
 		<file alias="arrow_selector_tool.svg">assets/icons/arrow_selector_tool.svg</file>
+		<file alias="arrow_upward.svg">assets/icons/arrow_upward.svg</file>
 		<file alias="arrows_outward.svg">assets/icons/arrows_outward.svg</file>
 		<file alias="brush.svg">assets/icons/brush.svg</file>
 		<file alias="build_gang.svg">assets/icons/build_gang.svg</file>
@@ -293,6 +300,7 @@
 		<file alias="content_paste.svg">assets/icons/content_paste.svg</file>
 		<file alias="crop_free.svg">assets/icons/crop_free.svg</file>
 		<file alias="delete.svg">assets/icons/delete.svg</file>
+		<file alias="deployed_cube.svg">assets/icons/deployed_cube.svg</file>
 		<file alias="desktop_windows.svg">assets/icons/desktop_windows.svg</file>
 		<file alias="disabled.svg">assets/icons/disabled.svg</file>
 		<file alias="dock_bottom.svg">assets/icons/dock_bottom.svg</file>
@@ -300,6 +308,8 @@
 		<file alias="dock_left.svg">assets/icons/dock_left.svg</file>
 		<file alias="dock_right.svg">assets/icons/dock_right.svg</file>
 		<file alias="draft.svg">assets/icons/draft.svg</file>
+		<file alias="edit.svg">assets/icons/edit.svg</file>
+		<file alias="eject.svg">assets/icons/eject.svg</file>
 		<file alias="error.svg">assets/icons/error.svg</file>
 		<file alias="expand.svg">assets/icons/expand.svg</file>
 		<file alias="expand_all.svg">assets/icons/expand_all.svg</file>
@@ -382,6 +392,7 @@
 		<file alias="tv_displays.svg">assets/icons/tv_displays.svg</file>
 		<file alias="undo.svg">assets/icons/undo.svg</file>
 		<file alias="unlock.svg">assets/icons/lock_open.svg</file>
+		<file alias="upgrade.svg">assets/icons/upgrade.svg</file>
 		<file alias="upload.svg">assets/icons/upload.svg</file>
 		<file alias="variables_insert.svg">assets/icons/variables_insert.svg</file>
 		<file alias="vertical_align_center.svg">assets/icons/vertical_align_center.svg</file>

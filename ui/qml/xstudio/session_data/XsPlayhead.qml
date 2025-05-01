@@ -1,4 +1,4 @@
-import QtQuick 2.15
+import QtQuick
 import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
 
@@ -14,6 +14,13 @@ Item {
         // each playhead exposes its attributes in a model named after the
         // playhead UUID. We connect to the model like this:
         modelDataName: "" + uuid
+        onModelDataNameChanged: {
+            // toggling the force connect attr triggers the playhead backend to
+            // run the 'connect_to_ui' set-up logic. Playheads should be 'dormant'
+            // until we need them, either to put images in the viewport or to
+            // be part of populating a timeline interface etc.
+            forceConnect = !forceConnect
+        }
     }
 
     XsAttributeValue {
@@ -217,6 +224,15 @@ Item {
         attributeTitle: "Timeline Mode"
         model: playhead_attrs_model
     }
+
+    XsAttributeValue {
+        id: __forceConnect
+        attributeTitle: "Force Connect To UI"
+        model: playhead_attrs_model
+    }
+    property alias forceConnect: __forceConnect.value
+
+    
 
     property alias logicalFrame: __playheadLogicalFrame.value
     property alias mediaFrame: __playheadMediaFrame.value

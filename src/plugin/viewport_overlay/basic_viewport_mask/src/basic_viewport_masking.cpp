@@ -7,8 +7,12 @@
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
 
-#include <GL/gl.h>
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
+#include <GL/gl.h>
+#endif
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
@@ -112,16 +116,16 @@ void BasicMaskRenderer::render_image_overlay(
     shader_params["to_canvas"]              = transform_window_to_viewport_space;
     shader_params["viewport_du_dx"]         = viewport_du_dpixel;
     shader_params["image_transform_matrix"] = frame.layout_transform();
-    shader_params["image_aspect"]           = frame ? frame->image_aspect() : 16.0f / 9.0f;
+    shader_params["image_aspect"]           = image_aspect(frame);
     shader_->set_shader_parameters(shader_params);
 
     shader_->use();
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
     glBlendEquation(GL_FUNC_ADD);
     glDisable(GL_DEPTH_TEST);
     glBindVertexArray(vertex_array_object_);
-    glDrawArrays(GL_QUADS, 0, 4);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
     shader_->stop_using();
     glBindVertexArray(0);
 
@@ -171,23 +175,10 @@ void BasicMaskRenderer::init_overlay_opengl() {
     glGenBuffers(1, &vertex_buffer_object_);
     glGenVertexArrays(1, &vertex_array_object_);
 
-    static std::array<float, 16> vertices = {
-        -1.0,
-        1.0,
-        0.0f,
-        1.0f,
-        1.0,
-        1.0,
-        0.0f,
-        1.0f,
-        1.0,
-        -1.0,
-        0.0f,
-        1.0f,
-        -1.0,
-        -1.0,
-        0.0f,
-        1.0f};
+    // NOLINT
+    static std::array<float, 24> vertices = {-1.0, 1.0,  0.0f, 1.0f, 1.0,  1.0,  0.0f, 1.0f,
+                                             1.0,  -1.0, 0.0f, 1.0f, 1.0,  -1.0, 0.0f, 1.0f,
+                                             -1.0, -1.0, 0.0f, 1.0f, -1.0, 1.0,  0.0f, 1.0f};
 
     glBindVertexArray(vertex_array_object_);
     // 2. copy our vertices array in a buffer for OpenGL to use
@@ -201,7 +192,7 @@ void BasicMaskRenderer::init_overlay_opengl() {
     shader_ = std::make_unique<ui::opengl::GLShaderProgram>(vertex_shader, frag_shader);
 
     text_renderer_ = std::make_unique<ui::opengl::OpenGLTextRendererSDF>(
-        utility::xstudio_root("/fonts/Overpass-Regular.ttf"), 96);
+        utility::xstudio_resources_dir("fonts/Overpass-Regular.ttf"), 96);
 }
 
 BasicViewportMasking::BasicViewportMasking(
@@ -298,7 +289,8 @@ void BasicViewportMasking::register_hotkeys() {
 utility::BlindDataObjectPtr BasicViewportMasking::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
-    const utility::Uuid &playhead_uuid) const {
+    const utility::Uuid &playhead_uuid,
+    const bool is_hero_image) const {
 
     auto r = utility::BlindDataObjectPtr();
     if (visible() && mask_render_method_->value() == "OpenGL" && image) {
@@ -307,7 +299,8 @@ utility::BlindDataObjectPtr BasicViewportMasking::onscreen_render_data(
 
             auto image_dims = image->image_size_in_pixels();
             utility::JsonStore j;
-            j["image_aspect"]      = float(image_dims.x * image->pixel_aspect() / image_dims.y);
+            j["image_aspect"] =
+                float(image_dims.x * image.frame_id().pixel_aspect() / image_dims.y);
             j["mask_aspect_ratio"] = mask_aspect_ratio_->value();
             j["mask_safety"]       = safety_percent_->value();
             j["mask_opac"]         = mask_opacity_->value();

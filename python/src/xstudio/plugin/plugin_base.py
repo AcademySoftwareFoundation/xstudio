@@ -9,11 +9,6 @@ import sys
 import os
 import traceback
 
-try:
-    import XStudioExtensions
-except:
-    XStudioExtensions = None
-
 def make_simple_string(string_in):
     import re
     return re.sub('[^0-9a-zA-Z]+', '_', string_in).lower()
@@ -55,19 +50,7 @@ class PluginBase(ModuleBase):
         )
         self.qml_item_attrs = {}
 
-        super().set_attribute_changed_event_handler(self._PluginBase__attribute_changed)
         self.user_attr_handler_ = None
-
-        #if XStudioExtensions:
-        #    XStudioExtensions.register_python_plugin_instance((self, self.uuid))
-        #else:
-        #    self.connection.link.register_python_plugin_instance((self, self.uuid))
-
-
-    def set_attribute_changed_event_handler(self, handler):
-        # here we override the method on Module class to ensure that
-        # when someone using this base class doesn't
-        self.user_attr_handler_ = handler
 
     def add_attribute(
         self,
@@ -185,7 +168,7 @@ class PluginBase(ModuleBase):
         # 'attr_enabled' controls the visibility of the widget
         attr.set_role_data("attr_enabled", True) 
 
-    def _PluginBase__attribute_changed(
+    def attribute_changed(
         self,
         attribute,
         role
@@ -200,18 +183,3 @@ class PluginBase(ModuleBase):
             # now reset the callback data so if the callback is called again with
             # the same data as before we still get an 'attribute_changed' signal
             attribute.set_role_data("callback_data", {})
-
-        if self.user_attr_handler_:
-            self.user_attr_handler_(attribute)
-
-    def run_callback_func(self, cb_name, args):
-
-        import json
-        the_callback = getattr(self, cb_name)
-        translated_args = json.loads(args.dump())
-        if isinstance(translated_args, dict):
-            return JsonStore(the_callback(**translated_args))
-        elif isinstance(translated_args, list):
-            return JsonStore(the_callback(*translated_args))
-        else:
-            return JsonStore(the_callback(translated_args))

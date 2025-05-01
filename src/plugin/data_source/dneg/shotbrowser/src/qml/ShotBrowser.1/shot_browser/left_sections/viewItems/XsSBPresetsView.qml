@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 import ShotBrowser 1.0
 import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
+import QuickFuture 1.0
 
 XsListView {
 	id: control
@@ -17,6 +17,15 @@ XsListView {
 
     property int rightSpacing: control.height < control.contentHeight ? 12 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+    ScrollBar.vertical: XsScrollBar {
+        visible: control.height < control.contentHeight
+        parent: control.parent
+        anchors.top: control.top
+        anchors.right: control.right
+        anchors.bottom: control.bottom
+        x: -5
+    }
 
     property bool isDragging: false
     property int draggingOffset: 0
@@ -242,9 +251,25 @@ XsListView {
 
         property var presetModelIndex: null
         property var filterModelIndex: null
+        property var flags: force_update ? updateFlags() : updateFlags()
+        property bool force_update: false
 
         visible: false
         menu_model_name: "groupMenu"+control
+
+        function updateFlags() {
+            if(groupMenu.presetModelIndex != null) {
+                let tmp = ShotBrowserEngine.presetsModel.get(groupMenu.presetModelIndex, "flagRole")
+                if(tmp != undefined)
+                    return tmp
+            }
+            return []
+        }
+
+        Component.onCompleted: {
+            // make sure the 'Add' sub-menu appears in the correct place
+            helpers.setMenuPathPosition("Behaviour", groupMenu.menu_model_name, 5.1)
+        }
 
         XsMenuModelItem {
             text: "Duplicate Group"
@@ -292,6 +317,32 @@ XsListView {
             menuItemType: "divider"
             menuPath: ""
             menuModelName: groupMenu.menu_model_name
+        }
+
+        Repeater {
+            model: ShotBrowserEngine.presetsModel.groupFlags
+
+            Item {
+                XsMenuModelItem {
+                    text: modelData
+                    menuItemType: "toggle"
+                    menuPath: "Behaviour"
+                    menuItemPosition: index + 1
+                    menuModelName: groupMenu.menu_model_name
+                    isChecked: groupMenu.flags.includes(modelData)
+
+                    onActivated: {
+                        if(isChecked) {
+                            ShotBrowserEngine.presetsModel.set(groupMenu.presetModelIndex, Array.from(groupMenu.flags).filter(r => r !== modelData), "flagRole")
+                        } else {
+                            let tmp = groupMenu.flags
+                            tmp.push(modelData)
+                            ShotBrowserEngine.presetsModel.set(groupMenu.presetModelIndex, tmp, "flagRole")
+                        }
+                        groupMenu.force_update = !groupMenu.force_update
+                    }
+                }
+            }
         }
 
         XsMenuModelItem {
@@ -356,15 +407,5 @@ XsListView {
                 control.contentY = oldy
             }
         }
-        // XsMenuModelItem {
-        //     text: (groupMenu.presetModelIndex && groupMenu.presetModelIndex.model.get(groupMenu.presetModelIndex,"hiddenRole") ? "Show" : "Hide") + " Group"
-        //     menuPath: ""
-        //     menuModelName: groupMenu.menu_model_name
-        //     onActivated: {
-        //     	let m = groupMenu.presetModelIndex.model
-        //     	let i = groupMenu.presetModelIndex
-        //     	m.set(i, !m.get(i,"hiddenRole"),"hiddenRole")
-        //     }
-        // }
     }
 }

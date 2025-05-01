@@ -6,23 +6,28 @@ find_package(fmt REQUIRED)
 
 set(SOURCES
 	global_actor.cpp
+	xstudio_actor_system.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 add_library(xstudio::global ALIAS ${PROJECT_NAME})
 default_options(${PROJECT_NAME})
+
 if(UNIX)
-target_compile_options(${PROJECT_NAME}
-	PRIVATE -fvisibility=hidden
-)
+	# Note: this is causing link errors. What was it for? (Ted)
+    #target_compile_options(${PROJECT_NAME}
+	#    PRIVATE -fvisibility=hidden
+    #)
 endif()
 
 set_python_to_proper_build_type()
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
+		xstudio::bookmark
 		xstudio::module
 		xstudio::audio_output
+		xstudio::caf_utility
 		xstudio::conform
 		xstudio::embedded_python
 		xstudio::global_store
@@ -41,8 +46,8 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::model_data
 		xstudio::ui::viewport
 		xstudio::utility
-		caf::core
-		caf::io
+		CAF::core
+		CAF::io
 		fmt::fmt
 	PRIVATE
 		Python::Python

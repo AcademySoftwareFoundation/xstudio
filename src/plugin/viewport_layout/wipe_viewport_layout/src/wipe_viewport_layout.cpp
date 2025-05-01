@@ -19,8 +19,8 @@ using namespace xstudio::ui::opengl;
 class OpenGLViewportWipeRenderer : public OpenGLViewportRenderer {
 
   public:
-    OpenGLViewportWipeRenderer(const std::string &window_id)
-        : OpenGLViewportRenderer(window_id) {}
+    OpenGLViewportWipeRenderer(const std::string &window_id, const utility::JsonStore &prefs)
+        : OpenGLViewportRenderer(window_id, prefs) {}
 
     virtual ~OpenGLViewportWipeRenderer() {
         if (wipe_vbo_)
@@ -170,11 +170,10 @@ WipeViewportLayout::WipeViewportLayout(
     wipe_position_->set_role_data(
         module::Attribute::ToolTip,
         "Spacing between images in grid layout as a % of image size.");
-    add_layout_settings_attribute(wipe_position_, "Wipe");
     wipe_position_->expose_in_ui_attrs_group("wipe_layout_attrs");
 
     add_layout_mode(
-        "Wipe", playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        "Wipe", 2.0, playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
 
     add_viewport_layout_qml_overlay(
         "Wipe",
@@ -211,13 +210,13 @@ void WipeViewportLayout::do_layout(
     layout_data.image_transforms_.resize(image_set->num_onscreen_images());
     layout_data.custom_layout_data_["wipe_pos"] = wipe_position_->value().x;
 
-    layout_data.layout_aspect_ = image_set->onscreen_image(wipeA)
-                                     ? image_set->onscreen_image(wipeA)->image_aspect()
-                                     : 16.0f / 9.0f;
+    layout_data.layout_aspect_ = image_aspect(image_set->onscreen_image(wipeA));
+    layout_data.draw_hero_overlays_only_ = false;
 }
 
-ViewportRenderer *WipeViewportLayout::make_renderer(const std::string &window_id) {
-    return new OpenGLViewportWipeRenderer(window_id);
+ViewportRenderer *WipeViewportLayout::make_renderer(
+    const std::string &window_id, const utility::JsonStore &prefs) {
+    return new OpenGLViewportWipeRenderer(window_id, prefs);
 }
 
 extern "C" {

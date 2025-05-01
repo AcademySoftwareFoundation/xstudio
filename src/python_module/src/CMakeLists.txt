@@ -1,4 +1,4 @@
-project(__pybind_xstudio VERSION 0.1.0 LANGUAGES CXX)
+project(__pybind_xstudio VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG)
@@ -33,6 +33,19 @@ default_options_local(${PROJECT_NAME})
 
 set_python_to_proper_build_type()
 
+if (APPLE)
+	# Note - for Apple we install into the vcpkg installation structure at build time.
+	# Our install commands will copy the entire python3.X folder into the app bundle
+	# when making the re-locatable .app structure
+	if (${CMAKE__BUILD_TYPE} STREQUAL "Debug")
+		set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib/${PYTHONVP}/site-packages/xstudio/core")
+	else()
+		set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/${PYTHONVP}/site-packages/xstudio/core")
+	endif()
+else()
+	set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/python/lib/${PYTHONVP}/site-packages/xstudio/core")
+endif()
+
 target_link_libraries(
 	${PROJECT_NAME}
 	PUBLIC
@@ -42,8 +55,8 @@ target_link_libraries(
 		xstudio::json_store_static
 		xstudio::timeline_static
 		xstudio::media_static
-		caf::core
-		caf::io
+		CAF::core
+		CAF::io
 )
 
 if(INSTALL_XSTUDIO)
@@ -52,7 +65,7 @@ if(INSTALL_XSTUDIO)
 		PROPERTIES
 		PREFIX "${PYTHON_MODULE_PREFIX}"
 	    SUFFIX "${PYTHON_MODULE_EXTENSION}"
-	    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/python/lib/${PYTHONVP}/site-packages/xstudio/core"
+	    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 	)
 else()
 	set_target_properties(

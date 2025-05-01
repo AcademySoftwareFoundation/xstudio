@@ -1,6 +1,25 @@
 {
 	"core": {
 		"media_reader":{
+			"filepath_map_regex_replace": {
+				"path": "/core/media_reader/filepath_map_regex_replace",
+				"default_value": [],
+				"description": "This preference must be a json array. Each element of the array must be another array of 4 strings. The first two strings are a pair of regex search and replace to map an incoming (virtual) path to a local filepath. The second pair of strings are likewise regex searh/replace expressions to map the local filepath back to the 'virtual' filepath.",
+				"value": [],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},	
+			"user_filepath_map_regex_replace": {
+				"path": "/core/media_reader/user_filepath_map_regex_replace",
+				"default_value": [],
+				"description": "This preference must be a json array. Each element of the array must be another array of 4 strings. The first two strings are a pair of regex search and replace to map an incoming (virtual) path to a local filepath. The second pair of strings are likewise regex searh/replace expressions to map the local filepath back to the 'virtual' filepath.",
+				"value": [],
+				"datatype": "json",
+				"display_name": "Filepath re-mapping REGEX",
+				"context": ["APPLICATION"],
+				"category": "General",
+				"options": "import xStudio 1.0; XsJsonPreference {}"
+			},	
 			"max_source_count": {
 				"path": "/core/media_reader/max_source_count",
 				"default_value": 16,

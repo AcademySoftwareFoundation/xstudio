@@ -1,59 +1,98 @@
-import QtQuick 2.14
+import QtQuick
 import QtQuick.Shapes 1.6
 
 import "VecLib.js" as VL
 
 Item {
     id: root
-
-    property var id
     property var canvas
     property real viewScale: 1
     property real strokeWidth: 2 / viewScale
-    property real handleDetectSize: 32 / viewScale
+    property real handleDetectSize: 10 / viewScale
     property real handleSize: 8 / viewScale
     property real handleRadius: 5 / viewScale
-    property var handleColor: isSelected() ? "lime" : "red"
-    property bool interacting: repeater.interacting || rr_center.interacting
-    property bool hovering: repeater.hovering || rr_center.hovering
+    property var handleColor: interacting ? "lime" : "red"
     readonly property var shape: shape
     readonly property var shapePath: sp
-
-    // Default implementation
-    function isSelected() {
-        return true;
-    }
+    property bool under_construction: false
+    property bool interacting: activeShape == modelIndex
 
     function addPoint(pt) {
-        var segmentsDist = [];
-        for (var i = 0; i < shapePath.points.length; ++i) {
-            segmentsDist.push(VL.distToSegment2(
-                shapePath.points[i],
-                shapePath.points[(i+1)%shapePath.points.length],
-                pt));
+
+        var rpt = Qt.point(pt.x, -pt.y)
+        var segmentsDist = 0.5
+        var idx = -1
+        var n_segments = loop_points.length-1
+        for (var i = 0; i < n_segments; ++i) {
+            var r = VL.distToSegment2(
+                loop_points[i],
+                loop_points[i+1],
+                rpt)
+            if (r < segmentsDist) {
+                segmentsDist = r
+                idx = i;
+            }
+        }
+        if (idx != -1) {
+                
+            var vv = modelValue
+            vv.points.splice(idx+1, 0, [
+                "vec2",
+                "1",
+                pt.x,
+                pt.y
+            ])
+            updateModelValue(vv)
+
         }
 
-        var indexMin = segmentsDist.indexOf(Math.min(...segmentsDist));
-        shapePath.points.splice(indexMin+1, 0, pt);
-
-        shapePath.refresh();
-        shapePath.updateBackend(true);
     }
+
 
     function removePoint(idx) {
         // Polygon needs 3 edges minimum
-        if (sp.points.length >= 4) {
-            var newPoints = [];
-            for (var i = 0; i < sp.points.length; ++i) {
-                if (i != idx) {
-                    newPoints.push(sp.points[i]);
-                }
-            }
-            sp.points = newPoints;
+        if (modelValue.points.length >= 4) {
+            var vv = modelValue
+            vv.points.splice(idx, 1)
+            updateModelValue(vv)
         }
 
-        shapePath.refresh();
-        shapePath.updateBackend(true);
+    }
+
+    property var points: []
+    property var loop_points: []
+    property var mv: modelValue.points
+    onMvChanged: updatePoints()
+        
+    function updatePoints() {
+        var pp = []
+        for (var i = 0; i < modelValue.points.length; ++i) {
+            pp.push(Qt.point(modelValue.points[i][2], -modelValue.points[i][3]))
+        }
+
+        if (!under_construction && pp.length) {
+
+            // add centre point
+            var p = VL.centerOfPoints(pp)
+            pp.push(p)
+            points = pp
+            // have to avoid copy by reference here as we manipulate pp for loop_points
+            var pp2 = []
+            for (var i = 0; i < pp.length; ++i) pp2.push(pp[i]);
+            if (pp2.length) {
+                // for the shape path loop, replace centre point with
+                // the first point
+                pp2[pp2.length-1] = pp2[0]
+            }
+            loop_points = pp2
+
+        } else {
+
+            points = pp
+            loop_points = pp
+
+        }
+
     }
 
     Shape {
@@ -65,188 +104,125 @@ Item {
             strokeWidth: root.strokeWidth
             fillColor: "transparent"
 
-            property var points: []
-            property var pointsLoop: []
-
             PathPolyline {
-                id: ppl
-                path: sp.pointsLoop
-
-                onPathChanged: sp.updateBackend(false)
+                path: loop_points
             }
 
-            function refresh() {
-                refreshLoop();
-                points = points;
+        }
+    }
+
+    property var under_mouse_pt_index
+
+    function pointUnderMouseIndex(mousePosition) {
+
+        var d = root.handleDetectSize
+        var idx = -1;
+        for (var i = 0; i < points.length; ++i) {
+            var dx = points[i].x-mousePosition.x
+            var dy = points[i].y+mousePosition.y
+            var dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < d) {
+                d = dist
+                idx = i
             }
 
-            function refreshLoop() {
-                if (points.length > 0) {
-                    pointsLoop = points.slice();
-                    pointsLoop.push(points[0]);
+        }
+        return idx
+    }
+
+    function mouseReleased(buttons) {
+        under_mouse_pt_index = -1
+    }
+
+    property var drag_start
+    property var points_before_drag
+
+    function mouseMoved(mousePosition, buttons, modifiers) {
+
+        if (buttons != 1) {
+            under_mouse_pt_index = pointUnderMouseIndex(mousePosition)
+        } else if (under_mouse_pt_index != -1 && !under_construction) {
+            var delta = Qt.point(mousePosition.x-drag_start.x, mousePosition.y-drag_start.y)
+            var vv = modelValue
+            if (under_mouse_pt_index == vv.points.length || (modifiers & Qt.AltModifier)) {
+                // center point / Alt drag to move all points
+                for (var i = 0; i < vv.points.length; ++i) {
+                    vv.points[i] = [
+                        "vec2",
+                        "1",
+                        points_before_drag[i].x + delta.x,
+                        -points_before_drag[i].y + delta.y
+                    ]
                 }
-                pointsLoop = pointsLoop;
-            }
-
-            onPointsChanged: {
-                refreshLoop();
-                sp.updateBackend(false)
-            }
-
-            function updateBackend(force) {
-                root.updateBackend(force)
-            }
-
-            Component.onCompleted: {
-                // Force backend update on init
-                updateBackend(true)
+                updateModelValue(vv)
+            } else {
+                vv.points[under_mouse_pt_index] = [
+                    "vec2",
+                    "1",
+                    points_before_drag[under_mouse_pt_index].x + delta.x,
+                    -points_before_drag[under_mouse_pt_index].y + delta.y
+                ]
+                updateModelValue(vv)
             }
         }
     }
 
-    Item {
-        id: selector
+    function mousePressed(position, buttons, modifiers) {
 
-        Repeater {
-            id: repeater
-
-            model: sp.points.length
-
-            property var hovering: false
-            property var interacting: false
-
-            Item {
-                id: rr
-
-                property var modelIndex: index
-
-                property bool hovering: false
-                property bool interacting: false
-
-                onHoveringChanged: {
-                    repeater.hovering = hovering;
-                }
-                onInteractingChanged: {
-                    repeater.interacting = interacting;
-                }
-
-                x: sp.points[modelIndex].x - width / 2
-                y: sp.points[modelIndex].y - height / 2
-
-                width: root.handleDetectSize
-                height: root.handleDetectSize
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    radius: root.handleRadius
-                    color: hovering || interacting ? "yellow" : root.handleColor
-                    width: root.handleSize
-                    height: root.handleSize
-            
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-
-                    onEntered: rr.hovering = true
-                    onExited: rr.hovering = false
-                    onPressed: {
-                        rr.interacting = true
-
-                        if (mouse.modifiers & Qt.ShiftModifier) {
-                            rr.interacting = false;
-                            rr.hovering = false;
-                            removePoint(rr.modelIndex);
-                        }
-                        else if (mouse.modifiers & Qt.AltModifier) {
-                            cursorShape = Qt.OpenHandCursor;
-                        }
-                        else {
-                            cursorShape = Qt.ArrowCursor;
-                        }
-                    }
-                    onDoubleClicked: {
-                        rr.interacting = false;
-                        rr.hovering = false;
-                        removePoint(rr.modelIndex);
-                    }
-                    onReleased: {
-                        rr.interacting = false
-                        cursorShape = Qt.ArrowCursor;
-                    }
-                    onPositionChanged: {
-                        if (rr.interacting) {
-                            var pt = mapToItem(rr.parent, mouse.x, mouse.y);
-
-                            if (mouse.modifiers & Qt.AltModifier) {
-                                var offset = VL.subtractVec(pt, sp.points[rr.modelIndex]);
-                                for (var i = 0; i < sp.points.length; ++i) {
-                                    sp.points[i] = VL.addVec(sp.points[i], offset);
-                                }
-                            }
-                            else {
-                                sp.points[rr.modelIndex] = Qt.point(pt.x, pt.y);
-                            }
-
-                            sp.refresh();
-                        }
-                    }
-                }
+        if (!under_construction) {
+            if (under_mouse_pt_index == -1) return
+            attrs.interacting = true
+            set_interaction_shape(modelIndex)
+            if ((modifiers & Qt.ShiftModifier) && under_mouse_pt_index < modelValue.points.length) {
+                removePoint(under_mouse_pt_index)
+            } else {
+                points_before_drag = points
+                drag_start = position
+            }
+            return true
+        } else {
+            if (under_mouse_pt_index == 0 && modelValue.points.length >= 3) {
+                finalizePolygon()
+                return true
+            } else if (under_mouse_pt_index == -1) {
+                // add a point
+                var vv = modelValue
+                vv.points.push([
+                    "vec2",
+                    "1",
+                    position.x,
+                    position.y])
+                updateModelValue(vv)
+                updatePoints()
+                return true;
             }
         }
+        return false
+    }
 
-        // Center
-        Item {
-            id: rr_center
-
-            property bool hovering: false
-            property bool interacting: false
-
-            x: center.x - width / 2
-            y: center.y - height / 2
-
-            property point center: VL.centerOfPoints(sp.points)
-
-            width: root.handleDetectSize
-            height: root.handleDetectSize
-
-            Rectangle {
-                anchors.centerIn: parent
-                radius: root.handleRadius
-                color: hovering || interacting ? "yellow" : root.handleColor
-                width: root.handleSize
-                height: root.handleSize
-        
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-
-                onEntered: rr_center.hovering = true
-                onExited: rr_center.hovering = false
-                onPressed: {
-                    rr_center.interacting = true
-                    cursorShape = Qt.OpenHandCursor;
-                }
-                onReleased: {
-                    rr_center.interacting = false
-                    cursorShape = Qt.ArrowCursor;
-                }
-                onPositionChanged: {
-                    if (rr_center.interacting) {
-                        var pt = mapToItem(rr_center.parent, mouse.x, mouse.y);
-
-                        var offset = VL.subtractVec(pt, rr_center.center);
-                        for (var i = 0; i < sp.points.length; ++i) {
-                            sp.points[i] = VL.addVec(sp.points[i], offset);
-                        }
-
-                        sp.refresh();
-                    }
-                }
-            }
+    function mouseDoubleClicked(mousePosition, buttons, modifiers) {
+        if (under_mouse_pt_index != -1) {
+            removePoint(under_mouse_pt_index)
+        } else {
+            addPoint(mousePosition)
         }
     }
+
+    Repeater {
+
+        model: points
+
+        Rectangle {
+
+            property bool hovering: under_mouse_pt_index == index
+            x: points[index].x-width/2
+            y: points[index].y-width/2
+            radius: width/2
+            color: hovering ? "yellow" : root.handleColor
+            width: root.handleSize
+            height: root.handleSize            
+    
+        }
+    }
+
 }

@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -35,40 +33,147 @@ Item{
             spacing: buttonSpacing
             z: 1
 
-            XsSBTreeSearchButton{ id: searchBtn
-                Layout.fillWidth: isExpanded
+
+            XsComboBoxEditable{ id: searchBtn
+                Layout.fillWidth: true
                 Layout.minimumWidth: btnWidth
                 Layout.preferredWidth: btnWidth
                 Layout.preferredHeight: parent.height
-                isExpanded: false
-                hint: "Search..."
-                model: ShotBrowserFilterModel {
+                property bool isExpanded: true
+
+                model: assetMode ? assetListMode : seqListMode
+                textRole: "nameRole"
+                currentIndex: -1
+                displayText: currentIndex ==-1 ? "Search..." : currentText
+
+                onModelChanged: currentIndex = -1
+
+                ShotBrowserSequenceFilterModel {
+                    id: seqListMode
                     sourceModel: ShotBrowserEngine.presetsModel.termModel("ShotSequenceList", "", projectId)
+                    hideStatus: prefs.hideStatus
+                    hideEmpty: prefs.hideEmpty
+                    typeFilter: prefs.filterType
+                    unitFilter: {
+                        if( projectIndex && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                            return prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
+                        return []
+                    }
                 }
-                onIndexSelected: {
+
+                ShotBrowserSequenceFilterModel {
+                    id: assetListMode
+                    sourceModel: ShotBrowserEngine.presetsModel.termModel("AssetList", "", projectId)
+                    hideStatus: prefs.hideStatus
+                }
+
+                onAccepted: {
+                    // try find first match?
+                    if(currentIndex == -1) {
+                        currentIndex = find(textField.text, Qt.MatchContains)
+                    }
+                    selectInTree()
+                }
+
+                function selectInTree() {
                     // possibility of id collisions ?
-                    let mid = index.model.get(index, "idRole")
-                    let bi = sequenceBaseModel.searchRecursive(mid, "idRole")
-                    if(bi.valid) {
-                        let fi = sequenceFilterModel.mapFromSource(bi)
-                        if(fi.valid) {
-                            let parents = helpers.getParentIndexes([fi])
-                            for(let i = 0; i< parents.length; i++){
-                                if(parents[i].valid) {
-                                    // find in tree.. Order ?
-                                    let ti = sequenceTreeModel.mapFromModel(parents[i])
-                                    if(ti.valid) {
-                                        sequenceTreeModel.expandRow(ti.row)
+                    if(currentIndex != -1) {
+                        let index = model.index(currentIndex, 0)
+                        let mid = index.model.get(index, "idRole")
+                        let baseModel = sequenceBaseModel
+                        let filterModel = sequenceFilterModel
+                        let selectionModel = sequenceSelectionModel
+                        let treemodel = sequenceTreeModel
+
+                        if(assetMode) {
+                            baseModel = assetBaseModel
+                            filterModel = assetFilterModel
+                            selectionModel = assetSelectionModel
+                            treemodel = assetTreeModel
+                        }
+
+                        let bi = baseModel.searchRecursive(mid, "idRole")
+                        if(bi.valid) {
+                            let fi = filterModel.mapFromSource(bi)
+                            if(fi.valid) {
+                                let parents = helpers.getParentIndexes([fi])
+                                for(let i = 0; i< parents.length; i++){
+                                    if(parents[i].valid) {
+                                        // find in tree.. Order ?
+                                        let ti = treemodel.mapFromModel(parents[i])
+                                        if(ti.valid) {
+                                            treemodel.expandRow(ti.row)
+                                        }
                                     }
                                 }
+                                // should now be visible
+                                let ti = treemodel.mapFromModel(fi)
+                                selectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
                             }
-                            // should now be visible
-                            let ti = sequenceTreeModel.mapFromModel(fi)
-                            sequenceSelectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
                         }
                     }
                 }
+
+                onActivated: selectInTree()
             }
+
+
+
+            // XsSBTreeSearchButton{ id: searchBtn
+            //     Layout.fillWidth: isExpanded
+            //     Layout.minimumWidth: btnWidth
+            //     Layout.preferredWidth: btnWidth
+            //     Layout.preferredHeight: parent.height
+            //     isExpanded: false
+            //     hint: "Search..."
+            //     model: assetMode ? assetListMode : seqListMode
+
+            //     ShotBrowserFilterModel {
+            //         id: seqListMode
+            //         sourceModel: ShotBrowserEngine.presetsModel.termModel("ShotSequenceList", "", projectId)
+            //     }
+
+            //     ShotBrowserFilterModel {
+            //         id: assetListMode
+            //         sourceModel: ShotBrowserEngine.presetsModel.termModel("AssetList", "", projectId)
+            //     }
+
+            //     onIndexSelected: (index) => {
+            //         // possibility of id collisions ?
+            //         let mid = index.model.get(index, "idRole")
+            //         let baseModel = sequenceBaseModel
+            //         let filterModel = sequenceFilterModel
+            //         let selectionModel = sequenceSelectionModel
+            //         let treemodel = sequenceTreeModel
+
+            //         if(assetMode) {
+            //             baseModel = assetBaseModel
+            //             filterModel = assetFilterModel
+            //             selectionModel = assetSelectionModel
+            //             treemodel = assetTreeModel
+            //         }
+
+            //         let bi = baseModel.searchRecursive(mid, "idRole")
+            //         if(bi.valid) {
+            //             let fi = filterModel.mapFromSource(bi)
+            //             if(fi.valid) {
+            //                 let parents = helpers.getParentIndexes([fi])
+            //                 for(let i = 0; i< parents.length; i++){
+            //                     if(parents[i].valid) {
+            //                         // find in tree.. Order ?
+            //                         let ti = treemodel.mapFromModel(parents[i])
+            //                         if(ti.valid) {
+            //                             treemodel.expandRow(ti.row)
+            //                         }
+            //                     }
+            //                 }
+            //                 // should now be visible
+            //                 let ti = treemodel.mapFromModel(fi)
+            //                 selectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
+            //             }
+            //         }
+            //     }
+            // }
             Item{
                 Layout.fillWidth: !searchBtn.isExpanded
                 Layout.preferredWidth: searchBtn.isExpanded? buttonSpacing : buttonSpacing*8
@@ -94,6 +199,22 @@ Item{
                 Layout.preferredWidth: searchBtn.isExpanded? buttonSpacing : buttonSpacing*8
                 Layout.preferredHeight: parent.height
             }
+            XsPrimaryButton{ id: seqBtn
+                Layout.preferredWidth: btnWidth
+                Layout.preferredHeight: parent.height
+                imgSrc: "qrc:/icons/movie.svg"
+                isActive: !assetMode
+                onClicked: assetMode = false
+            }
+            XsPrimaryButton{ id: assBtn
+                Layout.preferredWidth: btnWidth
+                Layout.preferredHeight: parent.height
+                Layout.rightMargin: 4
+                imgSrc: "qrc:/icons/deployed_cube.svg"
+                isActive: assetMode
+                onClicked: assetMode = true
+            }
+
             XsPrimaryButton{ id: filterBtn
                 Layout.preferredWidth: btnWidth
                 Layout.preferredHeight: parent.height
@@ -137,6 +258,16 @@ Item{
                 menuModelName: shotFilterPopup.menu_model_name
                 isChecked: prefs.showUnit
                 onActivated: prefs.showUnit = !prefs.showUnit
+            }
+
+            XsMenuModelItem {
+                text: "Show Type"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.2
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showType
+                onActivated: prefs.showType = !prefs.showType
             }
 
             XsMenuModelItem {
@@ -211,10 +342,71 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Hide Status"
+                text: "Hide Type"
                 menuItemType: "divider"
                 menuPath: ""
                 menuItemPosition: 100
+                menuModelName: shotFilterPopup.menu_model_name
+            }
+
+            XsMenuModelItem {
+                text: "No Type"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 110
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: sequenceFilterModel && sequenceFilterModel.typeFilter.includes("No Type")
+                onActivated: {
+                    if(isChecked) {
+                        sequenceFilterModel.typeFilter = Array.from(sequenceFilterModel.typeFilter).filter(r => r !== "No Type")
+                    } else {
+                        let tmp = sequenceFilterModel.typeFilter
+                        tmp.push("No Type")
+                        sequenceFilterModel.typeFilter = tmp
+                        prefs.filterType = sequenceFilterModel.typeFilter
+                    }
+                }
+            }
+
+            Repeater {
+                model:  DelegateModel {
+                    property var notifyTypeModel: sequenceFilterModel && sequenceFilterModel.sourceModel ? sequenceFilterModel.sourceModel.types : []
+                    onNotifyTypeModelChanged: {
+                        if(sequenceFilterModel)
+                            sequenceFilterModel.typeFilter = prefs.filterType
+                    }
+                    model: notifyTypeModel
+                    delegate :
+                        Item {
+                            XsMenuModelItem {
+                                text: modelData
+                                menuItemType: "toggle"
+                                menuPath: ""
+                                menuItemPosition: index + 110
+                                menuModelName: shotFilterPopup.menu_model_name
+                                isChecked: sequenceFilterModel && sequenceFilterModel.typeFilter.includes(modelData)
+                                onActivated: {
+                                    if(isChecked) {
+                                        sequenceFilterModel.typeFilter = Array.from(sequenceFilterModel.typeFilter).filter(r => r !== modelData)
+
+                                    } else {
+                                        let tmp = sequenceFilterModel.typeFilter
+                                        tmp.push(modelData)
+                                        sequenceFilterModel.typeFilter = tmp
+                                    }
+                                    prefs.filterType = sequenceFilterModel.typeFilter
+                                }
+                            }
+                        }
+                }
+            }
+
+
+            XsMenuModelItem {
+                text: "Hide Status"
+                menuItemType: "divider"
+                menuPath: ""
+                menuItemPosition: 200
                 menuModelName: shotFilterPopup.menu_model_name
             }
 
@@ -228,7 +420,7 @@ Item{
                                 text: nameRole
                                 menuItemType: "toggle"
                                 menuPath: ""
-                                menuItemPosition: index + 101
+                                menuItemPosition: index + 201
                                 menuModelName: shotFilterPopup.menu_model_name
                                 isChecked: (prefs.hideStatus.includes(nameRole) || prefs.hideStatus.includes(idRole))
                                 onActivated: {
@@ -251,6 +443,7 @@ Item{
             Layout.fillWidth: true;
             Layout.fillHeight: true;
             color: panelColor
+            visible: !assetMode
 
             XsListView {
                 id: sequenceTreeView
@@ -273,7 +466,6 @@ Item{
                 }
 
                 delegate: DelegateChooser {
-                    id: chooser
                     role: "typeRole"
 
                     DelegateChoice {
@@ -284,6 +476,29 @@ Item{
                             delegateModel: sequenceTreeModel
                             selectionModel: sequenceSelectionModel
                             showStatus: prefs.showStatus
+                            showType: prefs.showType
+                        }
+                    }
+                    DelegateChoice {
+                        roleValue: "Episode";
+                        XsSBSequenceDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showStatus: prefs.showStatus
+                            showType: prefs.showType
+                        }
+                    }
+                    DelegateChoice {
+                        roleValue: "Asset";
+                        XsSBSequenceDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showStatus: prefs.showStatus
+                            showType: prefs.showType
                         }
                     }
                     DelegateChoice {
@@ -295,6 +510,50 @@ Item{
                             selectionModel: sequenceSelectionModel
                             showUnit: prefs.showUnit
                             showStatus: prefs.showStatus
+                            showType: prefs.showType
+                        }
+                    }
+                }
+            }
+        }
+        Rectangle{
+            Layout.fillWidth: true;
+            Layout.fillHeight: true;
+            color: panelColor
+            visible: assetMode
+
+            XsListView {
+                id: assetTreeView
+                anchors.fill: parent
+                spacing: 1
+
+                ScrollBar.vertical: XsScrollBar{visible: assetTreeView.height < assetTreeView.contentHeight}
+                property int rightSpacing: assetTreeView.height < assetTreeView.contentHeight ? 10 : 0
+                Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+                model: assetTreeModel
+
+                Connections {
+                    target: assetSelectionModel
+                    function onSelectionChanged(selected, deselected) {
+                        if(selected.length){
+                            assetTreeView.positionViewAtIndex(selected[0].topLeft.row, ListView.Visible)
+                        }
+                    }
+                }
+
+                delegate: DelegateChooser {
+                    role: "typeRole"
+
+                    DelegateChoice {
+                        roleValue: "Asset";
+                        XsSBSequenceDelegate{
+                            width: assetTreeView.width - assetTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: assetTreeModel
+                            selectionModel: assetSelectionModel
+                            showStatus: prefs.showStatus
+                            showType: prefs.showType
                         }
                     }
                 }

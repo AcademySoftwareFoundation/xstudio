@@ -32,6 +32,10 @@ namespace media_cache {
         utility::TimeCache<media::MediaKey, media_reader::ImageBufPtr> cache_;
         std::unordered_set<media::MediaKey> new_keys_;
         std::unordered_set<media::MediaKey> erased_keys_;
+
+        std::vector<media::MediaKey> good_images_in_cache_;
+        std::vector<media::MediaKey> error_images_in_cache_;
+
         bool update_pending_;
         std::chrono::minutes reset_idle_{0};
         utility::time_point last_activity_{utility::clock::now()};

@@ -381,6 +381,8 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
         jsn["a_plane_bytes_offset"] = offsets[3];
     }
 
+    jsn["frame_width_pixels"] = frame->width;
+
     image_buffer->set_image_dimensions(Imath::V2i(frame->width, frame->height));
 
     set_shader_pix_format_info(
@@ -395,14 +397,6 @@ ImageBufPtr FFMpegStream::get_ffmpeg_frame_as_xstudio_image() {
     image_buffer->set_display_timestamp_seconds(
         double(frame->pts) * double(avc_stream_->time_base.num) /
         double(avc_stream_->time_base.den));
-
-    AVRational aspect = av_guess_sample_aspect_ratio(format_context_, avc_stream_, frame);
-
-    if (aspect.den && aspect.num) {
-        image_buffer->set_pixel_aspect(float(aspect.num) / float(aspect.den));
-    } else {
-        image_buffer->set_pixel_aspect(1.0f);
-    }
 
     // determine if image has alpha - if planar, look for 'a_linesize' != 0.
     // Otherwise check for interleaved RGB pix formats that have an alpha

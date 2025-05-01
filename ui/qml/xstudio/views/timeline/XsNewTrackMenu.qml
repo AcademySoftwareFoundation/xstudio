@@ -1,6 +1,6 @@
 import xstudio.qml.models 1.0
 import xStudio 1.0
-import QtQml.Models 2.14
+
 
 XsPopupMenu {
 

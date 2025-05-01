@@ -5,7 +5,7 @@ from xstudio.core import rename_container_atom, create_divider_atom, media_rate_
 from xstudio.core import reflag_container_atom, merge_playlist_atom, copy_container_to_atom
 from xstudio.core import get_bookmark_atom, save_atom, active_media_container_atom, current_media_atom, name_atom
 from xstudio.core import viewport_active_media_container_atom
-from xstudio.core import URI, Uuid, UuidVec, item_selection_atom, type_atom
+from xstudio.core import URI, Uuid, VectorUuid, item_selection_atom, type_atom
 
 from xstudio.api.session.container import Container, PlaylistTree, PlaylistItem
 from xstudio.api.session.playlist import Playlist
@@ -260,16 +260,16 @@ class Session(Container, NotificationHandler):
         Returns:
             playlist(Uuid,Playlist): Returns container Uuid and Playlist
         """
-        uuids = UuidVec()
+        uuids = []
         for i in playlists:
             if not isinstance(i, Uuid):
                 i = i.uuid
-            uuids.push_back(i)
+            uuids.append(i)
 
         if not isinstance(before, Uuid):
             before = before.uuid
 
-        result = self.connection.request_receive(self.remote, merge_playlist_atom(), name, before, uuids)[0]
+        result = self.connection.request_receive(self.remote, merge_playlist_atom(), name, before, VectorUuid(uuids))[0]
         return (result[0], Playlist(self.connection, result[1].actor, result[1].uuid))
 
         # return (result[0], Playlist(self.connection, result[1][1], result[1][0]))
@@ -422,18 +422,18 @@ class Session(Container, NotificationHandler):
         Returns:
             uuids(list[Uuid]): Returns list of new container uuids.
         """
-        uuids = UuidVec()
+        uuids = []
         for i in containers:
             if not isinstance(i, Uuid):
                 i = i.uuid
-            uuids.push_back(i)
+            uuids.append(i)
 
         if not isinstance(before, Uuid):
             before = before.uuid
         if not isinstance(playlist, Uuid):
             playlist = playlist.uuid
 
-        return self.connection.request_receive(self.remote, copy_container_to_atom(), playlist, uuids, before, into)[0]
+        return self.connection.request_receive(self.remote, copy_container_to_atom(), playlist, VectorUuid(uuids), before, into)[0]
 
     def get_media(self):
         """Return all media over all playlists

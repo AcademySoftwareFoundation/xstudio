@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.12
-import QtQuick.Layouts 1.3
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
 
 import xStudio 1.0
 
@@ -128,29 +127,25 @@ Jason Brown, Richard Jenns and Katherine Roberts<BR>
             }
         }
 
-        DialogButtonBox {
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: false
             Layout.minimumHeight: 35
             Layout.alignment: Qt.AlignRight|Qt.AlignBottom
-
-            // horizontalPadding: 10
-            // verticalPadding: 20
-            background: Rectangle {
-                anchors.fill: parent
-                color: "transparent"
-            }
 
             XsPrimaryButton{
                 id: btnOK
                 text: qsTr("Okay")
                 width: XsStyleSheet.primaryButtonStdWidth*2
                 height: XsStyleSheet.primaryButtonStdHeight
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 20
+                anchors.right: parent.right
+                anchors.rightMargin: 10
                 onClicked: {
                     close()
                 }
             }
         }
-
     }
 }

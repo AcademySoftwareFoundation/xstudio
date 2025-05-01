@@ -39,8 +39,6 @@ GlobalStoreModel::GlobalStoreModel(QObject *parent) : super(parent) {
 void GlobalStoreModel::init(caf::actor_system &_system) {
     super::init(_system);
 
-    self()->set_default_handler(caf::drop);
-
     // join global store events.
     try {
         scoped_actor sys{system()};
@@ -115,17 +113,14 @@ void GlobalStoreModel::init(caf::actor_system &_system) {
 
 
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg &g) {
-                caf::aout(self())
-                    << "GlobalStoreModel down: " << to_string(g.source) << std::endl;
-            }};
+            [=](caf::message) {}};
     });
 }
 
 void GlobalStoreModel::setAutosave(const bool enabled) {
     scoped_actor sys{system()};
     autosave_ = enabled;
-    sys->send(gsh_->get_actor(), xstudio::global_store::autosave_atom_v, enabled);
+    sys->mail(xstudio::global_store::autosave_atom_v, enabled).send(gsh_->get_actor());
     gsh_->set_value(enabled, "/core/global_store/autosave_enable");
     emit autosaveChanged();
 }
@@ -354,8 +349,6 @@ PublicPreferencesModel::PublicPreferencesModel(QObject *parent) : super(parent) 
 void PublicPreferencesModel::init(caf::actor_system &_system) {
     super::init(_system);
 
-    self()->set_default_handler(caf::drop);
-
     // join global store events.
     try {
         scoped_actor sys{system()};
@@ -421,17 +414,15 @@ void PublicPreferencesModel::init(caf::actor_system &_system) {
 
 
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg &g) {
-                caf::aout(self())
-                    << "GlobalStoreModel down: " << to_string(g.source) << std::endl;
-            }};
+            // self()->set_default_handler(caf::drop);
+            [=](caf::message) {}};
     });
 }
 
 void PublicPreferencesModel::setAutosave(const bool enabled) {
     scoped_actor sys{system()};
     autosave_ = enabled;
-    sys->send(gsh_->get_actor(), xstudio::global_store::autosave_atom_v, enabled);
+    sys->mail(xstudio::global_store::autosave_atom_v, enabled).send(gsh_->get_actor());
     gsh_->set_value(enabled, "/core/global_store/autosave_enable");
     emit autosaveChanged();
 }

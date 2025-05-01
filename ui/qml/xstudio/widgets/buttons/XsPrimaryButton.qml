@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls.Basic
+
+
+import QtQuick.Layouts
 
 import xStudio 1.0
 
@@ -27,8 +28,11 @@ Button {
     property alias activeIndicator: activeIndicator
     property real rotationAnimDuration: 150
 
-    property alias imgOverlayColor: imageDiv.imgOverlayColor //palette.text
+    property color imgOverlayColor: palette.text
     property color textColor: palette.text
+
+    property color normalColor: XsStyleSheet.controlColour
+
     property color bgColorPressed: palette.highlight
     property color bgColorNormal: XsStyleSheet.widgetBgNormalColor
     property color forcedBgColorNormal: bgColorNormal
@@ -39,6 +43,7 @@ Button {
     focusPolicy: Qt.NoFocus
     hoverEnabled: true
 
+    font.family: XsStyleSheet.fontFamily
     font.pixelSize: XsStyleSheet.fontSize *1.1
     font.weight: Font.Medium
 
@@ -63,7 +68,7 @@ Button {
             width: Math.min(parent.width, (imageDiv.visible ? imageDiv.width:0) + (textDiv.visible ? textDiv.textWidth+10:0))
             height: parent.height
 
-            XsImage {
+            XsIcon {
                 id: imageDiv
                 anchors.verticalCenter: parent.verticalCenter
                 // anchors.horizontalCenter: showBoth ? undefined : parent.horizontalCenter
@@ -75,8 +80,6 @@ Button {
                 antialiasing: true
                 smooth: true
                 visible: source && source != ""
-                imgOverlayColor: palette.text
-
                 // Behavior on rotation {NumberAnimation{duration: rotationAnimDuration }}
             }
 
@@ -130,8 +133,12 @@ Button {
         border.width: borderWidth
 
         flatColor: topColor
-        topColor: widget.down || (isActive && !isActiveViaIndicator)? bgColorPressed: forcedBgColorNormal==bgColorNormal? XsStyleSheet.controlColour:forcedBgColorNormal
-        bottomColor: widget.down || (isActive && !isActiveViaIndicator)? bgColorPressed: forcedBgColorNormal
+        topColor: (widget.down || (isActive && !isActiveViaIndicator) )
+            ? bgColorPressed
+            : forcedBgColorNormal == bgColorNormal ? normalColor : forcedBgColorNormal
+        bottomColor: (widget.down || (isActive && !isActiveViaIndicator))
+            ? bgColorPressed
+            : forcedBgColorNormal
 
         Rectangle {
             id: bgFocusDiv

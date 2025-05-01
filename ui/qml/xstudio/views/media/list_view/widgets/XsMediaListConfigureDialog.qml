@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.12
-import QtQuick.Layouts 1.3
-import xStudio 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Effects
 
+import xStudio 1.0
 import xstudio.qml.helpers 1.0
 import "."
 
@@ -395,15 +394,10 @@ metadata with media that isn't from your pipeline.`
                     onClicked: {
                         show_metadata_digest()
                     }
-                    Image {
+                    XsIcon {
                         anchors.fill: parent
                         source: "qrc:/icons/quick_reference_all.svg"
-                        layer {
-                            enabled: true
-                            effect: ColorOverlay {
-                                color: show_metadata.down || show_metadata.hovered ? palette.brightText : palette.text
-                            }
-                        }
+                        imgOverlayColor: show_metadata.down || show_metadata.hovered ? palette.brightText : palette.text
                     }
                 }
             }

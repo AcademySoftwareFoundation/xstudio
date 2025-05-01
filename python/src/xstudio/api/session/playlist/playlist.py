@@ -4,11 +4,10 @@ from xstudio.core import Uuid, create_group_atom, create_contact_sheet_atom, add
 from xstudio.core import rename_container_atom, create_subset_atom, create_timeline_atom
 from xstudio.core import move_container_atom, remove_container_atom, type_atom, parse_posix_path
 from xstudio.core import create_divider_atom, media_rate_atom, playhead_rate_atom, URI, FrameRate
-from xstudio.core import remove_media_atom, UuidVec, move_media_atom, create_playhead_atom, selection_actor_atom
+from xstudio.core import remove_media_atom, VectorUuid, move_media_atom, create_playhead_atom, selection_actor_atom
 from xstudio.core import convert_to_timeline_atom, convert_to_subset_atom, convert_to_contact_sheet_atom
 from xstudio.core import reflag_container_atom, expanded_atom, session_atom, copy_media_atom
 from xstudio.core import FrameList, FrameRate, MediaType
-from xstudio.core import get_json_atom, set_json_atom, JsonStore
 
 from xstudio.api.session.container import Container, PlaylistTree
 from xstudio.api.session.playhead.playhead import Playhead
@@ -18,10 +17,11 @@ from xstudio.api.session.playlist.subset import Subset
 from xstudio.api.session.playlist.contact_sheet import ContactSheet
 from xstudio.api.session.playlist.timeline import Timeline
 from xstudio.api.auxiliary import NotificationHandler
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
 import json
 
-class Playlist(Container, NotificationHandler):
+class Playlist(Container, NotificationHandler, JsonStoreHandler):
     """Playlist object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -38,6 +38,7 @@ class Playlist(Container, NotificationHandler):
         """
         Container.__init__(self, connection, remote, uuid)
         NotificationHandler.__init__(self, self)
+        JsonStoreHandler.__init__(self, self)
 
     @property
     def playhead(self):
@@ -428,20 +429,19 @@ class Playlist(Container, NotificationHandler):
         Returns:
             success(bool): Returns result.
         """
-        if isinstance(media, Media):
-            media = media.uuid
+        media_list = []
 
-        if isinstance(media, list):
-            media_list = UuidVec()
+        if isinstance(media, Media):
+            media_list = [media.uuid]
+
+        elif isinstance(media, list):
             for m in media:
                 if isinstance(m, Media):
-                    media_list.push_back(m.uuid)
+                    media_list.append(m.uuid)
                 else:
                     media_list.push_back(m)
 
-            media = media_list
-
-        return self.connection.request_receive(self.remote, remove_media_atom(), media)[0]
+        return self.connection.request_receive(self.remote, remove_media_atom(), VectorUuid(media_list))[0]
 
     def move_media(self, media, before=Uuid()):
         """Move media in tree.
@@ -481,30 +481,29 @@ class Playlist(Container, NotificationHandler):
         if isinstance(before, Media):
             before = before.uuid
 
-        media_list = UuidVec()
+        media_list = []
 
         if isinstance(media, Media):
-            media_list.push_back(media.uuid)
+            media_list.append(media.uuid)
 
         if isinstance(media, Uuid):
-            media_list.push_back(media)
+            media_list.append(media)
 
         if isinstance(media, list):
             for m in media:
                 if isinstance(m, Media):
-                    media_list.push_back(m.uuid)
+                    media_list.append(m.uuid)
                 else:
-                    media_list.push_back(m)
+                    media_list.append(m)
 
         session = self.connection.request_receive(self.remote, session_atom())[0]
 
-        uuids = self.connection.request_receive(session, copy_media_atom(), self.uuid, media_list, True, before, False)[0]
+        uuids = self.connection.request_receive(session, copy_media_atom(), self.uuid, VectorUuid(media_list), True, before, False)[0]
 
         current_media = self.media
         new_media = []
 
         for u in uuids:
-            print(u)
             for m in current_media:
                 if m.uuid == u:
                     new_media.append(m)
@@ -579,54 +578,6 @@ class Playlist(Container, NotificationHandler):
 
         result = self.connection.request_receive(self.remote, convert_to_timeline_atom(), src, name, before)[0]
         return (result[0], Timeline(self.connection, result[1].actor, result[1].uuid))
-
-    @property
-    def metadata(self):
-        """Get metadata.
-
-        Returns:
-            metadata(json): Metadata attached to playlist.
-        """
-
-        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), "")[0].dump())
-
-    @metadata.setter
-    def metadata(self, new_metadata):
-        """Set media reference rate.
-
-        Args:
-            new_metadata(json): Json dict to set as media source metadata
-
-        Returns:
-            bool: success
-
-        """
-        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(new_metadata))
-
-    def get_metadata(self, path):
-        """Get metdata at JSON path
-
-        Args:
-            path(str): JSON Pointer
-
-        Returns:
-            metadata(json) Json at pointer location
-        """
-
-        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), path)[0].dump())
-
-    def set_metadata(self, data, path):
-        """Get metdata at JSON path
-
-        Args:
-            data(json): JSON Data
-            path(str): JSON Pointer
-
-        Returns:
-            bool: success
-        """
-
-        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(data), path)[0]
 
     @property
     def expanded(self):

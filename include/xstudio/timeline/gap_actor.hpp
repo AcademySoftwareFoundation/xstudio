@@ -4,8 +4,6 @@
 #include <caf/all.hpp>
 
 #include "xstudio/timeline/gap.hpp"
-#include "xstudio/utility/json_store.hpp"
-#include "xstudio/utility/frame_rate_and_duration.hpp"
 
 namespace xstudio {
 namespace timeline {

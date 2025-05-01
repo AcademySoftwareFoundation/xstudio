@@ -39,12 +39,14 @@ QueryEngine::QueryEngine() {
     set_cache(cache_name("Has Contents"), BoolTermValues);
     set_cache(cache_name("Has Notes"), BoolTermValues);
     set_cache(cache_name("Is Hero"), BoolTermValues);
+    set_cache(cache_name("Viewable"), BoolTermValues);
     set_cache(cache_name("Latest Version"), BoolTermValues);
     set_cache(cache_name("Lookback"), LookbackTermValues);
     set_cache(cache_name("On Disk"), OnDiskTermValues);
     set_cache(cache_name("Order By"), OrderByTermValues);
     set_cache(cache_name("Preferred Audio"), SourceTermValues);
     set_cache(cache_name("Preferred Visual"), SourceTermValues);
+    set_cache(cache_name("Preferred Sequence"), SequenceTermValues);
     set_cache(cache_name("Result Limit"), ResultLimitTermValues);
     set_cache(cache_name("Sent To Client"), BoolTermValues);
     set_cache(cache_name("Sent To"), SubmittedTermValues);
@@ -336,6 +338,12 @@ void QueryEngine::merge_group(nlohmann::json &destination, const nlohmann::json 
 
                 // update group name / entity?
 
+                if (not i.value("update", false))
+                    i["flags"] = source.at("flags");
+
+                if (i.contains("update") and not i.at("update").is_null())
+                    i["name"] = source.at("name");
+
                 // validate group overrides
                 if (not i.at("children").at(0).value("update", false) and
                     preset_diff(i.at("children").at(0), source.at("children").at(0))) {
@@ -432,8 +440,8 @@ QueryEngine::precache_needed(const int project_id, const utility::JsonStore &loo
         "Shot Status",
     });
 
-    static const auto lookup_project_names =
-        std::vector<std::string>({"User", "Unit", "Stage", "Playlist", "Shot", "Sequence"});
+    static const auto lookup_project_names = std::vector<std::string>(
+        {"Asset", "User", "Unit", "Stage", "Playlist", "Shot", "Sequence", "Episode"});
 
     for (const auto &i : lookup_names) {
         if (not lookup.count(cache_name(i)))
@@ -450,26 +458,72 @@ QueryEngine::precache_needed(const int project_id, const utility::JsonStore &loo
     return result;
 }
 
+void QueryEngine::set_asset_list_cache(
+    const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache) {
+    const static auto sg_status_list = json::json_pointer("/attributes/sg_status_list");
+
+    auto result = R"([])"_json;
+
+    try {
+        auto row = R"({"id": null, "name": null, "type": null, "attributes": {}})"_json;
+        for (const auto &i : data) {
+            row["id"]   = i.at("id");
+            row["type"] = i.at("type");
+            row["name"] = i.at(json::json_pointer("/attributes/sg_asset_name"));
+            row["attributes"]["sg_status_list"] = i.at(sg_status_list);
+
+            result.push_back(row);
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    cache[key] = result;
+}
+
 void QueryEngine::set_shot_sequence_list_cache(
     const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache) {
+    const static auto sg_status_list   = json::json_pointer("/attributes/sg_status_list");
+    const static auto sg_unit          = json::json_pointer("/relationships/sg_unit/data/name");
+    const static auto sg_shot_type     = json::json_pointer("/attributes/sg_shot_type");
+    const static auto sg_sequence_type = json::json_pointer("/attributes/sg_sequence_type");
 
     auto result = R"([])"_json;
 
     try {
         auto row = R"({"id": null, "name": null, "type": null})"_json;
-        for (const auto &i : data) {
-            row["id"]   = i.at("id");
-            row["type"] = i.at("type");
-            row["name"] = i.at(json::json_pointer("/attributes/code"));
+        for (const auto &i : data[1]) {
+            row["id"]                           = i.at("id");
+            row["type"]                         = i.at("type");
+            row["name"]                         = i.at(json::json_pointer("/attributes/code"));
+            row["attributes"]["sg_status_list"] = i.at(sg_status_list);
+            row["subtype"] =
+                i.at(sg_sequence_type).is_null() ? "No Type" : i.at(sg_sequence_type);
+
             result.push_back(row);
 
             for (const auto &s : i.at(json::json_pointer("/relationships/shots/data"))) {
-                row["id"]   = s.at("id");
-                row["type"] = s.at("type");
-                row["name"] = s.at("name");
+                row["id"]                           = s.at("id");
+                row["type"]                         = s.at("type");
+                row["name"]                         = s.at("name");
+                row["attributes"]["sg_status_list"] = s.at(sg_status_list);
+                if (s.contains(sg_unit))
+                    row["relationships"]["sg_unit"]["data"]["name"] = s.at(sg_unit);
+                else
+                    row["relationships"]["sg_unit"]["data"]["name"] = "";
+
+                row["subtype"] = s.at(sg_shot_type).is_null() ? "No Type" : s.at(sg_shot_type);
 
                 result.push_back(row);
             }
+        }
+        for (const auto &i : data[0]) {
+            row["id"]                           = i.at("id");
+            row["type"]                         = i.at("type");
+            row["name"]                         = i.at(json::json_pointer("/attributes/code"));
+            row["attributes"]["sg_status_list"] = i.at(sg_status_list);
+            row["subtype"]                      = "Episode";
+            result.push_back(row);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -483,6 +537,12 @@ void QueryEngine::set_shot_sequence_list_cache(
 void QueryEngine::set_shot_sequence_list_cache(
     const std::string &key, const utility::JsonStore &data) {
     set_shot_sequence_list_cache(key, data, cache_);
+    if (cache_changed_callback_)
+        cache_changed_callback_(key);
+}
+
+void QueryEngine::set_asset_list_cache(const std::string &key, const utility::JsonStore &data) {
+    set_asset_list_cache(key, data, cache_);
     if (cache_changed_callback_)
         cache_changed_callback_(key);
 }
@@ -543,11 +603,12 @@ shotgun_client::FilterBy QueryEngine::terms_to_query(
         result.emplace_back(Number("project.Project.id").is(project_id));
 
         if (entity == "Playlists") {
+            result.emplace_back(Text("sg_status").is_not("arc"));
         } else if (entity == "Versions") {
             result.emplace_back(Text("sg_deleted").is_null());
-            result.emplace_back(FilterBy().Or(
-                Text("sg_path_to_movie").is_not_null(),
-                Text("sg_path_to_frames").is_not_null()));
+            // result.emplace_back(FilterBy().Or(
+            //     Text("sg_path_to_movie").is_not_null(),
+            //     Text("sg_path_to_frames").is_not_null()));
         } else if (entity == "Notes") {
         }
     } else if (not and_mode) {
@@ -561,6 +622,8 @@ shotgun_client::FilterBy QueryEngine::terms_to_query(
         } else {
             try {
                 add_term_to_filter(entity, i, project_id, lookup, &result);
+            } catch (const XStudioError &err) {
+                spdlog::debug("{} {} {}", __PRETTY_FUNCTION__, err.what(), i.dump(2));
             } catch (const std::exception &err) {
                 spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), i.dump(2));
             }
@@ -730,6 +793,12 @@ utility::JsonStore QueryEngine::preprocess_terms(
                 } else if (term == "Preferred Audio") {
                     query["context"]["audio_source"].push_back(
                         i.at("value").get<std::string>());
+                } else if (term == "Preferred Sequence") {
+                    query["context"]["sequence_source"].push_back(
+                        i.at("value").get<std::string>());
+                } else if (term == "Exclude Self") {
+                    query["context"]["exclude_self"] =
+                        get_livelink_value("Id", metadata, lookup);
                 } else if (term == "Flag Media") {
                     auto flag_text                = i.at("value").get<std::string>();
                     query["context"]["flag_text"] = flag_text;
@@ -780,6 +849,8 @@ utility::JsonStore QueryEngine::preprocess_terms(
                             field = "sg_date_submitted_to_client";
                         else if (val == "Version")
                             field = "sg_dneg_version";
+                        else if (val == "Pipeline Status")
+                            field = "sg_status_list";
                     } else if (entity == "Notes") {
                         if (val == "Created")
                             field = "created_at";
@@ -841,6 +912,8 @@ utility::JsonStore QueryEngine::preprocess_terms(
                 query["context"]["visual_source"] = json::array({"SG Movie"});
             if (query["context"]["audio_source"].empty())
                 query["context"]["audio_source"] = query["context"]["visual_source"];
+            if (query["context"]["sequence_source"].empty())
+                query["context"]["sequence_source"] = json::array({"otio_optimised", "otio"});
 
             // set order by
             if (order_by.empty()) {
@@ -861,7 +934,7 @@ utility::JsonStore QueryEngine::preprocess_terms(
 utility::JsonStore QueryEngine::build_query(
     const int project_id,
     const std::string &entity,
-    const utility::Uuid &group_id,
+    const utility::JsonStore &group_detail,
     const utility::JsonStore &group_terms,
     const utility::JsonStore &terms,
     const utility::JsonStore &custom_terms,
@@ -872,10 +945,10 @@ utility::JsonStore QueryEngine::build_query(
     auto query                    = utility::JsonStore(GetQueryResult);
     static const auto default_env = get_default_env();
 
-    query["group_id"]   = group_id;
-    query["context"]    = context;
-    query["env"]        = default_env;
-    query["project_id"] = project_id;
+    query["group_detail"] = group_detail;
+    query["context"]      = context;
+    query["env"]          = default_env;
+    query["project_id"]   = project_id;
     if (env.is_object())
         query["env"].update(env);
 
@@ -1127,6 +1200,8 @@ void QueryEngine::add_version_term_to_filter(
             qry->push_back(Text("sg_location").is_not(value));
         else
             qry->push_back(Text("sg_location").is(value));
+    } else if (term == "Stalk Uuid") {
+        qry->push_back(Text("sg_ivy_dnuuid").is(value));
     } else if (term == "On Disk") {
         std::string prop = std::string("sg_on_disk_") + value;
         if (negated)
@@ -1201,6 +1276,16 @@ void QueryEngine::add_version_term_to_filter(
             qry->push_back(Checkbox("sg_is_hero").is(true));
         else
             throw XStudioError("Invalid query term " + term + " " + value);
+    } else if (term == "Viewable") {
+        if (value == "False")
+            qry->push_back(FilterBy().And(
+                Text("sg_path_to_movie").is_null(), Text("sg_path_to_frames").is_null()));
+        else if (value == "True")
+            qry->push_back(FilterBy().Or(
+                Text("sg_path_to_movie").is_not_null(),
+                Text("sg_path_to_frames").is_not_null()));
+        else
+            throw XStudioError("Invalid query term " + term + " " + value);
     } else if (term == "Entity") {
         auto args = split(value, '-');
         if (args.size() == 2) {
@@ -1208,6 +1293,12 @@ void QueryEngine::add_version_term_to_filter(
             rel["type"] = args.at(0);
             rel["id"]   = std::stoi(args.at(1));
             qry->push_back(RelationType("entity").is(JsonStore(rel)));
+        } else if (args.size() == 3) {
+            auto rel    = R"({"type": null, "id":null})"_json;
+            rel["type"] = args.at(0);
+            rel["id"]   = std::stoi(args.at(1));
+            qry->push_back(RelationType("entity").is(JsonStore(rel)));
+            qry->push_back(Text("sg_pipe_tag_3").is(args.at(2)));
         }
     } else if (term == "Shot") {
         auto rel = R"({"type": "Shot", "id":0})"_json;
@@ -1218,6 +1309,26 @@ void QueryEngine::add_version_term_to_filter(
         } catch (...) {
         }
         qry->push_back(RelationType("entity").is(JsonStore(rel)));
+    } else if (term == "Asset") {
+        auto rel = R"({"type": "Asset", "id":0})"_json;
+        // if no match force failing query. or we'll get EVERYTHING
+        try {
+            rel["id"] =
+                resolve_query_value(term, JsonStore(value), project_id, lookup).get<int>();
+        } catch (...) {
+        }
+        qry->push_back(RelationType("entity").is(JsonStore(rel)));
+    } else if (term == "Episode") {
+        auto rel = R"({"type": "CustomEntity20", "id":0})"_json;
+        // if no match force failing query. or we'll get EVERYTHING
+        try {
+            rel["id"] =
+                resolve_query_value(term, JsonStore(value), project_id, lookup).get<int>();
+        } catch (...) {
+        }
+        qry->push_back(RelationType("entity").is(JsonStore(rel)));
+    } else if (term == "Shot Alternative") {
+        qry->push_back(QueryEngine::add_text_value("sg_pipe_tag_3", value, negated));
     } else if (term == "Sequence") {
         try {
             auto seq  = R"({"type": "Sequence", "id":0})"_json;
@@ -1395,6 +1506,23 @@ void QueryEngine::add_note_term_to_filter(
         auto tmp  = R"({"type": "HumanUser", "id":0})"_json;
         tmp["id"] = resolve_query_value(term, JsonStore(value), project_id, lookup).get<int>();
         qry->push_back(RelationType("addressings_to").in({JsonStore(tmp)}));
+    } else if (term == "Entity") {
+        auto args = split(value, '-');
+        if (args.size() == 2) {
+            auto rel       = R"([{"type": null, "id":null}])"_json;
+            rel[0]["type"] = args.at(0);
+            rel[0]["id"]   = std::stoi(args.at(1));
+            qry->push_back(RelationType("note_links").in(JsonStore(rel)));
+        } else if (args.size() == 3) {
+            auto rel       = R"([{"type": null, "id":null}])"_json;
+            rel[0]["type"] = args.at(0);
+            rel[0]["id"]   = std::stoi(args.at(1));
+            qry->push_back(RelationType("note_links").in(JsonStore(rel)));
+            qry->push_back(Text("note_links.Version.sg_pipe_tag_3").is(args.at(2)));
+        }
+    } else if (term == "Shot Alternative") {
+        qry->push_back(
+            QueryEngine::add_text_value("note_links.Version.sg_pipe_tag_3", value, negated));
     } else if (term == "Shot") {
         auto tmp = R"({"type": "Shot", "id":0})"_json;
         // if no match force failing query. or we'll get EVERYTHING
@@ -1493,7 +1621,7 @@ void QueryEngine::add_term_to_filter(
     auto negated = to_value(term, "negated", false);
 
     // kill queries with invalid shot live link.
-    if (val.empty() and live and name == "Shot") {
+    if (val.empty() and live and (name == "Shot" or name == "Entity")) {
         auto rel = R"({"type": "Shot", "id":0})"_json;
         qry->push_back(RelationType("entity").is(JsonStore(rel)));
     }
@@ -1555,13 +1683,16 @@ utility::JsonStore QueryEngine::resolve_query_value(
 
     if (project_id != -1)
         _type += "-" + std::to_string(project_id);
-
     try {
         auto val = value.get<std::string>();
         if (lookup.count(_type)) {
             if (lookup.at(_type).count(val)) {
                 mapped_value = lookup.at(_type).at(val).at("id");
+            } else {
+                spdlog::warn("Unmatched value {} {} {}", _type, val, __PRETTY_FUNCTION__);
             }
+        } else {
+            spdlog::warn("Invalid type {} {}", _type, __PRETTY_FUNCTION__);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {} {} {}", _type, __PRETTY_FUNCTION__, err.what(), value.dump(2));
@@ -1746,6 +1877,21 @@ std::vector<std::string> QueryEngine::get_sequence_name(
     return result;
 }
 
+std::vector<std::string> QueryEngine::get_asset_name(
+    const int project_id, const int asset_id, const utility::JsonStore &lookup) {
+    auto result = std::vector<std::string>();
+    auto key    = cache_name("Asset", project_id);
+    auto asset  = std::to_string(asset_id);
+
+    if (lookup.count(key)) {
+        if (lookup.at(key).count(asset)) {
+            result.push_back(lookup.at(key).at(asset).at("name"));
+        }
+    }
+
+    return result;
+}
+
 std::string QueryEngine::get_version_name(const utility::JsonStore &metadata) {
     auto name = std::string();
 
@@ -1771,6 +1917,11 @@ utility::JsonStore QueryEngine::get_livelink_value(
     const utility::JsonStore &metadata,
     const utility::JsonStore &lookup) {
 
+    const static auto jp_sg_pipe_tag_3 =
+        json::json_pointer("/metadata/shotgun/version/attributes/sg_pipe_tag_3");
+    const static auto sg_pipe_tag_3_ignore =
+        std::set<std::string>({"NSFL", "LIBRARY", "TRAIN2", "SFL"});
+
     auto result = JsonStore();
 
     try {
@@ -1786,14 +1937,46 @@ utility::JsonStore QueryEngine::get_livelink_value(
                     metadata.at("metadata").value("image_source", nlohmann::json("movie_dneg"));
             else
                 result = json::array({"movie_dneg"});
+        } else if (term == "Shot Alternative") {
+            auto sg_pipe_tag_3 = nlohmann::json();
+            if (metadata.contains(jp_sg_pipe_tag_3))
+                sg_pipe_tag_3 = metadata.at(jp_sg_pipe_tag_3);
+
+            if (sg_pipe_tag_3.is_string() and not sg_pipe_tag_3.get<std::string>().empty() and
+                not sg_pipe_tag_3_ignore.count(get_project_name(metadata))) {
+                // prune off postfix, and do match..
+                auto tmp = sg_pipe_tag_3.get<std::string>();
+                if (not std::isdigit(tmp[tmp.size() - 1])) {
+                    // prune off alternate
+                    tmp = tmp.substr(0, tmp.size() - 1);
+                }
+
+                result = nlohmann::json(std::string("^") + tmp);
+            }
+
         } else if (term == "Entity") {
             if (metadata.contains(json::json_pointer("/metadata/shotgun/version"))) {
                 auto type = metadata.at(json::json_pointer(
                     "/metadata/shotgun/version/relationships/entity/data/type"));
                 auto id   = metadata.at(json::json_pointer(
                     "/metadata/shotgun/version/relationships/entity/data/id"));
-                result    = nlohmann::json(
-                    type.get<std::string>() + "-" + std::to_string(id.get<int>()));
+
+                auto sg_pipe_tag_3 = nlohmann::json();
+                if (metadata.contains(jp_sg_pipe_tag_3))
+                    sg_pipe_tag_3 = metadata.at(jp_sg_pipe_tag_3);
+
+                // check project ID as well ?
+                if (sg_pipe_tag_3.is_string() and
+                    not sg_pipe_tag_3.get<std::string>().empty() and
+                    not sg_pipe_tag_3_ignore.count(get_project_name(metadata))) {
+                    result = nlohmann::json(
+                        type.get<std::string>() + "-" + std::to_string(id.get<int>()) + "-" +
+                        sg_pipe_tag_3.get<std::string>());
+                } else {
+                    result = nlohmann::json(
+                        type.get<std::string>() + "-" + std::to_string(id.get<int>()));
+                }
+
             } else {
                 // try and derive from show/shot ?
                 const auto project = get_project_name(metadata);
@@ -1825,6 +2008,10 @@ utility::JsonStore QueryEngine::get_livelink_value(
                                    "/metadata/shotgun/version/attributes/sg_dneg_version"))
                                .get<long>();
                 result = nlohmann::json(std::to_string(val));
+            } else if (term == "Id") {
+                result = nlohmann::json(std::to_string(
+                    metadata.at(json::json_pointer("/metadata/shotgun/version/id"))
+                        .get<int>()));
             } else if (term == "Author" or term == "Recipient") {
                 result = metadata.at(json::json_pointer(
                     "/metadata/shotgun/version/relationships/user/data/name"));
@@ -1846,6 +2033,31 @@ utility::JsonStore QueryEngine::get_livelink_value(
             } else if (term == "Twig Type") {
                 result = metadata.at(
                     json::json_pointer("/metadata/shotgun/version/attributes/sg_twig_type"));
+            } else if (term == "Episode") {
+                auto type = metadata.at(json::json_pointer(
+                    "/metadata/shotgun/version/relationships/entity/data/type"));
+                if (type == "CustomEntity20") {
+                    result = metadata.at(json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/name"));
+                }
+            } else if (term == "Asset") {
+                // name is not unique, so need to use id.. ACK..
+                auto type = metadata.at(json::json_pointer(
+                    "/metadata/shotgun/version/relationships/entity/data/type"));
+                if (type == "Asset") {
+                    auto project_id =
+                        metadata
+                            .at(json::json_pointer(
+                                "/metadata/shotgun/version/relationships/project/data/id"))
+                            .get<int>();
+                    auto asset_id = metadata.at(json::json_pointer(
+                        "/metadata/shotgun/version/relationships/entity/data/id"));
+                    // do lookup against assets.
+                    auto asset_name = get_asset_name(project_id, asset_id, lookup);
+
+                    if (not asset_name.empty())
+                        result = nlohmann::json(asset_name);
+                }
             } else if (term == "Sequence") {
                 auto type = metadata.at(json::json_pointer(
                     "/metadata/shotgun/version/relationships/entity/data/type"));
@@ -1891,6 +2103,16 @@ void QueryEngine::regenerate_ids(nlohmann::json &data) {
         // duplicates are not system presets.
         if (data.count("update"))
             data["update"] = nullptr;
+
+        if (data.count("flags")) {
+            // remove system flag..
+            auto tmp = R"([])"_json;
+            for (const auto &i : data.at("flags")) {
+                if (i != "System Group")
+                    tmp.push_back(i);
+            }
+            data["flags"] = tmp;
+        }
 
         if (data.count("children"))
             regenerate_ids(data.at("children"));

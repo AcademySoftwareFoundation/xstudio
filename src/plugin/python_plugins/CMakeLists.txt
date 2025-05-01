@@ -1,3 +1,4 @@
 add_python_plugin(viewport_flag_indicator)
 add_python_plugin(picture_in_picture)
 add_python_plugin(on_screen_version_name)
+add_python_plugin(viewport_field_chart)

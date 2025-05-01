@@ -3,6 +3,7 @@
 
 #include <caf/policy/select_all.hpp>
 #include <caf/unit.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/bookmark/bookmark.hpp"
@@ -92,48 +93,45 @@ void SubPlayhead::init() {
     // subscribe to source..
 
     if (source_) {
-        monitor(source_.actor());
+
+        monitor(source_.actor(), [this, addr = source_.actor().address()](const error &err) {
+            if (addr == source_.actor()) {
+                spdlog::debug("ChildPlayhead source down: {}", to_string(err));
+                source_ = utility::UuidActor();
+            }
+        });
+
         utility::join_event_group(this, source_);
         // we need a snwsible default rate to pad out frames if we have to extend
         // our duration
-        request(source_.actor(), infinite, utility::rate_atom_v, media_type_)
+        mail(utility::rate_atom_v, media_type_)
+            .request(source_.actor(), infinite)
             .then(
                 [=](const utility::FrameRate &r) mutable { default_rate_ = r; },
                 [=](const caf::error &err) mutable {});
     }
 
-
-    set_down_handler([=](down_msg &msg) {
-        // is source down?
-        if (msg.source == source_.actor()) {
-            spdlog::debug("ChildPlayhead source down: {}", to_string(msg.reason));
-            source_ = utility::UuidActor();
-        }
-    });
-
-
     // this triggers us to fetch the frames information from the source
-    anon_send(this, source_atom_v);
-
-    // this ensures that all pre-cache requests are removed
-    set_exit_handler([=](scheduled_actor *a, caf::exit_msg &m) {
-        anon_send(pre_reader_, clear_precache_queue_atom_v, uuid_);
-        default_exit_handler(a, m);
-    });
-
-    set_default_handler(
-        [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
-            //  UNCOMMENT TO DEBUG UNEXPECT MESSAGES
-
-            /*spdlog::warn(
-                "Got unwanted messate from {} {}", to_string(current_sender()),
-               to_string(msg));*/
-
-            return message{};
-        });
-
+    anon_mail(source_atom_v).send(this);
 
     behavior_.assign(
+
+        // [=](caf::message &msg) -> caf::skippable_result {
+        //     //  UNCOMMENT TO DEBUG UNEXPECT MESSAGES
+
+        //     spdlog::warn(
+        //         "Got unwanted messate from {} {}", to_string(current_sender()),
+        //        to_string(msg));
+
+        //     return message{};
+        // },
+
+        [=](caf::exit_msg &msg) {
+            anon_mail(clear_precache_queue_atom_v, uuid_).send(pre_reader_);
+            quit(msg.reason);
+        },
+
+        [=](utility::event_atom, utility::notification_atom, const utility::JsonStore &) {},
 
         [=](utility::uuid_atom) -> utility::Uuid { return uuid_; },
 
@@ -141,8 +139,8 @@ void SubPlayhead::init() {
 
         [=](actual_playback_rate_atom) -> result<utility::FrameRate> {
             auto rp = make_response_promise<utility::FrameRate>();
-            request(
-                caf::actor_cast<caf::actor>(this), infinite, media::get_media_pointer_atom_v)
+            mail(media::get_media_pointer_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const media::AVFrameID &id) mutable { rp.deliver(id.rate()); },
                     [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -150,16 +148,12 @@ void SubPlayhead::init() {
         },
 
         [=](clear_precache_queue_atom) {
-            delegate(pre_reader_, clear_precache_queue_atom_v, uuid_);
+            return mail(clear_precache_queue_atom_v, uuid_).delegate(pre_reader_);
         },
 
         [=](const error &err) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err)); },
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        [=](const group_down_msg & /*msg*/) {
-            // 		if(msg.source == store_events)
-            // unsubscribe();
-        },
 
         [=](source_atom, utility::time_point update_tp) -> result<caf::actor> {
             // the message will be sent with a delay - the time it was sent
@@ -183,15 +177,20 @@ void SubPlayhead::init() {
             return rp;
         },
 
-        [=](source_atom, bool retry) -> result<caf::actor> {
+        [=](source_atom, bool /*retry*/) -> result<caf::actor> {
             auto rp = make_response_promise<caf::actor>();
-            get_full_timeline_frame_list(rp, true);
+            get_full_timeline_frame_list(rp);
             return rp;
         },
 
         [=](utility::event_atom, playlist::add_media_atom, const utility::UuidActorVector &) {},
 
         [=](utility::event_atom, playlist::remove_media_atom, const utility::UuidVector &) {},
+
+        [=](utility::event_atom,
+            playlist::move_media_atom,
+            const utility::UuidVector &,
+            const utility::Uuid &) {},
 
         [=](utility::event_atom,
             media_reader::get_thumbnail_atom,
@@ -202,13 +201,13 @@ void SubPlayhead::init() {
             UuidActor &a,
             const media::MediaType) {
             up_to_date_ = false;
-            anon_send(this, source_atom_v); // triggers refresh of frames_time_list_
+            anon_mail(source_atom_v).send(this); // triggers refresh of frames_time_list_
         },
 
         [=](timeline::duration_atom, const timebase::flicks &new_duration) -> result<bool> {
             forced_duration_ = new_duration;
             update_retiming();
-            anon_send(this, bookmark::get_bookmarks_atom_v, true);
+            anon_mail(bookmark::get_bookmarks_atom_v, true).send(this);
             return true;
         },
 
@@ -223,7 +222,8 @@ void SubPlayhead::init() {
             // not up to date, we need to get the timeline frames list from
             // the source
             auto rp = make_response_promise<timebase::flicks>();
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+            mail(source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
                         if (full_timeline_frames_.size() < 2) {
@@ -249,7 +249,8 @@ void SubPlayhead::init() {
             // not up to date, we need to get the timeline frames list from
             // the source
             auto rp = make_response_promise<timebase::flicks>();
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+            mail(source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
                         if (retimed_frames_.size() < 2) {
@@ -272,7 +273,8 @@ void SubPlayhead::init() {
             // not up to date, we need to get the timeline frames list from
             // the source
             auto rp = make_response_promise<size_t>();
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+            mail(source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
                         rp.deliver(retimed_frames_.size() ? retimed_frames_.size() - 1 : 0);
@@ -338,18 +340,13 @@ void SubPlayhead::init() {
         [=](logical_frame_atom) -> int { return logical_frame_; },
 
         [=](logical_frame_to_flicks_atom, int64_t logical_frame) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                logical_frame_to_flicks_atom_v,
-                int(logical_frame));
+            return mail(logical_frame_to_flicks_atom_v, int(logical_frame))
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](logical_frame_to_flicks_atom, int logical_frame) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                logical_frame_to_flicks_atom_v,
-                logical_frame,
-                false);
+            return mail(logical_frame_to_flicks_atom_v, logical_frame, false)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](logical_frame_to_flicks_atom,
@@ -427,11 +424,20 @@ void SubPlayhead::init() {
 
         [=](media::source_offset_frames_atom atom) -> result<int64_t> { return frame_offset_; },
 
-        [=](media::source_offset_frames_atom atom, const int64_t offset) -> result<bool> {
+        [=](media::source_offset_frames_atom atom,
+            const int64_t offset,
+            const bool reset_duration) -> result<bool> {
             if (offset != frame_offset_) {
+                if (reset_duration)
+                    forced_duration_ = timebase::k_flicks_zero_seconds;
                 frame_offset_ = offset;
                 update_retiming();
-                anon_send(this, bookmark::get_bookmarks_atom_v, true);
+                anon_mail(bookmark::get_bookmarks_atom_v, true).send(this);
+                return true;
+            } else if (reset_duration && forced_duration_ != timebase::k_flicks_zero_seconds) {
+                forced_duration_ = timebase::k_flicks_zero_seconds;
+                update_retiming();
+                anon_mail(bookmark::get_bookmarks_atom_v, true).send(this);
                 return true;
             }
             return false;
@@ -439,11 +445,11 @@ void SubPlayhead::init() {
 
         [=](first_frame_media_pointer_atom) -> result<media::AVFrameID> {
             if (up_to_date_) {
-                if (retimed_frames_.size()) {
-                    if (!retimed_frames_.begin()->second) {
+                if (full_timeline_frames_.size()) {
+                    if (!full_timeline_frames_.begin()->second) {
                         return make_error(xstudio_error::error, "Empty frame");
                     }
-                    return *(retimed_frames_.begin()->second);
+                    return *(full_timeline_frames_.begin()->second);
                 } else {
                     return make_error(xstudio_error::error, "No frames");
                 }
@@ -451,14 +457,15 @@ void SubPlayhead::init() {
             // not up to date, we need to get the timeline frames list from
             // the source
             auto rp = make_response_promise<media::AVFrameID>();
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+            mail(source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
-                        if (retimed_frames_.size()) {
-                            if (!retimed_frames_.begin()->second) {
+                        if (full_timeline_frames_.size()) {
+                            if (!full_timeline_frames_.begin()->second) {
                                 rp.deliver(make_error(xstudio_error::error, "Empty frame"));
                             } else {
-                                rp.deliver(*(retimed_frames_.begin()->second));
+                                rp.deliver(*(full_timeline_frames_.begin()->second));
                             }
                         } else {
                             rp.deliver(make_error(xstudio_error::error, "No frames"));
@@ -498,7 +505,8 @@ void SubPlayhead::init() {
             // not up to date, we need to get the timeline frames list from
             // the source
             auto rp = make_response_promise<media::AVFrameID>();
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+            mail(source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
                         auto frame = retimed_frames_.lower_bound(position_flicks_);
@@ -519,13 +527,15 @@ void SubPlayhead::init() {
             // we have to have run the 'source_atom' handler first (to have
             // built retimed_frames_) before we can fetch the media on
             // the current frame
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+            mail(source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
                         auto frame = retimed_frames_.lower_bound(position_flicks_);
                         caf::actor result;
                         if (frame != retimed_frames_.end() && frame->second) {
-                            result = caf::actor_cast<caf::actor>(frame->second->actor_addr());
+                            result =
+                                caf::actor_cast<caf::actor>(frame->second->media_source_addr());
                         }
                         rp.deliver(result);
                     },
@@ -540,7 +550,8 @@ void SubPlayhead::init() {
 
             auto rp = make_response_promise<std::string>();
             // get the media actor on the current frame
-            request(caf::actor_cast<caf::actor>(this), infinite, media_atom_v)
+            mail(media_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor media_actor) mutable {
                         // no media ?
@@ -549,20 +560,13 @@ void SubPlayhead::init() {
                             return;
                         }
                         // switch the source
-                        request(
-                            media_actor,
-                            infinite,
-                            media::current_media_source_atom_v,
-                            source_uuid,
-                            mt)
+                        mail(media::current_media_source_atom_v, source_uuid, mt)
+                            .request(media_actor, infinite)
                             .then(
                                 [=](const bool) mutable {
                                     // now get the name of the new source
-                                    request(
-                                        media_actor,
-                                        infinite,
-                                        media::current_media_source_atom_v,
-                                        mt)
+                                    mail(media::current_media_source_atom_v, mt)
+                                        .request(media_actor, infinite)
                                         .then(
                                             [=](UuidActor media_source) mutable {
                                                 rp.delegate(
@@ -581,7 +585,8 @@ void SubPlayhead::init() {
             const media::MediaType mt) -> result<bool> {
             auto rp = make_response_promise<bool>();
             // get the media actor on the current frame
-            request(caf::actor_cast<caf::actor>(this), infinite, media_atom_v)
+            mail(media_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor media_actor) mutable {
                         // no media ?
@@ -591,17 +596,16 @@ void SubPlayhead::init() {
                         }
 
                         // now get it to switched to the named MediaSource
-                        request(media_actor, infinite, media_source_atom_v, source_name, mt)
+                        mail(media_source_atom_v, source_name, mt)
+                            .request(media_actor, infinite)
                             .then(
 
                                 [=](bool) mutable {
                                     up_to_date_ = false;
                                     // now ensure we have rebuilt ourselves to reflect the new
                                     // source i.e. we have checked out the new frames_time_list_
-                                    request(
-                                        caf::actor_cast<caf::actor>(this),
-                                        infinite,
-                                        source_atom_v)
+                                    mail(source_atom_v)
+                                        .request(caf::actor_cast<caf::actor>(this), infinite)
                                         .then(
                                             [=](caf::actor) mutable { rp.deliver(true); },
                                             [=](const error &err) mutable { rp.deliver(err); });
@@ -614,31 +618,24 @@ void SubPlayhead::init() {
 
         [=](media_atom) -> result<caf::actor> {
             // MediaActor at current playhead position
-
-            auto rp = make_response_promise<caf::actor>();
-            request(caf::actor_cast<caf::actor>(this), infinite, media_source_atom_v)
-                .then(
-                    [=](caf::actor media_source) mutable {
-                        if (!media_source)
-                            rp.deliver(caf::actor());
-                        else {
-                            request(media_source, infinite, utility::parent_atom_v)
-                                .then(
-                                    [=](caf::actor media_actor) mutable {
-                                        rp.deliver(media_actor);
-                                    },
-                                    [=](const error &err) mutable { rp.deliver(err); });
-                        }
-                    },
-                    [=](const error &err) mutable { rp.deliver(err); });
-            return rp;
+            auto frame = retimed_frames_.upper_bound(position_flicks_);
+            if (frame != retimed_frames_.begin())
+                frame--;
+            utility::UuidActor result;
+            if (frame != retimed_frames_.end() && frame->second) {
+                auto m = caf::actor_cast<caf::actor>(frame->second->media_addr());
+                result = utility::UuidActor(frame->second->media_uuid(), m);
+            }
+            return result;
         },
 
         [=](media_source_atom, bool) -> utility::UuidActor {
-            auto frame = retimed_frames_.lower_bound(position_flicks_);
+            auto frame = retimed_frames_.upper_bound(position_flicks_);
+            if (frame != retimed_frames_.begin())
+                frame--;
             utility::UuidActor result;
             if (frame != retimed_frames_.end() && frame->second) {
-                auto m = caf::actor_cast<caf::actor>(frame->second->actor_addr());
+                auto m = caf::actor_cast<caf::actor>(frame->second->media_source_addr());
                 result = utility::UuidActor(frame->second->source_uuid(), m);
             }
             return result;
@@ -647,7 +644,7 @@ void SubPlayhead::init() {
         [=](utility::event_atom,
             media::add_media_source_atom,
             const utility::UuidActorVector &uav) {
-            send(parent_, utility::event_atom_v, media::add_media_source_atom_v, uav);
+            mail(utility::event_atom_v, media::add_media_source_atom_v, uav).send(parent_);
         },
 
         [=](utility::event_atom, timeline::item_atom, const utility::JsonStore &changes, bool) {
@@ -659,11 +656,10 @@ void SubPlayhead::init() {
             // made, we can skip excessive updates
             up_to_date_            = false;
             last_change_timepoint_ = utility::clock::now();
-            delayed_anon_send(
-                this,
-                std::chrono::milliseconds(50),
-                source_atom_v,
-                last_change_timepoint_); // triggers refresh of frames_time_list_
+
+            anon_mail(source_atom_v, last_change_timepoint_)
+                .delay(std::chrono::milliseconds(50))
+                .send(this);
         },
 
         [=](utility::event_atom, media::media_status_atom, const media::MediaStatus) {
@@ -677,30 +673,25 @@ void SubPlayhead::init() {
 
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {},
 
-        [=](media_cache::keys_atom) -> media::MediaKeyVector {
-            media::MediaKeyVector result;
+        [=](media_cache::keys_atom) -> media::AVFrameIDs {
+            media::AVFrameIDs result;
             result.reserve(retimed_frames_.size());
             for (const auto &pp : retimed_frames_) {
-                if (pp.second) {
-                    result.push_back(pp.second->key());
-                }
+                result.push_back(pp.second);
             }
             return result;
         },
 
         [=](bookmark::get_bookmarks_atom) {
-            request(
-                caf::actor_cast<caf::actor>(this),
-                infinite,
-                bookmark::get_bookmarks_atom_v,
-                true)
+            mail(bookmark::get_bookmarks_atom_v, true)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](bool) {
-                        send(
-                            parent_,
+                        mail(
                             utility::event_atom_v,
                             bookmark::get_bookmarks_atom_v,
-                            bookmark_ranges_);
+                            bookmark_ranges_)
+                            .send(parent_);
                     },
                     [=](const error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -720,18 +711,13 @@ void SubPlayhead::init() {
                 get_frame(position_flicks_, frame_period, timeline_pts);
 
             if (!frame) {
+
                 rp.deliver(ImageBufPtr());
                 return rp;
             }
 
-            request(
-                pre_reader_,
-                std::chrono::milliseconds(5000),
-                media_reader::get_image_atom_v,
-                *(frame.get()),
-                false,
-                uuid_,
-                timeline_pts)
+            mail(media_reader::get_image_atom_v, *(frame.get()), false, uuid_, timeline_pts)
+                .request(pre_reader_, std::chrono::seconds(20))
                 .then(
 
                     [=](ImageBufPtr image_buffer) mutable {
@@ -743,7 +729,13 @@ void SubPlayhead::init() {
                         add_annotations_data_to_frame(image_buffer);
                         rp.deliver(image_buffer);
                     },
-                    [=](const error &err) mutable { rp.deliver(err); });
+                    [=](const error &err) mutable {
+                        spdlog::critical(
+                            "SubPlayhead buffer read timeout for frame {}",
+                            to_string(frame->key()));
+                        rp.deliver(err);
+                    });
+
             return rp;
         },
 
@@ -757,8 +749,8 @@ void SubPlayhead::init() {
 
         [=](playlist::get_media_uuid_atom) -> result<utility::Uuid> {
             auto rp = make_response_promise<utility::Uuid>();
-            request(
-                caf::actor_cast<caf::actor>(this), infinite, media::get_media_pointer_atom_v)
+            mail(media::get_media_pointer_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const media::AVFrameID &frameid) mutable {
                         rp.deliver(frameid.media_uuid());
@@ -769,8 +761,8 @@ void SubPlayhead::init() {
 
         [=](rate_atom) -> result<utility::FrameRate> {
             auto rp = make_response_promise<utility::FrameRate>();
-            request(
-                caf::actor_cast<caf::actor>(this), infinite, media::get_media_pointer_atom_v)
+            mail(media::get_media_pointer_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const media::AVFrameID &frameid) mutable {
                         rp.deliver(frameid.rate());
@@ -784,7 +776,8 @@ void SubPlayhead::init() {
             // we have to have run the 'source_atom' handler first (to have
             // built retimed_frames_) before we know the list of frames
             // where media changes in the timeline
-            request(caf::actor_cast<caf::actor>(this), infinite, source_atom_v)
+            mail(source_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable { rp.deliver(media_ranges_); },
                     [=](const error &err) mutable { rp.deliver(err); });
@@ -822,18 +815,14 @@ void SubPlayhead::init() {
         [=](utility::event_atom, utility::change_atom) {
             up_to_date_            = false;
             last_change_timepoint_ = utility::clock::now();
-            delayed_anon_send(
-                this,
-                std::chrono::milliseconds(50),
-                source_atom_v,
-                last_change_timepoint_); // triggers refresh of frames_time_list_
+            anon_mail(source_atom_v, last_change_timepoint_)
+                .delay(std::chrono::milliseconds(50))
+                .send(this);
         },
 
         [=](utility::event_atom, utility::last_changed_atom, const time_point &) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                utility::event_atom_v,
-                utility::change_atom_v);
+            return mail(utility::event_atom_v, utility::change_atom_v)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
@@ -885,7 +874,7 @@ void SubPlayhead::init() {
         [=](check_logical_frame_changing_atom, const int logical_frame) {
             if (logical_frame == logical_frame_ && logical_frame != precache_start_frame_) {
                 // logical frame is not changing! Kick off a full precache
-                anon_send(this, full_precache_atom_v, true, false);
+                anon_mail(full_precache_atom_v, true, false).send(this);
             } else if (logical_frame != logical_frame_) {
                 // otherwise stop any pre cacheing
                 precache_start_frame_ = std::numeric_limits<int>::lowest();
@@ -895,20 +884,19 @@ void SubPlayhead::init() {
             bookmark::remove_bookmark_atom,
             const utility::Uuid &bookmark_uuid) { bookmark_deleted(bookmark_uuid); },
         [=](utility::event_atom, bookmark::add_bookmark_atom, const utility::UuidActor &n) {
-            anon_send(this, bookmark::get_bookmarks_atom_v, true);
+            anon_mail(bookmark::get_bookmarks_atom_v, true).send(this);
         },
         [=](utility::event_atom, bookmark::bookmark_change_atom, const utility::UuidActor &a) {
             bookmark_changed(a);
         });
 
     // slightly awkward...we need to join event group of bookmark manager
-    request(
-        system().registry().template get<caf::actor>(studio_registry),
-        infinite,
-        session::session_atom_v)
+    mail(session::session_atom_v)
+        .request(system().registry().template get<caf::actor>(studio_registry), infinite)
         .then(
             [=](caf::actor session) {
-                request(session, infinite, bookmark::get_bookmark_atom_v)
+                mail(bookmark::get_bookmark_atom_v)
+                    .request(session, infinite)
                     .then(
                         [=](caf::actor bookmark_manager) {
                             utility::join_event_group(this, bookmark_manager);
@@ -941,11 +929,8 @@ void SubPlayhead::set_position(
         // with the reader. But we are playing back now so we need to cancel
         // the pre-cache requests
         precache_start_frame_ = std::numeric_limits<int>::lowest();
-        anon_send(
-            pre_reader_,
-            media_reader::static_precache_atom_v,
-            media::AVFrameIDsAndTimePoints(),
-            uuid_);
+        anon_mail(media_reader::static_precache_atom_v, media::AVFrameIDsAndTimePoints(), uuid_)
+            .send(pre_reader_);
     }
 
     if (logical_frame_ != logical_frame || force_updates || scrubbing) {
@@ -964,7 +949,9 @@ void SubPlayhead::set_position(
 
                 broadcast_image_frame(now, frame, playing, timeline_pts);
 
-            } else if (media_type_ == media::MediaType::MT_AUDIO && (playing || scrubbing)) {
+            } else if (
+                media_type_ == media::MediaType::MT_AUDIO &&
+                (playing || (scrubbing && logical_changed)) && logical_changed) {
                 // only broadcast audio when playing OR scrubbing, not doing
                 // a 'force_update'
                 broadcast_audio_frame(now, frame, scrubbing);
@@ -979,14 +966,14 @@ void SubPlayhead::set_position(
             // will override this one if the reader isn't able to keep up.
             if (media_type_ == media::MediaType::MT_IMAGE) {
                 media::AVFrameID mptr(*(frame.get()));
-                anon_send(
-                    pre_reader_,
+                anon_mail(
                     media_reader::get_image_atom_v,
                     mptr,
                     actor_cast<caf::actor>(this),
                     uuid_,
                     now,
-                    timeline_pts);
+                    timeline_pts)
+                    .send(pre_reader_);
             } else if (media_type_ == media::MediaType::MT_AUDIO) {
                 // don't sound audio if not playing or scrubbing
             }
@@ -1000,8 +987,7 @@ void SubPlayhead::set_position(
 
         // update the parent playhead with our position
         if (frame && (previous_frame_ != frame || force_updates || logical_changed)) {
-            anon_send(
-                parent_,
+            anon_mail(
                 position_atom_v,
                 this,
                 logical_frame_,
@@ -1009,7 +995,8 @@ void SubPlayhead::set_position(
                 frame->frame() - frame->first_frame(),
                 frame->frame(),
                 frame->rate(),
-                frame->timecode());
+                frame->timecode())
+                .send(parent_);
         }
 
         if (!playing && active_in_ui && full_precache_activated_) {
@@ -1019,11 +1006,9 @@ void SubPlayhead::set_position(
             // will check in the message handler if the playhead
             // has indeed changed position and if not start the
             // pre-cache
-            delayed_anon_send(
-                this,
-                static_cache_delay_milliseconds_,
-                check_logical_frame_changing_atom_v,
-                logical_frame_);
+            anon_mail(check_logical_frame_changing_atom_v, logical_frame_)
+                .delay(static_cache_delay_milliseconds_)
+                .send(this);
         }
 
         /*if (playing) {
@@ -1056,7 +1041,7 @@ void SubPlayhead::broadcast_image_frame(
             // .. we are in playback, assumption is that the readers/cache
             // can't decode frames fast enough - so we have to tell the parent
             // that we are dropping frames
-            send(parent_, dropped_frame_atom_v);
+            mail(dropped_frame_atom_v).send(parent_);
             return;
         } else {
             // we still haven't received the last frame we asked for a previous
@@ -1071,15 +1056,15 @@ void SubPlayhead::broadcast_image_frame(
     if (!frame_media_pointer || frame_media_pointer->is_nil()) {
         // If there is no media pointer, tell the parent playhead that we have
         // no media to show
-        send(
-            parent_,
+        mail(
             event_atom_v,
             media_source_atom_v,
             caf::actor(),
             caf::actor_cast<caf::actor>(this),
             Uuid(),
             Uuid(),
-            0);
+            0)
+            .send(parent_);
         waiting_for_next_frame_ = false;
         return;
     }
@@ -1088,14 +1073,13 @@ void SubPlayhead::broadcast_image_frame(
 
     const int broadcast_logical = logical_frame_;
 
-    request(
-        pre_reader_,
-        infinite,
+    mail(
         media_reader::get_image_atom_v,
         *(frame_media_pointer.get()),
         false,
         uuid_,
         timeline_pts)
+        .request(pre_reader_, infinite)
         .then(
 
             [=](ImageBufPtr image_buffer) mutable {
@@ -1105,23 +1089,23 @@ void SubPlayhead::broadcast_image_frame(
                 image_buffer.set_playhead_logical_frame(logical_frame_from_pts(timeline_pts));
                 add_annotations_data_to_frame(image_buffer);
 
-                send(
-                    parent_,
+                mail(
                     show_atom_v,
                     uuid_,        // the uuid of this playhead
                     image_buffer, // the image
                     true          // is this the frame that should be on-screen now?
-                );
+                    )
+                    .send(parent_);
 
-                send(
-                    parent_,
+                mail(
                     event_atom_v,
                     media_source_atom_v,
-                    caf::actor_cast<caf::actor>(frame_media_pointer->actor_addr()),
+                    caf::actor_cast<caf::actor>(frame_media_pointer->media_source_addr()),
                     actor_cast<actor>(this),
                     frame_media_pointer->media_uuid(),
                     frame_media_pointer->source_uuid(),
-                    frame_media_pointer->frame());
+                    frame_media_pointer->frame())
+                    .send(parent_);
 
                 waiting_for_next_frame_ = false;
 
@@ -1138,7 +1122,8 @@ void SubPlayhead::broadcast_image_frame(
                     // case, we send a jump_atom message to the parent playhead, which
                     // in turn sends us back a jump_atom with its state and we request
                     // another broadcast frame
-                    anon_send(parent_, jump_atom_v, caf::actor_cast<caf::actor_addr>(this));
+                    anon_mail(jump_atom_v, caf::actor_cast<caf::actor_addr>(this))
+                        .send(parent_);
                 }
             },
 
@@ -1146,7 +1131,8 @@ void SubPlayhead::broadcast_image_frame(
                 waiting_for_next_frame_ = false;
                 if (broadcast_logical != logical_frame_) {
                     // see above
-                    anon_send(parent_, jump_atom_v, caf::actor_cast<caf::actor_addr>(this));
+                    anon_mail(jump_atom_v, caf::actor_cast<caf::actor_addr>(this))
+                        .send(parent_);
                 }
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
             });
@@ -1168,32 +1154,24 @@ void SubPlayhead::broadcast_audio_frame(
 
     if (scrubbing) {
 
-        // pick the next 1 or two frames in the timeline to send audio
-        // samples for sounding
+        // pick the next 5 frames in the timeline to send audio
+        // samples for sounding when we scrub
         auto frame = current_frame_iterator();
-        if (frame == retimed_frames_.end()) {
+        if (frame == retimed_frames_.end() || !frame->second) {
             return;
         }
-
+        if (frame != first_frame_)
+            frame--;
         auto tt = utility::clock::now();
-        if (frame->second) {
+        for (int i = 0; i < 5; ++i) {
             future_frames.emplace_back(tt, frame->second);
             tps.emplace_back(frame->first);
-        }
-        auto next_frame = frame;
-        next_frame++;
-        if (next_frame != retimed_frames_.end() && next_frame->second) {
-            auto delta = std::chrono::duration_cast<std::chrono::microseconds>(
-                next_frame->first - frame->first);
-            future_frames.emplace_back(tt + delta, next_frame->second);
-            tps.emplace_back(next_frame->first);
-            next_frame++;
-            if (next_frame != retimed_frames_.end() && next_frame->second) {
-                auto delta = std::chrono::duration_cast<std::chrono::microseconds>(
-                    next_frame->first - frame->first);
-                future_frames.emplace_back(tt + delta, next_frame->second);
-                tps.emplace_back(next_frame->first);
-            }
+            auto a = frame->first;
+            frame++;
+            if (frame == retimed_frames_.end() || !frame->second)
+                break;
+            auto b = frame->first;
+            tt     = tt + std::chrono::duration_cast<std::chrono::milliseconds>(b - a);
         }
 
     } else {
@@ -1201,12 +1179,8 @@ void SubPlayhead::broadcast_audio_frame(
     }
 
     // now fetch audio samples for playback
-    request(
-        pre_reader_,
-        std::chrono::milliseconds(5000),
-        media_reader::get_audio_atom_v,
-        future_frames,
-        uuid_)
+    mail(media_reader::get_audio_atom_v, future_frames, uuid_)
+        .request(pre_reader_, std::chrono::milliseconds(5000))
         .then(
 
             [=](std::vector<AudioBufPtr> &audio_buffers) mutable {
@@ -1219,11 +1193,13 @@ void SubPlayhead::broadcast_audio_frame(
                     ab++;
                     fp++;
                 }
-                send(
-                    parent_,
+
+                mail(
                     sound_audio_atom_v,
                     uuid_, // the uuid of this playhead
-                    audio_buffers);
+                    audio_buffers,
+                    scrubbing)
+                    .send(parent_);
             },
             [=](const caf::error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -1265,12 +1241,8 @@ void SubPlayhead::broadcast_audio_samples() {
     const auto playhead_position = position_flicks_;
 
     // now fetch audio samples for playback
-    request(
-        pre_reader_,
-        std::chrono::milliseconds(5000),
-        media_reader::get_audio_atom_v,
-        future_frames,
-        uuid_)
+    mail(media_reader::get_audio_atom_v, future_frames, uuid_)
+        .request(pre_reader_, std::chrono::milliseconds(5000))
         .then(
 
             [=](std::vector<AudioBufPtr> &audio_buffers) mutable {
@@ -1283,11 +1255,11 @@ void SubPlayhead::broadcast_audio_samples() {
                     ab++;
                     fp++;
                 }
-                send(
-                    parent_,
+                mail(
                     audio::audio_samples_atom_v,
                     audio_buffers, // the uuid of this playhead
-                    playhead_position);
+                    playhead_position)
+                    .send(parent_);
             },
             [=](const caf::error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -1355,12 +1327,8 @@ void SubPlayhead::request_future_frames() {
     media::AVFrameIDsAndTimePoints future_frames;
     auto timeline_pts_vec = get_lookahead_frame_pointers(future_frames, 4);
 
-    request(
-        pre_reader_,
-        std::chrono::milliseconds(5000),
-        media_reader::get_future_frames_atom_v,
-        future_frames,
-        uuid_)
+    mail(media_reader::get_future_frames_atom_v, future_frames, uuid_)
+        .request(pre_reader_, std::chrono::milliseconds(5000))
         .then(
 
             [=](std::vector<ImageBufPtr> image_buffers) mutable {
@@ -1376,11 +1344,11 @@ void SubPlayhead::request_future_frames() {
                         add_annotations_data_to_frame(imbuf);
                     }
                 }
-                send(
-                    parent_,
+                mail(
                     show_atom_v,
                     uuid_, // the uuid of this playhead
-                    image_buffers);
+                    image_buffers)
+                    .send(parent_);
             },
             [=](const caf::error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -1395,13 +1363,8 @@ void SubPlayhead::update_playback_precache_requests(caf::typed_response_promise<
 
     make_prefetch_requests_for_colour_pipeline(requests);
 
-    request(
-        pre_reader_,
-        infinite,
-        media_reader::playback_precache_atom_v,
-        requests,
-        uuid_,
-        media_type_)
+    mail(media_reader::playback_precache_atom_v, requests, uuid_, media_type_)
+        .request(pre_reader_, infinite)
         .then(
             [=](const bool requests_processed) mutable { rp.deliver(requests_processed); },
             [=](const error &err) mutable { rp.deliver(err); });
@@ -1425,18 +1388,15 @@ void SubPlayhead::make_static_precache_request(
 
         make_prefetch_requests_for_colour_pipeline(requests);
 
-        request(pre_reader_, infinite, media_reader::static_precache_atom_v, requests, uuid_)
+        mail(media_reader::static_precache_atom_v, requests, uuid_)
+            .request(pre_reader_, infinite)
             .await(
                 [=](bool requests_processed) mutable { rp.deliver(requests_processed); },
                 [=](const error &err) mutable { rp.deliver(err); });
 
     } else {
-        request(
-            pre_reader_,
-            infinite,
-            media_reader::static_precache_atom_v,
-            media::AVFrameIDsAndTimePoints(),
-            uuid_)
+        mail(media_reader::static_precache_atom_v, media::AVFrameIDsAndTimePoints(), uuid_)
+            .request(pre_reader_, infinite)
             .await(
                 [=](bool requests_processed) mutable { rp.deliver(requests_processed); },
                 [=](const error &err) mutable { rp.deliver(err); });
@@ -1459,7 +1419,8 @@ void SubPlayhead::make_prefetch_requests_for_colour_pipeline(
         }
     }
 
-    send(parent_, colour_pipeline_lookahead_atom_v, frame_ids_for_colour_precompute_frame_ids);
+    mail(colour_pipeline_lookahead_atom_v, frame_ids_for_colour_precompute_frame_ids)
+        .send(parent_);
 }
 
 
@@ -1482,29 +1443,28 @@ void SubPlayhead::receive_image_from_cache(
     image_buffer.set_frame_id(mptr);
     add_annotations_data_to_frame(image_buffer);
 
-    send(
-        parent_,
+    mail(
         show_atom_v,
         uuid_,        // the uuid of this playhead
         image_buffer, // the image
         true          // this image supposed to be shown on-screen NOW
-    );
+        )
+        .send(parent_);
 
-    if (auto m = caf::actor_cast<caf::actor>(mptr.actor_addr())) {
-        send(
-            parent_,
+    if (auto m = caf::actor_cast<caf::actor>(mptr.media_source_addr())) {
+        mail(
             event_atom_v,
             media_source_atom_v,
             m,
             actor_cast<actor>(this),
             mptr.media_uuid(),
             mptr.source_uuid(),
-            mptr.frame());
+            mptr.frame())
+            .send(parent_);
     }
 }
 
-void SubPlayhead::get_full_timeline_frame_list(
-    caf::typed_response_promise<caf::actor> rp, const bool retry) {
+void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::actor> rp) {
 
     if (up_to_date_) {
         rp.deliver(source_.actor());
@@ -1528,20 +1488,15 @@ void SubPlayhead::get_full_timeline_frame_list(
     // check if we've already requested an update (in the request immediately
     // below here) that hasn't come baack yet. If so, don't make the request
     // again
-    if (inflight_update_requests_.size() > 1 && !retry)
+    if (inflight_update_requests_.size() > 1)
         return;
 
     const auto request_update_timepoint = utility::clock::now();
 
     auto ttt = utility::clock::now();
 
-    request(
-        source_.actor(),
-        infinite,
-        media::get_media_pointers_atom_v,
-        media_type_,
-        time_source_mode_,
-        override_frame_rate_)
+    mail(media::get_media_pointers_atom_v, media_type_, time_source_mode_, override_frame_rate_)
+        .request(source_.actor(), infinite)
         .then(
             [=](const media::FrameTimeMapPtr &mpts) mutable {
                 if (mpts) {
@@ -1561,21 +1516,18 @@ void SubPlayhead::get_full_timeline_frame_list(
 
                 // last step is to get all info on bookmarks for the media that
                 // we might be playing
-                request(
-                    caf::actor_cast<caf::actor>(this),
-                    infinite,
-                    bookmark::get_bookmarks_atom_v,
-                    true)
+                mail(bookmark::get_bookmarks_atom_v, true)
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](bool) mutable {
                             // our data has changed (retimed_frames_ describes most)
                             // things that are important about the timeline, so send change
                             // notification
-                            send(
-                                event_group_,
+                            mail(
                                 utility::event_atom_v,
                                 utility::change_atom_v,
-                                actor_cast<actor>(this));
+                                actor_cast<actor>(this))
+                                .send(event_group_);
 
                             // rp.deliver(source_);
                             for (auto &rprm : inflight_update_requests_) {
@@ -1583,11 +1535,11 @@ void SubPlayhead::get_full_timeline_frame_list(
                             }
                             inflight_update_requests_.clear();
 
-                            send(
-                                parent_,
+                            mail(
                                 utility::event_atom_v,
                                 playhead::media_frame_ranges_atom_v,
-                                media_ranges_);
+                                media_ranges_)
+                                .send(parent_);
 
 
                             if (request_update_timepoint < last_change_timepoint_) {
@@ -1597,7 +1549,7 @@ void SubPlayhead::get_full_timeline_frame_list(
                                 // request here... therefore, we must request an
                                 // update again to make sure we are fully up-to-date
                                 // with the source
-                                anon_send(this, source_atom_v);
+                                anon_mail(source_atom_v).send(this);
                                 up_to_date_ = false;
                             } else {
                                 up_to_date_ = true;
@@ -1614,77 +1566,64 @@ void SubPlayhead::get_full_timeline_frame_list(
                 if (to_string(err) == "error(\"No streams\")" ||
                     to_string(err) == "error(\"No MediaSources\")") {
 
-                    // We're here because the source has no streams, or it has no media - it
-                    // could be still building itself so we try one more time (if retry flag is
-                    // false). Otherwise we set ourselves up with empty frames but no error
-                    // state passed back
-                    if (retry) {
+                    // We're here because the source has no streams, or it has no media
 
-                        if (media_type_ == media::MT_IMAGE) {
-                            // we have no image streams/sources. However, there might be a
-                            // valid AUDIO source. In this case, we want to build a blank
-                            // image frames to align with audio frames, as the main
-                            // PlayheadActor requires a valid IMAGE source to drive frame-rate,
-                            // duration etc.
-                            request(
-                                source_.actor(),
-                                infinite,
-                                media::get_media_pointers_atom_v,
-                                media::MT_AUDIO,
-                                time_source_mode_,
-                                override_frame_rate_)
-                                .then(
-                                    [=](const media::FrameTimeMapPtr &mpts) mutable {
-                                        if (mpts) {
-                                            // replace the Audio frame ptrs with
-                                            // blank video frames
-                                            full_timeline_frames_ = *mpts;
-                                            auto p = full_timeline_frames_.begin();
-                                            while (p != full_timeline_frames_.end()) {
-                                                p->second = media::make_blank_frame(
-                                                    p->second->rate(), media_type_);
-                                                p++;
-                                            }
+                    if (media_type_ == media::MT_IMAGE) {
+                        // we have no image streams/sources. However, there might be a
+                        // valid AUDIO source. In this case, we want to build a blank
+                        // image frames to align with audio frames, as the main
+                        // PlayheadActor requires a valid IMAGE source to drive frame-rate,
+                        // duration etc.
+                        mail(
+                            media::get_media_pointers_atom_v,
+                            media::MT_AUDIO,
+                            time_source_mode_,
+                            override_frame_rate_)
+                            .request(source_.actor(), infinite)
+                            .then(
+                                [=](const media::FrameTimeMapPtr &mpts) mutable {
+                                    if (mpts) {
+                                        // replace the Audio frame ptrs with
+                                        // blank video frames
+                                        full_timeline_frames_ = *mpts;
+                                        auto p                = full_timeline_frames_.begin();
+                                        while (p != full_timeline_frames_.end()) {
+                                            p->second = media::make_blank_frame(
+                                                p->second->rate(), media_type_);
+                                            p++;
+                                        }
 
-                                        } else {
-                                            full_timeline_frames_.clear();
-                                        }
-                                        update_retiming();
-                                        for (auto &rprm : inflight_update_requests_) {
-                                            rprm.deliver(source_.actor());
-                                        }
-                                        inflight_update_requests_.clear();
-                                        up_to_date_ = true;
-                                    },
-                                    [=](const error &err) mutable {
-                                        // audio frames fetch aslo failing - fallback to empty
-                                        // frame map.
+                                    } else {
                                         full_timeline_frames_.clear();
-                                        update_retiming();
-                                        for (auto &rprm : inflight_update_requests_) {
-                                            rprm.deliver(source_.actor());
-                                        }
-                                        inflight_update_requests_.clear();
-                                        up_to_date_ = true;
-                                    });
-                        } else {
-
-                            // still no media stream/source
-                            full_timeline_frames_.clear();
-                            update_retiming();
-                            for (auto &rprm : inflight_update_requests_) {
-                                rprm.deliver(source_.actor());
-                            }
-                            inflight_update_requests_.clear();
-                            up_to_date_ = true;
-                        }
-
+                                    }
+                                    update_retiming();
+                                    for (auto &rprm : inflight_update_requests_) {
+                                        rprm.deliver(source_.actor());
+                                    }
+                                    inflight_update_requests_.clear();
+                                    up_to_date_ = true;
+                                },
+                                [=](const error &err) mutable {
+                                    // audio frames fetch aslo failing - fallback to empty
+                                    // frame map.
+                                    full_timeline_frames_.clear();
+                                    update_retiming();
+                                    for (auto &rprm : inflight_update_requests_) {
+                                        rprm.deliver(source_.actor());
+                                    }
+                                    inflight_update_requests_.clear();
+                                    up_to_date_ = true;
+                                });
                     } else {
-                        delayed_anon_send(
-                            caf::actor_cast<caf::actor>(this),
-                            std::chrono::milliseconds(250),
-                            source_atom_v,
-                            true);
+
+                        // still no media stream/source
+                        full_timeline_frames_.clear();
+                        update_retiming();
+                        for (auto &rprm : inflight_update_requests_) {
+                            rprm.deliver(source_.actor());
+                        }
+                        inflight_update_requests_.clear();
+                        up_to_date_ = true;
                     }
 
                 } else {
@@ -1693,6 +1632,7 @@ void SubPlayhead::get_full_timeline_frame_list(
                         rprm.deliver(err);
                     }
                     inflight_update_requests_.clear();
+                    up_to_date_ = true;
                 }
             });
 }
@@ -1860,6 +1800,12 @@ void SubPlayhead::update_retiming() {
         if (time_source_mode_ != TimeSourceMode::FIXED && first_frame) {
             frame_duration = first_frame->rate();
         }
+        // now mark as a 'held frame'
+        if (first_frame) {
+            media::AVFrameID ff = *first_frame;
+            ff.set_frame_status(media::FS_HELD_FRAME);
+            first_frame = std::make_shared<const media::AVFrameID>(ff);
+        }
         int64_t off = frame_offset_;
         while (off < 0) {
             retimed_frames[retimed_frames.begin()->first - frame_duration] = first_frame;
@@ -1896,6 +1842,12 @@ void SubPlayhead::update_retiming() {
         timebase::flicks frame_duration = override_frame_rate_;
         if (time_source_mode_ != TimeSourceMode::FIXED && last_frame) {
             frame_duration = last_frame->rate();
+        }
+        // now mark as a 'held frame'
+        if (last_frame) {
+            media::AVFrameID ff = *last_frame;
+            ff.set_frame_status(media::FS_HELD_FRAME);
+            last_frame = std::make_shared<const media::AVFrameID>(ff);
         }
         while ((retimed_frames_.rbegin()->first + frame_duration) < forced_duration_) {
             retimed_frames_[retimed_frames_.rbegin()->first + frame_duration] = last_frame;
@@ -1986,7 +1938,6 @@ void SubPlayhead::set_in_and_out_frames() {
         out_frame_ = retimed_frames_.upper_bound(loop_out_point_);
         if (out_frame_ != first_frame_)
             out_frame_--;
-
     }
 
     if (loop_in_point_ > out_frame_->first) {
@@ -2017,16 +1968,14 @@ void SubPlayhead::full_bookmarks_update(caf::typed_response_promise<bool> done) 
     }
 
     auto global = system().registry().template get<caf::actor>(global_registry);
-    request(global, infinite, bookmark::get_bookmark_atom_v)
+    mail(bookmark::get_bookmark_atom_v)
+        .request(global, infinite)
         .then(
             [=](caf::actor bookmarks_manager) mutable {
                 // here we get all bookmarks that match any and all of the media
                 // that appear in our timline
-                request(
-                    bookmarks_manager,
-                    std::chrono::seconds(5),
-                    bookmark::bookmark_detail_atom_v,
-                    all_media_uuids_)
+                mail(bookmark::bookmark_detail_atom_v, all_media_uuids_)
+                    .request(bookmarks_manager, std::chrono::seconds(5))
                     .then(
                         [=](const std::vector<bookmark::BookmarkDetail>
                                 &bookmark_details) mutable {
@@ -2130,7 +2079,8 @@ void SubPlayhead::fetch_bookmark_annotations(
     if (!bookmark_ranges.size()) {
         bookmark_ranges_.clear();
         bookmarks_.clear();
-        send(parent_, utility::event_atom_v, bookmark::get_bookmarks_atom_v, bookmark_ranges_);
+        mail(utility::event_atom_v, bookmark::get_bookmarks_atom_v, bookmark_ranges_)
+            .send(parent_);
         rp.deliver(true);
         return;
     }
@@ -2141,12 +2091,13 @@ void SubPlayhead::fetch_bookmark_annotations(
 
     // first we need to get to the 'bookmarks_manager'
     auto global = system().registry().template get<caf::actor>(global_registry);
-    request(global, infinite, bookmark::get_bookmark_atom_v)
+    mail(bookmark::get_bookmark_atom_v)
+        .request(global, infinite)
         .then(
             [=](caf::actor bookmarks_manager) mutable {
                 // get the bookmark actors for bookmarks that are in our timline
-                request(
-                    bookmarks_manager, infinite, bookmark::get_bookmark_atom_v, bookmark_ids)
+                mail(bookmark::get_bookmark_atom_v, bookmark_ids)
+                    .request(bookmarks_manager, infinite)
                     .then(
                         [=](const std::vector<UuidActor> &bookmarks) mutable {
                             // now we are ready to build our vector of bookmark, annotations and
@@ -2161,11 +2112,10 @@ void SubPlayhead::fetch_bookmark_annotations(
 
                                 // now ask the bookmark actor for its detail and
                                 // annotation data (if any)
-                                request(
-                                    bookmark.actor(),
-                                    infinite,
+                                mail(
                                     bookmark::bookmark_detail_atom_v,
                                     bookmark::get_annotation_atom_v)
+                                    .request(bookmark.actor(), infinite)
                                     .then(
                                         [=](bookmark::BookmarkAndAnnotationPtr data) mutable {
                                             for (const auto &p : bookmark_ranges) {
@@ -2223,16 +2173,16 @@ void SubPlayhead::fetch_bookmark_annotations(
 
                                                 // we've finished, ping the parent PlayheadActor
                                                 // with our new bookmark ranges
-                                                send(
-                                                    parent_,
+                                                mail(
                                                     utility::event_atom_v,
                                                     bookmark::get_bookmarks_atom_v,
-                                                    bookmark_ranges_);
+                                                    bookmark_ranges_)
+                                                    .send(parent_);
 
-                                                anon_send(
-                                                    parent_,
+                                                anon_mail(
                                                     jump_atom_v,
-                                                    caf::actor_cast<caf::actor_addr>(this));
+                                                    caf::actor_cast<caf::actor_addr>(this))
+                                                    .send(parent_);
 
                                                 rp.deliver(true);
                                             }
@@ -2293,7 +2243,8 @@ void SubPlayhead::bookmark_deleted(const utility::Uuid &bookmark_uuid) {
     }
 
     if (n != bookmark_ranges_.size() || b != bookmarks_.size()) {
-        send(parent_, utility::event_atom_v, bookmark::get_bookmarks_atom_v, bookmark_ranges_);
+        mail(utility::event_atom_v, bookmark::get_bookmarks_atom_v, bookmark_ranges_)
+            .send(parent_);
     }
 }
 
@@ -2303,7 +2254,7 @@ void SubPlayhead::bookmark_changed(const utility::UuidActor bookmark) {
     // do a full rebuild to make sure we're fully up to date.
     for (auto &p : bookmarks_) {
         if (p->detail_.uuid_ == bookmark.uuid()) {
-            anon_send(this, bookmark::get_bookmarks_atom_v, true);
+            anon_mail(bookmark::get_bookmarks_atom_v, true).send(this);
             return;
         }
     }
@@ -2315,7 +2266,8 @@ void SubPlayhead::bookmark_changed(const utility::UuidActor bookmark) {
     // even though this doesn't look like our bookmark, the change that has
     // happened to it might have been associating it with media that IS in
     // our timeline, in which case we need to rebuild our bookmarks data
-    request(bookmark.actor(), infinite, bookmark::bookmark_detail_atom_v)
+    mail(bookmark::bookmark_detail_atom_v)
+        .request(bookmark.actor(), infinite)
         .then(
             [=](const bookmark::BookmarkDetail &detail) {
                 if (detail.owner_) {
@@ -2324,7 +2276,7 @@ void SubPlayhead::bookmark_changed(const utility::UuidActor bookmark) {
                         all_media_uuids_.end(),
                         (*(detail.owner_)).uuid());
                     if (p != all_media_uuids_.end()) {
-                        anon_send(this, bookmark::get_bookmarks_atom_v, true);
+                        anon_mail(bookmark::get_bookmarks_atom_v, true).send(this);
                     }
                 }
             },

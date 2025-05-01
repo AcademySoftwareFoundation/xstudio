@@ -61,8 +61,6 @@ std::string make_fps_display_string(
 
 FpsMonitor::FpsMonitor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
 
-    set_default_handler(caf::drop);
-
     // connect to view port.
     fps_event_grp_ = spawn<broadcast::BroadcastActor>(this);
     link_to(fps_event_grp_);
@@ -88,8 +86,9 @@ FpsMonitor::FpsMonitor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
                 const FrameRate r = caluculate_actual_fps_measure();
                 expr = make_fps_display_string(r, target_playhead_rate_, velocity_);
                 caf::scoped_actor sys(this->system());
-                sys->delayed_send(
-                    this, std::chrono::milliseconds(500), update_actual_fps_atom_v);
+                sys->mail(update_actual_fps_atom_v)
+                    .delay(std::chrono::milliseconds(500))
+                    .send(this);
             } else {
                 std::array<char, 128> buf;
                 if (forward_) {
@@ -99,7 +98,7 @@ FpsMonitor::FpsMonitor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
                 }
                 expr = std::string(buf.data());
             }
-            send(fps_event_grp_, utility::event_atom_v, fps_meter_update_atom_v, expr);
+            mail(utility::event_atom_v, fps_meter_update_atom_v, expr).send(fps_event_grp_);
         },
         [=](utility::event_atom, playhead::play_atom, const bool is_playing) {
             playing_ = is_playing;
@@ -108,28 +107,31 @@ FpsMonitor::FpsMonitor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
             } else {
                 velocity_multiplier_ = 1.0;
             }
-            anon_send(this, update_actual_fps_atom_v);
+            anon_mail(update_actual_fps_atom_v).send(this);
         },
         [=](playhead::show_atom) { frame_queued_for_display_ = true; },
         [=](utility::event_atom, velocity_multiplier_atom, const float multiplier) {
             velocity_multiplier_ = multiplier;
-            anon_send(this, update_actual_fps_atom_v);
+            anon_mail(update_actual_fps_atom_v).send(this);
         },
         [=](utility::event_atom, velocity_atom, const float v) {
             velocity_ = v;
-            anon_send(this, update_actual_fps_atom_v);
+            anon_mail(update_actual_fps_atom_v).send(this);
         },
         [=](utility::event_atom, playhead::play_forward_atom, const bool fwd) {
             forward_ = fwd;
-            anon_send(this, update_actual_fps_atom_v);
+            anon_mail(update_actual_fps_atom_v).send(this);
         },
         [=](utility::event_atom,
             playhead::actual_playback_rate_atom,
             const utility::FrameRate &rate) {
             target_playhead_rate_ = rate;
-            anon_send(this, update_actual_fps_atom_v);
+            anon_mail(update_actual_fps_atom_v).send(this);
         },
-        [=](const error &err) mutable { aout(this) << err << std::endl; });
+        [=](const error &err) mutable {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        },
+        [=](caf::message) {});
 }
 
 void FpsMonitor::reset_actual_fps_measure() { viewport_frame_update_timepoints_.clear(); }
@@ -216,5 +218,5 @@ void FpsMonitor::connect_to_playhead(caf::actor &playhead) {
 
     } catch ([[maybe_unused]] std::exception &e) {
     }
-    anon_send(this, update_actual_fps_atom_v);
+    anon_mail(update_actual_fps_atom_v).send(this);
 }

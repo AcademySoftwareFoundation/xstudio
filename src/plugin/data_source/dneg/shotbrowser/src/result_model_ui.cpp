@@ -7,6 +7,7 @@
 #include "xstudio/ui/qml/helper_ui.hpp"
 
 #include <QProcess>
+#include <QRegularExpression>
 #include <qdebug.h>
 
 using namespace std::chrono_literals;
@@ -30,9 +31,11 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
          "dateSubmittedToClientRole",
          "departmentRole",
          "detailRole",
+         "entityRole",
          "frameRangeRole",
          "frameSequenceRole",
          "linkedVersionsRole",
+         "locationRole",
          "loginRole",
          "movieRole",
          "nameRole",
@@ -44,7 +47,6 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
          "onSiteMum",
          "onSiteSyd",
          "onSiteVan",
-         "otioRole",
          "pipelineStatusFullRole",
          "pipelineStatusRole",
          "pipelineStepRole",
@@ -62,6 +64,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
          "subjectRole",
          "submittedToDailiesRole",
          "tagRole",
+         "textFilterRole",
          "thumbRole",
          "twigNameRole",
          "twigTypeRole",
@@ -121,16 +124,40 @@ void ShotBrowserResultModel::setCanBeGrouped(const bool value) {
 QUuid ShotBrowserResultModel::presetId() const {
     return QUuidFromUuid(getResultValue("/preset_id", Uuid()));
 }
-QUuid ShotBrowserResultModel::groupId() const {
-    return QUuidFromUuid(getResultValue("/group_id", Uuid()));
+
+QVariant ShotBrowserResultModel::groupDetail() const {
+    QVariant result;
+    try {
+        result = mapFromValue(result_data_.at(json::json_pointer("/group_detail")));
+    } catch (...) {
+        result = mapFromValue(R"({"id":"", "flags":[]})"_json);
+    }
+    return result;
 }
 
-QString ShotBrowserResultModel::audioSource() const {
-    return QStringFromStd(getResultValue("/context/audio_source", std::string("")));
+QStringList ShotBrowserResultModel::audioSource() const {
+    auto result = QStringList();
+    for (const auto &i : getResultValue("/context/audio_source", std::vector<std::string>())) {
+        result.append(QStringFromStd(i));
+    }
+    return result;
 }
 
-QString ShotBrowserResultModel::visualSource() const {
-    return QStringFromStd(getResultValue("/context/visual_source", std::string("")));
+QStringList ShotBrowserResultModel::visualSource() const {
+    auto result = QStringList();
+    for (const auto &i : getResultValue("/context/visual_source", std::vector<std::string>())) {
+        result.append(QStringFromStd(i));
+    }
+    return result;
+}
+
+QStringList ShotBrowserResultModel::sequenceSource() const {
+    auto result = QStringList();
+    for (const auto &i :
+         getResultValue("/context/sequence_source", std::vector<std::string>())) {
+        result.append(QStringFromStd(i));
+    }
+    return result;
 }
 
 QString ShotBrowserResultModel::entity() const {
@@ -166,31 +193,30 @@ QVariantMap ShotBrowserResultModel::context() const {
     return QVariantMapFromJson(getResultValue("/context", R"({})"_json));
 }
 
-QFuture<bool> ShotBrowserResultModel::setResultDataFuture(const QStringList &data) {
+QFuture<bool> ShotBrowserResultModel::setResultDataJSONFuture(const QVariant &qdata) {
+    auto data = mapFromValue(qdata);
+
     return QtConcurrent::run([=]() {
         try {
-            if (data.isEmpty())
+
+            if (data.is_null())
                 setEmpty();
             else {
                 auto results = R"([])"_json;
                 try {
                     auto have_set_result_data = false;
                     for (const auto &i : data) {
-                        if (i.isEmpty())
+                        if (i.empty())
                             continue;
-                        auto jsn_data = nlohmann::json::parse(StdFromQString(i));
                         if (not have_set_result_data) {
-                            result_data_         = jsn_data;
+                            result_data_         = i;
                             have_set_result_data = true;
                         }
-                        const auto &items = jsn_data.at("result").at("data");
-
-
+                        const auto &items = i.at("result").at("data");
                         results.insert(results.end(), items.begin(), items.end());
                     }
                 } catch (const std::exception &err) {
-                    spdlog::warn(
-                        "{} {} {}", __PRETTY_FUNCTION__, err.what(), StdFromQString(data[0]));
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), data.dump(2));
                 }
 
                 // inject helper order index..
@@ -210,13 +236,67 @@ QFuture<bool> ShotBrowserResultModel::setResultDataFuture(const QStringList &dat
                     setCanBeGrouped(false);
             }
         } catch (const std::exception &err) {
-            spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), StdFromQString(data[0]));
+            spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), data.dump(2));
             setEmpty();
         }
         emit stateChanged();
         return true;
     });
 }
+
+
+// QFuture<bool> ShotBrowserResultModel::setResultDataFuture(const QStringList &data) {
+//     return QtConcurrent::run([=]() {
+//         try {
+//             if (data.isEmpty())
+//                 setEmpty();
+//             else {
+//                 auto results = R"([])"_json;
+//                 try {
+//                     auto have_set_result_data = false;
+//                     for (const auto &i : data) {
+//                         if (i.isEmpty())
+//                             continue;
+//                         auto jsn_data = nlohmann::json::parse(StdFromQString(i));
+//                         if (not have_set_result_data) {
+//                             result_data_         = jsn_data;
+//                             have_set_result_data = true;
+//                         }
+//                         const auto &items = jsn_data.at("result").at("data");
+
+
+//                         results.insert(results.end(), items.begin(), items.end());
+//                     }
+//                 } catch (const std::exception &err) {
+//                     spdlog::warn(
+//                         "{} {} {}", __PRETTY_FUNCTION__, err.what(),
+//                         StdFromQString(data[0]));
+//                 }
+
+//                 // inject helper order index..
+//                 for (size_t i = 0; i < results.size(); i++) {
+//                     results[i]["result_row"] = i;
+//                 }
+
+//                 setModelData(results);
+//                 if (entity() == "Versions") {
+//                     if (not can_be_grouped_)
+//                         setCanBeGrouped(true);
+
+//                     if (is_grouped_) {
+//                         groupBy();
+//                     }
+//                 } else
+//                     setCanBeGrouped(false);
+//             }
+//         } catch (const std::exception &err) {
+//             spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(),
+//             StdFromQString(data[0])); setEmpty();
+//         }
+//         emit stateChanged();
+//         return true;
+//     });
+// }
 
 
 QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const {
@@ -318,6 +398,26 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             result = QString::fromStdString(j.at("attributes").value("sg_client_filename", ""));
             break;
 
+        case Roles::textFilterRole: {
+            auto tmp    = QStringList();
+            auto troles = std::vector<int>(
+                {nameRole,
+                 clientFilenameRole,
+                 artistRole,
+                 authorRole,
+                 departmentRole,
+                 subjectRole,
+                 playlistTypeRole,
+                 noteTypeRole,
+                 pipelineStatusFullRole});
+
+            for (auto r : troles)
+                if (auto txt = data(index, r); txt.canConvert<QString>())
+                    tmp.append(txt.toString());
+
+            result = tmp.join(" ");
+        } break;
+
         case Roles::subjectRole:
             result = QString::fromStdString(j.at("attributes").value("subject", ""));
             break;
@@ -352,6 +452,11 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                     j.at("relationships").at("entity").at("data").at("name"));
             break;
 
+        case Roles::entityRole:
+            result = QString::fromStdString(
+                j.at("relationships").at("entity").at("data").at("name"));
+            break;
+
         case Roles::assetRole:
             if (j.at("relationships").at("entity").at("data").at("type") == "Asset")
                 result = QString::fromStdString(
@@ -365,25 +470,6 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
         case Roles::movieRole:
             result = QString::fromStdString(j.at("attributes").at("sg_path_to_movie"));
             break;
-
-        case Roles::otioRole: {
-            auto path     = j.at("attributes").value("sg_path_to_frames", std::string());
-            auto last_dot = path.find_last_of(".");
-            path          = path.substr(0, last_dot);
-
-            QVariantList otios;
-            try {
-                auto uri = posix_path_to_uri(path + "_optimised.otio");
-                otios.append(QVariant::fromValue(QUrlFromUri(uri)));
-            } catch (...) {
-            }
-            try {
-                auto uri = posix_path_to_uri(path + ".otio");
-                otios.append(QVariant::fromValue(QUrlFromUri(uri)));
-            } catch (...) {
-            }
-            result = QVariant::fromValue(otios);
-        } break;
 
         case Roles::sequenceRole: {
             if (j.at("relationships").at("entity").at("data").value("type", "") == "Sequence") {
@@ -503,7 +589,7 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
             auto tmp = QStringList();
             for (const auto &i : j.at("relationships").at("tags").at("data")) {
                 auto name = QStringFromStd(i.at("name").get<std::string>());
-                name.replace(QRegExp("\\.REFERENCE$"), "");
+                name.replace(QRegularExpression("\\.REFERENCE$"), "");
                 tmp.append(name);
             }
             result = tmp;
@@ -585,6 +671,11 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
 
         case Roles::loginRole:
             result = QString::fromStdString(j.at("attributes").at("login").get<std::string>());
+            break;
+
+        case Roles::locationRole:
+            result =
+                QString::fromStdString(j.at("attributes").at("sg_location").get<std::string>());
             break;
 
         case Roles::playlistTypeRole:
@@ -756,11 +847,11 @@ bool ShotBrowserResultModel::setData(
 void ShotBrowserResultModel::groupBy() {
     // reorder rows injecting into parent with version max for stalk.
     // build lookup for items.
-    std::map<QVariant, std::map<int, utility::JsonTree *>> vmap;
+    std::map<QString, std::map<int, utility::JsonTree *>> vmap;
 
     for (auto i = 0; i < rowCount(); i++) {
         auto index   = ShotBrowserResultModel::index(i, 0);
-        auto name    = index.data(Roles::twigNameRole);
+        auto name    = index.data(Roles::twigNameRole).toString();
         auto version = index.data(Roles::versionRole).toInt();
 
         if (not vmap.count(name))
@@ -941,6 +1032,7 @@ void ShotBrowserResultFilterModel::setFilterPipeStep(const QString &value) {
 void ShotBrowserResultFilterModel::setFilterName(const QString &value) {
     if (value != filterName_) {
         filterName_ = value;
+        filterNameRE_.setPattern(value);
         emit filterNameChanged();
         invalidateFilter();
     }
@@ -988,10 +1080,12 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
         // only apply name filter to parent, not children.
 
         if (result and not filterName_.isEmpty() and not source_index.parent().isValid() and
-            not source_index.data(ShotBrowserResultModel::Roles::nameRole)
-                    .toString()
-                    .contains(filterName_, Qt::CaseInsensitive))
+            (not filterNameRE_.isValid() or
+             not source_index.data(ShotBrowserResultModel::Roles::textFilterRole)
+                     .toString()
+                     .contains(filterNameRE_))) {
             result = false;
+        }
     }
 
     return result;

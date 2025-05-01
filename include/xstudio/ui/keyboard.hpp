@@ -76,8 +76,8 @@ namespace ui {
         sequence_to_key_and_modifier(const std::string &sequence, int &keycode, int &modifier);
 
       private:
-
-        void notify(const std::string &context, const std::string &window, caf::actor keypress_monitor);
+        void notify(
+            const std::string &context, const std::string &window, caf::actor keypress_monitor);
         void notify_watchers(const std::string &context, const std::string &window);
 
         int key_       = 0;

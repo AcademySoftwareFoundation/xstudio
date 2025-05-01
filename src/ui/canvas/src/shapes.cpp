@@ -12,6 +12,24 @@ bool Quad::operator==(const Quad &o) const {
         softness == o.softness && opacity == o.opacity && invert == o.invert);
 }
 
+std::string Quad::hash() const {
+
+    std::string hash;
+    hash += std::to_string(bl.x);
+    hash += std::to_string(bl.y);
+    hash += std::to_string(tl.x);
+    hash += std::to_string(tl.y);
+    hash += std::to_string(tr.x);
+    hash += std::to_string(tr.y);
+    hash += std::to_string(br.x);
+    hash += std::to_string(br.y);
+    hash += utility::to_string(colour);
+    hash += std::to_string(softness);
+    hash += std::to_string(opacity);
+    hash += std::to_string(invert);
+    return hash;
+}
+
 void xstudio::ui::canvas::from_json(const nlohmann::json &j, Quad &q) {
 
     j.at("bl").get_to(q.bl);
@@ -36,6 +54,20 @@ void xstudio::ui::canvas::to_json(nlohmann::json &j, const Quad &q) {
     j["invert"]   = q.invert;
 }
 
+std::string Polygon::hash() const {
+
+    std::string hash;
+    for (int i = 0; i < points.size(); ++i) {
+        hash += std::to_string(points[i].x);
+        hash += std::to_string(points[i].y);
+    }
+    hash += utility::to_string(colour);
+    hash += std::to_string(softness);
+    hash += std::to_string(opacity);
+    hash += std::to_string(invert);
+    return hash;
+}
+
 bool Polygon::operator==(const Polygon &o) const {
     return (
         points == o.points && colour == o.colour && softness == o.softness &&
@@ -58,6 +90,21 @@ void xstudio::ui::canvas::to_json(nlohmann::json &j, const Polygon &q) {
     j["softness"] = q.softness;
     j["opacity"]  = q.opacity;
     j["invert"]   = q.invert;
+}
+
+std::string Ellipse::hash() const {
+
+    std::string hash;
+    hash += std::to_string(center.x);
+    hash += std::to_string(center.y);
+    hash += std::to_string(radius.x);
+    hash += std::to_string(radius.y);
+    hash += std::to_string(angle);
+    hash += utility::to_string(colour);
+    hash += std::to_string(softness);
+    hash += std::to_string(opacity);
+    hash += std::to_string(invert);
+    return hash;
 }
 
 bool Ellipse::operator==(const Ellipse &o) const {

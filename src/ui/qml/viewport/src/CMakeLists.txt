@@ -1,10 +1,9 @@
 SET(LINK_DEPS
-	${CAF_LIBRARY_core}
+	CAF::core
 	Imath::Imath
-	Qt5::Core
-	Qt5::Qml
-	Qt5::Quick
-	Qt5::Widgets
+	Qt6::Core
+	Qt6::Qml
+	Qt6::Quick
 	xstudio::module
 	xstudio::playhead
 	xstudio::ui::opengl::viewport
@@ -21,4 +20,4 @@ SET(EXTRAMOC
 
 find_package(Imath)
 
-create_qml_component(viewport 0.1.0 "${LINK_DEPS}" "${EXTRAMOC}")
+create_qml_component(viewport ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${EXTRAMOC}")

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.14
-import QtQuick.Controls.Styles 1.4
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtQuick.Layouts 1.15
+import QtQuick
+
+
+
+
+import QtQuick.Layouts
 import QuickFuture 1.0
 
 import xStudio 1.0
@@ -27,7 +27,6 @@ XsListView {
 
     cacheBuffer: 80
     boundsBehavior: Flickable.StopAtBounds
-    isScrollbarVisibile: false
 
     property var dragTargetIndex
     property bool dragToEnd: false
@@ -60,7 +59,7 @@ XsListView {
             menuPath: ""
             panelContext: flagMenu.panelContext
             menuModelName: flagMenu.menu_model_name
-            onFlagSet: {
+            onFlagSet: (flag, flag_text) => {
                 theSessionData.set(flagMenu.mediaIndex, flag, "flagColourRole")
 
                 if (flag_text)
@@ -110,6 +109,7 @@ XsListView {
         // this margin ensures that this mousearea doesn't steal mouse events
         // from the scrollbar
         anchors.rightMargin: 12
+        anchors.leftMargin: 10 // or the flag, guess size ?
     }
     property alias mouseArea: mouseArea
 
@@ -128,7 +128,7 @@ XsListView {
             }
         }
 
-        onDragged: {
+        onDragged: (mousePosition, source, data) => {
             computeTargetDropIndex(mousePosition.y)
             autoScroll(mousePosition.y)
         }
@@ -138,9 +138,16 @@ XsListView {
                 mediaList.itemAtIndex(dragTargetIndex.row).isDragTarget = false
             }
             dragTargetIndex = undefined
+
+            scrollUp.cancel()
+            scrollDown.cancel()
+
         }
 
-        onDropped: {
+        onDropped: (mousePosition, source, data) => {
+
+            scrollUp.cancel()
+            scrollDown.cancel()
 
             var idx = dragTargetIndex
             if (idx == undefined || !idx.valid) {

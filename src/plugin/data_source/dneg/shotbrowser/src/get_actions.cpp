@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/media/media_actor.hpp"
@@ -24,9 +25,7 @@ void ShotBrowser::find_ivy_version(
     auto version_filter =
         FilterBy().And(Text("project.Project.name").is(job), Text("sg_ivy_dnuuid").is(uuid));
 
-    request(
-        shotgun_,
-        std::chrono::seconds(static_cast<int>(timeout_->value())),
+    mail(
         shotgun_entity_search_atom_v,
         "Version",
         JsonStore(version_filter),
@@ -34,6 +33,7 @@ void ShotBrowser::find_ivy_version(
         std::vector<std::string>(),
         1,
         1)
+        .request(shotgun_, std::chrono::seconds(static_cast<int>(timeout_->value())))
         .then(
             [=](const JsonStore &jsn) mutable {
                 auto result = JsonStore(R"({"payload":[]})"_json);
@@ -53,13 +53,8 @@ void ShotBrowser::get_fields(
     const int id,
     const std::string &entity,
     const std::vector<std::string> &fields) {
-    request(
-        shotgun_,
-        std::chrono::seconds(static_cast<int>(timeout_->value())),
-        shotgun_entity_atom_v,
-        entity,
-        id,
-        fields)
+    mail(shotgun_entity_atom_v, entity, id, fields)
+        .request(shotgun_, std::chrono::seconds(static_cast<int>(timeout_->value())))
         .then(
             [=](const JsonStore &jsn) mutable { rp.deliver(jsn); },
             [=](error &err) mutable {
@@ -75,13 +70,8 @@ void ShotBrowser::find_shot(
     if (shot_cache_.count(shot_id))
         rp.deliver(shot_cache_.at(shot_id));
     else {
-        request(
-            shotgun_,
-            std::chrono::seconds(static_cast<int>(timeout_->value())),
-            shotgun_entity_atom_v,
-            "Shot",
-            shot_id,
-            extend_fields("Shots", ShotFields))
+        mail(shotgun_entity_atom_v, "Shot", shot_id, extend_fields("Shots", ShotFields))
+            .request(shotgun_, std::chrono::seconds(static_cast<int>(timeout_->value())))
             .then(
                 [=](const JsonStore &jsn) mutable {
                     shot_cache_[shot_id] = jsn;
@@ -153,11 +143,8 @@ void ShotBrowser::link_media(
                                     jsre["ivy_uuid"] = ivy_uuid;
                                     jsre["job"]      = job;
 
-                                    request(
-                                        caf::actor_cast<caf::actor>(this),
-                                        infinite,
-                                        get_data_atom_v,
-                                        jsre)
+                                    mail(get_data_atom_v, jsre)
+                                        .request(caf::actor_cast<caf::actor>(this), infinite)
                                         .then(
                                             [=](const JsonStore &ver) mutable {
                                                 // got ver from uuid
@@ -235,12 +222,13 @@ void ShotBrowser::link_media(
         rp.deliver(make_error(xstudio_error::error, err.what()));
     }
 }
+
 void get_data(
     caf::typed_response_promise<utility::JsonStore> rp,
     const std::string &type,
     const int project_id);
 
-void ShotBrowser::download_media(
+void ShotBrowser::add_shotgrid_media(
     caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid) {
     try {
         // find media
@@ -286,7 +274,8 @@ void ShotBrowser::download_media(
                 FrameList(),
                 FrameRate(),
                 uuid);
-            request(media, infinite, media::add_media_source_atom_v, UuidActor(uuid, source))
+            mail(media::add_media_source_atom_v, UuidActor(uuid, source))
+                .request(media, infinite)
                 .then(
                     [=](const Uuid &u) mutable {
                         auto jsn          = JsonStore(R"({})"_json);
@@ -300,13 +289,12 @@ void ShotBrowser::download_media(
                         rp.deliver(JsonStore((R"({})"_json)["error"] = to_string(err)));
                     });
         } else {
-            request(
-                shotgun_,
-                infinite,
+            mail(
                 shotgun_attachment_atom_v,
                 "version",
                 media_metadata.at("id").template get<int>(),
                 "sg_uploaded_movie_webm")
+                .request(shotgun_, infinite)
                 .then(
                     [=](const std::string &data) mutable {
                         if (data.size() > 1024 * 15) {
@@ -325,11 +313,8 @@ void ShotBrowser::download_media(
                                     FrameList(),
                                     FrameRate(),
                                     uuid);
-                                request(
-                                    media,
-                                    infinite,
-                                    media::add_media_source_atom_v,
-                                    UuidActor(uuid, source))
+                                mail(media::add_media_source_atom_v, UuidActor(uuid, source))
+                                    .request(media, infinite)
                                     .then(
                                         [=](const Uuid &u) mutable {
                                             auto jsn          = JsonStore(R"({})"_json);
@@ -373,6 +358,128 @@ void ShotBrowser::download_media(
     } catch (const std::exception &err) {
         spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
         rp.deliver(JsonStore((R"({})"_json)["error"] = err.what()));
+    }
+}
+
+// http://shotgun.dneg.com/thumbnail/full/Attachment/101464187
+
+
+// shotgun_image_atom,
+//             const std::string &entity,
+//             const int record_id,
+//             const bool thumbnail
+
+void ShotBrowser::download_shotgrid_image(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &entity,
+    const int entity_id,
+    const std::string &entity_name,
+    const std::string &project_name) {
+    try {
+        // find media
+
+        auto filepath = download_cache_.target_string() + "/" + project_name + "-" +
+                        std::to_string(entity_id) + "-" + entity_name;
+
+        auto result = R"({})"_json;
+        result      = "file:" + filepath;
+
+        // check it doesn't already exist..
+        if (fs::exists(filepath)) {
+            rp.deliver(JsonStore(result));
+        } else {
+            mail(shotgun_image_atom_v, entity, entity_id, false)
+                .request(shotgun_, infinite)
+                .then(
+                    [=](const std::string &data) mutable {
+                        if (data.size() > 1024 * 15) {
+                            // write to file
+                            std::ofstream o(filepath);
+                            try {
+                                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                                o << data << std::endl;
+                                o.close();
+                                rp.deliver(JsonStore(result));
+
+                            } catch (const std::exception &) {
+                                // remove failed file
+                                if (o.is_open()) {
+                                    o.close();
+                                    fs::remove(filepath);
+                                }
+                                rp.deliver(
+                                    make_error(xstudio_error::error, "Failed to open file"));
+                            }
+                        } else {
+                            rp.deliver(make_error(xstudio_error::error, "Failed to download"));
+                        }
+                    },
+                    [=](error &err) mutable {
+                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(make_error(xstudio_error::error, to_string(err)));
+                    });
+        }
+    } catch (const std::exception &err) {
+        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+        rp.deliver(make_error(xstudio_error::error, err.what()));
+    }
+}
+
+
+void ShotBrowser::download_shotgrid_media(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &entity,
+    const int entity_id,
+    const std::string &entity_name,
+    const std::string &project_name,
+    const std::string &parent_name) {
+    try {
+        // find media
+
+        auto filepath = download_cache_.target_string() + "/" + entity_name + "-" +
+                        project_name + "-" + parent_name + ".dneg.webm";
+
+        auto result = R"({})"_json;
+        result      = "file:" + filepath;
+
+        // check it doesn't already exist..
+        if (fs::exists(filepath)) {
+            rp.deliver(JsonStore(result));
+        } else {
+            mail(shotgun_attachment_atom_v, entity, entity_id, "sg_uploaded_movie_webm")
+                .request(shotgun_, infinite)
+                .then(
+                    [=](const std::string &data) mutable {
+                        if (data.size() > 1024 * 15) {
+                            // write to file
+                            std::ofstream o(filepath);
+                            try {
+                                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                                o << data << std::endl;
+                                o.close();
+                                rp.deliver(JsonStore(result));
+
+                            } catch (const std::exception &) {
+                                // remove failed file
+                                if (o.is_open()) {
+                                    o.close();
+                                    fs::remove(filepath);
+                                }
+                                rp.deliver(
+                                    make_error(xstudio_error::error, "Failed to open file"));
+                            }
+                        } else {
+                            rp.deliver(make_error(xstudio_error::error, "Failed to download"));
+                        }
+                    },
+                    [=](error &err) mutable {
+                        spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        rp.deliver(make_error(xstudio_error::error, to_string(err)));
+                    });
+        }
+    } catch (const std::exception &err) {
+        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+        rp.deliver(make_error(xstudio_error::error, err.what()));
     }
 }
 
@@ -658,19 +765,19 @@ void ShotBrowser::prepare_playlist_notes(
                                 auto [ua, jsn] = media_map[detail.owner_->uuid()];
                                 // push to shotgun client..
                                 jsn["bookmark_uuid"].push_back(j.uuid());
-                                if (not jsn.count("has_annotation"))
-                                    jsn["has_annotation"] = R"([])"_json;
+                                if (not jsn.count("note_annotation"))
+                                    jsn["note_annotation"] = R"([])"_json;
 
                                 if (has_anno) {
-                                    auto item =
-                                        R"({"media_uuid": null, "media_name": null, "media_frame": 0, "timecode_frame": 0})"_json;
-                                    item["media_uuid"]  = i.first;
-                                    item["media_name"]  = jsn["shot"];
-                                    item["media_frame"] = detail.start_frame();
-                                    item["timecode_frame"] =
-                                        detail.start_timecode_tc().total_frames();
+                                    auto title            = std::string(fmt::format(
+                                        "{}_{}.jpg",
+                                        jsn["shot"],
+                                        detail.start_timecode_tc().total_frames()));
+                                    auto item             = nlohmann::json();
+                                    item["title"]         = title;
+                                    item["bookmark_uuid"] = j.uuid();
                                     // requires media actor and first frame of annotation.
-                                    jsn["has_annotation"].push_back(item);
+                                    jsn["note_annotation"].push_back(item);
                                 }
                                 auto cat = detail.category_ ? *(detail.category_) : "";
                                 if (not default_type.empty())
@@ -771,10 +878,10 @@ void ShotBrowser::prepare_playlist_notes(
                                                 "\n\n" +
                                                 notepayload["payload"]["content"]
                                                     .get<std::string>();
-                                            merged["has_annotation"].insert(
-                                                merged["has_annotation"].end(),
-                                                notepayload["has_annotation"].begin(),
-                                                notepayload["has_annotation"].end());
+                                            merged["note_annotation"].insert(
+                                                merged["note_annotation"].end(),
+                                                notepayload["note_annotation"].begin(),
+                                                notepayload["note_annotation"].end());
                                         }
                                     }
                                 }
@@ -809,9 +916,9 @@ void ShotBrowser::execute_query(
 
     auto dispatched = utility::sysclock::now();
 
-    request(
-        shotgun_,
-        infinite,
+    // spdlog::warn("{}",action.dump(2) );
+
+    mail(
         shotgun_entity_search_atom_v,
         action.at("entity").get<std::string>(),
         JsonStore(action.at("query")),
@@ -821,13 +928,46 @@ void ShotBrowser::execute_query(
         action.at("order").get<std::vector<std::string>>(),
         action.at("page").get<int>(),
         action.at("max_result").get<int>())
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 auto result            = action;
                 result["execution_ms"] = std::chrono::duration_cast<std::chrono::milliseconds>(
                                              utility::sysclock::now() - dispatched)
                                              .count();
-                result["result"] = data;
+
+                // super special handling..
+
+                if (auto remove_id_jsn = action.value("context", R"({})"_json)
+                                             .value("exclude_self", R"(null)"_json);
+                    not remove_id_jsn.is_null()) {
+                    // look in results for matching record, if found remove it..
+                    // cast to int
+                    try {
+                        auto remove_id = 0;
+                        if (remove_id_jsn.is_string())
+                            remove_id = std::stoi(remove_id_jsn.get<std::string>());
+                        else
+                            remove_id = remove_id_jsn.get<int>();
+
+                        auto pruned_data = data;
+                        auto it          = pruned_data["data"].begin();
+                        while (it != pruned_data["data"].end()) {
+                            if ((*it)["id"].get<int>() == remove_id)
+                                it = pruned_data["data"].erase(it);
+                            else
+                                it++;
+                        }
+
+                        result["result"] = pruned_data;
+                    } catch (const std::exception &err) {
+                        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+                        result["result"] = data;
+                    }
+                } else {
+                    result["result"] = data;
+                }
+                // spdlog::warn("{}", result.dump(2));
                 rp.deliver(result);
             },
             [=](error &err) mutable { rp.deliver(err); });
@@ -877,10 +1017,16 @@ void ShotBrowser::get_data(
                 get_pipe_step(rp);
             else if (type == "sequence")
                 get_data_sequence(rp, type, project_id);
+            else if (type == "episode")
+                get_data_episode(rp, type, project_id);
             else if (type == "playlist")
                 get_data_playlist(rp, type, project_id);
+            else if (type == "tree")
+                get_data_tree(rp, type, project_id);
             else if (type == "unit")
                 get_data_unit(rp, type, project_id);
+            else if (type == "asset")
+                get_data_asset(rp, type, project_id);
             else if (type == "group")
                 get_data_group(rp, type, project_id);
             else if (type == "stage")
@@ -907,9 +1053,7 @@ void ShotBrowser::get_data_department(
         ]
     })"_json;
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "Departments",
         JsonStore(filter),
@@ -917,6 +1061,7 @@ void ShotBrowser::get_data_department(
         std::vector<std::string>({"name"}),
         1,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -947,9 +1092,7 @@ void ShotBrowser::get_data_project(
     auto filter = FilterBy().And(
         StatusList("sg_status").is_not("Archive"), Text("sg_type").is_not("Template"));
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "Projects",
         JsonStore(filter),
@@ -957,6 +1100,7 @@ void ShotBrowser::get_data_project(
         std::vector<std::string>({"name"}),
         1,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -982,8 +1126,8 @@ void ShotBrowser::get_data_project(
 void ShotBrowser::get_data_location(
     caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
 
-    request(
-        shotgun_, infinite, shotgun_schema_entity_fields_atom_v, "playlist", "sg_location", -1)
+    mail(shotgun_schema_entity_fields_atom_v, "playlist", "sg_location", -1)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1009,13 +1153,8 @@ void ShotBrowser::get_data_location(
 void ShotBrowser::get_data_review_location(
     caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
 
-    request(
-        shotgun_,
-        infinite,
-        shotgun_schema_entity_fields_atom_v,
-        "playlist",
-        "sg_review_location_1",
-        -1)
+    mail(shotgun_schema_entity_fields_atom_v, "playlist", "sg_review_location_1", -1)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1040,7 +1179,8 @@ void ShotBrowser::get_data_review_location(
 void ShotBrowser::get_data_playlist_type(
     caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
 
-    request(shotgun_, infinite, shotgun_schema_entity_fields_atom_v, "playlist", "sg_type", -1)
+    mail(shotgun_schema_entity_fields_atom_v, "playlist", "sg_type", -1)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1065,8 +1205,8 @@ void ShotBrowser::get_data_playlist_type(
 void ShotBrowser::get_data_shot_status(
     caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
 
-    request(
-        shotgun_, infinite, shotgun_schema_entity_fields_atom_v, "shot", "sg_status_list", -1)
+    mail(shotgun_schema_entity_fields_atom_v, "shot", "sg_status_list", -1)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1099,7 +1239,8 @@ void ShotBrowser::get_data_shot_status(
 void ShotBrowser::get_data_note_type(
     caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
 
-    request(shotgun_, infinite, shotgun_schema_entity_fields_atom_v, "note", "sg_note_type", -1)
+    mail(shotgun_schema_entity_fields_atom_v, "note", "sg_note_type", -1)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1124,13 +1265,8 @@ void ShotBrowser::get_data_note_type(
 void ShotBrowser::get_data_production_status(
     caf::typed_response_promise<utility::JsonStore> rp, const std::string &type) {
 
-    request(
-        shotgun_,
-        infinite,
-        shotgun_schema_entity_fields_atom_v,
-        "version",
-        "sg_production_status",
-        -1)
+    mail(shotgun_schema_entity_fields_atom_v, "version", "sg_production_status", -1)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1162,8 +1298,8 @@ void ShotBrowser::get_data_pipeline_status(
     const std::string &entity,
     const std::string &cache_name) {
 
-    request(
-        shotgun_, infinite, shotgun_schema_entity_fields_atom_v, entity, "sg_status_list", -1)
+    mail(shotgun_schema_entity_fields_atom_v, entity, "sg_status_list", -1)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1218,16 +1354,15 @@ void ShotBrowser::get_data_user(
         filter["conditions"].push_back(proj_filt);
     }
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "HumanUsers",
         JsonStore(filter),
-        std::vector<std::string>({"name", "id", "login"}),
+        HumanUserFields,
         std::vector<std::string>({"name"}),
         page,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1276,9 +1411,7 @@ void ShotBrowser::get_data_shot_for_sequence(
 
     filter["conditions"][0][2]["id"] = project_id;
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "Shots",
         JsonStore(filter),
@@ -1286,6 +1419,7 @@ void ShotBrowser::get_data_shot_for_sequence(
         std::vector<std::string>({"id"}),
         page,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1328,9 +1462,7 @@ void ShotBrowser::get_data_shot(
 
     filter["conditions"][0][2]["id"] = project_id;
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "Shots",
         JsonStore(filter),
@@ -1338,6 +1470,7 @@ void ShotBrowser::get_data_shot(
         std::vector<std::string>({"code"}),
         page,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1369,6 +1502,69 @@ void ShotBrowser::get_data_shot(
             [=](error &err) mutable { rp.deliver(err); });
 }
 
+void ShotBrowser::get_data_asset(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &type,
+    const int project_id,
+    const int page,
+    const JsonStore &prev_data) {
+
+    auto filter = R"(
+    {
+        "logical_operator": "and",
+        "conditions": [
+            ["project", "is", {"type":"Project", "id":0}],
+            ["sg_asset_name", "is_not", null]
+        ]
+    })"_json;
+    // ["sg_status", "is_not", "arc"]
+
+    filter["conditions"][0][2]["id"] = project_id;
+
+    mail(
+        shotgun_entity_search_atom_v,
+        "Assets",
+        JsonStore(filter),
+        AssetFields,
+        std::vector<std::string>({"sg_asset_name"}),
+        page,
+        4999)
+        .request(shotgun_, infinite)
+        .then(
+            [=](const JsonStore &data) mutable {
+                try {
+                    if (not data.count("data"))
+                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
+                    else {
+                        auto total = prev_data;
+                        total.insert(
+                            total.end(), data.at("data").begin(), data.at("data").end());
+
+                        if (data.at("data").size() == 4999) {
+                            get_data_asset(rp, type, project_id, page + 1, total);
+                        } else {
+                            auto cache_key = QueryEngine::cache_name(type, project_id);
+                            // we need to rewrite data as code is not unique
+                            for (auto &i : total)
+                                i["name"] = i["attributes"]["sg_asset_name"];
+
+                            engine().set_lookup(
+                                QueryEngine::cache_name("Asset", project_id),
+                                total,
+                                engine().lookup());
+                            engine().set_cache(cache_key, total);
+
+                            rp.deliver(*engine().get_cache(cache_key));
+                        }
+                    }
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    rp.deliver(make_error(xstudio_error::error, err.what()));
+                }
+            },
+            [=](error &err) mutable { rp.deliver(err); });
+}
+
 void ShotBrowser::get_data_playlist(
     caf::typed_response_promise<utility::JsonStore> rp,
     const std::string &type,
@@ -1381,15 +1577,14 @@ void ShotBrowser::get_data_playlist(
         "logical_operator": "and",
         "conditions": [
             ["project", "is", {"type":"Project", "id":0}],
-            ["versions", "is_not", null]
+            ["versions", "is_not", null],
+            ["sg_status", "is_not", "arc"]
         ]
     })"_json;
 
     filter["conditions"][0][2]["id"] = project_id;
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "Playlists",
         JsonStore(filter),
@@ -1397,6 +1592,7 @@ void ShotBrowser::get_data_playlist(
         std::vector<std::string>({"-created_at"}),
         page,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1431,19 +1627,49 @@ void ShotBrowser::get_data_playlist(
 void ShotBrowser::get_version_artist(
     caf::typed_response_promise<utility::JsonStore> rp, const int version_id) {
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_atom_v,
         "Versions",
         version_id,
         std::vector<std::string>({"code", "id", "user"}))
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 if (not data.count("data"))
                     rp.deliver(make_error(xstudio_error::error, data.dump(2)));
                 else
                     rp.deliver(JsonStore(data.at("data")));
+            },
+            [=](error &err) mutable { rp.deliver(err); });
+}
+
+void ShotBrowser::get_data_tree(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &type,
+    const int project_id) {
+
+    auto getEpisodeData          = GetData;
+    getEpisodeData["project_id"] = project_id;
+    getEpisodeData["type"]       = "episode";
+
+    mail(get_data_atom_v, JsonStore(getEpisodeData))
+        .request(caf::actor_cast<caf::actor>(this), infinite)
+        .then(
+            [=](const JsonStore &episode_data) mutable {
+                auto getSequenceData          = GetData;
+                getSequenceData["project_id"] = project_id;
+                getSequenceData["type"]       = "sequence";
+
+                mail(get_data_atom_v, JsonStore(getSequenceData))
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
+                    .then(
+                        [=](const JsonStore &sequence_data) mutable {
+                            auto data = R"([])"_json;
+                            data.push_back(episode_data);
+                            data.push_back(sequence_data);
+                            rp.deliver(JsonStore(data));
+                        },
+                        [=](error &err) mutable { rp.deliver(err); });
             },
             [=](error &err) mutable { rp.deliver(err); });
 }
@@ -1465,9 +1691,7 @@ void ShotBrowser::get_data_unit(
 
     filter["conditions"][0][2]["id"] = project_id;
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "CustomEntity24",
         JsonStore(filter),
@@ -1475,6 +1699,7 @@ void ShotBrowser::get_data_unit(
         std::vector<std::string>({"code"}),
         1,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1514,9 +1739,7 @@ void ShotBrowser::get_data_stage(
 
     filter["conditions"][0][2]["id"] = project_id;
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "CustomEntity34",
         JsonStore(filter),
@@ -1524,6 +1747,7 @@ void ShotBrowser::get_data_stage(
         std::vector<std::string>({"code"}),
         1,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1553,7 +1777,8 @@ void ShotBrowser::get_data_group(
     const std::string &type,
     const int project_id) {
 
-    request(shotgun_, infinite, shotgun_groups_atom_v, project_id)
+    mail(shotgun_groups_atom_v, project_id)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1590,9 +1815,7 @@ void ShotBrowser::get_data_sequence(
 
     filter["conditions"][0][2]["id"] = project_id;
 
-    request(
-        shotgun_,
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "Sequences",
         JsonStore(filter),
@@ -1600,6 +1823,7 @@ void ShotBrowser::get_data_sequence(
         std::vector<std::string>({"code"}),
         page,
         4999)
+        .request(shotgun_, infinite)
         .then(
             [=](const JsonStore &data) mutable {
                 try {
@@ -1629,11 +1853,8 @@ void ShotBrowser::get_data_sequence(
                             getShotData["project_id"] = project_id;
                             getShotData["type"]       = "sequence_shot";
 
-                            request(
-                                caf::actor_cast<caf::actor>(this),
-                                infinite,
-                                get_data_atom_v,
-                                JsonStore(getShotData))
+                            mail(get_data_atom_v, JsonStore(getShotData))
+                                .request(caf::actor_cast<caf::actor>(this), infinite)
                                 .then(
                                     [=](const JsonStore &statusdata) mutable {
                                         try {
@@ -1692,6 +1913,66 @@ void ShotBrowser::get_data_sequence(
             [=](error &err) mutable { rp.deliver(err); });
 }
 
+void ShotBrowser::get_data_episode(
+    caf::typed_response_promise<utility::JsonStore> rp,
+    const std::string &type,
+    const int project_id,
+    const int page,
+    const JsonStore &prev_data) {
+
+    auto filter = R"(
+    {
+        "logical_operator": "and",
+        "conditions": [
+            ["project", "is", {"type":"Project", "id":0}]
+        ]
+    })"_json;
+    // ["sg_status_list", "not_in", ["na","del"]]
+
+    filter["conditions"][0][2]["id"] = project_id;
+
+    mail(
+        shotgun_entity_search_atom_v,
+        "CustomEntity20",
+        JsonStore(filter),
+        EpisodeFields,
+        std::vector<std::string>({"code"}),
+        page,
+        4999)
+        .request(shotgun_, infinite)
+        .then(
+            [=](const JsonStore &data) mutable {
+                try {
+                    if (not data.count("data"))
+                        rp.deliver(make_error(xstudio_error::error, data.dump(2)));
+                    else {
+                        auto total = prev_data;
+                        total.insert(
+                            total.end(), data.at("data").begin(), data.at("data").end());
+
+                        if (data.at("data").size() == 4999) {
+                            get_data_episode(rp, type, project_id, page + 1, total);
+                        } else {
+
+                            auto cache_key = QueryEngine::cache_name(type, project_id);
+
+                            engine().set_lookup(
+                                QueryEngine::cache_name("Episode", project_id),
+                                total,
+                                engine().lookup());
+                            engine().set_cache(cache_key, total);
+
+                            rp.deliver(*engine().get_cache(cache_key));
+                        }
+                    }
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    rp.deliver(make_error(xstudio_error::error, err.what()));
+                }
+            },
+            [=](error &err) mutable { rp.deliver(err); });
+}
+
 void ShotBrowser::execute_preset(
     caf::typed_response_promise<utility::JsonStore> rp,
     const std::vector<std::string> &preset_paths,
@@ -1709,16 +1990,17 @@ void ShotBrowser::execute_preset(
     try {
         auto presets      = R"([])"_json;
         auto preset_group = R"([])"_json;
-        auto group_id     = utility::Uuid();
+        auto group_detail = R"({"id": "", "flags":[]})"_json;
         auto entity       = std::string();
 
         for (const auto &i : preset_paths) {
             auto preset = engine().user_presets().at(json::json_pointer(i));
             if (entity.empty()) {
                 if (preset.value("type", "") == "group") {
-                    entity       = preset.at("entity");
-                    preset_group = preset.at("children").at(0).at("children");
-                    group_id     = preset.value("id", utility::Uuid());
+                    entity                = preset.at("entity");
+                    preset_group          = preset.at("children").at(0).at("children");
+                    group_detail["id"]    = preset.value("id", utility::Uuid());
+                    group_detail["flags"] = preset.value("flags", std::vector<std::string>());
                 } else {
                     auto tmp = engine().user_presets().at(json::json_pointer(i)
                                                               .parent_pointer()
@@ -1726,9 +2008,10 @@ void ShotBrowser::execute_preset(
                                                               .parent_pointer()
                                                               .parent_pointer());
 
-                    entity       = tmp.at("entity");
-                    preset_group = tmp.at("children").at(0).at("children");
-                    group_id     = tmp.value("id", utility::Uuid());
+                    entity                = tmp.at("entity");
+                    preset_group          = tmp.at("children").at(0).at("children");
+                    group_detail["id"]    = tmp.value("id", utility::Uuid());
+                    group_detail["flags"] = tmp.value("flags", std::vector<std::string>());
                 }
             }
 
@@ -1752,7 +2035,8 @@ void ShotBrowser::execute_preset(
             auto req          = JsonStore(GetPrecache);
             req["project_id"] = project_id;
 
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         // spdlog::warn("PRECACHED COMPLETE");
@@ -1765,7 +2049,7 @@ void ShotBrowser::execute_preset(
             auto request = QueryEngine::build_query(
                 project_id,
                 entity,
-                group_id,
+                group_detail,
                 preset_group,
                 presets,
                 custom_terms,
@@ -1791,6 +2075,7 @@ void ShotBrowser::get_precache(
     // trigger precaching of lookup.
     // we call into ourselves sigh..
     const auto &lookup         = engine().lookup();
+    const auto &cache          = engine().cache();
     std::set<std::string> need = engine().precache_needed(project_id, lookup);
 
     if (need.empty()) {
@@ -1801,7 +2086,8 @@ void ShotBrowser::get_precache(
         if (need.count("Project")) {
             auto req    = JsonStore(GetData);
             req["type"] = "project";
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1818,7 +2104,8 @@ void ShotBrowser::get_precache(
         if (need.count("Department")) {
             auto req    = JsonStore(GetData);
             req["type"] = "department";
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1836,7 +2123,8 @@ void ShotBrowser::get_precache(
             auto req          = JsonStore(GetData);
             req["type"]       = "user";
             req["project_id"] = project_id;
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1853,7 +2141,8 @@ void ShotBrowser::get_precache(
         if (need.count("Pipeline Status")) {
             auto req    = JsonStore(GetData);
             req["type"] = "pipeline_status";
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1870,8 +2159,8 @@ void ShotBrowser::get_precache(
         // if (need.count("Shot Pipeline Status")) {
         //     auto req    = JsonStore(GetData);
         //     req["type"] = "shot_pipeline_status";
-        //     request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
-        //         .then(
+        //     mail(get_data_atom_v, req)
+        //         .request(caf::actor_cast<caf::actor>(this), infinite).then(
         //             [=](const JsonStore &) mutable {
         //                 (*count) = (*count) - 1;
         //                 if (not(*count))
@@ -1887,7 +2176,8 @@ void ShotBrowser::get_precache(
         if (need.count("Sequence Status")) {
             auto req    = JsonStore(GetData);
             req["type"] = "sequence_status";
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1904,7 +2194,8 @@ void ShotBrowser::get_precache(
         if (need.count("Production Status")) {
             auto req    = JsonStore(GetData);
             req["type"] = "production_status";
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1921,7 +2212,8 @@ void ShotBrowser::get_precache(
         if (need.count("Shot Status")) {
             auto req    = JsonStore(GetData);
             req["type"] = "shot_status";
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1939,7 +2231,8 @@ void ShotBrowser::get_precache(
             auto req          = JsonStore(GetData);
             req["type"]       = "stage";
             req["project_id"] = project_id;
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1957,7 +2250,27 @@ void ShotBrowser::get_precache(
             auto req          = JsonStore(GetData);
             req["type"]       = "unit";
             req["project_id"] = project_id;
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const JsonStore &) mutable {
+                        (*count) = (*count) - 1;
+                        if (not(*count))
+                            rp.deliver(utility::JsonStore());
+                    },
+                    [=](error &err) mutable {
+                        (*count) = (*count) - 1;
+                        if (not(*count))
+                            rp.deliver(err);
+                    });
+        }
+
+        if (need.count("Asset")) {
+            auto req          = JsonStore(GetData);
+            req["type"]       = "asset";
+            req["project_id"] = project_id;
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1975,7 +2288,8 @@ void ShotBrowser::get_precache(
             auto req          = JsonStore(GetData);
             req["type"]       = "playlist";
             req["project_id"] = project_id;
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -1993,7 +2307,27 @@ void ShotBrowser::get_precache(
             auto req          = JsonStore(GetData);
             req["type"]       = "shot";
             req["project_id"] = project_id;
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const JsonStore &) mutable {
+                        (*count) = (*count) - 1;
+                        if (not(*count))
+                            rp.deliver(utility::JsonStore());
+                    },
+                    [=](error &err) mutable {
+                        (*count) = (*count) - 1;
+                        if (not(*count))
+                            rp.deliver(err);
+                    });
+        }
+
+        if (need.count("Episode")) {
+            auto req          = JsonStore(GetData);
+            req["type"]       = "episode";
+            req["project_id"] = project_id;
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;
@@ -2011,7 +2345,8 @@ void ShotBrowser::get_precache(
             auto req          = JsonStore(GetData);
             req["type"]       = "sequence";
             req["project_id"] = project_id;
-            request(caf::actor_cast<caf::actor>(this), infinite, get_data_atom_v, req)
+            mail(get_data_atom_v, req)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &) mutable {
                         (*count) = (*count) - 1;

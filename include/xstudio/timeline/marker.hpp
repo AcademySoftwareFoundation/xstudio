@@ -80,34 +80,5 @@ namespace timeline {
 
         return result;
     }
-
-    // inline std::string to_string(const ItemType it) {
-    //     std::string str;
-    //     switch (it) {
-    //     case IT_NONE:
-    //         str = "None";
-    //         break;
-    //     case IT_GAP:
-    //         str = "Gap";
-    //         break;
-    //     case IT_CLIP:
-    //         str = "Clip";
-    //         break;
-    //     case IT_AUDIO_TRACK:
-    //         str = "Audio Track";
-    //         break;
-    //     case IT_VIDEO_TRACK:
-    //         str = "Video Track";
-    //         break;
-    //     case IT_STACK:
-    //         str = "Stack";
-    //         break;
-    //     case IT_TIMELINE:
-    //         str = "Timeline";
-    //         break;
-    //     }
-    //     return str;
-    // }
-
 } // namespace timeline
 } // namespace xstudio

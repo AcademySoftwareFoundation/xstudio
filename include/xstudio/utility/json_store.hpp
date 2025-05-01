@@ -248,6 +248,8 @@ namespace utility {
 
         nlohmann::json &ref() { return *this; }
 
+        void parse_string(const std::string &data);
+
         // nlohmann::json &operator[](const std::string &key) { return json_[key]; }
 
         // const nlohmann::json &operator[](const std::string &key) const { return

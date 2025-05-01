@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/ui/viewport/video_output_plugin.hpp"
 
 using namespace xstudio::ui::viewport;
@@ -40,7 +42,8 @@ void VideoOutputPlugin::finalise() {
     // tell the studio actor to create an offscreen viewport. It will send
     // us the resulting actor asynchronously as a message which our message
     // handler above will receive
-    request(studio_ui, infinite, offscreen_viewport_atom_v, Module::name() + " viewport")
+    mail(offscreen_viewport_atom_v, Module::name() + " viewport")
+        .request(studio_ui, infinite)
         .then(
             [=](caf::actor offscreen_vp) {
                 // this is the offscreen renderer that we asked for below.
@@ -48,7 +51,7 @@ void VideoOutputPlugin::finalise() {
 
                 // sending this message forces the new viewport attach to the current
                 // on screen playhead
-                anon_send(offscreen_viewport_, viewport_playhead_atom_v, true);
+                anon_mail(viewport_playhead_atom_v, true).send(offscreen_viewport_);
 
                 // now we have an offscreen viewport to send us frame buffers
                 // we can initialise the card and start output
@@ -71,19 +74,19 @@ void VideoOutputPlugin::start(int frame_width, int frame_height) {
     if (!offscreen_viewport_)
         return;
 
-    send(
-        offscreen_viewport_,
+    mail(
         video_output_actor_atom_v,
         caf::actor_cast<caf::actor>(this),
         frame_width,
         frame_height,
         viewport::RGBA_16 // viewport::RGBA_10_10_10_2 // *see note below
-    );
+        )
+        .send(offscreen_viewport_);
 }
 
 void VideoOutputPlugin::stop() {
 
-    send(offscreen_viewport_, video_output_actor_atom_v, caf::actor());
+    mail(video_output_actor_atom_v, caf::actor()).send(offscreen_viewport_);
 }
 
 void VideoOutputPlugin::video_frame_consumed(const utility::time_point &frame_display_time) {
@@ -91,8 +94,8 @@ void VideoOutputPlugin::video_frame_consumed(const utility::time_point &frame_di
     // this informs the viewport the timepoint when video frames are going on-screen. It uses
     // this to infer the re-fresh rate of the display and therefore do an accurate 'pulldown'
     // when evaluating the playhead position for the next frame to go on-screen.
-    anon_send(
-        offscreen_viewport_, ui::fps_monitor::framebuffer_swapped_atom_v, frame_display_time);
+    anon_mail(ui::fps_monitor::framebuffer_swapped_atom_v, frame_display_time)
+        .send(offscreen_viewport_);
 }
 
 void VideoOutputPlugin::request_video_frame(const utility::time_point &frame_display_time) {
@@ -100,15 +103,15 @@ void VideoOutputPlugin::request_video_frame(const utility::time_point &frame_dis
     // Make an explicit request for the viewport to render a frame that will go on-screen at the
     // given time. The resulting frame is delivered to the subclass via
     // incoming_video_frame_callback
-    anon_send(
-        offscreen_viewport_,
+    anon_mail(
         ui::viewport::render_viewport_to_image_atom_v,
-        frame_display_time + std::chrono::milliseconds(video_delay_millisecs_));
+        frame_display_time + std::chrono::milliseconds(video_delay_millisecs_))
+        .send(offscreen_viewport_);
 }
 
 void VideoOutputPlugin::send_status(const utility::JsonStore &data) {
 
-    anon_send(caf::actor_cast<caf::actor>(this), data);
+    anon_mail(data).send(caf::actor_cast<caf::actor>(this));
 }
 
 void VideoOutputPlugin::sync_geometry_to_main_viewport(const bool sync) {
@@ -125,7 +128,8 @@ void VideoOutputPlugin::sync_geometry_to_main_viewport(const bool sync) {
             true);
 
         if (!sync) {
-            anon_send(offscreen_viewport_, ui::viewport::fit_mode_atom_v, previous_fit_mode_);
+            anon_mail(ui::viewport::fit_mode_atom_v, previous_fit_mode_)
+                .send(offscreen_viewport_);
             return;
         }
 
@@ -147,8 +151,8 @@ void VideoOutputPlugin::sync_geometry_to_main_viewport(const bool sync) {
         auto zoom = utility::request_receive<float>(
             *sys, main_viewport, ui::viewport::viewport_scale_atom_v);
 
-        anon_send(offscreen_viewport_, ui::viewport::viewport_pan_atom_v, pan);
-        anon_send(offscreen_viewport_, ui::viewport::viewport_scale_atom_v, zoom);
+        anon_mail(ui::viewport::viewport_pan_atom_v, pan).send(offscreen_viewport_);
+        anon_mail(ui::viewport::viewport_scale_atom_v, zoom).send(offscreen_viewport_);
 
 
     } catch (std::exception &e) {
@@ -161,5 +165,6 @@ void VideoOutputPlugin::display_info(
     const std::string &model,
     const std::string &manufacturer,
     const std::string &serialNumber) {
-    anon_send(offscreen_viewport_, screen_info_atom_v, name, model, manufacturer, serialNumber);
+    anon_mail(screen_info_atom_v, name, model, manufacturer, serialNumber)
+        .send(offscreen_viewport_);
 }

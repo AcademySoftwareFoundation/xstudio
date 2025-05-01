@@ -16,6 +16,7 @@ We provide comprehensive build steps for 4 of the most popular distributions.
 
 ### Building xSTUDIO for Linux
 
+* [Linux Generic](docs/build_guides/linux_generic.md) 
 * [CentOS 7](docs/build_guides/centos_7.md)
 * [Rocky Linux 9.1](docs/build_guides/rocky_linux_9_1.md)
 * [Ubuntu 22.04](docs/build_guides/ubuntu_22_04.md)
@@ -26,8 +27,8 @@ We provide comprehensive build steps for 4 of the most popular distributions.
 
 ### Building xSTUDIO for MacOS
 
-MacOS compatibility is not yet available. Watch this space!
+* [MacOS](docs/build_guides/macos.md)
 
 ### Documentation Note
 
-Note that the xSTUDIO user guide is built with Sphinx using the Read-The-Docs theme. The package dependencies for building the docs are somewhat onerous to install and as such we have ommitted these steps from the instructions and instead recommend that you turn off the docs build. Instead, we include the fully built docs (as html pages) as part of this repo and building xSTUDIO will install these pages so that they can be loaded into your browser via the Help menu in the main UI.
+Note that the xSTUDIO user guide is built with Sphinx using the Read-The-Docs theme. The package dependencies for building the docs can be challenging to install so we instead include the fully built docs as part of xSTUDIO's repo, as well as the source for building the docs. Our build set-up by default disables the building of the docs to make life easy!

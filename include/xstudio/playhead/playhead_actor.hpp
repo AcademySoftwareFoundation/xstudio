@@ -19,15 +19,19 @@ namespace playhead {
 
     class PlayheadActor : public caf::event_based_actor, public PlayheadBase {
       public:
+        // Constructor for special 'offscreen only' playhead that doesn't need
+        // to connect to the UI to function
+        PlayheadActor(caf::actor_config &cfg, const std::string &name);
+
         PlayheadActor(
             caf::actor_config &cfg,
             const std::string &name,
-            const AudioPath                 = GLOBAL_AUDIO,
+            const AudioPath,
             caf::actor playlist_selection   = caf::actor(),
             const utility::Uuid uuid        = utility::Uuid::generate(),
             caf::actor_addr parent_playlist = caf::actor_addr());
 
-        virtual ~PlayheadActor();
+        virtual ~PlayheadActor() = default;
 
         const char *name() const override { return NAME.c_str(); }
 
@@ -72,6 +76,7 @@ namespace playhead {
         void
         select_media(const utility::UuidList &selection, caf::typed_response_promise<bool> &rp);
         void match_video_track_durations();
+        void align_audio_playhead();
         void align_clip_frame_numbers();
         void move_playhead_to_last_viewed_frame_of_current_source();
         void
@@ -90,7 +95,6 @@ namespace playhead {
             const std::string new_stream_name,
             const media::MediaType mt,
             bool apply_to_selected);
-        bool has_selection_changed();
         int previous_selected_sources_count_ = {-1};
 
         void on_exit() override;
@@ -110,6 +114,8 @@ namespace playhead {
         void make_source_menu_model();
         void apply_compare_prefs();
         void step_to_next_media(const bool forwards);
+
+        void connected_viewports_changed(std::set<caf::actor> &connected_viewports) override;
 
         caf::message_handler behavior_;
 
@@ -160,7 +166,7 @@ namespace playhead {
 
         std::set<media::MediaKey> frames_cached_;
 
-        media::MediaKeyVector all_frames_keys_;
+        media::AVFrameIDs all_frame_ids_;
         bool updating_source_list_                      = {false};
         bool child_playhead_changed_                    = {false};
         timebase::flicks vid_refresh_sync_phase_adjust_ = timebase::flicks{0};
@@ -170,6 +176,7 @@ namespace playhead {
         bool wrap_sources_                              = {false};
         bool contact_sheet_mode_                        = {false};
         int sub_playhead_precache_idx_                  = {0};
+        bool offscreen_only_                            = {false};
         const AudioPath audio_path_;
 
         utility::UuidActorVector to_uuid_actor_vec(const std::vector<caf::actor> &actors);

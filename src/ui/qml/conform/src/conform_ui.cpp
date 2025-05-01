@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/conform/conformer.hpp"
 #include "xstudio/ui/qml/conform_ui.hpp"
 #include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/ui/qml/session_model_ui.hpp"
+#include "xstudio/timeline/track_actor.hpp"
 
 CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
@@ -22,8 +24,6 @@ ConformEngineUI::ConformEngineUI(QObject *parent) : super(parent) {
 
 void ConformEngineUI::init(caf::actor_system &_system) {
     super::init(_system);
-
-    self()->set_default_handler(caf::drop);
 
     // join conform engine events.
     try {
@@ -87,10 +87,7 @@ void ConformEngineUI::init(caf::actor_system &_system) {
                 }
             },
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg &g) {
-                caf::aout(self())
-                    << "ConformEngineUI down: " << to_string(g.source) << std::endl;
-            }};
+            [=](caf::message) {}};
     });
 }
 
@@ -574,6 +571,7 @@ QFuture<QList<QUuid>> ConformEngineUI::conformItemsFuture(
 QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
     const QModelIndexList &mediaIndexes,
     const QString &qtask,
+    const int siblings,
     const QModelIndex &playlistIndex) const {
 
     auto media = UuidActorVector();
@@ -629,23 +627,26 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
             scoped_actor sys{system()};
             try {
 
-                auto reply = request_receive<
-                    std::vector<std::optional<std::pair<std::string, caf::uri>>>>(
+                auto reply = request_receive<std::vector<
+                    std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>>(
                     *sys, conform_manager, conform::conform_atom_v, media);
 
                 auto seq_to_media = std::map<caf::uri, std::vector<UuidActor>>();
                 auto seq_to_name  = std::map<caf::uri, std::string>();
+                auto seq_to_meta  = std::map<caf::uri, utility::JsonStore>();
 
                 auto count      = 0;
                 auto media_done = 0;
 
                 for (const auto &i : reply) {
                     if (i) {
-                        if (not seq_to_media.count(i->second))
-                            seq_to_media[i->second] = std::vector<UuidActor>();
+                        const auto &[name, uri, meta] = *i;
+                        if (not seq_to_media.count(uri))
+                            seq_to_media[uri] = std::vector<UuidActor>();
 
-                        seq_to_media[i->second].push_back(media[count]);
-                        seq_to_name[i->second] = i->first;
+                        seq_to_media[uri].push_back(media[count]);
+                        seq_to_name[uri] = name;
+                        seq_to_meta[uri] = meta;
                     }
                     // else
                     //     spdlog::warn("NO RESULT");
@@ -701,6 +702,7 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                                 *sys, playlist.actor(), playlist::get_media_atom_v);
                         }
 
+                        //  import timeline into playlist
                         auto timeline = request_receive<UuidActor>(
                             *sys,
                             playlist.actor(),
@@ -709,11 +711,22 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                             Uuid(),
                             true);
 
+                        // push version meta into timeline
+                        request_receive<bool>(
+                            *sys,
+                            timeline.actor(),
+                            json_store::set_json_atom_v,
+                            seq_to_meta.at(i.first));
+
                         // generate conform track.
                         request_receive<bool>(
                             *sys, conform_manager, conform::conform_atom_v, timeline, false);
 
                         // if task is supplied add conformed track.
+                        // we really need a hint to the media locations within this timeline..
+                        // that way we can remove clips we don't want in the conform track.
+                        // to support the sibling option.
+
                         if (not task.empty()) {
                             // duplicate nominated conform track
                             // always track 0 ?
@@ -723,45 +736,120 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                                 auto conform_track_uuid = timeline_item.prop().value(
                                     "conform_track_uuid", utility::Uuid());
 
-                                // iterate over tracks
+                                // iterate over tracks to find it.
                                 for (int j = 0;
                                      j < static_cast<int>(timeline_item.front().size());
                                      j++) {
                                     if ((*timeline_item.front().item_at_index(j))->uuid() ==
                                         conform_track_uuid) {
 
-                                        // duplicate
-                                        auto dup = request_receive<UuidActor>(
-                                            *sys,
-                                            (*timeline_item.front().item_at_index(j))->actor(),
-                                            duplicate_atom_v);
-                                        request_receive<JsonStore>(
-                                            *sys,
-                                            dup.actor(),
-                                            timeline::item_lock_atom_v,
-                                            false);
-                                        request_receive<JsonStore>(
-                                            *sys,
-                                            dup.actor(),
-                                            timeline::item_name_atom_v,
-                                            task);
+                                        auto orig_ctrack_item =
+                                            (*timeline_item.front().item_at_index(j));
+                                        // manipulate ITEM, then create track ?
+                                        auto ctrack_item = orig_ctrack_item->clone(true);
 
-                                        auto dupitem = request_receive<timeline::Item>(
-                                            *sys, dup.actor(), timeline::item_atom_v);
+                                        // set track name to match task
+                                        std::ignore = ctrack_item.set_name(task);
+
+                                        // unlock track
+                                        std::ignore = ctrack_item.set_locked(false);
+
+                                        // clear children flags. (as conform track will be
+                                        // green)
+                                        for (auto &citem : ctrack_item) {
+                                            if (citem.item_type() == timeline::IT_CLIP)
+                                                std::ignore = citem.set_flag("");
+                                        }
+
+                                        if (siblings != -1) {
+                                            // we need to prune the clips..
+                                            // for this we need to know which media == which
+                                            // clip
+                                            auto operations =
+                                                JsonStore(conform::ConformOperationsJSON);
+                                            operations["match_only"] = true;
+                                            auto reply = request_receive<conform::ConformReply>(
+                                                *sys,
+                                                conform_manager,
+                                                conform::conform_atom_v,
+                                                operations,
+                                                playlist,
+                                                timeline,
+                                                UuidActor(),
+                                                playlist_media);
+
+
+                                            auto clip_uuids = std::set<utility::Uuid>();
+                                            for (const auto &c : reply.items_) {
+                                                // collect clip uuids..
+                                                if (c) {
+                                                    for (const auto &cc : (*c))
+                                                        clip_uuids.insert(
+                                                            std::get<0>(cc).uuid());
+                                                }
+                                            }
+
+                                            // build set of clip indexes
+                                            auto reset_citems = std::set<Uuid>();
+                                            for (auto &citem : ctrack_item) {
+                                                if (citem.item_type() == timeline::IT_CLIP)
+                                                    reset_citems.insert(citem.uuid());
+                                            }
+
+
+                                            for (int index = 0;
+                                                 index <
+                                                 static_cast<int>(orig_ctrack_item->size());
+                                                 index++) {
+                                                const auto ocuuid =
+                                                    (*(orig_ctrack_item->item_at_index(index)))
+                                                        ->uuid();
+                                                if (clip_uuids.count(ocuuid)) {
+                                                    // add surrounding clips..
+                                                    for (auto add_index = index - siblings;
+                                                         add_index <= index + siblings;
+                                                         add_index++) {
+                                                        if (add_index >= 0 and
+                                                            add_index < static_cast<int>(
+                                                                            orig_ctrack_item
+                                                                                ->size()) and
+                                                            (*(ctrack_item.item_at_index(
+                                                                 add_index)))
+                                                                    ->item_type() ==
+                                                                timeline::IT_CLIP) {
+                                                            reset_citems.erase(
+                                                                (*(ctrack_item.item_at_index(
+                                                                     add_index)))
+                                                                    ->uuid());
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            auto reset_prop =
+                                                JsonStore(R"({"media_uuid": null})"_json);
+                                            reset_prop["media_uuid"] = Uuid();
+
+                                            for (auto &citem : ctrack_item) {
+                                                if (reset_citems.count(citem.uuid()))
+                                                    std::ignore = citem.set_prop(reset_prop);
+                                            }
+                                            // clean track..
+                                            ctrack_item.merge_gaps(true);
+                                        }
+                                        // spawn track from item..
+                                        auto ctrack_actor = sys->spawn<timeline::TrackActor>(
+                                            ctrack_item, ctrack_item);
+                                        auto dup    = ctrack_item.uuid_actor();
                                         auto citems = UuidActorVector();
 
-                                        for (const auto &ditem : dupitem) {
+                                        for (const auto &ditem : ctrack_item) {
                                             if (ditem.item_type() == timeline::IT_CLIP) {
-                                                request_receive<JsonStore>(
-                                                    *sys,
-                                                    ditem.actor(),
-                                                    timeline::item_flag_atom_v,
-                                                    "");
                                                 citems.emplace_back(ditem.uuid_actor());
                                             }
                                         }
 
-                                        // insert above
+                                        // insert track to be conformed above
                                         auto inserted = request_receive<JsonStore>(
                                             *sys,
                                             timeline_item.front().actor(),
@@ -769,7 +857,7 @@ QFuture<QList<QUuid>> ConformEngineUI::conformToNewSequenceFuture(
                                             j,
                                             UuidActorVector({dup}));
 
-                                        // get clips from dup
+                                        // conform clips in new track
                                         conformItemsFuture(
                                             task,
                                             citems,

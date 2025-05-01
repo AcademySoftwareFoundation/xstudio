@@ -36,7 +36,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
     int bytes_per_pixel = 4;
     int pixel_bytes_offset_in_texture_memory = (image_coord.x + image_coord.y*blank_width)*bytes_per_pixel;
     uvec4 c = get_image_data_4bytes(pixel_bytes_offset_in_texture_memory);
-    return vec4(float(c.x)/255.0f,float(c.y)/255.0f,float(c.z)/255.0f,1.0f);
+    return vec4(float(c.x)/255.0f,float(c.y)/255.0f,float(c.z)/255.0f,0.1f);
 }
 )"};
 
@@ -147,7 +147,7 @@ MRCertainty BlankMediaReader::supported(const caf::uri &uri, const std::array<ui
     // but we're pretty good at movs..
     // spdlog::warn("{} {}", to_string(uri.scheme()), to_string(uri.authority()));
 
-    if (to_string(uri.scheme()) == "xstudio" and to_string(uri.authority()) == "blank") {
+    if (std::string(uri.scheme()) == "xstudio" and to_string(uri.authority()) == "blank") {
         return MRC_FULLY;
     }
 

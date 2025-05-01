@@ -49,7 +49,6 @@ namespace ui {
             utility::Uuid current_edited_bookmark_uuid_;
             media_reader::ImageBufPtr image_being_annotated_;
             media::MediaKey frame_being_annotated_;
-            std::mutex mutex_;
         };
 
     } // end namespace viewport

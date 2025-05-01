@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.14
-import QtQuick.Controls 2.14
-import QtQuick.Controls.Styles 1.4
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtQuick.Layouts 1.15
-import QtQml 2.14
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+
 import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
 import xstudio.qml.viewport 1.0
 
 import xStudio 1.0
 
-XsGradientRectangle{
+XsGradientRectangle {
 
     id: panel
     anchors.fill: parent
-
     property color bgColorPressed: palette.highlight
     property color bgColorNormal: "transparent"
     property color forcedBgColorNormal: bgColorNormal
@@ -25,7 +21,6 @@ XsGradientRectangle{
     property real borderWidth: 1
 
     property real textSize: XsStyleSheet.fontSize
-    property var textFont: XsStyleSheet.fontFamily
     property color textColorNormal: palette.text
     property color hintColor: XsStyleSheet.hintColor
 
@@ -63,7 +58,7 @@ XsGradientRectangle{
     }
 
     function nTimer() {
-         return Qt.createQmlObject("import QtQuick 2.0; Timer {}", appWindow);
+        return Qt.createQmlObject("import QtQuick; Timer {}", appWindow);
     }
 
     function delay(delayTime, cb) {
@@ -117,6 +112,7 @@ XsGradientRectangle{
         Component.onCompleted: {
             connectToModel(0)
         }
+
         function connectToModel(retry) {
 
             // connect to the timeline playhead ...
@@ -162,7 +158,11 @@ XsGradientRectangle{
 
         function onRootIndexChanged() {
 
-            timelinePlayhead.connectToModel(0)
+            if (!theTimeline.timelineModel.rootIndex.valid) {
+                timelinePlayhead.uuid = undefined
+            } else {
+                timelinePlayhead.connectToModel(0)
+            }
         }
     }
 
@@ -338,6 +338,7 @@ XsGradientRectangle{
                     toolTip: "Fit All"
                     showBoth: true
                     font.pixelSize: XsStyleSheet.fontSize
+                    font.family: XsStyleSheet.fontFamily
                     onClicked:  theTimeline.fitItems()
                 }
                 XsPrimaryButton{

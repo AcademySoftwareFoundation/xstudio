@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.14
-import QtQuick.Controls.Styles 1.4
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtQuick.Layouts 1.15
+import QtQuick
+
+
+
+
+import QtQuick.Layouts
 import QuickFuture 1.0
 
 import xStudio 1.0
@@ -115,12 +115,12 @@ XsGridView {
             }
         }
 
-        onDragged: {
+        onDragged: (mousePosition, source, data) => {
             computeTargetDropIndex(mousePosition.x, mousePosition.y)
             autoScroll(mousePosition.y)
         }
 
-        onDropped: {
+        onDropped: (mousePosition, source, data) => {
 
             var idx = dragTargetIndex
             if (idx == undefined || !idx.valid) {

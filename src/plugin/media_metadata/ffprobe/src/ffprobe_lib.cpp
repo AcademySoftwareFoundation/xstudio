@@ -487,14 +487,17 @@ nlohmann::json populate_streams(MediaFile &src) {
 
 std::string uri_convert(const caf::uri &uri) {
 
+    // Note, turning off non-file uri support for now
+    return utility::uri_to_posix_path(uri);
+
     // This may be a kettle of fish.
 
     // uri like https://aswf.s3-accelerate.amazonaws.com/ALab_h264_MOVs/mk020_0220.mov
     // can be passed through.
     // uri like file://localhost/user_data/my_vid.mov needs the 'localhost' removed.
-    auto path = to_string(uri);
+    /* auto path = to_string(uri);
     utility::replace_string_in_place(path, "file://localhost", "file:");
-    return path;
+    return path;*/
 }
 } // namespace
 

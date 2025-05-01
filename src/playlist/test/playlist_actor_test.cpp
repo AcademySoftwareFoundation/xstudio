@@ -42,46 +42,48 @@ TEST(PlaylistActorTest, Test) {
             [&](const std::string &name) { EXPECT_EQ(name, "Test"); },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
-    f.self->anon_send(tmp, name_atom_v, "Test2");
+    anon_mail(name_atom_v, "Test2").send(tmp);
     f.self->request(tmp, std::chrono::seconds(10), name_atom_v)
         .receive(
             [&](const std::string &name) { EXPECT_EQ(name, "Test2"); },
             [&](const caf::error &err) { EXPECT_TRUE(false) << to_string(err); });
 
     auto su1 = Uuid::generate();
-    f.self->anon_send(
-        tmp,
-        add_media_atom_v,
-        f.self->spawn<MediaActor>(
-            "test",
-            Uuid(),
-            UuidActorVector({UuidActor(
-                su1,
-                f.self->spawn<MediaSourceActor>(
-                    "test",
-                    posix_path_to_uri(TEST_RESOURCE "/media/test.{:04d}.ppm"),
-                    FrameList(1, 10),
-                    utility::FrameRate(timebase::k_flicks_24fps),
-                    su1))})),
+    f.self
+        ->mail(
+            add_media_atom_v,
+            f.self->spawn<MediaActor>(
+                "test",
+                Uuid(),
+                UuidActorVector({UuidActor(
+                    su1,
+                    f.self->spawn<MediaSourceActor>(
+                        "test",
+                        posix_path_to_uri(TEST_RESOURCE "/media/test.{:04d}.ppm"),
+                        FrameList(1, 10),
+                        utility::FrameRate(timebase::k_flicks_24fps),
+                        su1))})),
 
-        Uuid());
+            Uuid())
+        .send(tmp);
 
 
     auto su2 = Uuid::generate();
-    f.self->anon_send(
-        tmp,
-        add_media_atom_v,
-        f.self->spawn<MediaActor>(
-            "test",
-            Uuid(),
-            UuidActorVector({UuidActor(
-                su1,
-                f.self->spawn<MediaSourceActor>(
-                    "test",
-                    posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
-                    utility::FrameRate(timebase::k_flicks_24fps),
-                    su2))})),
-        Uuid());
+    f.self
+        ->mail(
+            add_media_atom_v,
+            f.self->spawn<MediaActor>(
+                "test",
+                Uuid(),
+                UuidActorVector({UuidActor(
+                    su1,
+                    f.self->spawn<MediaSourceActor>(
+                        "test",
+                        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
+                        utility::FrameRate(timebase::k_flicks_24fps),
+                        su2))})),
+            Uuid())
+        .send(tmp);
 
     JsonStore serial;
     f.self->request(tmp, infinite, serialise_atom_v)
@@ -126,7 +128,7 @@ TEST(PlaylistActorTest, Test) {
 // 		Uuid()
 // 	);
 
-// 	f.self->anon_send(tmp, add_media_atom_v,
+// 	f.self->anon_mail(add_media_atom_v,
 // 		f.self->spawn<MediaActor>(
 // 			"Media3",
 // 			Uuid(),
@@ -135,7 +137,7 @@ TEST(PlaylistActorTest, Test) {
 // "/media/test.mov"))
 // 		),
 // 		Uuid()
-// 	);
+// 	).send(tmp);
 
 // 	// check our media refs work..
 // 	f.self->request(tmp, std::chrono::seconds(10), get_media_pointer_atom_v, media::MT_IMAGE,

@@ -10,6 +10,28 @@
 using namespace xstudio;
 using namespace xstudio::utility;
 
+static std::map<utility::Uuid, std::string> cnt_map;
+static std::mutex cnt_mutex;
+
+
+void Container::register_container(const Container &cnt) {
+    std::lock_guard<std::mutex> m(cnt_mutex);
+    cnt_map[cnt.uuid()] = cnt.type();
+    // spdlog::warn("register {} {}",to_string(cnt.uuid()),cnt.type());
+}
+
+void Container::unregister_container(const Container &cnt) {
+    std::lock_guard<std::mutex> m(cnt_mutex);
+    // spdlog::error("unregistered {} {}", to_string(cnt.uuid()), cnt.type());
+    cnt_map.erase(cnt.uuid());
+
+    // if (cnt_map.size() < 30) {
+    //     for (const auto &i : cnt_map)
+    //         spdlog::error("NOT unregistered {} {}", to_string(i.first), i.second);
+    // }
+}
+
+
 void Container::set_file_version(const std::string &version, const bool warn) {
     semver::version nv(version);
     if (nv > file_version_ and warn)
@@ -65,7 +87,7 @@ caf::message_handler Container::container_message_handler(caf::event_based_actor
     return caf::message_handler({
         [=](name_atom, const std::string &name) { // make_set_name_handler
             name_ = name;
-            actor_->send(event_group_, event_atom_v, name_atom_v, name);
+            actor_->mail(event_atom_v, name_atom_v, name).send(event_group_);
             send_changed();
         },
         [=](name_atom) -> std::string { return name_; }, // make_get_name_handler
@@ -75,8 +97,8 @@ caf::message_handler Container::container_message_handler(caf::event_based_actor
         [=](last_changed_atom, const time_point &last_changed) { // make_last_changed_setter
             if (last_changed > last_changed_ or last_changed == time_point()) {
                 last_changed_ = last_changed;
-                actor_->send(
-                    event_group_, utility::event_atom_v, last_changed_atom_v, last_changed_);
+                actor_->mail(utility::event_atom_v, last_changed_atom_v, last_changed_)
+                    .send(event_group_);
             }
         },
         [=](utility::event_atom,
@@ -84,8 +106,8 @@ caf::message_handler Container::container_message_handler(caf::event_based_actor
             const time_point &last_changed) { // make_last_changed_event_handler
             if (last_changed > last_changed_) {
                 last_changed_ = last_changed;
-                actor_->send(
-                    event_group_, utility::event_atom_v, last_changed_atom_v, last_changed_);
+                actor_->mail(utility::event_atom_v, last_changed_atom_v, last_changed_)
+                    .send(event_group_);
             }
         },
         [=](uuid_atom) -> Uuid { return uuid_; },        // make_get_uuid_handler

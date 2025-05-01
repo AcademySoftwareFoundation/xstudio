@@ -42,20 +42,21 @@ TEST(AudioActorTest, Test) {
     auto playlist = f.self->spawn<PlaylistActor>("Test");
     auto srcuuid  = Uuid::generate();
 
-    f.self->anon_send(
-        playlist,
-        add_media_atom_v,
-        f.self->spawn<MediaActor>(
-            "Media3",
-            Uuid(),
-            UuidActorVector({UuidActor(
-                srcuuid,
-                f.self->spawn<MediaSourceActor>(
-                    "MediaSource3",
-                    posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
-                    utility::FrameRate(timebase::k_flicks_24fps),
-                    srcuuid))})),
-        Uuid());
+    f.self
+        ->mail(
+            add_media_atom_v,
+            f.self->spawn<MediaActor>(
+                "Media3",
+                Uuid(),
+                UuidActorVector({UuidActor(
+                    srcuuid,
+                    f.self->spawn<MediaSourceActor>(
+                        "MediaSource3",
+                        posix_path_to_uri(TEST_RESOURCE "/media/test.mov"),
+                        utility::FrameRate(timebase::k_flicks_24fps),
+                        srcuuid))})),
+            Uuid())
+        .send(playlist);
 
     using namespace std::chrono_literals;
 

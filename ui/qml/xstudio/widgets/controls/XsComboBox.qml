@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Window 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Templates 2.15 as T
 
 import xStudio 1.0
 
-T.ComboBox { id: widget
+ComboBox { id: widget
 
     editable: false
     clip: true
@@ -76,7 +75,7 @@ T.ComboBox { id: widget
     }
 
     contentItem:
-    T.TextField{ id: textField
+    TextField{ id: textField
 
         text: activeFocus && widget.editable ? widget.displayText : (textMetrics.elidedText ? textMetrics.elidedText : defaultText)
 
@@ -129,12 +128,10 @@ T.ComboBox { id: widget
     }
 
     indicator:
-    XsImage{
+    XsIcon{
         opacity: enabled? 1:0.3
         source: "qrc:///icons/arrow_drop_down.svg"
-        sourceSize.width: 25
-        sourceSize.height: 20
-        width: widget.width>=25 ? 25:widget.width
+        width: 25//widget.width>=25 ? 25:widget.width
         height: 20
         anchors.right: widget.right
         anchors.verticalCenter: widget.verticalCenter

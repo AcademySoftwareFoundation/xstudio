@@ -2,6 +2,7 @@
 #include <filesystem>
 
 #include <fstream>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -64,6 +65,52 @@ utility::JsonStore xstudio::global_store::global_store_builder(
 void xstudio::global_store::set_global_store_def(
     utility::JsonStore &js, const GlobalStoreDef &gsd) {
     js.set(static_cast<utility::JsonStore>(gsd), static_cast<std::string>(gsd));
+}
+
+bool xstudio::global_store::load_preferences(
+    utility::JsonStore &prefs,
+    const bool load_user_prefs,
+    const std::vector<std::string> &extra_prefs_paths,
+    const std::vector<std::string> &override_prefs_paths) {
+
+    // load application default prefs. These prefs must exist for xstudio to
+    // work! If this fails, app should exit.
+    if (not preference_load_defaults(prefs, xstudio_resources_dir("preference"))) {
+        spdlog::error(
+            "Failed to load application preferences {}", xstudio_resources_dir("preference"));
+        return false;
+    }
+
+    // prefs files *might* be located in a 'preference' subfolder under XSTUDIO_PLUGIN_PATH
+    // folders
+    char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
+    if (plugin_path) {
+        for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+            if (fs::is_directory(p + "/preferences"))
+                preference_load_defaults(prefs, p + "/preferences");
+        }
+    }
+
+    // now set-up our list of preference paths to try and load over the top
+    // of the application defaults ....
+    std::vector<std::string> pref_paths = extra_prefs_paths;
+
+    if (load_user_prefs) {
+        // user preference files will override all other prefs except
+        // 'override' predfs
+        for (const auto &i : global_store::PreferenceContexts)
+            pref_paths.push_back(preference_path_context(i));
+    }
+
+    // These prefs files will override user prefs. This allows us to have per
+    // machine preference files, for example, to force certain layouts on
+    // special machines like in a playback suite, say.
+    for (const auto &p : override_prefs_paths) {
+        pref_paths.push_back(p);
+    }
+
+    preference_load_overrides(prefs, pref_paths);
+    return true;
 }
 
 bool xstudio::global_store::preference_load_defaults(
@@ -368,18 +415,37 @@ utility::JsonStore GlobalStoreHelper::get_existing_or_create_new_preference(
     const bool async,
     const bool broadcast_change,
     const std::string &context) {
+
+    // Preferences can be fully defined in a .json file that ships with the 
+    // application. However, we've found this to be a burden when creating
+    // Python plugins which need preference driven attributes but where we
+    // don't want to be building .json files to install at the same time.
+
+    // To get around this, here create a new preference entry if there isn't
+    // one already coming from the .json files. We have to fill in essential
+    // preference entry fields which are needed later when preferences are
+    // written to the users home dir when xstudio exits.
+
     try {
 
         utility::JsonStore v = get(path);
         if (!v.contains("overridden_value")) {
             v["overridden_value"] = default_;
-            v["path"]             = path;
-            v["context"]          = std::vector<std::string>({"APPLICATION"});
-            JsonStoreHelper::set(v, path, async, broadcast_change);
         }
+        if (!v.contains("path")) {
+            v["path"]             = path;
+        }
+        if (!v.contains("context")) {
+            v["context"]          = std::vector<std::string>({"APPLICATION"});
+        }
+        JsonStoreHelper::set(v, path, async, broadcast_change);        
         return v["value"];
 
     } catch (...) {
+
+        // No such preference was found in the .json files that ship with the
+        // app OR with the .json pref files that are saved into the user's
+        // home dir
         utility::JsonStore v;
         v["value"]            = default_;
         v["overridden_value"] = default_;

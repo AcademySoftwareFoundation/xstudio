@@ -5,8 +5,8 @@ include(CTest)
 # target_link_libraries(viewport_qml_test
 # 	PUBLIC
 # 		xstudio::ui::qml::viewport
-# 		Qt5::Gui
-# 		Qt5::Quick
+# 		Qt6::Gui
+# 		Qt6::Quick
 # 		${GTEST_LDFLAGS}
 # )
 # add_test(viewport_qml_tests viewport_qml_test)

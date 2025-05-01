@@ -7,7 +7,7 @@
     "nlohmann-json",
     "glew",
     "freetype",
-    "ijg-libjpeg",
+    "libjpeg-turbo",
     "pybind11",
     "python3",
     "spdlog",
@@ -35,7 +35,6 @@
         "opus",
         "snappy",
         "soxr",
-        "speex",
         "swresample",
         "swscale",
         "theora",
@@ -57,7 +56,7 @@
     },
     {
       "name": "caf",
-      "version": "0.18.5"
+      "version": "1.0.2#0"
     },
     {
       "name": "fmt",

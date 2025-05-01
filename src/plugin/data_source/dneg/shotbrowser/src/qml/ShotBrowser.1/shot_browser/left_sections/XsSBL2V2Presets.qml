@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
 
 import QuickFuture 1.0
 import QuickPromise 1.0
@@ -33,7 +32,7 @@ XsGradientRectangle{
 
             XsPrimaryButton{ id: addBtn
                 Layout.preferredWidth: btnWidth
-                Layout.preferredHeight: parent.height
+                Layout.preferredHeight: btnHeight
                 imgSrc: "qrc:/icons/add.svg"
                 onClicked: {
                     if(addMenu.visible) addMenu.visible = false
@@ -48,12 +47,12 @@ XsGradientRectangle{
 
             Item{
                 Layout.fillWidth: true
-                Layout.preferredHeight: parent.height
+                Layout.preferredHeight: btnHeight
             }
 
             XsPrimaryButton{ id: moreBtn
                 Layout.preferredWidth: btnWidth
-                Layout.preferredHeight: parent.height
+                Layout.preferredHeight: btnHeight
                 imgSrc: "qrc:/icons/more_vert.svg"
                 onClicked:{
                     if(moreMenu.visible) moreMenu.visible = false

@@ -9,7 +9,6 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
-#include <malloc.h>
 #include <new>
 
 #define UNSET_DTS -1e6

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtGraphicalEffects 1.15
-import QtQml.Models 2.14
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Effects
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -164,22 +163,25 @@ Rectangle{
                 border.color: XsStyleSheet.panelBgColor
                 clip: true
 
-                XsMediaThumbnailImage { id: thumb
+                XsMediaThumbnailImage { 
+                    
+                    id: thumb
                     anchors.fill: parent
                     showBorder: isOnScreen
                     highlightBorderThickness: 10
-
-                    LinearGradient {
-                        anchors.fill: parent
-                        start: Qt.point(0, 0)
-                        end: Qt.point(width, height)
+                    
+                    Rectangle {
+                        width: parent.width*0.5
+                        height: parent.width*0.5
+                        x: -width/2
+                        y: -width/2    
                         gradient: Gradient {
-                            GradientStop { position: 0.0; color: isSelected ? palette.highlight : "#44000000" }
-                            GradientStop { position: 0.15; color: isSelected ? palette.highlight : "#44000000" }
-                            GradientStop { position: 0.25; color: "transparent" }
+                            GradientStop { position: 0.75; color: isSelected ? palette.highlight : "#66000000" }
                             GradientStop { position: 1.0; color: "transparent" }
                         }
+                        rotation: -45
                     }
+
                 }
                 Rectangle{ id: flagIndicator
                     width: 5 * cellSize/standardCellSize
@@ -211,17 +213,17 @@ Rectangle{
                     anchors.top: thumb.top
                     anchors.topMargin: showDetails? 5 : 1.5
                     font.bold: true
-                    // color: isSelected ? palette.highlight : palette.text
+                }
 
-                    layer.enabled: true
-                    layer.effect: DropShadow{
-                        verticalOffset: 1
-                        horizontalOffset: 1
-                        color: "#010101"
-                        radius: 1
-                        samples: 3
-                        spread: 0.5
-                    }
+                MultiEffect {
+                    source: indexDiv
+                    anchors.fill: indexDiv
+                    shadowEnabled: true
+                    shadowColor:  "black"
+                    shadowVerticalOffset: 1.5
+                    shadowHorizontalOffset: 1.5
+                    shadowScale: 1.2
+                    shadowBlur: 0.15
                 }
 
             }

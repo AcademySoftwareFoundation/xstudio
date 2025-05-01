@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
 #include <caf/logger.hpp>
+#include <caf/actor_registry.hpp>
+
 #include <Python.h>
 
 #include <pybind11/pybind11.h> // everything needed for embedding
@@ -17,6 +19,7 @@
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
+#include "xstudio/embedded_python/python_thread_locker.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -81,12 +84,9 @@ void send_output(
     auto stde = output.stderr_string();
 
     if (not stdo.empty() or not stde.empty()) {
-        act->send(
-            grp,
-            utility::event_atom_v,
-            python_output_atom_v,
-            uuid,
-            std::make_tuple(stdo, stde));
+        act->mail(
+               utility::event_atom_v, python_output_atom_v, uuid, std::make_tuple(stdo, stde))
+            .send(grp);
     }
 }
 
@@ -134,14 +134,44 @@ EmbeddedPythonActor::EmbeddedPythonActor(caf::actor_config &cfg, const std::stri
     init();
 }
 
+static void *s_run(void *self) {
+    ((EmbeddedPythonActor *)self)->main_loop();
+    return nullptr;
+}
 void EmbeddedPythonActor::act() {
+#ifdef __apple__
+    // Note: on MacOS, the default stack size for subthreads is 512K.
+    // We are seeing bus error when xstudio api module is imported.
+    // I suspect there is some problem with interdependency between
+    // our .py files causing some recursion that eventually halts
+    // on Linux but blows up on Mac with the smaller stack,
+    // but not sure about that. It could just be that the stack
+    // is not an appropriate size for running python interpreter
+    // in.
+    pthread_t _thread;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    size_t stacksize;
+
+    // increase stack to 10x default
+    pthread_attr_setstacksize(&attr, 524288 * 10);
+
+    pthread_create(&_thread, &attr, s_run, this);
+    pthread_join(_thread, NULL);
+#else
+    main_loop();
+#endif
+}
+
+void EmbeddedPythonActor::main_loop() {
     bool running = true;
 
     data_.set_origin(true);
     data_.bind_send_event_func([&](auto &&PH1, auto &&PH2) {
         auto event     = JsonStore(std::forward<decltype(PH1)>(PH1));
         auto undo_redo = std::forward<decltype(PH2)>(PH2);
-        send(event_group_, utility::event_atom_v, json_store::sync_atom_v, data_uuid_, event);
+        mail(utility::event_atom_v, json_store::sync_atom_v, data_uuid_, event)
+            .send(event_group_);
     });
 
     try {
@@ -309,10 +339,17 @@ void EmbeddedPythonActor::act() {
             return make_error(xstudio_error::error, error);
         },
 
+        // downgrade_manifest = otio.versioning.fetch_map("OTIO_CORE", "0.15.0")
+        // otio.adapters.write_to_file(
+        //     sc,
+        //     "/path/to/file.otio",
+        //     target_schema_versions=downgrade_manifest
+        // )
         [=](session::export_atom,
             const std::string &otio_str,
             const caf::uri &upath,
-            const std::string &type) -> result<bool> {
+            const std::string &type,
+            const std::string &target_schema) -> result<bool> {
             // get otio supported export formats.
             if (not base_.enabled())
                 return make_error(xstudio_error::error, "EmbeddedPython disabled");
@@ -323,31 +360,24 @@ void EmbeddedPythonActor::act() {
                 PyStdErrOutStreamRedirect out{};
                 otio::ErrorStatus error_status;
                 // Import the OTIO Python module.
-                auto p_module = PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
-                auto p_read_from_string =
-                    PyObjectRef(PyObject_GetAttrString(p_module, "read_from_string"));
-                auto p_read_from_string_args = PyObjectRef(PyTuple_New(1));
-                auto p_read_from_string_arg =
-                    PyUnicode_FromStringAndSize(otio_str.c_str(), otio_str.size());
-                if (not p_read_from_string_arg)
-                    throw std::runtime_error("cannot create arg");
-                PyTuple_SetItem(p_read_from_string_args, 0, p_read_from_string_arg);
-                auto p_timeline = PyObjectRef(
-                    PyObject_CallObject(p_read_from_string, p_read_from_string_args));
-
                 auto path = uri_to_posix_path(upath);
 
-                // Write the Python timeline.
-                auto p_write_to_file =
-                    PyObjectRef(PyObject_GetAttrString(p_module, "write_to_file"));
-                auto p_write_to_file_args = PyObjectRef(PyTuple_New(2));
-                auto p_write_to_file_arg =
-                    PyUnicode_FromStringAndSize(path.c_str(), path.size());
-                if (not p_write_to_file_arg)
-                    throw std::runtime_error("cannot create arg");
-                PyTuple_SetItem(p_write_to_file_args, 0, p_timeline);
-                PyTuple_SetItem(p_write_to_file_args, 1, p_write_to_file_arg);
-                PyObjectRef(PyObject_CallObject(p_write_to_file, p_write_to_file_args));
+                py::object read_from_string =
+                    py::module_::import("opentimelineio.adapters").attr("read_from_string");
+                py::object write_to_file =
+                    py::module_::import("opentimelineio.adapters").attr("write_to_file");
+
+                py::object p_timeline = read_from_string(otio_str);
+
+                if (target_schema.empty()) {
+                    write_to_file(p_timeline, path);
+                } else {
+                    py::object fetchmap =
+                        py::module_::import("opentimelineio.versioning").attr("fetch_map");
+                    py::object vmap = fetchmap("OTIO_CORE", target_schema);
+                    py::object result =
+                        write_to_file(p_timeline, path, "target_schema_versions"_a = vmap);
+                }
 
                 return true;
             } catch (py::error_already_set &err) {
@@ -376,32 +406,12 @@ void EmbeddedPythonActor::act() {
                 try {
                     otio::ErrorStatus error_status;
 
-                    auto p_module =
-                        PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
-                    // Read the timeline into Python.
-                    auto p_read_from_file =
-                        PyObjectRef(PyObject_GetAttrString(p_module, "read_from_file"));
-                    auto p_read_from_file_args = PyObjectRef(PyTuple_New(1));
-
-
                     const std::string file_name_normalized = uri_to_posix_path(path);
-                    auto p_read_from_file_arg              = PyUnicode_FromStringAndSize(
-                        file_name_normalized.c_str(), file_name_normalized.size());
-                    if (!p_read_from_file_arg) {
-                        throw std::runtime_error("cannot create arg");
-                    }
-                    PyTuple_SetItem(p_read_from_file_args, 0, p_read_from_file_arg);
-                    auto p_timeline = PyObjectRef(
-                        PyObject_CallObject(p_read_from_file, p_read_from_file_args));
-
-                    // Convert the Python timeline into a string and use that to create a C++
-                    // timeline.
-                    auto p_to_json_string =
-                        PyObjectRef(PyObject_GetAttrString(p_timeline, "to_json_string"));
-                    auto p_json_string =
-                        PyObjectRef(PyObject_CallObject(p_to_json_string, nullptr));
-
-                    return PyUnicode_AsUTF8AndSize(p_json_string, nullptr);
+                    py::object read_from_file =
+                        py::module_::import("opentimelineio.adapters").attr("read_from_file");
+                    py::object p_timeline = read_from_file(file_name_normalized);
+                    py::str jsn           = p_timeline.attr("to_json_string")();
+                    return jsn;
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
@@ -731,7 +741,7 @@ void EmbeddedPythonActor::act() {
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &j) mutable {
@@ -742,17 +752,35 @@ void EmbeddedPythonActor::act() {
         },
         [=](bool) {},
 
-        [=](const utility::Uuid &cb_id) { base_.run_callback(cb_id); },
-
         [=](embedded_python::python_exec_atom,
             const utility::Uuid &plugin_uuid,
             const std::string method_name,
             const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
-            try {
-                return base_.run_plugin_callback(plugin_uuid, method_name, packed_args);
-            } catch (std::exception &e) {
-                return make_error(xstudio_error::error, e.what());
-            }
+            return make_error(xstudio_error::error, "Python Callbacks Not Implemented Yet");
+        },
+
+        [=](embedded_python::python_eval_atom, utility::BlindDataObjectPtr lock) {
+            // another thread wants to run some python (see py_context.cpp) ...
+            // the EmbeddedPythonActor normally holds the GIL while it's
+            // waiting for messages to process here.
+
+            // We will release the GIL now....
+            py::gil_scoped_release release;
+
+            // Now we try and acquire a lock on the mutex ... this was already
+            // locked by the other thread that wants to run pyton. This other
+            // thread will unlock the mutex when it has acquired the GIL,
+            // finished executing it's python, and then released the GIL at
+            // which point here we can continue
+            PythonThreadLocker *py_locker = const_cast<PythonThreadLocker *>(
+                dynamic_cast<const PythonThreadLocker *>(lock.get()));
+
+            // This thread will hang here until the other thread has finished
+            // its stuff
+            std::lock_guard l(py_locker->mutex_);
+
+            // Note: a much nicer solution would be that when this loop is idle
+            // the GIL is released. Don't know how to do that one yet.
         },
 
         [&](exit_msg &em) {
@@ -761,23 +789,10 @@ void EmbeddedPythonActor::act() {
                     base_.disconnect();
                 fail_state(std::move(em.reason));
                 running = false;
+                system().registry().erase(embedded_python_registry);
             }
-        },
-        others >> [=](message &msg) -> skippable_result {
-            auto sender = caf::actor_cast<caf::actor>(current_sender());
-            /*        request(sender, infinite, utility::name_atom_v).receive(
-            [=](std::string nm) {
-                std::cerr << "Name " << nm << "\n";
-            },
-            [=](caf::error & err) {
-                std::cerr << "Err " << to_string(err) << "\n";
-            });*/
-
-            base_.push_caf_message_to_py_callbacks(sender, msg);
-            return message{};
-
-            // return sec::unexpected_message;
         });
+
     base_.finalize();
 }
 
@@ -793,12 +808,14 @@ void EmbeddedPythonActor::init() {
 
 void EmbeddedPythonActor::join_broadcast(caf::actor broadcast_group) {
 
-    send(broadcast_group, broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this));
+    mail(broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
+        .send(broadcast_group);
 }
 
 void EmbeddedPythonActor::leave_broadcast(caf::actor broadcast_group) {
 
-    send(broadcast_group, broadcast::leave_broadcast_atom_v, caf::actor_cast<caf::actor>(this));
+    mail(broadcast::leave_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
+        .send(broadcast_group);
 }
 
 void EmbeddedPythonActor::join_broadcast(
@@ -806,13 +823,12 @@ void EmbeddedPythonActor::join_broadcast(
 
     auto plugin_manager = system().registry().template get<caf::actor>(plugin_manager_registry);
 
-    request(plugin_manager, infinite, plugin_manager::spawn_plugin_base_atom_v, plugin_name)
+    mail(plugin_manager::spawn_plugin_base_atom_v, plugin_name)
+        .request(plugin_manager, infinite)
         .receive(
             [=](caf::actor plugin_actor) {
-                send(
-                    plugin_actor,
-                    broadcast::join_broadcast_atom_v,
-                    caf::actor_cast<caf::actor>(this));
+                mail(broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
+                    .send(plugin_actor);
             },
             [=](caf::error &e) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e));
@@ -919,8 +935,7 @@ nlohmann::json EmbeddedPythonActor::refresh_snippet(
     return result;
 }
 void EmbeddedPythonActor::delayed_callback(utility::Uuid &cb_id, const int microseconds_delay) {
-    delayed_anon_send(
-        caf::actor_cast<caf::actor>(this),
-        std::chrono::microseconds(microseconds_delay),
-        cb_id);
+    anon_mail(cb_id)
+        .delay(std::chrono::microseconds(microseconds_delay))
+        .send(caf::actor_cast<caf::actor>(this), weak_ref);
 }

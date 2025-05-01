@@ -7,13 +7,15 @@
 #include <Imath/ImathVec.h>
 
 #include "xstudio/utility/chrono.hpp"
+#include "xstudio/ui/enums.hpp"
 
 namespace xstudio {
 namespace ui {
 
+    // enum class EventType { Move, Drag, ButtonDown, ButtonRelease, MouseWheel, DoubleClick };
+
     struct Signature {
 
-        enum class EventType { Move, Drag, ButtonDown, ButtonRelease, MouseWheel, DoubleClick };
 
         enum Button {
             None            = 0,
@@ -91,7 +93,7 @@ namespace ui {
         PointerEvent(const PointerEvent &o) = default;
 
         PointerEvent(
-            Signature::EventType t     = Signature::EventType::Move,
+            EventType t                = EventType::Move,
             Signature::Button b        = Signature::Button::None,
             int x                      = 0,
             int y                      = 0,
@@ -157,7 +159,7 @@ namespace ui {
         [[nodiscard]] int height() const { return height_; }
         [[nodiscard]] std::pair<int, int> angle_delta() const { return angle_delta_; }
         [[nodiscard]] std::pair<int, int> pixel_delta() const { return pixel_delta_; }
-        [[nodiscard]] Signature::EventType type() const { return signature_.type_; }
+        [[nodiscard]] EventType type() const { return signature_.type_; }
         [[nodiscard]] int buttons() const { return signature_.buttons_; }
         [[nodiscard]] int modifiers() const { return signature_.modifiers_; }
         [[nodiscard]] const Signature &signature() const { return signature_; }

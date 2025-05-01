@@ -37,7 +37,7 @@ namespace ui {
             void leave_playhead(caf::actor group) { leave_broadcast(self(), group); }
 
           private:
-            void emitPointerEvent(viewport::Signature::EventType t, QMouseEvent *event);
+            void emitPointerEvent(viewport::EventType t, QMouseEvent *event);
 
             opengl::viewport_;
             caf::actor player_;

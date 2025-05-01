@@ -16,6 +16,7 @@ namespace media_reader {
         std::vector<int> image_draw_order_hint_;
         float layout_aspect_;
         utility::JsonStore custom_layout_data_;
+        bool draw_hero_overlays_only_;
     };
     typedef std::shared_ptr<const ImageSetLayoutData> ImageSetLayoutDataPtr;
 

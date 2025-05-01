@@ -1,7 +1,5 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Controls.Basic
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -36,7 +34,7 @@ XsPopup {
     property var _currentChoice: typeof current_choice !== "undefined" ? current_choice : typeof value !== "undefined" ? value : ""
     property var _choices_enabled: typeof combo_box_options_enabled !== "undefined" ? combo_box_options_enabled : []
 
-    ListView {
+    XsListView {
 
         id: view
         orientation: ListView.Vertical
@@ -45,12 +43,12 @@ XsPopup {
         height: maxMenuHeight(contentHeight)
         contentHeight: contentItem.childrenRect.height
         contentWidth: minWidth
-        snapMode: ListView.SnapToItem
+        snapMode: ListView.SnapOneItem
         // currentIndex: -1
         property real minWidth: 20
         clip: true
 
-        ScrollBar.vertical: ScrollBar {
+        ScrollBar.vertical: XsScrollBar {
             parent: view.parent
             id: scrollBar;
             width: 10

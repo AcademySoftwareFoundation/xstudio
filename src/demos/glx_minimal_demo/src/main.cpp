@@ -209,14 +209,14 @@ void GLXWindowViewportActor::execute() {
 void GLXWindowViewportActor::resizeGL(int w, int h) {
     width  = w;
     height = h;
-    anon_send(
-        caf::actor_cast<caf::actor>(this),
+    anon_mail(
         ui::viewport::viewport_set_scene_coordinates_atom_v,
         Imath::V2f(0, 0),
         Imath::V2f(w, 0),
         Imath::V2f(w, h),
         Imath::V2f(0, h),
-        Imath::V2i(w, h));
+        Imath::V2i(w, h))
+        .send(caf::actor_cast<caf::actor>(this));
 }
 
 int main(int argc, char *argv[]) {
@@ -546,7 +546,7 @@ void GLXWindowViewportActor::event_loop_func() {
             XNextEvent(display, &ev);
 
             // see viewport.cpp ... this message will cause a redraw
-            anon_send(self, show_buffer_atom_v, true);
+            anon_mail(show_buffer_atom_v, true).send(self);
             // render();
 
             switch (ev.type) {

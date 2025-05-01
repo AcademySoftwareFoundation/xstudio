@@ -60,6 +60,7 @@ namespace ui {
             Q_INVOKABLE QFuture<QList<QUuid>> conformToNewSequenceFuture(
                 const QModelIndexList &mediaIndexes,
                 const QString &task              = "",
+                const int siblings               = -1,
                 const QModelIndex &playlistIndex = QModelIndex()) const;
 
             Q_INVOKABLE QFuture<bool> conformPrepareSequenceFuture(
