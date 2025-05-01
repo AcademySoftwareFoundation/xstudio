@@ -16,7 +16,7 @@ Now you must select the correct version of Qt to download. The required version 
 
 * Apple: **macOS**
 * Windows: **MSVC 2019 64-bit**
-* Linux:
+* Linux: **gcc_64**
 
 You must also expand the 'Addition Libraries' item, and select **'Qt Image Formats'** from that list.
 

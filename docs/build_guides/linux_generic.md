@@ -32,7 +32,7 @@ You must run these commands to add the OpenTimelineIO submodule to the tree
 
 ### Modify the CMakePresets.json file
 
-Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry "Qt6_DIR" and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, on MacOS where user Mary Jane downloaded Qt into her home folder the entry should look like this:
+Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry "Qt6_DIR" and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named 'Qt6' which is in a directory named 'cmake', which is in a directory named 'lib'. For example, if user Mary Jane downloaded Qt into her home folder the entry should look like this:
 
     "Qt6_DIR": "/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6",
 

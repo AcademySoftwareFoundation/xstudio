@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 cmake_policy(VERSION 3.26)
 
-set(XSTUDIO_GLOBAL_VERSION "2.5.0" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "1.0.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
@@ -298,9 +298,9 @@ if (WIN32)
 
   include(InstallRequiredSystemLibraries)
 
-  set(CPACK_PACKAGE_VERSION "2.5.0")
-  set(CPACK_PACKAGE_VERSION_MAJOR "2")
-  set(CPACK_PACKAGE_VERSION_MINOR "5")
+  set(CPACK_PACKAGE_VERSION "1.0.0")
+  set(CPACK_PACKAGE_VERSION_MAJOR "1")
+  set(CPACK_PACKAGE_VERSION_MINOR "0")
   set(CPACK_PACKAGE_VERSION_PATCH "0")
   set(CPACK_PACKAGE_VENDOR "DNEG / Academy Software Foundation")
   set (CPACK_NSIS_MUI_ICON
