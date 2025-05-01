@@ -3,8 +3,9 @@ from xstudio.core import Uuid, add_media_atom, actor, selection_actor_atom, get_
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media import Media
 from xstudio.api.session.playhead import Playhead, PlayheadSelection
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
-class Subset(Container):
+class Subset(Container, JsonStoreHandler):
     """Subset object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -20,6 +21,7 @@ class Subset(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+        JsonStoreHandler.__init__(self, self)
 
     def add_media(self, media, before_uuid=Uuid()):
         """Add media to subset.

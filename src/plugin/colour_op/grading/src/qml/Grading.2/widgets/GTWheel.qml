@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.15
-import QtQml 2.15
-import QtQml.Models 2.14
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+
 import xStudio 1.0
 
 Control { id: wheel
@@ -252,52 +250,14 @@ Control { id: wheel
     contentItem: Item {
         implicitWidth: wheelSize
         implicitHeight: implicitWidth
-
-        ShaderEffect {
-            id: shadereffect
+        
+        XsImage { id: imgDiv
             width: parent.width
             height: parent.height
-
-            readonly property real radius: 0.5
-            readonly property real ring_radius: radius - radius * wheel.ring_rel_size
-            readonly property real saturation: wheel.saturation
-            readonly property real local_value: wheel.local_value
-
-            fragmentShader: "
-                #version 330
-
-                #define M_PI 3.1415926535897932384626433832795
-                #define M_PI_2 (2.0 * M_PI)
-
-                varying highp vec2 qt_TexCoord0;
-
-                uniform highp float qt_Opacity;
-                uniform highp float radius;
-                uniform highp float ring_radius;
-                uniform highp float saturation;
-                uniform highp float local_value;
-
-                vec3 hsv_to_rgb(vec3 c) {
-                    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-                    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-                    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-                }
-
-                void main() {
-                    highp vec2 coord = qt_TexCoord0 - vec2(0.5);
-                    highp float r = length(coord);
-                    highp float h = atan(coord.x, coord.y);
-                    highp float s = r <= ring_radius ? saturation * 0.5 : saturation;
-                    highp float v = r <= ring_radius ? local_value * 0.35 : local_value;
-
-                    if (r <= radius) {
-                        vec3 rgb = hsv_to_rgb( vec3((h + M_PI) / M_PI_2, s, v) );
-                        gl_FragColor = vec4(rgb, 1.0);
-                    } else {
-                        gl_FragColor = vec4(0.0);
-                    }
-                }
-            "
+            antialiasing: true
+            smooth: true
+            imgOverlayColor: "transparent"
+            source: "qrc:/grading_icons/wheel_256px.png"
         }
 
         // Cross in the center
@@ -321,7 +281,7 @@ Control { id: wheel
             anchors.fill: parent
             propagateComposedEvents: true
 
-            onPressed: {
+            onPressed: (mouse)=> {
                 cDrag.x = mouse.x
                 cDrag.y = mouse.y
                 update_backend_from_cursor()

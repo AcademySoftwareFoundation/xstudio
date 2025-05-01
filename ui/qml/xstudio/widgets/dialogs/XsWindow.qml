@@ -1,6 +1,7 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Window 2.15
+import QtQuick
+import QtQuick.Controls.Basic
+
+
 
 import xStudio 1.0
 
@@ -9,10 +10,10 @@ ApplicationWindow {
     minimumWidth: 150
     minimumHeight: 100
 
-    flags: Qt.platform.os === "windows" ? Qt.Window : Qt.WindowStaysOnTopHint | Qt.Dialog
+    flags: Qt.platform.os === "windows" ? Qt.Window : Qt.WindowStaysOnTopHint  | Qt.Dialog | Qt.Tool
 
     color: XsStyleSheet.panelBgColor
- 
+
     // override default palette
     palette.base: XsStyleSheet.panelBgColor
     palette.highlight: XsStyleSheet.accentColor

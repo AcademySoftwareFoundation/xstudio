@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -54,7 +55,7 @@ Rectangle{
                         text: parent.lineCount>15 ? parent.getFormattedText(0, parent.text.length) : parent.text
                         scaling: 0.8
                         visible: toolTipMArea.containsMouse && (scrollView.contentHeight > scrollView.height || scrollView.contentWidth > scrollView.width) //parent.lineCount>7
-                        fixedWidth: parent.width<200? parent.width+40 : parent.width
+                        maxWidth: parent.width<200? parent.width+40 : parent.width
                     }
 
                 }
@@ -66,7 +67,7 @@ Rectangle{
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
             }
-            XsImage{
+            XsIcon{
                 width: XsStyleSheet.secondaryButtonStdWidth
                 height: XsStyleSheet.secondaryButtonStdWidth
                 anchors.right: parent.right
@@ -77,7 +78,7 @@ Rectangle{
                 source: "qrc:///shotbrowser_icons/arrow_right.svg"
                 visible: scrollView.contentWidth > scrollView.width
             }
-            XsImage{
+            XsIcon{
                 width: XsStyleSheet.secondaryButtonStdWidth
                 height: XsStyleSheet.secondaryButtonStdWidth
                 anchors.right: parent.right

@@ -1,24 +1,22 @@
 project(xstudio VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
-
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
-find_package(Qt5 COMPONENTS Core Quick Gui Widgets OpenGL QuickCompiler REQUIRED)
+find_package(Qt6 COMPONENTS Core Quick Gui Widgets OpenGL OpenGLWidgets Svg REQUIRED)
 find_package(OpenSSL)
 find_package(ZLIB)
 find_package(fmt REQUIRED)
 
-qtquick_compiler_add_resources(QML_RESOURCES ../../../../ui/qml/xstudio/qml.qrc)
 if(WIN32)
 set(SOURCES
 	xstudio.cpp
 	xstudio_win_resource.rc
-	${QML_RESOURCES}
+	../../../../ui/qml/xstudio/qml.qrc
 	)	
 else()
 set(SOURCES
 	xstudio.cpp
-	${QML_RESOURCES}
+	../../../../ui/qml/xstudio/qml.qrc
 	)	
 endif()
 if(WIN32)
@@ -33,6 +31,7 @@ endif()
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -44,7 +43,7 @@ else()
 	configure_file(xstudio.sh.in xstudio.sh @ONLY)
 endif()
 
-default_options(${PROJECT_NAME})
+default_options_local(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
@@ -70,25 +69,28 @@ target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		fmt::fmt
 		spdlog::spdlog
-		caf::core
-		caf::io
+		CAF::core
+		CAF::io
 		$<$<BOOL:${NVIDIA_HACK}>:GLdispatch>
 		# quickfuture
-		Qt5::Core
-		Qt5::Gui
-		Qt5::Quick
-		Qt5::Widgets
+		Qt6::Core
+		Qt6::Gui
+		Qt6::Quick
+		Qt6::OpenGLWidgets
+		Qt6::Widgets
+		Qt6::Svg
 		OpenSSL::SSL
 		ZLIB::ZLIB
 )
 
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)
-else()
-	target_link_libraries(${PROJECT_NAME} PUBLIC OTIO::opentime OTIO::opentimelineio)
+elseif(NOT APPLE)
+	target_link_libraries(${PROJECT_NAME} PUBLIC uuid)
 endif()
 
 if(WIN32)
+
 	set_target_properties(${PROJECT_NAME}
 		PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
@@ -97,31 +99,58 @@ if(WIN32)
 		LINK_DEPENDS_NO_SHARED true
 	)
 
+	install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin)
+
+	install(PROGRAMS
+	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.bat
+	  DESTINATION bin
+	  RENAME xstudio)
+
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+    find_program(windeployqt_exe windeployqt HINTS "${_qt_bin_dir}")
+        configure_file(windeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake @ONLY)
+    install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake)
+
+elseif(APPLE)
+
+	set_target_properties(${PROJECT_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/MacOS"
+		OUTPUT_NAME "${PROJECT_NAME}.bin"
+		LINK_DEPENDS_NO_SHARED true
+	)
+
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources")
+
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/")
+
+	add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_SOURCE_DIR}/xstudio_app.ico "${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/")
+
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+    find_program(macdeployqt_exe macdeployqt HINTS "${_qt_bin_dir}")
+        configure_file(macdeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake @ONLY)
+    install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/macdeploy.cmake)
+
 else()
+
 	set_target_properties(${PROJECT_NAME}
 		PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 		OUTPUT_NAME "${PROJECT_NAME}.bin"
 		LINK_DEPENDS_NO_SHARED true
 	)
-endif()
 
-install(TARGETS ${PROJECT_NAME}
-        RUNTIME DESTINATION bin)
+	install(TARGETS ${PROJECT_NAME}
+      RUNTIME DESTINATION bin)
 
-if(WIN32)
-	install(PROGRAMS
-	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.bat
-	  DESTINATION bin
-	  RENAME xstudio)
-
-	get_target_property(_qmake_executable Qt5::qmake IMPORTED_LOCATION)
-    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
-    find_program(windeployqt_exe windeployqt HINTS "${_qt_bin_dir}")
-	configure_file(windeploy.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake @ONLY)
-	install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/windeploy.cmake)
-
-else()
 	install(PROGRAMS
 	  ${CMAKE_CURRENT_BINARY_DIR}/xstudio.sh
 	  DESTINATION bin
@@ -131,4 +160,5 @@ else()
 	  ${CMAKE_CURRENT_SOURCE_DIR}/xstudio_desktop_integration.sh
 	  DESTINATION bin
 	  RENAME xstudio_desktop_integration)
+
 endif()

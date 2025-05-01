@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.12
-import QtGraphicalEffects 1.12
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQuick.Effects
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -46,6 +46,11 @@ Item{
             anchors.margins: 6
             model: currentPlayhead.image_stream_options
             delegate: listItem
+
+            ScrollBar.vertical: XsScrollBar {
+                visible: listView.height < listView.contentHeight
+            }
+
         }
 
         XsText {
@@ -122,7 +127,7 @@ Item{
                             Layout.preferredWidth: 16
                             Layout.preferredHeight: 16
                             
-                            XsImage {
+                            XsIcon {
                                 anchors.fill: parent
                                 source: isChecked ? 
                                     "qrc:/icons/radio_button_checked.svg" : 

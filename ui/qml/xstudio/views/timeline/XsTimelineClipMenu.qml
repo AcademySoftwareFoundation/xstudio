@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import QtQuick
+import Qt.labs.qmlmodels
+
 import xstudio.qml.models 1.0
 import xStudio 1.0
-import QtQuick 2.12
-import QtQml.Models 2.14
 
 
 XsPopupMenu {
@@ -50,6 +53,74 @@ XsPopupMenu {
             ), ItemSelectionModel.ClearAndSelect)
     }
 
+
+    function getOffline() {
+        let tindex = theSessionData.getTimelineIndex(theTimeline.timelineModel.rootIndex)
+        let mlist = theSessionData.index(0, 0, tindex)
+        let clips = theSessionData.searchRecursiveList("Clip", "typeRole", theTimeline.timelineModel.rootIndex,0,-1,-1)
+        // with media uuid
+        let clipsWithBadMedia = []
+        for(let i = 0; i< clips.length; i++) {
+            let cmu = theSessionData.get(clips[i], "clipMediaUuidRole")
+            if(cmu != undefined && cmu != "{00000000-0000-0000-0000-000000000000}") {
+                // test media..
+                // locate media index..
+                let mindex = theSessionData.search(cmu, "actorUuidRole", mlist)
+                if(mindex.valid) {
+                    // check media offline
+                    let state = theSessionData.get(mindex, "mediaStatusRole")
+                    if(state != undefined && state != "Online")
+                        clipsWithBadMedia.push(clips[i])
+                } else {
+                    clipsWithBadMedia.push(clips[i])
+                }
+            }
+        }
+        return clipsWithBadMedia
+    }
+
+    function getInvalid() {
+        let invalidClips = theSessionData.searchRecursiveList(false, "activeRangeValidRole", theTimeline.timelineModel.rootIndex,0,-1,-1)
+        let offlineClips = getOffline();
+        return invalidClips.filter(value => !offlineClips.includes(value));
+    }
+
+    XsMenuModelItem {
+        text: "Select None"
+        menuPath: "Select"
+        menuItemPosition: 0.3
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+        onActivated: timelineSelection.select(helpers.createItemSelection([]), ItemSelectionModel.ClearAndSelect)
+    }
+
+    XsMenuModelItem {
+        text: "Select Offline/Invalid"
+        menuPath: "Select"
+        menuItemPosition: 0.4
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+        onActivated: timelineSelection.select(helpers.createItemSelection(getOffline().concat(getInvalid())), ItemSelectionModel.ClearAndSelect)
+    }
+
+    XsMenuModelItem {
+        text: "Select Offline"
+        menuPath: "Select"
+        menuItemPosition: 0.5
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+        onActivated: timelineSelection.select(helpers.createItemSelection(getOffline()), ItemSelectionModel.ClearAndSelect)
+    }
+
+    XsMenuModelItem {
+        text: "Select Invalid"
+        menuPath: "Select"
+        menuItemPosition: 0.6
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+        onActivated: timelineSelection.select(helpers.createItemSelection(getInvalid()), ItemSelectionModel.ClearAndSelect)
+    }
+
     XsMenuModelItem {
         text: "Select Next"
         menuPath: "Select"
@@ -68,6 +139,26 @@ XsPopupMenu {
         hotkeyUuid: theTimeline.select_previous_hotkey.uuid
         panelContext: timelineMenu.panelContext
         onActivated: updateItemSelectionHorizontal(1, -1)
+    }
+
+    XsMenuModelItem {
+        text: "Select Around"
+        menuPath: "Select"
+        menuItemPosition: 2.5
+        menuModelName: timelineMenu.menu_model_name
+        // hotkeyUuid: theTimeline.select_next_hotkey.uuid
+        panelContext: timelineMenu.panelContext
+        onActivated: {
+            let items = [].concat(timelineSelection.selectedIndexes)
+            let newitems = []
+            for(let i = 0; i < items.length; i++) {
+                let expanded = theSessionData.modifyItemSelectionHorizontal([items[i]], 1, 1)
+                newitems = newitems.concat(
+                    expanded.filter(value => !newitems.includes(value))
+                )
+            }
+            timelineSelection.select(helpers.createItemSelection(newitems), ItemSelectionModel.ClearAndSelect)
+        }
     }
 
     XsMenuModelItem {
@@ -217,7 +308,7 @@ XsPopupMenu {
         menuModelName: timelineMenu.menu_model_name
         menuPath: ""
         menuPosition: 2
-        onFlagSet: {
+        onFlagSet: (flag, flag_text) => {
             let sindexs = timelineSelection.selectedIndexes
             if(sindexs.length) {
                 let m = sindexs[0].model
@@ -241,7 +332,9 @@ XsPopupMenu {
         menuModelName: timelineMenu.menu_model_name
         menuPath: ""
         menuPosition: 3
-        onFlagSet: theTimeline.flagItems(timelineSelection.selectedIndexes, flag == "#00000000" ? "": flag)
+        onFlagSet: (flag, flag_text) => {
+            theTimeline.flagItems(timelineSelection.selectedIndexes, flag == "#00000000" ? "": flag)
+        }
         panelContext: timelineMenu.panelContext
     }
 
@@ -276,8 +369,10 @@ XsPopupMenu {
         menuItemPosition: 6.1
         menuModelName: timelineMenu.menu_model_name
         onActivated: {
-            if(timelineSelection.selectedIndexes.length) {
-                theTimeline.moveItem(timelineSelection.selectedIndexes[0], -1)
+            let ordered = [].concat(timelineSelection.selectedIndexes)
+            ordered.sort((a,b) => a.row - b.row)
+            for(let i=0; i < ordered.length; i++) {
+                theTimeline.moveItem(ordered[i], -1)
             }
         }
         panelContext: timelineMenu.panelContext
@@ -289,8 +384,10 @@ XsPopupMenu {
         menuItemPosition: 6.2
         menuModelName: timelineMenu.menu_model_name
         onActivated: {
-            if(timelineSelection.selectedIndexes.length) {
-                theTimeline.moveItem(timelineSelection.selectedIndexes[0], 1)
+            let ordered = [].concat(timelineSelection.selectedIndexes)
+            ordered.sort((b,a) => a.row - b.row)
+            for(let i=0; i < ordered.length; i++) {
+                theTimeline.moveItem(ordered[i], 1)
             }
         }
         panelContext: timelineMenu.panelContext

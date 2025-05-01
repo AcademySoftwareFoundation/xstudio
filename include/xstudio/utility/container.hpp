@@ -9,16 +9,15 @@
 #include <ostream>
 #include <string>
 
-#include <fmt/format.h>
-
 #include <caf/actor_companion.hpp>
 #include <caf/event_based_actor.hpp>
-#include <semver.hpp>
-
 #include "xstudio/atoms.hpp"
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
+
+#include <fmt/format.h>
+#include <semver.hpp>
 
 namespace xstudio {
 
@@ -62,9 +61,13 @@ namespace utility {
             : name_(std::move(name)),
               type_(std::move(type)),
               uuid_(std::move(uuid)),
-              version_(PROJECT_VERSION) {}
+              version_(PROJECT_VERSION) {
+            // register_container(*this);
+        }
         explicit Container(const utility::JsonStore &jsn);
-        virtual ~Container() = default;
+        virtual ~Container() {
+            // unregister_container(*this);
+        }
 
         static caf::message_handler default_event_handler();
 
@@ -98,7 +101,8 @@ namespace utility {
         void send_changed(const time_point last_changed = utility::clock::now()) {
             if (last_changed > last_changed_) {
                 last_changed_ = std::move(last_changed);
-                actor_->send(event_group_, event_atom_v, last_changed_atom_v, last_changed_);
+                actor_->mail(event_atom_v, last_changed_atom_v, last_changed_)
+                    .send(event_group_);
             }
         }
 
@@ -108,7 +112,7 @@ namespace utility {
             const time_point last_changed = utility::clock::now()) {
             if (last_changed > last_changed_) {
                 last_changed_ = std::move(last_changed);
-                act->send(grp, event_atom_v, last_changed_atom_v, last_changed_);
+                act->mail(event_atom_v, last_changed_atom_v, last_changed_).send(grp);
             }
         }
 
@@ -118,7 +122,7 @@ namespace utility {
             const time_point last_changed = utility::clock::now()) {
             if (last_changed > last_changed_) {
                 last_changed_ = std::move(last_changed);
-                act->send(grp, event_atom_v, last_changed_atom_v, last_changed_);
+                act->mail(event_atom_v, last_changed_atom_v, last_changed_).send(grp);
             }
         }
 
@@ -139,7 +143,7 @@ namespace utility {
         auto make_set_name_handler(caf::actor grp, caf::blocking_actor *act) {
             return [=](name_atom, const std::string &name) {
                 name_ = name;
-                act->send(grp, event_atom_v, name_atom_v, name);
+                act->mail(event_atom_v, name_atom_v, name).send(grp);
                 send_changed(grp, act);
             };
         }
@@ -171,7 +175,8 @@ namespace utility {
             return [=](last_changed_atom, const time_point &last_changed) {
                 if (last_changed > last_changed_ or last_changed == time_point()) {
                     last_changed_ = last_changed;
-                    act->send(grp, utility::event_atom_v, last_changed_atom_v, last_changed_);
+                    act->mail(utility::event_atom_v, last_changed_atom_v, last_changed_)
+                        .send(grp);
                 }
             };
         }
@@ -179,7 +184,8 @@ namespace utility {
             return [=](utility::event_atom, last_changed_atom, const time_point &last_changed) {
                 if (last_changed > last_changed_) {
                     last_changed_ = last_changed;
-                    act->send(grp, utility::event_atom_v, last_changed_atom_v, last_changed_);
+                    act->mail(utility::event_atom_v, last_changed_atom_v, last_changed_)
+                        .send(grp);
                 }
             };
         }
@@ -217,6 +223,9 @@ namespace utility {
         }
 
       private:
+        void register_container(const Container &cnt);
+        void unregister_container(const Container &cnt);
+
         caf::event_based_actor *actor_{nullptr};
         caf::actor event_group_;
         std::string name_;

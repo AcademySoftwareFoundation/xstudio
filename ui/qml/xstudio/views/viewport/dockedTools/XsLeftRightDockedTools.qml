@@ -1,7 +1,5 @@
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
-import QtGraphicalEffects 1.15
-import QtQml.Models 2.14
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -89,6 +87,7 @@ XsListView {
             onWidgetNameChanged: load_widget(0)
             
             function load_widget(attempt) {
+
                 var idx = dockables.searchRecursive(widgetName, "title")                
                 if (!idx.valid && attempt < 10) {
                     callbackTimer.setTimeout(function() { return function() {

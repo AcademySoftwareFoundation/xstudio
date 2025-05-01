@@ -1,5 +1,5 @@
 SET(LINK_DEPS
-	${CAF_LIBRARY_core}
+	CAF::core
     OpenGL::GL
 	OpenGL::GLU
 	GLEW::GLEW
@@ -21,14 +21,19 @@ find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(OpenEXR)
 find_package(Imath)
-if(WIN32)
-find_package(freetype CONFIG REQUIRED)
+
+create_component_with_alias(opengl_viewport xstudio::ui::opengl::viewport ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")
+
+if (USE_VCPKG)
+	find_package(freetype CONFIG REQUIRED)
 else()
-find_package(Freetype)
-include_directories("${FREETYPE_INCLUDE_DIRS}")
+	find_package(Freetype REQUIRED)
+	target_include_directories(opengl_viewport PUBLIC "${FREETYPE_INCLUDE_DIRS}")
 endif()
 
-create_component_with_alias(opengl_viewport xstudio::ui::opengl::viewport 0.1.0 "${LINK_DEPS}")
+if (APPLE)
+target_compile_definitions(opengl_viewport PRIVATE GL_SILENCE_DEPRECATION=1)
+endif()
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE

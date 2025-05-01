@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <iostream>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/ui/qml/embedded_python_ui.hpp"
@@ -75,46 +76,6 @@ void EmbeddedPythonUI::set_backend(caf::actor backend) {
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
-
-    // // capture snippets..
-    // try {
-    //     // we're doing this a bit oddly...
-    //     // as prefs isn't the place for this..
-    //     // should have a dir for it ?
-
-    //     auto prefs = global_store::GlobalStoreHelper(system());
-    //     JsonStore j;
-    //     prefs.get_group(j);
-
-    //     auto paths = global_store::preference_value<JsonStore>(
-    //         j, "/ui/qml/reskin_windows_and_panels_model");
-    //     // process app/user..
-
-    //     JsonStore snippets;
-
-    //     if (check_create_path(xstudio_root("/snippets"))) {
-    //         snippets.merge(merge_json_from_path(xstudio_root("/snippets")));
-    //     }
-
-    //     for (const auto &i : paths) {
-    //         try {
-    //             snippets.merge(merge_json_from_path(i));
-    //         } catch (...) {
-    //         }
-    //     }
-
-    //     if (check_create_path(snippets_path())) {
-    //         snippets.merge(merge_json_from_path(snippets_path()));
-    //     }
-
-    //     // for each path scan for snippet files, build into snippet dict.
-    //     for (const auto &i : snippets.items()) {
-    //         addSnippet(new SnippetUI(i.value(), this));
-    //     }
-    // } catch (const std::exception &e) {
-    //     spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
-    // }
-
     emit backendChanged();
 }
 
@@ -139,17 +100,13 @@ QUuid EmbeddedPythonUI::createSession() {
 
 bool EmbeddedPythonUI::sendInput(const QString &str) {
     if (backend_) {
-        scoped_actor sys{system()};
         // spdlog::warn("pyEval {0}", str.toStdString());
         try {
             waiting_ = true;
             emit waitingChanged();
             std::string input_string = StdFromQString(str);
-            sys->anon_send(
-                backend_,
-                embedded_python::python_session_input_atom_v,
-                event_uuid_,
-                input_string);
+            anon_mail(embedded_python::python_session_input_atom_v, event_uuid_, input_string)
+                .send(backend_);
             return true;
         } catch (const std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -176,10 +133,9 @@ bool EmbeddedPythonUI::sendInterrupt() {
 
 void EmbeddedPythonUI::pyExec(const QString &str) const {
     if (backend_) {
-        scoped_actor sys{system()};
         // spdlog::warn("pyExec {0}", str.toStdString());
-        sys->anon_send(
-            backend_, embedded_python::python_exec_atom_v, str.toStdString(), event_uuid_);
+        anon_mail(embedded_python::python_exec_atom_v, str.toStdString(), event_uuid_)
+            .send(backend_);
     } else {
         spdlog::warn("No python backend");
     }
@@ -187,9 +143,8 @@ void EmbeddedPythonUI::pyExec(const QString &str) const {
 
 void EmbeddedPythonUI::reloadSnippets() const {
     if (backend_) {
-        scoped_actor sys{system()};
         // spdlog::warn("pyExec {0}", str.toStdString());
-        sys->anon_send(backend_, media::rescan_atom_v);
+        anon_mail(media::rescan_atom_v).send(backend_);
     } else {
         spdlog::warn("No python backend");
     }
@@ -219,10 +174,9 @@ bool EmbeddedPythonUI::saveSnippet(const QUrl &path, const QString &content) con
 
 void EmbeddedPythonUI::pyEvalFile(const QUrl &path) {
     if (backend_) {
-        scoped_actor sys{system()};
         auto uri = UriFromQUrl(path);
         // spdlog::warn("pyExec {0}", to_string(uri));
-        sys->anon_send(backend_, embedded_python::python_eval_file_atom_v, uri, event_uuid_);
+        anon_mail(embedded_python::python_eval_file_atom_v, uri, event_uuid_).send(backend_);
     } else {
         spdlog::warn("No python backend");
     }
@@ -259,19 +213,10 @@ void EmbeddedPythonUI::init(actor_system &system_) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 
-    // self()->set_down_handler([=](down_msg& msg) {
-    // 	if(msg.source == store)
-    // 		unsubscribe();
-    // });
-
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
             [=](utility::event_atom, utility::last_changed_atom, const time_point &) {},
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg & /*msg*/) {
-                // 		if(msg.source == store_events)
-                // unsubscribe();
-            },
             [=](utility::event_atom,
                 json_store::sync_atom,
                 const Uuid &uuid,
@@ -341,7 +286,7 @@ QVariant EmbeddedPythonUI::data(const QModelIndex &index, int role) const {
         case Roles::scriptPathRole:
             try {
                 if (j.count("script_path")) {
-                    auto uri = caf::make_uri(j.at("script_path"));
+                    auto uri = caf::make_uri(j.at("script_path").get<std::string>());
                     if (uri)
                         result = QVariant::fromValue(QUrlFromUri(*uri));
                 }

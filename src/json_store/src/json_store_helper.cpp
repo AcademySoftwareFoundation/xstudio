@@ -17,7 +17,8 @@ JsonStore JsonStoreHelper::get(const std::string &path) const {
     if (not a)
         throw std::runtime_error("JsonStoreHelper is dead");
 
-    system_->request(a, infinite, get_json_atom_v, path)
+    system_->mail(get_json_atom_v, path)
+        .request(a, infinite)
         .receive(
             [&](const JsonStore &_json) { res = _json; },
             [&](const error &err) { throw std::runtime_error(to_string(err)); });
@@ -33,9 +34,10 @@ void JsonStoreHelper::set(
     if (not a)
         throw std::runtime_error("JsonStoreHelper is dead");
     if (async) {
-        system_->send(a, set_json_atom_v, V, path, broadcast_change);
+        system_->mail(set_json_atom_v, V, path, broadcast_change).send(a);
     } else {
-        system_->request(a, infinite, set_json_atom_v, V, path, broadcast_change)
+        system_->mail(set_json_atom_v, V, path, broadcast_change)
+            .request(a, infinite)
             .receive(
                 [&](const bool &) {},
                 [&](const error &err) { throw std::runtime_error(to_string(err)); });
@@ -49,7 +51,8 @@ caf::actor JsonStoreHelper::get_jsonactor() const {
     if (not a)
         throw std::runtime_error("JsonStoreHelper is dead");
 
-    system_->request(a, infinite, utility::get_group_atom_v)
+    system_->mail(utility::get_group_atom_v)
+        .request(a, infinite)
         .receive(
             [&](const std::tuple<caf::actor, caf::actor, JsonStore> &data) {
                 const auto [jsa, grpa, json] = data;
@@ -67,7 +70,8 @@ caf::actor JsonStoreHelper::get_group(utility::JsonStore &V) const {
     if (not a)
         throw std::runtime_error("JsonStoreHelper is dead");
 
-    system_->request(a, infinite, utility::get_group_atom_v)
+    system_->mail(utility::get_group_atom_v)
+        .request(a, infinite)
         .receive(
             [&](const std::tuple<caf::actor, caf::actor, JsonStore> &data) {
                 const auto [jsa, grpa, json] = data;

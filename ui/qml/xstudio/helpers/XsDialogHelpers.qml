@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Dialogs 1.0
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Dialogs
+import QtQuick.Controls.Basic
 
 import QuickFuture 1.0
 import QuickPromise 1.0
@@ -17,9 +17,14 @@ Item {
         id: loader
     }
 
+    Loader {
+        id: file_dlg_loader
+    }
 
     function hideLastDialog() {
-        loader.item.visible = false
+        if (loader.item) {
+            loader.item.visible = false
+        }
     }
 
     function showDialog(callback) {
@@ -27,11 +32,18 @@ Item {
         loader.item.y = root.height/2 - loader.item.height/2
         if (callback) loader.item.response.connect(callback)
         loader.item.visible = true
+        loader.item.show()
     }
 
     property var dialogVisible: loader.item ? loader.item.visible != undefined ? loader.item.visible : false : false
 
     onDialogVisibleChanged: {
+        if (!visible) appWindow.grabFocus()
+    }
+
+    property var fileDialogVisible: file_dlg_loader.item ? file_dlg_loader.item.visible != undefined ? file_dlg_loader.item.visible : false : false
+
+    onFileDialogVisibleChanged: {
         if (!visible) appWindow.grabFocus()
     }
 
@@ -46,21 +58,43 @@ Item {
 
         FileDialog {
             property var chaser
+            signal resultSignal(variant _path, variant _folder, variant _chaser);
 
             onAccepted: {
-                if (selectMultiple)
-                    result(fileUrls, folder, chaser)
+                if (fileMode==FileDialog.OpenFiles)
+                    resultSignal(selectedFiles, currentFolder, chaser)
                 else
-                    result(fileUrl, folder, chaser)
+                    resultSignal(selectedFile, currentFolder, chaser)
                 // unload (important!)
-                loader.sourceComponent = undefined
+                // if (loader.item == fileDialog)
+                file_dlg_loader.sourceComponent = undefined
             }
             onRejected: {
-                result(false, undefined, chaser)
+                resultSignal(false, undefined, chaser)
                 // unload (important!)
-                loader.sourceComponent = undefined
+                file_dlg_loader.sourceComponent = undefined
             }
-            signal result(variant _path, variant _folder, variant _chaser);
+        }
+    }
+
+    Component {
+        id: folderDialog
+
+        FolderDialog {
+            property var chaser
+            signal resultSignal(variant _path, variant _chaser);
+
+            onAccepted: {
+                resultSignal(selectedFolder, chaser)
+                // unload (important!)
+                // if (loader.item == folderDialog)
+                file_dlg_loader.sourceComponent = undefined
+            }
+            onRejected: {
+                resultSignal(undefined, chaser)
+                // unload (important!)
+                file_dlg_loader.sourceComponent = undefined
+            }
         }
     }
 
@@ -74,34 +108,27 @@ Item {
         selectMultiple,
         chaser) {
 
-        loader.sourceComponent = fileDialog
-        loader.item.result.connect(resultCallback)
-        if (folder) loader.item.folder = folder
-        loader.item.title = title
-        loader.item.defaultSuffix = defaultSuffix ? defaultSuffix : ""
-        loader.item.nameFilters = nameFilters
-        loader.item.selectExisting = selectExisting
-        loader.item.selectMultiple = selectMultiple
-        loader.item.chaser = chaser
-        loader.item.selectFolder = false
-        loader.item.open()
-
+        file_dlg_loader.sourceComponent = fileDialog
+        file_dlg_loader.item.resultSignal.connect(resultCallback)
+        file_dlg_loader.item.currentFolder = folder
+        file_dlg_loader.item.title = title
+        file_dlg_loader.item.defaultSuffix = defaultSuffix ? defaultSuffix : ""
+        file_dlg_loader.item.nameFilters = nameFilters
+        file_dlg_loader.item.fileMode = selectExisting ? (selectMultiple ? FileDialog.OpenFiles : FileDialog.OpenFile) : FileDialog.SaveFile
+        file_dlg_loader.item.chaser = chaser
+        file_dlg_loader.item.open()
     }
 
-    function showFileDialogFolderMode(
+    function showFolderDialog(
         resultCallback,
         folder,
         title) {
 
-        loader.sourceComponent = fileDialog
-        loader.item.result.connect(resultCallback)
-        loader.item.folder = folder
-        loader.item.title = title
-        loader.item.selectFolder = true
-        loader.item.selectExisting = true
-        loader.item.selectMultiple = false
-        loader.item.open()
-
+        file_dlg_loader.sourceComponent = folderDialog
+        file_dlg_loader.item.resultSignal.connect(resultCallback)
+        file_dlg_loader.item.currentFolder = folder
+        file_dlg_loader.item.title = title
+        file_dlg_loader.item.open()
     }
 
     /**************************************************************
@@ -120,7 +147,7 @@ Item {
             property bool is_error: true
             width: 400
             height: 200
-
+            property string buttonText: "Close"
 
             ColumnLayout {
 
@@ -155,7 +182,7 @@ Item {
                     }
                 }
                 XsSimpleButton {
-                    text: "Close"
+                    text: buttonText
                     width: XsStyleSheet.primaryButtonStdWidth*2
                     Layout.alignment: Qt.AlignRight
                     onClicked: {
@@ -172,6 +199,7 @@ Item {
     }
 
     function errorDialogFunc(error_title, error_body) {
+        hideLastDialog()
         loader.sourceComponent = errorDialog
         loader.item.title = error_title
         loader.item.body = error_body
@@ -179,11 +207,13 @@ Item {
         showDialog(undefined)
     }
 
-    function messageDialogFunc(message_title, message_body) {
+    function messageDialogFunc(message_title, message_body, button_text) {
+        hideLastDialog()
         loader.sourceComponent = errorDialog
         loader.item.title = message_title
         loader.item.body = message_body
         loader.item.is_error = false
+        if (button_text != undefined) loader.item.buttonText = button_text
         showDialog(undefined)
     }
 
@@ -216,12 +246,12 @@ Item {
 
                 focus: true
                 Keys.onReturnPressed: {
-                    popup.response(popup.choices[popup.choices.length-1], popup.chaser)
                     popup.visible = false
+                    popup.response(popup.choices[popup.choices.length-1], popup.chaser)
                 }
                 Keys.onEscapePressed: {
-                    popup.response(popup.choices[0], popup.chaser)
                     popup.visible = false
+                    popup.response(popup.choices[0], popup.chaser)
                 }
 
                 XsText {
@@ -281,7 +311,6 @@ Item {
     ****************************************************************/
 
     Component {
-
         id: textInput
 
         XsStringRequestDialog {

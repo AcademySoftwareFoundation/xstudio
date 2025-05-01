@@ -41,25 +41,24 @@ extern void register_mediapointer_class(py::module &m, const std::string &name);
 extern void register_mediakey_class(py::module &m, const std::string &name);
 extern void register_jsonstore_class(py::module &m, const std::string &name);
 extern void register_FrameRate_class(py::module &m, const std::string &name);
-extern void register_group_down_msg(py::module &m, const std::string &name);
 extern void register_URI_class(py::module &m, const std::string &name);
 extern void register_FrameRateDuration_class(py::module &m, const std::string &name);
 extern void register_colour_triplet_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_class(py::module &m, const std::string &name);
 extern void register_uuid_actor_vector_class(py::module &m, const std::string &name);
-extern void register_uuidvec_class(py::module &m, const std::string &name);
 extern void register_item_class(py::module &m, const std::string &name);
 extern void register_frame_range_class(py::module &m, const std::string &name);
 extern void register_frame_list_class(py::module &m, const std::string &name);
 extern void register_notification_class(py::module &m, const std::string &name);
+extern void register_stringvec_class(py::module &m, const std::string &name);
 
 using namespace xstudio;
 
 void py_config::add_messages() {
-    add_message_type<caf::group_down_msg>(
-        "group_down_msg", "caf::group_down_msg", &register_group_down_msg);
     add_message_type<caf::uri>("URI", "caf::uri", &register_URI_class);
     add_message_type<media::MediaType>("MediaType", "xstudio::media::MediaType", nullptr);
+    add_message_type<spdlog::level::level_enum>(
+        "LogLevel", "spdlog::level::level_enum", nullptr);
     add_message_type<plugin::HUDElementPosition>(
         "HUDElementPosition", "xstudio::plugin::HUDElementPosition", nullptr);
     add_message_type<media::StreamDetail>(
@@ -130,8 +129,6 @@ void py_config::add_messages() {
     add_message_type<timebase::flicks>(
         "xstudio::utility::time_point", "xstudio::utility::time_point", nullptr);
 
-    add_message_type<std::vector<utility::Uuid>>(
-        "UuidVec", "std::vector<xstudio::utility::Uuid>", &register_uuidvec_class);
     add_message_type<utility::absolute_receive_timeout>(
         "absolute_receive_timeout",
         "xstudio::utility::absolute_receive_timeout",

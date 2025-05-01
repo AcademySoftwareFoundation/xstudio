@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/session/session_actor.hpp"
 #include "xstudio/timeline/timeline.hpp"
@@ -21,6 +22,48 @@ using namespace xstudio;
 using namespace xstudio::utility;
 using namespace xstudio::ui::qml;
 
+// begin timeline operations
+QFuture<QVariant> SessionModel::importTimelineFuture(
+    const QModelIndex &playlist_index, const QUrl &path, const QUuid &before) {
+    return QtConcurrent::run([=]() {
+        auto result = QModelIndex();
+
+        try {
+            scoped_actor sys{system()};
+            auto pactor = actorFromQString(system(), playlist_index.data(actorRole).toString());
+            auto uri    = UriFromQUrl(path);
+            if (is_timeline_supported(uri)) {
+                auto rc = rowCount(index(2, 0, playlist_index));
+                auto au = request_receive<UuidActor>(
+                    *sys, pactor, session::import_atom_v, uri, UuidFromQUuid(before), true);
+
+                // really don't like this, far too many ways to go wrong.
+                // should really create timeline first..
+                while (true) {
+                    // wait for item..
+                    while (rowCount(index(2, 0, playlist_index)) == rc) {
+                        QCoreApplication::processEvents(
+                            QEventLoop::WaitForMoreEvents | QEventLoop::ExcludeUserInputEvents,
+                            50);
+                    }
+
+                    // get new index..
+                    result = searchRecursive(
+                        QUuidFromUuid(au.uuid()), actorUuidRole, index(2, 0, playlist_index));
+                    if (result.isValid())
+                        break;
+                    else
+                        rc = rowCount(index(2, 0, playlist_index));
+                }
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+            throw;
+        }
+        return QVariant::fromValue(result);
+    });
+}
+
 void SessionModel::setTimelineFocus(
     const QModelIndex &timeline, const QModelIndexList &indexes) const {
     try {
@@ -33,7 +76,7 @@ void SessionModel::setTimelineFocus(
                 uuids.emplace_back(UuidFromQUuid(i.data(idRole).toUuid()));
             }
 
-            anon_send(actor, timeline::focus_atom_v, uuids);
+            anon_mail(timeline::focus_atom_v, uuids).send(actor);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -55,7 +98,7 @@ void SessionModel::setTimelineSelection(
                 selection.emplace_back(UuidActor(uuid, actor));
             }
 
-            anon_send(tactor, timeline::item_selection_atom_v, selection);
+            anon_mail(timeline::item_selection_atom_v, selection).send(tactor);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -565,8 +608,8 @@ QVariantList SessionModel::getTimelineExportTypes() const {
     return result;
 }
 
-QFuture<bool>
-SessionModel::exportOTIO(const QModelIndex &timeline, const QUrl &path, const QString &type) {
+QFuture<bool> SessionModel::exportOTIO(
+    const QModelIndex &timeline, const QUrl &path, const QString &type, const QString &schema) {
 
     return QtConcurrent::run([=]() {
         auto result = false;
@@ -581,7 +624,8 @@ SessionModel::exportOTIO(const QModelIndex &timeline, const QUrl &path, const QS
                         actor,
                         global_store::save_atom_v,
                         UriFromQUrl(path),
-                        StdFromQString(type));
+                        StdFromQString(type),
+                        StdFromQString(schema));
                 }
             }
         } catch (const std::exception &err) {
@@ -645,7 +689,7 @@ bool SessionModel::replaceTimelineTrack(const QModelIndex &src, const QModelInde
             // purge dst content.
             auto dactor = actorFromQString(system(), dst.data(actorRole).toString());
             if (dactor) {
-                anon_send(dactor, timeline::erase_item_atom_v, 0, rowCount(dst), false);
+                anon_mail(timeline::erase_item_atom_v, 0, rowCount(dst), false).send(dactor);
                 // JSONTreeModel::removeRows(0, rowCount(dst), dst);
                 // wait for update ?
                 while (rowCount(dst)) {
@@ -1798,7 +1842,7 @@ SessionModel::bakeTimelineItems(const QModelIndexList &indexes, const QString &q
                     auto ntrack = request_receive<UuidActor>(
                         *sys, timeline_actor, timeline::bake_atom_v, uuids);
                     if (not trackName.empty())
-                        anon_send(ntrack.actor(), timeline::item_name_atom_v, trackName);
+                        anon_mail(timeline::item_name_atom_v, trackName).send(ntrack.actor());
 
                     auto row = trindex.data(typeRole).toString() == "Video Track"
                                    ? trindex.row()

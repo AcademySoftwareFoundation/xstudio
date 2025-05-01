@@ -36,6 +36,7 @@ namespace playhead {
 
       protected:
         void on_exit() override;
+        void monitor_it(const caf::actor &actor);
 
         caf::behavior behavior_;
         caf::actor event_group_;
@@ -46,6 +47,7 @@ namespace playhead {
             caf::actor playhead;
         };
         std::map<std::string, ViewportAndPlayhead> viewports_;
+        std::map<caf::actor_addr, caf::disposable> monitor_;
     };
 } // namespace playhead
 } // namespace xstudio

@@ -2,6 +2,7 @@
 #include <sstream>
 
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -72,13 +73,15 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             const media_reader::ImageBufPtr image) -> caf::result<media_reader::ImageBufPtr> {
             auto rp = make_response_promise<media_reader::ImageBufPtr>();
 
-            request(self(), infinite, get_colour_pipe_data_atom_v, image.frame_id())
+            mail(get_colour_pipe_data_atom_v, image.frame_id())
+                .request(self(), infinite)
                 .then(
                     [=](const ColourPipelineDataPtr ptr) mutable {
                         media_reader::ImageBufPtr result = image;
                         result.colour_pipe_data_         = ptr;
 
-                        request(self(), infinite, colour_operation_uniforms_atom_v, result)
+                        mail(colour_operation_uniforms_atom_v, result)
+                            .request(self(), infinite)
                             .then(
                                 [=](const utility::JsonStore &colour_pipe_uniforms) mutable {
                                     result.colour_pipe_uniforms_ = colour_pipe_uniforms;
@@ -136,10 +139,12 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                 return rp;
             }
 
-            request(self(), infinite, colour_pipe_linearise_data_atom_v, media_ptr)
+            mail(colour_pipe_linearise_data_atom_v, media_ptr)
+                .request(self(), infinite)
                 .then(
                     [=](ColourOperationDataPtr linearise_data) mutable {
-                        request(self(), infinite, colour_pipe_display_data_atom_v, media_ptr)
+                        mail(colour_pipe_display_data_atom_v, media_ptr)
+                            .request(self(), infinite)
                             .then(
                                 [=](ColourOperationDataPtr &to_display_data) mutable {
                                     // when colour operations are applied in the
@@ -160,16 +165,20 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
                                         transform_id,
                                         linearise_data->cache_id(),
                                         to_display_data->cache_id());
-                                    anon_send<message_priority::high>(
-                                        cache_,
+
+                                    anon_mail(
                                         media_cache::store_atom_v,
                                         to_display_data->cache_id(),
-                                        to_display_data);
-                                    anon_send<message_priority::high>(
-                                        cache_,
+                                        to_display_data)
+                                        .urgent()
+                                        .send(cache_);
+
+                                    anon_mail(
                                         media_cache::store_atom_v,
                                         linearise_data->cache_id(),
-                                        linearise_data);
+                                        linearise_data)
+                                        .urgent()
+                                        .send(cache_);
 
                                     finalise_colour_pipeline_data(
                                         media_ptr,
@@ -247,7 +256,8 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             }
             for (auto &colour_op_plugin : colour_op_plugins_) {
 
-                request(colour_op_plugin, infinite, colour_operation_uniforms_atom_v, image)
+                mail(colour_operation_uniforms_atom_v, image)
+                    .request(colour_op_plugin, infinite)
                     .then(
                         [=](const utility::JsonStore &uniforms) mutable {
                             result->merge(uniforms);
@@ -286,7 +296,8 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
 
                 const int idx = outer_idx++;
 
-                request(self, infinite, get_colour_pipe_data_atom_v, *(mptr_and_tp.second))
+                mail(get_colour_pipe_data_atom_v, *(mptr_and_tp.second))
+                    .request(self, infinite)
                     .then(
                         [=](const ColourPipelineDataPtr &cpd) mutable {
                             (*result)[idx] = cpd;
@@ -314,7 +325,8 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             auto rp = make_response_promise<bool>();
 
             if (media_source) {
-                request(media_source.actor(), infinite, get_colour_pipe_params_atom_v)
+                mail(get_colour_pipe_params_atom_v)
+                    .request(media_source.actor(), infinite)
                     .then(
                         [=](const utility::JsonStore colour_params) mutable {
                             fan_out_request<policy::select_all>(
@@ -344,17 +356,18 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
             // This message comes from the playhead when the onscreen (key)
             // media source has changed.
             if (media_actor and media_uuid) {
-                request(media_actor, infinite, get_colour_pipe_params_atom_v)
+                mail(get_colour_pipe_params_atom_v)
+                    .request(media_actor, infinite)
                     .then(
                         [=](const utility::JsonStore &colour_params) mutable {
                             for (auto &colour_op_plugin : colour_op_plugins_) {
-                                anon_send(
-                                    colour_op_plugin,
+                                anon_mail(
                                     utility::event_atom_v,
                                     playhead::media_source_atom_v,
                                     media_actor,
                                     media_uuid,
-                                    colour_params);
+                                    colour_params)
+                                    .send(colour_op_plugin);
                             }
 
                             media_source_changed(media_uuid, colour_params);
@@ -384,14 +397,14 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         [=](media_reader::process_thumbnail_atom,
             const media::AVFrameID &mptr,
             const thumbnail::ThumbnailBufferPtr &buf) {
-            delegate(
-                thumbnail_processor_pool_, media_reader::process_thumbnail_atom_v, mptr, buf);
+            return mail(media_reader::process_thumbnail_atom_v, mptr, buf)
+                .delegate(thumbnail_processor_pool_);
         },
         [=](json_store::update_atom,
             const utility::JsonStore & /*change*/,
             const std::string & /*path*/,
             const utility::JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
         [=](ui::viewport::viewport_playhead_atom, caf::actor playhead) {
             // TODO: set something up to listen to playhead pre-compute colour
@@ -500,7 +513,8 @@ void ColourPipeline::add_colour_op_plugin_data(
 
     for (auto &colour_op_plugin : colour_op_plugins_) {
 
-        request(colour_op_plugin, infinite, get_colour_pipe_data_atom_v, media_ptr)
+        mail(get_colour_pipe_data_atom_v, media_ptr)
+            .request(colour_op_plugin, infinite)
             .then(
                 [=](ColourOperationDataPtr colour_op_data) mutable {
                     if (colour_op_data) {
@@ -550,11 +564,10 @@ void ColourPipeline::load_colour_op_plugins() {
     // plugin_manager_registry is busy spawning 'this'.
 
     auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
-    request(
-        pm,
-        infinite,
+    mail(
         utility::detail_atom_v,
         plugin_manager::PluginType(plugin_manager::PluginFlags::PF_COLOUR_OPERATION))
+        .request(pm, infinite)
         .then(
             [=](const std::vector<plugin_manager::PluginDetail>
                     &colour_op_plugin_details) mutable {
@@ -569,15 +582,11 @@ void ColourPipeline::load_colour_op_plugins() {
                 }
 
                 for (const auto &pd : colour_op_plugin_details) {
-                    request(
-                        pm,
-                        infinite,
-                        plugin_manager::spawn_plugin_atom_v,
-                        pd.uuid_,
-                        utility::JsonStore())
+                    mail(plugin_manager::spawn_plugin_atom_v, pd.uuid_, utility::JsonStore())
+                        .request(pm, infinite)
                         .then(
                             [=](caf::actor colour_op_actor) mutable {
-                                anon_send(colour_op_actor, module::connect_to_ui_atom_v);
+                                anon_mail(module::connect_to_ui_atom_v).send(colour_op_actor);
                                 colour_op_plugins_.push_back(colour_op_actor);
 
                                 // TODO: uncomment this when we've fixed colour grading
@@ -649,8 +658,8 @@ void ColourPipeline::make_pre_draw_gpu_hook(
     auto count = std::make_shared<int>(colour_op_plugins_.size());
     for (auto &colour_op_plugin : colour_op_plugins_) {
 
-        request(
-            colour_op_plugin, infinite, ui::viewport::pre_render_gpu_hook_atom_v, viewport_name)
+        mail(ui::viewport::pre_render_gpu_hook_atom_v, viewport_name)
+            .request(colour_op_plugin, infinite)
             .then(
                 [=](plugin::GPUPreDrawHookPtr &hook) mutable {
                     if (hook) {

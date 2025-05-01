@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -23,7 +25,7 @@ caf::behavior delayed_resend(caf::event_based_actor *) {
     return {[](update_attribute_in_preferences_atom, caf::actor_addr module) {
         auto mod = caf::actor_cast<caf::actor>(module);
         if (mod) {
-            anon_send(mod, update_attribute_in_preferences_atom_v);
+            anon_mail(update_attribute_in_preferences_atom_v).send(mod);
         }
     }};
 }
@@ -62,12 +64,12 @@ void Module::parent_actor_exiting() {
                             Attribute::UIDataModels);
 
                         for (const auto &group : groups) {
-                            anon_send(
-                                central_models_data_actor,
+                            anon_mail(
                                 ui::model_data::deregister_model_data_atom_v,
                                 group,
                                 attribute->uuid(),
-                                caf::actor());
+                                caf::actor())
+                                .send(central_models_data_actor);
                         }
                     } catch (...) {
                     }
@@ -106,17 +108,6 @@ void Module::set_parent_actor_addr(caf::actor_addr addr) {
 
     // we can't add hotkeys until the parent actor has been set. Subclasses of
     // Module should define hotkeys in the virtual register_hotkeys() function
-
-    auto a = caf::actor_cast<caf::event_based_actor *>(self());
-    if (a) {
-        a->set_down_handler([=](down_msg &msg) {
-            a->demonitor(msg.source);
-            auto p = connected_viewports_.find(caf::actor_cast<caf::actor>(msg.source));
-            if (p != connected_viewports_.end()) {
-                connected_viewports_.erase(p);
-            }
-        });
-    }
 }
 
 void Module::delete_attribute(const utility::Uuid &attribute_uuid) {
@@ -149,19 +140,19 @@ void Module::link_to_module(
             for (auto &attribute : attributes_) {
                 if (link_all_attrs ||
                     linked_attrs_.find(attribute->uuid()) != linked_attrs_.end()) {
-                    anon_send(
-                        other_module,
+                    anon_mail(
                         change_attribute_value_atom_v,
                         attribute->get_role_data<std::string>(Attribute::Title),
                         utility::JsonStore(attribute->role_data_as_json(Attribute::Value)),
-                        true);
+                        true)
+                        .send(other_module);
                 }
             }
         }
 
         if (both_ways)
-            anon_send(
-                other_module, module::link_module_atom_v, self(), link_all_attrs, false, false);
+            anon_mail(module::link_module_atom_v, self(), link_all_attrs, false, false)
+                .send(other_module);
     }
 }
 
@@ -180,7 +171,7 @@ void Module::unlink_module(caf::actor other_module) {
     }
 
     if (found_link) {
-        anon_send(other_module, module::link_module_atom_v, self(), false);
+        anon_mail(module::link_module_atom_v, self(), false).send(other_module);
     }
 }
 
@@ -341,11 +332,8 @@ void Module::remove_attribute(const utility::Uuid &attribute_uuid) {
                 attr->get_role_data<std::vector<std::string>>(Attribute::UIDataModels);
             for (const auto &group_name : groups) {
 
-                anon_send(
-                    central_models_data_actor,
-                    ui::model_data::remove_rows_atom_v,
-                    group_name,
-                    attribute_uuid);
+                anon_mail(ui::model_data::remove_rows_atom_v, group_name, attribute_uuid)
+                    .send(central_models_data_actor);
             }
         }
         for (auto p = attributes_.begin(); p != attributes_.end(); p++) {
@@ -838,13 +826,9 @@ caf::message_handler Module::message_handler() {
              bool activated,
              const std::string &context,
              const std::string &window) {
-             anon_send(
-                 attribute_events_group_,
-                 ui::keypress_monitor::hotkey_event_atom_v,
-                 uuid,
-                 activated,
-                 context,
-                 window);
+             anon_mail(
+                 ui::keypress_monitor::hotkey_event_atom_v, uuid, activated, context, window)
+                 .send(attribute_events_group_);
 
              if (activated && connected_to_ui_ /*&&
                  connected_viewport_names_.find(context) != connected_viewport_names_.end()*/) {
@@ -916,12 +900,8 @@ caf::message_handler Module::message_handler() {
              caf::actor media,
              caf::actor media_source) {
              on_screen_media_changed(media, media_source);
-             anon_send(
-                 attribute_events_group_,
-                 utility::event_atom_v,
-                 playhead::show_atom_v,
-                 media,
-                 media_source);
+             anon_mail(utility::event_atom_v, playhead::show_atom_v, media, media_source)
+                 .send(attribute_events_group_);
          },
          [=](utility::event_atom,
              ui::viewport::viewport_atom,
@@ -1013,14 +993,12 @@ caf::message_handler Module::message_handler() {
                      // attr we run our callback that subclasses use to implement
                      // their own response to a menu item action
                      menu_item_activated(menu_item_data, user_data);
-                     anon_send(
-                         attribute_events_group_,
-                         ui::model_data::menu_node_activated_atom_v,
-                         menu_item_data,
-                         user_data);
+                     anon_mail(
+                         ui::model_data::menu_node_activated_atom_v, menu_item_data, user_data)
+                         .send(attribute_events_group_);
                  }
              } catch (std::exception &e) {
-                 std::cerr << "EE " << e.what() << "\n";
+                 //std::cerr << "EE " << e.what() << "\n";
              }
          },
 
@@ -1096,11 +1074,8 @@ caf::message_handler Module::message_handler() {
                          auto central_models_data_actor =
                              self()->home_system().registry().template get<caf::actor>(
                                  global_ui_model_data_registry);
-                         anon_send(
-                             central_models_data_actor,
-                             ui::model_data::remove_node_atom_v,
-                             p.first,
-                             menu_id);
+                         anon_mail(ui::model_data::remove_node_atom_v, p.first, menu_id)
+                             .send(central_models_data_actor);
                          return;
                      }
                  }
@@ -1112,7 +1087,6 @@ caf::message_handler Module::message_handler() {
              const float submenu_position) {
              set_submenu_position_in_parent(menu_model_name, submenu, submenu_position);
          },
-
          [=](reset_module_atom) { reset(); }});
 
     return h.or_else(playhead::PlayheadGlobalEventsActor::default_event_handler());
@@ -1129,13 +1103,8 @@ void Module::notify_change(
 
     if (attribute_events_group_) {
 
-        anon_send(
-            attribute_events_group_,
-            change_attribute_event_atom_v,
-            module_uuid_,
-            attr_uuid,
-            role,
-            value);
+        anon_mail(change_attribute_event_atom_v, module_uuid_, attr_uuid, role, value)
+            .send(attribute_events_group_);
 
         if (attr->has_role_data(Attribute::UIDataModels)) {
 
@@ -1146,14 +1115,14 @@ void Module::notify_change(
             auto groups =
                 attr->get_role_data<std::vector<std::string>>(Attribute::UIDataModels);
             for (const auto &group_name : groups) {
-                anon_send(
-                    central_models_data_actor,
+                anon_mail(
                     ui::model_data::set_node_data_atom_v,
                     group_name,
                     attr->uuid(),
                     Attribute::role_name(role),
                     value,
-                    self());
+                    self())
+                    .send(central_models_data_actor);
             }
         }
         attribute_changed(attr_uuid, role, self_notify);
@@ -1200,16 +1169,17 @@ void Module::notify_change(
             // example) because it will hang the actor system if the Viewport is
             // destroyed before the delayed message is received.
 
-            /*delayed_anon_send(
-                self(), std::chrono::seconds(2), update_attribute_in_preferences_atom_v);*/
+            /*anon_mail(update_attribute_in_preferences_atom_v).delay(std::chrono::seconds(2)).send(self());*/
 
             // To get around this problem we can do this shenannegans instead...
             auto resender = self()->home_system().spawn(delayed_resend);
-            delayed_anon_send(
-                resender,
-                std::chrono::seconds(2),
-                update_attribute_in_preferences_atom_v,
-                parent_actor_addr_);
+            anon_mail(update_attribute_in_preferences_atom_v, parent_actor_addr_)
+                .delay(std::chrono::seconds(2))
+                .send(resender);
+
+            // delayed_anon_mail(//     std::chrono::seconds(2),
+            //     update_attribute_in_preferences_atom_v,
+            //     parent_actor_addr_).send(//     resender);
         }
 
         attrs_waiting_to_update_prefs_.insert(attr_uuid);
@@ -1232,14 +1202,14 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
         auto groups = attr->get_role_data<std::vector<std::string>>(Attribute::UIDataModels);
 
         for (const auto &group_name : groups) {
-            anon_send(
-                central_models_data_actor,
+            anon_mail(
                 ui::model_data::register_model_data_atom_v,
                 group_name,
                 utility::JsonStore(attr->as_json()),
                 attr_uuid,
                 Attribute::role_name(Attribute::ToolbarPosition),
-                self());
+                self())
+                .send(central_models_data_actor);
         }
     }
 
@@ -1293,14 +1263,14 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
             module::Attribute *attr = get_attribute(attr_uuid);
             auto attr_name      = attr->get_role_data<std::string>(module::Attribute::Title);
             auto attr_role_data = attr->role_data_as_json(role_id);
-            anon_send(
-                linked_module,
+            anon_mail(
                 module::change_attribute_value_atom_v,
                 attr_name,
                 role_id,
                 notify,
                 utility::JsonStore(attr_role_data),
-                my_adress);
+                my_adress)
+                .send(linked_module);
         }
     }
     for (auto &linked_module_addr : fully_linked_modules_) {
@@ -1312,14 +1282,14 @@ void Module::attribute_changed(const utility::Uuid &attr_uuid, const int role_id
         module::Attribute *attr = get_attribute(attr_uuid);
         auto attr_name          = attr->get_role_data<std::string>(module::Attribute::Title);
         auto attr_role_data     = attr->role_data_as_json(role_id);
-        anon_send(
-            linked_module,
+        anon_mail(
             module::change_attribute_value_atom_v,
             attr_name,
             role_id,
             notify,
             utility::JsonStore(attr_role_data),
-            my_adress);
+            my_adress)
+            .send(linked_module);
     }
 
     if (notify)
@@ -1392,7 +1362,8 @@ utility::Uuid Module::register_hotkey(
             auto_repeat,
             caf::actor_cast<caf::actor_addr>(self()));
 
-        anon_send(keypress_monitor_actor_, ui::keypress_monitor::register_hotkey_atom_v, hk);
+        anon_mail(ui::keypress_monitor::register_hotkey_atom_v, hk)
+            .send(keypress_monitor_actor_);
 
         return hk.uuid();
 
@@ -1413,28 +1384,28 @@ void Module::remove_hotkey(const utility::Uuid & /*hotkey_uuid*/) {}
 void Module::grab_mouse_focus() {
 
     if (keypress_monitor_actor_ && self()) {
-        anon_send(keypress_monitor_actor_, grab_all_mouse_input_atom_v, self(), true);
+        anon_mail(grab_all_mouse_input_atom_v, self(), true).send(keypress_monitor_actor_);
     }
 }
 
 void Module::release_mouse_focus() {
 
     if (keypress_monitor_actor_ && self()) {
-        anon_send(keypress_monitor_actor_, grab_all_mouse_input_atom_v, self(), false);
+        anon_mail(grab_all_mouse_input_atom_v, self(), false).send(keypress_monitor_actor_);
     }
 }
 
 void Module::grab_keyboard_focus() {
 
     if (keypress_monitor_actor_ && self()) {
-        anon_send(keypress_monitor_actor_, grab_all_keyboard_input_atom_v, self(), true);
+        anon_mail(grab_all_keyboard_input_atom_v, self(), true).send(keypress_monitor_actor_);
     }
 }
 
 void Module::release_keyboard_focus() {
 
     if (keypress_monitor_actor_ && self()) {
-        anon_send(keypress_monitor_actor_, grab_all_keyboard_input_atom_v, self(), false);
+        anon_mail(grab_all_keyboard_input_atom_v, self(), false).send(keypress_monitor_actor_);
     }
 }
 
@@ -1506,14 +1477,14 @@ void Module::connect_to_ui() {
             auto groups = a->get_role_data<std::vector<std::string>>(Attribute::UIDataModels);
             for (const auto &group_name : groups) {
 
-                anon_send(
-                    central_models_data_actor,
+                anon_mail(
                     ui::model_data::register_model_data_atom_v,
                     group_name,
                     utility::JsonStore(a->as_json()),
                     a->uuid(),
                     Attribute::role_name(Attribute::ToolbarPosition),
-                    self());
+                    self())
+                    .send(central_models_data_actor);
             }
         }
     }
@@ -1557,11 +1528,10 @@ void Module::disconnect_from_ui() {
             if (a->has_role_data(Attribute::UIDataModels)) {
                 auto groups =
         a->get_role_data<std::vector<std::string>>(Attribute::UIDataModels); for (const auto
-        &group_name : groups) { anon_send( central_models_data_actor,
-                        ui::model_data::deregister_model_data_atom_v,
+        &group_name : groups) { anon_mail(ui::model_data::deregister_model_data_atom_v,
                         group_name,
                         a->uuid(),
-                        self());
+                        self()).send(central_models_data_actor);
                 }
             }
         }*/
@@ -1723,6 +1693,12 @@ utility::JsonStore Module::attribute_menu_item_data(Attribute *attr) {
                 attr->get_role_data<std::vector<utility::Uuid>>(Attribute::StringChoicesIds);
         }
 
+        if (attr->has_role_data(Attribute::StringChoicesEnabled)) {
+            menu_item_data["combo_box_options_enabled"] =
+                attr->get_role_data<std::vector<bool>>(Attribute::StringChoicesEnabled);
+        }
+
+
     } else if (attr->get_role_data<std::string>(Attribute::Type) == "RadioGroup") {
         menu_item_data["current_choice"] = attr->get_role_data<std::string>(Attribute::Value);
         /*auto choices = nlohmann::json::parse("[]");
@@ -1736,6 +1712,11 @@ utility::JsonStore Module::attribute_menu_item_data(Attribute *attr) {
         if (attr->has_role_data(Attribute::StringChoicesIds)) {
             menu_item_data["choices_ids"] =
                 attr->get_role_data<std::vector<utility::Uuid>>(Attribute::StringChoicesIds);
+        }
+
+        if (attr->has_role_data(Attribute::StringChoicesEnabled)) {
+            menu_item_data["combo_box_options_enabled"] =
+                attr->get_role_data<std::vector<bool>>(Attribute::StringChoicesEnabled);
         }
 
     } else if (attr->get_role_data<std::string>(Attribute::Type) == "OnOffToggle") {
@@ -1817,21 +1798,21 @@ utility::Uuid Module::insert_menu_item(
 
         auto a = caf::actor_cast<caf::event_based_actor *>(self());
         if (a) {
-            a->send(
-                central_models_data_actor,
-                ui::model_data::insert_or_update_menu_node_atom_v,
-                menu_model_name,
-                menu_path,
-                menu_item_data,
-                self());
+            a->mail(
+                 ui::model_data::insert_or_update_menu_node_atom_v,
+                 menu_model_name,
+                 menu_path,
+                 menu_item_data,
+                 self())
+                .send(central_models_data_actor);
         } else {
-            anon_send(
-                central_models_data_actor,
+            anon_mail(
                 ui::model_data::insert_or_update_menu_node_atom_v,
                 menu_model_name,
                 menu_path,
                 menu_item_data,
-                self());
+                self())
+                .send(central_models_data_actor);
         }
 
         menu_items_[menu_model_name].push_back(menu_item_data["uuid"]);
@@ -1863,21 +1844,21 @@ utility::Uuid Module::insert_hotkey_into_menu(
 
         auto a = caf::actor_cast<caf::event_based_actor *>(self());
         if (a) {
-            a->send(
-                central_models_data_actor,
-                ui::model_data::insert_or_update_menu_node_atom_v,
-                menu_model_name,
-                menu_path,
-                menu_item_data,
-                self());
+            a->mail(
+                 ui::model_data::insert_or_update_menu_node_atom_v,
+                 menu_model_name,
+                 menu_path,
+                 menu_item_data,
+                 self())
+                .send(central_models_data_actor);
         } else {
-            anon_send(
-                central_models_data_actor,
+            anon_mail(
                 ui::model_data::insert_or_update_menu_node_atom_v,
                 menu_model_name,
                 menu_path,
                 menu_item_data,
-                self());
+                self())
+                .send(central_models_data_actor);
         }
 
         menu_items_[menu_model_name].push_back(menu_item_id);
@@ -1896,11 +1877,8 @@ void Module::remove_all_menu_items(const std::string &menu_model_name) {
                 global_ui_model_data_registry);
 
         for (const auto &uuid : menu_items_[menu_model_name]) {
-            anon_send(
-                central_models_data_actor,
-                ui::model_data::remove_node_atom_v,
-                menu_model_name,
-                uuid);
+            anon_mail(ui::model_data::remove_node_atom_v, menu_model_name, uuid)
+                .send(central_models_data_actor);
         }
     }
 }
@@ -1941,13 +1919,13 @@ void Module::update_attribute_menu_item_data(Attribute *attr) {
                     menu_path = sections[i] + (i == (sections.size() - 1) ? "" : "|");
                 }
 
-                anon_send(
-                    central_models_data_actor,
+                anon_mail(
                     ui::model_data::insert_or_update_menu_node_atom_v,
                     sections.front(), // menu model name
                     menu_path,
                     menu_item_data,
-                    self());
+                    self())
+                    .send(central_models_data_actor);
             }
         }
 
@@ -1960,11 +1938,8 @@ void Module::remove_menu_item(const std::string &menu_model_name, const utility:
     auto central_models_data_actor = self()->home_system().registry().template get<caf::actor>(
         global_ui_model_data_registry);
 
-    anon_send(
-        central_models_data_actor,
-        ui::model_data::remove_node_atom_v,
-        menu_model_name,
-        item_id);
+    anon_mail(ui::model_data::remove_node_atom_v, menu_model_name, item_id)
+        .send(central_models_data_actor);
 }
 
 utility::Uuid Module::insert_menu_divider(
@@ -1980,13 +1955,13 @@ utility::Uuid Module::insert_menu_divider(
     menu_item_data["menu_item_type"]     = "divider";
     menu_item_data["uuid"]               = utility::Uuid::generate();
 
-    anon_send(
-        central_models_data_actor,
+    anon_mail(
         ui::model_data::insert_or_update_menu_node_atom_v,
         menu_model_name,
         menu_path,
         menu_item_data,
-        self());
+        self())
+        .send(central_models_data_actor);
 
     return menu_item_data["uuid"];
 }
@@ -1999,12 +1974,12 @@ void Module::set_submenu_position_in_parent(
     auto central_models_data_actor = self()->home_system().registry().template get<caf::actor>(
         global_ui_model_data_registry);
 
-    anon_send(
-        central_models_data_actor,
+    anon_mail(
         ui::model_data::insert_or_update_menu_node_atom_v,
         menu_model_name,
         submenu,
-        submenu_position);
+        submenu_position)
+        .send(central_models_data_actor);
 }
 
 void Module::make_attribute_visible_in_viewport_toolbar(
@@ -2027,14 +2002,14 @@ void Module::make_attribute_visible_in_viewport_toolbar(
                 std::string toolbar_name = viewport_name + "_toolbar";
                 attr->expose_in_ui_attrs_group(toolbar_name, true);
 
-                anon_send(
-                    central_models_data_actor,
+                anon_mail(
                     ui::model_data::register_model_data_atom_v,
                     toolbar_name,
                     utility::JsonStore(attr->as_json()),
                     attr->uuid(),
                     Attribute::role_name(Attribute::ToolbarPosition),
-                    self());
+                    self())
+                    .send(central_models_data_actor);
             }
         }
 
@@ -2057,12 +2032,12 @@ void Module::make_attribute_visible_in_viewport_toolbar(
                 std::string toolbar_name = viewport_name + "_toolbar";
                 attr->expose_in_ui_attrs_group(toolbar_name, false);
 
-                anon_send(
-                    central_models_data_actor,
+                anon_mail(
                     ui::model_data::deregister_model_data_atom_v,
                     toolbar_name,
                     attr->uuid(),
-                    caf::actor());
+                    caf::actor())
+                    .send(central_models_data_actor);
             }
         }
     }
@@ -2070,7 +2045,7 @@ void Module::make_attribute_visible_in_viewport_toolbar(
 
 void Module::redraw_viewport() {
     for (auto &vp : connected_viewports_) {
-        anon_send(vp, playhead::redraw_viewport_atom_v);
+        anon_mail(playhead::redraw_viewport_atom_v).send(vp);
     }
 }
 
@@ -2080,6 +2055,7 @@ Attribute *Module::add_attribute(
     const utility::JsonStore &value,
     const utility::JsonStore &role_data) {
     Attribute *attr = nullptr;
+
     if (role_data.contains("combo_box_options")) {
 
         // we need to do some specific type checking if the caller is trying
@@ -2140,9 +2116,14 @@ Attribute *Module::add_attribute(
         auto c = value.get<utility::ColourTriplet>();
         attr   = static_cast<Attribute *>(add_colour_attribute(title, title, c));
 
-    } else if (value.is_object() || value.is_null()) {
+    } else if (value.is_null()) {
 
-        attr = static_cast<Attribute *>(add_json_attribute(title, nlohmann::json("{}")));
+        attr = static_cast<Attribute *>(add_json_attribute(title, title, value.ref()));
+        attr->set_role_data(Attribute::Value, value);
+
+    } else if (value.is_object() || value.is_array()) {
+
+        attr = static_cast<Attribute *>(add_json_attribute(title, title, value.ref()));
         attr->set_role_data(Attribute::Value, value);
 
     } else {
@@ -2169,23 +2150,20 @@ void Module::expose_attribute_in_model_data(
 
     try {
         if (expose) {
-            anon_send(
-                central_models_data_actor,
+            anon_mail(
                 ui::model_data::register_model_data_atom_v,
                 model_name,
                 utility::JsonStore(attr->as_json()),
                 attr->uuid(),
                 Attribute::role_name(Attribute::ToolbarPosition),
-                self());
+                self())
+                .send(central_models_data_actor);
         } else {
             // this removes the attribute from the model of name
             // 'model_name'
-            anon_send(
-                central_models_data_actor,
-                ui::model_data::deregister_model_data_atom_v,
-                model_name,
-                attr->uuid(),
-                self());
+            anon_mail(
+                ui::model_data::deregister_model_data_atom_v, model_name, attr->uuid(), self())
+                .send(central_models_data_actor);
         }
     } catch (std::exception &) {
     }
@@ -2197,19 +2175,52 @@ void Module::connect_to_viewport(
     bool connect,
     caf::actor viewport) {
 
+    // note: we call connected_viewports_changed for the benefit of PlayheadActors.
+    // If the number of connected viewports has gone to zero, the playhead can
+    // disconnect from the UI.
+    // If the number of connected viewports has gone from zero to 1, the playhead
+    // can connect to the UI
+
+    size_t n = connected_viewports_.size();
     if (connect) {
         auto a = caf::actor_cast<caf::event_based_actor *>(self());
-        if (a)
-            a->monitor(viewport);
+
+        if (a) {
+            auto act_addr = caf::actor_cast<caf::actor_addr>(viewport);
+            if (auto sit = monitor_.find(act_addr); sit == std::end(monitor_)) {
+                monitor_[act_addr] =
+                    a->monitor(viewport, [this, addr = viewport.address()](const error &) {
+                        auto act_addr = caf::actor_cast<caf::actor_addr>(addr);
+                        if (auto mit = monitor_.find(act_addr); mit != std::end(monitor_))
+                            monitor_.erase(mit);
+
+                        auto p = connected_viewports_.find(caf::actor_cast<caf::actor>(addr));
+                        if (p != connected_viewports_.end()) {
+                            connected_viewports_.erase(p);
+                            if (connected_viewports_.empty()) connected_viewports_changed(connected_viewports_);
+                        }
+                    });
+            }
+        }
+
         connected_viewport_names_.insert(viewport_name);
         connected_viewports_.insert(viewport);
+
     } else if (
         connected_viewport_names_.find(viewport_name) != connected_viewport_names_.end()) {
-        auto a = caf::actor_cast<caf::event_based_actor *>(self());
-        if (a)
-            a->demonitor(viewport);
+
+        if (auto it = monitor_.find(caf::actor_cast<caf::actor_addr>(viewport));
+            it != std::end(monitor_)) {
+            it->second.dispose();
+            monitor_.erase(it);
+        }
+
         connected_viewport_names_.erase(connected_viewport_names_.find(viewport_name));
         connected_viewports_.erase(connected_viewports_.find(viewport));
+    }
+
+    if ((!n && connected_viewports_.size()) || (n && connected_viewports_.empty())) {
+        connected_viewports_changed(connected_viewports_);
     }
 
     for (const auto &toolbar_attr_id : attrs_in_toolbar_) {
@@ -2237,7 +2248,7 @@ utility::JsonStore Module::public_state_data() {
 
         data["children"].push_back(attr->as_json());
     }
-    // std::cerr << data.dump(2) << "\n";
+    // //std::cerr << data.dump(2) << "\n";
     return data;
 }
 
@@ -2256,28 +2267,26 @@ void Module::register_ui_panel_qml(
     data["view_name"]       = panel_name;
     data["view_qml_source"] = qml_code;
     data["position"]        = position_in_menu;
-    /*anon_send(
-        central_models_data_actor,
-        ui::model_data::insert_rows_atom_v,
+    /*anon_mail(ui::model_data::insert_rows_atom_v,
         "views model", // the model called 'views model' is what's used to build the panels menu
         "/", // add to root
         data,
         0, // row
         1, // count
-        caf::actor());*/
+        caf::actor()).send(central_models_data_actor);*/
 
     scoped_actor sys{self()->home_system()};
     try {
 
-        anon_send(
-            central_models_data_actor,
+        anon_mail(
             ui::model_data::insert_rows_atom_v,
             "view widgets", // the model called 'view widgets' is what's used to build the
                             // panels menu
             "",             // (path) add to root
             0,              // row
             1,              // count
-            data);
+            data)
+            .send(central_models_data_actor);
 
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -2295,15 +2304,15 @@ void Module::register_ui_panel_qml(
 
         try {
 
-            anon_send(
-                central_models_data_actor,
+            anon_mail(
                 ui::model_data::insert_rows_atom_v,
                 "popout windows", // the model called 'view widgets' is what's used to build the
                                   // panels menu
                 "",               // (path) add to root
                 0,                // row
                 1,                // count
-                data);
+                data)
+                .send(central_models_data_actor);
 
         } catch (std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -2357,15 +2366,15 @@ void Module::register_singleton_qml(const std::string &qml_code) {
     scoped_actor sys{self()->home_system()};
     try {
 
-        anon_send(
-            central_models_data_actor,
+        anon_mail(
             ui::model_data::insert_rows_atom_v,
             "singleton items", // the model called 'singleton items' is what's used to build the
                                // singleton
             "",                // (path) add to root
             0,                 // row
             1,                 // count
-            data);
+            data)
+            .send(central_models_data_actor);
 
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());

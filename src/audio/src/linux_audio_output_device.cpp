@@ -53,6 +53,15 @@ void LinuxAudioOutputDevice::connect_to_soundcard() {
 
     int error;
 
+    // TODO: Configure for low latency. Currently latency is about 130ms - too
+    // long! But reducing the buffer size always causes distortion and I have
+    // not yet worked out why.
+
+    /*pa_buffer_attr buf_attrs;
+    buf_attrs.maxlength = buffer_size_*2*2;
+    buf_attrs.tlength = buffer_size_*2;
+    buf_attrs.prebuf = buffer_size_;*/
+
     /* Create a new playback stream */
     if (!(playback_handle_ = pa_simple_new(
               nullptr,
@@ -62,7 +71,7 @@ void LinuxAudioOutputDevice::connect_to_soundcard() {
               "playback",
               &pa_ss,
               nullptr,
-              nullptr,
+              nullptr, /*&buf_attrs,*/
               &error))) {
         std::string err = fmt::format(
             "{}  pa_simple_new() failed: {} ", __PRETTY_FUNCTION__, pa_strerror(error));
@@ -72,7 +81,17 @@ void LinuxAudioOutputDevice::connect_to_soundcard() {
     spdlog::debug("{} Connected to soundcard : {} ", __PRETTY_FUNCTION__, sound_card.c_str());
 }
 
-long LinuxAudioOutputDevice::desired_samples() { return buffer_size_; }
+long LinuxAudioOutputDevice::desired_samples() {
+
+    return buffer_size_;
+
+    // TODO: proper buffer top-up logic along with configuring the buffer attrs
+    // as per above commented out code. Almost works but I get some distortion
+    /*int64_t l = latency_microseconds();
+    int64_t approx_num_samples_in_souncard_buffer = (l*sample_rate_)/(1000000);
+    auto res = std::max(int64_t(0), int64_t(buffer_size_) -
+    approx_num_samples_in_souncard_buffer); return (long)res;*/
+}
 
 long LinuxAudioOutputDevice::latency_microseconds() {
 

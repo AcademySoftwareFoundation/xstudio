@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls.Basic
+
+import QtQuick.Layouts
 
 import xStudio 1.0
 
@@ -110,7 +111,9 @@ Item {
 
 				MouseArea {
 					anchors.fill: parent
-					onPressed: showFlagMenu(mouse.x, mouse.y, this, flagSet)
+					onPressed: (mouse)=> {
+						showFlagMenu(mouse.x, mouse.y, this, flagSet)
+					}
 					cursorShape: Qt.PointingHandCursor
 				}
 			}
@@ -119,6 +122,8 @@ Item {
 		    	Layout.fillHeight: true
 		    	Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
 
+			    font.pixelSize: XsStyleSheet.fontSize
+			    font.family: XsStyleSheet.fontFamily
 		    	horizontalAlignment: Text.AlignLeft
 		    	verticalAlignment: Text.AlignVCenter
 				text: control.title[0] + trackIndex
@@ -218,7 +223,7 @@ Item {
 
 			onPressedChanged: sizerDragging(pressed)
 
-			onPositionChanged: {
+			onPositionChanged: (mouse)=> {
 				if(pressed) {
 					let ppos = mapToItem(control, mouse.x, 0)
 					setTrackHeaderWidth(ppos.x + 4)

@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtQuick.Controls.Styles 1.4
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
 
 import xStudio 1.0
 import xstudio.qml.helpers 1.0
@@ -26,7 +23,6 @@ Item{
     property bool isSubDivider: false
 
     property real textSize: XsStyleSheet.fontSize
-    property var textFont: XsStyleSheet.fontFamily
     property color textColorNormal: palette.text
     property color hintColor: XsStyleSheet.hintColor
 
@@ -44,7 +40,7 @@ Item{
         anchors.fill: parent
         propagateComposedEvents: true
         acceptedButtons: Qt.RightButton
-        onPressed: {
+        onPressed: (mouse)=> {
             if (mouse.buttons == Qt.RightButton) {
                 showContextMenu(mouseX, mouseY, ma)
             }
@@ -83,10 +79,12 @@ Item{
                 Layout.preferredWidth: btnWidth
                 Layout.preferredHeight: btnHeight
                 imgSrc: "qrc:/icons/delete.svg"
-                onClicked: {
-                    removeSelected()
-                }
+                onClicked: toggleRemoveMenu(width/2, height/2, deleteBtn)
+                // onClicked: {
+                //     removeSelected()
+                // }
             }
+
             // XsSearchButton{ id: searchBtn
             //     Layout.preferredWidth: isExpanded? btnWidth*6 : btnWidth
             //     Layout.preferredHeight: btnHeight
@@ -156,7 +154,7 @@ Item{
             menuPath: ""
             panelContext: flagMenu.panelContext
             menuModelName: flagMenu.menu_model_name
-            onFlagSet: {
+            onFlagSet: (flag, flag_text) => {
                 theSessionData.set(flagMenu.itemIndex, flag, "flagColourRole")
 
                 if (flag_text)
@@ -217,7 +215,6 @@ Item{
     }
 
     function removeSelected() {
-
         dialogHelpers.multiChoiceDialog(
             doRemove,
             "Remove Selected Items",
@@ -226,6 +223,39 @@ Item{
             undefined)
 
     }
+
+    Loader {
+        id: menu_loader_remove
+    }
+
+    Component {
+        id: removeMenuComponent
+        XsPlaylistRemoveMenu {
+            property bool hoveredButton: false
+            closePolicy: hoveredButton ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        }
+    }
+
+
+    function toggleRemoveMenu(mx, my, parent) {
+        if (menu_loader_remove.item == undefined || !menu_loader_remove.item.visible) {
+            showRemoveMenu(mx, my, parent)
+        } else {
+            menu_loader_remove.item.close()
+        }
+    }
+
+    function showRemoveMenu(mx, my, parent) {
+        if (menu_loader_remove.item == undefined) {
+            menu_loader_remove.sourceComponent = removeMenuComponent
+        }
+        menu_loader_remove.item.hoveredButton = Qt.binding(function() { return parent.hovered })
+        menu_loader_remove.item.showMenu(
+            parent,
+            mx,
+            my);
+    }
+
 
     function doRemove(button) {
 

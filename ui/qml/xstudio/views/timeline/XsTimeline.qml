@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick.Controls 2.3
-import QtQuick 2.14
-import QtQuick.Layouts 1.3
-import QtGraphicalEffects 1.12
-import QtQml.Models 2.12
-import QtQml 2.12
-import Qt.labs.qmlmodels 1.0
+
+import QtQuick
+import QtQuick.Layouts
+import Qt.labs.qmlmodels
+
 import QuickFuture 1.0
 import QuickPromise 1.0
 
@@ -52,8 +50,8 @@ Rectangle {
     property alias contract_previous_hotkey: contract_previous_hotkey
     property alias contract_both_hotkey: contract_both_hotkey
 
-    property bool selectionIsLocked: false
-    property bool selectionIsEnabled: false
+    // property bool selectionIsLocked: false
+    // property bool selectionIsEnabled: false
     property bool loopSelection: false
     property bool focusSelection: false
     property alias timeline_items: list_view.model
@@ -63,7 +61,7 @@ Rectangle {
     property alias timelineProperty: timelineProperty
     property string editMode: "Select"
     property bool rippleMode: false
-    property bool overwriteMode: false
+    property bool overwriteMode: true
     property bool snapMode: false
 
     property bool scalingModeActive: false
@@ -222,11 +220,15 @@ Rectangle {
 
     }
 
-    function getMediaIndex(clipIndex) {
-        let tindex = theSessionData.getTimelineIndex(clipIndex)
-        let muuid = theSessionData.get(clipIndex, "clipMediaUuidRole")
-        let mlist = theSessionData.index(0, 0, tindex)
-        let result = theSessionData.search(muuid, "actorUuidRole", mlist)
+    function getMediaIndex(clipIndex, mediaListIndex=null) {
+        if(mediaListIndex == null) {
+            let tindex = theSessionData.getTimelineIndex(clipIndex)
+            mediaListIndex = theSessionData.index(0, 0, tindex)
+        }
+        let result = theSessionData.search(
+            theSessionData.get(clipIndex, "clipMediaUuidRole"),
+            "actorUuidRole", mediaListIndex
+        )
         return result
     }
 
@@ -242,7 +244,27 @@ Rectangle {
         onSelectionChanged: {
             updateFocus()
             updateLoop()
-            theSessionData.setTimelineSelection(timeline_items.rootIndex, timelineSelection.selectedIndexes)
+
+            let selectedItems = timelineSelection.selectedIndexes
+            theSessionData.setTimelineSelection(timeline_items.rootIndex, selectedItems)
+
+            // build list of media.
+            let mediaIndexes = []
+            let tindex = theSessionData.getTimelineIndex(timeline_items.rootIndex)
+            let mediaListIndex = theSessionData.index(0, 0, tindex)
+
+            for(let i =0; i< selectedItems.length; i++) {
+                let mi = getMediaIndex(selectedItems[i], mediaListIndex)
+                if(mi.valid)
+                    mediaIndexes.push(mi)
+            }
+
+            let uniqueMediaIndexes = new Set(mediaIndexes)
+
+            theSessionData.updateSelection(
+                timelinePlayheadSelectionIndex,
+                Array.from(uniqueMediaIndexes),
+                ItemSelectionModel.ClearAndSelect)
         }
     }
 
@@ -324,24 +346,6 @@ Rectangle {
             }
         }
     }
-
-    /*
-    XsButtonDialog {
-        id: new_item_dialog
-        rejectIndex: 0
-        acceptIndex: -1
-        width: 500
-        text: "Choose item to add"
-        title: "Add Timeline Item"
-        property var insertion_parent: null
-        property int insertion_row: 0
-
-        buttonModel: ["Cancel", "Clip", "Gap", "Audio Track", "Video Track", "Stack"]
-        onSelected: {
-            if(button_index != 0)
-                addItem(buttonModel[button_index], insertion_parent, insertion_row)
-        }
-    }*/
 
     function setTrackHeaderWidth(val) {
         trackHeaderWidth = Math.max(val, 40)
@@ -451,7 +455,7 @@ Rectangle {
             menuPath: ""
             panelContext: flagMenu.panelContext
             menuModelName: flagMenu.menu_model_name
-            onFlagSet: {
+            onFlagSet: (flag, flag_text) => {
                 if(flagMenu.flagCallback)
                     flagMenu.flagCallback(flag, flag_text)
             }
@@ -786,17 +790,6 @@ Rectangle {
             helpers.createItemSelection(vclips),
             mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : mode & Qt.ControlModifier ? ItemSelectionModel.Select : ItemSelectionModel.ClearAndSelect)
 
-        let vmedia = []
-        for(let i=0;i<vclips.length;i++) {
-            let ind = getMediaIndex(vclips[i])
-            if(ind.valid && !vmedia.includes(ind))
-                vmedia.push(ind)
-        }
-
-        // mediaSelectionModel.select(
-        //     helpers.createItemSelection(vmedia),
-        //     mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : mode & Qt.ControlModifier ? ItemSelectionModel.Select : ItemSelectionModel.ClearAndSelect)
-
         // audio clips.
         let pa = mapToItem(list_view.itemAtIndex(0).list_view_audio, x, y)
 
@@ -822,34 +815,6 @@ Rectangle {
         timelineSelection.select(
             helpers.createItemSelection(aclips),
             mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : ItemSelectionModel.Select)
-
-        let amedia = []
-        for(let i=0;i<aclips.length;i++) {
-            let ind = getMediaIndex(aclips[i])
-            if(ind.valid && !amedia.includes(ind))
-                amedia.push(ind)
-        }
-
-        let msel = vmedia.concat(amedia)
-        if(timelinePlayheadSelectionIndex.valid && msel.length)
-            theSessionData.updateSelection(
-                timelinePlayheadSelectionIndex,
-                msel,
-                mode & Qt.ShiftModifier ?
-                    ItemSelectionModel.Deselect :
-                    (mode & Qt.ControlModifier ? ItemSelectionModel.Select : ItemSelectionModel.ClearAndSelect)
-            )
-
-
-        // if(timelinePlayheadSelectionIndex.valid)
-        //     theSessionData.updateSelection(
-        //         timelinePlayheadSelectionIndex, amedia,
-        //         mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : ItemSelectionModel.Select
-        //     )
-
-        // mediaSelectionModel.select(
-        //     helpers.createItemSelection(amedia),
-        //     mode & Qt.ShiftModifier ? ItemSelectionModel.Deselect : ItemSelectionModel.Select)
     }
 
     function resolveItem(x, y) {
@@ -1423,7 +1388,7 @@ Rectangle {
 
             }
 
-            onPressed: mousePressed(mouse.button, mouse.x, mouse.y, mouse.modifiers, true)
+            onPressed: mouse => mousePressed(mouse.button, mouse.x, mouse.y, mouse.modifiers, true)
 
             function tapped(button, mouseX, mouseY, modifiers, item=null) {
                 let l = mapFromGlobal(mouseX, mouseY)
@@ -1453,7 +1418,7 @@ Rectangle {
 
             onDoubleClicked: doubleTapped()
 
-            onReleased: {
+            onReleased: mouse => {
                 isScaling = false
                 isScrolling = false
 
@@ -1467,7 +1432,7 @@ Rectangle {
                 moveDragHandler.enabled = false
             }
 
-            onPositionChanged: {
+            onPositionChanged: mouse => {
                 if(isScaling) {
                     // cap min scale to fit timeline.
                     // scaleX = Math.max(minScaleX, initialValue - ((initialPosition.x - mouse.x)/40.0))
@@ -1679,7 +1644,7 @@ Rectangle {
 
 
             function _Timer() {
-                 return Qt.createQmlObject("import QtQuick 2.0; Timer {}", appWindow);
+                 return Qt.createQmlObject("import QtQuick; Timer {}", appWindow);
             }
 
             function delayCallback(delayTime, cb) {
@@ -1773,11 +1738,6 @@ Rectangle {
                                             }
                                         }
                                         timelineSelection.select(helpers.createItemSelection(items), ItemSelectionModel.ClearAndSelect)
-
-                                        if(timelinePlayheadSelectionIndex.valid)
-                                            theSessionData.updateSelection(timelinePlayheadSelectionIndex, mitems, ItemSelectionModel.ClearAndSelect)
-
-                                        // mediaSelectionModel.select(helpers.createItemSelection(mitems), ItemSelectionModel.ClearAndSelect)
                                     }
                                 } else {
                                     selectItem()
@@ -1794,18 +1754,6 @@ Rectangle {
                                 let new_state = hovered.isSelected  ? ItemSelectionModel.Deselect : ItemSelectionModel.Select
                                 if(["Clip","Audio Track", "Video Track"].includes(hovered.itemTypeRole)) {
                                     timelineSelection.select(hovered.modelIndex(), new_state)
-
-                                    if(hovered.itemTypeRole == "Clip" && hovered.mediaIndex.valid && timelinePlayheadSelectionIndex.valid) {
-                                        console.log(timelinePlayheadSelectionIndex,
-                                            [hovered.mediaIndex],
-                                            new_state)
-                                        theSessionData.updateSelection(
-                                            timelinePlayheadSelectionIndex,
-                                            [hovered.mediaIndex],
-                                            new_state
-                                        )
-                                        // mediaSelectionModel.select(hovered.mediaIndex, new_state)
-                                    }
                                 }
                             }
                         } else if(modifiers == Qt.NoModifier) {
@@ -1816,20 +1764,14 @@ Rectangle {
             }
 
             function selectItem(dragging=false) {
-                if(hovered.itemTypeRole == "Clip" && hovered.hasMedia) {
-                    // find media in media list and select ?
-                    let mind = hovered.mediaIndex
-                    if(mind.valid && timelinePlayheadSelectionIndex.valid) {
-                        theSessionData.updateSelection(timelinePlayheadSelectionIndex, [mind])
-                    }
-                    // mediaSelectionModel.select(mind, ItemSelectionModel.ClearAndSelect)
-                }
-
                 if(dragging) {
                     if("Clip" == hovered.itemTypeRole)
                         timelineSelection.select(hovered.modelIndex(), ItemSelectionModel.Select)
                 } else if(["Clip","Audio Track", "Video Track", "Gap"].includes(hovered.itemTypeRole))
-                    timelineSelection.select(hovered.modelIndex(), ItemSelectionModel.ClearAndSelect)
+                    if(loopSelection && hovered.itemTypeRole == "Gap")
+                        timelineSelection.clear()
+                    else
+                        timelineSelection.select(hovered.modelIndex(), ItemSelectionModel.ClearAndSelect)
                 else
                     timelineSelection.clear()
             }
@@ -1947,7 +1889,7 @@ Rectangle {
         property var modelIndex: null
         property bool newVideoTrack: true
 
-        onDragEntered: {
+        onDragEntered: (mousePosition, source, data) => {
             // console.log(source, data)
             if (source == "MediaList" && typeof data == "object" && data.length) {
                 dragTarget = true
@@ -1966,12 +1908,12 @@ Rectangle {
             }
         }
 
-        onDragged: {
+        onDragged: (mousePosition, source, data) => {
             if(dragTarget)
                 processPosition(mousePosition.x, mousePosition.y, data)
         }
 
-		onDropped: {
+		onDropped: (mousePosition, source, data) => {
 			if (dragTarget) {
                 processPosition(mousePosition.x, mousePosition.y, data)
 

@@ -1,11 +1,13 @@
-project(viewport_widget VERSION 0.1.0 LANGUAGES CXX)
+project(viewport_widget VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
-QT5_WRAP_CPP(VIEWPORT_OPENGL_UI_MOC_SRC
+QT6_WRAP_CPP(VIEWPORT_OPENGL_UI_MOC_SRC
 	"${ROOT_DIR}/include/xstudio/ui/qt/viewport_widget.hpp"
 )
-QT5_WRAP_CPP(offscreen_viewport_MOC_SRC
+QT6_WRAP_CPP(offscreen_viewport_MOC_SRC
 	"${ROOT_DIR}/include/xstudio/ui/qt/offscreen_viewport.hpp"
 )
+
+find_package(Qt6 COMPONENTS Core Quick Gui OpenGL OpenGLWidgets Concurrent REQUIRED)
 
 # find_package(OpenGL REQUIRED)
 # find_package(GLEW REQUIRED)
@@ -28,12 +30,12 @@ default_options_qt(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
-		${CAF_LIBRARY_core}
-		Qt5::Widgets
-		Qt5::OpenGL
-		Qt5::Core
-		Qt5::Qml
-		Qt5::Quick
+		CAF::core
+		Qt6::OpenGLWidgets
+		Qt6::OpenGL
+		Qt6::Core
+		Qt6::Qml
+		Qt6::Quick
 		xstudio::ui::opengl::viewport
 		xstudio::ui::viewport
 		xstudio::thumbnail

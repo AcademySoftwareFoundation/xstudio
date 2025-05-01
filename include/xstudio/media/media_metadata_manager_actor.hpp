@@ -5,7 +5,6 @@
 #include <caf/actor_config.hpp>
 #include <caf/behavior.hpp>
 #include <caf/event_based_actor.hpp>
-#include <caf/group.hpp>
 #include <map>
 
 #include "xstudio/utility/tree.hpp"
@@ -19,6 +18,8 @@ namespace media {
         ~GlobalMetadataManager() override = default;
 
         caf::behavior make_behavior() override { return behavior_; }
+
+        void on_exit() override;
 
       private:
         void config_updated();

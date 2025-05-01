@@ -84,6 +84,11 @@ namespace plugin {
                 message_handler_.or_else(module::Module::message_handler()));
         }
 
+        const char *name() const override {
+            return dynamic_cast<const module::Module *>(this)->name().c_str();
+        }
+
+
       protected:
         void on_exit() override;
 
@@ -97,7 +102,8 @@ namespace plugin {
         virtual utility::BlindDataObjectPtr onscreen_render_data(
             const media_reader::ImageBufPtr & /*image*/,
             const std::string & /*viewport_name*/,
-            const utility::Uuid &playhead_uuid) const {
+            const utility::Uuid &playhead_uuid,
+            const bool is_hero_image) const {
             return utility::BlindDataObjectPtr();
         }
 
@@ -126,6 +132,12 @@ namespace plugin {
         build_annotation(const utility::JsonStore &anno_data) {
             return bookmark::AnnotationBasePtr();
         }
+
+        // reimplement this function to get a list of frame IDs of media that
+        // is going to be going on screen in the near future during playtback.
+        // This gives the opportunity to do asynchronous fetching of data from
+        // media or media sources before it's needed at draw time.
+        virtual void media_due_on_screen_soon(const media::AVFrameIDsAndTimePoints &) {}
 
         /* Function signature for on screen annotation change - reimplement to
         receive this event. Call join_playhead_events() to activate. */

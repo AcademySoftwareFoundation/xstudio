@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
+import QtQuick
 import QuickFuture 1.0
 import QtQml.Models 2.15
 
@@ -14,7 +14,7 @@ XsDragDropHandler {
     dragSourceName: "PlayList"
     dragData: sessionSelectionModel.selectedIndexes
 
-    onDragged: {
+    onDragged: (mousePosition, source, data) => {
         if (source == "PlayList") {
             if (modelIndex.row == (modelIndex.model.rowCount(modelIndex.parent)-1) && mousePosition.y > itemRowStdHeight/2) {
                 dragToEnd = true
@@ -24,7 +24,7 @@ XsDragDropHandler {
         }
     }
 
-    onDragEntered: {
+    onDragEntered: (mousePosition, source, data) => {
 
         incomingDragSource = source
 
@@ -127,7 +127,7 @@ XsDragDropHandler {
         }
     }
 
-    onDropped: {
+    onDropped: (mousePosition, source, data) => {
 
         if (!isDragTarget) return
         isDragTarget = false

@@ -2,6 +2,7 @@
 #include <caf/sec.hpp>
 #include <caf/policy/select_all.hpp>
 #include <caf/policy/select_any.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
@@ -45,9 +46,12 @@ ConformWorkerActor::ConformWorkerActor(caf::actor_config &cfg) : caf::event_base
     //     }
     // }
 
-    // distribute to all conformers.
-    delayed_anon_send(
-        caf::actor_cast<caf::actor>(this), std::chrono::seconds(4), conform_tasks_atom_v);
+    // // distribute to all conformers.
+    // required to assing conform plugins
+    // could be an issue is plugins are late.
+    anon_mail(conform_tasks_atom_v)
+        .delay(std::chrono::seconds(5))
+        .send(caf::actor_cast<caf::actor>(this), weak_ref);
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -140,11 +144,13 @@ ConformWorkerActor::ConformWorkerActor(caf::actor_config &cfg) : caf::event_base
             return rp;
         },
 
-
+        // return media / sequence pairs.
+        // used when conforming media into new sequences
         [=](conform_atom, const UuidActorVector &media)
-            -> result<std::vector<std::optional<std::pair<std::string, caf::uri>>>> {
-            auto rp = make_response_promise<
-                std::vector<std::optional<std::pair<std::string, caf::uri>>>>();
+            -> result<std::vector<
+                std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>> {
+            auto rp = make_response_promise<std::vector<
+                std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>>();
 
             get_media_sequences(rp, media);
 
@@ -165,6 +171,8 @@ ConformWorkerActor::ConformWorkerActor(caf::actor_config &cfg) : caf::event_base
             return rp;
         },
 
+        // manipulate timeline to populate conform track
+        // and also other initial preparations
         [=](conform_atom,
             const UuidActor &timeline,
             const bool only_create_conform_track) -> result<bool> {
@@ -404,10 +412,8 @@ void ConformWorkerActor::process_task_request(
                         auto count                         = 0;
                         for (const auto &i : result.request_.items_) {
                             if (result.items_[count] and not result.items_[count]->empty()) {
-                                anon_send(
-                                    result.request_.container_.actor(),
-                                    playlist::remove_media_atom_v,
-                                    i.media_.uuid());
+                                anon_mail(playlist::remove_media_atom_v, i.media_.uuid())
+                                    .send(result.request_.container_.actor());
                             }
                             count++;
                         }
@@ -427,7 +433,7 @@ void ConformWorkerActor::process_task_request(
                                 const auto &ritems = *(result.items_.at(count));
                                 const UuidActor &m = std::get<0>(ritems.at(0));
 
-                                anon_send(i.item_.actor(), timeline::link_media_atom_v, m);
+                                anon_mail(timeline::link_media_atom_v, m).send(i.item_.actor());
                             }
                             count++;
                         }
@@ -451,12 +457,9 @@ void ConformWorkerActor::process_task_request(
                                 //     to_string(std::get<0>(i).actor()),
                                 //     to_string(std::get<0>(i).uuid())
                                 // );
-                                anon_send(
-                                    result.request_.container_.actor(),
-                                    timeline::erase_item_atom_v,
-                                    i.item_.uuid(),
-                                    true,
-                                    true);
+                                anon_mail(
+                                    timeline::erase_item_atom_v, i.item_.uuid(), true, true)
+                                    .send(result.request_.container_.actor());
                             }
                             count++;
                         }
@@ -507,6 +510,9 @@ void ConformWorkerActor::process_request(
                                 }
                             }
                         }
+
+                        if (result.request_.operations_.value("match_only", false))
+                            return rp.deliver(result);
 
                         // result.request_ = request;
 
@@ -624,10 +630,9 @@ void ConformWorkerActor::process_request(
                                                     // spdlog::warn("{} {}",
                                                     // (*real_clip)->name(),
                                                     // to_string((*real_clip)->actor()));
-                                                    anon_send(
-                                                        (*real_clip)->actor(),
-                                                        timeline::link_media_atom_v,
-                                                        media);
+                                                    anon_mail(
+                                                        timeline::link_media_atom_v, media)
+                                                        .send((*real_clip)->actor());
                                                 }
                                             }
 
@@ -696,7 +701,7 @@ void ConformWorkerActor::process_request(
                             auto new_track_name = result.request_.operations_.value(
                                 "new_track_name", std::string());
                             for (auto &i : tracks) {
-                                i.clean(true);
+                                i.merge_gaps(true);
                                 i.reset_uuid(true);
                                 if (not new_track_name.empty())
                                     i.set_name(new_track_name);
@@ -716,7 +721,7 @@ void ConformWorkerActor::process_request(
                             }
 
                             if (not unconformed_track.empty()) {
-                                unconformed_track.clean(true);
+                                unconformed_track.merge_gaps(true);
                                 unconformed_track.reset_uuid(true);
                                 auto track_actor = spawn<timeline::TrackActor>(
                                     unconformed_track, unconformed_track);
@@ -751,8 +756,8 @@ void ConformWorkerActor::process_request(
                             }
                             // rebind media..
                             // does the timeline even know at this point ?
-                            // anon_send(result.request_.container_.actor(),
-                            // timeline::link_media_atom_v, true);
+                            // anon_mail(// timeline::link_media_atom_v,
+                            // true).send(result.request_.container_.actor());
 
                         } catch (...) {
                         }
@@ -842,11 +847,13 @@ void ConformWorkerActor::conform_to_media(
 }
 
 void ConformWorkerActor::get_media_sequences(
-    caf::typed_response_promise<std::vector<std::optional<std::pair<std::string, caf::uri>>>>
-        rp,
+    caf::typed_response_promise<
+        std::vector<std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>> rp,
     const UuidActorVector &media) {
     if (conformers_.empty()) {
-        rp.deliver(std::vector<std::optional<std::pair<std::string, caf::uri>>>(media.size()));
+        rp.deliver(
+            std::vector<std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>(
+                media.size()));
     } else {
         // collect media metadata.
         fan_out_request<policy::select_all>(
@@ -871,12 +878,12 @@ void ConformWorkerActor::get_media_sequences(
                     fan_out_request<policy::select_all>(
                         conformers_, infinite, conform_atom_v, ordered_media_metadata)
                         .then(
-                            [=](const std::vector<
-                                std::vector<std::optional<std::pair<std::string, caf::uri>>>>
+                            [=](const std::vector<std::vector<std::optional<
+                                    std::tuple<std::string, caf::uri, utility::JsonStore>>>>
                                     all_results) mutable {
                                 // compile results..
-                                auto result = std::vector<
-                                    std::optional<std::pair<std::string, caf::uri>>>(
+                                auto result = std::vector<std::optional<
+                                    std::tuple<std::string, caf::uri, utility::JsonStore>>>(
                                     media.size());
 
                                 for (const auto &i : all_results) {
@@ -924,18 +931,18 @@ void ConformWorkerActor::conform_to_timeline(
 
         // find track..
         try {
+            // need media metadata populating.
+            auto ritems = std::vector<ConformRequestItem>();
+            for (const auto &i : media) {
+                ritems.emplace_back(ConformRequestItem(i, i));
+            }
+
             auto track_item = request_receive<timeline::Item>(
                 *sys, timeline.actor(), timeline::item_atom_v, conform_track_uuid);
 
             track_item.unbind();
             track_item.set_enabled(true);
             track_item.set_locked(false);
-
-            // need media metadata populating.
-            auto ritems = std::vector<ConformRequestItem>();
-            for (const auto &i : media) {
-                ritems.emplace_back(ConformRequestItem(i, i));
-            }
 
             auto clip_items = track_item.find_all_items(timeline::IT_CLIP);
             for (auto &i : clip_items) {
@@ -992,8 +999,8 @@ void ConformWorkerActor::conform_chain(
 
         // populate playlist metadata
         if (not conform_request.metadata_.count(conform_request.playlist_.uuid())) {
-            request(
-                conform_request.playlist_.actor(), infinite, json_store::get_json_atom_v, "")
+            mail(json_store::get_json_atom_v, "")
+                .request(conform_request.playlist_.actor(), infinite)
                 .then(
                     [=](const JsonStore &playlist_metadata) mutable {
                         // we maybe processing timeline items..
@@ -1142,7 +1149,8 @@ void ConformWorkerActor::conform_step_get_playlist_json(
     // spdlog::warn("conform_step_get_playlist_json");
     // conform_request.dump();
 
-    request(conform_request.playlist_.actor(), infinite, json_store::get_json_atom_v, "")
+    mail(json_store::get_json_atom_v, "")
+        .request(conform_request.playlist_.actor(), infinite)
         .then(
             [=](const JsonStore &playlist_metadata) mutable {
                 // we maybe processing timeline items..
@@ -1412,11 +1420,17 @@ ConformManagerActor::ConformManagerActor(caf::actor_config &cfg, const utility::
     event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
     pool_ = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         worker_count_,
         [&] { return system().spawn<ConformWorkerActor>(); },
         caf::actor_pool::round_robin());
+
+#pragma GCC diagnostic pop
+
     link_to(pool_);
 
     system().registry().put(conform_registry, this);
@@ -1429,7 +1443,8 @@ ConformManagerActor::ConformManagerActor(caf::actor_config &cfg, const utility::
         auto event     = JsonStore(std::forward<decltype(PH1)>(PH1));
         auto undo_redo = std::forward<decltype(PH2)>(PH2);
 
-        send(event_group_, utility::event_atom_v, json_store::sync_atom_v, data_uuid_, event);
+        mail(utility::event_atom_v, json_store::sync_atom_v, data_uuid_, event)
+            .send(event_group_);
     });
 
     // my_menu_      = insert_menu_item("media_list_menu_", "Conform", "", 0.0f);
@@ -1443,8 +1458,9 @@ ConformManagerActor::ConformManagerActor(caf::actor_config &cfg, const utility::
     // 0.0f);
 
     // trigger request for tasks..
-    delayed_anon_send(
-        caf::actor_cast<caf::actor>(this), std::chrono::seconds(5), conform_tasks_atom_v);
+    anon_mail(conform_tasks_atom_v, true)
+        .delay(std::chrono::seconds(5))
+        .send(caf::actor_cast<caf::actor>(this), weak_ref);
 }
 
 caf::message_handler ConformManagerActor::message_handler_extensions() {
@@ -1469,16 +1485,20 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
             return JsonStore();
         },
 
+        // return media / sequence pairs.
+        // used when conforming media into new sequences
         [=](conform_atom, const UuidActorVector &media) {
-            delegate(pool_, conform_atom_v, media);
+            return mail(conform_atom_v, media).delegate(pool_);
         },
 
         [=](conform_atom, const std::string &conform_task, const ConformRequest &request) {
-            delegate(pool_, conform_atom_v, conform_task, request);
+            return mail(conform_atom_v, conform_task, request).delegate(pool_);
         },
 
+        // manipulate timeline to populate conform track
+        // and also other initial preparations
         [=](conform_atom, const UuidActor &timeline, const bool only_create_conform_track) {
-            delegate(pool_, conform_atom_v, timeline, only_create_conform_track);
+            return mail(conform_atom_v, timeline, only_create_conform_track).delegate(pool_);
         },
 
         // find matching clips in timeline
@@ -1486,7 +1506,7 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
             const std::string &key,
             const UuidActor &clip,
             const UuidActor &timeline) {
-            delegate(pool_, conform_atom_v, key, clip, timeline);
+            return mail(conform_atom_v, key, clip, timeline).delegate(pool_);
         },
 
         [=](conform_atom,
@@ -1497,16 +1517,16 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
             const std::string &item_type,
             const UuidActorVector &items,
             const UuidVector &insert_before) {
-            delegate(
-                pool_,
-                conform_atom_v,
-                conform_task,
-                conform_operations,
-                playlist,
-                container,
-                item_type,
-                items,
-                insert_before);
+            return mail(
+                       conform_atom_v,
+                       conform_task,
+                       conform_operations,
+                       playlist,
+                       container,
+                       item_type,
+                       items,
+                       insert_before)
+                .delegate(pool_);
         },
 
         [=](conform_atom,
@@ -1515,14 +1535,14 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
             const UuidActor &timeline,
             const UuidActor &conform_track,
             const UuidActorVector &media) {
-            delegate(
-                pool_,
-                conform_atom_v,
-                conform_operations,
-                playlist,
-                timeline,
-                conform_track,
-                media);
+            return mail(
+                       conform_atom_v,
+                       conform_operations,
+                       playlist,
+                       timeline,
+                       conform_track,
+                       media)
+                .delegate(pool_);
         },
 
         [=](conform_atom,
@@ -1532,21 +1552,27 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
             const UuidActor &target_playlist,
             const UuidActor &target_timeline,
             const UuidActor &conform_track) {
-            delegate(
-                pool_,
-                conform_atom_v,
-                source_playlist,
-                source_timeline,
-                tracks,
-                target_playlist,
-                target_timeline,
-                conform_track);
+            return mail(
+                       conform_atom_v,
+                       source_playlist,
+                       source_timeline,
+                       tracks,
+                       target_playlist,
+                       target_timeline,
+                       conform_track)
+                .delegate(pool_);
         },
 
-        [=](conform_tasks_atom) -> result<std::vector<std::string>> {
+        [=](conform_tasks_atom) {
+            return mail(conform_tasks_atom_v, false)
+                .delegate(caf::actor_cast<caf::actor>(this));
+        },
+
+        [=](conform_tasks_atom, const bool retry) -> result<std::vector<std::string>> {
             auto rp = make_response_promise<std::vector<std::string>>();
 
-            request(pool_, infinite, conform_tasks_atom_v)
+            mail(conform_tasks_atom_v)
+                .request(pool_, infinite)
                 .then(
                     [=](const std::vector<std::string> &result) mutable {
                         // compare with model and replace as required.
@@ -1566,11 +1592,14 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
                                 data_.insert_rows(0, jsn.size(), jsn, "");
                             }
 
-                            send(
-                                event_group_,
-                                utility::event_atom_v,
-                                conform_tasks_atom_v,
-                                result);
+                            mail(utility::event_atom_v, conform_tasks_atom_v, result)
+                                .send(event_group_);
+
+                            if (retry and result.empty())
+                                anon_mail(conform_tasks_atom_v)
+                                    .delay(std::chrono::seconds(5))
+                                    .send(caf::actor_cast<caf::actor>(this), weak_ref);
+
 
                             rp.deliver(result);
                         } catch (const std::exception &err) {
@@ -1586,7 +1615,7 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &j) mutable {
@@ -1596,11 +1625,8 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
                     spdlog::debug(
                         "conform workers changed old {} new {}", worker_count_, count);
                     while (worker_count_ < count) {
-                        anon_send(
-                            pool_,
-                            sys_atom_v,
-                            put_atom_v,
-                            system().spawn<ConformWorkerActor>());
+                        anon_mail(sys_atom_v, put_atom_v, system().spawn<ConformWorkerActor>())
+                            .send(pool_);
                         worker_count_++;
                     }
                 } else if (count < worker_count_) {
@@ -1608,11 +1634,12 @@ caf::message_handler ConformManagerActor::message_handler_extensions() {
                         "conform workers changed old {} new {}", worker_count_, count);
                     // get actors..
                     worker_count_ = count;
-                    request(pool_, infinite, sys_atom_v, get_atom_v)
+                    mail(sys_atom_v, get_atom_v)
+                        .request(pool_, infinite)
                         .await(
                             [=](const std::vector<actor> &ws) {
                                 for (auto i = worker_count_; i < ws.size(); i++) {
-                                    anon_send(pool_, sys_atom_v, delete_atom_v, ws[i]);
+                                    anon_mail(sys_atom_v, delete_atom_v, ws[i]).send(pool_);
                                 }
                             },
                             [=](const error &err) {

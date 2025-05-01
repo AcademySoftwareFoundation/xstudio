@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/media_reader/image_buffer_set.hpp"
@@ -14,6 +16,26 @@ StandardPlugin::StandardPlugin(
     utility::print_on_exit(this, name);
 
     join_studio_events();
+
+    set_default_handler(
+        [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
+
+            spdlog::warn("{} got unexpected message from {} {}",
+                Module::name(),
+                to_string(current_sender()),
+                to_string(msg));
+
+            if (current_sender()) {
+                mail(utility::name_atom_v).request(caf::actor_cast<caf::actor>(current_sender()), infinite).then(
+                    [=](std::string __name) {
+                        std::cerr << "Message came from " << __name << "\n";
+                    },
+                    [=](caf::error &err) {
+                        std::cerr << "Can't get name of sender.\n";
+                    });
+            }
+            return message{};
+        });
 
     message_handler_ = {
 
@@ -35,8 +57,14 @@ StandardPlugin::StandardPlugin(
         [=](ui::viewport::prepare_overlay_render_data_atom,
             const media_reader::ImageBufPtr &image,
             const std::string &viewport_name,
-            const utility::Uuid &playhead_id) -> utility::BlindDataObjectPtr {
-            return onscreen_render_data(image, viewport_name, playhead_id);
+            const utility::Uuid &playhead_id,
+            const bool hero_image) -> utility::BlindDataObjectPtr {
+            return onscreen_render_data(image, viewport_name, playhead_id, hero_image);
+        },
+
+        [=](playhead::colour_pipeline_lookahead_atom,
+            const media::AVFrameIDsAndTimePoints &frame_ids_for_colour_mgmnt_lookeahead) {
+            media_due_on_screen_soon(frame_ids_for_colour_mgmnt_lookeahead);
         },
 
         [=](playhead::show_atom,
@@ -127,17 +155,17 @@ void StandardPlugin::on_screen_media_changed(caf::actor media) {
 
     if (!media)
         return;
-    request(media, infinite, media::current_media_source_atom_v, media::MT_IMAGE)
+    mail(media::current_media_source_atom_v, media::MT_IMAGE)
+        .request(media, infinite)
         .then(
 
             [=](utility::UuidActor source) mutable {
-                request(source.actor(), infinite, media::media_reference_atom_v)
+                mail(media::media_reference_atom_v)
+                    .request(source.actor(), infinite)
                     .then(
                         [=](const utility::MediaReference &media_ref) mutable {
-                            request(
-                                source.actor(),
-                                infinite,
-                                colour_pipeline::get_colour_pipe_params_atom_v)
+                            mail(colour_pipeline::get_colour_pipe_params_atom_v)
+                                .request(source.actor(), infinite)
                                 .then(
                                     [=](utility::JsonStore params) {
                                         on_screen_media_changed(media, media_ref, params);
@@ -157,7 +185,8 @@ void StandardPlugin::on_screen_media_changed(caf::actor media) {
 }
 
 void StandardPlugin::session_changed(caf::actor session) {
-    request(session, infinite, bookmark::get_bookmark_atom_v)
+    mail(bookmark::get_bookmark_atom_v)
+        .request(session, infinite)
         .then(
             [=](caf::actor bookmark_manager) { bookmark_manager_ = bookmark_manager; },
             [=](error &err) mutable {
@@ -172,11 +201,10 @@ void StandardPlugin::join_studio_events() {
 
         if (!system().registry().template get<caf::actor>(studio_registry)) {
             // studio not created yet. Retry in 100ms
-            delayed_anon_send(
-                caf::actor_cast<caf::actor>(this),
-                std::chrono::milliseconds(100),
-                utility::event_atom_v,
-                utility::event_atom_v);
+            anon_mail(utility::event_atom_v, utility::event_atom_v)
+                .delay(std::chrono::milliseconds(100))
+                .send(this);
+
             return;
         }
 
@@ -197,10 +225,8 @@ void StandardPlugin::join_studio_events() {
             system().registry().template get<caf::actor>(studio_registry),
             session::session_atom_v));
 
-        anon_send(
-            playhead_events_actor_,
-            broadcast::join_broadcast_atom_v,
-            caf::actor_cast<caf::actor>(this));
+        anon_mail(broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
+            .send(playhead_events_actor_);
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -222,8 +248,9 @@ void StandardPlugin::__images_going_on_screen(
 
         last_source_uuid_[viewport_name] = image_set->hero_image().frame_id().source_uuid();
         auto media_source =
-            caf::actor_cast<caf::actor>(image_set->hero_image().frame_id().actor_addr());
-        request(media_source, infinite, utility::parent_atom_v)
+            caf::actor_cast<caf::actor>(image_set->hero_image().frame_id().media_source_addr());
+        mail(utility::parent_atom_v)
+            .request(media_source, infinite)
             .then(
                 [=](caf::actor media_actor) { on_screen_media_changed(media_actor); },
                 [=](caf::error &err) {});
@@ -246,14 +273,13 @@ void StandardPlugin::listen_to_playhead_events(const bool listen) {
                 system().registry().template get<caf::actor>(global_playhead_events_actor);
         }
 
-        anon_send(
-            playhead_events_actor_,
-            broadcast::join_broadcast_atom_v,
-            caf::actor_cast<caf::actor>(this));
+        anon_mail(broadcast::join_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
+            .send(playhead_events_actor_);
 
         // this call means we get event messages when the on-screen media
         // changes
-        request(playhead_events_actor_, infinite, ui::viewport::viewport_playhead_atom_v)
+        mail(ui::viewport::viewport_playhead_atom_v)
+            .request(playhead_events_actor_, infinite)
             .then(
                 [=](caf::actor ph) { current_viewed_playhead_changed(ph); },
                 [=](caf::error &err) {
@@ -261,20 +287,19 @@ void StandardPlugin::listen_to_playhead_events(const bool listen) {
                 });
 
         // get all the existing viewports..
-        request(playhead_events_actor_, infinite, ui::viewport::viewport_atom_v)
+        mail(ui::viewport::viewport_atom_v)
+            .request(playhead_events_actor_, infinite)
             .then(
                 [=](std::vector<caf::actor> viewports) {
                     for (auto &vp : viewports) {
                         // get the viewport name
-                        request(vp, infinite, utility::name_atom_v)
+                        mail(utility::name_atom_v)
+                            .request(vp, infinite)
                             .then(
                                 [=](const std::string &viewport_name) {
                                     // get the playhead attached to the viewport
-                                    request(
-                                        vp,
-                                        infinite,
-                                        ui::viewport::viewport_playhead_atom_v,
-                                        viewport_name)
+                                    mail(ui::viewport::viewport_playhead_atom_v, viewport_name)
+                                        .request(vp, infinite)
                                         .then(
                                             [=](caf::actor playhead) {
                                                 // call our notification method
@@ -289,11 +314,8 @@ void StandardPlugin::listen_to_playhead_events(const bool listen) {
                 [=](caf::error &err) {});
 
     } else {
-
-        anon_send(
-            playhead_events_actor_,
-            broadcast::leave_broadcast_atom_v,
-            caf::actor_cast<caf::actor>(this));
+        anon_mail(broadcast::leave_broadcast_atom_v, caf::actor_cast<caf::actor>(this))
+            .send(playhead_events_actor_);
         joined_playhead_events_ = false;
         current_viewed_playhead_changed(caf::actor());
     }
@@ -319,8 +341,10 @@ void StandardPlugin::start_stop_playback(const std::string viewport_name, bool p
 }
 
 void StandardPlugin::set_viewport_cursor(const std::string cursor_name) {
+    anon_mail(ui::viewport::viewport_cursor_atom_v, cursor_name).send(playhead_events_actor_);
 
-    anon_send(playhead_events_actor_, ui::viewport::viewport_cursor_atom_v, cursor_name);
+    // anon_mail(ui::viewport::viewport_cursor_atom_v,
+    // cursor_name).send(playhead_events_actor_);
 }
 
 
@@ -337,7 +361,8 @@ void StandardPlugin::current_viewed_playhead_changed(caf::actor viewed_playhead)
 
     if (viewed_playhead) {
 
-        request(viewed_playhead, infinite, playhead::media_events_group_atom_v)
+        mail(playhead::media_events_group_atom_v)
+            .request(viewed_playhead, infinite)
             .then(
                 [=](caf::actor playhead_media_events_broadcast_group) {
                     utility::join_broadcast(this, playhead_media_events_broadcast_group);
@@ -346,17 +371,18 @@ void StandardPlugin::current_viewed_playhead_changed(caf::actor viewed_playhead)
 
                     // this kicks the playhead into re-broadcasting us an updated list of
                     // bookmarks for this new playhead
-                    anon_send(viewed_playhead, bookmark::get_bookmarks_atom_v);
+                    anon_mail(bookmark::get_bookmarks_atom_v).send(viewed_playhead);
 
                     // this kicks the playhead to re-broadcast its position, media frame and
                     // so-on
-                    anon_send(viewed_playhead, playhead::redraw_viewport_atom_v);
+                    anon_mail(playhead::redraw_viewport_atom_v).send(viewed_playhead);
                 },
                 [=](error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 });
 
-        request(viewed_playhead, infinite, playhead::media_atom_v)
+        mail(playhead::media_atom_v)
+            .request(viewed_playhead, infinite)
             .then(
                 [=](caf::actor current_media_actor) {
                     on_screen_media_changed(current_media_actor);
@@ -389,7 +415,7 @@ utility::Uuid StandardPlugin::create_bookmark_on_frame(
     scoped_actor sys{system()};
     try {
 
-        auto media_source = caf::actor_cast<caf::actor>(frame_details.actor_addr());
+        auto media_source = caf::actor_cast<caf::actor>(frame_details.media_source_addr());
         auto media =
             utility::request_receive<caf::actor>(*sys, media_source, utility::parent_atom_v);
 
@@ -533,11 +559,12 @@ utility::Uuid StandardPlugin::create_bookmark_on_current_media(
 void StandardPlugin::cancel_other_drawing_tools() {
 
     // get all viewports
-    request(playhead_events_actor_, infinite, ui::viewport::viewport_atom_v)
+    mail(ui::viewport::viewport_atom_v)
+        .request(playhead_events_actor_, infinite)
         .then(
             [=](const std::vector<caf::actor> &viewports) {
                 for (auto &vp : viewports) {
-                    send(vp, ui::viewport::turn_off_overlay_interaction_atom_v, uuid());
+                    mail(ui::viewport::turn_off_overlay_interaction_atom_v, uuid()).send(vp);
                 }
             },
             [=](error &err) mutable {
@@ -607,32 +634,37 @@ void StandardPlugin::update_bookmark_annotation(
     AnnotationBasePtr annotation_data,
     const bool annotation_is_empty) {
 
-    request(bookmark_manager_, infinite, bookmark::get_bookmark_atom_v, bookmark_id)
+    mail(bookmark::get_bookmark_atom_v, bookmark_id)
+        .request(bookmark_manager_, infinite)
         .then(
             [=](utility::UuidActor &bm) {
                 if (!annotation_is_empty) {
 
-                    anon_send(bm.actor(), bookmark::add_annotation_atom_v, annotation_data);
+                    anon_mail(bookmark::add_annotation_atom_v, annotation_data)
+                        .send(bm.actor());
 
                 } else {
 
-                    request(bm.actor(), infinite, bookmark::bookmark_detail_atom_v)
+                    mail(bookmark::bookmark_detail_atom_v)
+                        .request(bm.actor(), infinite)
                         .then(
                             [=](const bookmark::BookmarkDetail &detail) {
                                 if (!detail.note_ || *(detail.note_) == "") {
                                     // bookmark has no note, and the annotation is empty. Delete
                                     // the bookmark altogether
-                                    request(
-                                        bookmark_manager_,
-                                        infinite,
-                                        bookmark::remove_bookmark_atom_v,
-                                        bookmark_id);
+                                    // ??????????
+                                    // request(
+                                    //     bookmark_manager_,
+                                    //     infinite,
+                                    //     bookmark::remove_bookmark_atom_v,
+                                    //     bookmark_id);
+
+                                    mail(bookmark::remove_bookmark_atom_v, bookmark_id)
+                                        .send(bookmark_manager_);
 
                                 } else {
-                                    anon_send(
-                                        bm.actor(),
-                                        bookmark::add_annotation_atom_v,
-                                        annotation_data);
+                                    anon_mail(bookmark::add_annotation_atom_v, annotation_data)
+                                        .send(bm.actor());
                                 }
                             },
                             [=](error &err) mutable {
@@ -661,5 +693,6 @@ void StandardPlugin::update_bookmark_detail(
 
 void StandardPlugin::remove_bookmark(const utility::Uuid &bookmark_id) {
 
-    request(bookmark_manager_, infinite, bookmark::remove_bookmark_atom_v, bookmark_id);
+    mail(bookmark::remove_bookmark_atom_v, bookmark_id).send(bookmark_manager_);
+    // request(bookmark_manager_, infinite, bookmark::remove_bookmark_atom_v, bookmark_id);
 }

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include <chrono>
 #include <functional>
+#ifndef __apple__
 #include <malloc.h>
+#endif
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -37,14 +41,14 @@ class TrimActor : public caf::event_based_actor {
 TrimActor::TrimActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
 
     // trim memory usage, as when idle it'll slowly creep up until we run out of memory.
-    delayed_anon_send(this, std::chrono::minutes(10), unpreserve_atom_v);
+    anon_mail(unpreserve_atom_v).delay(std::chrono::minutes(10)).send(this, weak_ref);
 
     behavior_.assign(
         [=](unpreserve_atom, const size_t count) {
     // spdlog::stopwatch sw;
 #ifdef _WIN32
             _heapmin();
-#else
+#elif defined(__linux__)
             malloc_trim(64);
 #endif
             // spdlog::warn("Release {:.3f}", sw);
@@ -52,10 +56,10 @@ TrimActor::TrimActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
         [=](unpreserve_atom) {
 #ifdef _WIN32
             _heapmin();
-#else
+#elif defined(__linux__)
             malloc_trim(64);
 #endif
-            delayed_anon_send(this, std::chrono::minutes(10), unpreserve_atom_v);
+            anon_mail(unpreserve_atom_v).delay(std::chrono::minutes(10)).send(this, weak_ref);
         }
 
     );
@@ -92,7 +96,7 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
     auto trim = spawn<TrimActor>();
     link_to(trim);
 
-    delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+    anon_mail(clear_atom_v, true).delay(std::chrono::minutes(1)).send(this, weak_ref);
 
     // For cache benchmarking
     // cache_.noisy = true;
@@ -102,13 +106,13 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
         [=](clear_atom, const bool idle_check) {
             if (reset_idle_.count() and not cache_.empty() and
                 utility::clock::now() - last_activity_ > reset_idle_) {
-                anon_send(this, clear_atom_v);
+                anon_mail(clear_atom_v).send(this);
             }
-            delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+            anon_mail(clear_atom_v, true).delay(std::chrono::minutes(1)).send(this, weak_ref);
         },
         [=](clear_atom) -> bool {
             cache_.clear();
-            anon_send(trim, unpreserve_atom_v, static_cast<size_t>(0));
+            anon_mail(unpreserve_atom_v, static_cast<size_t>(0)).send(trim);
             return true;
         },
 
@@ -133,7 +137,7 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &js) {
@@ -158,14 +162,14 @@ GlobalImageCacheActor::GlobalImageCacheActor(caf::actor_config &cfg)
             if (not erased_keys_.empty() or not new_keys_.empty()) {
                 // force purge of memory..
                 if (not erased_keys_.empty())
-                    anon_send(trim, unpreserve_atom_v, erased_keys_.size());
+                    anon_mail(unpreserve_atom_v, erased_keys_.size()).send(trim);
 
-                send(
-                    event_group_,
+                mail(
                     utility::event_atom_v,
                     media_cache::keys_atom_v,
                     media::MediaKeyVector(new_keys_.begin(), new_keys_.end()),
-                    media::MediaKeyVector(erased_keys_.begin(), erased_keys_.end()));
+                    media::MediaKeyVector(erased_keys_.begin(), erased_keys_.end()))
+                    .send(event_group_);
             }
 
             new_keys_.clear();
@@ -300,7 +304,7 @@ void GlobalImageCacheActor::update_changes(
 
     if (not update_pending_ and (not new_keys_.empty() or not erased_keys_.empty())) {
         update_pending_ = true;
-        delayed_anon_send(this, std::chrono::milliseconds(250), keys_atom_v, true);
+        anon_mail(keys_atom_v, true).delay(std::chrono::milliseconds(250)).send(this, weak_ref);
     }
 }
 
@@ -334,7 +338,7 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
     auto event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
 
-    delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+    anon_mail(clear_atom_v, true).delay(std::chrono::minutes(1)).send(this, weak_ref);
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
@@ -342,9 +346,9 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
         [=](clear_atom, const bool idle_check) {
             if (reset_idle_.count() and not cache_.empty() and
                 utility::clock::now() - last_activity_ > reset_idle_) {
-                anon_send(this, clear_atom_v);
+                anon_mail(clear_atom_v).send(this);
             }
-            delayed_anon_send(this, std::chrono::minutes(1), clear_atom_v, true);
+            anon_mail(clear_atom_v, true).delay(std::chrono::minutes(1)).send(this, weak_ref);
         },
 
         [=](clear_atom) -> bool {
@@ -370,7 +374,7 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &js) {
@@ -394,12 +398,12 @@ GlobalAudioCacheActor::GlobalAudioCacheActor(caf::actor_config &cfg)
 
         [=](keys_atom, bool) {
             if (not erased_keys_.empty() or not new_keys_.empty())
-                send(
-                    event_group_,
+                mail(
                     utility::event_atom_v,
                     media_cache::keys_atom_v,
                     media::MediaKeyVector(new_keys_.begin(), new_keys_.end()),
-                    media::MediaKeyVector(erased_keys_.begin(), erased_keys_.end()));
+                    media::MediaKeyVector(erased_keys_.begin(), erased_keys_.end()))
+                    .send(event_group_);
 
             new_keys_.clear();
             erased_keys_.clear();
@@ -518,6 +522,6 @@ void GlobalAudioCacheActor::update_changes(
 
     if (not update_pending_ and (not new_keys_.empty() or not erased_keys_.empty())) {
         update_pending_ = true;
-        delayed_anon_send(this, std::chrono::milliseconds(250), keys_atom_v, true);
+        anon_mail(keys_atom_v, true).delay(std::chrono::milliseconds(250)).send(this, weak_ref);
     }
 }

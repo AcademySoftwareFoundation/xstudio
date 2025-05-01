@@ -1,11 +1,14 @@
 SET(LINK_DEPS
 	xstudio::global_store
-	caf::core
+	CAF::core
 	xstudio::media
 )
 
 if(UNIX)
-	list(APPEND LINK_DEPS stdc++fs dl)
+	list(APPEND LINK_DEPS dl)
+	if (NOT APPLE)
+		list(APPEND LINK_DEPS stdc++fs)
+	endif()
 endif()
 
-create_component(media_hook 0.1.0 "${LINK_DEPS}")
+create_component(media_hook ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
+import QtQuick
+
+
+import QtQuick.Layouts
 
 import xStudio 1.0
 
@@ -20,11 +20,9 @@ XsPrimaryButton{ id: widget
     property alias textDiv: textDiv
     
 
-    XsImage{ id: iconDiv
+    XsIcon{ id: iconDiv
         x: paddingSpace*2
         source: ""
-        sourceSize.height: 20
-        sourceSize.width: 20
         anchors.verticalCenter: parent.verticalCenter
         opacity: enabled ? 1 : 0.3
     }

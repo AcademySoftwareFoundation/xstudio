@@ -120,8 +120,6 @@ class OCIOColourPipeline : public ColourPipeline {
     void update_media_metadata(
         const utility::Uuid &media_uuid, const std::string &key, const std::string &val);
 
-    utility::JsonStore patch_media_metadata(const media::AVFrameID &media_ptr);
-
     void synchronize_attribute(const utility::Uuid &uuid, int role, bool ocio);
 
     std::string detect_display(

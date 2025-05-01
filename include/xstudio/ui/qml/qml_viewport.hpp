@@ -11,7 +11,7 @@ CAF_PUSH_WARNINGS
 #include <QCursor>
 #include <QObject>
 #include <QPointF>
-#include <QQuickItem>
+#include <QQuickPaintedItem>
 #include <QVector3D>
 #include <QtQml>
 #include <QScreen>
@@ -34,13 +34,14 @@ namespace ui {
         class VIEWPORT_QML_EXPORT QMLViewport : public QQuickItem {
             Q_OBJECT
 
-            Q_PROPERTY(QPoint mousePosition READ mousePosition NOTIFY mousePositionChanged)
+            Q_PROPERTY(QPointF mousePosition READ mousePosition NOTIFY mousePositionChanged)
             Q_PROPERTY(QVariantList imageBoundariesInViewport READ imageBoundariesInViewport
                            NOTIFY imageBoundariesInViewportChanged)
             Q_PROPERTY(QVariantList imageResolutions READ imageResolutions NOTIFY
                            imageResolutionsChanged)
             Q_PROPERTY(QString name READ name NOTIFY nameChanged)
             Q_PROPERTY(QUuid playheadUuid READ playheadUuid NOTIFY playheadUuidChanged)
+            Q_PROPERTY(bool hasPlayhead READ hasPlayhead NOTIFY playheadUuidChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);
@@ -48,7 +49,8 @@ namespace ui {
 
             [[nodiscard]] QUuid playheadUuid() const { return playhead_uuid_; }
             [[nodiscard]] QString name() const;
-            [[nodiscard]] QPoint mousePosition() const { return mouse_position; }
+            [[nodiscard]] QPointF mousePosition() const { return mouse_position; }
+            [[nodiscard]] bool hasPlayhead() const { return !playhead_uuid_.isNull(); }
 
             QMLViewportRenderer *viewportActor() { return renderer_actor; }
             void deleteRendererActor();
@@ -98,9 +100,14 @@ namespace ui {
           signals:
 
             void mouseRelease(Qt::MouseButtons buttons);
-            void mouseDoubleClick(Qt::MouseButtons buttons);
-            void mousePress(Qt::MouseButtons buttons);
-            void mousePositionChanged(QPoint position);
+            void mouseDoubleClick(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePress(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePositionChanged(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
+            void mousePressScreenPixels(
+                QPointF position, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
 
             void imageBoundariesInViewportChanged();
             void imageResolutionsChanged();
@@ -118,10 +125,10 @@ namespace ui {
 
           private:
             void releaseResources() override;
-            PointerEvent makePointerEvent(
-                Signature::EventType t, QMouseEvent *event, int force_modifiers = 0);
-            PointerEvent makePointerEvent(
-                Signature::EventType t, int buttons, int x, int y, int w, int h, int modifiers);
+
+            void sendPointerEvent(EventType t, QMouseEvent *event, int force_modifiers = 0);
+            void sendPointerEvent(QHoverEvent *event);
+            QPointF toViewportCoords(const QPointF &in) const;
 
             QQuickWindow *m_window = {nullptr};
             QMLViewportRenderer *renderer_actor{nullptr};
@@ -129,7 +136,7 @@ namespace ui {
             bool connected_{false};
             QCursor cursor_;
             bool cursor_hidden{false};
-            QPoint mouse_position;
+            QPointF mouse_position;
             bool is_quick_viewer_ = {false};
             QUuid playhead_uuid_;
 

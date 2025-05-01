@@ -1,4 +1,4 @@
-project(viewport_ui VERSION 0.1.0 LANGUAGES CXX)
+project(viewport_ui VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 find_package(OpenEXR)
 find_package(Imath)
@@ -26,7 +26,7 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::playhead
 		OpenEXR::OpenEXR
 		Imath::Imath
-		caf::core
+		CAF::core
 )
 
 add_library(${PROJECT_NAME}_static STATIC ${SOURCES})
@@ -39,5 +39,5 @@ target_link_libraries(${PROJECT_NAME}_static
 		xstudio::utility_static
 		OpenEXR::OpenEXR
 		Imath::Imath
-		caf::core
+		CAF::core
 )

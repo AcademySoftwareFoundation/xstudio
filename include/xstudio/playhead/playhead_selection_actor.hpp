@@ -18,7 +18,7 @@ namespace playhead {
             caf::actor_config &cfg, const utility::JsonStore &jsn, caf::actor playlist);
         PlayheadSelectionActor(
             caf::actor_config &cfg, const std::string &name, caf::actor playlist);
-        ~PlayheadSelectionActor();
+        virtual ~PlayheadSelectionActor() = default;
 
         const char *name() const override { return NAME.c_str(); }
 
@@ -43,8 +43,6 @@ namespace playhead {
         void insert_actor(
             caf::actor actor, const utility::Uuid media_uuid, const utility::Uuid &before_uuid);
 
-        void remove_dead_actor(caf::actor_addr actor);
-
         void select_all();
 
         void select_one();
@@ -56,6 +54,7 @@ namespace playhead {
         caf::actor playlist_;
         std::map<utility::Uuid, caf::actor> source_actors_;
         std::string filter_string_;
+        std::map<caf::actor_addr, caf::disposable> monitor_;
     };
 } // namespace playhead
 } // namespace xstudio

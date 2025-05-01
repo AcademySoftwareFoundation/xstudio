@@ -18,4 +18,4 @@ SET(LINK_DEPS
 	Imath::Imath
 )
 
-create_plugin_with_alias(colour_pipeline_ocio xstudio::colour_pipeline::ocio 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(colour_pipeline_ocio xstudio::colour_pipeline::ocio ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")

@@ -13,7 +13,7 @@ def __process_obj(playlist, timeline, parent, obj, media_lookup):
                 if i.source_range is not None:
                     trk.active_range = FrameRange(FrameRateDuration(int(i.source_range.duration.value), FrameRate(i.source_range.duration.rate)))
                 parent.insert_child(trk)
-                __process_obj(playlist, timeline, trk, i.each_child(), media_lookup)
+                __process_obj(playlist, timeline, trk, i.find_children(shallow_search=True), media_lookup)
 
             elif i.kind == Track.Kind.Audio:
                 # print("Audio Track")
@@ -21,7 +21,7 @@ def __process_obj(playlist, timeline, parent, obj, media_lookup):
                 if i.source_range is not None:
                     trk.active_range = FrameRange(FrameRateDuration(int(i.source_range.duration.value), FrameRate(i.source_range.duration.rate)))
                 parent.insert_child(trk)
-                __process_obj(playlist, timeline, trk, i.each_child(), media_lookup)
+                __process_obj(playlist, timeline, trk, i.find_children(shallow_search=True), media_lookup)
 
         elif isinstance(i, Gap):
             # print("Gap")
@@ -65,7 +65,7 @@ def __process_obj(playlist, timeline, parent, obj, media_lookup):
             if i.source_range is not None:
                 stk.active_range = FrameRange(FrameRateDuration(int(i.source_range.duration.value), FrameRate(i.source_range.duration.rate)))
             parent.insert_child(stk)
-            __process_obj(playlist, timeline, trk, i.each_child(), media_lookup)
+            __process_obj(playlist, timeline, trk, i.find_children(shallow_search=True), media_lookup)
 
 def import_timeline(playlist, otio, name=None, before=Uuid()):
     """Create Timeline from otio.

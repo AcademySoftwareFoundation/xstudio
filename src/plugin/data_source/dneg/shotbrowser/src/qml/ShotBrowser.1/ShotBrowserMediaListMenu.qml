@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
+import QtQuick
 
 import xstudio.qml.models 1.0
 import xstudio.qml.viewport 1.0
@@ -29,7 +29,7 @@ Item {
         name: "Reload Playlist"
         description: "Reload Playlist From ShotGrid Ordered"
         onActivated: ShotBrowserHelpers.syncPlaylistFromShotGrid(
-            helpers.QUuidFromUuidString(viewedMediaSetProperties.values.actorUuidRole), true
+            helpers.QUuidFromUuidString(inspectedMediaSetProperties.values.actorUuidRole), true
         )
     }
 
@@ -37,13 +37,14 @@ Item {
         text: "Pipeline"
         menuItemType: "divider"
         menuPath: ""
-        menuItemPosition: 25
+        menuItemPosition: 200
         menuModelName: "media_list_menu_"
     }
 
     XsMenuModelItem {
-        text: "In ShotGrid..."
+        text: "In ShotGrid..." + (enabled ? "" : " (Production Only)")
         menuPath: "Reveal Source"
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuItemPosition: 2
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.revealMediaInShotgrid(menuContext.mediaSelection)
@@ -57,9 +58,10 @@ Item {
     }
 
     XsMenuModelItem {
-        text: "Publish Selected Media Notes"
+        text: "Publish Media Notes..." + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: ""
-        menuItemPosition: 25.1
+        menuItemPosition: 210
         menuModelName: "media_list_menu_"
         onActivated: {
             ShotBrowserEngine.connected = true
@@ -79,246 +81,79 @@ Item {
     XsMenuModelItem {
         text: "Download SG Movie"
         menuPath: ""
-        menuItemPosition: 26.2
+        menuItemPosition: 260
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.downloadMovies(menuContext.mediaSelection)
     }
 
     XsMenuModelItem {
-        text: "To Chennai"
+        text: "To Here"
         menuItemPosition: 1
-        menuPath: "Transfer Selected|From London"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("lon", "chn", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia(helpers.getEnv("DNSITEDATA_SHORT_NAME"), menuContext.mediaSelection)
+    }
+
+    XsMenuModelItem {
+        menuItemType: "divider"
+        menuItemPosition: 1.5
+        menuPath: "Transfer"
+        menuModelName: "media_list_menu_"
+    }
+
+    XsMenuModelItem {
+        text: "To Chennai"
+        menuItemPosition: 2
+        menuPath: "Transfer"
+        menuModelName: "media_list_menu_"
+        onActivated: ShotBrowserHelpers.transferMedia("chn", menuContext.mediaSelection)
     }
     XsMenuModelItem {
         text: "To Montreal"
         menuItemPosition: 3
-        menuPath: "Transfer Selected|From London"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("lon", "mtl", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("mtl", menuContext.mediaSelection)
     }
     XsMenuModelItem {
         text: "To Mumbai"
         menuItemPosition: 4
-        menuPath: "Transfer Selected|From London"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("lon", "mum", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("mum", menuContext.mediaSelection)
     }
-    XsMenuModelItem {
-        text: "To Sydney"
-        menuItemPosition: 5
-        menuPath: "Transfer Selected|From London"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("lon", "syd", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Vancouver"
-        menuItemPosition: 6
-        menuPath: "Transfer Selected|From London"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("lon", "van", menuContext.mediaSelection)
-    }
-
-
     XsMenuModelItem {
         text: "To London"
-        menuItemPosition: 2
-        menuPath: "Transfer Selected|From Chennai"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("chn", "lon", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Montreal"
-        menuItemPosition: 3
-        menuPath: "Transfer Selected|From Chennai"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("chn", "mtl", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Mumbai"
         menuItemPosition: 4
-        menuPath: "Transfer Selected|From Chennai"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("chn", "mum", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("lon", menuContext.mediaSelection)
     }
     XsMenuModelItem {
         text: "To Sydney"
         menuItemPosition: 5
-        menuPath: "Transfer Selected|From Chennai"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("chn", "syd", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("syd", menuContext.mediaSelection)
     }
     XsMenuModelItem {
         text: "To Vancouver"
         menuItemPosition: 6
-        menuPath: "Transfer Selected|From Chennai"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("chn", "van", menuContext.mediaSelection)
+        onActivated: ShotBrowserHelpers.transferMedia("van", menuContext.mediaSelection)
     }
-
-
-
-    XsMenuModelItem {
-        text: "To Chennai"
-        menuItemPosition: 1
-        menuPath: "Transfer Selected|From Montreal"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mtl", "chn", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To London"
-        menuItemPosition: 2
-        menuPath: "Transfer Selected|From Montreal"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mtl","lon", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Mumbai"
-        menuItemPosition: 4
-        menuPath: "Transfer Selected|From Montreal"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mtl","mum", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Sydney"
-        menuItemPosition: 5
-        menuPath: "Transfer Selected|From Montreal"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mtl","syd", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Vancouver"
-        menuItemPosition: 6
-        menuPath: "Transfer Selected|From Montreal"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mtl","van", menuContext.mediaSelection)
-    }
-
-
-    XsMenuModelItem {
-        text: "To Chennai"
-        menuItemPosition: 1
-        menuPath: "Transfer Selected|From Mumbai"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mum", "chn", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To London"
-        menuItemPosition: 2
-        menuPath: "Transfer Selected|From Mumbai"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mum","lon", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Montreal"
-        menuItemPosition: 3
-        menuPath: "Transfer Selected|From Mumbai"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mum","mtl", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Sydney"
-        menuItemPosition: 5
-        menuPath: "Transfer Selected|From Mumbai"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mum","syd", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Vancouver"
-        menuItemPosition: 6
-        menuPath: "Transfer Selected|From Mumbai"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("mum","van", menuContext.mediaSelection)
-    }
-
-
-
-
-    XsMenuModelItem {
-        text: "To Chennai"
-        menuItemPosition: 1
-        menuPath: "Transfer Selected|From Sydney"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("syd","chn", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To London"
-        menuItemPosition: 2
-        menuPath: "Transfer Selected|From Sydney"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("syd","lon", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Montreal"
-        menuItemPosition: 3
-        menuPath: "Transfer Selected|From Sydney"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("syd","mtl", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Mumbai"
-        menuItemPosition: 4
-        menuPath: "Transfer Selected|From Sydney"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("syd","mum", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Vancouver"
-        menuItemPosition: 6
-        menuPath: "Transfer Selected|From Sydney"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("syd","van", menuContext.mediaSelection)
-    }
-
-
-    XsMenuModelItem {
-        text: "To Chennai"
-        menuItemPosition: 1
-        menuPath: "Transfer Selected|From Vancouver"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("van", "chn", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To London"
-        menuItemPosition: 2
-        menuPath: "Transfer Selected|From Vancouver"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("van", "lon", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Montreal"
-        menuItemPosition: 3
-        menuPath: "Transfer Selected|From Vancouver"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("van", "mtl", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Mumbai"
-        menuItemPosition: 4
-        menuPath: "Transfer Selected|From Vancouver"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("van", "mum", menuContext.mediaSelection)
-    }
-    XsMenuModelItem {
-        text: "To Sydney"
-        menuItemPosition: 5
-        menuPath: "Transfer Selected|From Vancouver"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("van", "syd", menuContext.mediaSelection)
-    }
-
 
     XsMenuModelItem {
         menuItemType: "divider"
         menuItemPosition: 7
-        menuPath: "Transfer Selected"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
     }
     XsMenuModelItem {
         text: "Open Transfer Tool"
         menuItemPosition: 8
-        menuPath: "Transfer Selected"
+        menuPath: "Transfer"
         menuModelName: "media_list_menu_"
         onActivated: {
             let uuids = []
@@ -332,25 +167,26 @@ Item {
                 }
             }
 
-            helpers.startDetachedProcess("dnenv-do", [helpers.getEnv("SHOW"), helpers.getEnv("SHOT"), "--", "maketransfer"].concat(uuids))
+            helpers.startDetachedProcess("dnenv-do", [helpers.getEnv("SHOW"), "--", "maketransfer"].concat(uuids))
         }
 
         Component.onCompleted: {
             // we need this so the menu model knows where to insert the
-            // "Transfer Selected" sub menu in the top level menu
-            setMenuPathPosition("Transfer Selected", 26.3)
+            // "Transfer" sub menu in the top level menu
+            setMenuPathPosition("Transfer", 220)
         }
     }
 
     XsMenuModelItem {
-        text: "Create SG Playlist..."
+        text: "Create SG Playlist..." + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Pipeline|Playlists"
         menuItemPosition: 1
         menuModelName: "main menu bar"
         onActivated: {
             ShotBrowserEngine.connected = true
             publish_to_dialog.show()
-            publish_to_dialog.playlistProperties = viewedMediaSetProperties
+            publish_to_dialog.playlistProperties = inspectedMediaSetProperties
         }
         Component.onCompleted: {
             helpers.setMenuPathPosition("Pipeline", "main menu bar", 3.0)
@@ -364,7 +200,7 @@ Item {
         menuItemPosition: 2
         menuModelName: "main menu bar"
         onActivated: ShotBrowserHelpers.syncPlaylistFromShotGrid(
-            helpers.QUuidFromUuidString(viewedMediaSetProperties.values.actorUuidRole)
+            helpers.QUuidFromUuidString(inspectedMediaSetProperties.values.actorUuidRole)
         )
     }
 
@@ -375,37 +211,40 @@ Item {
         menuItemPosition: 2.5
         menuModelName: "main menu bar"
         onActivated: ShotBrowserHelpers.syncPlaylistFromShotGrid(
-            helpers.QUuidFromUuidString(viewedMediaSetProperties.values.actorUuidRole),
+            helpers.QUuidFromUuidString(inspectedMediaSetProperties.values.actorUuidRole),
             true
         )
     }
 
     XsMenuModelItem {
-        text: "Push Media To SG Playlist"
+        text: "Push Media To SG Playlist" + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Pipeline|Playlists"
         menuItemPosition: 3
         menuModelName: "main menu bar"
         onActivated: {
             ShotBrowserEngine.connected = true
             sync_to_dialog.show()
-            sync_to_dialog.playlistProperties = viewedMediaSetProperties
+            sync_to_dialog.playlistProperties = inspectedMediaSetProperties
         }
     }
 
     XsMenuModelItem {
-        text: "Publish Playlist Notes"
+        text: "Publish Playlist Notes" + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Pipeline|Notes"
         menuItemPosition: 1
         menuModelName: "main menu bar"
         onActivated: {
             ShotBrowserEngine.connected = true
             publish_notes.show()
-            publish_notes.publishFromPlaylist(helpers.QVariantFromUuidString(viewedMediaSetProperties.values.actorUuidRole))
+            publish_notes.publishFromPlaylist(helpers.QVariantFromUuidString(inspectedMediaSetProperties.values.actorUuidRole))
         }
     }
 
     XsMenuModelItem {
-        text: "Publish Selected Media Notes"
+        text: "Publish Selected Media Notes" + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Pipeline|Notes"
         menuItemPosition: 2
         menuModelName: "main menu bar"
@@ -427,7 +266,8 @@ Item {
 
 
     XsMenuModelItem {
-        text: "Create SG Playlist..."
+        text: "Create SG Playlist..." + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Playlists"
         menuItemPosition: 1
         menuModelName: "playlist_context_menu"
@@ -458,7 +298,7 @@ Item {
         menuItemPosition: 2.5
         menuModelName: "playlist_context_menu"
         onActivated: ShotBrowserHelpers.syncPlaylistFromShotGrid(
-            helpers.QUuidFromUuidString(viewedMediaSetProperties.values.actorUuidRole),
+            helpers.QUuidFromUuidString(inspectedMediaSetProperties.values.actorUuidRole),
             true
         )
         hotkeyUuid: reload_playlist.uuid
@@ -466,7 +306,8 @@ Item {
 
 
     XsMenuModelItem {
-        text: "Push Media To SG Playlist"
+        text: "Push Media To SG Playlist" + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Playlists"
         menuItemPosition: 3
         menuModelName: "playlist_context_menu"
@@ -478,7 +319,8 @@ Item {
     }
 
     XsMenuModelItem {
-        text: "Reveal In Shotgrid"
+        text: "Reveal In ShotGrid..." + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Playlists"
         menuItemPosition: 4
         menuModelName: "playlist_context_menu"
@@ -500,7 +342,8 @@ Item {
     }
 
     XsMenuModelItem {
-        text: "Publish Playlist Notes"
+        text: "Publish Playlist Notes" + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuPath: "Notes"
         menuItemPosition: 1
         menuModelName: "playlist_context_menu"
@@ -508,21 +351,6 @@ Item {
             ShotBrowserEngine.connected = true
             publish_notes.show()
             publish_notes.publishFromPlaylist(helpers.QVariantFromUuidString(inspectedMediaSetProperties.values.actorUuidRole))
-        }
-        Component.onCompleted: {
-            setMenuPathPosition("Notes", 10.2)
-        }
-    }
-
-    XsMenuModelItem {
-        text: "Publish Selected Media Notes"
-        menuPath: "Notes"
-        menuItemPosition: 2
-        menuModelName: "playlist_context_menu"
-        onActivated: {
-            ShotBrowserEngine.connected = true
-            publish_notes.show()
-            publish_notes.publishFromMedia(mediaSelectionModel.selectedIndexes)
         }
         Component.onCompleted: {
             setMenuPathPosition("Notes", 10.2)

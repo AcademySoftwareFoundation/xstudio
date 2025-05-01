@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include <functional>
 
 #include "xstudio/atoms.hpp"
@@ -38,7 +40,7 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
         auto prefs = GlobalStoreHelper(system());
         JsonStore j;
         join_broadcast(this, prefs.get_group(j));
-        anon_send(this, json_store::update_atom_v, j);
+        anon_mail(json_store::update_atom_v, j).send(this);
     } catch (...) {
     }
 
@@ -56,23 +58,13 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
         [=](media_reader::get_thumbnail_atom) { process_queue(); },
 
         [=](media_reader::get_thumbnail_atom atom, const media::AVFrameID &mptr) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                atom,
-                mptr,
-                size_t(thumb_size_),
-                size_t(0),
-                true);
+            return mail(atom, mptr, size_t(thumb_size_), size_t(0), true)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](media_reader::get_thumbnail_atom atom, const media::AVFrameID &mptr) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                atom,
-                mptr,
-                size_t(thumb_size_),
-                size_t(0),
-                true);
+            return mail(atom, mptr, size_t(thumb_size_), size_t(0), true)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](utility::clear_atom atom,
@@ -89,11 +81,13 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
             else if (disk_cache)
                 target = dsk_cache_;
 
-            request(target, infinite, atom)
+            mail(atom)
+                .request(target, infinite)
                 .then(
                     [=](const bool) mutable {
                         if (mem_cache and disk_cache) {
-                            request(dsk_cache_, infinite, atom)
+                            mail(atom)
+                                .request(dsk_cache_, infinite)
                                 .then(
                                     [=](const bool) mutable { rp.deliver(true); },
                                     [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -108,16 +102,16 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
 
         [=](media_cache::count_atom atom, const bool memory_cache) {
             if (memory_cache)
-                delegate(mem_cache_, atom);
+                return mail(atom).delegate(mem_cache_);
             else
-                delegate(dsk_cache_, atom);
+                return mail(atom).delegate(dsk_cache_);
         },
 
         [=](media_cache::size_atom atom, const bool memory_cache) {
             if (memory_cache)
-                delegate(mem_cache_, atom);
+                return mail(atom).delegate(mem_cache_);
             else
-                delegate(dsk_cache_, atom);
+                return mail(atom).delegate(dsk_cache_);
         },
 
         // get thumb from memory cache.
@@ -133,7 +127,7 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
             const std::string &key,
             const size_t thumb_size,
             const ThumbnailBufferPtr &buf) {
-            anon_send(mem_cache_, atom, ThumbnailKey(key, thumb_size).hash(), buf);
+            anon_mail(atom, ThumbnailKey(key, thumb_size).hash(), buf).send(mem_cache_);
         },
 
         [=](media_reader::get_thumbnail_atom,
@@ -168,37 +162,33 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
         [=](media_reader::get_thumbnail_atom,
             const ThumbnailBufferPtr &buffer,
             const int quality) {
-            delegate(dsk_cache_, media_reader::get_thumbnail_atom_v, buffer, quality);
+            return mail(media_reader::get_thumbnail_atom_v, buffer, quality)
+                .delegate(dsk_cache_);
         },
 
         // convert to jpg
         [=](media_reader::get_thumbnail_atom, const ThumbnailBufferPtr &buffer) {
-            delegate(dsk_cache_, media_reader::get_thumbnail_atom_v, buffer);
+            return mail(media_reader::get_thumbnail_atom_v, buffer).delegate(dsk_cache_);
         },
 
         // convert from jpg
         [=](media_reader::get_thumbnail_atom, const std::vector<std::byte> &buffer) {
-            delegate(dsk_cache_, media_reader::get_thumbnail_atom_v, buffer);
+            return mail(media_reader::get_thumbnail_atom_v, buffer).delegate(dsk_cache_);
         },
 
         [=](media_reader::get_thumbnail_atom atom,
             const media::AVFrameID &mptr,
             const size_t hash,
             const bool cache_to_disk) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                atom,
-                mptr,
-                thumb_size_,
-                hash,
-                cache_to_disk);
+            return mail(atom, mptr, thumb_size_, hash, cache_to_disk)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom,
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &js) mutable {
@@ -207,7 +197,7 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
                     preference_value<size_t>(js, "/core/thumbnail/memory_cache/max_count");
                 if (mem_max_count != new_size_t) {
                     mem_max_count = new_size_t;
-                    anon_send(mem_cache_, media_cache::count_atom_v, mem_max_count);
+                    anon_mail(media_cache::count_atom_v, mem_max_count).send(mem_cache_);
                     spdlog::debug(
                         "set mem_max_count {} {}", __PRETTY_FUNCTION__, mem_max_count);
                 }
@@ -217,7 +207,7 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
                     1024 * 1024;
                 if (mem_max_size != new_size_t) {
                     mem_max_size = new_size_t;
-                    anon_send(mem_cache_, media_cache::size_atom_v, mem_max_size);
+                    anon_mail(media_cache::size_atom_v, mem_max_size).send(mem_cache_);
                     spdlog::debug("set mem_max_size {} {}", __PRETTY_FUNCTION__, mem_max_size);
                 }
 
@@ -226,7 +216,7 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
                     preference_value<size_t>(js, "/core/thumbnail/disk_cache/max_count");
                 if (dsk_max_count != new_size_t) {
                     dsk_max_count = new_size_t;
-                    anon_send(dsk_cache_, media_cache::count_atom_v, dsk_max_count);
+                    anon_mail(media_cache::count_atom_v, dsk_max_count).send(dsk_cache_);
                     spdlog::debug(
                         "set dsk_max_count {} {}", __PRETTY_FUNCTION__, dsk_max_count);
                 }
@@ -236,7 +226,7 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
                     1024;
                 if (dsk_max_size != new_size_t) {
                     dsk_max_size = new_size_t;
-                    anon_send(dsk_cache_, media_cache::size_atom_v, dsk_max_size);
+                    anon_mail(media_cache::size_atom_v, dsk_max_size).send(dsk_cache_);
                     spdlog::debug("set dsk_max_size {} {}", __PRETTY_FUNCTION__, dsk_max_size);
                 }
 
@@ -246,10 +236,8 @@ ThumbnailManagerActor::ThumbnailManagerActor(caf::actor_config &cfg)
 
                 if (cache_path != new_string) {
                     cache_path = new_string;
-                    anon_send(
-                        dsk_cache_,
-                        thumbnail::cache_path_atom_v,
-                        posix_path_to_uri(cache_path));
+                    anon_mail(thumbnail::cache_path_atom_v, posix_path_to_uri(cache_path))
+                        .send(dsk_cache_);
                     spdlog::debug("set cache_path {} {}", __PRETTY_FUNCTION__, cache_path);
                 }
 
@@ -284,7 +272,8 @@ void ThumbnailManagerActor::request_buffer(
 
     auto key = ThumbnailKey(mptr, hash, thumb_size).hash();
 
-    request(mem_cache_, infinite, media_cache::retrieve_atom_v, key)
+    mail(media_cache::retrieve_atom_v, key)
+        .request(mem_cache_, infinite)
         .then(
             [=](const ThumbnailBufferPtr &buf) mutable {
                 if (buf) {
@@ -294,9 +283,8 @@ void ThumbnailManagerActor::request_buffer(
                     bool start_loop = request_queue_.empty();
                     queue_thumbnail_request(rp, mptr, thumb_size, hash, cache_to_disk);
                     if (start_loop)
-                        anon_send(
-                            caf::actor_cast<caf::actor>(this),
-                            media_reader::get_thumbnail_atom_v);
+                        anon_mail(media_reader::get_thumbnail_atom_v)
+                            .send(caf::actor_cast<caf::actor>(this));
                 }
             },
             [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -337,7 +325,8 @@ void ThumbnailManagerActor::request_buffer(
 
     auto tkey = ThumbnailKey(key, thumb_size).hash();
 
-    request(mem_cache_, infinite, media_cache::retrieve_atom_v, tkey)
+    mail(media_cache::retrieve_atom_v, tkey)
+        .request(mem_cache_, infinite)
         .then(
             [=](const ThumbnailBufferPtr &buf) mutable {
                 if (buf) {
@@ -390,41 +379,40 @@ void ThumbnailManagerActor::process_queue() {
             }
         }
         if (request_queue_.size()) {
-            delayed_anon_send(
-                caf::actor_cast<caf::actor>(this),
-                std::chrono::milliseconds(5),
-                media_reader::get_thumbnail_atom_v);
+            anon_mail(media_reader::get_thumbnail_atom_v)
+                .delay(std::chrono::milliseconds(5))
+                .send(caf::actor_cast<caf::actor>(this));
         }
     };
 
-    request(mem_cache_, infinite, media_cache::retrieve_atom_v, key)
+    mail(media_cache::retrieve_atom_v, key)
+        .request(mem_cache_, infinite)
         .then(
             [=](const ThumbnailBufferPtr &buf) mutable {
                 if (buf) {
                     tn_request->deliver(buf);
                     continue_func();
                 } else {
-                    request(
-                        dsk_cache_,
-                        infinite,
+                    mail(
                         media_reader::get_thumbnail_atom_v,
                         tn_request->mptr,
                         tn_request->size,
                         tn_request->hash,
                         tn_request->cache_to_disk)
+                        .request(dsk_cache_, infinite)
                         .then(
                             [=](ThumbnailBufferPtr &buf) mutable {
                                 // if valid add to memory cache
                                 if (buf)
-                                    anon_send(
-                                        mem_cache_,
+                                    anon_mail(
                                         media_cache::store_atom_v,
                                         ThumbnailKey(
                                             tn_request->mptr,
                                             tn_request->hash,
                                             tn_request->size)
                                             .hash(),
-                                        buf);
+                                        buf)
+                                        .send(mem_cache_);
 
                                 // deliver buffer.
                                 tn_request->deliver(buf);

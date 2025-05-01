@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQml.Models
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -20,6 +19,7 @@ MouseArea {
     property bool isParent: delegateModel.model.rowCount(delegateModel.mapRowToModel(index))
 
     property bool showStatus: false
+    property bool showType: false
 
     property var delegateModel: null
     property var selectionModel: null
@@ -31,6 +31,9 @@ MouseArea {
             ShotBrowserHelpers.shiftSelectItem(selectionModel, delegateModel.index(index, 0))
         } else if(mouse.modifiers == Qt.ControlModifier) {
             ShotBrowserHelpers.ctrlSelectItem(selectionModel, delegateModel.index(index, 0))
+        } else if(mouse.modifiers == Qt.AltModifier) {
+            isExpanded = isParent
+            ShotBrowserHelpers.altSelectItem(selectionModel, delegateModel.index(index, 0))
         }
     }
 
@@ -56,7 +59,7 @@ MouseArea {
             anchors.fill: parent
             hoverEnabled: true
             propagateComposedEvents: true
-            onClicked: (mouse)=>{
+            onClicked: (mouse)=> {
                 mouse.accepted = false
             }
         }
@@ -110,6 +113,20 @@ MouseArea {
                     font.pixelSize: XsStyleSheet.fontSize*1.2
                     elide: Text.ElideRight
                     leftPadding: 2
+                }
+
+                XsText{
+                    Layout.preferredHeight: parent.height
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    opacity: 0.5
+                    visible: showType
+
+                    text: subtypeRole  ? subtypeRole : ""
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: XsStyleSheet.fontSize*1.2
+                    elide: Text.ElideRight
+                    rightPadding: 8
                 }
 
                 XsText{

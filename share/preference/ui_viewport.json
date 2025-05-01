@@ -23,6 +23,16 @@
 				"context": ["APPLICATION"],
 				"category": "Viewport"
 			},
+			"num_textures": {
+				"path": "/ui/viewport/num_textures",
+				"default_value": 8,
+				"description": "This sets the number of images that xstudio creates on your graphics card for drawing video in the viewport. A higher number uses more video ram, but can improve performance when viewing grid/contact sheets with many tiles. Very high end machines could accept a value of 48, say, but lower powered laptops may only allow 4. AFTER CHANGING THIS VALUE YOU MUST RESTART XSTUDIO.",
+				"value": 8,
+				"display_name": "Number of Video Buffers on GPU",
+				"datatype": "int",
+				"context": ["APPLICATION"],
+				"category": "Viewport"
+			},
 			"viewport_mouse_wheel_behaviour": {
 				"path": "/ui/viewport/viewport_mouse_wheel_behaviour",
 				"default_value": "Scrub Timeline",

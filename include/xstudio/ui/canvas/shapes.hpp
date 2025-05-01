@@ -29,6 +29,8 @@ namespace ui {
             uint32_t _id;
 
             bool operator==(const Quad &o) const;
+
+            std::string hash() const;
         };
 
         void from_json(const nlohmann::json &j, Quad &s);
@@ -50,6 +52,8 @@ namespace ui {
             uint32_t _id;
 
             bool operator==(const Polygon &o) const;
+
+            std::string hash() const;
         };
 
         void from_json(const nlohmann::json &j, Polygon &s);
@@ -73,6 +77,8 @@ namespace ui {
             uint32_t _id;
 
             bool operator==(const Ellipse &o) const;
+
+            std::string hash() const;
         };
 
         void from_json(const nlohmann::json &j, Ellipse &s);
@@ -81,3 +87,36 @@ namespace ui {
     } // end namespace canvas
 } // end namespace ui
 } // end namespace xstudio
+
+namespace std
+{
+    template <>
+    struct hash<xstudio::ui::canvas::Quad>
+    {
+        std::size_t operator()(const xstudio::ui::canvas::Quad &item) const
+        {
+            std::hash<std::string> hasher;
+            return hasher(item.hash());
+        }
+    };
+
+    template <>
+    struct hash<xstudio::ui::canvas::Polygon>
+    {
+        std::size_t operator()(const xstudio::ui::canvas::Polygon &item) const
+        {
+            std::hash<std::string> hasher;
+            return hasher(item.hash());
+        }
+    };
+
+    template <>
+    struct hash<xstudio::ui::canvas::Ellipse>
+    {
+        std::size_t operator()(const xstudio::ui::canvas::Ellipse &item) const
+        {
+            std::hash<std::string> hasher;
+            return hasher(item.hash());
+        }
+    };
+}

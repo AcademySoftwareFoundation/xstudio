@@ -49,12 +49,12 @@ ThumbnailCacheActor::ThumbnailCacheActor(
 
         [=](media_cache::keys_atom, bool) {
             if (not erased_keys_.empty() or not new_keys_.empty())
-                send(
-                    event_group_,
+                mail(
                     utility::event_atom_v,
                     media_cache::keys_atom_v,
                     std::vector<size_t>(new_keys_.begin(), new_keys_.end()),
-                    std::vector<size_t>(erased_keys_.begin(), erased_keys_.end()));
+                    std::vector<size_t>(erased_keys_.begin(), erased_keys_.end()))
+                    .send(event_group_);
 
             new_keys_.clear();
             erased_keys_.clear();
@@ -92,7 +92,9 @@ void ThumbnailCacheActor::update_changes(
     }
     if (not update_pending_ and (not new_keys_.empty() or not erased_keys_.empty())) {
         update_pending_ = true;
-        delayed_anon_send(this, std::chrono::milliseconds(250), media_cache::keys_atom_v, true);
+        anon_mail(media_cache::keys_atom_v, true)
+            .delay(std::chrono::milliseconds(250))
+            .send(this);
     }
 }
 

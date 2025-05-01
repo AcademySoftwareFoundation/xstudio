@@ -1,7 +1,7 @@
-import QtQuick 2.15
-import QtQuick.Controls 1.4
-import Qt.labs.qmlmodels 1.0
-import QtQml.Models 2.14
+import QtQuick
+
+
+
 
 import xStudio 1.0
 

@@ -199,7 +199,20 @@ namespace global_store {
         const std::string &override_path     = "");
     void set_global_store_def(utility::JsonStore &js, const GlobalStoreDef &gsd);
 
+    // note: extra_prefs_paths allows us to add preference files (or folders) that
+    // are loaded BEFORE the user's own preference files are loaded. The
+    // override_prefs_paths will be loaded AFTER the user's own prefs, providing
+    // a way to override user settings if required (e.g. on special machines like
+    // in a playback suite we may want to force certain xstudio settings to suit
+    // the machine and ignore the user's own settings)
+    bool load_preferences(
+        utility::JsonStore &js,
+        const bool load_user_prefs                           = true,
+        const std::vector<std::string> &extra_prefs_paths    = std::vector<std::string>(),
+        const std::vector<std::string> &override_prefs_paths = std::vector<std::string>());
+
     bool preference_load_defaults(utility::JsonStore &js, const std::string &path);
+
     void
     preference_load_overrides(utility::JsonStore &js, const std::vector<std::string> &paths);
 

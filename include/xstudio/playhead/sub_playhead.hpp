@@ -83,8 +83,7 @@ namespace playhead {
             const utility::time_point tp,
             const timebase::flicks timeline_pts);
 
-        void get_full_timeline_frame_list(
-            caf::typed_response_promise<caf::actor> rp, const bool retry = false);
+        void get_full_timeline_frame_list(caf::typed_response_promise<caf::actor> rp);
 
         std::shared_ptr<const media::AVFrameID> get_frame(
             const timebase::flicks &time,

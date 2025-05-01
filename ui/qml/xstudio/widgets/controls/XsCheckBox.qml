@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Window 2.15
-import QtQuick.Controls 2.15
-import QtGraphicalEffects 1.12
+import QtQuick
+import QtQuick.Effects
+import QtQuick.Controls.Basic
 
 import xStudio 1.0
 
@@ -47,20 +46,12 @@ CheckBox { id: widget
         border.color: widget.hovered || forcedHover? palette.highlight : "transparent"
         border.width: 1
 
-        Image { id: imgIndicator
+        XsIcon { 
+            id: imgIndicator
             visible: widget.checked
             source: "qrc:/icons/check.svg"
-            sourceSize.height: widget.indicator.width*0.8
-            sourceSize.width: widget.indicator.height*0.8
             anchors.centerIn: parent
-            layer {
-                textureSize: Qt.size(imgIndicator.width, imgIndicator.height)
-                enabled: true
-                effect:
-                ColorOverlay {
-                    anchors.fill: imgIndicator; color: widget.hovered || forcedHover? indicatorColor: Qt.darker(indicatorColor, 1.2)
-                }
-            }
+            imgOverlayColor: widget.hovered || forcedHover? indicatorColor: Qt.darker(indicatorColor, 1.2)
         }
     }
 

@@ -25,6 +25,8 @@ MediaSource::MediaSource(const JsonStore &jsn)
     for (const auto &i : jsn["audio_streams"]) {
         audio_streams_.push_back(i);
     }
+
+    partial_seq_behaviour_ = jsn.value("partial_seq_behaviour", PS_COLLAPSE_TO_ON_DISK_FRAMES);
 }
 
 MediaSource::MediaSource(
@@ -75,6 +77,8 @@ JsonStore MediaSource::serialise() const {
     for (const auto &i : audio_streams_) {
         jsn["audio_streams"].push_back(i);
     }
+
+    jsn["partial_seq_behaviour"] = partial_seq_behaviour();
 
     return jsn;
 }

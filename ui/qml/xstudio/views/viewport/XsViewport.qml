@@ -1,5 +1,5 @@
-import QtQuick 2.12
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.viewport 1.0
@@ -14,6 +14,8 @@ import "./hud"
 Viewport {
 
     id: view
+
+    property bool has_context_menu: true
 
     /**************************************************************
 
@@ -30,7 +32,23 @@ Viewport {
             elementsVisible = !elementsVisible
         }
     }
-    
+
+    XsHotkey {
+        id: reload_selected_media_hotkey
+        sequence: "U"
+        name: "Reload Selected Media"
+        description: "Reload selected media items."
+        context: view.name
+        onActivated: {
+            let mediaUuid = viewportPlayhead.mediaUuid
+            let mindex = theSessionData.searchRecursive(mediaUuid, "actorUuidRole", theSessionData.index(0, 0))
+            if (mindex.valid) {
+                theSessionData.rescanMedia([mindex])
+            }
+        }
+        componentName: "Media List"
+    }
+
     property alias hide_ui_hotkey: hide_ui_hotkey
 
     onPointerEntered: {
@@ -49,8 +67,6 @@ Viewport {
 
     XsViewportOverlays {}
 
-    XsViewportFrameErrorIndicator {}
-
     Loader {
         id: menu_loader
     }
@@ -65,13 +81,16 @@ Viewport {
         }
     }
 
-    onMousePress: {
+    onMousePressScreenPixels: (position, buttons) => {
         if (buttons == Qt.RightButton) {
-            showContextMenu(mousePosition.x, mousePosition.y)
+            showContextMenu(position.x, position.y)
         }
     }
 
     function showContextMenu(x, y) {
+        
+        if (!has_context_menu) return;
+
         if (menu_loader.item == undefined) {
             menu_loader.sourceComponent = menuComponent
         }
@@ -87,7 +106,7 @@ Viewport {
         id: viewport_attrs
         modelDataName: view.name + "_attrs"
     }
-    
+
     XsAttributeValue {
         id: __frame_rate_expr
         attributeTitle: "Frame Rate"
@@ -101,13 +120,6 @@ Viewport {
         model: viewport_attrs
     }
     property alias custom_cursor: __custom_cursor.value
-
-    XsAttributeValue {
-        id: __frame_error
-        attributeTitle: "frame_error"
-        model: viewport_attrs
-    }
-    property alias frame_error_message: __frame_error.value
 
     property var cursor_name_dict: {
         "Qt.ArrowCursor" : Qt.ArrowCursor,
@@ -151,10 +163,22 @@ Viewport {
         snapshotDialog.visible = true
     }
 
+    // Note: svg rendering not working for this image. Works in a browser so
+    // suspect that QML SVG rendering has issues
+    /*Image {
+
+        id: inspect_icon
+        source: "qrc:/images/xstudio_backdrop.svg"
+        visible: !view.hasPlayhead
+        anchors.fill: parent
+        sourceSize.height: 960
+        sourceSize.width: 540    
+    }*/
+
     // This highlights the 'hero' image momentarily for  certain compare modes
     Rectangle {
         visible: opacity > 0
-        x: imageBox.x        
+        x: imageBox.x
         y: imageBox.y
         width: imageBox.width
         height: imageBox.height

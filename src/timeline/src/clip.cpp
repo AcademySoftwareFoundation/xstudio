@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-#include <algorithm>
 
 #include "xstudio/timeline/clip.hpp"
-#include "xstudio/utility/helpers.hpp"
-#include "xstudio/utility/json_store.hpp"
 
 using namespace xstudio::timeline;
 using namespace xstudio;

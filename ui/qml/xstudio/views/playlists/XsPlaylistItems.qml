@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtQuick.Controls.Styles 1.4
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtQuick.Layouts 1.15
-import QuickFuture 1.0
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import Qt.labs.qmlmodels
+
+import QuickFuture
 
 import xStudio 1.0
 import "./delegates"
@@ -18,10 +17,20 @@ XsListView { id: playlists
 
     property real itemRowStdHeight: XsStyleSheet.widgetStdHeight + 4
     property real subitemIndent: 48
-    property real rightSpacing: showScrollbar ? 12 : 2
-    property real flagIndicatorWidth: 4
 
+    property real rightSpacing: playlists.height <  playlists.contentHeight ? 12 : 2
+
+    property real flagIndicatorWidth: 4
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+    ScrollBar.vertical: XsScrollBar {
+        visible: playlists.height < playlists.contentHeight
+        parent: playlists
+        anchors.top: playlists.top
+        anchors.right: playlists.right
+        anchors.bottom: playlists.bottom
+        x: -5
+    }
 
     Rectangle{ id: resultsBg
         anchors.fill: parent
@@ -146,11 +155,11 @@ XsListView { id: playlists
         dragSourceName: "PlayListView"
         dragData: sessionSelectionModel.selectedIndexes
 
-        onDragged: {
+        onDragged: (mousePosition, source, data) => {
             computeTargetDropIndex(mousePosition.y)
         }
 
-        onDropped: {
+        onDropped: (mousePosition, source, data) => {
 
             if (source == "External URIS") {
 

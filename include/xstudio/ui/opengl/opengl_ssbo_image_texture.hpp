@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+// SSBO not supported on MacOS
+#ifndef __OPENGL_4_1__
 // clang-format off
 #include <GL/glew.h>
 #include <GL/gl.h>
@@ -39,3 +41,5 @@ namespace ui {
     } // namespace opengl
 } // namespace ui
 } // namespace xstudio
+
+#endif

@@ -1,18 +1,38 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
 
 import xStudio 1.0
 import ShotBrowser 1.0
 
-XsListView{ id: list
+XsListView { id: list
     spacing: panelPadding
     property int rightSpacing: list.height < list.contentHeight ? 16 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+    ScrollBar.vertical: XsScrollBar {
+        visible: list.height < list.contentHeight
+        parent: list.parent
+        anchors.top: list.top
+        anchors.right: list.right
+        anchors.bottom: list.bottom
+        x: -5
+    }
+
+    XsSBMediaPlayer {
+        id: mediaPlayer
+        anchors.fill: parent
+        visible: false
+        onEject: visible = false
+    }
+
+    function playMovie(path) {
+        mediaPlayer.loadMedia(path)
+        mediaPlayer.visible = true
+        mediaPlayer.playToggle()
+    }
+
 
     XsLabel {
         text: "Select the 'Scope' to view the Shot History."
@@ -45,6 +65,7 @@ XsListView{ id: list
             height: XsStyleSheet.widgetStdHeight * 4
             delegateModel: chooserModel
             popupMenu: resultPopup
+            onPlayMovie: (path) => list.playMovie(path)
         }
     }
 }

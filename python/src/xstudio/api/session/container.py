@@ -4,12 +4,6 @@ from xstudio.api.auxiliary.helpers import get_uuid, get_type, get_event_group
 from xstudio.api.auxiliary import ActorConnection
 from xstudio.core import UuidActor
 
-try:
-    import XStudioExtensions
-except:
-    XStudioExtensions = None
-
-
 class PlaylistItem(object):
     def __init__(self, connection, remote, item):
         """Create PlaylistItem object.
@@ -149,35 +143,22 @@ class Container(ActorConnection):
             callback_function(function): Callback function
 
         Returns:
-            name(str): Name of actor container.
+            uuid(Uuid): A unique ID for the cinternal allback handler. Use to
+            remove the callback
         """
-        if XStudioExtensions:
-            XStudioExtensions.add_message_callback(
-                (self.group, callback_function, self.remote)
-                )
-        else:
-            self.connection.link.add_message_callback(
-                (self.group, callback_function, self.remote)
-                )
+        return self.connection.link.add_message_callback(
+            self.group, callback_function
+            )
 
-
-    def remove_event_callback_function(self, callback_function):
+    def remove_event_callback_function(self, callback_id):
         """Remove a callback that was set-up to get event messages from the
         container
         Args:
-            callback_function(function): Callback function
-
-        Returns:
-            name(str): Name of actor container.
+            callback_id(Uuid): Callback ID
         """
-        if XStudioExtensions:
-            XStudioExtensions.remove_message_callback(
-                (self.group, callback_function)
-                )
-        else:
-            self.connection.link.remove_message_callback(
-                (self.group, callback_function)
-                )
+        self.connection.link.remove_message_callback(
+            self.group, callback_id
+            )
 
     @property
     def name(self):

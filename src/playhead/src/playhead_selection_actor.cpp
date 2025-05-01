@@ -38,14 +38,11 @@ PlayheadSelectionActor::PlayheadSelectionActor(
     init();
 }
 
-PlayheadSelectionActor::~PlayheadSelectionActor() {}
-
 void PlayheadSelectionActor::on_exit() { playlist_ = caf::actor(); }
 
 caf::message_handler PlayheadSelectionActor::message_handler() {
     return caf::message_handler{
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        [=](const group_down_msg & /*msg*/) {},
 
         [=](playhead::delete_selection_from_playlist_atom) {
             if (base_.items().empty())
@@ -53,17 +50,13 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
 
             utility::Uuid deleted_media_source_uuid = base_.items().front().uuid_;
 
-            request(
-                playlist_,
-                infinite,
-                playlist::get_next_media_atom_v,
-                deleted_media_source_uuid,
-                -1)
+            mail(playlist::get_next_media_atom_v, deleted_media_source_uuid, -1)
+                .request(playlist_, infinite)
                 .then(
                     [=](UuidActor media_actor) mutable {
                         utility::Uuid new_selection_uuid = media_actor.uuid();
-                        request(
-                            playlist_, infinite, playlist::remove_media_atom_v, base_.items())
+                        mail(playlist::remove_media_atom_v, base_.items())
+                            .request(playlist_, infinite)
                             .await(
                                 [=](const bool) {
                                     select_media(UuidVector({new_selection_uuid}));
@@ -78,7 +71,7 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
         },
 
         [=](media_hook::gather_media_sources_atom) {
-            anon_send(playlist_, media_hook::gather_media_sources_atom_v, base_.items());
+            anon_mail(media_hook::gather_media_sources_atom_v, base_.items()).send(playlist_);
         },
 
         [=](playhead::evict_selection_from_cache_atom) -> result<media::MediaKeyVector> {
@@ -113,11 +106,8 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
         },
 
         [=](playhead::get_selection_atom, caf::actor requester) {
-            anon_send(
-                requester,
-                utility::event_atom_v,
-                playhead::selection_changed_atom_v,
-                base_.items());
+            anon_mail(utility::event_atom_v, playhead::selection_changed_atom_v, base_.items())
+                .send(requester);
         },
 
         [=](playhead::select_next_media_atom, const int skip_by) {
@@ -130,12 +120,14 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
             UuidVector v;
             for (auto &i : media_uuids)
                 v.push_back(i);
-            delegate(caf::actor_cast<caf::actor>(this), playlist::select_media_atom_v, v);
+
+            return mail(playlist::select_media_atom_v, v)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](playlist::select_media_atom, const UuidVector &media_uuids, bool retry) -> bool {
             if (media_uuids.empty()) {
-                anon_send(this, playlist::select_media_atom_v, utility::UuidVector());
+                anon_mail(playlist::select_media_atom_v, utility::UuidVector()).send(this);
             } else {
                 select_media(media_uuids, false);
             }
@@ -144,8 +136,9 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
 
         [=](playlist::select_media_atom, const UuidVector &media_uuids) -> bool {
             if (media_uuids.empty()) {
-                delayed_anon_send(
-                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
+                anon_mail(playlist::select_media_atom_v, true)
+                    .delay(std::chrono::milliseconds(500))
+                    .send(this);
             } else {
                 select_media(media_uuids);
             }
@@ -157,8 +150,9 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
             const bool retry,
             const playhead::SelectionMode mode) -> bool {
             if (media_uuids.empty()) {
-                delayed_anon_send(
-                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
+                anon_mail(playlist::select_media_atom_v, true)
+                    .delay(std::chrono::milliseconds(500))
+                    .send(this);
             } else {
                 select_media(media_uuids, retry, mode);
             }
@@ -169,8 +163,9 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
             const UuidVector &media_uuids,
             const playhead::SelectionMode mode) -> bool {
             if (media_uuids.empty())
-                delayed_anon_send(
-                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
+                anon_mail(playlist::select_media_atom_v, true)
+                    .delay(std::chrono::milliseconds(500))
+                    .send(this);
             else
                 select_media(media_uuids, true, mode);
 
@@ -204,7 +199,7 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
                 // the playlist has changed - if it was previously empty but now
                 // (perhaps) has media content then try selecting the first item
                 if (base_.empty())
-                    anon_send(this, playlist::select_media_atom_v, utility::UuidVector());
+                    anon_mail(playlist::select_media_atom_v, utility::UuidVector()).send(this);
             }
         },
 
@@ -229,8 +224,9 @@ caf::message_handler PlayheadSelectionActor::message_handler() {
         [=](utility::event_atom, playlist::remove_media_atom, const UuidVector &) {},
         [=](utility::event_atom, playlist::add_media_atom, const utility::UuidActorVector &) {
             if (base_.empty())
-                delayed_anon_send(
-                    this, std::chrono::milliseconds(500), playlist::select_media_atom_v, true);
+                anon_mail(playlist::select_media_atom_v, true)
+                    .delay(std::chrono::milliseconds(500))
+                    .send(this);
         }};
 }
 
@@ -242,17 +238,14 @@ void PlayheadSelectionActor::init() {
 
     caf::scoped_actor sys(system());
     link_to(playlist_);
-    request(playlist_, infinite, uuid_atom_v)
+    mail(uuid_atom_v)
+        .request(playlist_, infinite)
         .then(
             [=](const utility::Uuid &uuid) mutable { base_.set_monitored(uuid); },
             [=](error &) {});
-    request(playlist_, infinite, playlist::get_change_event_group_atom_v)
+    mail(playlist::get_change_event_group_atom_v)
+        .request(playlist_, infinite)
         .then([=](caf::actor grp) mutable { join_broadcast(this, grp); }, [=](error &) {});
-
-    set_down_handler([=](down_msg &msg) {
-        // find removed sources..
-        remove_dead_actor(msg.source);
-    });
 }
 
 void PlayheadSelectionActor::select_media(
@@ -294,7 +287,8 @@ void PlayheadSelectionActor::select_media(
 
     if (not selected.empty()) {
         // grab media from playlist..
-        request(playlist_, infinite, playlist::get_media_atom_v)
+        mail(playlist::get_media_atom_v)
+            .request(playlist_, infinite)
             .then(
                 [=](const std::vector<UuidActor> &media_actors) mutable {
                     // It's possible that a client has told us to select a piece
@@ -309,13 +303,10 @@ void PlayheadSelectionActor::select_media(
                     if (retry) {
                         for (const auto &i : selected) {
                             if (not media_uas.count(i) || !media_uas[i]) {
-                                delayed_anon_send(
-                                    caf::actor_cast<caf::actor>(this),
-                                    std::chrono::milliseconds(500),
-                                    playlist::select_media_atom_v,
-                                    media_uuids,
-                                    false,
-                                    mode);
+                                anon_mail(
+                                    playlist::select_media_atom_v, media_uuids, false, mode)
+                                    .delay(std::chrono::milliseconds(500))
+                                    .send(caf::actor_cast<caf::actor>(this));
 
                                 return;
                             }
@@ -323,10 +314,16 @@ void PlayheadSelectionActor::select_media(
                     }
 
                     for (const auto &i : deselected) {
-                        auto currently_selected = source_actors_.find(i);
-                        if (currently_selected != source_actors_.end()) {
+                        if (auto currently_selected = source_actors_.find(i);
+                            currently_selected != source_actors_.end()) {
                             // part of current selection..
-                            demonitor(currently_selected->second);
+
+                            if (auto mit = monitor_.find(caf::actor_cast<caf::actor_addr>(
+                                    currently_selected->second));
+                                mit != std::end(monitor_)) {
+                                mit->second.dispose();
+                                monitor_.erase(mit);
+                            }
                             source_actors_.erase(currently_selected);
                             base_.remove_item(i);
                         }
@@ -349,11 +346,8 @@ void PlayheadSelectionActor::select_media(
                     for (const auto &i : base_.items_vec())
                         tmp.push_back(source_actors_[i]);
 
-                    send(
-                        base_.event_group(),
-                        utility::event_atom_v,
-                        playhead::source_atom_v,
-                        tmp);
+                    mail(utility::event_atom_v, playhead::source_atom_v, tmp)
+                        .send(base_.event_group());
                 },
                 [=](error &err) mutable {
                     spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -362,10 +356,16 @@ void PlayheadSelectionActor::select_media(
         // deselect first
         // then select as order matters.
         for (const auto &i : deselected) {
-            auto currently_selected = source_actors_.find(i);
-            if (currently_selected != source_actors_.end()) {
+            if (auto currently_selected = source_actors_.find(i);
+                currently_selected != source_actors_.end()) {
                 // part of current selection..
-                demonitor(currently_selected->second);
+                if (auto mit = monitor_.find(
+                        caf::actor_cast<caf::actor_addr>(currently_selected->second));
+                    mit != std::end(monitor_)) {
+                    mit->second.dispose();
+                    monitor_.erase(mit);
+                }
+
                 source_actors_.erase(currently_selected);
                 base_.remove_item(i);
             }
@@ -376,13 +376,14 @@ void PlayheadSelectionActor::select_media(
         auto tmp = std::vector<caf::actor>();
         for (const auto &i : base_.items_vec())
             tmp.push_back(source_actors_[i]);
-        send(base_.event_group(), utility::event_atom_v, playhead::source_atom_v, tmp);
+        mail(utility::event_atom_v, playhead::source_atom_v, tmp).send(base_.event_group());
     }
 }
 
 void PlayheadSelectionActor::select_one() {
     // fetch all the media in the playlist
-    request(playlist_, infinite, playlist::get_media_atom_v)
+    mail(playlist::get_media_atom_v)
+        .request(playlist_, infinite)
         .then(
             [=](std::vector<UuidActor> media_actors) mutable {
                 if (not media_actors.empty()) {
@@ -401,7 +402,8 @@ void PlayheadSelectionActor::select_one() {
 void PlayheadSelectionActor::select_all() {
 
     // fetch all the media in the playlist
-    request(playlist_, infinite, playlist::get_media_atom_v)
+    mail(playlist::get_media_atom_v)
+        .request(playlist_, infinite)
         .then(
             [=](std::vector<UuidActor> media_actors) mutable {
                 // make a list of all the media item uuids in the plauylist
@@ -428,13 +430,8 @@ void PlayheadSelectionActor::select_next_media_item(const int skip_by) {
 
     // get the next item in the playlist using the uuid of the current item
     // in the selection
-    request(
-        playlist_,
-        infinite,
-        playlist::get_next_media_atom_v,
-        current_media_source_uuid,
-        skip_by,
-        filter_string_)
+    mail(playlist::get_next_media_atom_v, current_media_source_uuid, skip_by, filter_string_)
+        .request(playlist_, infinite)
         .then(
             [=](UuidActor media_actor) mutable {
                 select_media(UuidVector({media_actor.uuid()}));
@@ -451,19 +448,21 @@ void PlayheadSelectionActor::insert_actor(
     // we wrap sources in selection_clip..
     base_.insert_item(media_uuid, before_uuid);
     source_actors_[media_uuid] = actor;
-    monitor(actor);
-}
 
-void PlayheadSelectionActor::remove_dead_actor(caf::actor_addr actor) {
-    utility::Uuid media_uuid;
-    for (const auto &i : source_actors_) {
-        if (caf::actor_cast<caf::actor_addr>(i.second) == actor)
-            media_uuid = i.first;
-    }
+    auto act_addr = caf::actor_cast<caf::actor_addr>(actor);
+    if (auto sit = monitor_.find(act_addr); sit == std::end(monitor_)) {
+        monitor_[act_addr] = monitor(actor, [this, addr = actor.address()](const error &) {
+            if (auto mit = monitor_.find(caf::actor_cast<caf::actor_addr>(addr));
+                mit != std::end(monitor_))
+                monitor_.erase(mit);
 
-    if (not media_uuid.is_null()) {
-        demonitor(source_actors_[media_uuid]);
-        base_.remove_item(media_uuid);
-        source_actors_.erase(media_uuid);
+            for (const auto &i : source_actors_) {
+                if (i.second == addr and not i.first.is_null()) {
+                    base_.remove_item(i.first);
+                    source_actors_.erase(i.first);
+                    break;
+                }
+            }
+        });
     }
 }

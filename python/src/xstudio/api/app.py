@@ -25,15 +25,17 @@ class Viewport(ModuleBase):
         gphev = connection.request_receive(
                 connection.remote(),
                 get_global_playhead_events_atom())[0]
-
-        ModuleBase.__init__(
-            self,
-            connection,
-            connection.request_receive(
+        
+        remote = connection.request_receive(
                 gphev,
                 viewport_atom(),
                 viewport_name
                 )[0]
+
+        ModuleBase.__init__(
+            self,
+            connection,
+            remote
             )
 
     @property
@@ -41,6 +43,16 @@ class Viewport(ModuleBase):
         """Access the Playhead object supplying images to the viewport
         """        
         return Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])            
+
+    @playhead.setter
+    def set_playhead(self, playhead):
+        """Set the playhead that is delivering frames to the viewport, i.e.
+        the active playhead.
+
+        Args:
+            playhead(Playhead): The playhead."""
+
+        self.connection.request_receive(self.remote, viewport_playhead_atom(), playhead.remote)
 
     def quickview(self, media_items, compare_mode="Off", position=(100,100), size=(1280,720)):
         """Connect this playhead to the viewport.
@@ -97,13 +109,41 @@ class App(Container):
             colour_pipeline(ModuleBase): Colour Pipeline object."""
         return ModuleBase(self.connection, self.connection.request_receive(self.connection.remote(), colour_pipeline_atom())[0])
 
-    @property
-    def viewport(self):
-        """The main Viewport module.
+    def viewport(self, name):
+        """Access a named Viewport.
+        Args:
+            name(str): The viewport name
 
         Returns:
             viewport(ModuleBase): Viewport module."""
-        return Viewport(self.connection)
+        return Viewport(self.connection, name)
+
+    def set_viewport_playhead(self, viewport_name, playhead):
+        """Set's the named viewport to be driven by the given playhead
+        Args:
+            name(str): The viewport name
+            playhead(Playhead): The playhead to drive the viewport"""
+        
+        viewport_remote = self.connection.request_receive(
+                self.global_playhead_events.remote,
+                viewport_atom(),
+                viewport_name
+                )[0]
+
+        self.connection.send(viewport_remote, viewport_playhead_atom(), playhead.remote)
+
+    def set_global_playhead(self, playhead):
+        """Set's the global playhead to the given playhead. This will result 
+        in viewports showing frames coming from the given playhead
+        Args:
+            playhead(Playhead): The playhead to drive all viewports auto
+            connecting to the global playhead"""
+        
+        self.connection.send(
+                self.global_playhead_events.remote,
+                viewport_playhead_atom(),
+                playhead.remote
+                )
 
     @property
     def global_playhead_events(self):
@@ -118,12 +158,3 @@ class App(Container):
             self.connection,
             self.connection.request_receive(self.connection.remote(), get_actor_from_registry_atom(), "GLOBALPLAYHEADEVENTS")[0]
             )
-
-    def set_viewport_playhead(self, playhead):
-        """Set the playhead that is delivering frames to the viewport, i.e.
-        the active playhead.
-
-        Args:
-            playhead(Playhead): The playhead."""
-
-        self.connection.request_receive(self.viewport.remote, viewport_playhead_atom(), playhead.remote)

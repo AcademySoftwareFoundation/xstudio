@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
+import QtQuick
 
 import xstudio.qml.models 1.0
-
 import xStudio 1.0
 
 Item {
@@ -104,5 +103,12 @@ Item {
         model: mask_tool_attrs_data
     }
     property alias polygon_init: __polygon_init.value
+
+    XsAttributeValue {
+        id: __interacting
+        attributeTitle: "interacting"
+        model: mask_tool_attrs_data
+    }
+    property alias interacting: __interacting.value
 
 }

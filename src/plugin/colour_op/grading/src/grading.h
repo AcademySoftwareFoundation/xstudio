@@ -26,7 +26,8 @@ class GradingTool : public plugin::StandardPlugin {
 
     utility::BlindDataObjectPtr onscreen_render_data(
         const media_reader::ImageBufPtr &, const std::string & /*viewport_name*/,
-        const utility::Uuid &/*playhead_uuid*/) const override;
+        const utility::Uuid &/*playhead_uuid*/,
+        const bool is_hero_image) const override;
 
     // Annotations (grading)
 
@@ -130,6 +131,7 @@ class GradingTool : public plugin::StandardPlugin {
     module::ColourAttribute       *pen_colour_        {nullptr};
     module::BooleanAttribute      *shape_invert_      {nullptr};
     module::BooleanAttribute      *polygon_init_      {nullptr};
+    module::BooleanAttribute      *interacting_       {nullptr};
 
     module::IntegerAttribute *mask_selected_shape_{nullptr};
     module::BooleanAttribute *mask_shapes_visible_{nullptr};

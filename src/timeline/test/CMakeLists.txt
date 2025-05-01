@@ -1,7 +1,7 @@
 include(CTest)
 
 SET(LINK_DEPS
-	caf::core
+	CAF::core
 	xstudio::global
 	xstudio::playlist
 	xstudio::timeline

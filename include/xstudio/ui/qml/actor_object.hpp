@@ -24,12 +24,12 @@
 #include <caf/make_actor.hpp>
 #include <caf/message_handler.hpp>
 #include <caf/scheduled_actor.hpp>
-#include "caf/detail/shared_spinlock.hpp"
+// #include "caf/detail/shared_spinlock.hpp"
 
 // include CMake auto-generated export hpp
 #include "xstudio/ui/qml/helper_qml_export.h"
 
-#include <caf/scoped_execution_unit.hpp>
+// #include <caf/scoped_execution_unit.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -48,7 +48,7 @@ template <typename Base, int EventId = static_cast<int>(FIRST_CUSTOM_ID)>
 class actor_object : public Base {
   public:
     /// A shared lockable.
-    using lock_type = detail::shared_spinlock;
+    // using lock_type = detail::shared_spinlock;
 
     struct event_type : public QEvent {
         mailbox_element_ptr mptr;
@@ -72,16 +72,19 @@ class actor_object : public Base {
         alive_ = false;
         this->disconnect();
         if (companion_)
-            self()->cleanup(error{}, &execution_unit_);
+            self()->cleanup(error{}, &(sys_->scheduler()));
+        // if (companion_)
+        //     self()->cleanup(error{}, &execution_unit_);
     }
 
     void init(actor_system &system) {
+        sys_   = &system;
         alive_ = true;
-        execution_unit_.system_ptr(&system);
+        // execution_unit_.system_ptr(&system);
         companion_ = actor_cast<strong_actor_ptr>(system.spawn<actor_companion>());
 
         self()->on_enqueue([=](mailbox_element_ptr ptr) {
-            std::lock_guard<lock_type> guard(lock_);
+            // std::lock_guard<lock_type> guard(lock_);
 
             if (self() == nullptr or not alive_) {
                 // spdlog::warn("{} companion is null on_enqueue", __PRETTY_FUNCTION__);
@@ -95,7 +98,7 @@ class actor_object : public Base {
         });
 
         self()->on_exit([=] {
-            spdlog::warn("{}", __PRETTY_FUNCTION__);
+            // spdlog::warn("{}", __PRETTY_FUNCTION__);
             // close widget if actor companion dies
             // this->close();
         });
@@ -114,7 +117,7 @@ class actor_object : public Base {
             auto ptr = dynamic_cast<event_type *>(event);
             if (ptr && alive_) {
                 try {
-                    switch (self()->activate(&execution_unit_, *(ptr->mptr))) {
+                    switch (self()->activate(&(sys_->scheduler()), *(ptr->mptr))) {
                     case caf::scheduled_actor::activation_result::success:
                     case caf::scheduled_actor::activation_result::terminated:
                     case caf::scheduled_actor::activation_result::skipped:
@@ -142,11 +145,12 @@ class actor_object : public Base {
     }
 
   private:
-    scoped_execution_unit execution_unit_;
+    actor_system *sys_ = nullptr;
+    // scoped_execution_unit execution_unit_;
     strong_actor_ptr companion_{nullptr};
     bool alive_{false};
     // guards access to handler_
-    lock_type lock_;
+    // lock_type lock_;
 };
 
 } // namespace caf::mixin

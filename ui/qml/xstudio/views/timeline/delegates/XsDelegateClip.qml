@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtGraphicalEffects 1.0
+import QtQuick
+import QtQuick.Layouts
+
 import QuickFuture 1.0
 import QuickPromise 1.0
 
@@ -83,8 +80,9 @@ RowLayout {
 		id: mediaStatus
 		role: "mediaStatusRole"
 		onIndexChanged: {
-			if(!index.valid && clipMediaUuidRole && clipMediaUuidRole != "{00000000-0000-0000-0000-000000000000}")
+			if(!index.valid && clipMediaUuidRole && clipMediaUuidRole != "{00000000-0000-0000-0000-000000000000}") {
 				updateMediaIndex()
+			}
 		}
 	}
 
@@ -95,7 +93,6 @@ RowLayout {
     Timer {
         id: updateTimer
         interval: 500
-        running: false
         repeat: false
         onTriggered: {
         	updateMediaIndex()
@@ -111,10 +108,9 @@ RowLayout {
     	if(retry && !result.valid && clipMediaUuidRole && clipMediaUuidRole != "{00000000-0000-0000-0000-000000000000}" && !updateTimer.running) {
     		updateTimer.start()
     	} else {
-    		result = helpers.makePersistent(result)
-    		if(mediaStatus.index != result)
+    		if(!helpers.compareIndex(mediaStatus.index, result))
     			mediaStatus.index = result
-    		if(mediaFlag.index != result)
+    		if(!helpers.compareIndex(mediaFlag.index,result))
     			mediaFlag.index = result
     	}
     }

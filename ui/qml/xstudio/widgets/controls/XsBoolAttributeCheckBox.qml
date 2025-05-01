@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
+import QtQuick
 import QtQuick.Templates 2.12 as T
-import QtQuick.Controls 2.12
-import QtQuick.Controls.impl 2.12
-import QtGraphicalEffects 1.12
+import QtQuick.Effects
 
 import xStudio 1.0
 
@@ -34,25 +32,16 @@ Rectangle {
         border.color: mouseArea.containsMouse ? XsStyleSheet.accentColor : XsStyleSheet.baseColor
         visible: checkable
 
-        Image {
+        XsIcon {
             id: checkIcon
             visible: menu_item.checked
-            sourceSize.height: XsStyleSheet.menuHeight
-            sourceSize.width: XsStyleSheet.menuHeight
             source: "qrc:/icons/check.svg"
             width: iconsize // 2
             height: iconsize // 2
             anchors.centerIn: parent
+            imgOverlayColor: textColor
         }
 
-        ColorOverlay{
-            id: colorolay
-            anchors.fill: checkIcon
-            source:checkIcon
-            visible: menu_item.checked
-            color: XsStyleSheet.accentColor //menuItem.highlighted?XsStyle.hoverColor:XsStyle.menuBackground
-            antialiasing: true
-        }
     }
 
     MouseArea {

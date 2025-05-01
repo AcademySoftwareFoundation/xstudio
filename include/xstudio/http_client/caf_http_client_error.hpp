@@ -18,7 +18,7 @@ namespace http_client {
         }
     }
 
-    inline bool from_string(caf::string_view in, http_client_error &out) {
+    inline bool from_string(std::string_view in, http_client_error &out) {
         if (in == "connection_error") {
             out = http_client_error::connection_error;
             return true;

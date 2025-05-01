@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
-import QtQuick 2.14
-import QuickFuture 1.0
-import QuickPromise 1.0
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQuick
+import QuickFuture
+import QuickPromise
 
 // These imports are necessary to have access to custom QML types that are
 // part of the xSTUDIO UI implementation.
@@ -72,13 +72,13 @@ Item {
             id: ma
             anchors.fill: parent
             hoverEnabled: true
-            onPressed: {
+            onPressed: (mouse)=> {
                 x0=mouse.x-width/2
                 y0=mouse.y-height/2
             }
             property real x0
             property real y0
-            onPositionChanged: {
+            onPositionChanged: (mouse)=> {
                 if (pressed) {
                     // wipe_position can't go outside the viewport or we'd lose
                     // it offscreen and wouldn't be able to get it back

@@ -41,26 +41,9 @@ namespace ui {
                 const media_reader::ImageBufDisplaySetPtr &images,
                 const Imath::M44f &window_to_viewport_matrix,
                 const Imath::M44f &viewport_to_image_matrix,
+                const Imath::V2i &window_size,
                 const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
                     &overlay_renderers) = 0;
-
-            /**
-             *  @brief Provide default preference dictionary for the viewport renderer
-             *
-             *  @details ViewportRenderer implementations can declare a json dict for
-             * preferences specific to the given implementation - for example, texture mode or
-             * async upload settings that may be necessary for tuning performance on different
-             * systems. The xSTUDIO UI layer will expose these preferences in the prefs panel.
-             */
-            virtual utility::JsonStore default_prefs() = 0;
-
-            /**
-             *  @brief Set rendering preferences
-             *
-             *  @details A JSON dict passed in from UI layer - store the preference values as
-             * requires
-             */
-            virtual void set_prefs(const utility::JsonStore &prefs) = 0;
 
             void set_pre_renderer_hooks(
                 const std::map<utility::Uuid, plugin::GPUPreDrawHookPtr> &hooks) {

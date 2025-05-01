@@ -1,15 +1,15 @@
-project(shotbrowser VERSION 0.1.0 LANGUAGES CXX)
+project(shotbrowser VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt5 COMPONENTS Concurrent Core Quick Gui Qml Widgets OpenGL REQUIRED)
+find_package(Qt6 COMPONENTS Concurrent Core Quick Gui Qml Widgets OpenGL Multimedia REQUIRED)
 
-QT5_WRAP_CPP(SHOTBROWSER_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shotbrowser_engine_ui.hpp")
-QT5_WRAP_CPP(RESULT_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/result_model_ui.hpp")
-QT5_WRAP_CPP(MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/model_ui.hpp")
-QT5_WRAP_CPP(PRESET_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/preset_model_ui.hpp")
+QT6_WRAP_CPP(SHOTBROWSER_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shotbrowser_engine_ui.hpp")
+QT6_WRAP_CPP(RESULT_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/result_model_ui.hpp")
+QT6_WRAP_CPP(MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/model_ui.hpp")
+QT6_WRAP_CPP(PRESET_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/preset_model_ui.hpp")
 
 set(SOURCES
 	shotbrowser_plugin.cpp
@@ -32,7 +32,7 @@ set(SOURCES
 	${RESULT_MODEL_UI_MOC_SRC}
 )
 
-qt5_add_resources(SOURCES qml/ShotBrowser.1/shotbrowser.qrc)
+qt6_add_resources(SOURCES qml/ShotBrowser.1/shotbrowser.qrc)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -47,20 +47,21 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::playlist
 		xstudio::ui::qml::helper
 		xstudio::shotgun_client
-		Qt5::Widgets
-		Qt5::Core
-		Qt5::Qml
-		Qt5::Quick
-		Qt5::Concurrent
+		Qt6::Widgets
+		Qt6::Core
+		Qt6::Qml
+		Qt6::Quick
+		Qt6::Concurrent
+		Qt6::Multimedia
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
-add_subdirectory(qml)
+add_plugin_qml(${PROJECT_NAME} qml)
 
 # add_custom_target(COPY_SO)
 
-if(NOT WIN32)
+if (NOT WIN32)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                  COMMAND ${CMAKE_COMMAND} -E
                      copy ${CMAKE_BINARY_DIR}/bin/plugin/libshotbrowser.so ${CMAKE_BINARY_DIR}/bin/plugin/qml/ShotBrowser.1/)

@@ -108,6 +108,7 @@ namespace module {
 
         template <typename T> bool __set(const T &v) { // NOLINT
             if (data_.has_value() && typeid(v) != data_.type()) {
+
                 spdlog::warn(
                     "{} Attempt to set AttributeData with type {} with data of type {} and "
                     "value {}",
@@ -115,7 +116,9 @@ namespace module {
                     data_.type().name(),
                     typeid(v).name(),
                     to_json().dump());
+
                 return false;
+
             } else if ((data_.has_value() && get<T>() != v) || !data_.has_value()) {
                 data_ = v;
                 return true;
@@ -165,6 +168,15 @@ namespace module {
                 data.begin().value().get<std::string>() == "colour") {
 
                 rt = set(data.get<utility::ColourTriplet>());
+
+            } else if (
+                (data.is_array() || data.is_object()) &&
+                data_.type() == typeid(nlohmann::json)) {
+
+                if (get<nlohmann::json>() != data) {
+                    data_ = data;
+                    rt    = true;
+                }
 
             } else if (data.is_array() && data.size() && data.begin().value().is_string()) {
 

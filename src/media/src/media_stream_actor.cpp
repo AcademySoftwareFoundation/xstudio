@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include <chrono>
 #include <tuple>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
-#include "xstudio/json_store/json_store_actor.hpp"
+#include "xstudio/json_store/json_store_handler.hpp"
 #include "xstudio/media/media_actor.hpp"
 #include "xstudio/playhead/playhead_actor.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -21,27 +23,32 @@ using namespace caf;
 
 MediaStreamActor::MediaStreamActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn["base"])) {
-    if (not jsn.count("store") or jsn["store"].is_null()) {
-        json_store_ = spawn<json_store::JsonStoreActor>(utility::Uuid::generate());
-    } else {
-        json_store_ = spawn<json_store::JsonStoreActor>(
-            utility::Uuid::generate(), static_cast<JsonStore>(jsn["store"]));
-    }
-    link_to(json_store_);
-    join_event_group(this, json_store_);
+    jsn_handler_ = JsonStoreHandler(
+        dynamic_cast<caf::event_based_actor *>(this),
+        base_.event_group(),
+        utility::Uuid::generate(),
+        not jsn.count("store") or jsn["store"].is_null()
+            ? JsonStore()
+            : static_cast<JsonStore>(jsn["store"]));
 
     init();
 }
 
 MediaStreamActor::MediaStreamActor(
-    caf::actor_config &cfg, const StreamDetail &detail, const utility::Uuid &uuid)
+    caf::actor_config &cfg,
+    const StreamDetail &detail,
+    const utility::Uuid &uuid,
+    const JsonStore &meta)
     : caf::event_based_actor(cfg), base_(detail) {
+
+    jsn_handler_ = JsonStoreHandler(
+        dynamic_cast<caf::event_based_actor *>(this),
+        base_.event_group(),
+        utility::Uuid::generate(),
+        meta);
+
     if (not uuid.is_null())
         base_.set_uuid(uuid);
-
-    json_store_ = spawn<json_store::JsonStoreActor>(utility::Uuid::generate());
-    link_to(json_store_);
-    join_event_group(this, json_store_);
 
     init();
 }
@@ -56,55 +63,47 @@ caf::message_handler MediaStreamActor::message_handler() {
 
         [=](const StreamDetail &detail) { base_.set_detail(detail); },
 
-        [=](json_store::get_json_atom _get_atom, const std::string &path, bool) {
-            return delegate(json_store_, _get_atom, path);
-        },
-
-        [=](json_store::get_json_atom _get_atom, const std::string &path) {
-            return delegate(json_store_, _get_atom, path);
-        },
-
         [=](json_store::set_json_atom atom, const JsonStore &json) {
-            delegate(json_store_, atom, json);
             // metadata changed - need to broadcast an update
             base_.send_changed();
-            send(base_.event_group(), utility::event_atom_v, change_atom_v);
+            mail(utility::event_atom_v, change_atom_v).send(base_.event_group());
+            return mail(atom, json).delegate(jsn_handler_.json_actor());
         },
 
         [=](json_store::set_json_atom atom, const JsonStore &json, const std::string &path) {
-            delegate(json_store_, atom, json, path);
             // metadata changed - need to broadcast an update
             base_.send_changed();
-            send(base_.event_group(), utility::event_atom_v, change_atom_v);
+            mail(utility::event_atom_v, change_atom_v).send(base_.event_group());
+            return mail(atom, json, path).delegate(jsn_handler_.json_actor());
         },
 
-        [=](utility::duplicate_atom) -> UuidActor {
+        [=](media::pixel_aspect_atom, const double new_aspect) {
+            StreamDetail detail  = base_.detail();
+            detail.pixel_aspect_ = new_aspect;
+            base_.set_detail(detail);
+            base_.send_changed();
+            mail(utility::event_atom_v, change_atom_v).send(base_.event_group());
+        },
+
+        [=](utility::duplicate_atom) -> result<UuidActor> {
             // clone ourself..
-            const auto uuid  = utility::Uuid::generate();
-            const auto actor = spawn<MediaStreamActor>(base_.detail(), uuid);
-            return UuidActor(uuid, actor);
-        },
+            auto rp = make_response_promise<UuidActor>();
 
-        [=](utility::get_group_atom _get_group_atom) {
-            return delegate(json_store_, _get_group_atom);
-        },
+            mail(json_store::get_json_atom_v, "")
+                .request(jsn_handler_.json_actor(), infinite)
+                .then([=](const JsonStore &meta) mutable {
+                    const auto uuid  = utility::Uuid::generate();
+                    const auto actor = spawn<MediaStreamActor>(base_.detail(), uuid, meta);
+                    rp.deliver(UuidActor(uuid, actor));
+                });
 
-        [=](json_store::update_atom,
-            const JsonStore &change,
-            const std::string &path,
-            const JsonStore &full) {
-            if (current_sender() == json_store_)
-                send(base_.event_group(), json_store::update_atom_v, change, path, full);
-        },
-
-        [=](json_store::update_atom, const JsonStore &full) mutable {
-            if (current_sender() == json_store_)
-                send(base_.event_group(), json_store::update_atom_v, full);
+            return rp;
         },
 
         [=](utility::serialise_atom) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
-            request(json_store_, infinite, json_store::get_json_atom_v, "")
+            mail(json_store::get_json_atom_v, "")
+                .request(jsn_handler_.json_actor(), infinite)
                 .then([=](const JsonStore &meta) mutable {
                     JsonStore jsn;
                     jsn["store"] = meta;

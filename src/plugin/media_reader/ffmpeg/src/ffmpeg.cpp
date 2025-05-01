@@ -98,9 +98,9 @@ static Uuid ffmpeg_shader_uuid_yuv{"9854e7c0-2e32-4600-aedd-463b2a6de95a"};
 static Uuid ffmpeg_shader_uuid_rgb{"20015805-0b83-426a-bf7e-f6549226bfef"};
 
 static std::string the_shader_yuv = {R"(
-#version 430 core
-uniform ivec2 image_dims;
+#version 410 core
 uniform ivec2 texture_dims;
+uniform int frame_width_pixels;
 uniform int rgb;
 uniform int y_linesize;
 uniform int u_linesize;
@@ -158,7 +158,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 			yuv_tex_lookup_10bit(uv_coord, v_plane_bytes_offset, v_linesize)
 			);
 
-		if (half_scale_uvx && ((image_coord.x & 1) == 1) && image_coord.x*2 < image_dims.x) {
+		if (half_scale_uvx && ((image_coord.x & 1) == 1) && image_coord.x*2 < frame_width_pixels) {
 
 			uv_coord.x = uv_coord.x + 1;
 			ivec3 yuv2 = ivec3(yuv.x,
@@ -189,8 +189,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 )"};
 
 static std::string the_shader_rgb = {R"(
-#version 430 core
-uniform ivec2 image_dims;
+#version 410 core
 uniform ivec2 texture_dims;
 uniform int rgb;
 uniform int y_linesize;
@@ -326,14 +325,17 @@ std::string uri_decode(const std::string &eString) {
 
 std::string uri_convert(const caf::uri &uri) {
 
+    // Note, turning off non-file uri support for now
+    return utility::uri_to_posix_path(uri);
+
     // This may be a kettle of fish.
 
     // uri like https://aswf.s3-accelerate.amazonaws.com/ALab_h264_MOVs/mk020_0220.mov
     // can be passed through.
     // uri like file://localhost/user_data/my_vid.mov needs the 'localhost' removed.
-    auto path = to_string(uri);
+    /*auto path = to_string(uri);
     utility::replace_string_in_place(path, "file://localhost", "file:");
-    return uri_decode(path);
+    return forward_remap_file_path(uri_decode(path));*/
 }
 
 } // namespace
@@ -366,13 +368,13 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
 
         readers_per_source_ =
             preference_value<int>(prefs, "/plugin/media_reader/FFMPEG/readers_per_source");
-#ifdef __linux__
-        soundcard_sample_rate_ =
-            preference_value<int>(prefs, "/core/audio/pulse_audio_prefs/sample_rate");
-#endif
+
 #ifdef _WIN32
         soundcard_sample_rate_ =
             preference_value<int>(prefs, "/core/audio/windows_audio_prefs/sample_rate");
+#else
+        soundcard_sample_rate_ =
+            preference_value<int>(prefs, "/core/audio/pulse_audio_prefs/sample_rate");
 #endif
 
         default_rate_ = utility::FrameRate(
@@ -385,6 +387,8 @@ void FFMpegMediaReader::update_preferences(const utility::JsonStore &prefs) {
 
 ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
 
+    ImageBufPtr rt;
+
     if (mptr.stream_id() == "stream -1") {
         // dummy stream, return empty image
         ImageBufPtr blank = make_blank_image();
@@ -394,27 +398,34 @@ ImageBufPtr FFMpegMediaReader::image(const media::AVFrameID &mptr) {
         return blank;
     }
 
-    std::string path = uri_convert(mptr.uri());
+    try {
+        std::string path = uri_convert(mptr.uri());
 
-    if (last_decoded_image_ && last_decoded_image_->media_key() == mptr.key()) {
-        return last_decoded_image_;
-    }
-
-    if (!decoder || decoder->path() != path) {
-        decoder.reset(
-            new FFMpegDecoder(path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
-    }
-
-    ImageBufPtr rt;
-    decoder->decode_video_frame(mptr.frame(), rt);
-
-    if (rt && !rt->shader_params().is_null()) {
-        if (rt->shader_params().value("rgb", 0) != 0) {
-            rt->set_shader(ffmpeg_shader_rgb);
-        } else {
-            rt->set_shader(ffmpeg_shader_yuv);
+        if (last_decoded_image_ && last_decoded_image_->media_key() == mptr.key()) {
+            return last_decoded_image_;
         }
-        last_decoded_image_ = rt;
+
+        if (!decoder || decoder->path() != path) {
+            decoder.reset(new FFMpegDecoder(
+                path, soundcard_sample_rate_, default_rate_, mptr.stream_id()));
+        }
+
+        decoder->decode_video_frame(mptr.frame(), rt);
+
+        if (rt && !rt->shader_params().is_null()) {
+            if (rt->shader_params().value("rgb", 0) != 0) {
+                rt->set_shader(ffmpeg_shader_rgb);
+            } else {
+                rt->set_shader(ffmpeg_shader_yuv);
+            }
+            last_decoded_image_ = rt;
+        }
+
+    } catch (std::exception &e) {
+        rt = make_blank_image();
+        if (mptr.error() != "") {
+            rt->set_error(e.what());
+        }
     }
 
     return rt;
@@ -467,6 +478,7 @@ xstudio::media::MediaDetail FFMpegMediaReader::detail(const caf::uri &uri) const
 
     bool have_video_stream = false;
     bool have_audio_stream = false;
+
 
     for (auto &p : t_decoder.streams()) {
         if (p.second->codec_type() == AVMEDIA_TYPE_VIDEO ||

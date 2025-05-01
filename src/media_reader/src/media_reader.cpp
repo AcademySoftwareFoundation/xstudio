@@ -155,6 +155,25 @@ xstudio::media_reader::byte *ImageBuffer::allocate(const size_t _size) {
     return Buffer::allocate(padded_size);
 }
 
+utility::JsonStore ImageBufPtr::metadata() const {
+    // the idea here is we add in a few useful metadata fields ontop of the
+    // metadata that is carried by the underlying pointer (the ImageBuffer).
+    // These fields have context that is outside the raw media that the fra,e
+    // came from (e.g. timecode, pixel aspect which can be overridden or are
+    // coming from the timeline that the media is being played from)
+    utility::JsonStore result = get() ? get()->metadata() : utility::JsonStore();
+
+    result["uri"]            = to_string(frame_id().uri());
+    result["frame"]          = frame_id().frame();
+    result["pixel aspect"]   = frame_id().pixel_aspect();
+    result["frame rate"]     = fmt::format("{:.3f}", frame_id().rate().to_fps());
+    result["timecode"]       = to_string(frame_id().timecode());
+    result["timecode frame"] = int(frame_id().timecode());
+    result["error"]          = frame_id().error();
+    return result;
+}
+
+
 void ImageBufDisplaySet::finalise() {
 
     utility::JsonStore image_info = nlohmann::json::parse("[]");
@@ -165,7 +184,7 @@ void ImageBufDisplaySet::finalise() {
         if (im) {
             r["image_size_in_pixels"] = im->image_size_in_pixels();
             // r["image_pixels_bounding_box"] = im->image_pixels_bounding_box();
-            r["pixel_aspect"] = im->pixel_aspect();
+            r["pixel_aspect"] = im.frame_id().pixel_aspect();
             images_hash_ += im.frame_id().key().hash();
         }
         image_info.push_back(r);

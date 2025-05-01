@@ -5,8 +5,8 @@
 #target_link_libraries(json_store_qml_test
 #	PUBLIC
 #		xstudio::ui::qml::json_store
-#		Qt5::Gui
-#		Qt5::Quick
+#		Qt6::Gui
+#		Qt6::Quick
 #		${GTEST_LDFLAGS}
 #)
 # add_test(json_store_qml_tests json_store_qml_test)

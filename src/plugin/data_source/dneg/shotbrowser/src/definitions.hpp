@@ -38,7 +38,23 @@ const auto GetExecutePreset = R"({
 
 const auto GetValidMediaCount = R"({"operation": "MediaCount", "playlist_uuid": null})"_json;
 
-const auto GetDownloadMedia = R"({"operation": "DownloadMedia", "media_uuid": null})"_json;
+const auto GetShotgridMedia = R"({"operation": "AddShotgridMedia", "media_uuid": null})"_json;
+const auto GetDownloadMedia = R"({
+    "operation": "DownloadShotgridMedia",
+    "entity": "version",
+    "entity_id": 0,
+    "entity_name": "",
+    "project_name": "",
+    "parent_name": ""
+})"_json;
+
+const auto GetDownloadImage = R"({
+    "operation": "DownloadShotgridImage",
+    "entity": "",
+    "entity_id": 0,
+    "entity_name": "",
+    "project_name": ""
+})"_json;
 
 const auto GetPrepareNotes = R"({
     "operation":"PrepareNotes",
@@ -94,7 +110,7 @@ const auto PostCreateNotes =
 // PUT
 
 const auto PutUpdatePlaylistVersions =
-    R"({"operation": "UpdatePlaylistVersions", "playlist_uuid": null})"_json;
+    R"({"operation": "UpdatePlaylistVersions", "append": false, "playlist_uuid": null})"_json;
 
 // USE
 
@@ -149,10 +165,11 @@ const auto VersionFields = std::vector<std::string>(
      "created_at",
      "created_by",
      "cut_order",
+     "description",
      "entity",
      "frame_count",
      "frame_range",
-     "notes",
+     // "notes",
      "project",
      "sg_client_filename",
      "sg_client_send_stage",
@@ -167,6 +184,7 @@ const auto VersionFields = std::vector<std::string>(
      "sg_dneg_version",
      "sg_frames_have_slate",
      "sg_ivy_dnuuid",
+     "sg_location",
      "sg_movie_has_slate",
      "sg_on_disk_chn",
      "sg_on_disk_lon",
@@ -176,6 +194,7 @@ const auto VersionFields = std::vector<std::string>(
      "sg_on_disk_van",
      "sg_path_to_frames",
      "sg_path_to_movie",
+     "sg_pipe_tag_3",
      "sg_pipeline_step",
      "sg_production_status",
      "sg_project_name",
@@ -185,6 +204,7 @@ const auto VersionFields = std::vector<std::string>(
      "sg_submit_dailies_mtl",
      "sg_submit_dailies_mum",
      "sg_submit_dailies_van",
+     "sg_transfix_map",
      "sg_twig_name",
      "sg_twig_type",
      "sg_twig_type_code",
@@ -201,6 +221,9 @@ const auto ProjectFields = std::vector<std::string>(
      "sg_type",
      "sg_project_status",
      "sg_status"});
+
+const auto EpisodeFields = std::vector<std::string>(
+    {"id", "project", "code", "sg_status_list", "sg_versions", "sg_sequences", "sg_shots"});
 
 const auto NoteFields = std::vector<std::string>(
     {"id",
@@ -230,18 +253,37 @@ const auto PlaylistFields = std::vector<std::string>(
      "sg_department_unit"});
 
 const auto SequenceFields = std::vector<std::string>(
-    {"id", "code", "shots", "type", "sg_parent", "sg_sequence_type", "sg_status_list"});
-const auto SequenceShotFields = std::vector<std::string>({"id", "sg_status_list", "sg_unit"});
+    {"code",
+     "custom_entity20_sg_sequences_custom_entity20s",
+     "id",
+     "sg_dnuuid",
+     "sg_parent",
+     "sg_sequence_type",
+     "sg_status_list",
+     "shots",
+     "type"});
+
+const auto AssetFields = std::vector<std::string>(
+    {"code", "id", "sg_asset_name", "sg_asset_folder", "sg_status_list"});
+
+const auto HumanUserFields =
+    std::vector<std::string>({"name", "id", "login", "sg_department", "permission_rule_set"});
+
+const auto SequenceShotFields = std::vector<std::string>(
+    {"id", "code", "sg_dnuuid", "sg_shot_type", "sg_status_list", "sg_unit"});
 
 const auto ShotFields = std::vector<std::string>(
-    {"id",
-     "code",
-     "sg_comp_range",
-     "sg_cut_range",
+    {"code",
+     "custom_entity20_sg_shots_custom_entity20s",
+     "id",
      "project",
-     "sg_unit",
+     "sg_comp_range",
+     "sg_current_stage",
+     "sg_cut_range",
+     "sg_dnuuid",
+     "sg_shot_type",
      "sg_status_list",
-     "sg_current_stage"});
+     "sg_unit"});
 
 const std::string shotbrowser_datasource_registry{"SHOTBROWSER"};
 

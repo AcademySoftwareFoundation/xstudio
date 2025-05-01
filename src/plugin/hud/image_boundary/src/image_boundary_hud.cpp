@@ -6,8 +6,12 @@
 #include "xstudio/utility/blind_data.hpp"
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
@@ -60,7 +64,7 @@ class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
                                            transform_window_to_viewport_space;
 
             auto image_dims   = frame ? frame->image_size_in_pixels() : Imath::V2i();
-            auto pixel_aspect = frame ? frame->pixel_aspect() : 1.0f;
+            auto pixel_aspect = frame.frame_id().pixel_aspect();
 
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -76,6 +80,7 @@ class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
                 get_transformed_point(image_dims, image_dims, transform_matrix, pixel_aspect);
 
             glUseProgram(0);
+#ifndef __apple__
             glLineWidth(w);
             glColor4f(c.r, c.g, c.b, 1.0f);
             glBegin(GL_LINE_LOOP);
@@ -84,6 +89,7 @@ class ImageBoundaryRenderer : public plugin::ViewportOverlayRenderer {
             glVertex2f(bottom_right.x, bottom_right.y);
             glVertex2f(top_left.x, bottom_right.y);
             glEnd();
+#endif
         }
     }
 };
@@ -113,7 +119,8 @@ ImageBoundaryHUD::~ImageBoundaryHUD() = default;
 utility::BlindDataObjectPtr ImageBoundaryHUD::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
-    const utility::Uuid &playhead_uuid) const {
+    const utility::Uuid &playhead_uuid,
+    const bool is_hero_image) const {
 
     auto r = utility::BlindDataObjectPtr();
 

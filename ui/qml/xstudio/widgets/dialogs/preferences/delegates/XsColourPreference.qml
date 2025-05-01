@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtQuick.Layouts 1.3
-import QtQuick.Window 2.2
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+
+import QtQuick.Layouts
+
+
 
 import xstudio.qml.models 1.0
 import xStudio 1.0
@@ -38,7 +38,7 @@ RowLayout { id: color_pref
             id: ma
             anchors.fill: parent
             hoverEnabled: true
-            onClicked: {
+            onClicked: (mouse)=> {
                 if (menu_loader.item == undefined) {
                     menu_loader.sourceComponent = popup
                 }
@@ -111,8 +111,8 @@ RowLayout { id: color_pref
                 // into the pop-up menu. It muse have a 'minWidth' property
                 // which gives the width of the contents.
                 customMenuQml: `
-                    import QtQuick 2.15
-                    import QtQuick.Layouts 1.3
+                    import QtQuick
+                    import QtQuick.Layouts
                     import xStudio 1.0
                     Rectangle {
                         width: parent.width

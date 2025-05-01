@@ -150,7 +150,8 @@ namespace media_reader {
                         std::string path = utility::uri_to_posix_path(mptr.uri());
                         mb               = media_reader_.image(mptr);
                         if (mb) {
-                            mb->set_media_key(mptr.key());
+                            if (mb->media_key().is_null())
+                                mb->set_media_key(mptr.key());
                             mb->set_pixel_picker_func(media_reader_.pixel_picker_func());
                             mb->params()["path"]   = path;
                             mb->params()["frame"]  = mptr.frame();
@@ -225,7 +226,8 @@ namespace media_reader {
                     const utility::JsonStore & /*change*/,
                     const std::string & /*path*/,
                     const utility::JsonStore &full) {
-                    delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+                    return mail(json_store::update_atom_v, full)
+                        .delegate(actor_cast<caf::actor>(this));
                 },
 
                 [=](json_store::update_atom, const utility::JsonStore &js) {

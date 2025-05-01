@@ -1,7 +1,7 @@
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-// import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+
+// 
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -88,7 +88,7 @@ XsViewerTextDisplay
     XsBufferedUIProperty {
         id: bufferedPlayheadFrame
         source: selected == 0 ? duration : selected == 1 ? remaining : fps
-        playing: viewportPlayhead.playing
+        playing: viewportPlayhead.playing != undefined ? viewportPlayhead.playing : false
     }
 
 

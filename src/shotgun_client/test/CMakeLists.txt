@@ -4,7 +4,7 @@ SET(LINK_DEPS
 	xstudio::shotgun_client
 	xstudio::media
 	xstudio::utility
-	caf::core
+	CAF::core
 )
 
 create_tests("${LINK_DEPS}")

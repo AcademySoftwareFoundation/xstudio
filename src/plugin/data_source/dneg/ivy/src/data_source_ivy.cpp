@@ -2,7 +2,9 @@
 
 #include <fmt/format.h>
 #include <filesystem>
+
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "data_source_ivy.hpp"
 #include "xstudio/atoms.hpp"
@@ -187,13 +189,16 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
     }
 
     size_t worker_count = 5;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
     pool_ = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         worker_count,
         [&] { return system().template spawn<IvyMediaWorker>(actor_cast<caf::actor>(this)); },
         caf::actor_pool::round_robin());
     link_to(pool_);
+#pragma GCC diagnostic pop
 
     system().registry().put(ivy_registry, this);
 
@@ -212,7 +217,7 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &js) {
@@ -248,15 +253,14 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
                 show,
                 join_as_string(ppaths, "\",\"")));
 
-            request(
-                http_,
-                infinite,
+            mail(
                 http_client::http_post_atom_v,
                 data_source_.url(),
                 data_source_.path(),
                 data_source_.get_headers(),
                 httpquery,
                 data_source_.content_type())
+                .request(http_, infinite)
                 .then(
                     [=](const httplib::Response &response) mutable {
                         try {
@@ -291,11 +295,8 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
             // get media metadata.
             auto rp = make_response_promise<UuidActorVector>();
 
-            request(
-                caf::actor_cast<caf::actor>(this),
-                infinite,
-                data_source::use_data_atom_v,
-                media)
+            mail(data_source::use_data_atom_v, media)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const std::pair<utility::Uuid, std::string> &uuid_show) mutable {
                         // spdlog::warn("{} {}", to_string(uuid_show.first), uuid_show.second);
@@ -305,16 +306,12 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
                             return rp.deliver(UuidActorVector());
 
                         // get shotgun data.
-                        anon_send(
-                            pool_,
-                            use_data_atom_v,
-                            media,
-                            uuid_show.second,
-                            uuid_show.first,
-                            true);
+                        anon_mail(
+                            use_data_atom_v, media, uuid_show.second, uuid_show.first, true)
+                            .send(pool_);
                         // delegate.. get sources from ivy
                         ivy_load_version_sources(
-                            rp, uuid_show.second, uuid_show.first, media_rate);
+                            rp, uuid_show.second, uuid_show.first, media, media_rate);
                     },
                     [=](const error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -346,14 +343,33 @@ IvyDataSourceActor<T>::IvyDataSourceActor(caf::actor_config &cfg, const utility:
             return rp;
         },
 
+        // run query..
+        [=](get_data_atom, const std::string &query) -> result<utility::JsonStore> {
+            // get pipequery data.
+            auto rp = make_response_promise<utility::JsonStore>();
+            pipequery(rp, query);
+            return rp;
+        },
+
+        // get version
+        [=](get_data_atom,
+            const std::string &show,
+            const utility::Uuid &version_id) -> result<utility::JsonStore> {
+            // get pipequery data.
+            auto rp = make_response_promise<utility::JsonStore>();
+            get_version(rp, show, version_id);
+            return rp;
+        },
+
         // create media sources from stalk..
         [=](use_data_atom,
             const std::string &show,
             const utility::Uuid &dnuuid,
+            const caf::actor &media_actor,
             const FrameRate &media_rate) -> result<UuidActorVector> {
             // get pipequery data.
             auto rp = make_response_promise<UuidActorVector>();
-            ivy_load_version_sources(rp, show, dnuuid, media_rate);
+            ivy_load_version_sources(rp, show, dnuuid, media_actor, media_rate);
             return rp;
         },
 
@@ -468,41 +484,36 @@ void IvyMediaWorker::add_sources_to_media(
         auto media = spawn<media::MediaActor>(i.first, uuid, media_sources);
 
         if (not select_uuid.is_null())
-            anon_send(media, media::current_media_source_atom_v, select_uuid);
+            anon_mail(media::current_media_source_atom_v, select_uuid).send(media);
 
-        anon_send(
-            media,
-            json_store::set_json_atom_v,
-            utility::Uuid(),
-            jsn,
-            IvyMetadataPath + "/version");
-
+        anon_mail(
+            json_store::set_json_atom_v, utility::Uuid(), jsn, IvyMetadataPath + "/version")
+            .send(media);
 
         result.emplace_back(UuidActor(uuid, media));
 
         // only bother with shotgun  / audio on single media
         if (media_list.size() == 1)
             try {
-                anon_send(
-                    caf::actor_cast<caf::actor>(this),
+                anon_mail(
                     data_source::use_data_atom_v,
                     media,
                     jsn.at("show").get<std::string>(),
                     utility::Uuid(jsn.at("id")),
-                    true);
+                    true)
+                    .send(caf::actor_cast<caf::actor>(this));
             } catch (...) {
             }
-        request(
-            ivy_actor_,
-            infinite,
+        mail(
             use_data_atom_v,
             jsn.at("show").get<std::string>(),
             jsn.at("scope").at("id").get<Uuid>(),
             media_rate,
             true)
+            .request(ivy_actor_, infinite)
             .then(
                 [=](const UuidActorVector &uas) {
-                    anon_send(media, media::add_media_source_atom_v, uas);
+                    anon_mail(media::add_media_source_atom_v, uas).send(media);
                 },
                 [=](const error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -547,7 +558,7 @@ void IvyMediaWorker::add_media_source(
         frame_list.empty()
             ? spawn<media::MediaSourceActor>(name, uri, media_rate, source_uuid)
             : spawn<media::MediaSourceActor>(name, uri, frame_list, media_rate, source_uuid);
-    anon_send(source, json_store::set_json_atom_v, jsn, IvyMetadataPath + "/file");
+    anon_mail(json_store::set_json_atom_v, jsn, IvyMetadataPath + "/file").send(source);
 
     rp.deliver(UuidActor(source_uuid, source));
 }
@@ -576,12 +587,8 @@ void IvyMediaWorker::add_media(
             continue;
         }
 
-        request(
-            caf::actor_cast<caf::actor>(this),
-            infinite,
-            media::add_media_source_atom_v,
-            JsonStore(i),
-            media_rate)
+        mail(media::add_media_source_atom_v, JsonStore(i), media_rate)
+            .request(caf::actor_cast<caf::actor>(this), infinite)
             .then(
                 [=](const UuidActor &ua) mutable {
                     if (not ua.uuid().is_null())
@@ -603,7 +610,8 @@ void IvyMediaWorker::add_media(
 void IvyMediaWorker::get_show_stalk_uuid(
     caf::typed_response_promise<std::pair<utility::Uuid, std::string>> rp,
     const caf::actor &media) {
-    request(media, infinite, media::media_reference_atom_v)
+    mail(media::media_reference_atom_v)
+        .request(media, infinite)
         .then(
             [=](const std::vector<MediaReference> &mr) mutable {
                 static std::regex res_re(R"(^\d+x\d+$)");
@@ -706,12 +714,8 @@ void IvyMediaWorker::get_shotgun_version(
         rp.deliver(false);
     else {
         // check it's not already there..
-        request(
-            media,
-            infinite,
-            json_store::get_json_atom_v,
-            utility::Uuid(),
-            ShotgunMetadataPath + "/version")
+        mail(json_store::get_json_atom_v, utility::Uuid(), ShotgunMetadataPath + "/version")
+            .request(media, infinite)
             .then(
                 [=](const JsonStore &jsn) mutable {
                     try {
@@ -730,17 +734,17 @@ void IvyMediaWorker::get_shotgun_version(
                     jsre["ivy_uuid"] = to_string(stalk_dnuuid);
                     jsre["job"]      = project;
 
-                    request(shotgun_actor, infinite, data_source::get_data_atom_v, jsre)
+                    mail(data_source::get_data_atom_v, jsre)
+                        .request(shotgun_actor, infinite)
                         .then(
                             [=](const JsonStore &jsn) mutable {
                                 if (jsn.count("payload")) {
-                                    request(
-                                        media,
-                                        infinite,
+                                    mail(
                                         json_store::set_json_atom_v,
                                         utility::Uuid(),
                                         JsonStore(jsn.at("payload")),
                                         ShotgunMetadataPath + "/version")
+                                        .request(media, infinite)
                                         .then(
                                             [=](const bool result) mutable {
                                                 try {
@@ -784,12 +788,8 @@ void IvyMediaWorker::get_shotgun_shot(
         rp.deliver(false);
     else {
         // check it's not already there..
-        request(
-            media,
-            infinite,
-            json_store::get_json_atom_v,
-            utility::Uuid(),
-            ShotgunMetadataPath + "/shot")
+        mail(json_store::get_json_atom_v, utility::Uuid(), ShotgunMetadataPath + "/shot")
+            .request(media, infinite)
             .then(
                 [=](const JsonStore &jsn) mutable { rp.deliver(true); },
                 [=](const error &err) mutable {
@@ -798,17 +798,18 @@ void IvyMediaWorker::get_shotgun_shot(
                         auto shotreq       = JsonStore(GetShotFromId);
                         shotreq["shot_id"] = shot_id;
 
-                        request(shotgun_actor, infinite, get_data_atom_v, shotreq)
+                        mail(get_data_atom_v, shotreq)
+                            .request(shotgun_actor, infinite)
                             .then(
                                 [=](const JsonStore &jsn) mutable {
                                     try {
                                         if (jsn.contains("data")) {
-                                            anon_send(
-                                                media,
+                                            anon_mail(
                                                 json_store::set_json_atom_v,
                                                 utility::Uuid(),
                                                 JsonStore(jsn.at("data")),
-                                                ShotgunMetadataPath + "/shot");
+                                                ShotgunMetadataPath + "/shot")
+                                                .send(media);
                                             rp.deliver(true);
                                         } else {
                                             rp.deliver(false);
@@ -852,13 +853,11 @@ void IvyDataSourceActor<T>::ivy_load(
 }
 
 // load stalk as vector of sources.
-
 template <typename T>
-void IvyDataSourceActor<T>::ivy_load_version_sources(
-    caf::typed_response_promise<utility::UuidActorVector> rp,
+void IvyDataSourceActor<T>::get_version(
+    caf::typed_response_promise<utility::JsonStore> rp,
     const std::string &show,
-    const utility::Uuid &stalk_dnuuid,
-    const utility::FrameRate &media_rate) {
+    const utility::Uuid &stalk_dnuuid) {
 
     if (not std::regex_match(show.c_str(), VALID_SHOW_REGEX)) {
         spdlog::warn("{} Invalid show {}", __PRETTY_FUNCTION__, show);
@@ -868,7 +867,7 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
     auto httpquery = std::string(fmt::format(
         R"({{
             versions_by_id(show: "{}", ids: ["{}"]){{
-                id, name, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
+                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
                 files{{
                     id,name,path,timeline_range,type,version{{id,name,kind{{id,name}},scope{{id,name}}}}
                 }},
@@ -877,100 +876,120 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
         show,
         to_string(stalk_dnuuid)));
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_client::http_post_atom_v,
         data_source_.url(),
         data_source_.path(),
         data_source_.get_headers(),
         httpquery,
         data_source_.content_type())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
                     auto jsn = nlohmann::json::parse(response.body);
-
-                    // spdlog::warn("ivy_load_version_sources {}", jsn.dump(2));
-
                     if (jsn.count("errors")) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, jsn.dump(2));
-                        rp.deliver(UuidActorVector());
+                        rp.deliver(make_error(xstudio_error::error, "Ivy Query Failed"));
                     } else {
-                        // spdlog::warn("{}", jsn.dump(2));
-                        // we got valid results..
-                        // get number of leafs
-                        const auto &ivy_files =
-                            jsn.at("data").at("versions_by_id").at(0).at("files");
-
-                        const auto scope_uuid = jsn.at("data")
-                                                    .at("versions_by_id")
-                                                    .at(0)
-                                                    .at("scope")
-                                                    .at("id")
-                                                    .get<Uuid>();
-
-                        auto files = JsonStore(R"([])"_json);
-                        for (const auto &i : ivy_files) {
-                            // check we want it..
-                            if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL" or
-                                i.at("type") == "SOURCE")
-                                continue;
-
-                            // need to filter unsupported leafs..
-                            FrameList frame_list;
-                            auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
-                            if (is_file_supported(uri))
-                                files.push_back(i);
-                            // spdlog::warn("{}", i.at("name"));
-                        }
-
-                        auto count   = std::make_shared<int>(files.size());
-                        auto results = std::make_shared<UuidActorVector>();
-                        if (not *count)
-                            return rp.deliver(UuidActorVector());
-
-                        for (const auto &i : files) {
-                            auto payload    = JsonStore(i);
-                            payload["show"] = show;
-                            request(
-                                pool_,
-                                infinite,
-                                media::add_media_source_atom_v,
-                                payload,
-                                media_rate)
-                                .then(
-                                    [=](const UuidActor &ua) mutable {
-                                        (*count)--;
-                                        if (not ua.uuid().is_null())
-                                            results->push_back(ua);
-                                        if (not(*count)) {
-                                            if (enable_audio_autoload_)
-                                                ivy_load_audio_sources(
-                                                    rp, show, scope_uuid, media_rate, *results);
-                                            else
-                                                rp.deliver(*results);
-                                        }
-                                    },
-                                    [=](error &err) mutable {
-                                        (*count)--;
-                                        if (not(*count)) {
-                                            if (enable_audio_autoload_)
-                                                ivy_load_audio_sources(
-                                                    rp, show, scope_uuid, media_rate, *results);
-                                            else
-                                                rp.deliver(*results);
-                                        }
-                                        spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
-                                    });
-                        }
+                        rp.deliver(jsn);
                     }
                 } catch (const std::exception &err) {
-                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), response.body);
-                    rp.deliver(UuidActorVector());
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    rp.deliver(make_error(xstudio_error::error, err.what()));
                 }
             },
+            [=](error &err) mutable {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                rp.deliver(std::move(err));
+            });
+}
+
+
+template <typename T>
+void IvyDataSourceActor<T>::ivy_load_version_sources(
+    caf::typed_response_promise<utility::UuidActorVector> rp,
+    const std::string &show,
+    const utility::Uuid &stalk_dnuuid,
+    const caf::actor &media_actor,
+    const utility::FrameRate &media_rate) {
+
+
+    mail(get_data_atom_v, show, stalk_dnuuid)
+        .request(caf::actor_cast<caf::actor>(this), infinite)
+        .then(
+            [=](const JsonStore &jsn) mutable {
+                // spdlog::warn("{}", jsn.dump(2));
+                // we got valid results..
+                // get number of leafs
+
+                const auto &ivy_files = jsn.at("data").at("versions_by_id").at(0).at("files");
+
+                if (media_actor) {
+                    anon_mail(
+                        json_store::set_json_atom_v,
+                        utility::Uuid(),
+                        JsonStore(jsn.at("data").at("versions_by_id").at(0)),
+                        IvyMetadataPath + "/version")
+                        .send(media_actor);
+                }
+
+
+                const auto scope_uuid =
+                    jsn.at("data").at("versions_by_id").at(0).at("scope").at("id").get<Uuid>();
+
+                auto files = JsonStore(R"([])"_json);
+                for (const auto &i : ivy_files) {
+                    // check we want it..
+                    if (i.at("type") == "METADATA" or i.at("type") == "THUMBNAIL" or
+                        i.at("type") == "SOURCE")
+                        continue;
+
+                    // need to filter unsupported leafs..
+                    FrameList frame_list;
+                    auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
+                    if (is_file_supported(uri))
+                        files.push_back(i);
+                    // spdlog::warn("{}", i.at("name"));
+                }
+
+                auto count   = std::make_shared<int>(files.size());
+                auto results = std::make_shared<UuidActorVector>();
+                if (not *count)
+                    return rp.deliver(UuidActorVector());
+
+                for (const auto &i : files) {
+                    auto payload    = JsonStore(i);
+                    payload["show"] = show;
+                    mail(media::add_media_source_atom_v, payload, media_rate)
+                        .request(pool_, infinite)
+                        .then(
+                            [=](const UuidActor &ua) mutable {
+                                (*count)--;
+                                if (not ua.uuid().is_null())
+                                    results->push_back(ua);
+                                if (not(*count)) {
+                                    if (enable_audio_autoload_)
+                                        ivy_load_audio_sources(
+                                            rp, show, scope_uuid, media_rate, *results);
+                                    else
+                                        rp.deliver(*results);
+                                }
+                            },
+                            [=](error &err) mutable {
+                                (*count)--;
+                                if (not(*count)) {
+                                    if (enable_audio_autoload_)
+                                        ivy_load_audio_sources(
+                                            rp, show, scope_uuid, media_rate, *results);
+                                    else
+                                        rp.deliver(*results);
+                                }
+                                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            });
+                }
+            },
+
             [=](error &err) mutable {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 rp.deliver(UuidActorVector());
@@ -992,7 +1011,7 @@ void IvyDataSourceActor<T>::ivy_load_version(
     auto httpquery = std::string(fmt::format(
         R"({{
             versions_by_id(show: "{}", ids: [{}]){{
-                id, name, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
+                id, name, show{{name}}, number{{major,minor,micro}}, kind{{id,name}},scope{{id,name}}
                 files{{id,name,path,timeline_range,type,version{{id,name,kind{{id,name}},scope{{id,name}}}}}},
             }}
         }})",
@@ -1005,15 +1024,14 @@ void IvyDataSourceActor<T>::ivy_load_version(
     }
 
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_client::http_post_atom_v,
         data_source_.url(),
         data_source_.path(),
         data_source_.get_headers(),
         httpquery,
         data_source_.content_type())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1038,12 +1056,8 @@ void IvyDataSourceActor<T>::ivy_load_version(
 
                             payload["show"] = show;
 
-                            request(
-                                pool_,
-                                infinite,
-                                playlist::add_media_atom_v,
-                                payload,
-                                media_rate)
+                            mail(playlist::add_media_atom_v, payload, media_rate)
+                                .request(pool_, infinite)
                                 .then(
                                     [=](const UuidActorVector &uav) mutable {
                                         (*count)--;
@@ -1098,15 +1112,14 @@ void IvyDataSourceActor<T>::ivy_load_file(
         return rp.deliver(make_error(xstudio_error::error, "Invalid show" + show));
     }
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_client::http_post_atom_v,
         data_source_.url(),
         data_source_.path(),
         data_source_.get_headers(),
         httpquery,
         data_source_.content_type())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1129,12 +1142,8 @@ void IvyDataSourceActor<T>::ivy_load_file(
                             payload["show"] = show;
 
                             // process media files.
-                            request(
-                                pool_,
-                                infinite,
-                                media::add_media_source_atom_v,
-                                payload,
-                                media_rate)
+                            mail(media::add_media_source_atom_v, payload, media_rate)
+                                .request(pool_, infinite)
                                 .then(
                                     [=](const UuidActor &ua) mutable {
                                         // may have a new media item to add to playlist..
@@ -1147,13 +1156,13 @@ void IvyDataSourceActor<T>::ivy_load_file(
                                                 utility::UuidActorVector({ua}));
                                             try {
                                                 // add shotgun ?
-                                                anon_send(
-                                                    pool_,
+                                                anon_mail(
                                                     data_source::use_data_atom_v,
                                                     media,
                                                     std::string(show),
                                                     utility::Uuid(i.at("version").at("id")),
-                                                    true);
+                                                    true)
+                                                    .send(pool_);
                                             } catch (...) {
                                             }
 
@@ -1241,8 +1250,8 @@ void IvyDataSourceActor<T>::handle_drop(
                     "&ids=" + terms[terms.size() - 2]);
                 if (uri)
                     uris.push_back(*uri);
-                // anon_send(caf::actor_cast<caf::actor>(this), use_data_atom_v, *uri,
-                // playlist.second.second);
+                // anon_mail(use_data_atom_v, *uri,
+                // playlist.second.second).send(caf::actor_cast<caf::actor>(this));
             }
         }
     }
@@ -1252,7 +1261,8 @@ void IvyDataSourceActor<T>::handle_drop(
         auto media = std::make_shared<UuidActorVector>();
 
         for (const auto &i : uris) {
-            request(caf::actor_cast<caf::actor>(this), infinite, use_data_atom_v, i, media_rate)
+            mail(use_data_atom_v, i, media_rate)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActorVector &uav) mutable {
                         (*count)--;
@@ -1278,7 +1288,8 @@ template <typename T>
 void IvyDataSourceActor<T>::get_show_stalk_uuid(
     caf::typed_response_promise<std::pair<utility::Uuid, std::string>> rp,
     const caf::actor &media) {
-    request(media, infinite, json_store::get_json_atom_v, utility::Uuid(), "")
+    mail(json_store::get_json_atom_v, utility::Uuid(), "")
+        .request(media, infinite)
         .then(
             [=](const JsonStore &jsn) mutable {
                 // spdlog::warn("{}", jsn.dump(2));
@@ -1325,7 +1336,8 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
                     } catch (...) {
                         // try finding via media source paths...
                         // collect media source paths.
-                        request(media, infinite, media::media_reference_atom_v)
+                        mail(media::media_reference_atom_v)
+                            .request(media, infinite)
                             .then(
                                 [=](const std::vector<MediaReference> &refs) mutable {
                                     // collect paths.
@@ -1356,12 +1368,9 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
                                         // spdlog::error("615 {}", show);
 
                                         // get stalks from paths
-                                        request(
-                                            caf::actor_cast<caf::actor>(this),
-                                            infinite,
-                                            data_source::use_data_atom_v,
-                                            show,
-                                            paths)
+                                        mail(data_source::use_data_atom_v, show, paths)
+                                            .request(
+                                                caf::actor_cast<caf::actor>(this), infinite)
                                             .then(
                                                 [=](const JsonStore &data) mutable {
                                                     try {
@@ -1418,6 +1427,33 @@ void IvyDataSourceActor<T>::get_show_stalk_uuid(
             });
 }
 
+template <typename T>
+void IvyDataSourceActor<T>::pipequery(
+    caf::typed_response_promise<utility::JsonStore> rp, const std::string &query) {
+
+    mail(
+        http_client::http_post_atom_v,
+        data_source_.url(),
+        data_source_.path(),
+        data_source_.get_headers(),
+        query,
+        data_source_.content_type())
+        .request(http_, infinite)
+        .then(
+            [=](const httplib::Response &response) mutable {
+                try {
+                    auto jsn = nlohmann::json::parse(response.body);
+                    rp.deliver(JsonStore(jsn));
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    rp.deliver(make_error(xstudio_error::error, err.what()));
+                }
+            },
+            [=](error &err) mutable {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                rp.deliver(err);
+            });
+}
 
 template <typename T>
 void IvyDataSourceActor<T>::ivy_load_audio_sources(
@@ -1440,6 +1476,7 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
   ) {{
     id
     name
+    show{{name}}
     number {{
       major
       minor
@@ -1477,15 +1514,14 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
         return rp.deliver(make_error(xstudio_error::error, "Invalid show" + show));
     }
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_client::http_post_atom_v,
         data_source_.url(),
         data_source_.path(),
         data_source_.get_headers(),
         httpquery,
         data_source_.content_type())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1526,12 +1562,8 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
                             // spdlog::warn("{}", i.dump(2));
                             auto payload    = JsonStore(i);
                             payload["show"] = show;
-                            request(
-                                pool_,
-                                infinite,
-                                media::add_media_source_atom_v,
-                                payload,
-                                media_rate)
+                            mail(media::add_media_source_atom_v, payload, media_rate)
+                                .request(pool_, infinite)
                                 .then(
                                     [=](const UuidActor &ua) mutable {
                                         (*count)--;

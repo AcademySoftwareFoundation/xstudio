@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -23,8 +21,8 @@ Rectangle {
         //     Layout.fillHeight: true
         // }
         Item {
-            Layout.maximumWidth: control.height+1
-            Layout.minimumWidth: control.height+1
+            Layout.maximumWidth: 9+control.height+2
+            Layout.minimumWidth: 9+control.height+2
             Layout.fillHeight: true
         }
 
@@ -34,7 +32,7 @@ Rectangle {
             Layout.preferredHeight: control.height
 
             model: termModel
-            displayText: currentIndex == -1? "Select Term..." : currentText
+            displayText: currentIndex == -1? "Add Term..." : currentText
 
             currentIndex: -1
             onModelChanged: {

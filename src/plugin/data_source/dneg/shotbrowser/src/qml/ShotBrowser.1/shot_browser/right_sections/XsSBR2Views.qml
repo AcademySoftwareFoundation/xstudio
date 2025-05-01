@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -14,6 +12,16 @@ XsListView{ id: listDiv
 
     property int rightSpacing: listDiv.height < listDiv.contentHeight ? 16 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+    property bool isPlaylist: resultsBaseModel.entity == "Playlists"
+
+    ScrollBar.vertical: XsScrollBar {
+        visible: listDiv.height < listDiv.contentHeight
+        parent: listDiv
+        anchors.top: listDiv.top
+        anchors.right: listDiv.right
+        anchors.bottom: listDiv.bottom
+        x: -5
+    }
 
     XsLabel {
         text: !queryRunning ? (presetsSelectionModel.hasSelection ? "No Results Found" : "Select a preset on left to view the results") : ""
@@ -26,7 +34,33 @@ XsListView{ id: listDiv
         font.weight: Font.Medium
     }
 
-    property bool isPlaylist: resultsBaseModel.entity == "Playlists"
+    XsSBMediaPlayer {
+        id: mediaPlayer
+        anchors.fill: parent
+        visible: false
+        onEject: visible = false
+        z: 2
+    }
+
+    function playMovie(path) {
+        if(path != "") {
+            mediaPlayer.loadMedia(path)
+            mediaPlayer.visible = true
+            mediaPlayer.playToggle()
+        }
+    }
+
+    XsSBImageViewer {
+        id: imagePlayer
+        anchors.fill: parent
+        visible: false
+        onEject: visible = false
+    }
+
+    function viewImages(images) {
+        imagePlayer.images = images
+        imagePlayer.visible = true
+    }
 
     model: DelegateModel { id: chooserModel
         property var notifyModel: results
@@ -47,6 +81,7 @@ XsListView{ id: listDiv
                     popupMenu: versionResultPopup
                     groupingEnabled: resultsBaseModel.isGrouped
                     isPlaylist: listDiv.isPlaylist
+                    onPlayMovie: (path) => listDiv.playMovie(path)
                 }
             }
 
@@ -58,6 +93,7 @@ XsListView{ id: listDiv
                     height: XsStyleSheet.widgetStdHeight*8
                     delegateModel: chooserModel
                     popupMenu: noteResultPopup
+                    onShowImages: (images) => listDiv.viewImages(images)
                 }
             }
 

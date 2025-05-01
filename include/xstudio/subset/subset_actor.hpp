@@ -6,6 +6,7 @@
 #include "xstudio/subset/subset.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/json_store/json_store_handler.hpp"
 
 namespace xstudio {
 namespace subset {
@@ -16,13 +17,16 @@ namespace subset {
             caf::actor_config &cfg,
             caf::actor playlist,
             const std::string &name,
+            const utility::Uuid &uuid        = utility::Uuid::generate(),
             const std::string &override_type = "Subset");
         ~SubsetActor() override = default;
 
         const char *name() const override { return NAME.c_str(); }
 
         caf::behavior make_behavior() override {
-            return message_handler().or_else(base_.container_message_handler(this));
+            return message_handler()
+                .or_else(base_.container_message_handler(this))
+                .or_else(jsn_handler_.message_handler());
         }
 
       private:
@@ -49,6 +53,9 @@ namespace subset {
 
       protected:
         utility::JsonStore serialise() const { return base_.serialise(); }
+        void monitor_media(const caf::actor &actor);
+
+        std::map<caf::actor_addr, caf::disposable> monitor_;
 
         utility::JsonStore playhead_serialisation_;
 
@@ -59,6 +66,8 @@ namespace subset {
         Subset base_;
         utility::UuidActorMap actors_;
         utility::UuidActor playhead_;
+
+        json_store::JsonStoreHandler jsn_handler_;
     };
 } // namespace subset
 } // namespace xstudio

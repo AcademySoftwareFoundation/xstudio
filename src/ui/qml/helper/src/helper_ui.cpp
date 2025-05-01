@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/caf_helpers.hpp"
@@ -265,30 +267,27 @@ bool KeyEventsItem::event(QEvent *event) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event) {
-            anon_send(
-                keypress_monitor_,
+            anon_mail(
                 ui::keypress_monitor::key_down_atom_v,
                 key_event->key(),
                 context_,
                 window_name_,
-                key_event->isAutoRepeat());
+                key_event->isAutoRepeat())
+                .send(keypress_monitor_);
         }
     } else if (event->type() == QEvent::KeyRelease) {
 
         auto key_event = dynamic_cast<QKeyEvent *>(event);
         if (key_event && !key_event->isAutoRepeat()) {
-            anon_send(
-                keypress_monitor_,
-                ui::keypress_monitor::key_up_atom_v,
-                key_event->key(),
-                context_,
-                window_name_);
+            anon_mail(
+                ui::keypress_monitor::key_up_atom_v, key_event->key(), context_, window_name_)
+                .send(keypress_monitor_);
         }
     } else if (
         event->type() == QEvent::Leave || event->type() == QEvent::HoverLeave ||
         event->type() == QEvent::DragLeave || event->type() == QEvent::GraphicsSceneDragLeave ||
         event->type() == QEvent::GraphicsSceneHoverLeave) {
-        anon_send(keypress_monitor_, ui::keypress_monitor::all_keys_up_atom_v, context_);
+        anon_mail(ui::keypress_monitor::all_keys_up_atom_v, context_).send(keypress_monitor_);
     } else if (event->type() == QEvent::HoverEnter) {
         forceActiveFocus(Qt::MouseFocusReason);
     }
@@ -300,12 +299,12 @@ void KeyEventsItem::keyPressEvent(QKeyEvent *event) {
     if (window_name_.empty())
         window_name_ = StdFromQString(item_window_name(parent()));
 
-    anon_send(
-        keypress_monitor_,
+    anon_mail(
         ui::keypress_monitor::text_entry_atom_v,
         StdFromQString(event->text()),
         context_,
-        window_name_);
+        window_name_)
+        .send(keypress_monitor_);
 }
 void KeyEventsItem::keyReleaseEvent(QKeyEvent *event) {
 
@@ -313,12 +312,8 @@ void KeyEventsItem::keyReleaseEvent(QKeyEvent *event) {
         window_name_ = StdFromQString(item_window_name(parent()));
 
     if (!event->isAutoRepeat()) {
-        anon_send(
-            keypress_monitor_,
-            ui::keypress_monitor::key_up_atom_v,
-            event->key(),
-            context_,
-            window_name_);
+        anon_mail(ui::keypress_monitor::key_up_atom_v, event->key(), context_, window_name_)
+            .send(keypress_monitor_);
     }
 }
 
@@ -459,6 +454,9 @@ void Helpers::inhibitScreenSaver(const bool inhibit) const {
 
 QVariant Helpers::python_callback(
     QString method_name, QUuid python_plugin_uuid, const QVariant args) const {
+
+    spdlog::warn("{} Not Implemented Yet!", __PRETTY_FUNCTION__);
+    /*QString method_name, QUuid python_plugin_uuid, const QVariant args) const {
     try {
 
         utility::JsonStore packed_args(xstudio::ui::qml::qvariant_to_json(args));
@@ -479,7 +477,7 @@ QVariant Helpers::python_callback(
 
     } catch (std::exception &e) {
         spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
+    }*/
 
     return QVariant();
 }
@@ -533,12 +531,12 @@ void Helpers::setMenuPathPosition(
             CafSystemObject::get_actor_system().registry().template get<caf::actor>(
                 global_ui_model_data_registry);
 
-        anon_send(
-            central_models_data_actor,
+        anon_mail(
             ui::model_data::insert_or_update_menu_node_atom_v,
             StdFromQString(menu_name),
             StdFromQString(menu_path),
-            position);
+            position)
+            .send(central_models_data_actor);
     }
 }
 
@@ -621,7 +619,7 @@ QVariant MarkerModel::data(const QModelIndex &index, int role) const {
             result = QString::fromStdString(j.value("name", std::string("")));
             break;
         case Roles::commentRole:
-            result = QVariantFromJson(j.value("prop", R"({})"_json));
+            result = mapFromValue(j.value("prop", R"({})"_json));
             break;
         case Roles::startRole:
             result = QVariant::fromValue(j.at("range").value("start", 0l));

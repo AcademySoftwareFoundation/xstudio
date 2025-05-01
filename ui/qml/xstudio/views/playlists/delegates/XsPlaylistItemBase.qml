@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
+import QtQuick
+
+
+import QtQuick.Layouts
 import QtQml.Models 2.15
 import QuickFuture 1.0
 
@@ -154,7 +154,9 @@ Item {
             height: itemRowStdHeight
             width: flagIndicatorWidth
             hoverEnabled: true
-            onClicked: showFlagMenu(mouse.x, mouse.y, this, modelIndex)
+            onClicked: (mouse)=> {
+                showFlagMenu(mouse.x, mouse.y, this, modelIndex)
+            }
             cursorShape: Qt.PointingHandCursor
             Rectangle{
                 anchors.fill: parent
@@ -176,7 +178,7 @@ Item {
             }
         }*/
 
-        onReleased: {
+        onReleased: (mouse) => {
 
             if (mouse.button == Qt.RightButton ||
                 mouse.modifiers == Qt.ControlModifier ||
@@ -197,7 +199,7 @@ Item {
 
         }
 
-        onPressed: {
+        onPressed: (mouse) => {
 
             if (mouse.buttons == Qt.RightButton) {
                 if (!isSelected) {
@@ -279,7 +281,7 @@ Item {
 
         }
 
-        onPositionChanged: {
+        onPositionChanged: (mouse) => {
             if (pressed && sessionSelectionModel.selectedIndexes.length) {
                 interactive = false
                 drag_drop_handler.doDrag(mouse.x, mouse.y)
@@ -331,7 +333,7 @@ Item {
             }
         }
 
-        XsImage{
+        XsIcon{
             Layout.fillHeight: true
             Layout.margins: 2
             width: height
@@ -351,18 +353,9 @@ Item {
             leftPadding: itemPadding
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
-            /*tooltipText: text
-            tooltipVisibility: hovered && truncated
-            toolTipWidth: contentDiv.width*2*/
-            MouseArea{
-                id: mArea
-                anchors.fill: parent
-                hoverEnabled: true
-                propagateComposedEvents: true
-            }
             XsToolTip {
                 text: nameRole
-                visible: mArea.containsMouse && parent.truncated
+                visible: hovered && parent.truncated
                 x: 0 //#TODO: flex/pointer
                 y_reposition: -1.0
             }
@@ -383,7 +376,7 @@ Item {
             }
         }
 
-        XsImage {
+        XsIcon {
             id: inspect_icon
             source: "qrc:/icons/desktop_windows.svg"
             visible: isViewed

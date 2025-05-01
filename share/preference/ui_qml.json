@@ -21,6 +21,16 @@
 				"category": "Interface",
 				"display_name": "Use Flat Theme"
 			},
+			"disable_quickview_windows": {
+				"path": "/ui/qml/disable_quickview_windows",
+				"default_value": false,
+				"description": "When media is added to the xSTUDIO session from an external command with the 'quick-view' flag to force the media to be loaded into a quickview pop-up window, the window will not be created if this option is set to On (the media is still added to the xSTUDIO session, however)",
+				"value": false,
+				"datatype": "bool",
+				"context": ["QML_UI"],
+				"category": "Interface",
+				"display_name": "Disable QuickView Windows"
+			},
 			"ui_brightness": {
 				"path": "/ui/qml/ui_brightness",
 				"default_value": 60.0,

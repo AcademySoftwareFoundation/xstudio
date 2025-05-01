@@ -35,28 +35,134 @@ void dumpNames(const nlohmann::json &jsn, const int depth) {
         }
     }
 }
+
+void add_subtype(std::set<std::string> &types, const nlohmann::json &value) {
+    if (value != "No Type")
+        types.insert(value);
+}
 } // namespace
 
-nlohmann::json ShotBrowserSequenceModel::sortByName(const nlohmann::json &jsn) {
+nlohmann::json ShotBrowserSequenceModel::sortByNameAndType(const nlohmann::json &jsn) {
     // this needs
-    auto result = sort_by(jsn, nlohmann::json::json_pointer("/name"));
+    auto result = jsn;
+    if (result.is_array()) {
+        std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) -> bool {
+            try {
+                if (a.at("type") == b.at("type")) {
+                    if (a.at("subtype") == b.at("subtype"))
+                        return a.at("name") < b.at("name");
+                    else
+                        return a.at("subtype") < b.at("subtype");
+                }
+                return a.at("type") < b.at("type");
+            } catch (const std::exception &err) {
+                spdlog::warn("{}", err.what());
+            }
+            return false;
+        });
+    }
+
     for (auto &item : result) {
         if (item.count("children")) {
-            item["children"] = sortByName(item.at("children"));
+            item["children"] = sortByNameAndType(item.at("children"));
         }
     }
 
     return result;
 }
 
-nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
+nlohmann::json
+ShotBrowserSequenceModel::flatToAssetTree(const nlohmann::json &src, QStringList &_types) {
     // manipulate data into tree structure.
     // spdlog::warn("{}", src.size());
+    auto result = R"([])"_json;
+    std::map<std::string, nlohmann::json::json_pointer> assets;
+    auto done    = false;
+    auto changed = true;
+
+    try {
+        while (not done and changed) {
+            changed = false;
+            done    = true;
+            for (const auto &i : src) {
+                if (not i.at("attributes").at("sg_asset_name").is_null()) {
+                    const auto path = i.at("attributes").at("sg_asset_name").get<std::string>();
+
+                    if (not assets.count(path)) {
+
+                        auto parent = path.substr(
+                            0,
+                            path.size() - path.find_last_of("/") == std::string::npos
+                                ? 0
+                                : path.find_last_of("/"));
+                        // add root level
+                        if (path == parent) {
+                            auto asset        = i;
+                            asset["name"]     = asset.at("attributes").at("code");
+                            asset["children"] = json::array();
+
+                            result.emplace_back(asset);
+                            assets.insert(std::make_pair(
+                                path,
+                                nlohmann::json::json_pointer(
+                                    "/" + std::to_string(result.size() - 1))));
+                            changed = true;
+                        } else {
+                            // find parent..
+                            if (not assets.count(parent)) {
+                                done = false;
+                            } else {
+                                auto asset        = i;
+                                asset["name"]     = asset.at("attributes").at("code");
+                                asset["children"] = json::array();
+
+                                result[assets[parent]]["children"].emplace_back(asset);
+
+                                assets.emplace(std::make_pair(
+                                    path,
+                                    assets[parent] /
+                                        nlohmann::json::json_pointer(
+                                            std::string("/children/") +
+                                            std::to_string(
+                                                result[assets[parent]]["children"].size() -
+                                                1))));
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // result = sortByNameAndType(result);
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    // sort results..
+    _types.clear();
+    // for (auto i : types) {
+    //     _types.push_back(QStringFromStd(i));
+    // }
+    // spdlog::warn("{}", result.dump(2));
+
+    return result;
+}
+
+nlohmann::json
+ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_types) {
+    // manipulate data into tree structure.
+    // spdlog::warn("{}", src.size());
+    const static auto sg_shot_type     = json::json_pointer("/attributes/sg_shot_type");
+    const static auto sg_sequence_type = json::json_pointer("/attributes/sg_sequence_type");
 
     auto result = R"([])"_json;
     std::map<size_t, nlohmann::json::json_pointer> seqs;
 
     // spdlog::warn("{}", src.dump(2));
+
+    auto types = std::set<std::string>();
 
     try {
 
@@ -66,7 +172,7 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
             while (not done) {
                 done = true;
 
-                for (auto seq : src) {
+                for (auto seq : src.at(1)) {
                     try {
                         auto id = seq.at("id").get<int>();
                         // already logged ?
@@ -74,6 +180,12 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
 
                         if (not seqs.count(id)) {
                             seq["name"]    = seq.at("attributes").at("code");
+                            seq["subtype"] = seq.at(sg_sequence_type).is_null()
+                                                 ? "No Type"
+                                                 : seq.at(sg_sequence_type);
+                            add_subtype(types, seq["subtype"]);
+
+
                             auto parent_id = seq.at("relationships")
                                                  .at("sg_parent")
                                                  .at("data")
@@ -86,10 +198,20 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                                 // seq["name"].get<std::string>());
 
                                 auto &shots = seq["relationships"]["shots"]["data"];
-                                if (shots.is_array())
-                                    seq["children"] =
-                                        sort_by(shots, nlohmann::json::json_pointer("/name"));
-                                else
+                                if (shots.is_array()) {
+                                    seq["children"] = seq["relationships"]["shots"]["data"];
+                                    for (auto &i : seq["children"]) {
+                                        if (i.at("type") == "Shot" and not i.count("subtype")) {
+                                            i["subtype"] = i.at(sg_shot_type).is_null()
+                                                               ? "No Type"
+                                                               : i.at(sg_shot_type);
+                                            add_subtype(types, i["subtype"]);
+                                        }
+                                    }
+                                    // seq["children"] =
+                                    //     sort_by(shots,
+                                    //     nlohmann::json::json_pointer("/name"));
+                                } else
                                     seq["children"] = R"([])"_json;
 
                                 seq["parent_id"] = parent_id;
@@ -115,10 +237,18 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                                 auto parent_pointer = seqs[parent_id];
 
                                 auto &shots = seq["relationships"]["shots"]["data"];
-                                if (shots.is_array())
-                                    seq["children"] =
-                                        sort_by(shots, nlohmann::json::json_pointer("/name"));
-                                else
+                                if (shots.is_array()) {
+                                    seq["children"] = seq["relationships"]["shots"]["data"];
+                                    for (auto &i : seq["children"]) {
+                                        if (i.at("type") == "Shot" and not i.count("subtype")) {
+                                            i["subtype"] = i.at(sg_shot_type).is_null()
+                                                               ? "No Type"
+                                                               : i.at(sg_shot_type);
+                                            add_subtype(types, i["subtype"]);
+                                        }
+                                    }
+                                    // sort_by(shots, nlohmann::json::json_pointer("/name"));
+                                } else
                                     seq["children"] = R"([])"_json;
 
                                 seq["parent_id"] = parent_id;
@@ -149,24 +279,35 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
             // un parented sequences
             auto count = 0;
             // unresolved..
-            for (auto unseq : src) {
+            for (auto unseq : src.at(1)) {
                 try {
                     auto id = unseq.at("id").get<int>();
                     // already logged ?
                     if (not seqs.count(id)) {
-                        unseq["name"] = unseq.at("attributes").at("code");
+                        unseq["name"]    = unseq.at("attributes").at("code");
+                        unseq["subtype"] = unseq.at(sg_sequence_type).is_null()
+                                               ? "No Type"
+                                               : unseq.at(sg_sequence_type);
+                        add_subtype(types, unseq["subtype"]);
+
 
                         auto parent_id =
                             unseq["relationships"]["sg_parent"]["data"]["id"].get<int>();
                         // no parent
                         auto &shots = unseq["relationships"]["shots"]["data"];
 
-                        spdlog::warn("{} {}", id, parent_id);
-
-                        if (shots.is_array())
-                            unseq["children"] =
-                                sort_by(shots, nlohmann::json::json_pointer("/name"));
-                        else
+                        if (shots.is_array()) {
+                            unseq["children"] = unseq["relationships"]["shots"]["data"];
+                            for (auto &i : unseq["children"]) {
+                                if (i.at("type") == "Shot" and not i.count("subtype")) {
+                                    i["subtype"] = i.at(sg_shot_type).is_null()
+                                                       ? "No Type"
+                                                       : i.at(sg_shot_type);
+                                    add_subtype(types, i["subtype"]);
+                                }
+                            }
+                            // sort_by(shots, nlohmann::json::json_pointer("/name"));
+                        } else
                             unseq["children"] = R"([])"_json;
 
                         unseq["parent_id"] = parent_id;
@@ -187,7 +328,52 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
                     spdlog::warn("{} unresolved sequences.", count);
             }
 
-            result = sortByName(result);
+            // result is now tree of sequence shots.
+            // add in any episodes..
+            auto remove_seqs = std::vector<size_t>();
+
+            for (auto ep : src.at(0)) {
+                // spdlog::warn("{}", ep.dump(2));
+                ep["name"]      = ep.at("attributes").at("code");
+                auto parent_id  = ep.at("id").get<int>();
+                ep["parent_id"] = parent_id;
+                ep["children"]  = json::array();
+                ep["type"]      = "Episode";
+                ep["subtype"]   = "Episode";
+
+                // we now need to reparent any sequences.
+                for (const auto &i : ep.at("relationships").at("sg_sequences").at("data")) {
+                    auto seqid = i.at("id").get<int>();
+                    auto secit = seqs.find(seqid);
+
+                    if (secit != std::end(seqs)) {
+                        // copy into our children
+                        ep["children"].push_back(result.at(secit->second));
+
+                        if (result.at(secit->second).at("parent_id") == seqid) {
+                            // remove from results.
+                            remove_seqs.push_back(seqid);
+                        }
+                        seqs.erase(secit);
+                    }
+                }
+
+                ep["children"] = sort_by(ep["children"], nlohmann::json::json_pointer("/name"));
+
+                result.push_back(ep);
+            }
+
+            for (const auto &id : remove_seqs) {
+                for (auto it = result.begin(); it != result.end(); ++it) {
+                    if (it->at("id") == id) {
+                        result.erase(it);
+                        break;
+                    }
+                }
+            }
+
+
+            result = sortByNameAndType(result);
             // dumpNames(result, 0);
         }
     } catch (const std::exception &err) {
@@ -195,7 +381,10 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
     }
 
     // sort results..
-
+    _types.clear();
+    for (auto i : types) {
+        _types.push_back(QStringFromStd(i));
+    }
     // spdlog::warn("{}", result.dump(2));
 
     return result;
@@ -203,7 +392,12 @@ nlohmann::json ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src) {
 
 
 QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
-    auto result = QVariant();
+    auto result                        = QVariant();
+    const static auto sg_status_list   = json::json_pointer("/attributes/sg_status_list");
+    const static auto sg_description   = json::json_pointer("/attributes/sg_description");
+    const static auto sg_shot_type     = json::json_pointer("/attributes/sg_shot_type");
+    const static auto sg_sequence_type = json::json_pointer("/attributes/sg_sequence_type");
+    const static auto sg_unit          = json::json_pointer("/relationships/sg_unit/data/name");
 
     try {
         const auto &j = indexToData(index);
@@ -233,10 +427,8 @@ QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
             break;
 
         case Roles::descriptionRole:
-            if (j.contains("attributes") and j.at("attributes").contains("sg_description") and
-                j.at("attributes").at("sg_description").is_string())
-                result = QString::fromStdString(
-                    j.at("attributes").at("sg_description").get<std::string>());
+            if (j.contains(sg_description) and j.at(sg_description).is_string())
+                result = QString::fromStdString(j.at(sg_description).get<std::string>());
             break;
 
         case Roles::divisionRole:
@@ -260,6 +452,23 @@ QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
                 result = QDateTime::fromString(
                     QStringFromStd(j.at("attributes").at("created_at").get<std::string>()),
                     Qt::ISODate);
+            break;
+
+        case Roles::statusRole:
+            if (j.contains(sg_status_list))
+                result = QString::fromStdString(
+                    j.at(sg_status_list).is_null() ? ""
+                                                   : j.at(sg_status_list).get<std::string>());
+            break;
+
+        case Roles::unitRole:
+            if (j.contains(sg_unit))
+                result = QString::fromStdString(j.at(sg_unit).get<std::string>());
+            break;
+
+        case Roles::subtypeRole:
+            if (j.count("subtype"))
+                result = QString::fromStdString(j.at("subtype").get<std::string>());
             break;
 
         case Roles::nameRole:
@@ -321,24 +530,18 @@ QModelIndex ShotBrowserSequenceFilterModel::searchRecursive(
 
 
 QVariant ShotBrowserSequenceModel::data(const QModelIndex &index, int role) const {
-    auto result                      = QVariant();
-    const static auto sg_status_list = json::json_pointer("/attributes/sg_status_list");
-    const static auto sg_unit        = json::json_pointer("/relationships/sg_unit/data/name");
+    auto result                     = QVariant();
+    const static auto sg_asset_name = json::json_pointer("/attributes/sg_asset_name");
 
     try {
         const auto &j = indexToData(index);
 
         switch (role) {
-        case Roles::statusRole:
-            if (j.contains(sg_status_list))
-                result = QString::fromStdString(j.at(sg_status_list).get<std::string>());
-            break;
 
-        case Roles::unitRole:
-            if (j.contains(sg_unit))
-                result = QString::fromStdString(j.at(sg_unit).get<std::string>());
+        case Roles::assetNameRole:
+            if (j.contains(sg_asset_name))
+                result = QString::fromStdString(j.at(sg_asset_name).get<std::string>());
             break;
-
 
         default:
             result = ShotBrowserListModel::data(index, role);
@@ -382,12 +585,12 @@ bool ShotBrowserSequenceFilterModel::filterAcceptsRow(
 
     if (not hide_status_.empty() and source_index.isValid() and
         hide_status_.count(
-            source_index.data(ShotBrowserSequenceModel::Roles::statusRole).toString()))
+            source_index.data(ShotBrowserListModel::Roles::statusRole).toString()))
         return false;
 
     if (not filter_unit_.empty() and sourceModel()) {
         QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
-        auto value        = index.data(ShotBrowserSequenceModel::Roles::unitRole);
+        auto value        = index.data(ShotBrowserListModel::Roles::unitRole);
         auto no_unit      = QVariant::fromValue(QString("No Unit"));
         auto shot_type    = QVariant::fromValue(QString("Shot"));
 
@@ -398,6 +601,15 @@ bool ShotBrowserSequenceFilterModel::filterAcceptsRow(
                 i == no_unit and
                 source_index.data(ShotBrowserListModel::Roles::typeRole) == shot_type and
                 (value.isNull() or value.toString() == QString()))
+                return false;
+    }
+
+    if (not filter_type_.empty() and sourceModel()) {
+        QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
+        auto value        = index.data(ShotBrowserListModel::Roles::subtypeRole);
+
+        for (const auto &i : filter_type_)
+            if (i == value)
                 return false;
     }
 

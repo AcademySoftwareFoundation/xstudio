@@ -1,18 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.14
-
-import Qt.labs.qmlmodels 1.0
-import QtQml.Models 2.14
-import ShotBrowser 1.0
 import xStudio 1.0
-import xstudio.qml.clipboard 1.0
+import ShotBrowser 1.0
 import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0
-
+import xstudio.qml.clipboard 1.0
 
 XsWindow{
     id: presetEditPopup
@@ -46,6 +41,11 @@ XsWindow{
 
     QTreeModelToTableModel {
         id: presetTermModel
+        model: ShotBrowserEngine.presetsModel
+    }
+
+    ItemSelectionModel {
+        id: termSelection
         model: ShotBrowserEngine.presetsModel
     }
 
@@ -105,7 +105,21 @@ XsWindow{
                     Layout.preferredWidth: closeWidth + itemHeight + 2
                     Layout.fillHeight: true
                 }
+                XsPrimaryButton{ id: moreBtn
+                    Layout.minimumWidth: height
+                    Layout.maximumWidth: height
+                    Layout.fillHeight: true
 
+                    imgSrc: "qrc:/icons/more_vert.svg"
+                    // scale: 0.95
+                    isActive: termMenu.visible
+                    onClicked:{
+                        if(termMenu.visible)
+                            termMenu.visible = false
+                        else
+                            termMenu.showMenu(moreBtn, width/2, height/2)
+                    }
+                }
             }
         }
 
@@ -115,6 +129,15 @@ XsWindow{
 
             property int rightSpacing: height < contentHeight ? 14 : 0
             Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+            ScrollBar.vertical: XsScrollBar {
+                visible: presetList.height < presetList.contentHeight
+                parent: presetList
+                anchors.top: presetList.top
+                anchors.right: presetList.right
+                anchors.bottom: presetList.bottom
+                x: -5
+            }
 
             model: DelegateModel {
                 id: presetDelegateModel
@@ -151,7 +174,7 @@ XsWindow{
             Layout.minimumHeight: itemHeight
 
             Item{
-                Layout.preferredWidth: parent.width / 3 * 2
+                Layout.preferredWidth: presetEditPopup.width / 3 * 2
                 Layout.fillHeight: true
             }
 
@@ -256,8 +279,6 @@ XsWindow{
         id: termMenu
         visible: false
         menu_model_name: "termMenu"+presetEditPopup
-        property var termModelIndex: helpers.qModelIndex()
-
 
         Clipboard{
           id: clipboard
@@ -268,10 +289,22 @@ XsWindow{
             menuPath: ""
             menuModelName: termMenu.menu_model_name
             menuItemPosition: 1
-            enabled: termMenu.termModelIndex.valid && termMenu.termModelIndex.row
+            enabled: {
+                let si = termSelection.selectedIndexes
+                for(let i = 0; i < si.length; i++) {
+                    if(si[i].row)
+                        return true
+                }
+                return false
+            }
             onActivated: {
-                let i = termMenu.termModelIndex
-                ShotBrowserEngine.presetsModel.moveRows(i.parent, i.row, 1, i.parent, i.row-1)
+                let ordered = [].concat(termSelection.selectedIndexes)
+                ordered.sort((a,b) => a.row - b.row)
+
+                for(let i = 0; i < ordered.length; i++) {
+                    if(ordered[i].row)
+                        ShotBrowserEngine.presetsModel.moveRows(ordered[i].parent, ordered[i].row, 1, ordered[i].parent, ordered[i].row-1)
+                }
             }
         }
         XsMenuModelItem {
@@ -279,10 +312,23 @@ XsWindow{
             menuPath: ""
             menuModelName: termMenu.menu_model_name
             menuItemPosition: 2
-            enabled: termMenu.termModelIndex.valid && termMenu.termModelIndex.row < termMenu.termModelIndex.model.rowCount(termMenu.termModelIndex.parent)-1
+            enabled: {
+                let si = termSelection.selectedIndexes
+                for(let i = 0; i < si.length; i++) {
+                    let rc = ShotBrowserEngine.presetsModel.rowCount(si[i].parent)-1
+                    if(si[i].row < rc)
+                        return true
+                }
+                return false
+            }
             onActivated: {
-                let i = termMenu.termModelIndex
-                ShotBrowserEngine.presetsModel.moveRows(i.parent, i.row, 1, i.parent, i.row+2)
+                let ordered = [].concat(termSelection.selectedIndexes)
+                ordered.sort((b,a) => a.row - b.row)
+
+                for(let i = 0; i < ordered.length; i++) {
+                    if(ordered[i].row < ShotBrowserEngine.presetsModel.rowCount(ordered[i].parent)-1)
+                        ShotBrowserEngine.presetsModel.moveRows(ordered[i].parent, ordered[i].row, 1, ordered[i].parent, ordered[i].row+2)
+                }
             }
         }
         XsMenuModelItem {
@@ -291,19 +337,58 @@ XsWindow{
             menuItemPosition: 3
             menuModelName: termMenu.menu_model_name
         }
+
         XsMenuModelItem {
             text: "Duplicate"
             menuPath: ""
             menuItemPosition: 4
             menuModelName: termMenu.menu_model_name
-            onActivated: ShotBrowserEngine.presetsModel.duplicate(termMenu.termModelIndex)
+            onActivated: {
+                let si = termSelection.selectedIndexes
+                for(let i = 0; i < si.length; i++) {
+                    ShotBrowserEngine.presetsModel.duplicate(si[i])
+                }
+            }
         }
+
+        XsMenuModelItem {
+            text: "Copy Terms"
+            menuItemPosition: 4.5
+            menuPath: ""
+            menuModelName: termMenu.menu_model_name
+            onActivated: clipboard.text = JSON.stringify(ShotBrowserEngine.presetsModel.copy(termSelection.selectedIndexes))
+        }
+
+        XsMenuModelItem {
+            text: "Paste Terms"
+            menuItemPosition: 4.6
+            menuPath: ""
+            menuModelName: termMenu.menu_model_name
+            onActivated: {
+                if(termSelection.selectedIndexes.length) {
+                    ShotBrowserEngine.presetsModel.paste(
+                        JSON.parse(clipboard.text),
+                        termSelection.selectedIndexes[0].row+1,
+                        termSelection.selectedIndexes[0].parent
+                    )
+                } else {
+                    ShotBrowserEngine.presetsModel.paste(
+                        JSON.parse(clipboard.text),
+                        ShotBrowserEngine.presetsModel.rowCount(presetTermModel.rootIndex),
+                        presetTermModel.rootIndex
+                    )
+                }
+            }
+        }
+
         XsMenuModelItem {
             text: "Paste Values From Clipboard"
             menuPath: ""
             menuModelName: termMenu.menu_model_name
             menuItemPosition: 5
             onActivated: {
+                let si = termSelection.selectedIndexes
+
                 let values = clipboard.text.split("\n")
                 if(values.length) {
                     let first = values[0].trim()
@@ -312,15 +397,40 @@ XsWindow{
                     for(let i = 0;i<values.length;i++) {
                         let v = values[i].trim()
                         if(v.length) {
-                            if(v == first) {
-                                ShotBrowserEngine.presetsModel.set(ShotBrowserEngine.presetsModel.index(termMenu.termModelIndex.row, 0, termMenu.termModelIndex.parent), v, "valueRole")
-                            } else {
-                                ShotBrowserEngine.presetsModel.duplicate(termMenu.termModelIndex)
-                                ShotBrowserEngine.presetsModel.set(ShotBrowserEngine.presetsModel.index(termMenu.termModelIndex.row+1, 0, termMenu.termModelIndex.parent), v, "valueRole")
+                            for(let ii = 0; ii < si.length; ii++) {
+                                if(v == first) {
+                                    ShotBrowserEngine.presetsModel.set(ShotBrowserEngine.presetsModel.index(si[ii].row, 0, si[ii].parent), v, "valueRole")
+                                } else {
+                                    ShotBrowserEngine.presetsModel.duplicate(si[ii])
+                                    ShotBrowserEngine.presetsModel.set(ShotBrowserEngine.presetsModel.index(si[ii].row+1, 0, si[ii].parent), v, "valueRole")
+                                }
                             }
                         }
                     }
                 }
+            }
+        }
+
+        XsMenuModelItem {
+            menuItemType: "divider"
+            menuPath: ""
+            menuItemPosition: 6
+            menuModelName: termMenu.menu_model_name
+        }
+        XsMenuModelItem {
+            text: "Remove"
+            menuPath: ""
+            menuItemPosition: 7
+            menuModelName: termMenu.menu_model_name
+            enabled: termSelection.selectedIndexes.length
+            onActivated: {
+                let ordered = [].concat(termSelection.selectedIndexes)
+                ordered.sort((a,b) => b.row - a.row)
+
+                for(let i = 0; i < ordered.length; i++) {
+                    ShotBrowserEngine.presetsModel.removeRows(ordered[i].row, 1, ordered[i].parent)
+                }
+                termSelection.clear()
             }
         }
     }

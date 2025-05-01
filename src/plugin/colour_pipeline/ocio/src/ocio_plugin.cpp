@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "ocio_plugin.hpp"
 #include "ocio_shared_settings.hpp"
 
@@ -26,16 +28,20 @@ OCIOColourPipeline::OCIOColourPipeline(
         global_controls_ = spawn<OCIOGlobalControls>(init_settings);
     }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
     worker_pool_ = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         4,
         [&] { return system().spawn<OCIOEngineActor>(); },
         caf::actor_pool::round_robin());
     link_to(worker_pool_);
+#pragma GCC diagnostic pop
 
     setup_ui();
 
-    send(global_controls_, global_ocio_controls_atom_v, caf::actor_cast<caf::actor>(this));
+    mail(global_ocio_controls_atom_v, caf::actor_cast<caf::actor>(this)).send(global_controls_);
 }
 
 OCIOColourPipeline::~OCIOColourPipeline() { global_controls_ = caf::actor(); }
@@ -67,6 +73,18 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
 
                        OCIOGlobalData old_settings = global_settings_;
                        from_json(settings, global_settings_);
+
+                       // if the 'auto adjust source' global setting is ON, the user
+                       // cannot set the source colourspace as this is automatically
+                       // set by logic in this plugin. We disable/enable
+                       // the Source Colourspace menu items thus:
+                       source_colour_space_->set_role_data(
+                           module::Attribute::StringChoicesEnabled,
+                           std::vector<bool>(
+                               source_colour_space_->options().size(),
+                               !global_settings_.adjust_source),
+                           false // don't call attribute_changed
+                       );
 
                        if (global_settings_.colour_bypass != old_settings.colour_bypass) {
                            update_bypass(global_settings_.colour_bypass);
@@ -134,8 +152,10 @@ size_t OCIOColourPipeline::fast_display_transform_hash(const media::AVFrameID &m
     size_t hash = 0;
 
     if (!global_settings_.colour_bypass) {
-        // utility::JsonStore media_metadata = patch_media_metadata(media_ptr);
-        hash = m_engine_.compute_hash(media_ptr.params(), display_->value() + view_->value());
+        hash = m_engine_.compute_hash(
+            media_ptr.params(),
+            display_->value() + view_->value() +
+                (global_settings_.adjust_source ? "auto_adjust" : ""));
     }
 
     return hash;
@@ -145,13 +165,13 @@ void OCIOColourPipeline::linearise_op_data(
     caf::typed_response_promise<ColourOperationDataPtr> &rp,
     const media::AVFrameID &media_ptr) {
 
-    // utility::JsonStore media_metadata = patch_media_metadata(media_ptr);
-
     rp.delegate(
         worker_pool_,
         colour_pipe_linearise_data_atom_v,
         media_ptr.params(), // media_metadata
-        global_settings_.colour_bypass);
+        global_settings_.colour_bypass,
+        global_settings_.adjust_source,
+        view_->value());
 }
 
 void OCIOColourPipeline::linear_to_display_op_data(
@@ -161,8 +181,6 @@ void OCIOColourPipeline::linear_to_display_op_data(
     // TODO: Adjust the view depending on settings and media
     // If global_view ON, use the plugin view_
     // If gobal_view OFF, use the media detected view (or user overrided)
-
-    // utility::JsonStore media_metadata = patch_media_metadata(media_ptr);
 
     rp.delegate(
         worker_pool_,
@@ -209,8 +227,6 @@ void OCIOColourPipeline::process_thumbnail(
     // If global_view ON, use the plugin view_
     // If gobal_view OFF, use the media detected view (or user overrided)
 
-    // utility::JsonStore media_metadata = patch_media_metadata(media_ptr);
-
     rp.delegate(
         worker_pool_,
         media_reader::process_thumbnail_atom_v,
@@ -230,6 +246,7 @@ void OCIOColourPipeline::extend_pixel_info(
             frame_id,
             display_->value(),
             view_->value(),
+            global_settings_.adjust_source,
             exposure_->value(),
             gamma_->value(),
             saturation_->value());
@@ -358,8 +375,7 @@ bool OCIOColourPipeline::pointer_event(const ui::PointerEvent &e) {
     static auto dragging = false;
     bool used            = false;
 
-    if (e.type() == ui::Signature::EventType::ButtonDown &&
-        e.buttons() == ui::Signature::Left) {
+    if (e.type() == ui::EventType::ButtonDown && e.buttons() == ui::Signature::Left) {
         x_down   = e.x();
         e_down   = active_attr->value();
         dragging = true;
@@ -377,13 +393,12 @@ bool OCIOColourPipeline::pointer_event(const ui::PointerEvent &e) {
         active_attr->set_value(val);
         used = true;
     } else if (
-        e.type() == ui::Signature::EventType::ButtonRelease &&
-        (e.buttons() & ui::Signature::Left)) {
+        e.type() == ui::EventType::ButtonRelease && (e.buttons() & ui::Signature::Left)) {
         dragging = false;
         used     = true;
     }
 
-    if (e.type() == ui::Signature::EventType::DoubleClick) {
+    if (e.type() == ui::EventType::DoubleClick) {
         static auto last_value = 0.0f;
         const auto def = active_attr->get_role_data<float>(module::Attribute::DefaultValue);
 
@@ -422,12 +437,13 @@ void OCIOColourPipeline::media_source_changed(
         view_->set_value(view, false);
     }
 
-    // Adjust source colour space
-    std::string src_cs = m_engine_.detect_source_colourspace(src_colour_mgmt_metadata);
-    if (global_settings_.adjust_source) {
-        src_cs = m_engine_.input_space_for_view(src_colour_mgmt_metadata, view_->value());
-    }
+    // Determine the source colourspace.
+    std::string src_cs = m_engine_.detect_source_colourspace(
+        src_colour_mgmt_metadata, global_settings_.adjust_source, view_->value());
+
     if (!src_cs.empty()) {
+        // We do not 'notify' this attribute change as it's not the user selecting
+        // a source colourspace but (possibly) driven by dynamic plugin logic
         source_colour_space_->set_value(src_cs, false);
     }
 }
@@ -439,6 +455,8 @@ void OCIOColourPipeline::attribute_changed(
     // current OCIO config.
     if (attribute_uuid == source_colour_space_->uuid()) {
 
+        // we only get notified here when the USER has changed the source
+        // colourspace via the OCIO menu options in the UI
         update_media_metadata(
             current_source_uuid_,
             "/colour_pipeline/override_input_cs",
@@ -540,13 +558,13 @@ void OCIOColourPipeline::connect_to_viewport(
 
     // the OCIOGlobalControls actor instance needs to connect to the viewport
     // too so it can expose its controls in the viewport toolbar etc.
-    send(
-        global_controls_,
+    mail(
         colour_pipeline::connect_to_viewport_atom_v,
         viewport_name,
         viewport_toolbar_name,
         connect,
-        viewport);
+        viewport)
+        .send(global_controls_);
 }
 
 void OCIOColourPipeline::setup_ui() {
@@ -666,6 +684,14 @@ void OCIOColourPipeline::populate_ui(const utility::JsonStore &src_colour_mgmt_m
         source_colour_space_->set_role_data(
             module::Attribute::StringChoices, all_colourspaces, false);
 
+        // set the 'enabled' value to false on each of the source colourspace
+        // options if the global 'Adjust source colourspace mode' is active
+        source_colour_space_->set_role_data(
+            module::Attribute::StringChoicesEnabled,
+            std::vector<bool>(all_colourspaces.size(), !global_settings_.adjust_source),
+            false // don't call attribute_changed
+        );
+
         // we may have used this config before, and stored the display and view settings
         // against the config. If so, use those stored settings rather than the
         // preferred/defaults found above
@@ -754,36 +780,6 @@ void OCIOColourPipeline::update_media_metadata(
     }
 }
 
-utility::JsonStore OCIOColourPipeline::patch_media_metadata(const media::AVFrameID &media_ptr) {
-
-    // N.B. Ted Sept 2024 - I'm removing the use of this function as it breaks
-    // the colour pipeline data read-ahead cacheing, which relies on the
-    // fast_display_transform_hash returning a consisten hash for a given piece
-    // of media. At viewport draw time, we evaluate fast_display_transform_hash
-    // again to retrieve pre-computed colour data for the media that is on-screen
-    // but this function will give a different result for media when it is
-    // on screen (when we retrieve from the cache) to when it is off screen (
-    // when we pre-compute and store in the cache).
-
-    utility::JsonStore res = media_ptr.params();
-
-    // TODO: Should we check if the auto detected source space is different
-    // from the plugin current setting and only set override in that case?
-
-    // If the media_ptr is that of the currently on screen media, we patch
-    // the media_ptr.params to have up-to-date metadata (override_input_cs,
-    // override_view) using the current plugin parameters. This way we avoid
-    // out of sync issues when updating a media override and having to wait
-    // for it to propagate to the media actor metadata and back then here,
-    // which results in a visible delay on screen and colour switching twice.
-    if (media_ptr.source_uuid() == current_source_uuid_) {
-        res["override_input_cs"] = source_colour_space_->value();
-        res["override_view"]     = view_->value();
-    }
-
-    return res;
-}
-
 void OCIOColourPipeline::synchronize_attribute(const utility::Uuid &uuid, int role, bool ocio) {
 
     // Don't bother synchronizing anything beyond values
@@ -798,16 +794,11 @@ void OCIOColourPipeline::synchronize_attribute(const utility::Uuid &uuid, int ro
     const auto value = utility::JsonStore(attr->role_data_as_json(role));
 
     if (ocio) {
-        send(
-            global_controls_,
-            global_ocio_controls_atom_v,
-            current_config_name_,
-            title,
-            role,
-            value,
-            window_id_);
+        mail(global_ocio_controls_atom_v, current_config_name_, title, role, value, window_id_)
+            .send(global_controls_);
     } else {
-        send(global_controls_, global_ocio_controls_atom_v, title, role, value, window_id_);
+        mail(global_ocio_controls_atom_v, title, role, value, window_id_)
+            .send(global_controls_);
     }
 }
 

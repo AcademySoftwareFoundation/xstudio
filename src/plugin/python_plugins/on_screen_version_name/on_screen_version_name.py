@@ -33,7 +33,7 @@ class OnScreenVersionName(HUDPlugin):
             "On Screen Version Name", # the name of the HUD item
             qml_folder=qml_folder_name,
             position_in_hud_list=-9.0)
-        
+
         # add an attribute to control the size of the text
         self.font_size = self.add_attribute(
             "Font Size",
@@ -42,14 +42,14 @@ class OnScreenVersionName(HUDPlugin):
             # as follows. The keys must be valid role names. See attribute.hpp
             # for a list of the attribute role data names
             {
-                "float_scrub_min": 5.0, 
+                "float_scrub_min": 5.0,
                 "float_scrub_max": 100.0,
                 "float_scrub_step": 2.0,
                 "float_display_decimals": 2
             },
-            register_as_preference=True 
+            register_as_preference=True
             )
-        # adding to a ui attrs group means we can access the attribute in our 
+        # adding to a ui attrs group means we can access the attribute in our
         # QML code by referencing the group name and the attribute title
         self.font_size.expose_in_ui_attrs_group("on_screen_version_name")
         self.font_size.set_tool_tip("Set the size of the font for displaying the version name")
@@ -65,7 +65,7 @@ class OnScreenVersionName(HUDPlugin):
         self.auto_hide = self.add_attribute(
             "Auto Hide",
             True,
-            register_as_preference=True 
+            register_as_preference=True
             )
         self.auto_hide.expose_in_ui_attrs_group("on_screen_version_name")
 
@@ -73,12 +73,12 @@ class OnScreenVersionName(HUDPlugin):
             "Auto Hide Timeout (seconds)",
             10.0, # default number of seconds to hide the version
             {
-                "float_scrub_min": 0.0, 
+                "float_scrub_min": 0.0,
                 "float_scrub_max": 20.0,
                 "float_scrub_step": 0.5,
                 "float_display_decimals": 1
             },
-            register_as_preference=True 
+            register_as_preference=True
             )
         self.hide_timeout.expose_in_ui_attrs_group("on_screen_version_name")
 
@@ -90,7 +90,7 @@ class OnScreenVersionName(HUDPlugin):
             ) # default size
         self.display_text.expose_in_ui_attrs_group("on_screen_version_name")
 
-        # the following calls mean that these attributes get controls in 
+        # the following calls mean that these attributes get controls in
         # the settings dialog for thie HUD, accessed via the cog icon next to
         # the item in the HUD pop-up menu
         self.add_hud_settings_attribute(self.font_size)
@@ -128,10 +128,11 @@ class OnScreenVersionName(HUDPlugin):
 
         self.display_text.set_value(path)
 
-    def playhead_event_handler(self, event_args):      
+    def playhead_event_handler(self, event_args):
 
         # Skipping this bit, using playhead data instead in the QML overlay
-        return         
+        return
+
 
         # various events come in here from the playhead objects. You can simply
         # print 'event_args' to see the content and try and work out how to
@@ -139,14 +140,15 @@ class OnScreenVersionName(HUDPlugin):
         #
         # In our case we are interested when the on-screen media changes - this
         # event has a particular signature and data types ....
-        # We get a tuple like this 
+        # We get a tuple like this
         # (event_atom, show_atom, actor(media), actor(media_source), str(viewport name))
 
-        if len(event_args) == 5 and type(event_args[0]) == event_atom and type(event_args[1]) == show_atom:
-            if event_args[3]:
-                viewport_name = event_args[4]
-                media_source = MediaSource(self.connection, event_args[3])
-                self.on_screen_source_changed(media_source)
+        if self.enabled:
+            if len(event_args) == 5 and type(event_args[0]) == event_atom and type(event_args[1]) == show_atom:
+                if event_args[3]:
+                    viewport_name = event_args[4]
+                    media_source = MediaSource(self.connection, event_args[3])
+                    self.on_screen_source_changed(media_source)
 
 # This method is required by xSTUDIO
 def create_plugin_instance(connection):

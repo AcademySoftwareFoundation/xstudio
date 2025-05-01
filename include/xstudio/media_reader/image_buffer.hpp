@@ -34,6 +34,9 @@ namespace media_reader {
         void set_shader_params(const utility::JsonStore &params) { shader_params_ = params; }
         [[nodiscard]] const utility::JsonStore &shader_params() const { return shader_params_; }
 
+        void set_metadata(const utility::JsonStore &metadata) { metadata_ = metadata; }
+        [[nodiscard]] const utility::JsonStore &metadata() const { return metadata_; }
+
         [[nodiscard]] Imath::V2i image_size_in_pixels() const { return image_size_in_pixels_; }
         [[nodiscard]] Imath::Box2i image_pixels_bounding_box() const { return pixels_bounds_; }
         void set_image_dimensions(
@@ -45,15 +48,6 @@ namespace media_reader {
                 pixels_bounds_ = bounds;
             }
         }
-
-        [[nodiscard]] float image_aspect() const {
-            return image_size_in_pixels_.y
-                       ? pixel_aspect_ * image_size_in_pixels_.x / image_size_in_pixels_.y
-                       : 16.0f / 9.0f;
-        }
-
-        [[nodiscard]] float pixel_aspect() const { return pixel_aspect_; }
-        void set_pixel_aspect(const float aspect) { pixel_aspect_ = aspect; }
 
         [[nodiscard]] const media::MediaKey &media_key() const { return media_key_; }
         void set_media_key(const media::MediaKey &key) { media_key_ = key; }
@@ -78,9 +72,9 @@ namespace media_reader {
       private:
         utility::Uuid shader_id_;
         utility::JsonStore shader_params_;
+        utility::JsonStore metadata_;
         Imath::V2i image_size_in_pixels_;
         Imath::Box2i pixels_bounds_;
-        float pixel_aspect_ = {1.0f};
         media::MediaKey media_key_;
         int frame_num_ = -1;
         ui::viewport::GPUShaderPtr shader_;
@@ -109,7 +103,8 @@ namespace media_reader {
               bookmarks_(o.bookmarks_),
               intrinsic_transform_(o.intrinsic_transform_),
               layout_transform_(o.layout_transform_),
-              playhead_logical_frame_(o.playhead_logical_frame_) {}
+              playhead_logical_frame_(o.playhead_logical_frame_),
+              error_details_(o.error_details_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
             Base &b                 = static_cast<Base &>(*this);
@@ -124,6 +119,7 @@ namespace media_reader {
             intrinsic_transform_    = o.intrinsic_transform_;
             layout_transform_       = o.layout_transform_;
             playhead_logical_frame_ = o.playhead_logical_frame_;
+            error_details_          = o.error_details_;
             return *this;
         }
 
@@ -213,15 +209,34 @@ namespace media_reader {
         [[nodiscard]] const Imath::M44f &layout_transform() const { return layout_transform_; }
         void set_layout_transform(const Imath::M44f &t) { layout_transform_ = t; }
 
+        [[nodiscard]] const std::string &error_details() const { return error_details_; }
+        void set_error_details(const std::string &err) { error_details_ = err; }
+
+        friend float image_aspect(const ImageBufPtr &value);
+
+        utility::JsonStore metadata() const;
+
       private:
         Imath::M44f intrinsic_transform_;
         Imath::M44f layout_transform_;
+
+        std::string error_details_;
 
         timebase::flicks tts_ = timebase::flicks{0};
         media::AVFrameID frame_id_;
         bookmark::BookmarkAndAnnotations bookmarks_;
         int playhead_logical_frame_ = 0;
     };
+
+    inline float image_aspect(const ImageBufPtr &v) {
+
+        return v ? v->image_size_in_pixels().y
+                       ? v.frame_id_.pixel_aspect() * v->image_size_in_pixels().x /
+                             v->image_size_in_pixels().y
+                       : 16.0f / 9.0f
+                 : 16.0f / 9.0f;
+    }
+
 
 } // namespace media_reader
 } // namespace xstudio

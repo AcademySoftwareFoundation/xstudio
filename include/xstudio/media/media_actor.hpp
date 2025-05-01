@@ -7,6 +7,7 @@
 #include "xstudio/media/media.hpp"
 #include "xstudio/utility/container.hpp"
 #include "xstudio/utility/json_store.hpp"
+#include "xstudio/json_store/json_store_handler.hpp"
 #include "xstudio/utility/tree.hpp"
 #include "xstudio/utility/uuid.hpp"
 
@@ -130,16 +131,27 @@ namespace media {
 
         void
         acquire_detail(const utility::FrameRate &rate, caf::typed_response_promise<bool> rp);
-        void deliver_frames_media_keys(
-            caf::typed_response_promise<media::MediaKeyVector> rp,
-            const MediaType media_type,
-            const std::vector<int> logical_frames);
 
         void get_media_pointers_for_frames(
             const MediaType media_type,
             const LogicalFrameRanges &ranges,
             caf::typed_response_promise<media::AVFrameIDs> rp,
             const utility::Uuid clip_uuid);
+
+        void get_media_pointers_for_frames(
+            const MediaType media_type,
+            const LogicalFrameRanges &ranges,
+            caf::typed_response_promise<media::AVFrameIDs> rp,
+            const utility::Uuid clip_uuid,
+            const utility::JsonStore &colour_mgmt_data,
+            const StreamDetail &media_detail);
+
+        caf::uri uri_for_logical_frame(
+            const MediaType media_type,
+            const int logical_frame,
+            int &frame,
+            int &keyframe,
+            FrameStatus &frame_status);
 
         void update_stream_media_reference(
             StreamDetail &stream_detail,
@@ -160,6 +172,19 @@ namespace media {
         utility::Uuid parent_uuid_;
         std::vector<caf::typed_response_promise<bool>> pending_stream_detail_requests_;
         bool media_metadata_up_to_date_ = {false};
+        std::set<media::MediaKey> all_requested_frames_;
+
+        struct UriStatus {
+            UriStatus(const UriStatus &o) = default;
+            UriStatus()                   = default;
+            UriStatus(const caf::uri &_uri, const FrameStatus &status, const int f)
+                : uri_(_uri), status_(status), frame_(f) {}
+            caf::uri uri_;
+            FrameStatus status_;
+            int frame_;
+        };
+
+        std::map<int, UriStatus> uri_status_cache_;
     };
 
     class MediaStreamActor : public caf::event_based_actor {
@@ -167,13 +192,16 @@ namespace media {
         MediaStreamActor(
             caf::actor_config &cfg,
             const StreamDetail &detail,
-            const utility::Uuid &uuid = utility::Uuid());
+            const utility::Uuid &uuid      = utility::Uuid(),
+            const utility::JsonStore &meta = utility::JsonStore());
         MediaStreamActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
         ~MediaStreamActor() override = default;
         caf::message_handler message_handler();
 
         caf::behavior make_behavior() override {
-            return message_handler().or_else(base_.container_message_handler(this));
+            return message_handler()
+                .or_else(base_.container_message_handler(this))
+                .or_else(jsn_handler_.message_handler());
         }
 
         const char *name() const override { return NAME.c_str(); }
@@ -182,7 +210,7 @@ namespace media {
         inline static const std::string NAME = "MediaStreamActor";
         void init();
         MediaStream base_;
-        caf::actor json_store_;
+        json_store::JsonStoreHandler jsn_handler_;
     };
 } // namespace media
 } // namespace xstudio

@@ -9,7 +9,7 @@ using namespace xstudio::ui::opengl;
 namespace {
 
 const char *vertex_shader = R"(
-    #version 430 core
+    #version 410 core
     uniform mat4 to_coord_system;
     uniform mat4 to_canvas;
     uniform vec2 box_position;
@@ -245,7 +245,7 @@ void OpenGLTextHandleRenderer::render_handles(
             shader_params2["box_position"] = positions[i];
             shader_params2["box_type"]     = 2;
             shader_->set_shader_parameters(shader_params2);
-            glDrawArrays(GL_QUADS, 0, 4);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 6);
         }
 
         static const auto aa_jitter = std::vector<Imath::V2f>(

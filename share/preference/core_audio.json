@@ -62,9 +62,9 @@
                 },
                 "buffer_size": {
                     "path": "/core/audio/pulse_audio_prefs/buffer_size",
-                    "default_value": 4096,
+                    "default_value": 2048,
                     "description": "Souncard audio samples buffer size",
-                    "value": 4096,
+                    "value": 2048,
                     "minimum": 512,
                     "maximum": 16384,
                     "datatype": "int",

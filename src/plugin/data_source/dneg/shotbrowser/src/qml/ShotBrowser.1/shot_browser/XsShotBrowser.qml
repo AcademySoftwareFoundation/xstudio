@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.15
-import QtQml 2.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
 
 import QuickFuture 1.0
 import QuickPromise 1.0
@@ -34,18 +30,21 @@ Item{
 
     property bool queryRunning: queryRunningCount > 0
 
+    property bool assetMode: false
+
     property var onScreenMediaUuid: currentPlayhead.mediaUuid
     property var onScreenLogicalFrame: currentPlayhead.logicalFrame
 
     property int projectId: -1
     property var projectIndex: null
     property var sequenceBaseModel: null
+    property var assetBaseModel: null
     property var currentPresetIndex: ShotBrowserEngine.presetsModel.index(-1,-1)
 
     property var categoryPreset: (new Map())
 
     property bool sequenceTreeLiveLink: false
-    property bool sequenceTreeShowPresets: false
+    property bool sequenceTreeShowPresets: true
 
     property bool isPopout: typeof panels_layout_model_index == "undefined"
 
@@ -84,17 +83,14 @@ Item{
             updateTimer.restart()
         if(!isPaused && (currentCategory == "Menus" && currentPresetIndex.valid) || (currentCategory == "Tree" && sequenceTreeLiveLink)) {
             isPaused = true
-            // resultsSelectionModel.clear()
-            // resultsBaseModel.setResultData([])
-            // ShotBrowserEngine.liveLinkKey = ""
-            // ShotBrowserEngine.liveLinkMetadata = "null"
         }
     }
 
-    /*MouseArea {
+    // why was this commented out ?
+    MouseArea {
         anchors.fill: parent
         onClicked: forceActiveFocus(panel)
-    }*/
+    }
 
     Timer {
         id: updateTimer
@@ -127,33 +123,58 @@ Item{
         return false
     }
 
-    function updateSequenceSelection() {
+    function updateTreeSelection() {
         if(visible) {
             if(currentCategory == "Tree" && sequenceTreeLiveLink) {
                 // update tree selection
                 let pname = ShotBrowserEngine.getProjectFromMetadata()
-                let sname = ShotBrowserEngine.getShotSequenceFromMetadata()
                 if(!projectIndex.valid || projectIndex.model.get(projectIndex,"nameRole") != pname) {
                     projectIndex = getProjectIndexFromName(pname)
                 }
+                let entity = ShotBrowserEngine.getEntityFromMetadata()
 
-                let bi = sequenceBaseModel.searchRecursive(sname)
-                if(bi.valid) {
-                    let fi = sequenceFilterModel.mapFromSource(bi)
-                    if(fi.valid) {
-                        let parents = helpers.getParentIndexes([fi])
-                        for(let i = 0; i< parents.length; i++){
-                            if(parents[i].valid) {
-                                // find in tree.. Order ?
-                                let ti = sequenceTreeModel.mapFromModel(parents[i])
-                                if(ti.valid) {
-                                    sequenceTreeModel.expandRow(ti.row)
+                if(entity != undefined) {
+                    if(assetMode && entity.type == "Asset") {
+                        let bi = assetBaseModel.searchRecursive(entity.id, "idRole")
+                        if(bi.valid) {
+                            let fi = assetFilterModel.mapFromSource(bi)
+                            if(fi.valid) {
+                                let parents = helpers.getParentIndexes([fi])
+                                for(let i = 0; i< parents.length; i++){
+                                    if(parents[i].valid) {
+                                        // find in tree.. Order ?
+                                        let ti = assetTreeModel.mapFromModel(parents[i])
+                                        if(ti.valid) {
+                                            assetTreeModel.expandRow(ti.row)
+                                        }
+                                    }
                                 }
+                                // should now be visible
+                                let ti = assetTreeModel.mapFromModel(fi)
+                                assetSelectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
                             }
                         }
-                        // should now be visible
-                        let ti = sequenceTreeModel.mapFromModel(fi)
-                        sequenceSelectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
+
+                    } else if(!assetMode && entity.type != "Asset"){
+                        let bi = sequenceBaseModel.searchRecursive(entity.name)
+                        if(bi.valid) {
+                            let fi = sequenceFilterModel.mapFromSource(bi)
+                            if(fi.valid) {
+                                let parents = helpers.getParentIndexes([fi])
+                                for(let i = 0; i< parents.length; i++){
+                                    if(parents[i].valid) {
+                                        // find in tree.. Order ?
+                                        let ti = sequenceTreeModel.mapFromModel(parents[i])
+                                        if(ti.valid) {
+                                            sequenceTreeModel.expandRow(ti.row)
+                                        }
+                                    }
+                                }
+                                // should now be visible
+                                let ti = sequenceTreeModel.mapFromModel(fi)
+                                sequenceSelectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
+                            }
+                        }
                     }
                 }
             }
@@ -163,7 +184,7 @@ Item{
     onSequenceTreeLiveLinkChanged: {
         if(sequenceTreeLiveLink) {
             updateMetaData()
-            updateSequenceSelection()
+            updateTreeSelection()
         }
     }
 
@@ -171,7 +192,7 @@ Item{
         target: ShotBrowserEngine
         function onLiveLinkMetadataChanged() {
             if(panel.visible && !isPaused) {
-                updateSequenceSelection()
+                updateTreeSelection()
 
                 if(currentCategory == "Menus" && currentPresetIndex.valid) {
                     executeQuery()
@@ -179,8 +200,6 @@ Item{
             }
         }
     }
-
-
 
     Connections {
         target: ShotBrowserEngine
@@ -228,11 +247,13 @@ Item{
         property bool hideEmpty: false
         property bool showUnit: false
         property bool showOnlyFavourites: false
-        property bool showStatus: true
+        property bool showStatus: false
+        property bool showType: false
         property var hideStatus: ["omt", "na", "del", "omtnto", "omtnwd"]
         property var filterProjects: []
         property var filterProjectStatus: []
         property var filterUnit: (new Map())
+        property var filterType: []
 
         onShowOnlyFavouritesChanged: {
             treeModel.setOnlyShowFavourite(showOnlyFavourites)
@@ -250,13 +271,15 @@ Item{
                 "showOnlyFavourites",
                 "hideEmpty",
                 "showUnit",
+                "showType",
                 "hideStatus",
                 "showStatus",
                 "quickLoad",
                 "filterUnit",
+                "filterType",
                 "filterProjects",
                 "filterProjectStatus"
-                ]
+            ]
         }
 
     }
@@ -266,6 +289,7 @@ Item{
         sourceModel: sequenceBaseModel
         hideStatus: prefs.hideStatus
         hideEmpty: prefs.hideEmpty
+        typeFilter: prefs.filterType
         // unitFilter:
         onUnitFilterChanged: {
             let tmp = prefs.filterUnit
@@ -274,14 +298,31 @@ Item{
         }
     }
 
+    ShotBrowserSequenceFilterModel {
+        id: assetFilterModel
+        sourceModel: assetBaseModel
+        hideStatus: prefs.hideStatus
+    }
+
     QTreeModelToTableModel {
         id: sequenceTreeModel
         model: sequenceFilterModel
     }
 
+    QTreeModelToTableModel {
+        id: assetTreeModel
+        model: assetFilterModel
+    }
+
     ItemSelectionModel {
         id: sequenceSelectionModel
         model: sequenceTreeModel
+        onSelectionChanged: executeQuery()
+    }
+
+    ItemSelectionModel {
+        id: assetSelectionModel
+        model: assetTreeModel
         onSelectionChanged: executeQuery()
     }
 
@@ -346,7 +387,7 @@ Item{
         showHidden: false
         onlyShowFavourite: true
         onlyShowPresets: true
-        ignoreSpecialGroups: true
+        ignoreToolbar: true
         filterGroupUserData: "tree"
         sourceModel: buttonModelBase
 
@@ -375,7 +416,7 @@ Item{
         showHidden: false
         onlyShowFavourite: true
         onlyShowPresets: true
-        ignoreSpecialGroups: true
+        ignoreToolbar: true
         filterGroupUserData: "recent"
         sourceModel: buttonModelBase
     }
@@ -385,7 +426,7 @@ Item{
         showHidden: false
         onlyShowFavourite: true
         onlyShowPresets: true
-        ignoreSpecialGroups: true
+        ignoreToolbar: true
         filterGroupUserData: "menu"
         sourceModel: buttonModelBase
     }
@@ -393,14 +434,7 @@ Item{
     QTreeModelToTableModel {
         id: buttonModelBase
         model: ShotBrowserEngine.presetsModel
-        onCountChanged: if(count) {
-            for(let i=0;i<count;i++) {
-                if(!isExpanded(i) && depthAtRow(i) < 2) {
-
-                    expandRow(i)
-                }
-            }
-        }
+        onCountChanged: expandAll(2)
     }
 
     ShotBrowserPresetFilterModel {
@@ -425,6 +459,7 @@ Item{
             let i = m.get(projectIndex, "idRole")
             ShotBrowserEngine.cacheProject(i)
             sequenceBaseModel = ShotBrowserEngine.sequenceTreeModel(i)
+            assetBaseModel = ShotBrowserEngine.assetTreeModel(i)
 
             projectPref.value = m.get(projectIndex, "nameRole")
             projectId = i
@@ -502,18 +537,18 @@ Item{
                 let i = queryCounter
 
                 Future.promise(
-                    ShotBrowserEngine.executeQuery(
+                    ShotBrowserEngine.executeQueryJSON(
                         [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], {}, [], customContext)
                     ).then(function(json_string) {
                         // console.log(json_string)
                         if(queryCounter == i) {
                             resultsSelectionModel.clear()
-                            resultsBaseModel.setResultData([json_string])
+                            resultsBaseModel.setResultDataJSON([json_string])
                         }
                         queryRunningCount -= 1
                     },
                     function() {
-                        resultsBaseModel.setResultData([])
+                        resultsBaseModel.setResultDataJSON([])
                         queryRunningCount -= 1
                     })
             } else if(currentCategory == "Recent") {
@@ -523,28 +558,36 @@ Item{
                 let i = queryCounter
 
                 Future.promise(
-                    ShotBrowserEngine.executeProjectQuery(
+                    ShotBrowserEngine.executeProjectQueryJSON(
                         [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], projectId, {}, [], customContext)
                     ).then(function(json_string) {
                         // console.log(json_string)
                         if(queryCounter == i) {
                             resultsSelectionModel.clear()
-                            resultsBaseModel.setResultData([json_string])
+                            resultsBaseModel.setResultDataJSON([json_string])
                         }
                         queryRunningCount -= 1
                     },
                     function() {
-                        resultsBaseModel.setResultData([])
+                        resultsBaseModel.setResultDataJSON([])
                         queryRunningCount -= 1
                     })
             } else {
                 let custom = []
                 // convert to base model.
                 let seqsel = []
-                for(let i=0;i<sequenceSelectionModel.selectedIndexes.length; i++){
-                    let tindex = sequenceSelectionModel.selectedIndexes[i]
-                    let findex = tindex.model.mapToModel(tindex)
-                    seqsel.push(findex.model.mapToSource(findex))
+                if(assetMode) {
+                    for(let i=0;i<assetSelectionModel.selectedIndexes.length; i++){
+                        let tindex = assetSelectionModel.selectedIndexes[i]
+                        let findex = tindex.model.mapToModel(tindex)
+                        seqsel.push(findex.model.mapToSource(findex))
+                    }
+                } else {
+                    for(let i=0;i<sequenceSelectionModel.selectedIndexes.length; i++){
+                        let tindex = sequenceSelectionModel.selectedIndexes[i]
+                        let findex = tindex.model.mapToModel(tindex)
+                        seqsel.push(findex.model.mapToSource(findex))
+                    }
                 }
 
                 for(let i=0;i<seqsel.length;i++) {
@@ -563,6 +606,20 @@ Item{
                             "term": "Sequence",
                             "value": seqsel[i].model.get(seqsel[i],"nameRole")
                         })
+                    } else if( t == "Episode") {
+                        custom.push({
+                            "enabled": true,
+                            "type": "term",
+                            "term": "Episode",
+                            "value": seqsel[i].model.get(seqsel[i],"nameRole")
+                        })
+                    } else if( t == "Asset") {
+                        custom.push({
+                            "enabled": true,
+                            "type": "term",
+                            "term": "Asset",
+                            "value": seqsel[i].model.get(seqsel[i],"assetNameRole")
+                        })
                     }
                 }
 
@@ -573,22 +630,22 @@ Item{
 
                     let i = queryCounter
                     Future.promise(
-                        ShotBrowserEngine.executeProjectQuery(
+                        ShotBrowserEngine.executeProjectQueryJSON(
                             [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], projectId, {}, custom, customContext)
                         ).then(function(json_string) {
                             // console.log(json_string)
                             if(queryCounter == i) {
                                 resultsSelectionModel.clear()
-                                resultsBaseModel.setResultData([json_string])
+                                resultsBaseModel.setResultDataJSON([json_string])
                             }
                             queryRunningCount -= 1
                         },
                         function() {
-                            resultsBaseModel.setResultData([])
+                            resultsBaseModel.setResultDataJSON([])
                             queryRunningCount -= 1
                         })
                 } else {
-                    resultsBaseModel.setResultData([])
+                    resultsBaseModel.setResultDataJSON([])
                 }
             }
         }
