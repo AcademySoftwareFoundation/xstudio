@@ -1,6 +1,10 @@
 ## Rocky Linux 9.1
 [Download](https://rockylinux.org/download "Download")
 
+### Note (May 2025)
+
+These docs are not accurate and are to be updated soon. Note that xSTUDIO now requires Qt6.5.3, where these notes incorrectly install qt5. You can install Qt6.5.3 using [these instructions](downloading_qt.md) instead.
+
 ### Distro installs
     sudo dnf config-manager --set-enabled crb
     sudo dnf update
