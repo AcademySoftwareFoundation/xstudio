@@ -3,6 +3,11 @@
 [Download](https://www.centos.org/download/ "Download")
 **Default Mesa drivers will not work, as they are to old, NVidia/AMD/Intel custom drivers should be fine.
 **
+
+### Note (May 2025)
+
+These docs are not accurate and are to be updated soon. Note that xSTUDIO now requires Qt6.5.3, where these notes incorrectly install qt5. You can install Qt6.5.3 using [these instructions](downloading_qt.md) instead.
+
 ### Distro installs
     sudo yum install -y centos-release-scl
     sudo yum install -y devtoolset-9
