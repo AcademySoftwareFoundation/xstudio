@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/ui/viewport/keypress_monitor.hpp"
 #include "xstudio/atoms.hpp"
 #include "xstudio/ui/mouse.hpp"
@@ -20,25 +22,6 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
     hotkey_config_events_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(hotkey_config_events_group_);
 
-    set_down_handler([=](down_msg &msg) {
-        auto p = std::find(
-            actor_grabbing_all_mouse_input_.begin(),
-            actor_grabbing_all_mouse_input_.end(),
-            caf::actor_cast<caf::actor>(msg.source));
-        if (p != actor_grabbing_all_mouse_input_.end()) {
-            actor_grabbing_all_mouse_input_.erase(p);
-        }
-
-        if (msg.source == actor_grabbing_all_keyboard_input_) {
-            actor_grabbing_all_keyboard_input_ = caf::actor();
-        } else {
-            caf::actor_addr w = caf::actor_cast<caf::actor_addr>(msg.source);
-            for (auto &p : active_hotkeys_) {
-                p.second.watcher_died(w);
-            }
-        }
-    });
-
     behavior_.assign(
         [=](utility::get_event_group_atom) -> caf::actor { return keyboard_events_group_; },
         [=](utility::get_event_group_atom, hotkey_event_atom) -> caf::actor {
@@ -54,12 +37,8 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             const std::string &window,
             const bool auto_repeat) {
             if (actor_grabbing_all_keyboard_input_) {
-                anon_send(
-                    actor_grabbing_all_keyboard_input_,
-                    key_down_atom_v,
-                    key,
-                    context,
-                    auto_repeat);
+                anon_mail(key_down_atom_v, key, context, auto_repeat)
+                    .send(actor_grabbing_all_keyboard_input_);
             } else {
                 held_keys_.insert(key);
                 held_keys_changed(context, auto_repeat, window);
@@ -76,16 +55,17 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             const std::string &context,
             const std::string &window) {
             if (actor_grabbing_all_keyboard_input_) {
-                anon_send(actor_grabbing_all_keyboard_input_, text_entry_atom_v, text, context);
+                anon_mail(text_entry_atom_v, text, context)
+                    .send(actor_grabbing_all_keyboard_input_);
             } else {
-                send(keyboard_events_group_, text_entry_atom_v, text, context);
+                mail(text_entry_atom_v, text, context).send(keyboard_events_group_);
             }
         },
         [=](mouse_event_atom, const PointerEvent &e) {
             if (actor_grabbing_all_mouse_input_.size()) {
-                anon_send(actor_grabbing_all_mouse_input_.front(), mouse_event_atom_v, e);
+                anon_mail(mouse_event_atom_v, e).send(actor_grabbing_all_mouse_input_.front());
             } else {
-                send(keyboard_events_group_, mouse_event_atom_v, e);
+                mail(mouse_event_atom_v, e).send(keyboard_events_group_);
             }
         },
         [=](module::grab_all_keyboard_input_atom, caf::actor actor, const bool grab) {
@@ -110,23 +90,23 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
                     actor_grabbing_all_mouse_input_.begin(), actor);
             }
         },
-        
-        [=](watch_hotkey_atom, const utility::Uuid &hk_uuid, caf::actor watcher) {
 
+        [=](watch_hotkey_atom, const utility::Uuid &hk_uuid, caf::actor watcher) {
             auto p = active_hotkeys_.find(hk_uuid);
             if (p != active_hotkeys_.end()) {
                 p->second.add_watcher(caf::actor_cast<caf::actor_addr>(watcher));
             }
-
         },
 
-        [=](watch_hotkey_atom, const utility::Uuid &hk_uuid, caf::actor watcher, bool exclusive_watcher) {
-
+        [=](watch_hotkey_atom,
+            const utility::Uuid &hk_uuid,
+            caf::actor watcher,
+            bool exclusive_watcher) {
             auto p = active_hotkeys_.find(hk_uuid);
             if (p != active_hotkeys_.end()) {
-                p->second.exclusive_watcher(caf::actor_cast<caf::actor_addr>(watcher), exclusive_watcher);
+                p->second.exclusive_watcher(
+                    caf::actor_cast<caf::actor_addr>(watcher), exclusive_watcher);
             }
-
         },
 
         [=](register_hotkey_atom, const Hotkey &hk) {
@@ -141,14 +121,34 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             }
 
             for (auto &p : hk.watchers()) {
-                monitor(caf::actor_cast<caf::actor>(p));
+                monitor(
+                    caf::actor_cast<caf::actor>(p),
+                    [this, addr = caf::actor_cast<caf::actor>(p).address()](const error &) {
+                        auto p = std::find(
+                            actor_grabbing_all_mouse_input_.begin(),
+                            actor_grabbing_all_mouse_input_.end(),
+                            caf::actor_cast<caf::actor>(addr));
+                        if (p != actor_grabbing_all_mouse_input_.end()) {
+                            actor_grabbing_all_mouse_input_.erase(p);
+                        }
+
+                        if (addr == actor_grabbing_all_keyboard_input_) {
+                            actor_grabbing_all_keyboard_input_ = caf::actor();
+                        } else {
+                            caf::actor_addr w = caf::actor_cast<caf::actor_addr>(addr);
+                            for (auto &p : active_hotkeys_) {
+                                p.second.watcher_died(w);
+                            }
+                        }
+                    });
             }
 
             std::vector<Hotkey> hks;
             for (const auto &p : active_hotkeys_)
                 hks.push_back(p.second);
-            send(hotkey_config_events_group_, hotkey_event_atom_v, active_hotkeys_[hk.uuid()]);
-            send(hotkey_config_events_group_, hotkey_event_atom_v, hks);
+            mail(hotkey_event_atom_v, active_hotkeys_[hk.uuid()])
+                .send(hotkey_config_events_group_);
+            mail(hotkey_event_atom_v, hks).send(hotkey_config_events_group_);
         },
 
         [=](register_hotkey_atom) -> std::vector<Hotkey> {
@@ -163,7 +163,8 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             if (p != active_hotkeys_.end()) {
                 return p->second;
             }
-            return make_error(xstudio_error::error, "Invalid hotkey uuid");
+            return make_error(
+                xstudio_error::error, "Invalid hotkey uuid '" + to_string(kotkey_uuid) + "'");
         },
 
         [=](hotkey_atom, const std::string &hotkey_name) -> result<Hotkey> {
@@ -174,7 +175,8 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
                 }
                 p++;
             }
-            return make_error(xstudio_error::error, "Invalid hotkey name");
+            return make_error(
+                xstudio_error::error, "Invalid hotkey name '" + hotkey_name + "'");
         },
 
         [=](keypress_monitor::hotkey_event_atom,
@@ -182,17 +184,14 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             const bool pressed,
             const std::string &context,
             const std::string &window) {
-            send(
-                hotkey_config_events_group_,
-                hotkey_event_atom_v,
-                kotkey_uuid,
-                pressed,
-                context,
-                window);
+            mail(hotkey_event_atom_v, kotkey_uuid, pressed, context, window)
+                .send(hotkey_config_events_group_);
         },
 
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        [=](const error &err) mutable { aout(this) << err << std::endl; });
+        [=](const error &err) mutable {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        });
 }
 
 void KeypressMonitor::on_exit() {

@@ -247,11 +247,7 @@ namespace bookmark {
 
 
         std::string created() const {
-#ifdef _WIN32
-            auto dt = (created_ ? *created_ : std::chrono::high_resolution_clock::now());
-#else
             auto dt = (created_ ? *created_ : std::chrono::system_clock::now());
-#endif
             return utility::to_string(dt);
         }
 

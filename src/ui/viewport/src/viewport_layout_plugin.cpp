@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include <chrono>
 
@@ -30,8 +31,10 @@ void ViewportLayoutPlugin::init() {
             }
             return event_group_;
         },
-        [=](viewport_renderer_atom, const std::string window_id) -> ViewportRendererPtr {
-            return ViewportRendererPtr(make_renderer(window_id));
+        [=](viewport_renderer_atom,
+            const std::string window_id,
+            const utility::JsonStore &prefs) -> ViewportRendererPtr {
+            return ViewportRendererPtr(make_renderer(window_id, prefs));
         },
         [=](viewport_layout_atom,
             const std::string &layout_mode,
@@ -45,12 +48,9 @@ void ViewportLayoutPlugin::init() {
                 size_t hash;
                 auto h = python_plugin_layout["hash"].get<std::string>();
                 sscanf(h.c_str(), "%zu", &hash);
-                delegate(
-                    caf::actor_cast<caf::actor>(this),
-                    viewport_layout_atom_v,
-                    layout_mode,
-                    python_plugin_layout,
-                    hash);
+                std::ignore =
+                    mail(viewport_layout_atom_v, layout_mode, python_plugin_layout, hash)
+                        .delegate(caf::actor_cast<caf::actor>(this));
 
             } catch (std::exception &e) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -88,33 +88,35 @@ void ViewportLayoutPlugin::init() {
         },
         [=](viewport_layout_atom,
             const std::string &layout_name,
+            const float menu_position,
             const xstudio::playhead::AssemblyMode mode,
             const xstudio::playhead::AutoAlignMode auto_align) {
             // used by Python ViewportLayoutPlugin api
-            add_layout_mode(layout_name, mode, auto_align);
+            add_layout_mode(layout_name, menu_position, mode, auto_align);
         },
+        [=](viewport_layout_atom,
+            const std::string &layout_name,
+            const utility::Uuid &attr_id) {
+
+            // used by python layout plugin so that an attribute can be 
+            // made visible in the layou settings controls
+            auto attr = get_attribute(attr_id);
+            if (attr) {
+                add_layout_settings_attribute(attr, layout_name);
+            }
+        }
     };
 
     make_behavior();
-
-    settings_toggle_ =
-        add_boolean_attribute(module::Module::name(), module::Module::name(), true);
-    settings_toggle_->expose_in_ui_attrs_group("layout_plugins");
-
-    // this tells the pop-up menu for Compare/Layouts that this plugin doesn't
-    // have any settings, so the 'Settings' button is disabled
-    settings_toggle_->set_role_data(module::Attribute::DisabledValue, true);
 
     connect_to_ui();
 
     layouts_manager_ = system().registry().template get<caf::actor>(viewport_layouts_manager);
     gobal_playhead_events_ =
         system().registry().template get<caf::actor>(global_playhead_events_actor);
-    anon_send(
-        layouts_manager_,
-        ui::viewport::viewport_layout_atom_v,
-        caf::actor_cast<caf::actor>(this),
-        Module::name());
+    anon_mail(
+        ui::viewport::viewport_layout_atom_v, caf::actor_cast<caf::actor>(this), Module::name())
+        .send(layouts_manager_);
 }
 
 void ViewportLayoutPlugin::on_exit() {
@@ -133,7 +135,7 @@ void ViewportLayoutPlugin::do_layout(
     const media_reader::ImageBufPtr &hero_image =
         image_set->onscreen_image(image_set->hero_sub_playhead_index());
     if (hero_image) {
-        layout_data.layout_aspect_ = hero_image->pixel_aspect() *
+        layout_data.layout_aspect_ = hero_image.frame_id().pixel_aspect() *
                                      hero_image->image_size_in_pixels().x /
                                      hero_image->image_size_in_pixels().y;
     } else {
@@ -147,6 +149,9 @@ void ViewportLayoutPlugin::do_layout(
     // to do.
     layout_data.image_draw_order_hint_ =
         std::vector<int>(1, image_set->hero_sub_playhead_index());
+
+    layout_data.draw_hero_overlays_only_ = true;
+
 }
 
 void ViewportLayoutPlugin::__do_layout(
@@ -163,12 +168,12 @@ void ViewportLayoutPlugin::__do_layout(
         // as it handles integers differently, so we stringify the hash. Python plugin then
         // sends back the layout data with the hash as a string which we need to decode to
         // size_t again.
-        send(
-            event_group_,
+        mail(
             viewport_layout_atom_v,
             layout_mode,
             image_set->as_json(),
-            fmt::format("{}", image_set->images_layout_hash()));
+            fmt::format("{}", image_set->images_layout_hash()))
+            .send(event_group_);
         pending_responses_[image_set->images_layout_hash()].push_back(rp);
         return;
     }
@@ -220,6 +225,12 @@ ViewportLayoutPlugin::python_layout_data_to_ours(const utility::JsonStore &pytho
             result->layout_aspect_ = python_data["layout_aspect_ratio"].get<float>();
         }
 
+        if (python_data.contains("draw_hero_overlays_only")) {
+            result->draw_hero_overlays_only_ = python_data["draw_hero_overlays_only"].get<bool>();
+        } else {
+            result->draw_hero_overlays_only_ = false;
+        }
+
         if (python_data.contains("image_draw_order")) {
             if (python_data["image_draw_order"].is_array()) {
                 for (const auto &v : python_data["image_draw_order"]) {
@@ -266,7 +277,12 @@ void ViewportLayoutPlugin::add_layout_settings_attribute(
     module::Attribute *attr, const std::string &layout_name) {
     attr->expose_in_ui_attrs_group(layout_name + " Settings");
     // this means the 'settings' button WILL be visible!
-    settings_toggle_->set_role_data(module::Attribute::DisabledValue, false);
+    layouts_with_settings_.insert(layout_name);
+    for (auto &p : layout_names_) {
+        if (p.second->value() == layout_name) {
+            p.second->set_role_data(module::Attribute::UserData, true);
+        }
+    }
 }
 
 void ViewportLayoutPlugin::add_viewport_layout_qml_overlay(
@@ -280,23 +296,30 @@ void ViewportLayoutPlugin::add_viewport_layout_qml_overlay(
 
 void ViewportLayoutPlugin::add_layout_mode(
     const std::string &name,
+    const float menu_position,
     const playhead::AssemblyMode mode,
     const playhead::AutoAlignMode default_auto_align) {
 
-    request(
-        layouts_manager_,
-        infinite,
+    mail(
         viewport_layout_atom_v,
         caf::actor_cast<caf::actor>(this),
         name,
         mode,
         default_auto_align)
+        .request(layouts_manager_, infinite)
         .then(
             [=](bool accepted) {
                 if (accepted) {
                     auto layout_toggle = add_string_attribute(name, name, "");
                     layout_toggle->expose_in_ui_attrs_group("viewport_layouts");
+                    layout_toggle->set_role_data(
+                        module::Attribute::ToolbarPosition, menu_position);
                     layout_names_[layout_toggle->uuid()] = layout_toggle;
+                    if (layouts_with_settings_.find(name) != layouts_with_settings_.end()) {
+                        layout_toggle->set_role_data(module::Attribute::UserData, true);
+                    } else {
+                        layout_toggle->set_role_data(module::Attribute::UserData, false);
+                    }
                 }
             },
             [=](caf::error &err) {
@@ -309,7 +332,9 @@ void ViewportLayoutPlugin::attribute_changed(
     // this forces re-computation of the layout geometry
     layouts_cache_.clear();
     // now force viewports to redraw
-    anon_send(gobal_playhead_events_, playhead::redraw_viewport_atom_v);
+    anon_mail(playhead::redraw_viewport_atom_v).send(gobal_playhead_events_);
+    // anon_mail(playhead::redraw_viewport_atom_v).send(gobal_playhead_events_);
+
     StandardPlugin::attribute_changed(attribute_uuid, role);
 }
 
@@ -325,13 +350,12 @@ ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg)
     behavior_ = {
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        [=](const group_down_msg & /*msg*/) {},
         [=](utility::get_event_group_atom) -> caf::actor { return event_group_; },
         [=](broadcast::join_broadcast_atom, caf::actor joiner) {
-            delegate(event_group_, broadcast::join_broadcast_atom_v, joiner);
+            return mail(broadcast::join_broadcast_atom_v, joiner).delegate(event_group_);
         },
         [=](broadcast::leave_broadcast_atom, caf::actor joiner) {
-            delegate(event_group_, broadcast::leave_broadcast_atom_v, joiner);
+            return mail(broadcast::leave_broadcast_atom_v, joiner).delegate(event_group_);
         },
         [=](ui::viewport::viewport_layout_atom,
             caf::actor layout_actor,
@@ -389,6 +413,7 @@ ViewportLayoutManager::ViewportLayoutManager(caf::actor_config &cfg)
 ViewportLayoutManager::~ViewportLayoutManager() {}
 
 void ViewportLayoutManager::on_exit() {
+    system().registry().erase(viewport_layouts_manager);
     viewport_layouts_.clear();
     caf::event_based_actor::on_exit();
 }
@@ -404,7 +429,8 @@ void ViewportLayoutManager::spawn_plugins() {
     // SPAWN C++ PLUGINS (Python plugins are loaded in python startup script)
 
     // get details of viewport layout plugins
-    request(pm, infinite, utility::detail_atom_v, ptype)
+    mail(utility::detail_atom_v, ptype)
+        .request(pm, infinite)
         .then(
 
             [=](const std::vector<plugin_manager::PluginDetail> &renderer_plugin_details) {
@@ -416,7 +442,8 @@ void ViewportLayoutManager::spawn_plugins() {
                     utility::JsonStore j;
                     j["name"]             = pd.name_;
                     j["is_python_plugin"] = false;
-                    request(pm, infinite, plugin_manager::spawn_plugin_atom_v, pd.uuid_, j)
+                    mail(plugin_manager::spawn_plugin_atom_v, pd.uuid_, j)
+                        .request(pm, infinite)
                         .then(
                             [=](caf::actor) {},
                             [=](caf::error &err) {

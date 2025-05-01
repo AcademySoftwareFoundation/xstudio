@@ -19,8 +19,6 @@ void ShotBrowserEngine::updateQueryValueCache(
     if (type == "Sequence") {
         query_engine_.set_shot_sequence_lookup(
             QueryEngine::cache_name("ShotSequence", project_id), data);
-        query_engine_.set_shot_sequence_list_cache(
-            QueryEngine::cache_name("ShotSequenceList", project_id), data);
     }
 
     query_engine_.set_lookup(QueryEngine::cache_name(type, project_id), data);
@@ -68,7 +66,7 @@ QVariant ShotBrowserEngine::mergeQueries(
     return QVariantMapFromJson(dst_qry);
 }
 
-QFuture<QString> ShotBrowserEngine::executeQuery(
+QFuture<QVariant> ShotBrowserEngine::executeQueryJSON(
     const QStringList &preset_paths,
     const QVariantMap &env,
     const QVariantList &custom_terms,
@@ -84,14 +82,15 @@ QFuture<QString> ShotBrowserEngine::executeQuery(
         // if (not project_id)
         //     throw std::runtime_error("Project metadata not found.");
 
-        return executeProjectQuery(preset_paths, project_id, env, custom_terms, customContext);
+        return executeProjectQueryJSON(
+            preset_paths, project_id, env, custom_terms, customContext);
     } catch (const std::exception &err) {
         spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, err.what(), live_link_metadata_.dump(2));
-        return QtConcurrent::run([=]() { return QString(); });
+        return QtConcurrent::run([=]() { return QVariant(); });
     }
 }
 
-QFuture<QString> ShotBrowserEngine::executeProjectQuery(
+QFuture<QVariant> ShotBrowserEngine::executeProjectQueryJSON(
     const QStringList &preset_paths,
     const int project_id,
     const QVariantMap &env,
@@ -150,25 +149,31 @@ QFuture<QString> ShotBrowserEngine::executeProjectQuery(
 
                 // spdlog::warn("{} {}", __PRETTY_FUNCTION__, data.dump(2));
 
+                if (data.at("result").count("errors")) {
+                    spdlog::warn(
+                        "{} {}", __PRETTY_FUNCTION__, data.at("result").at("errors").dump(2));
+                    return QVariant(mapFromValue(R"([])"_json));
+                }
 
                 if (data.at("result").at("data").is_array())
                     data["context"]["truncated"] =
                         (static_cast<int>(data.at("result").at("data").size()) ==
                          data.at("max_result"));
 
-                return QStringFromStd(data.dump());
+
+                return QVariant(mapFromValue(data));
 
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 // silence error..
 
                 if (starts_with(std::string(err.what()), "LiveLink ")) {
-                    return QStringFromStd(request.dump()); // R"({"data":[]})");
+                    return QVariant(mapFromValue(request));
                 }
 
-                return QStringFromStd(err.what());
+                return QVariant(mapFromValue(R"([])"_json));
             }
         }
-        return QString("[]");
+        return QVariant(mapFromValue(R"([])"_json));
     });
 }

@@ -1,20 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.12
-import QtGraphicalEffects 1.12
+import QtQuick
+import QtQuick.Layouts
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
-
-// SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtQuick.Layouts 1.3
-import QtQuick.Window 2.2
-import Qt.labs.qmlmodels 1.0
-
-import xstudio.qml.models 1.0
-import xStudio 1.0
 
 // This is an adapted version of XsAttributesPanel, allowing us to add a dynamic
 // list of masks that the user can enable/disable

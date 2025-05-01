@@ -8,6 +8,6 @@ SET(LINK_DEPS
 
 find_package(Imath)
 
-create_plugin_with_alias(basic_viewport_masking xstudio::viewport::basic_viewport_masking 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(basic_viewport_masking xstudio::viewport::basic_viewport_masking ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")
 
-add_subdirectory(qml)
+add_plugin_qml(${PROJECT_NAME} qml)

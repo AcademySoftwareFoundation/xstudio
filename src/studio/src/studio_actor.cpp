@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 #include <tuple>
 
 #include "xstudio/atoms.hpp"
@@ -35,14 +36,15 @@ caf::message_handler StudioActor::message_handler() {
 
         [=](session::session_atom) -> caf::actor { return session_; },
 
-        [=](bookmark::get_bookmark_atom atom) { delegate(session_, atom); },
+        [=](bookmark::get_bookmark_atom atom) { return mail(atom).delegate(session_); },
 
         [=](session::session_atom, caf::actor session) -> bool {
             unlink_from(session_);
             send_exit(session_, caf::exit_reason::user_shutdown);
             session_ = session;
             link_to(session_);
-            send(base_.event_group(), utility::event_atom_v, session::session_atom_v, session_);
+            mail(utility::event_atom_v, session::session_atom_v, session_)
+                .send(base_.event_group());
             return true;
         },
 
@@ -50,12 +52,8 @@ caf::message_handler StudioActor::message_handler() {
             const std::string &path,
             const JsonStore &js) -> bool {
             // need to chat to UI ?
-            send(
-                base_.event_group(),
-                utility::event_atom_v,
-                session::session_request_atom_v,
-                path,
-                js);
+            mail(utility::event_atom_v, session::session_request_atom_v, path, js)
+                .send(base_.event_group());
             return true;
         },
 
@@ -70,23 +68,24 @@ caf::message_handler StudioActor::message_handler() {
             // Request (from somewhere) to open light viewers for list of media items.
             // Forward to UI via event group so UI can handle it.
             if (studio_ui_actor) {
-                anon_send(
-                    studio_ui_actor,
+                anon_mail(
                     utility::event_atom_v,
                     ui::show_message_box_atom_v,
                     message_title,
                     message_body,
                     close_button,
-                    timeout_seconds);
+                    timeout_seconds)
+                    .send(studio_ui_actor);
             }
         },
 
-        // [&](session::create_player_atom atom, const std::string &name) {// delegate(session_,
-        // atom, name);// },
+        // [&](session::create_player_atom atom, const std::string &name) {// mail(// atom,
+        // name).delegate(session_);// },
         [=](utility::serialise_atom) -> result<JsonStore> {
             if (session_) {
                 auto rp = make_response_promise<JsonStore>();
-                request(session_, caf::infinite, utility::serialise_atom_v)
+                mail(utility::serialise_atom_v)
+                    .request(session_, caf::infinite)
                     .then(
                         [=](const JsonStore &_jsn) mutable {
                             JsonStore jsn;
@@ -107,13 +106,13 @@ caf::message_handler StudioActor::message_handler() {
         [=](ui::open_quickview_window_atom atom,
             const utility::UuidActorVector &media_items,
             std::string compare_mode) {
-            delegate(
-                actor_cast<caf::actor>(this),
-                atom,
-                media_items,
-                compare_mode,
-                utility::JsonStore(),
-                utility::JsonStore());
+            return mail(
+                       atom,
+                       media_items,
+                       compare_mode,
+                       utility::JsonStore(),
+                       utility::JsonStore())
+                .delegate(actor_cast<caf::actor>(this));
         },
         [=](ui::open_quickview_window_atom,
             const utility::UuidActorVector &media_items,
@@ -125,14 +124,14 @@ caf::message_handler StudioActor::message_handler() {
 
             if (studio_ui_actor) {
                 // forward to StudioUI instance
-                anon_send(
-                    studio_ui_actor,
+                anon_mail(
                     utility::event_atom_v,
                     ui::open_quickview_window_atom_v,
                     media_items,
                     compare_mode,
                     in_point,
-                    out_point);
+                    out_point)
+                    .send(studio_ui_actor);
             } else {
                 // UI hasn't started up yet, store the request
                 QuickviewRequest request;
@@ -148,14 +147,14 @@ caf::message_handler StudioActor::message_handler() {
             // so we can send it any pending requests for quickviewers
 
             for (const auto &r : quickview_requests_) {
-                anon_send(
-                    studio_ui_actor,
+                anon_mail(
                     utility::event_atom_v,
                     ui::open_quickview_window_atom_v,
                     r.media_actors,
                     r.compare_mode,
                     r.in_point,
-                    r.out_point);
+                    r.out_point)
+                    .send(studio_ui_actor);
             }
             quickview_requests_.clear();
         }};

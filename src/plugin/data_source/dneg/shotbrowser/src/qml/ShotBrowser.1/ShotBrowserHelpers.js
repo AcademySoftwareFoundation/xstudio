@@ -101,8 +101,7 @@ function revealMediaInIvy(indexes=[]) {
 	        ).then(function(json_obj) {
 	        	let uuid = json_obj.attributes.sg_ivy_dnuuid
 	        	let job = json_obj.relationships.project.data.name
-	        	let shot = json_obj.relationships.entity.data.name
-	            helpers.startDetachedProcess("dnenv-do", [job, shot, "--", "ivybrowser", "--no-prefs", uuid])
+	            helpers.startDetachedProcess("dnenv-do", [job, "--", "ivybrowser", "--no-prefs", uuid])
 	        })
 		}
 	}
@@ -111,7 +110,6 @@ function revealMediaInIvy(indexes=[]) {
 function revealInIvy(indexes=[]) {
 	indexes = mapIndexesToResultModel(indexes)
 	let project = helpers.getEnv("SHOW")
-	let shot = helpers.getEnv("SHOT")
 	let uuids = []
 
 	if(indexes.length) {
@@ -123,12 +121,10 @@ function revealInIvy(indexes=[]) {
 			if(["Version"].includes(t)) {
 				uuids.push(helpers.QUuidToQString(m.get(indexes[i], "stalkUuidRole")))
 				project = m.get(indexes[i], "projectRole")
-				shot = m.get(indexes[i], "shotRole")
-
 			}
 		}
 		if(uuids.length)
-            helpers.startDetachedProcess("dnenv-do", [project, shot, "--", "ivybrowser", "--no-prefs"].concat(uuids))
+            helpers.startDetachedProcess("dnenv-do", [project, "--", "ivybrowser", "--no-prefs"].concat(uuids))
 	}
 }
 
@@ -332,8 +328,15 @@ function replaceMediaCallback(playlist_uuid, uuids) {
 	// find selected media.
     if(uuids.length && mediaSelectionModel.selectedIndexes.length) {
         let mi = mediaSelectionModel.selectedIndexes[0]
+
+        // select playlist.
+        let plindex =  theSessionData.searchRecursive(playlist_uuid,"actorUuidRole")
+		sessionSelectionModel.setCurrentIndex(
+			plindex,
+			ItemSelectionModel.ClearAndSelect)
+
+		mediaSelectionModel.selectNewMedia(plindex, uuids, -1, ItemSelectionModel.Select)
     	mediaSelectionModel.model.removeRows(mi.row, 1, mi.parent)
-		selectFirstMediaCallback(playlist_uuid, uuids)
     }
 }
 
@@ -427,7 +430,7 @@ function replaceConformMediaCallback(playlist_uuid, uuids) {
 }
 
 function _Timer() {
-     return Qt.createQmlObject("import QtQuick 2.0; Timer {}", appWindow);
+	return Qt.createQmlObject("import QtQuick; Timer {}", appWindow);
 }
 
 function delayCallback(delayTime, cb) {
@@ -631,32 +634,37 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 	if(indexes.length) {
 		let m = indexes[0].model
 
-		// console.log("playlist_index", playlist_index)
+		// need more control to inject metadata into timeline
+		// we need to grab stalks from ivy, based off preferred sequence.
 
 		for(let i =0; i <indexes.length; i++) {
-			let paths = m.get(indexes[i], "otioRole");
-			let found = false;
-			for(let p=0; p<paths.length;  p++) {
-				let path = paths[p]
-				if(helpers.urlExists(path)) {
-					if(!playlist_index || !playlist_index.valid)
-						playlist_index = theSessionData.createPlaylist(playlist_name)
+			let path = ShotBrowserEngine.getSequencePath(
+				m.sequenceSource,
+				m.get(indexes[i], "projectRole"),
+				m.get(indexes[i], "stalkUuidRole")
+			)
 
-			        Future.promise(theSessionData.handleDropFuture(Qt.CopyAction, {"text/uri-list": path}, playlist_index)).then(
-			            function(quuids){
-			            	callback(playlist_index, [quuids[0]])
-			            },
-				        function() {
-				        }
-			        )
-			        found = true
-			        break;
-				}
-			}
-			if(!found) {
+			if(path) {
+				let meta = m.get(indexes[i], "jsonRole");
+				if(!playlist_index || !playlist_index.valid)
+					playlist_index = theSessionData.createPlaylist(playlist_name)
+
+		        Future.promise(theSessionData.importTimelineFuture(playlist_index, path)).then(
+		            function(tindex){
+		            	// inject shotgrid metadata ?
+		            	// all a bit hacky ..
+		            	theSessionData.setJSONObject(tindex, meta, "/metadata/shotgun/version")
+
+		            	callback(playlist_index, [theSessionData.get(tindex, "actorUuidRole")])
+		            },
+			        function() {
+			        }
+		        )
+
+			} else {
 		    	console.log("Path doesn't exist ", paths)
 		    	dialogHelpers.errorDialogFunc("Add Sequence", "Path doesn't exist " + paths)
-		    }
+			}
 		}
 	}
 }
@@ -743,11 +751,26 @@ function selectItem(selectionModel, index) {
 
 function ctrlSelectItem(selectionModel, index) {
 	//  make sure we don't have mixed selections / cross group selections.
-
 	if(selectionModel.selectedIndexes.length && selectionModel.selectedIndexes[0].parent != index.parent)
 		selectItem(selectionModel, index)
 	else
 		selectionModel.select(index, ItemSelectionModel.Toggle)
+}
+
+function altSelectItem(selectionModel, index) {
+	// expand and select children..
+	selectionModel.model.expandRecursively(index.row, -1)
+	// select all leafs.
+	let depth = selectionModel.model.depthAtRow(index.row)
+	let selection = []
+	for(let i = index.row+1; selectionModel.model.depthAtRow(i) > depth ;i++) {
+		let ind = selectionModel.model.index(i, 0, index.parent)
+		if(selectionModel.model.model.get(selectionModel.model.mapToModel(ind), "typeRole") == "Shot")
+			selection.push(ind)
+	}
+	selectionModel.select(index, ItemSelectionModel.Deselect)
+	selectionModel.select(helpers.createItemSelection(selection), ItemSelectionModel.Toggle)
+	// selectionModel.select(index, ItemSelectionModel.Toggle)
 }
 
 function shiftSelectItem(selectionModel, index) {
@@ -822,80 +845,86 @@ function transfer(destination, indexes) {
 
     if(indexes.length) {
     	let model = indexes[0].model
-
-	    for(let i=0; i < indexes.length; i++) {
-
-	        let dnuuid = model.get(indexes[i],"stalkUuidRole")
-	        if(project == null) {
-	            project = model.get(indexes[i],"projectRole")
-	        }
-	        // where is it...
-	        if(source == null) {
-	            if(model.get(indexes[i],"onSiteLon") && destination != "lon")
-	                source = "lon"
-	            else if(model.get(indexes[i],"onSiteMum") && destination != "mum")
-	                source = "mum"
-	            else if(model.get(indexes[i],"onSiteVan") && destination != "van")
-	                source = "van"
-	            else if(model.get(indexes[i],"onSiteChn") && destination != "chn")
-	                source = "chn"
-	            else if(model.get(indexes[i],"onSiteMtl") && destination != "mtl")
-	                source = "mtl"
-	            else if(model.get(indexes[i],"onSiteSyd") && destination != "syd")
-	                source = "syd"
-	        }
-	        uuids.push(dnuuid)
-	    }
-
-	    if(project && source && destination && uuids.length) {
-	    	// console.log(project,source,destination,uuids)
-		    var fa = ShotBrowserEngine.requestFileTransferFuture(uuids, project, source, destination)
-
-		    Future.promise(fa).then(
-		        function(result) {}
-		    )
-	    }
-	}
-}
-
-function transferMedia(source, destination, indexes) {
-    let project = null
-    let items = []
-
-    if(indexes.length) {
-    	let model = indexes[0].model
+    	let sources = new Map()
 
 	    for(let i=0; i < indexes.length; i++) {
 	    	try {
-		    	let dnuuid = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_ivy_dnuuid"))
+		        if(project == null)
+		            project = model.get(indexes[i],"projectRole")
 
-		        if(project == null) {
-		            project = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/relationships/project/data/name"))
-		        }
+		        let dnuuid = model.get(indexes[i],"stalkUuidRole")
+ 		    	let source = model.get(indexes[i],"locationRole")
 
-		        items.push(helpers.QVariantFromUuidString(dnuuid))
-	    	} catch (err) {
-	    		// failed try uri
-                let ms = theSessionData.searchRecursive(theSessionData.get(indexes[i], "imageActorUuidRole"), "actorUuidRole", indexes[i])
+		    	if(!sources.has(source))
+		    		sources.set(source, [])
 
-                if(ms.valid) {
-                    let v = theSessionData.get(ms, "pathRole")
-                    if(v != undefined)
-                        items.push(v)
-                }
+		        sources.get(source).push(dnuuid)
+   	    	} catch (err) {
+	    		console.log(err)
 	    	}
 	    }
 
 	    if(project == null)
 	    	project = helpers.getEnv("SHOW")
 
-	    if(project && destination && items.length) {
-	    	// console.log(project,source,destination,items)
-		    var fa = ShotBrowserEngine.requestFileTransferFuture(items, project, source, destination)
+	    if(project && destination && sources.size) {
+			sources.forEach(function (value, key, map) {
+			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination)
 
-		    Future.promise(fa).then(
-		        function(result) {}
-		    )
+			    Future.promise(fa).then(
+			        function(result) {}
+			    )
+			});
+	    }
+	}
+}
+
+function transferMedia(destination, indexes) {
+    let project = null
+
+    if(indexes.length) {
+    	let model = indexes[0].model
+
+    	let sources = new Map()
+
+	    for(let i=0; i < indexes.length; i++) {
+	    	try {
+		        if(project == null)
+		            project = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/relationships/project/data/name"))
+
+		    	let dnuuid = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_ivy_dnuuid"))
+		    	let source = JSON.parse(theSessionData.getJSON(indexes[i], "/metadata/shotgun/version/attributes/sg_location"))
+
+		    	if(!sources.has(source))
+		    		sources.set(source, [])
+
+		        sources.get(source).push(helpers.QVariantFromUuidString(dnuuid))
+	    	} catch (err) {
+	    		console.log(err)
+	    		// failed try uri
+	    		// they need to use the transfertool
+
+                // let ms = theSessionData.searchRecursive(theSessionData.get(indexes[i], "imageActorUuidRole"), "actorUuidRole", indexes[i])
+
+                // if(ms.valid) {
+                //     let v = theSessionData.get(ms, "pathRole")
+                //     if(v != undefined)
+                //         path_items.push(v)
+                // }
+	    	}
+	    }
+
+	    if(project == null)
+	    	project = helpers.getEnv("SHOW")
+
+	    if(project && destination && sources.size) {
+			sources.forEach(function (value, key, map) {
+			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination)
+
+			    Future.promise(fa).then(
+			        function(result) {}
+			    )
+			});
 	    }
 	}
 }
@@ -916,9 +945,9 @@ function syncPlaylistFromShotGrid(playlistUuid, matchOrder=false, callback=null)
 }
 
 
-function syncPlaylistToShotGrid(playlistUuid, callback=null) {
+function syncPlaylistToShotGrid(playlistUuid, append=false, callback=null) {
     Future.promise(
-        ShotBrowserEngine.updatePlaylistVersionsFuture(playlistUuid)
+        ShotBrowserEngine.updatePlaylistVersionsFuture(playlistUuid, append)
     ).then(function(json_string) {
     	if(callback)
 	    	callback(json_string)

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
+import QtQuick
 import QtQml.Models 2.15
 
 import xStudio 1.0
@@ -11,10 +11,10 @@ Item {
 
     function setSelectionIndex(my_index) {
 
-        isSelected = mediaSelectionModel.selectedIndexes.includes(my_index)
+        isSelected = mediaSelectionModel.isSelected(my_index)
         if (mediaSelectionModel.multiSelected) {
             if (isSelected) {
-                selectionIndex = mediaSelectionModel.selectedIndexes.indexOf(my_index)+1
+                selectionIndex = mediaSelectionModel.selectedIndexes.indexOf(helpers.qModelIndex(my_index))+1
             } else {
                 selectionIndex = 0
             }

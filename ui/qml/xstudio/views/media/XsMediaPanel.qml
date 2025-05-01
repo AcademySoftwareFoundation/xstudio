@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtQuick.Controls.Styles 1.4
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import QtQuick.Dialogs
 
 import xStudio 1.0
 
@@ -31,7 +29,6 @@ Item{
     property bool isSubDivider: false
 
     property real textSize: XsStyleSheet.fontSize
-    property var textFont: XsStyleSheet.fontFamily
     property color textColorNormal: palette.text
     property color hintColor: XsStyleSheet.hintColor
 

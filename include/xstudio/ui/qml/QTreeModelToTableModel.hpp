@@ -128,6 +128,7 @@ class HELPER_QML_EXPORT QTreeModelToTableModel : public QAbstractItemModel {
     void expandRecursively(int row, int depth);
     void collapseRow(int n);
     void collapseRecursively(int row);
+    void expandAll(int depth);
 
   private Q_SLOTS:
     void modelHasBeenDestroyed();
@@ -202,7 +203,8 @@ class HELPER_QML_EXPORT QTreeModelToTableModel : public QAbstractItemModel {
     bool m_modelLayoutChanged   = false;
     int m_signalAggregatorStack = 0;
     QVector<DataChangedParams> m_queuedDataChanged;
-    int m_column = 0;
+    int m_column         = 0;
+    bool m_expanding_all = false;
 };
 
 // QT_END_NAMESPACE

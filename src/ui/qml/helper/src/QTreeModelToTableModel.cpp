@@ -399,9 +399,9 @@ void QTreeModelToTableModel::expand(const QModelIndex &idx) {
         return;
 
     int row = itemIndex(idx);
-    if (row != -1)
+    if (row != -1) {
         expandRow(row);
-    else
+    } else
         m_expandedItems.insert(idx);
     ASSERT_CONSISTENCY();
 
@@ -456,7 +456,29 @@ bool QTreeModelToTableModel::hasSiblings(int row) const {
     return index.row() != m_model->rowCount(index.parent()) - 1;
 }
 
+void QTreeModelToTableModel::expandAll(int depth) {
+
+    // we can trigger expandAll on a change in row count (see XsShotBrowser.qml)
+    // ... but doing the expand changes the row count. We want to avoid a
+    // recursive call here using this flag.
+    if (m_expanding_all)
+        return;
+
+    m_expanding_all = true;
+    int rc          = rowCount() + 1;
+    while (rc != rowCount()) {
+        rc = rowCount();
+        for (int i = 0; i < rc; ++i) {
+            if (!isExpanded(i) && depthAtRow(i) < depth) {
+                expandRow(i);
+            }
+        }
+    }
+    m_expanding_all = false;
+}
+
 void QTreeModelToTableModel::expandRow(int n) {
+
     if (!m_model || isExpanded(n))
         return;
 
@@ -486,8 +508,9 @@ void QTreeModelToTableModel::expandRecursively(int row, int depth) {
     auto expandHelp =
         [this, depth, startDepth](const auto expandHelp, const QModelIndex &index) -> void {
         const int rowToExpand = itemIndex(index);
-        if (!m_expandedItems.contains(index))
+        if (!m_expandedItems.contains(index)) {
             expandRow(rowToExpand);
+        }
 
         if (depth != -1 && depthAtRow(rowToExpand) == startDepth + depth - 1)
             return;

@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
-#include "xstudio/broadcast/broadcast_actor.hpp"
-#include "xstudio/media/media.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
 #include "xstudio/timeline/clip_actor.hpp"
-#include "xstudio/timeline/stack_actor.hpp"
-#include "xstudio/timeline/timeline_actor.hpp"
-#include "xstudio/timeline/track_actor.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
-#include "xstudio/utility/uuid.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
 using namespace xstudio::timeline;
-using namespace caf;
-
+using namespace std::literals;
 
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
@@ -48,46 +42,59 @@ ClipActor::ClipActor(caf::actor_config &cfg, const Item &item, Item &nitem)
 }
 
 ClipActor::ClipActor(
-    caf::actor_config &cfg,
-    const utility::UuidActor &media,
-    const std::string &name,
-    const utility::Uuid &uuid)
+    caf::actor_config &cfg, const UuidActor &media, const std::string &name, const Uuid &uuid)
     : caf::event_based_actor(cfg),
       // playlist_(caf::actor_cast<actor_addr>(playlist)),
       base_(name, uuid, this, media.uuid()) {
     base_.item().set_system(&system());
-    base_.item().set_name(name);
+
+    // already done in base clase ?
+    // base_.item().set_name(name);
 
     if (media.actor()) {
 
         media_ = caf::actor_cast<caf::actor_addr>(media.actor());
 
-        monitor(media.actor());
+        // monitor_media(media.actor());
+
         join_event_group(this, media.actor());
 
         try {
             caf::scoped_actor sys(system());
             auto ref = request_receive<std::pair<Uuid, MediaReference>>(
-                           *sys, media.actor(), media::media_reference_atom_v, utility::Uuid())
+                           *sys, media.actor(), media::media_reference_atom_v, Uuid())
                            .second;
 
             if (name.empty()) {
-                base_.item().set_name(
-                    fs::path(uri_to_posix_path(ref.uri())).filename().string());
+                mail(name_atom_v)
+                    .delay(1s)
+                    .request(media.actor(), infinite)
+                    .then(
+                        [=](const std::string &value) mutable {
+                            anon_mail(item_name_atom_v, value).send(this);
+                        },
+                        [=](const caf::error &err) mutable {
+                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                        });
+                // base_.item().set_name(
+                //     fs::path(uri_to_posix_path(ref.uri())).filename().string());
             }
 
             if (ref.frame_count()) {
-                // base_.item().set_available_range(utility::FrameRange(ref.duration()));
+                // base_.item().set_available_range(FrameRange(ref.duration()));
                 auto tc_start = static_cast<int>(ref.timecode().total_frames());
 
-                auto mfr = utility::FrameRange(
+                auto mfr = FrameRange(
                     FrameRateDuration(tc_start, ref.duration().rate()), ref.duration());
                 base_.item().set_range(mfr, mfr);
+
+                auto m_actor =
+                    system().registry().template get<caf::actor>(media_hook_registry);
+                anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
             } else
-                delayed_send(
-                    caf::actor_cast<caf::actor>(this),
-                    std::chrono::milliseconds(100),
-                    media::acquire_media_detail_atom_v);
+                mail(media::acquire_media_detail_atom_v)
+                    .delay(std::chrono::milliseconds(100))
+                    .send(caf::actor_cast<caf::actor>(this));
 
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -102,13 +109,11 @@ void ClipActor::link_media(
 
     // spdlog::warn("link_media_atom {}", to_string(media));
     auto old_media_actor = caf::actor_cast<caf::actor>(media_);
-    if (old_media_actor) {
-        demonitor(old_media_actor);
+    if (old_media_actor)
         leave_event_group(this, old_media_actor);
-    }
 
-    if(media.actor()) {
-        monitor(media.actor());
+    if (media.actor()) {
+        // monitor(media.actor());
         join_event_group(this, media.actor());
         media_ = caf::actor_cast<caf::actor_addr>(media.actor());
     } else
@@ -116,7 +121,7 @@ void ClipActor::link_media(
 
     auto jsn = base_.set_media_uuid(media.uuid());
     if (not jsn.is_null())
-        send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+        mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
 
     // clear ptr cache
     image_ptr_cache_.clear();
@@ -125,23 +130,25 @@ void ClipActor::link_media(
     if (refresh) {
         // force update ?
         // cache available range ?
-        if(media.actor()) {
-            delayed_send(
-                caf::actor_cast<caf::actor>(this),
-                std::chrono::milliseconds(100),
-                media::acquire_media_detail_atom_v);
+        if (media.actor()) {
+            mail(media::acquire_media_detail_atom_v)
+                .delay(std::chrono::milliseconds(100))
+                .send(caf::actor_cast<caf::actor>(this));
 
             // replace clip name ?
-            request(media.actor(), infinite, name_atom_v)
+            mail(name_atom_v)
+                .request(media.actor(), infinite)
                 .then(
                     [=](const std::string &value) mutable {
-                        anon_send(this, item_name_atom_v, value);
+                        anon_mail(item_name_atom_v, value).send(this);
                     },
                     [=](const caf::error &err) mutable {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
         } else {
-            anon_send(this, item_name_atom_v, "NO CLIP");
+            anon_mail(item_name_atom_v, "NO CLIP").send(this);
+            auto m_actor = system().registry().template get<caf::actor>(media_hook_registry);
+            anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
         }
     }
 
@@ -168,7 +175,9 @@ caf::message_handler ClipActor::message_handler() {
                     auto addr        = caf::actor_cast<caf::actor_addr>(media_actor);
 
                     if (media_ != addr) {
-                        monitor(media_actor);
+                        // monitor_media(media_actor);
+                        // shouldn't we leave previous events ?
+                        // leave_event_group(this, media_);
                         join_event_group(this, media_actor);
                         media_ = addr;
                     }
@@ -184,7 +193,7 @@ caf::message_handler ClipActor::message_handler() {
 
         [=](playhead::source_atom,
             const UuidUuidMap &swap,
-            const utility::UuidActorMap &media) -> result<bool> {
+            const UuidActorMap &media) -> result<bool> {
             auto rp = make_response_promise<bool>();
 
             if (swap.count(base_.media_uuid())) {
@@ -203,19 +212,18 @@ caf::message_handler ClipActor::message_handler() {
 
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-        [=](const group_down_msg & /*msg*/) {},
 
         [=](plugin_manager::enable_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_enabled(value);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
         [=](item_name_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_name(value);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
@@ -224,33 +232,40 @@ caf::message_handler ClipActor::message_handler() {
         [=](item_lock_atom, const bool value) -> JsonStore {
             auto jsn = base_.item().set_locked(value);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
         [=](item_flag_atom, const std::string &value) -> JsonStore {
             auto jsn = base_.item().set_flag(value);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
-        [=](utility::rate_atom) -> FrameRate { return base_.item().rate(); },
+        [=](rate_atom) -> FrameRate { return base_.item().rate(); },
 
-        [=](utility::rate_atom atom, const media::MediaType media_type) {
-            delegate(caf::actor_cast<caf::actor>(this), atom);
+        [=](rate_atom atom, const media::MediaType media_type) {
+            return mail(atom).delegate(caf::actor_cast<caf::actor>(this));
         },
 
-        [=](item_prop_atom, const utility::JsonStore &value) -> JsonStore {
+        [=](item_prop_atom, const JsonStore &value) -> JsonStore {
             auto jsn = base_.item().set_prop(value);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
-        [=](item_prop_atom,
-            const utility::JsonStore &value,
-            const std::string &path) -> JsonStore {
+        [=](item_prop_atom, const JsonStore &value, const bool merge) -> JsonStore {
+            auto p = base_.item().prop();
+            p.update(value);
+            auto jsn = base_.item().set_prop(p);
+            if (not jsn.is_null())
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
+            return jsn;
+        },
+
+        [=](item_prop_atom, const JsonStore &value, const std::string &path) -> JsonStore {
             auto prop = base_.item().prop();
             try {
                 auto ptr = nlohmann::json::json_pointer(path);
@@ -260,7 +275,7 @@ caf::message_handler ClipActor::message_handler() {
             }
             auto jsn = base_.item().set_prop(prop);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
@@ -269,33 +284,33 @@ caf::message_handler ClipActor::message_handler() {
         [=](active_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_active_range(fr);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
         [=](available_range_atom, const FrameRange &fr) -> JsonStore {
             auto jsn = base_.item().set_available_range(fr);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
-        [=](active_range_atom) -> std::optional<utility::FrameRange> {
+        [=](active_range_atom) -> std::optional<FrameRange> {
             return base_.item().active_range();
         },
 
-        [=](available_range_atom) -> std::optional<utility::FrameRange> {
+        [=](available_range_atom) -> std::optional<FrameRange> {
             return base_.item().available_range();
         },
 
-        [=](trimmed_range_atom) -> utility::FrameRange { return base_.item().trimmed_range(); },
+        [=](trimmed_range_atom) -> FrameRange { return base_.item().trimmed_range(); },
 
         [=](trimmed_range_atom,
             const FrameRange &avail,
             const FrameRange &active) -> JsonStore {
             auto jsn = base_.item().set_range(avail, active);
             if (not jsn.is_null())
-                send(base_.event_group(), event_atom_v, item_atom_v, jsn, false);
+                mail(event_atom_v, item_atom_v, jsn, false).send(base_.event_group());
             return jsn;
         },
 
@@ -309,10 +324,7 @@ caf::message_handler ClipActor::message_handler() {
             return true;
         },
 
-        [=](utility::event_atom,
-            timeline::item_atom,
-            const utility::JsonStore &update,
-            const bool hidden) {
+        [=](event_atom, item_atom, const JsonStore &update, const bool hidden) {
             // where is this coming from??
         },
 
@@ -320,7 +332,8 @@ caf::message_handler ClipActor::message_handler() {
 
         [=](item_atom, const bool with_state) -> result<std::pair<JsonStore, Item>> {
             auto rp = make_response_promise<std::pair<JsonStore, Item>>();
-            request(caf::actor_cast<caf::actor>(this), infinite, utility::serialise_atom_v)
+            mail(serialise_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const JsonStore &jsn) mutable {
                         rp.deliver(std::make_pair(jsn, base_.item().clone()));
@@ -328,9 +341,9 @@ caf::message_handler ClipActor::message_handler() {
                     [=](const caf::error &err) mutable { rp.deliver(err); });
             return rp;
         },
-        // [=](duration_atom) -> utility::FrameRateDuration { return base_.duration(); },
+        // [=](duration_atom) -> FrameRateDuration { return base_.duration(); },
 
-        // [=](duration_atom, const utility::FrameRateDuration &duration) -> bool {
+        // [=](duration_atom, const FrameRateDuration &duration) -> bool {
         //     base_.set_duration(duration);
         //     update_edit_list();
         //     return true;
@@ -353,15 +366,15 @@ caf::message_handler ClipActor::message_handler() {
         //     return UuidActor(base_.media_uuid(), caf::actor_cast<actor>(media_));
         // },
 
-        // [=](start_time_atom) -> utility::FrameRateDuration { return base_.start_time(); },
+        // [=](start_time_atom) -> FrameRateDuration { return base_.start_time(); },
 
-        // [=](start_time_atom, const utility::FrameRateDuration &start_time) -> bool {
+        // [=](start_time_atom, const FrameRateDuration &start_time) -> bool {
         //     base_.set_start_time(start_time);
         //     update_edit_list();
         //     return true;
         // },
 
-        // [=](utility::event_atom, utility::name_atom, const std::string & /*name*/) {},
+        // [=](event_atom, name_atom, const std::string & /*name*/) {},
         // events from media actor
 
         // re-evaluate media reference.., needed for lazy loading
@@ -392,12 +405,13 @@ caf::message_handler ClipActor::message_handler() {
             return rp;
         },
 
-        [=](media::acquire_media_detail_atom, const utility::Uuid &uuid) {
+        [=](media::acquire_media_detail_atom, const Uuid &uuid) {
             auto actor = caf::actor_cast<caf::actor>(media_);
             // spdlog::warn("acquire_media_detail_atom {} {}", to_string(uuid),
             // to_string(actor));
             if (actor) {
-                request(actor, infinite, media::media_reference_atom_v, uuid)
+                mail(media::media_reference_atom_v, uuid)
+                    .request(actor, infinite)
                     .then(
                         [=](const std::pair<Uuid, MediaReference> &ref) {
                             // spdlog::warn("{}",ref.second.frame_count());
@@ -426,7 +440,7 @@ caf::message_handler ClipActor::message_handler() {
                                 //     spdlog::warn("no available range
                                 //     {}",base_.item().name());
 
-                                auto jsn = base_.item().set_available_range(utility::FrameRange(
+                                auto jsn = base_.item().set_available_range(FrameRange(
                                     FrameRateDuration(tc_start, ref.second.duration().rate()),
                                     ref.second.duration()));
 
@@ -442,104 +456,65 @@ caf::message_handler ClipActor::message_handler() {
                                 // );
 
                                 if (not jsn.is_null())
-                                    send(
-                                        base_.event_group(),
-                                        event_atom_v,
-                                        item_atom_v,
-                                        jsn,
-                                        false);
+                                    mail(event_atom_v, item_atom_v, jsn, false)
+                                        .send(base_.event_group());
+
+                                auto m_actor = system().registry().template get<caf::actor>(
+                                    media_hook_registry);
+                                anon_mail(media_hook::get_clip_hook_atom_v, this).send(m_actor);
                             } else {
                                 // retry ?
                                 // spdlog::warn("delayed get detail");
-                                delayed_send(
-                                    caf::actor_cast<caf::actor>(this),
-                                    std::chrono::seconds(1),
-                                    media::acquire_media_detail_atom_v,
-                                    uuid);
+
+                                mail(media::acquire_media_detail_atom_v, uuid)
+                                    .delay(std::chrono::seconds(1))
+                                    .send(caf::actor_cast<caf::actor>(this));
                             }
                         },
                         [=](const error &err) {
                             // spdlog::warn("errored get detail");
                             // retry not ready ? Or no sources?
-                            delayed_send(
-                                caf::actor_cast<caf::actor>(this),
-                                std::chrono::seconds(1),
-                                media::acquire_media_detail_atom_v,
-                                uuid);
+                            mail(media::acquire_media_detail_atom_v, uuid)
+                                .delay(std::chrono::seconds(1))
+                                .send(caf::actor_cast<caf::actor>(this));
                         });
             }
         },
 
         [=](media::acquire_media_detail_atom atom) {
-            delegate(caf::actor_cast<caf::actor>(this), atom, Uuid());
+            return mail(atom, Uuid()).delegate(caf::actor_cast<caf::actor>(this));
         },
 
-        // [=](media::acquire_media_detail_atom) {
-        //     auto actor = caf::actor_cast<caf::actor>(media_);
-        //     if (actor) {
-        //         request(actor, infinite, media::media_reference_atom_v)
-        //             .then(
-        //                 [=](const std::vector<MediaReference> &refs) {
-        //                     if (not refs.empty() and refs[0].frame_count()) {
-        //                         // clear ptr cache
-        //                         auto jsn = base_.item().set_available_range(
-        //                             utility::FrameRange(refs[0].duration()));
-
-        //                         if (not jsn.is_null())
-        //                             send(event_group_, event_atom_v, item_atom_v, jsn,
-        //                             false);
-        //                     } else {
-        //                         // retry ?
-        //                         // spdlog::warn("delayed get detail");
-        //                         delayed_send(
-        //                             caf::actor_cast<caf::actor>(this),
-        //                             std::chrono::seconds(1),
-        //                             media::acquire_media_detail_atom_v);
-        //                     }
-        //                 },
-        //                 [=](const error &err) {});
-        //     }
-        // },
-
-        [=](utility::event_atom,
+        [=](event_atom,
             playlist::reflag_container_atom,
             const Uuid &,
             const std::tuple<std::string, std::string> &) {},
 
-        [=](utility::event_atom,
-            bookmark::bookmark_change_atom,
-            const utility::Uuid &bookmark_uuid) {
+        [=](event_atom, bookmark::bookmark_change_atom, const Uuid &bookmark_uuid) {
             // not sure why we want this..
-            // send(
-            //     event_group_,
-            //     utility::event_atom_v,
+            // mail(//     event_atom_v,
             //     bookmark::bookmark_change_atom_v,
-            //     bookmark_uuid);
+            //     bookmark_uuid).send(//     event_group_);
         },
-        [=](utility::event_atom,
-            bookmark::bookmark_change_atom,
-            const utility::Uuid &,
-            const utility::UuidList &) {},
+        [=](event_atom, bookmark::bookmark_change_atom, const Uuid &, const UuidList &) {},
 
-        [=](utility::event_atom,
+        [=](event_atom,
             media_reader::get_thumbnail_atom,
             const thumbnail::ThumbnailBufferPtr &buf) {},
 
-        [=](utility::event_atom, bookmark::remove_bookmark_atom, const utility::Uuid &) {},
-        [=](utility::event_atom, bookmark::add_bookmark_atom, const utility::UuidActor &) {},
+        [=](event_atom, bookmark::remove_bookmark_atom, const Uuid &) {},
+        [=](event_atom, bookmark::add_bookmark_atom, const UuidActor &) {},
 
-        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {},
+        [=](event_atom, media::media_status_atom, const media::MediaStatus ms) {},
 
-        [=](utility::event_atom,
-            media::media_display_info_atom,
-            const utility::JsonStore &,
-            caf::actor_addr &) {},
+        [=](event_atom, media::media_display_info_atom, const JsonStore &, caf::actor_addr &) {
+        },
 
-        [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {},
+        [=](event_atom, media::media_display_info_atom, const JsonStore &) {},
 
         // ak this need's to know if the clip uses audio or video SOB.
         // we'll use video for the moment.. BUT THIS IS WRONG.
-        [=](utility::event_atom,
+        [=](event_atom,
             media::current_media_source_atom,
             const UuidActor &ua,
             const media::MediaType mt) {
@@ -548,20 +523,19 @@ caf::message_handler ClipActor::message_handler() {
             // spdlog::warn("media::current_media_source_atom {}", to_string(ua.uuid()));
 
             if (mt == media::MediaType::MT_IMAGE) {
-                delayed_send(
-                    caf::actor_cast<caf::actor>(this),
-                    std::chrono::milliseconds(10),
-                    media::acquire_media_detail_atom_v,
-                    ua.uuid());
+
+                mail(media::acquire_media_detail_atom_v, ua.uuid())
+                    .delay(std::chrono::milliseconds(10))
+                    .send(caf::actor_cast<caf::actor>(this));
             }
 
             image_ptr_cache_.clear();
             audio_ptr_cache_.clear();
 
-            send(base_.event_group(), utility::event_atom_v, utility::change_atom_v);
+            mail(event_atom_v, change_atom_v).send(base_.event_group());
         },
 
-        [=](utility::event_atom, utility::change_atom) {
+        [=](event_atom, change_atom) {
             // something has changed. It means we might need to re-generate our
             // frame pointers for playback. For example, if media source metadata
             // has changed that affects colour management, we need to re-gernerate
@@ -569,7 +543,7 @@ caf::message_handler ClipActor::message_handler() {
             // playhead and up to the viewport.
             image_ptr_cache_.clear();
             audio_ptr_cache_.clear();
-            send(base_.event_group(), utility::event_atom_v, utility::change_atom_v);
+            mail(event_atom_v, change_atom_v).send(base_.event_group());
         },
 
         [=](json_store::update_atom,
@@ -579,9 +553,7 @@ caf::message_handler ClipActor::message_handler() {
 
         [=](json_store::update_atom, const JsonStore &) mutable {},
 
-        [=](utility::event_atom,
-            media::add_media_source_atom,
-            const utility::UuidActorVector &) {},
+        [=](event_atom, media::add_media_source_atom, const UuidActorVector &) {},
 
         [=](playlist::get_media_atom, const bool) -> UuidUuidActor {
             return UuidUuidActor(
@@ -592,7 +564,7 @@ caf::message_handler ClipActor::message_handler() {
         // how do we deal with lazy loading of metadata..
         [=](playlist::get_media_atom,
             json_store::get_json_atom,
-            const utility::Uuid &uuid,
+            const Uuid &uuid,
             const std::string &path) -> result<JsonStore> {
             auto rp    = make_response_promise<JsonStore>();
             auto actor = caf::actor_cast<caf::actor>(media_);
@@ -641,8 +613,10 @@ caf::message_handler ClipActor::message_handler() {
                 // one element per frame timepoint. We initialise it with blank frames and
                 // the logic below will fill in actual frames where possible
                 media::AVFrameID blank = *(media::make_blank_frame(
-                    media_type, base_.media_uuid(), utility::Uuid(), base_.uuid()));
-                auto blank_ptr         = std::make_shared<const media::AVFrameID>(blank);
+                    media_type, base_.media_uuid(), Uuid(), base_.uuid()));
+                blank.set_frame_status(media::FS_NOT_ON_DISK);
+
+                auto blank_ptr = std::make_shared<const media::AVFrameID>(blank);
 
                 // the result data
                 auto result = std::make_shared<media::AVFrameIDs>(timepoints.size(), blank_ptr);
@@ -724,14 +698,13 @@ caf::message_handler ClipActor::message_handler() {
                     // all our frames were in the cache
                     rp.deliver(*result);
                 } else {
-                    request(
-                        caf::actor_cast<caf::actor>(media_),
-                        infinite,
+                    mail(
                         media::get_media_pointers_atom_v,
                         media_type,
                         ranges,
                         FrameRate(),
                         base_.uuid())
+                        .request(caf::actor_cast<caf::actor>(media_), infinite)
                         .then(
                             [=](const media::AVFrameIDs &mps) mutable {
                                 // spdlog::warn("const media::AVFrameIDs &mps {} {}",
@@ -808,9 +781,9 @@ caf::message_handler ClipActor::message_handler() {
         //             return audio_ptr_cache_[logical_frame];
         //         } else {
         //             auto rp = make_response_promise<std::shared_ptr<const
-        //             media::AVFrameID>>(); request(caf::actor_cast<caf::actor>(media_),
-        //             infinite, media::get_media_pointer_atom_v, media_type,
-        //             logical_frame).then(
+        //             media::AVFrameID>>(); mail(media::get_media_pointer_atom_v, media_type,
+        //             logical_frame).request(caf::actor_cast<caf::actor>(media_), //
+        //             infinite).then(
         //                 [=](const media::AVFrameID &mp) mutable {
         //                     if(media_type == media::MediaType::MT_IMAGE) {
         //                         image_ptr_cache_[logical_frame] =
@@ -836,13 +809,13 @@ caf::message_handler ClipActor::message_handler() {
 
 
         // [=](xstudio::media::current_media_source_atom atom) {
-        //     delegate(caf::actor_cast<caf::actor>(media_), atom);
+        //     mail(atom).delegate(caf::actor_cast<caf::actor>(media_));
         // },
         // [=](xstudio::playlist::reflag_container_atom atom) {
-        //     delegate(caf::actor_cast<caf::actor>(media_), atom);
+        //     mail(atom).delegate(caf::actor_cast<caf::actor>(media_));
         // },
 
-        [=](utility::duplicate_atom) -> result<UuidActor> {
+        [=](duplicate_atom) -> result<UuidActor> {
             JsonStore jsn;
             auto dup    = base_.duplicate();
             jsn["base"] = dup.serialise();
@@ -853,7 +826,8 @@ caf::message_handler ClipActor::message_handler() {
 
             auto rp = make_response_promise<UuidActor>();
 
-            request(actor, infinite, link_media_atom_v, media_map, false)
+            mail(link_media_atom_v, media_map, false)
+                .request(actor, infinite)
                 .then(
                     [=](const bool) mutable { rp.deliver(UuidActor(dup.uuid(), actor)); },
                     [=](const caf::error &err) mutable {
@@ -864,7 +838,7 @@ caf::message_handler ClipActor::message_handler() {
             return rp;
         },
 
-        [=](utility::serialise_atom) -> JsonStore {
+        [=](serialise_atom) -> JsonStore {
             JsonStore jsn;
             jsn["base"] = base_.serialise();
             return jsn;
@@ -872,8 +846,8 @@ caf::message_handler ClipActor::message_handler() {
 
         [=](media::get_media_pointers_atom atom,
             const media::MediaType media_type,
-            const utility::TimeSourceMode tsm,
-            const utility::FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
+            const TimeSourceMode tsm,
+            const FrameRate &override_rate) -> caf::result<media::FrameTimeMapPtr> {
             // This is required by SubPlayhead actor to make the track
             // playable.
             return base_.item().get_all_frame_IDs(media_type, tsm, override_rate);
@@ -883,18 +857,20 @@ caf::message_handler ClipActor::message_handler() {
 void ClipActor::init() {
     print_on_create(this, base_.name());
     print_on_exit(this, base_.name());
-
-    // we die if our media dies.
-    set_down_handler([=](down_msg &msg) {
-        if (msg.source == media_) {
-            // just unset media.
-            // anon_send(this, link_media_atom_v, UuidActor());
-
-            // demonitor(caf::actor_cast<caf::actor>(media_));
-            // send_exit(this, caf::exit_reason::user_shutdown);
-        }
-    });
 }
+
+// we die if our media dies.
+// set_down_handler([=](down_msg &msg) {
+//     if (msg.source == media_) {
+// just unset media.
+// anon_send(this, link_media_atom_v, UuidActor());
+
+// demonitor(caf::actor_cast<caf::actor>(media_));
+// send_exit(this, caf::exit_reason::user_shutdown);
+//         }
+//     });
+// }
+
 
 // void ClipActor::deliver_media_pointer(
 //     const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp) {
@@ -904,9 +880,9 @@ void ClipActor::init() {
 //         rp.deliver(make_error(xstudio_error::error, "No frames left"));
 //     else {
 //         int request_frame = logical_frame + base_.start_time().frames();
-//         request(
-//             actor_cast<actor>(media_), infinite, media::get_media_pointer_atom_v,
-//             media::MT_IMAGE, request_frame) .then(
+//         mail(media::get_media_pointer_atom_v,
+//             media::MT_IMAGE, request_frame) .request(// actor_cast<actor>(media_),
+//             infinite).then(
 //                 [=](const media::AVFrameID &mptr) mutable { rp.deliver(mptr); },
 //                 [=](error &err) mutable { rp.deliver(std::move(err)); });
 //     }

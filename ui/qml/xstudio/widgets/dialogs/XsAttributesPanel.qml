@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtQuick.Layouts 1.3
-import QtQuick.Window 2.2
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+import Qt.labs.qmlmodels
 
 import xstudio.qml.models 1.0
 import xStudio 1.0
@@ -12,7 +10,7 @@ XsWindow {
 
 	id: dialog
 	width: 450
-	height: r1.count*20 + 120
+	height: r1.count*20 + 120 
 
 
     property var attributesGroupName
@@ -28,6 +26,12 @@ XsWindow {
         if (!visible) {
             destroy()
         }
+    }
+
+    XsLabel {
+        anchors.centerIn: parent
+        text: "No settings/attributes to modify."
+        visible: r1.count == 0
     }
 
     RowLayout {
@@ -47,7 +51,7 @@ XsWindow {
                 id: r1
 
                 Rectangle {
-
+ 
                     height: 20
                     color: "transparent"
                     width: label_metrics.width

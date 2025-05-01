@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include <chrono>
 
@@ -85,12 +86,12 @@ void HUDPluginBase::attribute_changed(const utility::Uuid &attribute_uuid, const
                 if (std::find(positions.begin(), positions.end(), *p) != positions.end()) {
                     // We need to tell the central models actor that the attribute
                     // is being taken out of the group (e.g. 'HUD Bottom Left')
-                    anon_send(
-                        central_models_data_actor,
+                    anon_mail(
                         ui::model_data::deregister_model_data_atom_v,
                         *p,
                         hud_data_->uuid(),
-                        self());
+                        self())
+                        .send(central_models_data_actor);
                     p = groups.erase(p);
                 } else {
                     p++;
@@ -103,6 +104,11 @@ void HUDPluginBase::attribute_changed(const utility::Uuid &attribute_uuid, const
     }
 
     plugin::StandardPlugin::attribute_changed(attribute_uuid, role);
+}
+
+void HUDPluginBase::set_custom_settings_qml(const std::string &code) {
+
+    hud_data_->set_role_data(module::Attribute::UserData, code);
 }
 
 void HUDPluginBase::hud_element_qml(

@@ -58,12 +58,12 @@ namespace ui {
                   current_item_(o.current_item_),
                   undo_stack_(o.undo_stack_),
                   redo_stack_(o.redo_stack_),
-                  last_change_time_(o.last_change_time_),
                   uuid_(o.uuid_),
                   next_shape_id_(o.next_shape_id_) {
                 // make sure current_item_ is pushed into finished
                 // strokes/captions on copy
                 end_draw();
+                last_change_time_ = o.last_change_time_;
             }
 
             bool operator==(const Canvas &o) const {
@@ -73,17 +73,17 @@ namespace ui {
 
             Canvas &operator=(const Canvas &o) {
                 std::unique_lock l(mutex_);
-                items_            = o.items_;
-                current_item_     = o.current_item_;
-                undo_stack_       = o.undo_stack_;
-                redo_stack_       = o.redo_stack_;
-                last_change_time_ = o.last_change_time_;
-                uuid_             = o.uuid_;
-                next_shape_id_    = o.next_shape_id_;
+                items_         = o.items_;
+                current_item_  = o.current_item_;
+                undo_stack_    = o.undo_stack_;
+                redo_stack_    = o.redo_stack_;
+                uuid_          = o.uuid_;
+                next_shape_id_ = o.next_shape_id_;
                 // make sure current_item_ is pushed into finished
                 // strokes/captions on copy
                 changed();
                 end_draw_no_lock();
+                last_change_time_ = o.last_change_time_;
                 return *this;
             }
 
@@ -209,10 +209,6 @@ namespace ui {
             std::array<Imath::V2f, 2> caption_cursor_position() const;
             Imath::V2f caption_cursor_bottom() const;
 
-            // Note: not a real hash (yet). Just a way of knowing when the canvas
-            // appearance has changed but the hash is not unique from one
-            // canvas to the next. The hash does change if a given canvas has
-            // a new stroke or caption etc.
             size_t hash() const { return hash_; }
 
             void update_caption_text(const std::string &text);

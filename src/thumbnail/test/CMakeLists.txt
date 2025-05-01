@@ -4,7 +4,7 @@ SET(LINK_DEPS
 	xstudio::thumbnail
 	xstudio::utility
 	xstudio::media
-	caf::core
+	CAF::core
 )
 
 create_tests("${LINK_DEPS}")

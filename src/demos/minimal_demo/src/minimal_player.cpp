@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
     app.exec();
 
     // cancel actors talking to them selves.
-    system.clock().cancel_all();
+    // system.clock().cancel_all();
 
     self->send_exit(global_actor, caf::exit_reason::user_shutdown);
 

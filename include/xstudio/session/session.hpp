@@ -66,6 +66,10 @@ namespace session {
         }
         [[nodiscard]] utility::FrameRate media_rate() const { return media_rate_; }
         [[nodiscard]] utility::FrameRate playhead_rate() const { return playhead_rate_; }
+        [[nodiscard]] bool push_to_current_playlist() const { return push_to_current_; }
+        [[nodiscard]] const std::string &push_playlist_name() const {
+            return push_playlist_name_;
+        }
 
         [[nodiscard]] utility::Uuid current_playlist_uuid() const {
             return current_playlist_uuid_;
@@ -84,6 +88,12 @@ namespace session {
         void set_media_rate(const utility::FrameRate &rate) { media_rate_ = rate; }
         void set_playhead_rate(const utility::FrameRate &rate) { playhead_rate_ = rate; }
         void set_filepath(const caf::uri &path);
+        void set_push_to_current_playlist(const bool push_to_current) {
+            push_to_current_ = push_to_current;
+        }
+        void set_push_playlist_name(const std::string &push_playlist_name) {
+            push_playlist_name_ = push_playlist_name;
+        }
 
         [[nodiscard]] caf::uri filepath() const { return filepath_; }
         [[nodiscard]] fs::file_time_type session_file_mtime() const {
@@ -100,6 +110,8 @@ namespace session {
         utility::Uuid viewed_playlist_uuid_;
         caf::uri filepath_;
         fs::file_time_type session_file_mtime_{fs::file_time_type::min()};
+        bool push_to_current_           = {true};
+        std::string push_playlist_name_ = {"Pushed Media"};
     };
 } // namespace session
 } // namespace xstudio

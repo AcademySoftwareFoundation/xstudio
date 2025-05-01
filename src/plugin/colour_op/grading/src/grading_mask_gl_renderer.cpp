@@ -119,6 +119,7 @@ void GradingMaskRenderer::render_grading_data_masks(
         // adding info on the mask texture layers to the cache id will
         // force the viewport to assign new active texture indices to
         // the layer mask texture, if the number of layers has changed
+        cache_id_modifier += std::to_string(grade->mask().hash());
         cache_id_modifier += std::to_string(grade_index);
 
         masked_grade_index++;
@@ -147,8 +148,8 @@ void GradingMaskRenderer::render_layer(
 
     // Use fixed resolution for better performance
     const Imath::V2i mask_resolution(960, 540);
-    const float image_aspect_ratio =
-        (1.0f * frame->image_size_in_pixels().x / frame->image_size_in_pixels().y);
+    const float image_aspect_ratio = image_aspect(frame);
+
     const float canvas_aspect_ratio = 1.0f * mask_resolution.x / mask_resolution.y;
 
     if (data.mask().uuid() != layer.last_canvas_uuid ||

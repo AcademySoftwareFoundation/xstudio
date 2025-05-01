@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.14
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+
+import QtQuick.Layouts
+
+
 
 import QuickFuture 1.0
 
@@ -14,13 +13,16 @@ import xstudio.qml.helpers 1.0
 
 XsWindow {
     id: dialog
-    title: "Push Contents To ShotGrid"
+    title: "Push Contents To ShotGrid Playlist"
 
     property var playlistProperties: null
 
     property int validMediaCount: 0
     property int invalidMediaCount: 0
     property bool linking: false
+
+    minimumWidth: 500
+    minimumHeight: 80
 
     property var plIndex: playlistProperties ? playlistProperties.values.index : null
 
@@ -85,17 +87,16 @@ XsWindow {
             id: myFooter
             Layout.fillWidth: true
             Layout.fillHeight: false
-            Layout.topMargin: 10
-            Layout.minimumHeight: 35
-
+            Layout.minimumHeight: 30
+            // Layout.margins: 10
+            spacing: 10
             focus: true
+
             Keys.onReturnPressed: accept()
             Keys.onEscapePressed: reject()
 
             XsPrimaryButton {
                 text: qsTr("Cancel")
-                Layout.leftMargin: 10
-                Layout.bottomMargin: 10
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumWidth: dialog.width / 5
@@ -104,33 +105,30 @@ XsWindow {
             }
             Item{Layout.fillWidth: true}
             XsPrimaryButton {
-                text: "Push To ShotGrid"
+                text: "Overwrite Playlist"
                 highlighted: !linking
                 enabled: !linking
 
-                Layout.rightMargin: 10
                 Layout.minimumWidth: dialog.width / 5
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.bottomMargin: 10
-
-                // function onSyncCallback(json) {
-                //     try {
-                //         var data = JSON.parse(json)
-                //         if(data["data"]["id"]){
-                //             ShotBrowserHelpers.loadShotGridPlaylist(data["data"]["id"], data["data"]["attributes"]["code"])
-                //         } else {
-                //             console.log(err)
-                //             dialogHelpers.errorDialogFunc("Sync Playlist To ShotGrid", "Sync of Playlist to ShotGrid failed.\n\n" + data)
-                //         }
-                //     } catch(err) {
-                //         console.log(err)
-                //         dialogHelpers.errorDialogFunc("Sync Playlist To ShotGrid", "Sync of Playlist to ShotGrid failed.\n\n" + json)
-                //     }
-                // }
 
                 onClicked: {
                     ShotBrowserHelpers.syncPlaylistToShotGrid(helpers.QVariantFromUuidString(playlistProperties.values.actorUuidRole))
+                    close()
+                }
+            }
+            XsPrimaryButton {
+                text: "Append To Playlist"
+                highlighted: !linking
+                enabled: !linking
+
+                Layout.minimumWidth: dialog.width / 5
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                onClicked: {
+                    ShotBrowserHelpers.syncPlaylistToShotGrid(helpers.QVariantFromUuidString(playlistProperties.values.actorUuidRole), true)
                     close()
                 }
             }

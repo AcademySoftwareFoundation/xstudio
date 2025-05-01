@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
 
 import QuickFuture 1.0
 import QuickPromise 1.0
@@ -18,73 +14,30 @@ Rectangle{
 
     property real itemHeight: XsStyleSheet.widgetStdHeight
 
-    Component.onCompleted: {
-        populateModels()
-    }
-
-    Connections {
-        target: ShotBrowserEngine
-        function onReadyChanged() {
-            populateModels()
-        }
-    }
-
-    // make sure index is updated
-    XsModelProperty {
-        index: quickModel.rootIndex
-
-        onIndexChanged: {
-            if(!index.valid) {
-                // clear list views
-                quickCombo.model = []
-            }
-            populateModels()
-        }
-    }
-
-    Timer {
-        id: populateTimer
-        interval: 100
-        running: false
-        repeat: false
-        onTriggered: {
-            if(ShotBrowserEngine.ready && ShotBrowserEngine.presetsModel.rowCount()) {
-                let sourceInd = ShotBrowserEngine.presetsModel.searchRecursive(
-                    "137aa66a-87e2-4c53-b304-44bd7ff9f755", "idRole", ShotBrowserEngine.presetsModel.index(-1, -1), 0, 1
-                )
-                let ind = filterModel.mapFromSource(sourceInd)
-
-                if(ind.valid) {
-                    quickModel.rootIndex = ind
-                    quickCombo.model = quickModel
-                } else {
-                    quickCombo.model = []
-                    populateTimer.start()
-                }
-            } else {
-                populateTimer.start()
-            }
-        }
-    }
-
-    function populateModels() {
-        populateTimer.start()
-    }
-
     function executeQuery(queryIndex, action) {
         if(queryIndex.valid) {
             // clear current result set
-            quickResults.setResultData([])
+            quickResults.setResultDataJSON([])
 
             let pi = ShotBrowserEngine.presetsModel.termModel("Project").get(projectIndex, "idRole")
             let custom = []
 
             let seqsel = []
-            for(let i=0;i<sequenceSelectionModel.selectedIndexes.length; i++){
-                let tindex = sequenceSelectionModel.selectedIndexes[i]
-                let findex = tindex.model.mapToModel(tindex)
-                seqsel.push(findex.model.mapToSource(findex))
+
+            if(assetMode) {
+                for(let i=0;i<assetSelectionModel.selectedIndexes.length; i++){
+                    let tindex = assetSelectionModel.selectedIndexes[i]
+                    let findex = tindex.model.mapToModel(tindex)
+                    seqsel.push(findex.model.mapToSource(findex))
+                }
+            } else {
+                for(let i=0;i<sequenceSelectionModel.selectedIndexes.length; i++){
+                    let tindex = sequenceSelectionModel.selectedIndexes[i]
+                    let findex = tindex.model.mapToModel(tindex)
+                    seqsel.push(findex.model.mapToSource(findex))
+                }
             }
+
 
             for(let i=0;i<seqsel.length;i++) {
                 let t = seqsel[i].model.get(seqsel[i],"typeRole")
@@ -100,6 +53,20 @@ Rectangle{
                         "enabled": true,
                         "type": "term",
                         "term": "Sequence",
+                        "value": seqsel[i].model.get(seqsel[i],"nameRole")
+                    })
+                } else if( t == "Episode") {
+                    custom.push({
+                        "enabled": true,
+                        "type": "term",
+                        "term": "Episode",
+                        "value": seqsel[i].model.get(seqsel[i],"nameRole")
+                    })
+                } else if( t == "Asset") {
+                    custom.push({
+                        "enabled": true,
+                        "type": "term",
+                        "term": "Asset",
                         "value": seqsel[i].model.get(seqsel[i],"nameRole")
                     })
                 }
@@ -118,13 +85,13 @@ Rectangle{
 
                 for(let i = 0; i< result_count;i++) {
                     Future.promise(
-                        ShotBrowserEngine.executeProjectQuery(
+                        ShotBrowserEngine.executeProjectQueryJSON(
                             [ShotBrowserEngine.presetsModel.get(queryIndex, "jsonPathRole")], pi, {}, [custom[i]], customContext)
                         ).then(function(json_string) {
                             result_json[i] = json_string
                             result_count -= 1
                             if(!result_count) {
-                                quickResults.setResultData(result_json)
+                                quickResults.setResultDataJSON(result_json)
                                 let indexes = []
                                 for(let j=0;j<quickResults.rowCount();j++) {
                                     indexes.push(quickResults.index(j,0))
@@ -148,10 +115,10 @@ Rectangle{
                             }
                         },
                         function() {
-                            result_json[i] = ""
+                            result_json[i] = null
                             result_count -= 1
                             if(!result_count) {
-                                quickResults.setResultData(result_json)
+                                quickResults.setResultDataJSON(result_json)
                                 let indexes = []
                                 for(let j=0;j<quickResults.rowCount();j++)
                                     indexes.push(quickResults.index(j,0))
@@ -172,19 +139,30 @@ Rectangle{
         id: quickResults
     }
 
-    ShotBrowserPresetFilterModel {
-        id: filterModel
-        showHidden: false
-        onlyShowFavourite: true
-        sourceModel: ShotBrowserEngine.presetsModel
+    function refreshModel() {
+        quickModel.clear()
+        for(let i=0;i<ShotBrowserEngine.presetsModel.quickLoad.length; i++) {
+            quickModel.append(
+                {
+                    "nameRole": ShotBrowserEngine.presetsModel.get(ShotBrowserEngine.presetsModel.quickLoad[i],"nameRole")
+                }
+            )
+        }
     }
 
-    DelegateModel {
+    Connections {
+        target: ShotBrowserEngine.presetsModel
+        function onQuickLoadChanged() {
+            refreshModel()
+        }
+    }
+
+    Component.onCompleted: {
+        refreshModel()
+    }
+
+    ListModel {
         id: quickModel
-        property var notifyModel: filterModel
-        rootIndex: helpers.qModelIndex()
-        model: notifyModel
-        delegate:  quickCombo.delegate
     }
 
     ColumnLayout {
@@ -227,11 +205,12 @@ Rectangle{
                 Layout.fillHeight: true
                 text: "Add"
                 onClicked: {
-                    if(quickCombo.currentIndex != -1)
+                    if(quickCombo.currentIndex != -1) {
                         executeQuery(
-                            quickModel.notifyModel.mapToSource(quickModel.modelIndex(quickCombo.currentIndex)),
+                            ShotBrowserEngine.presetsModel.quickLoad[quickCombo.currentIndex],
                              "playlist"
                         )
+                    }
                 }
             }
 
@@ -242,7 +221,7 @@ Rectangle{
                 onClicked: {
                     if(quickCombo.currentIndex != -1)
                         executeQuery(
-                            quickModel.notifyModel.mapToSource(quickModel.modelIndex(quickCombo.currentIndex)),
+                            ShotBrowserEngine.presetsModel.quickLoad[quickCombo.currentIndex],
                              "sequence"
                         )
                 }

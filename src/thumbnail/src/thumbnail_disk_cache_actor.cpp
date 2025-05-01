@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include <functional>
 
 #include <cstdio>
@@ -44,7 +46,7 @@ boolean empty_stdvector_output_buffer(j_compress_ptr cinfo) {
     dest->pub_.next_output_byte = reinterpret_cast<JOCTET *>(dest->vec_->data()) + currentSize;
     dest->pub_.free_in_buffer   = currentSize;
 
-    return TRUE;
+    return boolean(1);
 }
 
 void term_stdvector_destination(j_compress_ptr cinfo) {
@@ -111,12 +113,8 @@ ThumbGenMiddleman::ThumbGenMiddleman(caf::actor_config &cfg) : caf::event_based_
             if (not global_reader) {
                 rp.deliver(make_error(xstudio_error::error, "No readers available"));
             } else {
-                request(
-                    global_reader,
-                    infinite,
-                    media_reader::get_thumbnail_atom_v,
-                    mptr,
-                    thumb_size)
+                mail(media_reader::get_thumbnail_atom_v, mptr, thumb_size)
+                    .request(global_reader, infinite)
                     .then(
                         [=](const ThumbnailBufferPtr &buf) mutable { rp.deliver(buf); },
                         [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -201,11 +199,11 @@ TDCHelperActor::encode_thumb(const ThumbnailBufferPtr &buffer, const int quality
     compressInfo->in_color_space   = ::JCS_RGB;
     compressInfo->err              = ::jpeg_std_error(&m_errorMgr);
     ::jpeg_set_defaults(compressInfo.get());
-    ::jpeg_set_quality(compressInfo.get(), quality, TRUE);
+    ::jpeg_set_quality(compressInfo.get(), quality, boolean(1));
 
     jpeg_stdvector_dest(compressInfo.get(), result);
 
-    ::jpeg_start_compress(compressInfo.get(), TRUE);
+    ::jpeg_start_compress(compressInfo.get(), boolean(1));
     size_t row_stride = buffer->width() * 3;
 
     for (size_t i = 0; i < buffer->height(); i++) {
@@ -252,7 +250,7 @@ ThumbnailBufferPtr TDCHelperActor::decode_thumb(const std::vector<std::byte> &bu
         reinterpret_cast<const unsigned char *>(buffer.data()),
         buffer.size());
 
-    int rc = ::jpeg_read_header(decompressInfo.get(), TRUE);
+    int rc = ::jpeg_read_header(decompressInfo.get(), boolean(1));
     if (rc != 1) {
         throw std::runtime_error("File does not seem to be a normal JPEG");
     }
@@ -390,7 +388,8 @@ TDCHelperActor::TDCHelperActor(caf::actor_config &cfg) : caf::event_based_actor(
             return dcs;
         },
         [=](media_cache::erase_atom atom, const std::string &path, const size_t &thumb) {
-            delegate(caf::actor_cast<caf::actor>(this), atom, path, std::vector<size_t>{thumb});
+            return mail(atom, path, std::vector<size_t>{thumb})
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
         [=](media_cache::erase_atom,
             const std::string &path,
@@ -415,13 +414,16 @@ ThumbnailDiskCacheActor::ThumbnailDiskCacheActor(caf::actor_config &cfg)
     auto event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
     pool_ = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         5,
         [&] { return system().spawn<TDCHelperActor>(); },
         caf::actor_pool::round_robin());
     link_to(pool_);
+#pragma GCC diagnostic pop
 
     thumb_gen_middleman_ = system().registry().template get<caf::actor>(media_reader_registry);
 
@@ -437,17 +439,17 @@ ThumbnailDiskCacheActor::ThumbnailDiskCacheActor(caf::actor_config &cfg)
         [=](media_reader::get_thumbnail_atom,
             const ThumbnailBufferPtr &buffer,
             const int quality) {
-            delegate(pool_, media_reader::get_thumbnail_atom_v, buffer, quality);
+            return mail(media_reader::get_thumbnail_atom_v, buffer, quality).delegate(pool_);
         },
 
         // convert to jpg
         [=](media_reader::get_thumbnail_atom, const ThumbnailBufferPtr &buffer) {
-            delegate(pool_, media_reader::get_thumbnail_atom_v, buffer);
+            return mail(media_reader::get_thumbnail_atom_v, buffer).delegate(pool_);
         },
 
         // convert to ThumbnailBufferPtr
         [=](media_reader::get_thumbnail_atom, const std::vector<std::byte> &buffer) {
-            delegate(pool_, media_reader::get_thumbnail_atom_v, buffer);
+            return mail(media_reader::get_thumbnail_atom_v, buffer).delegate(pool_);
         },
 
         [=](media_reader::get_thumbnail_atom,
@@ -504,7 +506,8 @@ ThumbnailDiskCacheActor::ThumbnailDiskCacheActor(caf::actor_config &cfg)
                 cache_path_pref_ = uri;
                 cache_path_      = fspath;
                 cache_           = DiskCacheStat();
-                request(pool_, infinite, cache_stats_atom_v, cache_path_.string())
+                mail(cache_stats_atom_v, cache_path_.string())
+                    .request(pool_, infinite)
                     .then(
                         [=](const DiskCacheStat &dcs) { cache_ = dcs; },
                         [=](const caf::error &err) {
@@ -525,7 +528,8 @@ void ThumbnailDiskCacheActor::on_exit() {}
 
 void ThumbnailDiskCacheActor::request_read_of_thumbnail(
     caf::typed_response_promise<ThumbnailBufferPtr> rp, const size_t hash) {
-    request(pool_, infinite, media_reader::get_thumbnail_atom_v, cache_path_.string(), hash)
+    mail(media_reader::get_thumbnail_atom_v, cache_path_.string(), hash)
+        .request(pool_, infinite)
         .then(
             [=](const ThumbnailBufferPtr &buf) mutable {
                 if (buf) {
@@ -549,21 +553,16 @@ void ThumbnailDiskCacheActor::request_generation_of_thumbnail(
     const bool cache_to_disk) {
 
     auto thumbkey = ThumbnailKey(mptr, hash, thumb_size);
-    request(
-        thumb_gen_middleman_, infinite, media_reader::get_thumbnail_atom_v, mptr, thumb_size)
+    mail(media_reader::get_thumbnail_atom_v, mptr, thumb_size)
+        .request(thumb_gen_middleman_, infinite)
         .then(
             [=](const ThumbnailBufferPtr &buf) mutable {
                 rp.deliver(buf);
 
                 if (cache_to_disk and max_cache_count_ and max_cache_size_) {
                     // add to disk cache, check limits
-                    request(
-                        pool_,
-                        infinite,
-                        media_cache::store_atom_v,
-                        cache_path_.string(),
-                        thumbkey.hash(),
-                        buf)
+                    mail(media_cache::store_atom_v, cache_path_.string(), thumbkey.hash(), buf)
+                        .request(pool_, infinite)
                         .then(
                             [=](const size_t size) {
                                 // make room ? update stats..
@@ -583,7 +582,8 @@ void ThumbnailDiskCacheActor::request_generation_of_thumbnail(
 
 void ThumbnailDiskCacheActor::evict_thumbnails(const std::vector<size_t> &hashes) {
     if (not hashes.empty()) {
-        request(pool_, infinite, media_cache::erase_atom_v, cache_path_.string(), hashes)
+        mail(media_cache::erase_atom_v, cache_path_.string(), hashes)
+            .request(pool_, infinite)
             .then(
                 [=](const bool) {},
                 [=](const caf::error &err) {

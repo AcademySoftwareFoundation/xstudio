@@ -40,11 +40,12 @@ std::optional<std::string> find_stalk_uuid_from_path(const std::string &path) {
 }
 
 std::optional<std::string> find_stalk_uuid(const std::string &path) {
+
     // /jobs/SGE/094_bge_1005/SCAN/S_094_bge_1005_bg01_s01_00/505x266/S_094_bge_1005_bg01_s01_00.1049.exr
     static const std::regex resolution_regex(
-        R"(^\/?((\/hosts\/[a-z]+fs[0-9]+\/user_data[1-9]{0,1}|\/jobs)\/[^\/]+\/[^\/]+\/.+?)\/+\d+x\d+[^\/]*\/+[^\/]+$)");
+        R"(^\/?((\/hosts\/[a-z]+fs[0-9]+\/user_data[1-9]{0,1}|\/jobs|J\:)\/[^\/]+\/[^\/]+\/.+?)\/+\d+x\d+[^\/]*\/+[^\/]+$)");
     static const std::regex prefix_regex(
-        R"(^\/?((\/hosts\/[a-z]+fs[0-9]+\/user_data[1-9]{0,1}|\/jobs)\/[^\/]+\/[^\/]+)\/(.+?)\/([^\/]+)$)");
+        R"(^\/?((\/hosts\/[a-z]+fs[0-9]+\/user_data[1-9]{0,1}|\/jobs|J\:)\/[^\/]+\/[^\/]+)\/(.+?)\/([^\/]+)$)");
     static const std::regex filename_regex(R"(^([^_]+)_([^.]+).*$)");
 
     std::smatch match;
@@ -118,6 +119,33 @@ class DNegMediaHook : public MediaHook {
     module::BooleanAttribute *auto_trim_slate_;
     module::BooleanAttribute *adjust_timecode_;
 
+    utility::JsonStore modify_clip_metadata(
+        const utility::JsonStore &clip_metadata,
+        const utility::JsonStore &media_metadata) override {
+        static auto pq_stalk_uuid = json::json_pointer("/metadata/ivy/version/id");
+        static auto sg_stalk_uuid =
+            json::json_pointer("/metadata/shotgun/version/attributes/sg_ivy_dnuuid");
+
+        auto meta = R"({})"_json;
+
+        if (clip_metadata.contains("DNEG_MEDIA_STALK_DNUUID")) {
+            meta["DNEG_MEDIA_STALK_DNUUID"] = R"(null)"_json;
+        }
+
+        try {
+            if (media_metadata.contains(pq_stalk_uuid))
+                meta["DNEG_MEDIA_STALK_DNUUID"] = media_metadata.at(pq_stalk_uuid);
+            else if (media_metadata.contains(sg_stalk_uuid))
+                meta["DNEG_MEDIA_STALK_DNUUID"] = media_metadata.at(sg_stalk_uuid);
+
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
+        return utility::JsonStore(meta);
+    }
+
+
     std::optional<utility::MediaReference> modify_media_reference(
         const utility::MediaReference &mr, const utility::JsonStore &jsn) override {
         utility::MediaReference result = mr;
@@ -180,7 +208,7 @@ class DNegMediaHook : public MediaHook {
         // we chomp the first frame if internal movie..
         // why do we come here multiple times ??
         if (not result.frame_list().start() and result.container()) {
-            auto path = to_string(result.uri().path());
+            auto path = std::string(result.uri().path());
 
             if (ends_with(path, ".dneg.mov") or ends_with(path, ".dneg.webm")) {
                 // check metadata..
@@ -226,6 +254,7 @@ class DNegMediaHook : public MediaHook {
                     if (fr.pop_front()) {
                         result.set_frame_list(fr);
                         result.set_timecode(result.timecode() + 1);
+                        result.set_start_frame_offset(result.start_frame_offset() - 1);
                         changed = true;
                     }
                     slate_frames--;
@@ -339,7 +368,7 @@ class DNegMediaHook : public MediaHook {
             R"([\/]+jobs\/([^\/]+)\/EDITORIAL\/CUTS\/edit_ref\/([^\/]+))");
 
         static const std::regex show_shot_regex(
-            R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|jobs)\/([^\/]+)\/([^\/]+))");
+            R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|jobs|J\:)\/([^\/]+)\/([^\/]+))");
 
         static const std::regex show_shot_alternative_regex(
             R"(.+-([^-]+)-([^-]+)\.dneg\.webm$)");
@@ -368,13 +397,14 @@ class DNegMediaHook : public MediaHook {
         if (context.count("SHOW")) {
             r["ocio_context"] = context;
 
-            // Detect OCIO config path
-            const std::string default_config =
-                fmt::format("/tools/{}/data/colsci/config.ocio", context["SHOW"]);
-            const std::string ocio_config =
-                get_showvar_or(context["SHOW"], "OCIO", default_config);
-            r["ocio_config"] = ocio_config;
+            std::string ocio_config = find_ocio_config(context["SHOW"]);
 
+#ifdef _WIN32
+            r["ocio_config"] =
+                utility::uri_to_posix_path(utility::posix_path_to_uri(ocio_config));
+#else
+            r["ocio_config"] = ocio_config;
+#endif
             // Detect the pipeline version of config
             const std::string pipeline_version =
                 get_showvar_or(context["SHOW"], "DN_COLOR_PIPELINE_VERSION", "1");
@@ -533,6 +563,7 @@ class DNegMediaHook : public MediaHook {
             auto dynamic_cdl       = utility::JsonStore();
             dynamic_cdl["primary"] = is_cms1_config ? "$GRD_PRIMARY" : "GRD_primary";
             dynamic_cdl["neutral"] = is_cms1_config ? "$GRD_NEUTRAL" : "GRD_neutral";
+            dynamic_cdl["alt"]     = is_cms1_config ? "$GRD_ALT" : "GRD_alt";
             r["dynamic_cdl"]       = dynamic_cdl;
 
             // Enable DNEG display detection rules
@@ -542,8 +573,62 @@ class DNegMediaHook : public MediaHook {
             r["ocio_config"]   = "__raw__";
             r["working_space"] = "raw";
         }
-
         return r;
+    }
+
+    struct Version {
+        int major;
+        int minor;
+
+        bool operator<(const Version &rhs) const {
+            return major < rhs.major || (major == rhs.major && minor < rhs.minor);
+        }
+        bool operator==(const Version &rhs) const {
+            return major == rhs.major && minor == rhs.minor;
+        }
+        bool operator!=(const Version &rhs) const { return !(*this == rhs); }
+        bool operator<=(const Version &rhs) const { return !(rhs < *this); }
+        bool operator>(const Version &rhs) const { return rhs < *this; }
+        bool operator>=(const Version &rhs) const { return !(*this < rhs); }
+    };
+
+    // Find highest OCIO config version supported
+    std::string find_ocio_config(const std::string &show) {
+
+        Version library_version{OCIO_VERSION_MAJOR, OCIO_VERSION_MINOR};
+        std::vector<Version> fs_versions;
+
+        const std::regex ocio_version_regex(R"(config_ocio-v(\d)\.(\d)\.ocio)");
+        std::smatch match;
+
+        // Detect all OCIO versions available in the show's colsci folder
+        const fs::path colsci_dir{utility::forward_remap_file_path(fmt::format("/tools/{}/data/colsci", show))};
+        if (fs::is_directory(colsci_dir)) {
+            for (auto const &dir_entry : fs::directory_iterator{colsci_dir}) {
+                if (dir_entry.path().extension() == ".ocio") {
+                    std::string filename = dir_entry.path().filename().string();
+                    if (std::regex_match(filename, match, ocio_version_regex)) {
+                        if (match.size() == 3) {
+                            fs_versions.push_back({std::stoi(match[1]), std::stoi(match[2])});
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pick the first version supported
+        if (!fs_versions.empty()) {
+            std::sort(fs_versions.begin(), fs_versions.end());
+            for (auto it = fs_versions.rbegin(); it != fs_versions.rend(); ++it) {
+                if (*it <= library_version) {
+                    return (colsci_dir /
+                           fmt::format("config_ocio-v{}.{}.ocio", it->major, it->minor)).string();
+                }
+            }
+        }
+
+        // Return the default version otherwise
+        return fmt::format("/tools/{}/data/colsci/config.ocio", show);
     }
 
     std::string detect_display(
@@ -593,7 +678,11 @@ class DNegMediaHook : public MediaHook {
         std::map<std::string, std::string> variables;
 
         try {
+#ifdef __linux__
             std::ifstream ifs(fmt::format("/tools/{}/data/general.dat", show));
+#else
+            std::ifstream ifs(fmt::format("N:\\{}/data/general.dat", show));
+#endif
             if (!ifs.is_open())
                 return {};
 

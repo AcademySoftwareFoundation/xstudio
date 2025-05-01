@@ -51,7 +51,7 @@ add_custom_command(OUTPUT ${DOXYGEN_INDEX_FILE}
 
 add_custom_target(Doxygen ALL DEPENDS ${DOXYGEN_INDEX_FILE})
 
-add_dependencies(Doxygen python_module)
+# add_dependencies(Doxygen python_module)
 
 set(SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR})
 set(SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR}/docs/sphinx)
@@ -80,6 +80,10 @@ add_custom_target(UserDocs ALL
 				  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                   COMMENT "Generating user documentation with Sphinx")
 
+if (APPLE)
+install(DIRECTORY ${SPHINX_BUILD}/ DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/docs)
+else()
 install(DIRECTORY ${SPHINX_BUILD}/ DESTINATION share/xstudio/docs)
+endif()
 
 # https://devblogs.microsoft.com/cppblog/clear-functional-c-documentation-with-sphinx-breathe-doxygen-cmake/

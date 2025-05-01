@@ -1,5 +1,5 @@
-import QtQuick 2.12
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.viewport 1.0
@@ -277,5 +277,9 @@ Rectangle{
         propertyNames: ["dock_widgets_model", "tabBarVisible", "transportBarVisible", "toolBarVisible", "infoBarVisible", "actionBarVisible"]
     }
 
+    // For dynamic loading of QML by plugins
+    XsRuntimeQMLItems {
+        dynamic_set_name: view.name + " dynamic widgets"
+    }
     
 }

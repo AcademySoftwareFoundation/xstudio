@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtGraphicalEffects 1.15
-import QtQml.Models 2.14
+import QtQuick
+
+
 
 import xStudio 1.0
 
@@ -75,7 +75,7 @@ XsHotkeyArea {
 
     XsHotkey {
         id: reload_selected_media_hotkey
-        sequence: "SHIFT+~"
+        sequence: "U"
         name: "Reload Selected Media"
         description: "Reload selected media items."
         context: "" + parent

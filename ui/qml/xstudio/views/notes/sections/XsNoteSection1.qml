@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtGraphicalEffects 1.15
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.helpers 1.0
@@ -67,15 +65,15 @@ Rectangle{ id: sec1
                         imgOverlayColor: XsStyleSheet.hintColor
                         toolTip: modelData[1].tooltip || ""
 
-                        layer.enabled: true
-                        layer.effect: DropShadow{
-                            verticalOffset: 1
-                            horizontalOffset: 1
-                            color: "#010101"
-                            radius: 1
-                            samples: 3
-                            spread: 0.5
-                        }
+                        // layer.enabled: true
+                        // layer.effect: DropShadow{
+                        //     verticalOffset: 1
+                        //     horizontalOffset: 1
+                        //     color: "#010101"
+                        //     radius: 1
+                        //     samples: 3
+                        //     spread: 0.5
+                        // }
                     }
                 }
             }

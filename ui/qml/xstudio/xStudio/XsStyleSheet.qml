@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma Singleton
-import QtQuick 2.12
+import QtQuick
 
 QtObject {
 
@@ -21,7 +21,8 @@ QtObject {
     property real fontSize: 12
     property real playlistPanelFontSize: fontSize + 1
     property string fontFamily: "Inter" //"Regular" //"Overpass"
-    property string fixedWidthFontFamily: "Courier" //"VeraMono" //"Regular"
+    property string fixedWidthFontFamily: systemFixedWidthFontFamily // A context property set-up on C++ side
+    property string altFixedWidthFontFamily: "VeraMono"
 
     property color primaryTextColor: Qt.darker("#F1F1F1", textDarkerFactor)
     property color secondaryTextColor: Qt.darker("#C1C1C1", textDarkerFactor)

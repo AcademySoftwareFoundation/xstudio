@@ -25,7 +25,7 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::opengl::viewport
 		xstudio::utility
 	PUBLIC
-		caf::core
+		CAF::core
 		$<$<BOOL:${NVIDIA_HACK}>:GLdispatch>
 		OpenSSL::SSL
 		ZLIB::ZLIB

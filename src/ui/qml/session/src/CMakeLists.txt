@@ -1,7 +1,7 @@
 SET(LINK_DEPS
-	${CAF_LIBRARY_core}
-	Qt5::Core
-	Qt5::Test
+	CAF::core
+	Qt6::Core
+	Qt6::Test
 	xstudio::ui::qml::helper
 	xstudio::timeline
 	xstudio::utility
@@ -13,4 +13,4 @@ SET(EXTRAMOC
 	"${ROOT_DIR}/include/xstudio/ui/qml/caf_response_ui.hpp"
 )
 
-create_qml_component(session 0.1.0 "${LINK_DEPS}" "${EXTRAMOC}")
+create_qml_component(session ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${EXTRAMOC}")

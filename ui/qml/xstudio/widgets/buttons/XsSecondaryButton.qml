@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.15
+import QtQuick
+import QtQuick.Controls.Basic
+
+
 
 import xStudio 1.0
 
@@ -41,13 +42,13 @@ Button {
         opacity: enabled || onlyVisualyEnabled ? 1.0 : 0.33
         clip: true
 
-        XsImage {
+        XsIcon{
             id: imageDiv
             source: ""
             imgOverlayColor: isColoured ? palette.highlight : widget.imgOverlayColor
             anchors.centerIn: parent
-            sourceSize.height: imageSrcSize
-            sourceSize.width: imageSrcSize
+            width: imageSrcSize
+            height: imageSrcSize
 
             Behavior on rotation {NumberAnimation{duration: 150 }}
         }

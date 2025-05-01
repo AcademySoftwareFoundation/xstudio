@@ -9,7 +9,6 @@
 				"datatype": "bool",
 				"context": ["APPLICATION"]
 			},
-
 			"snippets":{
 				"path": {
 					"path": "/core/python/snippets/path",
@@ -19,6 +18,25 @@
 					"datatype": "json",
 					"context": ["APPLICATION"]
 				}
+			},
+			"python_plugin_search_folders": {
+				"path": "/core/python/python_plugin_search_folders",
+				"default_value": [],
+				"description": "This preference must be a json array. Each element of the array must be a path.",
+				"value": [],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},	
+			"user_python_plugin_search_folders": {
+				"path": "/core/python/user_python_plugin_search_folders",
+				"default_value": [],
+				"description": "This preference must be a json array. Each element of the array must be a path to a filesystem folder. xSTUDIO will search these folders for xSTUDIO python plugins.",
+				"value": [],
+				"datatype": "json",
+				"display_name": "Python Plugins Search Paths",
+				"context": ["APPLICATION"],
+				"category": "Python",
+				"options": "import xStudio 1.0; XsJsonPreference {}"
 			}
 		}
 	}

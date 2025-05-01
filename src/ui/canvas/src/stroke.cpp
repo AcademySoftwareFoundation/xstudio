@@ -56,6 +56,20 @@ bool Stroke::operator==(const Stroke &o) const {
         colour == o.colour && type == o.type && points == o.points);
 }
 
+std::string Stroke::hash() const {
+
+    std::string hash;
+    // Not adding every points coordinate to hash on purpose
+    // as the list might get very long.
+    hash += std::to_string(points.size());
+    hash += std::to_string(type);
+    hash += utility::to_string(colour);
+    hash += std::to_string(thickness);
+    hash += std::to_string(softness);
+    hash += std::to_string(opacity);
+    return hash;
+}
+
 void Stroke::make_square(const Imath::V2f &corner1, const Imath::V2f &corner2) {
 
     points = std::vector<Imath::V2f>(

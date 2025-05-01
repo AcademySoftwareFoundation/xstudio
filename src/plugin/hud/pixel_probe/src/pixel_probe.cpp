@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "pixel_probe.hpp"
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/media_reader/image_buffer_set.hpp"
@@ -7,8 +9,12 @@
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
 
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
@@ -40,7 +46,7 @@ using namespace xstudio::ui::viewport;
 
         if (!text_renderer_) {
             text_renderer_ = std::make_unique<ui::opengl::OpenGLTextRendererSDF>(
-                utility::xstudio_root("/fonts/Overpass-Regular.ttf"), 96);
+                utility::xstudio_resources_dir("fonts/Overpass-Regular.ttf"), 96);
         }
 
         auto font_scale = 30.0f * 1920.0f * viewport_du_dpixel;
@@ -207,7 +213,7 @@ void PixelProbeHUD::update_onscreen_info(
 
                 // Convert pointer_position to normalised image coordinates
                 // (image width always spans -1.0, 1.0 in x)
-                const float a = 1.0f / im->image_aspect();
+                const float a = 1.0f / image_aspect(im);
                 Imath::V4f p  = pointer * im.layout_transform().inverse();
                 Imath::V2f p0(p.x / p.w, p.y / p.w);
                 if (p0.x >= -1.0f && p0.x <= 1.0f && p0.y >= -a && p0.y <= a) {
@@ -230,12 +236,8 @@ void PixelProbeHUD::update_onscreen_info(
 
                     // we send the pixel info to the colour pipeline to add it's own colourspace
                     // transforms and info, if it needs/wants to
-                    request(
-                        colour_pipeline,
-                        infinite,
-                        colour_pipeline::pixel_info_atom_v,
-                        pixel_info,
-                        im.frame_id())
+                    mail(colour_pipeline::pixel_info_atom_v, pixel_info, im.frame_id())
+                        .request(colour_pipeline, infinite)
                         .then(
                             [=](const media_reader::PixelInfo &extended_info) mutable {
                                 make_pixel_info_onscreen_text(extended_info);

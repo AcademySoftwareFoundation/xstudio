@@ -15,14 +15,15 @@ namespace ui {
           public:
             typedef std::shared_ptr<GLBlindTex> GLBlindTexturePtr;
 
-            template <class TexType> static GLDoubleBufferedTexture *create() {
-                // we are creating 8 textures. This allows us to do asynchronous uploads,
-                // so that some of the textures can start uploading pixel data for upcoming
-                // redraws while others are being used to draw the current frame.
+            template <class TexType>
+            static GLDoubleBufferedTexture *create(const int num_textures) {
+                // we are creating 'num_textures' textures. This allows us to do asynchronous
+                // uploads, so that some of the textures can start uploading pixel data for
+                // upcoming redraws while others are being used to draw the current frame.
                 // TODO: some rigorous testing for best number of textures and upload threads.
                 // Also provide user preferences to manually tweak these settings if needed.
                 auto result = new GLDoubleBufferedTexture();
-                for (int i = 0; i < 48; ++i) {
+                for (int i = 0; i < num_textures; ++i) {
                     result->textures_.emplace_back(new TexType());
                 }
                 return result;

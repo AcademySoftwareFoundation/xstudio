@@ -385,13 +385,10 @@ BookmarkModel::getJSONObjectFuture(const QModelIndex &index, const QString &path
 void BookmarkModel::init(caf::actor_system &_system) {
     super::init(_system);
 
-    self()->set_default_handler(caf::drop);
-
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
         return {
             [=](utility::event_atom, utility::last_changed_atom, const time_point &) {},
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-            [=](const group_down_msg &) {},
             [=](utility::event_atom, utility::change_atom) {},
             [=](utility::event_atom, utility::name_atom, const std::string &) {},
             [=](utility::event_atom, bookmark::bookmark_change_atom, const utility::Uuid &) {},
@@ -538,8 +535,7 @@ void BookmarkModel::init(caf::actor_system &_system) {
                 } catch (...) {
                 }
             },
-
-        };
+            [=](caf::message) {}};
     });
 }
 
@@ -654,7 +650,7 @@ bool BookmarkModel::removeRows(int row, int count, const QModelIndex &parent) {
         }
 
         for (const auto &i : uuids) {
-            anon_send(bookmark_actor_, bookmark::remove_bookmark_atom_v, i);
+            anon_mail(bookmark::remove_bookmark_atom_v, i).send(bookmark_actor_);
             bookmarks_.erase(i);
         }
     }
@@ -840,12 +836,8 @@ QVariant BookmarkModel::data(const QModelIndex &index, int role) const {
                     }
                 }
                 if (get_thumbnail) {
-                    anon_send(
-                        bookmark_actor_,
-                        media_reader::get_thumbnail_atom_v,
-                        detail,
-                        256,
-                        as_actor());
+                    anon_mail(media_reader::get_thumbnail_atom_v, detail, 256, as_actor())
+                        .send(bookmark_actor_);
                 }
             } break;
             case ownerRole:
@@ -1075,7 +1067,7 @@ bool BookmarkModel::setData(const QModelIndex &index, const QVariant &value, int
 
 void BookmarkModel::sendDetail(const bookmark::BookmarkDetail &detail) const {
     if (bookmark_actor_)
-        anon_send(bookmark_actor_, bookmark::bookmark_detail_atom_v, detail.uuid_, detail);
+        anon_mail(bookmark::bookmark_detail_atom_v, detail.uuid_, detail).send(bookmark_actor_);
 }
 
 Q_INVOKABLE bool BookmarkModel::insertRows(int row, int count, const QModelIndex &parent) {

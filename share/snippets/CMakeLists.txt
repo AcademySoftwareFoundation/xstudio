@@ -27,6 +27,6 @@ add_custom_target(
 )
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    DESTINATION share/xstudio
-    FILES_MATCHING PATTERN "*.py"
-  )
+  DESTINATION share/xstudio
+  FILES_MATCHING PATTERN "*.py"
+)

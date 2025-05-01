@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/media/media_actor.hpp"
@@ -51,12 +52,13 @@ ShotBrowser::ShotBrowser(caf::actor_config &cfg, const utility::JsonStore &init_
     link_to(history_);
 
     // disable history until we init
-    anon_send(history_, plugin_manager::enable_atom_v, false);
+    anon_mail(plugin_manager::enable_atom_v, false).send(history_);
 
     event_group_ = spawn<broadcast::BroadcastActor>(this);
     link_to(event_group_);
     // we are the source of the secret..
-    anon_send(shotgun_, shotgun_authentication_source_atom_v, actor_cast<caf::actor>(this));
+    anon_mail(shotgun_authentication_source_atom_v, actor_cast<caf::actor>(this))
+        .send(shotgun_);
 
 
     try {
@@ -72,19 +74,20 @@ ShotBrowser::ShotBrowser(caf::actor_config &cfg, const utility::JsonStore &init_
         system().registry().put(
             shotbrowser_datasource_registry, caf::actor_cast<caf::actor>(this));
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     pool_ = caf::actor_pool::make(
-        system().dummy_execution_unit(),
+        system(),
         worker_count_,
         [&] { return system().template spawn<MediaWorker>(actor_cast<caf::actor_addr>(this)); },
         caf::actor_pool::round_robin());
     link_to(pool_);
+#pragma GCC diagnostic pop
 
 
     // set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
-    // delayed_anon_send(
-    //     caf::actor_cast<caf::actor>(this),
-    //     std::chrono::milliseconds(500),
-    //     module::connect_to_ui_atom_v);
+    // anon_mail(//     module::connect_to_ui_atom_v).delay(//
+    // std::chrono::milliseconds(500)).send(//     caf::actor_cast<caf::actor>(this));
 
     // set json store as origin
     // we rebroadcast all changes.
@@ -96,25 +99,17 @@ ShotBrowser::ShotBrowser(caf::actor_config &cfg, const utility::JsonStore &init_
         // spdlog::warn("user_presets bind_send_event_func {} {}", event.dump(2), undo_redo);
 
         if (not undo_redo)
-            anon_send(history_, history::log_atom_v, sysclock::now(), event);
+            anon_mail(history::log_atom_v, sysclock::now(), event).send(history_);
 
-        send(
-            event_group_,
-            utility::event_atom_v,
-            json_store::sync_atom_v,
-            engine().user_uuid(),
-            event);
+        mail(utility::event_atom_v, json_store::sync_atom_v, engine().user_uuid(), event)
+            .send(event_group_);
     });
 
     engine().system_presets().set_origin(true);
     engine().system_presets().bind_send_event_func([&](auto &&PH1, auto &&PH2) {
         auto event = JsonStore(std::forward<decltype(PH1)>(PH1));
-        send(
-            event_group_,
-            utility::event_atom_v,
-            json_store::sync_atom_v,
-            engine().system_uuid(),
-            event);
+        mail(utility::event_atom_v, json_store::sync_atom_v, engine().system_uuid(), event)
+            .send(event_group_);
     });
 
     // this call is essential to set-up the base class
@@ -381,11 +376,9 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
                  // trigger sync to preferences
                  if (not pending_preference_update_) {
                      pending_preference_update_ = true;
-                     delayed_anon_send(
-                         actor_cast<caf::actor>(this),
-                         std::chrono::seconds(1),
-                         json_store::sync_atom_v,
-                         true);
+                     anon_mail(json_store::sync_atom_v, true)
+                         .delay(std::chrono::seconds(1))
+                         .send(actor_cast<caf::actor>(this));
                  }
              } else if (uuid == engine().system_uuid()) {
                  // spdlog::warn("system json_store::sync_atom {}", event.dump(2));
@@ -416,14 +409,14 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              return UuidVector({engine().user_uuid(), engine().system_uuid()});
          },
 
-         [=](shotgun_projects_atom atom) { delegate(shotgun_, atom); },
+         [=](shotgun_projects_atom atom) { return mail(atom).delegate(shotgun_); },
 
          [=](shotgun_groups_atom atom, const int project_id) {
-             delegate(shotgun_, atom, project_id);
+             return mail(atom, project_id).delegate(shotgun_);
          },
 
          [=](shotgun_schema_atom atom, const int project_id) {
-             delegate(shotgun_, atom, project_id);
+             return mail(atom, project_id).delegate(shotgun_);
          },
 
          [=](shotgun_authentication_source_atom, caf::actor source) {
@@ -437,15 +430,27 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
          [=](shotgun_update_entity_atom atom,
              const std::string &entity,
              const int record_id,
-             const JsonStore &body) { delegate(shotgun_, atom, entity, record_id, body); },
+             const JsonStore &body) {
+             return mail(atom, entity, record_id, body).delegate(shotgun_);
+         },
+
+         [=](shotgun_update_entity_atom atom,
+             const std::string &entity,
+             const int record_id,
+             const JsonStore &body,
+             const std::vector<std::string> &fields) {
+             return mail(atom, entity, record_id, body, fields).delegate(shotgun_);
+         },
 
          [=](shotgun_image_atom atom,
              const std::string &entity,
              const int record_id,
-             const bool thumbnail) { delegate(shotgun_, atom, entity, record_id, thumbnail); },
+             const bool thumbnail) {
+             return mail(atom, entity, record_id, thumbnail).delegate(shotgun_);
+         },
 
          [=](shotgun_delete_entity_atom atom, const std::string &entity, const int record_id) {
-             delegate(shotgun_, atom, entity, record_id);
+             return mail(atom, entity, record_id).delegate(shotgun_);
          },
 
          [=](shotgun_image_atom atom,
@@ -453,7 +458,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const int record_id,
              const bool thumbnail,
              const bool as_buffer) {
-             delegate(shotgun_, atom, entity, record_id, thumbnail, as_buffer);
+             return mail(atom, entity, record_id, thumbnail, as_buffer).delegate(shotgun_);
          },
 
          [=](shotgun_upload_atom atom,
@@ -463,7 +468,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const std::string &name,
              const std::vector<std::byte> &data,
              const std::string &content_type) {
-             delegate(shotgun_, atom, entity, record_id, field, name, data, content_type);
+             return mail(atom, entity, record_id, field, name, data, content_type)
+                 .delegate(shotgun_);
          },
 
          // just use the default with jsonstore ?
@@ -523,7 +529,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const std::string &entity,
              const int record_id,
              const std::vector<std::string> &fields) {
-             delegate(shotgun_, atom, entity, record_id, extend_fields(entity, fields));
+             return mail(atom, entity, record_id, extend_fields(entity, fields))
+                 .delegate(shotgun_);
          },
 
          [=](shotgun_entity_filter_atom atom,
@@ -531,7 +538,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const JsonStore &filter,
              const std::vector<std::string> &fields,
              const std::vector<std::string> &sort) {
-             delegate(shotgun_, atom, entity, filter, extend_fields(entity, fields), sort);
+             return mail(atom, entity, filter, extend_fields(entity, fields), sort)
+                 .delegate(shotgun_);
          },
 
          [=](shotgun_entity_filter_atom atom,
@@ -541,21 +549,21 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const std::vector<std::string> &sort,
              const int page,
              const int page_size) {
-             delegate(
-                 shotgun_,
-                 atom,
-                 entity,
-                 filter,
-                 extend_fields(entity, fields),
-                 sort,
-                 page,
-                 page_size);
+             return mail(
+                        atom,
+                        entity,
+                        filter,
+                        extend_fields(entity, fields),
+                        sort,
+                        page,
+                        page_size)
+                 .delegate(shotgun_);
          },
 
          [=](shotgun_schema_entity_fields_atom atom,
              const std::string &entity,
              const std::string &field,
-             const int id) { delegate(shotgun_, atom, entity, field, id); },
+             const int id) { return mail(atom, entity, field, id).delegate(shotgun_); },
 
          [=](shotgun_entity_search_atom atom,
              const std::string &entity,
@@ -564,15 +572,15 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const std::vector<std::string> &sort,
              const int page,
              const int page_size) {
-             delegate(
-                 shotgun_,
-                 atom,
-                 entity,
-                 conditions,
-                 extend_fields(entity, fields),
-                 sort,
-                 page,
-                 page_size);
+             return mail(
+                        atom,
+                        entity,
+                        conditions,
+                        extend_fields(entity, fields),
+                        sort,
+                        page,
+                        page_size)
+                 .delegate(shotgun_);
          },
 
          [=](shotgun_text_search_atom atom,
@@ -580,7 +588,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const JsonStore &conditions,
              const int page,
              const int page_size) {
-             delegate(shotgun_, atom, text, conditions, page, page_size);
+             return mail(atom, text, conditions, page, page_size).delegate(shotgun_);
          },
 
          // can't reply via qt mixin.. this is a work around..
@@ -593,7 +601,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              } else {
                  auto auth = get_authentication();
                  if (waiting_.empty()) {
-                     anon_send(shotgun_, shotgun_authenticate_atom_v, auth);
+                     anon_mail(shotgun_authenticate_atom_v, auth).send(shotgun_);
                  } else {
                      for (auto &i : waiting_)
                          i.deliver(auth);
@@ -610,7 +618,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              auto rp = make_response_promise<shotgun_client::AuthenticateShotgun>();
              waiting_.push_back(rp);
              set_authenticated(false);
-             anon_send(actor_cast<caf::actor>(secret_source_), atom, message);
+             anon_mail(atom, message).send(actor_cast<caf::actor>(secret_source_));
              return rp;
          },
 
@@ -697,7 +705,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
          [=](history::undo_atom, const sys_time_point &key) -> result<bool> {
              auto rp = make_response_promise<bool>();
 
-             request(history_, infinite, history::undo_atom_v, key)
+             mail(history::undo_atom_v, key)
+                 .request(history_, infinite)
                  .then(
                      [=](const JsonStore &hist) mutable {
                          rp.delegate(
@@ -711,7 +720,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
          [=](history::redo_atom, const sys_time_point &key) -> result<bool> {
              auto rp = make_response_promise<bool>();
 
-             request(history_, infinite, history::redo_atom_v, key)
+             mail(history::redo_atom_v, key)
+                 .request(history_, infinite)
                  .then(
                      [=](const JsonStore &hist) mutable {
                          rp.delegate(
@@ -723,16 +733,14 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
          [=](history::undo_atom, const utility::sys_time_duration &duration) -> result<bool> {
              auto rp = make_response_promise<bool>();
-             request(history_, infinite, history::undo_atom_v, duration)
+             mail(history::undo_atom_v, duration)
+                 .request(history_, infinite)
                  .then(
                      [=](const std::vector<JsonStore> &hist) mutable {
                          auto count = std::make_shared<size_t>(0);
                          for (const auto &h : hist) {
-                             request(
-                                 caf::actor_cast<caf::actor>(this),
-                                 infinite,
-                                 history::undo_atom_v,
-                                 h)
+                             mail(history::undo_atom_v, h)
+                                 .request(caf::actor_cast<caf::actor>(this), infinite)
                                  .then(
                                      [=](const bool) mutable {
                                          (*count)++;
@@ -752,16 +760,14 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
          [=](history::redo_atom, const utility::sys_time_duration &duration) -> result<bool> {
              auto rp = make_response_promise<bool>();
-             request(history_, infinite, history::redo_atom_v, duration)
+             mail(history::redo_atom_v, duration)
+                 .request(history_, infinite)
                  .then(
                      [=](const std::vector<JsonStore> &hist) mutable {
                          auto count = std::make_shared<size_t>(0);
                          for (const auto &h : hist) {
-                             request(
-                                 caf::actor_cast<caf::actor>(this),
-                                 infinite,
-                                 history::redo_atom_v,
-                                 h)
+                             mail(history::redo_atom_v, h)
+                                 .request(caf::actor_cast<caf::actor>(this), infinite)
                                  .then(
                                      [=](const bool) mutable {
                                          (*count)++;
@@ -781,7 +787,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
          [=](history::undo_atom) -> result<bool> {
              auto rp = make_response_promise<bool>();
-             request(history_, infinite, history::undo_atom_v)
+             mail(history::undo_atom_v)
+                 .request(history_, infinite)
                  .then(
                      [=](const JsonStore &hist) mutable {
                          rp.delegate(
@@ -793,7 +800,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
          [=](history::redo_atom) -> result<bool> {
              auto rp = make_response_promise<bool>();
-             request(history_, infinite, history::redo_atom_v)
+             mail(history::redo_atom_v)
+                 .request(history_, infinite)
                  .then(
                      [=](const JsonStore &hist) mutable {
                          rp.delegate(
@@ -825,26 +833,24 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              //     inverted.emplace_back(ev);
              // }
 
-             // send(event_group_, event_atom_v, item_atom_v, JsonStore(inverted), true);
+             // mail(event_atom_v, item_atom_v, JsonStore(inverted), true).send(event_group_);
              // if (not actors_.empty()) {
              //     // push to children..
              //     fan_out_request<policy::select_all>(
              //         map_value_to_vec(actors_), infinite, history::undo_atom_v, hist)
              //         .await(
              //             [=](std::vector<bool> updated) mutable {
-             //                 anon_send(this, link_media_atom_v, media_actors_);
-             //                 send(
-             //                     event_group_,
-             //                     event_atom_v,
+             //                 anon_mail(link_media_atom_v, media_actors_).send(this);
+             //                 mail(//                     event_atom_v,
              //                     item_atom_v,
              //                     JsonStore(inverted),
-             //                     true);
+             //                     true).send(//                     event_group_);
              //                 rp.deliver(true);
              //             },
              //             [=](error &err) mutable { rp.deliver(std::move(err)); });
              // } else {
-             //     send(event_group_, event_atom_v, item_atom_v, JsonStore(inverted), true);
-             //     rp.deliver(true);
+             //     mail(event_atom_v, item_atom_v, JsonStore(inverted),
+             //     true).send(event_group_); rp.deliver(true);
              // }
              return rp;
          },
@@ -860,7 +866,7 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
              // base_.item().redo(hist);
 
-             // // send(event_group_, event_atom_v, item_atom_v, hist, true);
+             // // mail(event_atom_v, item_atom_v, hist, true).send(event_group_);
 
              // if (not actors_.empty()) {
              //     // push to children..
@@ -869,13 +875,13 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              //         .await(
              //             [=](std::vector<bool> updated) mutable {
              //                 rp.deliver(true);
-             //                 anon_send(this, link_media_atom_v, media_actors_);
+             //                 anon_mail(link_media_atom_v, media_actors_).send(this);
 
-             //                 send(event_group_, event_atom_v, item_atom_v, hist, true);
+             //                 mail(event_atom_v, item_atom_v, hist, true).send(event_group_);
              //             },
              //             [=](error &err) mutable { rp.deliver(std::move(err)); });
              // } else {
-             //     send(event_group_, event_atom_v, item_atom_v, hist, true);
+             //     mail(event_atom_v, item_atom_v, hist, true).send(event_group_);
              //     rp.deliver(true);
              // }
 
@@ -886,7 +892,8 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              const JsonStore & /*change*/,
              const std::string & /*path*/,
              const JsonStore &full) {
-             delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+             return mail(json_store::update_atom_v, full)
+                 .delegate(actor_cast<caf::actor>(this));
          },
 
          [=](json_store::update_atom, const JsonStore &js) {
@@ -1050,7 +1057,7 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
             engine().set_presets(user_presets, site_presets);
 
             // turn on undo redo
-            anon_send(history_, plugin_manager::enable_atom_v, true);
+            anon_mail(plugin_manager::enable_atom_v, true).send(history_);
         }
 
         // what hppens if we get a sequence of changes... should this be on a timed event ?
@@ -1061,17 +1068,17 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
         if (new_hash != changed_hash_) {
             changed_hash_ = new_hash;
             // set server
-            anon_send(
-                shotgun_,
+            anon_mail(
                 shotgun_host_atom_v,
                 std::string(fmt::format(
-                    "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))));
+                    "{}://{}{}", protocol, host, (port ? ":" + std::to_string(port) : ""))))
+                .send(shotgun_);
 
             auto auth = get_authentication();
             if (not refresh_token.empty())
                 auth.set_refresh_token(refresh_token);
 
-            anon_send(shotgun_, shotgun_credential_atom_v, auth);
+            anon_mail(shotgun_credential_atom_v, auth).send(shotgun_);
         }
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1091,7 +1098,7 @@ void ShotBrowser::refresh_playlist_versions(
         if (dest and not uuid.is_null()) {
             auto notify = Notification::WarnNotification("Reloading Playlist Failed");
             notify.uuid(uuid);
-            anon_send(dest, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(dest);
         }
     };
 
@@ -1100,7 +1107,7 @@ void ShotBrowser::refresh_playlist_versions(
             auto notify = Notification::InfoNotification(
                 "Reloading Playlist Succeeded", std::chrono::seconds(5));
             notify.uuid(uuid);
-            anon_send(dest, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(dest);
         }
     };
 
@@ -1120,7 +1127,7 @@ void ShotBrowser::refresh_playlist_versions(
         if (playlist) {
             auto notify       = Notification::ProcessingNotification("Reloading Playlist");
             notification_uuid = notify.uuid();
-            anon_send(playlist, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(playlist);
         }
 
         auto plsg = request_receive<JsonStore>(
@@ -1151,23 +1158,18 @@ void ShotBrowser::refresh_playlist_versions(
 
         // we got media shotgun ids, plus playlist id
         // get current shotgun playlist/versions
-        request(
-            caf::actor_cast<caf::actor>(this),
-            infinite,
-            shotgun_entity_atom_v,
-            "Playlists",
-            pl_id,
-            std::vector<std::string>())
+        mail(shotgun_entity_atom_v, "Playlists", pl_id, std::vector<std::string>())
+            .request(caf::actor_cast<caf::actor>(this), infinite)
             .then(
                 [=](const JsonStore &result) mutable {
                     try {
                         scoped_actor sys{system()};
                         // update playlist
-                        anon_send(
-                            playlist,
+                        anon_mail(
                             json_store::set_json_atom_v,
                             JsonStore(result["data"]),
-                            ShotgunMetadataPath + "/playlist");
+                            ShotgunMetadataPath + "/playlist")
+                            .send(playlist);
 
                         //  gather versions, to get more detail..
                         std::vector<std::string> version_ids;
@@ -1182,11 +1184,11 @@ void ShotBrowser::refresh_playlist_versions(
                             if (match_order) {
                                 // still need to match ordering..
                                 // which is in another table :(
-                                anon_send(
-                                    caf::actor_cast<caf::actor>(this),
+                                anon_mail(
                                     playlist::move_media_atom_v,
                                     playlist,
-                                    JsonStore(result["data"]));
+                                    JsonStore(result["data"]))
+                                    .send(caf::actor_cast<caf::actor>(this));
                             }
 
                             succeeded(playlist, notification_uuid);
@@ -1198,9 +1200,7 @@ void ShotBrowser::refresh_playlist_versions(
                         query["id"] = join_as_string(version_ids, ",");
 
                         // get details..
-                        request(
-                            caf::actor_cast<caf::actor>(this),
-                            infinite,
+                        mail(
                             shotgun_entity_filter_atom_v,
                             "Versions",
                             JsonStore(query),
@@ -1208,28 +1208,30 @@ void ShotBrowser::refresh_playlist_versions(
                             std::vector<std::string>(),
                             1,
                             4999)
+                            .request(caf::actor_cast<caf::actor>(this), infinite)
                             .then(
                                 [=](const JsonStore &result2) mutable {
                                     try {
                                         // got version details.
                                         // we can now just call add versions to playlist..
-                                        request(
-                                            caf::actor_cast<caf::actor>(this),
-                                            infinite,
+                                        mail(
                                             playlist::add_media_atom_v,
                                             result2,
                                             playlist_uuid,
                                             playlist,
                                             utility::Uuid())
+                                            .request(
+                                                caf::actor_cast<caf::actor>(this), infinite)
                                             .then(
                                                 [=](const std::vector<UuidActor>
                                                         &media) mutable {
                                                     if (match_order)
-                                                        anon_send(
-                                                            caf::actor_cast<caf::actor>(this),
+                                                        anon_mail(
                                                             playlist::move_media_atom_v,
                                                             playlist,
-                                                            JsonStore(result["data"]));
+                                                            JsonStore(result["data"]))
+                                                            .send(caf::actor_cast<caf::actor>(
+                                                                this));
                                                 },
                                                 [=](error &err) mutable {
                                                     spdlog::warn(
@@ -1423,7 +1425,7 @@ void ShotBrowser::add_media_to_playlist(
 
         // this call starts the work of building the media and consuming
         // the jobs in the 'build_playlist_media_tasks_' queue
-        send(this, playlist::add_media_atom_v);
+        mail(playlist::add_media_atom_v).send(this);
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1443,13 +1445,8 @@ void ShotBrowser::load_playlist(
     // this is going to get nesty :()
 
     // get playlist from shotgun
-    request(
-        caf::actor_cast<caf::actor>(this),
-        infinite,
-        shotgun_entity_atom_v,
-        "Playlists",
-        playlist_id,
-        std::vector<std::string>())
+    mail(shotgun_entity_atom_v, "Playlists", playlist_id, std::vector<std::string>())
+        .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](JsonStore pljs) mutable {
                 // got playlist.
@@ -1477,11 +1474,8 @@ void ShotBrowser::load_playlist(
                     }
 
                     // place holder for shotgun decorators.
-                    anon_send(
-                        playlist.actor(),
-                        json_store::set_json_atom_v,
-                        JsonStore(),
-                        "/metadata/shotgun");
+                    anon_mail(json_store::set_json_atom_v, JsonStore(), "/metadata/shotgun")
+                        .send(playlist.actor());
                     // should really be driven from back end not UI..
                 } catch (const std::exception &err) {
                     spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1499,9 +1493,7 @@ void ShotBrowser::load_playlist(
 
                 order_filter["conditions"][0][2]["id"] = playlist_id;
 
-                request(
-                    caf::actor_cast<caf::actor>(this),
-                    infinite,
+                mail(
                     shotgun_entity_search_atom_v,
                     "PlaylistVersionConnection",
                     JsonStore(order_filter),
@@ -1509,6 +1501,7 @@ void ShotBrowser::load_playlist(
                     std::vector<std::string>({"sg_sort_order"}),
                     1,
                     4999)
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](const JsonStore &order) mutable {
                             std::vector<std::string> version_ids;
@@ -1525,9 +1518,7 @@ void ShotBrowser::load_playlist(
                             query["id"] = join_as_string(version_ids, ",");
 
                             // get versions ordered by playlist.
-                            request(
-                                caf::actor_cast<caf::actor>(this),
-                                infinite,
+                            mail(
                                 shotgun_entity_filter_atom_v,
                                 "Versions",
                                 JsonStore(query),
@@ -1535,6 +1526,7 @@ void ShotBrowser::load_playlist(
                                 std::vector<std::string>(),
                                 1,
                                 4999)
+                                .request(caf::actor_cast<caf::actor>(this), infinite)
                                 .then(
                                     [=](JsonStore &js) mutable {
                                         // munge it..
@@ -1560,26 +1552,26 @@ void ShotBrowser::load_playlist(
                                         // spdlog::warn("{}",pljs.dump(2));
                                         // now we have a playlist json struct with the versions
                                         // corrrecly ordered, set metadata on playlist..
-                                        anon_send(
-                                            playlist.actor(),
+                                        anon_mail(
                                             json_store::set_json_atom_v,
                                             JsonStore(pljs["data"]),
-                                            ShotgunMetadataPath + "/playlist");
+                                            ShotgunMetadataPath + "/playlist")
+                                            .send(playlist.actor());
 
-                                        anon_send(
-                                            playlist.actor(),
+                                        anon_mail(
                                             json_store::set_json_atom_v,
                                             JsonStore(
                                                 R"({"icon": "qrc:/shotbrowser_icons/shot_grid.svg", "tooltip": "ShotGrid Playlist"})"_json),
-                                            "/ui/decorators/shotgrid");
+                                            "/ui/decorators/shotgrid")
+                                            .send(playlist.actor());
 
-                                        anon_send(
-                                            caf::actor_cast<caf::actor>(this),
+                                        anon_mail(
                                             playlist::add_media_atom_v,
                                             pljs,
                                             playlist.uuid(),
                                             playlist.actor(),
-                                            utility::Uuid());
+                                            utility::Uuid())
+                                            .send(caf::actor_cast<caf::actor>(this));
 
                                         rp.deliver(playlist);
                                     },
@@ -1643,7 +1635,7 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
     // through the queue
     auto continue_processing_job_queue = [=]() {
         build_tasks_in_flight_--;
-        delayed_send(this, JOB_DISPATCH_DELAY, playlist::add_media_atom_v);
+        mail(playlist::add_media_atom_v).delay(JOB_DISPATCH_DELAY).send(this);
         // if (build_media_task_data->event_msg_) {
         //     build_media_task_data->event_msg_->increment_progress();
         //     event::send_event(this, *(build_media_task_data->event_msg_));
@@ -1652,13 +1644,12 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
 
     // now we get our worker pool to build media sources and add them to the
     // parent MediaActor using the shotgun query data
-    request(
-        pool_,
-        caf::infinite,
+    mail(
         playlist::add_media_atom_v,
         build_media_task_data->media_actor_,
         build_media_task_data->sg_data_,
         build_media_task_data->media_rate_)
+        .request(pool_, caf::infinite)
         .then(
 
             [=](bool) {
@@ -1667,25 +1658,24 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
                 // we are building so the playlist can ensure everything is added
                 // in order, even if they aren't created in the correct order
                 if (build_media_task_data->playlist_actor_) {
-                    request(
-                        build_media_task_data->playlist_actor_,
-                        caf::infinite,
+                    mail(
                         playlist::add_media_atom_v,
                         ua,
                         *(build_media_task_data->ordererd_uuids_),
                         build_media_task_data->before_)
+                        .request(build_media_task_data->playlist_actor_, caf::infinite)
                         .then(
 
                             [=](const UuidActor &) {
                                 if (!build_media_task_data->flag_colour_.empty()) {
-                                    anon_send(
-                                        build_media_task_data->media_actor_,
+                                    anon_mail(
                                         playlist::reflag_container_atom_v,
                                         std::make_tuple(
                                             std::optional<std::string>(
                                                 build_media_task_data->flag_colour_),
                                             std::optional<std::string>(
-                                                build_media_task_data->flag_text_)));
+                                                build_media_task_data->flag_text_)))
+                                        .send(build_media_task_data->media_actor_);
                                 }
 
                                 extend_media_with_ivy_tasks_.emplace_back(
@@ -1699,12 +1689,12 @@ void ShotBrowser::do_add_media_sources_from_shotgun(
                 } else {
                     // not adding to playlist..
                     if (!build_media_task_data->flag_colour_.empty()) {
-                        anon_send(
-                            build_media_task_data->media_actor_,
+                        anon_mail(
                             playlist::reflag_container_atom_v,
                             std::make_tuple(
                                 std::optional<std::string>(build_media_task_data->flag_colour_),
-                                std::optional<std::string>(build_media_task_data->flag_text_)));
+                                std::optional<std::string>(build_media_task_data->flag_text_)))
+                            .send(build_media_task_data->media_actor_);
                     }
 
                     extend_media_with_ivy_tasks_.emplace_back(build_media_task_data);
@@ -1728,7 +1718,7 @@ void ShotBrowser::do_add_media_sources_from_ivy(
     // through the queue
     auto continue_processing_job_queue = [=]() {
         build_tasks_in_flight_--;
-        delayed_send(this, JOB_DISPATCH_DELAY, playlist::add_media_atom_v);
+        mail(playlist::add_media_atom_v).delay(JOB_DISPATCH_DELAY).send(this);
         /* Commented out bevause we're not including ivy leaf addition
         in progress indicator now.
         if (ivy_media_task_data->event_msg) {
@@ -1746,22 +1736,16 @@ void ShotBrowser::do_add_media_sources_from_ivy(
     // when we've fully 'built' each MediaSourceActor in our 'sources'
     // list -0 see the request/then handler below where it is used
     auto finalise = [=]() {
-        request(
-            ivy_media_task_data->media_actor_,
-            infinite,
-            media::add_media_source_atom_v,
-            *good_sources)
+        mail(media::add_media_source_atom_v, *good_sources)
+            .request(ivy_media_task_data->media_actor_, infinite)
             .then(
                 [=](const bool) {
                     // media sources all in media actor.
                     // we can now select the ones we want..
                     //
                     // get list of valid sources for media..
-                    request(
-                        ivy_media_task_data->media_actor_,
-                        infinite,
-                        media::get_media_source_names_atom_v,
-                        media::MT_IMAGE)
+                    mail(media::get_media_source_names_atom_v, media::MT_IMAGE)
+                        .request(ivy_media_task_data->media_actor_, infinite)
                         .then(
                             [=](const std::vector<std::pair<utility::Uuid, std::string>>
                                     &names) {
@@ -1798,22 +1782,19 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                 }
 
                                 if (not name.empty())
-                                    anon_send(
-                                        ivy_media_task_data->media_actor_,
+                                    anon_mail(
                                         playhead::media_source_atom_v,
                                         name,
                                         media::MT_IMAGE,
-                                        true);
+                                        true)
+                                        .send(ivy_media_task_data->media_actor_);
                             },
                             [=](error &err) {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                             });
 
-                    request(
-                        ivy_media_task_data->media_actor_,
-                        infinite,
-                        media::get_media_source_names_atom_v,
-                        media::MT_AUDIO)
+                    mail(media::get_media_source_names_atom_v, media::MT_AUDIO)
+                        .request(ivy_media_task_data->media_actor_, infinite)
                         .then(
                             [=](const std::vector<std::pair<utility::Uuid, std::string>>
                                     &names) {
@@ -1850,12 +1831,12 @@ void ShotBrowser::do_add_media_sources_from_ivy(
                                 }
 
                                 if (not name.empty())
-                                    anon_send(
-                                        ivy_media_task_data->media_actor_,
+                                    anon_mail(
                                         playhead::media_source_atom_v,
                                         name,
                                         media::MT_AUDIO,
-                                        true);
+                                        true)
+                                        .send(ivy_media_task_data->media_actor_);
                             },
                             [=](error &err) {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -1870,10 +1851,10 @@ void ShotBrowser::do_add_media_sources_from_ivy(
 
     // here we get the ivy data source to fetch sources (ivy leafs) using the
     // ivy dnuuid for the MediaActor already created from shotgun data
+    // pass media actor for metadata
+
     try {
-        request(
-            ivy,
-            infinite,
+        mail(
             use_data_atom_v,
             ivy_media_task_data->sg_data_.at("attributes")
                 .at("sg_project_name")
@@ -1881,7 +1862,9 @@ void ShotBrowser::do_add_media_sources_from_ivy(
             utility::Uuid(ivy_media_task_data->sg_data_.at("attributes")
                               .at("sg_ivy_dnuuid")
                               .get<std::string>()),
+            ivy_media_task_data->media_actor_,
             ivy_media_task_data->media_rate_)
+            .request(ivy, infinite)
             .then(
                 [=](const utility::UuidActorVector &sources) {
                     // we want to make sure the 'MediaDetail' has been fetched on the
@@ -1900,11 +1883,10 @@ void ShotBrowser::do_add_media_sources_from_ivy(
 
                         // we need to get each source to get its detail to ensure that
                         // it is readable/valid
-                        request(
-                            source.actor(),
-                            infinite,
+                        mail(
                             media::acquire_media_detail_atom_v,
                             ivy_media_task_data->media_rate_)
+                            .request(source.actor(), infinite)
                             .then(
                                 [=](bool got_media_detail) mutable {
                                     if (got_media_detail)
@@ -1973,9 +1955,7 @@ void ShotBrowser::reorder_playlist(
 
     order_filter["conditions"][0][2]["id"] = sg_playlist.at("id");
 
-    request(
-        caf::actor_cast<caf::actor>(this),
-        infinite,
+    mail(
         shotgun_entity_search_atom_v,
         "PlaylistVersionConnection",
         JsonStore(order_filter),
@@ -1983,6 +1963,7 @@ void ShotBrowser::reorder_playlist(
         std::vector<std::string>({"sg_sort_order"}),
         1,
         4999)
+        .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const JsonStore &order) mutable {
                 try {
@@ -2029,12 +2010,8 @@ void ShotBrowser::reorder_playlist(
                         new_media_order.end(), unused_media.begin(), unused_media.end());
 
                     // update playlist.
-                    request(
-                        playlist,
-                        infinite,
-                        playlist::move_media_atom_v,
-                        new_media_order,
-                        Uuid())
+                    mail(playlist::move_media_atom_v, new_media_order, Uuid())
+                        .request(playlist, infinite)
                         .then(
                             [=](const bool) mutable { rp.deliver(true); },
                             [=](error &err) mutable {
@@ -2052,7 +2029,6 @@ void ShotBrowser::reorder_playlist(
                 rp.deliver(err);
             });
 }
-
 
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {

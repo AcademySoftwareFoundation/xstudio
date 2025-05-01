@@ -1,9 +1,9 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.3
+import QtQuick
+
+
+
+
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -14,7 +14,7 @@ Item {
 
     property var dynamic_widget
     property real minWidth: dynamic_widget ? dynamic_widget.minWidth : 0
-    height: !is_in_bar ? dynamic_widget ? dynamic_widget.height : 0 : 20
+    height: dynamic_widget ? dynamic_widget.height : 0
 
     onHeightChanged: {
         if (is_in_bar && dynamic_widget) dynamic_widget.height = height

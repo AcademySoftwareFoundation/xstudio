@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Effects
 
 import xStudio 1.0
 import ShotBrowser 1.0
 
+
 Rectangle{
     color: XsStyleSheet.widgetBgNormalColor
+    property alias playerMA: playerMA
 
      RowLayout {
         anchors.fill: parent
@@ -25,7 +26,7 @@ Rectangle{
                 spacing: itemSpacing
 
                 XsPrimaryButton{ id: notesIndicatorDisplay
-                    property bool hasNotes: noteCountRole == 0 ? false : true
+                    property bool hasNotes: noteCountRole <= 0 ? false : true
                     text: "N"
                     width: 20
                     height: parent.height/3 - itemSpacing
@@ -70,7 +71,6 @@ Rectangle{
             }
 
         }
-
 
         Item{ id: thumbImage
             Layout.fillWidth: true
@@ -118,6 +118,65 @@ Rectangle{
                     else if (status == Image.Error) { parent.failed=true; opacity=0; noThumbnailDisplay.text= "Thumbnail\nError" }
                     else if (status == Image.Ready) opacity=1
                     else opacity=0
+                }
+            }
+
+
+            MouseArea {
+                id: playerMA
+
+                property bool movieFailed: false
+
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.margins: 4
+                height: parent.height / 3
+                width: height
+
+                enabled: !parent.failed
+                onClicked: {
+                    let url = ShotBrowserEngine.downloadMedia(idRole, nameRole, projectRole, entityRole)
+                    if(url != "")
+                        playMovie(url)
+                    else {
+                        movieFailed = true
+                    }
+                }
+                hoverEnabled: true
+
+                Item {
+                    anchors.fill: parent
+                    visible: isHovered && playerMA.enabled
+
+                    // Note: we can't use 'icon' as source for MultiEffect as
+                    // XsIcon already has a MultiEffect layer and this is
+                    // buggy in QML
+                    MultiEffect {
+                        source: img
+                        anchors.fill: icon
+                        shadowBlur: 0.1
+                        shadowEnabled: true
+                        shadowColor: "black"
+                        shadowVerticalOffset: 2
+                        shadowHorizontalOffset: 2
+                    }
+
+                    Image {
+
+                        id: img
+                        anchors.fill: parent
+                        source: "qrc:/icons/play_circle.svg"
+                        sourceSize.height: height
+                        sourceSize.width: width
+                        visible: false
+                    }
+
+                    XsIcon{
+                        id: icon
+                        anchors.fill: parent
+                        source: "qrc:/icons/play_circle.svg"
+                        imgOverlayColor: playerMA.movieFailed ? "red" : (playerMA.containsMouse ? palette.text : palette.highlight)
+                    }
                 }
             }
         }

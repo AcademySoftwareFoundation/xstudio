@@ -21,6 +21,11 @@ namespace media {
 
     typedef std::vector<std::pair<int, int>> LogicalFrameRanges;
 
+    static inline std::map<std::string, PartialSeqBehaviour> partialSeqNameMap = {
+        {"Insert Blank Frames", PS_DONT_HOLD_FRAME},
+        {"Hold Frames", PS_HOLD_FRAME},
+        {"Skip Missing Frames", PS_COLLAPSE_TO_ON_DISK_FRAMES}};
+
     MediaType media_type_from_string(const std::string &str);
     inline std::string to_readable_string(const MediaType mt) {
         std::string str;
@@ -178,6 +183,8 @@ namespace media {
             return f.object(x).fields(f.field("data", static_cast<std::string &>(x)));
         }
 
+        bool is_null() const { return empty(); }
+
       private:
         size_t hash_;
     };
@@ -219,44 +226,53 @@ namespace media {
             const AVFrameID &shared,
             const caf::uri &uri,
             const int frame,
+            const int key_frame,
             const std::string &key_format,
+            const FrameStatus frame_status,
             const utility::Timecode time_code = utility::Timecode())
             : fixed_media_data_(shared.fixed_media_data_),
               uri_(uri == shared.fixed_media_data_->fixed_uri_ ? caf::uri() : uri),
               frame_(frame),
-              key_(key_format, uri, frame, shared.fixed_media_data_->stream_id_),
+              key_(key_format, uri, key_frame, shared.fixed_media_data_->stream_id_),
+              frame_status_(frame_status),
               timecode_(time_code) {}
 
         AVFrameID(
-            const caf::uri &uri               = caf::uri(),
-            const int frame                   = std::numeric_limits<int>::min(),
-            const int first_frame             = std::numeric_limits<int>::min(),
-            const utility::FrameRate rate     = utility::FrameRate(timebase::k_flicks_24fps),
-            const std::string &stream_id      = "",
-            const std::string &key_format     = "{0}@{1}/{2}",
-            std::string reader                = "",
-            const caf::actor_addr addr        = caf::actor_addr(),
-            const utility::JsonStore &params  = utility::JsonStore(),
-            const utility::Uuid &source_uuid  = utility::Uuid(),
-            const utility::Uuid &media_uuid   = utility::Uuid(),
-            const utility::Uuid &clip_uuid    = utility::Uuid(),
-            const MediaType media_type        = MT_IMAGE,
-            const utility::Timecode time_code = utility::Timecode())
+            const caf::uri &uri              = caf::uri(),
+            const int frame                  = std::numeric_limits<int>::min(),
+            const int first_frame            = std::numeric_limits<int>::min(),
+            const FrameStatus frame_status   = FS_UNKNOWN,
+            const float pixel_aspect         = 1.0f,
+            const utility::FrameRate rate    = utility::FrameRate(timebase::k_flicks_24fps),
+            const std::string &stream_id     = "",
+            const std::string &key_format    = "{0}@{1}/{2}",
+            std::string reader               = "",
+            const caf::actor_addr media_addr = caf::actor_addr(),
+            const caf::actor_addr media_source_addr = caf::actor_addr(),
+            const utility::JsonStore &params        = utility::JsonStore(),
+            const utility::Uuid &source_uuid        = utility::Uuid(),
+            const utility::Uuid &media_uuid         = utility::Uuid(),
+            const utility::Uuid &clip_uuid          = utility::Uuid(),
+            const MediaType media_type              = MT_IMAGE,
+            const utility::Timecode time_code       = utility::Timecode())
             : uri_(uri),
               frame_(frame),
               key_(key_format, uri, frame, stream_id),
+              frame_status_(frame_status),
               timecode_(time_code) {
-            FixedMediaData *md = new FixedMediaData;
-            md->first_frame_   = first_frame;
-            md->rate_          = rate;
-            md->stream_id_     = stream_id;
-            md->reader_        = reader;
-            md->actor_addr_    = addr;
-            md->params_        = params;
-            md->source_uuid_   = source_uuid;
-            md->media_uuid_    = media_uuid;
-            md->clip_uuid_     = clip_uuid;
-            md->media_type_    = media_type;
+            FixedMediaData *md     = new FixedMediaData;
+            md->first_frame_       = first_frame;
+            md->pixel_aspect_      = pixel_aspect;
+            md->rate_              = rate;
+            md->stream_id_         = stream_id;
+            md->reader_            = reader;
+            md->media_addr_        = media_addr;
+            md->media_source_addr_ = media_source_addr;
+            md->params_            = params;
+            md->source_uuid_       = source_uuid;
+            md->media_uuid_        = media_uuid;
+            md->clip_uuid_         = clip_uuid;
+            md->media_type_        = media_type;
             fixed_media_data_.reset(md);
         }
 
@@ -280,6 +296,8 @@ namespace media {
         }
         [[nodiscard]] int frame() const { return frame_; }
         [[nodiscard]] int first_frame() const { return fixed_media_data_->first_frame_; }
+        [[nodiscard]] FrameStatus frame_status() const { return frame_status_; }
+        [[nodiscard]] float pixel_aspect() const { return fixed_media_data_->pixel_aspect_; }
         [[nodiscard]] const utility::FrameRate &rate() const {
             return fixed_media_data_->rate_;
         }
@@ -288,8 +306,11 @@ namespace media {
         }
         [[nodiscard]] const MediaKey &key() const { return key_; }
         [[nodiscard]] const std::string &reader() const { return fixed_media_data_->reader_; }
-        [[nodiscard]] const caf::actor_addr &actor_addr() const {
-            return fixed_media_data_->actor_addr_;
+        [[nodiscard]] const caf::actor_addr &media_source_addr() const {
+            return fixed_media_data_->media_source_addr_;
+        }
+        [[nodiscard]] const caf::actor_addr &media_addr() const {
+            return fixed_media_data_->media_addr_;
         }
         [[nodiscard]] const utility::JsonStore &params() const {
             return fixed_media_data_->params_;
@@ -307,20 +328,34 @@ namespace media {
         [[nodiscard]] const utility::Timecode &timecode() const { return timecode_; }
         [[nodiscard]] const std::string &error() const { return error_; }
 
+        utility::UuidActor media_actor() const {
+            return utility::UuidActor(media_uuid(), caf::actor_cast<caf::actor>(media_addr()));
+        }
+
+        utility::UuidActor media_source_actor() const {
+            return utility::UuidActor(
+                source_uuid(), caf::actor_cast<caf::actor>(media_source_addr()));
+        }
+
+        void set_frame_status(const FrameStatus fs) { frame_status_ = fs; }
+
       private:
         caf::uri uri_;
         int frame_;
         MediaKey key_;
+        FrameStatus frame_status_;
         utility::Timecode timecode_;
         std::string error_;
 
         struct FixedMediaData {
             caf::uri fixed_uri_;
             int first_frame_;
+            float pixel_aspect_;
             utility::FrameRate rate_;
             std::string stream_id_;
             std::string reader_;
-            caf::actor_addr actor_addr_;
+            caf::actor_addr media_source_addr_;
+            caf::actor_addr media_addr_;
             utility::JsonStore params_;
             utility::Uuid source_uuid_;
             utility::Uuid media_uuid_;
@@ -423,11 +458,17 @@ namespace media {
 
         void set_error_detail(const std::string error_detail) { error_detail_ = error_detail; }
 
+        void set_partial_seq_behaviour(const PartialSeqBehaviour _partial_seq_behaviour) {
+            partial_seq_behaviour_ = _partial_seq_behaviour;
+        }
+
         [[nodiscard]] bool has_type(const MediaType media_type) const;
         [[nodiscard]] MediaStatus media_status() const { return media_status_; }
         [[nodiscard]] bool online() const { return media_status_ == MediaStatus::MS_ONLINE; }
         [[nodiscard]] const std::string &error_detail() const { return error_detail_; }
-
+        [[nodiscard]] const PartialSeqBehaviour partial_seq_behaviour() const {
+            return partial_seq_behaviour_;
+        }
 
         [[nodiscard]] const std::list<utility::Uuid> &streams(const MediaType media_type) const;
 
@@ -446,6 +487,7 @@ namespace media {
 
       private:
         utility::MediaReference ref_;
+        PartialSeqBehaviour partial_seq_behaviour_ = {PS_COLLAPSE_TO_ON_DISK_FRAMES};
         utility::Uuid current_audio_;
         utility::Uuid current_image_;
         std::list<utility::Uuid> image_streams_;
@@ -489,10 +531,13 @@ namespace media {
             *caf::make_uri("xstudio://blank/?colour=gray"),
             0,
             0,
+            FS_UNKNOWN,
+            1.0f,
             rate,
             "",
             "{0}@{1}/{2}",
             "Blank",
+            caf::actor_addr(),
             caf::actor_addr(),
             js,
             utility::Uuid(),
@@ -503,10 +548,11 @@ namespace media {
 
     inline std::shared_ptr<const AVFrameID> make_blank_frame(
         const MediaType media_type,
-        const utility::Uuid media_uuid   = utility::Uuid(),
-        const utility::Uuid source_uuid  = utility::Uuid(),
-        const utility::Uuid clip_uuid    = utility::Uuid(),
-        const caf::actor_addr actor_addr = caf::actor_addr()) {
+        const utility::Uuid media_uuid                = utility::Uuid(),
+        const utility::Uuid source_uuid               = utility::Uuid(),
+        const utility::Uuid clip_uuid                 = utility::Uuid(),
+        const caf::actor_addr media_actor_addr        = caf::actor_addr(),
+        const caf::actor_addr media_source_actor_addr = caf::actor_addr()) {
         utility::JsonStore js;
         js["BLANK_FRAME"] = true;
 
@@ -514,14 +560,17 @@ namespace media {
             *caf::make_uri("xstudio://blank/?colour=gray"),
             0,
             0,
+            FS_UNKNOWN,
+            1.0f,
             timebase::k_flicks_24fps,
             "",
             "{0}@{1}/{2}",
             "Blank",
-            actor_addr,
+            media_actor_addr,
+            media_source_actor_addr,
             js,
-            media_uuid,
             source_uuid,
+            media_uuid,
             clip_uuid,
             media_type));
     }

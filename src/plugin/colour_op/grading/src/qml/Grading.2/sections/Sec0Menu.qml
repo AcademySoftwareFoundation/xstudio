@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Dialogs 1.3
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQuick.Dialogs
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -44,9 +43,6 @@ Item{ id: menuDiv
         menuPath: "Color Space"
         menuItemPosition: 1
         menuModelName: moreMenu.menu_model_name
-        onActivated: {
-            cdl_save_dialog.open()
-        }
     }
     XsMenuModelItem {
         menuItemType: "divider"
@@ -114,13 +110,30 @@ Item{ id: menuDiv
             copyNukeNode();
         }
     }
+
+    function saveCDL(fileUrl, folder) {
+        var path = fileUrl.toString()
+        if (!path.endsWith(".cdl") && !path.endsWith(".cc") && !path.endsWith(".ccc")) {
+            path += ".cdl"
+        }
+        attrs.grading_action = "Save CDL " + path
+    }
+
     XsMenuModelItem {
         text: "Save CDL..."
         menuPath: ""
         menuItemPosition: 9
         menuModelName: moreMenu.menu_model_name
         onActivated: {
-            cdl_save_dialog.open()
+            dialogHelpers.showFileDialog(
+                menuDiv.saveCDL,
+                file_functions.defaultSessionFolder(),
+                "Save CDL",
+                "cdl",
+                [ "CDL files (*.cdl)", "CC files (*.cc)", "CCC files (*.ccc)" ],
+                false,
+                false
+                )
         }
     }
 
@@ -189,26 +202,5 @@ Item{ id: menuDiv
         clipboard.text = cdl_node
     }
 
-    FileDialog {
-        id: cdl_save_dialog
-        title: "Save CDL"
-        defaultSuffix: "cdl"
-        folder: shortcuts.home
-        nameFilters:  [ "CDL files (*.cdl)", "CC files (*.cc)", "CCC files (*.ccc)" ]
-        selectExisting: false
-
-        // TODO: ColSci
-        // Add warning if contrast is used?
-
-        onAccepted: {
-            // defaultSuffix doesn't seem to work in the current Qt version used
-            var path = fileUrl.toString()
-            if (!path.endsWith(".cdl") && !path.endsWith(".cc") && !path.endsWith(".ccc")) {
-                path += ".cdl"
-            }
-
-            attrs.grading_action = "Save CDL " + path
-        }
-    }
 
 }

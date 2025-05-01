@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-#ifdef __linux__
+#ifndef _WIN32
 #define __USE_POSIX
 #include <unistd.h>
 #include <sys/param.h>
@@ -13,6 +13,10 @@
 #include <climits>
 
 #include <fmt/format.h>
+
+#ifdef __apple__
+#include <mach-o/dyld.h>
+#endif
 
 /*#include <reproc++/drain.hpp>
 #include <reproc++/reproc.hpp>*/
@@ -39,6 +43,51 @@ namespace fs = std::filesystem;
 // 	  return err;
 // 	}
 // }
+
+namespace xstudio {
+namespace utility {
+    static std::vector<std::pair<std::regex, std::string>> s_forward_remap_regex;
+    static std::vector<std::pair<std::regex, std::string>> s_backward_remap_regex;
+} // namespace utility
+} // namespace xstudio
+
+void xstudio::utility::setup_filepath_remap_regex(const utility::JsonStore &j) {
+    try {
+        if (!j.is_object())
+            throw std::runtime_error("Json should be a dict");
+
+        for (auto p = j.begin(); p != j.end(); ++p) {
+            auto f = p.value();
+            if (!f.is_array()) continue;
+            for (const auto &e : f) {
+                if (e.size() != 3 || !e[0].is_string() || !e[1].is_string() ||
+                    !e[2].is_boolean())
+                    throw std::runtime_error(
+                        "Elements of Json should be an array with 3 elemens [str, str, bool]");
+            }
+        }
+
+        s_forward_remap_regex.clear();
+        s_backward_remap_regex.clear();
+
+        for (auto p = j.begin(); p != j.end(); ++p) {
+            auto f = p.value();
+            if (!f.is_array()) continue;
+            for (const auto &e : f) {
+                if (e[2].get<bool>())
+                    s_forward_remap_regex.emplace_back(
+                        e[0].get<std::string>(), e[1].get<std::string>());
+                else {
+                    s_backward_remap_regex.emplace_back(
+                        e[0].get<std::string>(), e[1].get<std::string>());
+                }
+            }
+        }
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {} -- \n\n{}\n\n", __PRETTY_FUNCTION__, e.what(), j.dump(2));
+    }
+}
 
 static std::shared_ptr<ActorSystemSingleton> s_actor_system_singleton;
 
@@ -112,7 +161,8 @@ void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor
 
     if (!actor)
         return;
-    source->request(actor, caf::infinite, broadcast::join_broadcast_atom_v)
+    source->mail(broadcast::join_broadcast_atom_v)
+        .request(actor, caf::infinite)
         .then(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
@@ -123,7 +173,8 @@ void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor
 void xstudio::utility::join_broadcast(caf::blocking_actor *source, caf::actor actor) {
     if (!actor)
         return;
-    source->request(actor, caf::infinite, broadcast::join_broadcast_atom_v)
+    source->mail(broadcast::join_broadcast_atom_v)
+        .request(actor, caf::infinite)
         .receive(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
@@ -134,7 +185,8 @@ void xstudio::utility::join_broadcast(caf::blocking_actor *source, caf::actor ac
 void xstudio::utility::leave_broadcast(caf::blocking_actor *source, caf::actor actor) {
     if (!actor || !caf::actor_cast<caf::actor>(source))
         return;
-    source->request(actor, caf::infinite, broadcast::leave_broadcast_atom_v)
+    source->mail(broadcast::leave_broadcast_atom_v)
+        .request(actor, caf::infinite)
         .receive(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
@@ -145,7 +197,8 @@ void xstudio::utility::leave_broadcast(caf::blocking_actor *source, caf::actor a
 void xstudio::utility::leave_broadcast(caf::event_based_actor *source, caf::actor actor) {
     if (!actor || !caf::actor_cast<caf::actor>(source))
         return;
-    source->request(actor, caf::infinite, broadcast::leave_broadcast_atom_v)
+    source->mail(broadcast::leave_broadcast_atom_v)
+        .request(actor, caf::infinite)
         .then(
             [=](const bool) mutable {},
             [=](const error &err) mutable {
@@ -156,12 +209,14 @@ void xstudio::utility::leave_broadcast(caf::event_based_actor *source, caf::acto
 void xstudio::utility::join_event_group(caf::event_based_actor *source, caf::actor actor) {
     if (!actor)
         return;
-    source->request(actor, caf::infinite, utility::get_event_group_atom_v)
+    source->mail(utility::get_event_group_atom_v)
+        .request(actor, caf::infinite)
         .then(
             [=](caf::actor grp) mutable {
                 if (!grp)
                     return;
-                source->request(grp, caf::infinite, broadcast::join_broadcast_atom_v)
+                source->mail(broadcast::join_broadcast_atom_v)
+                    .request(grp, caf::infinite)
                     .then(
                         [=](const bool) mutable {},
                         [=](const error &err) mutable {
@@ -176,12 +231,14 @@ void xstudio::utility::join_event_group(caf::event_based_actor *source, caf::act
 void xstudio::utility::leave_event_group(caf::event_based_actor *source, caf::actor actor) {
     if (!actor)
         return;
-    source->request(actor, caf::infinite, utility::get_event_group_atom_v)
+    source->mail(utility::get_event_group_atom_v)
+        .request(actor, caf::infinite)
         .then(
             [=](caf::actor grp) mutable {
                 if (!grp)
                     return;
-                source->request(grp, caf::infinite, broadcast::leave_broadcast_atom_v)
+                source->mail(broadcast::leave_broadcast_atom_v)
+                    .request(grp, caf::infinite)
                     .then(
                         [=](const bool) mutable {},
                         [=](const error &err) mutable {
@@ -245,6 +302,10 @@ void xstudio::utility::print_on_exit(
     return output;
 }*/
 
+static std::set<std::string> doink;
+static std::set<std::string> doink2;
+static std::mutex mmmm;
+
 std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
     if (uri.path().data()) {
         // spdlog::warn("{} {}",uri.path().data(), uri_decode(uri.path().data()));
@@ -254,24 +315,36 @@ std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
             path = "/" + path;
         }
 #endif
+
 #ifdef _WIN32
 
-        std::size_t pos = path.find("/");
-        if (pos == 0) {
+        static const std::regex drive_letter_with_unwanted_leading_fwd_slash(
+            R"(^\/[A-Z]\:)", std::regex::optimize);
+        std::cmatch m;
+        if (std::regex_search(path.c_str(), m, drive_letter_with_unwanted_leading_fwd_slash)) {
             // Remove the leading /
             path.erase(0, 1);
         }
-        /*
-        // Remove the leading '[protocol]:' part
-        std::size_t pos = path.find(":");
-        if (pos != std::string::npos) {
-            path.erase(0, pos + 1); // +1 to erase the colon
-        }
-        */
 #endif
-        return path;
+        return forward_remap_file_path(path);
     }
     return "";
+}
+
+std::string xstudio::utility::forward_remap_file_path(const std::string path) {
+    auto _path = path;
+    for (const auto &remap_regex : s_forward_remap_regex) {
+        _path = std::regex_replace(_path, remap_regex.first, remap_regex.second);
+    }
+    return _path;
+}
+
+std::string xstudio::utility::reverse_remap_file_path(const std::string path) {
+    auto _path = path;
+    for (const auto &remap_regex : s_backward_remap_regex) {
+        _path = std::regex_replace(_path, remap_regex.first, remap_regex.second);
+    }
+    return _path;
 }
 
 std::string xstudio::utility::uri_encode(const std::string &s) {
@@ -471,6 +544,7 @@ caf::uri xstudio::utility::parse_cli_posix_path(
 }
 
 caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool abspath) {
+
     auto p = path;
 
     if (abspath) {
@@ -487,6 +561,9 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
 #endif
     }
 
+    p = reverse_remap_file_path(path);
+
+
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
 
     // A valid file URI must therefore begin with either file:/path (no hostname), file:///path
@@ -496,7 +573,9 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
     if (not p.empty() && p[0] != '/')
         return caf::uri_builder().scheme("file").path(p).make();
 
-    return caf::uri_builder().scheme("file").host("localhost").path(p).make();
+    auto result = caf::uri_builder().scheme("file").host("localhost").path(p).make();
+
+    return result;
 
     // NOTE: the 'localhost' hostname does not work with some readers, for
     // example ffmpeg. Currently our 'uri_to_posix_path' func simply strips the
@@ -524,11 +603,7 @@ std::vector<caf::uri> xstudio::utility::uri_subfolders(const caf::uri parent_uri
         auto c = fs::directory_iterator(uri_to_posix_path(parent_uri));
         for (const auto &entry : c) {
             if (fs::is_directory(entry)) {
-#ifdef _WIN32
                 result.emplace_back(posix_path_to_uri(entry.path().string()));
-#else
-                result.emplace_back(posix_path_to_uri(entry.path().string()));
-#endif
             }
         }
     } catch (const std::exception &err) {
@@ -667,18 +742,16 @@ std::string xstudio::utility::expand_envvars(
     const std::string &src, const std::map<std::string, std::string> &additional) {
 
 #ifdef _WIN32
-    // some prefs have ${HOME} which is Linux Windows only, on WIN we want
-    // ${USERPROFILE}
+    if (src.find("${USER}") != std::string::npos) {
+        std::string unix_home = utility::replace_once(src, "${USER}", "${USERNAME}");
+        return expand_envvars(unix_home, additional);
+    }
     if (src.find("${HOME}") != std::string::npos) {
         std::string unix_home = utility::replace_once(src, "${HOME}", "${USERPROFILE}");
         return expand_envvars(unix_home, additional);
     }
     if (src.find("${TMPDIR}") != std::string::npos) {
         std::string unix_home = utility::replace_once(src, "${TMPDIR}", "${TMP}");
-        return expand_envvars(unix_home, additional);
-    }
-    if (src.find("${USER}") != std::string::npos) {
-        std::string unix_home = utility::replace_once(src, "${USER}", "${USERNAME}");
         return expand_envvars(unix_home, additional);
     }
 #else
@@ -784,4 +857,62 @@ bool xstudio::utility::check_plugin_uri_request(const std::string &request) {
             return true;
     }
     return false;
+}
+
+std::string xstudio::utility::xstudio_root(const std::string &append_path) {
+    auto root = get_env("XSTUDIO_ROOT");
+    std::string fallback_root;
+#ifdef _WIN32
+    char filename[MAX_PATH];
+    DWORD nSize  = _countof(filename);
+    DWORD result = GetModuleFileNameA(NULL, filename, nSize);
+    if (result == 0) {
+        spdlog::critical(
+            "Unable to determine executable path from Windows API, falling back "
+            "to standard methods");
+    } else {
+        auto exePath = fs::path(filename);
+
+        // The first parent path gets us to the bin directory, the second gets us to the
+        // level above bin.
+        auto xstudio_root = exePath.parent_path().parent_path();
+        fallback_root     = xstudio_root.string() + "/share/xstudio";
+    }
+
+#elif defined(__apple__)
+    // Assuming binary is in MacOS folder in bundle
+    uint32_t sz = 4096;
+    std::array<char, 4096> bin_path;
+    auto vv = _NSGetExecutablePath(bin_path.data(), &sz);
+    auto exePath = fs::path(bin_path.data());
+    fallback_root     = exePath.parent_path().parent_path();
+#else
+
+    // TODO: This could inspect the current running process and look one directory up.
+    fallback_root = std::string(BINARY_DIR);
+    
+#endif
+
+    std::string path = (root ? (*root) + append_path : fallback_root + append_path);
+    const auto p     = fs::path(path).string();
+    return p;
+}
+
+std::string xstudio::utility::xstudio_plugin_dir(const std::string &append_path)
+{
+#ifdef __apple__
+    return xstudio_root("/PlugIns/xstudio" + append_path);
+#else
+    return xstudio_root("/plugin" + append_path);
+#endif
+
+}
+
+std::string xstudio::utility::xstudio_resources_dir(const std::string &append_path)
+{
+#ifdef __apple__
+    return xstudio_root("/Resources/" + append_path);
+#else
+    return xstudio_root("/" + append_path);
+#endif
 }

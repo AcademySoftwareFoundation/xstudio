@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-#include <algorithm>
 #include <nlohmann/json.hpp>
 
 #include "xstudio/timeline/item.hpp"
@@ -9,52 +8,7 @@ using namespace xstudio;
 using namespace xstudio::timeline;
 using namespace xstudio::utility;
 
-// Item::Item(const Item& other) :
-//     item_type_(other.item_type_),
-//     uuid_addr_(other.uuid_addr_),
-//     available_range_(other.available_range_),
-//     active_range_(other.active_range_),
-//     has_available_range_(other.has_available_range_),
-//     has_active_range_(other.has_active_range_),
-//     enabled_(other.enabled_),
-//     locked_(other.locked_),
-//     name_(other.name_),
-//     flag_(other.flag_),
-//     prop_(other.prop_),
-//     the_system_(nullptr),
-//     item_pre_event_callback_(nullptr),
-//     item_post_event_callback_(nullptr),
-//     recursive_bind_(other.recursive_bind_)
-// {
-//     Items::insert(end(), other.begin(), other.end());
-// }
-
-// Item& Item::operator=(const Item& other) {
-//     if (this != &other) {
-//         item_type_ = other.item_type_;
-//         uuid_addr_ = other.uuid_addr_;
-//         available_range_ = other.available_range_;
-//         active_range_ = other.active_range_;
-//         has_available_range_ = other.has_available_range_;
-//         has_active_range_ = other.has_active_range_;
-//         enabled_ = other.enabled_;
-//         locked_ = other.locked_;
-//         name_ = other.name_;
-//         flag_ = other.flag_;
-//         prop_ = other.prop_;
-//         the_system_ = nullptr;
-//         item_pre_event_callback_ = nullptr;
-//         item_post_event_callback_ = nullptr;
-//         recursive_bind_ = other.recursive_bind_;
-//         clear();
-//         Items::insert(end(), other.begin(), other.end());
-//     }
-
-//     return *this;
-// }
-
-Item::Item(const utility::JsonStore &jsn, caf::actor_system *system)
-    : Items(), the_system_(system) {
+Item::Item(const JsonStore &jsn, caf::actor_system *system) : Items(), the_system_(system) {
     uuid_addr_.first = jsn.at("uuid");
     item_type_       = jsn.at("type");
     enabled_         = jsn.at("enabled");
@@ -84,7 +38,7 @@ Item::Item(const utility::JsonStore &jsn, caf::actor_system *system)
         markers_.emplace_back(Marker(JsonStore(i)));
 
     for (const auto &i : jsn.at("children")) {
-        emplace_back(Item(utility::JsonStore(i), the_system_));
+        emplace_back(Item(JsonStore(i), the_system_));
     }
 }
 
@@ -109,7 +63,7 @@ std::string Item::actor_addr_to_string(const caf::actor_addr &addr) const {
         binary_serializer bs{system(), buf};
         auto e = bs.apply(addr);
         if (e)
-            str = utility::make_hex_string(std::begin(buf), std::end(buf));
+            str = make_hex_string(std::begin(buf), std::end(buf));
     }
     return str;
 }
@@ -124,8 +78,8 @@ caf::actor_addr Item::string_to_actor_addr(const std::string &str) const {
     return addr;
 }
 
-utility::JsonStore Item::serialise(const int depth) const {
-    utility::JsonStore jsn;
+JsonStore Item::serialise(const int depth) const {
+    JsonStore jsn;
 
     jsn["uuid"]       = uuid_addr_.first;
     jsn["actor_addr"] = actor_addr_to_string(uuid_addr_.second);
@@ -154,79 +108,79 @@ utility::JsonStore Item::serialise(const int depth) const {
 
     return jsn;
 }
-std::optional<utility::FrameRange> Item::active_range() const {
+std::optional<FrameRange> Item::active_range() const {
     if (has_active_range_)
         return active_range_;
 
     return {};
 }
-std::optional<utility::FrameRange> Item::available_range() const {
+std::optional<FrameRange> Item::available_range() const {
     if (has_available_range_)
         return available_range_;
     return {};
 }
 
-utility::FrameRange Item::trimmed_range() const {
+FrameRange Item::trimmed_range() const {
     if (has_active_range_)
         return active_range_;
 
     if (has_available_range_)
         return available_range_;
 
-    return utility::FrameRange();
+    return FrameRange();
 }
 
-utility::FrameRate Item::trimmed_duration() const {
+FrameRate Item::trimmed_duration() const {
     if (has_active_range_)
         return active_range_.duration();
 
     if (has_available_range_)
         return available_range_.duration();
 
-    return utility::FrameRate();
+    return FrameRate();
 }
 
-utility::FrameRate Item::trimmed_start() const {
+FrameRate Item::trimmed_start() const {
     if (has_active_range_)
         return active_range_.start();
 
     if (has_available_range_)
         return available_range_.start();
 
-    return utility::FrameRate();
+    return FrameRate();
 }
 
-std::optional<utility::FrameRate> Item::available_duration() const {
+std::optional<FrameRate> Item::available_duration() const {
     if (has_available_range_)
         return available_range_.duration();
     return {};
 }
 
-std::optional<utility::FrameRate> Item::active_duration() const {
+std::optional<FrameRate> Item::active_duration() const {
     if (has_active_range_)
         return active_range_.duration();
     return {};
 }
 
-std::optional<utility::FrameRate> Item::available_start() const {
+std::optional<FrameRate> Item::available_start() const {
     if (has_available_range_)
         return available_range_.start();
     return {};
 }
 
-std::optional<utility::FrameRate> Item::active_start() const {
+std::optional<FrameRate> Item::active_start() const {
     if (has_active_range_)
         return active_range_.start();
     return {};
 }
 
-std::optional<utility::FrameRateDuration> Item::active_frame_duration() const {
+std::optional<FrameRateDuration> Item::active_frame_duration() const {
     if (has_active_range_)
         return active_range_.frame_duration();
     return {};
 }
 
-std::optional<utility::FrameRateDuration> Item::available_frame_duration() const {
+std::optional<FrameRateDuration> Item::available_frame_duration() const {
     if (has_available_range_)
         return available_range_.frame_duration();
     return {};
@@ -235,9 +189,9 @@ std::optional<utility::FrameRateDuration> Item::available_frame_duration() const
 
 // ordering might matter here..
 // so watch out if things go wrong.
-utility::JsonStore Item::refresh(const int depth) {
+JsonStore Item::refresh(const int depth) {
     if (not depth)
-        return utility::JsonStore();
+        return JsonStore();
 
     auto result = nlohmann::json::array();
 
@@ -293,9 +247,9 @@ utility::JsonStore Item::refresh(const int depth) {
     }
 
     if (result.empty())
-        return utility::JsonStore();
+        return JsonStore();
 
-    return utility::JsonStore(result);
+    return JsonStore(result);
 }
 
 bool Item::valid() const {
@@ -394,9 +348,9 @@ bool Item::valid_child(const Item &child) const {
     return valid;
 }
 
-utility::UuidActorVector
+UuidActorVector
 Item::find_all_uuid_actors(const ItemType item_type, const bool only_enabled_items) const {
-    utility::UuidActorVector items;
+    UuidActorVector items;
 
     if (item_type_ == item_type && (!only_enabled_items || enabled_))
         items.push_back(uuid_actor());
@@ -451,7 +405,7 @@ Item::find_all_items(const ItemType item_type, const ItemType track_type) {
     const timebase::flicks print_range_out,
     const timebase::flicks frame_inteval,
     const media::MediaType mt,
-    const utility::UuidSet &focus,
+    const UuidSet &focus,
     const bool must_have_focus) const
 {
     if (transparent())
@@ -471,7 +425,7 @@ Item::find_all_items(const ItemType item_type, const ItemType track_type) {
         const auto td = it.trimmed_duration();
         while (time < td && time <= print_range_out) {
             // print clip/gap frame here
-            result[idx++] = std::pair<const Item &, utility::FrameRate>(it, time +
+            result[idx++] = std::pair<const Item &, FrameRate>(it, time +
 it.trimmed_start()); time += frame_inteval;
         }
 
@@ -481,9 +435,9 @@ it.trimmed_start()); time += frame_inteval;
 }*/
 
 std::optional<ResolvedItem> Item::resolve_time(
-    const utility::FrameRate &time,
+    const FrameRate &time,
     const media::MediaType mt,
-    const utility::UuidSet &focus,
+    const UuidSet &focus,
     const bool must_have_focus) const {
     if (transparent())
         return {};
@@ -600,7 +554,7 @@ std::optional<ResolvedItem> Item::resolve_time(
 
     case IT_CLIP:
         if (not must_have_focus or focus.count(uuid()))
-            return std::pair<const Item &, utility::FrameRate>(*this, time + trimmed_start());
+            return std::pair<const Item &, FrameRate>(*this, time + trimmed_start());
         break;
     case IT_GAP:
     case IT_NONE:
@@ -611,9 +565,9 @@ std::optional<ResolvedItem> Item::resolve_time(
 }
 
 std::vector<ResolvedItem> Item::resolve_time_raw(
-    const utility::FrameRate &time,
+    const FrameRate &time,
     const media::MediaType mt,
-    const utility::UuidSet &focus,
+    const UuidSet &focus,
     const bool ignore_disabled) const {
     auto result = std::vector<ResolvedItem>();
 
@@ -722,8 +676,7 @@ std::vector<ResolvedItem> Item::resolve_time_raw(
 
     case IT_GAP:
     case IT_CLIP:
-        result.emplace_back(
-            std::pair<const Item &, utility::FrameRate>(*this, time + trimmed_start()));
+        result.emplace_back(std::pair<const Item &, FrameRate>(*this, time + trimmed_start()));
         break;
     case IT_NONE:
     default:
@@ -741,11 +694,11 @@ void Item::set_name_direct(const std::string &value) { name_ = value; }
 
 void Item::set_flag_direct(const std::string &value) { flag_ = value; }
 
-void Item::set_prop_direct(const utility::JsonStore &value) { prop_ = value; }
+void Item::set_prop_direct(const JsonStore &value) { prop_ = value; }
 
 void Item::set_markers_direct(const Markers &value) { markers_ = value; }
 
-bool Item::has_dirty(const utility::JsonStore &event) {
+bool Item::has_dirty(const JsonStore &event) {
     auto result = false;
     for (const auto &i : event) {
         if (i.at("undo").value("action", ItemAction::IA_NONE) == ItemAction::IA_DIRTY) {
@@ -758,9 +711,9 @@ bool Item::has_dirty(const utility::JsonStore &event) {
 }
 
 
-utility::JsonStore Item::set_enabled(const bool value) {
+JsonStore Item::set_enabled(const bool value) {
     if (enabled_ != value) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_ENABLE;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -776,12 +729,12 @@ utility::JsonStore Item::set_enabled(const bool value) {
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
-utility::JsonStore Item::set_locked(const bool value) {
+JsonStore Item::set_locked(const bool value) {
     if (locked_ != value) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_LOCK;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -791,12 +744,12 @@ utility::JsonStore Item::set_locked(const bool value) {
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
-utility::JsonStore Item::set_name(const std::string &value) {
+JsonStore Item::set_name(const std::string &value) {
     if (name_ != value) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_NAME;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -806,12 +759,12 @@ utility::JsonStore Item::set_name(const std::string &value) {
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
-utility::JsonStore Item::set_flag(const std::string &value) {
+JsonStore Item::set_flag(const std::string &value) {
     if (flag_ != value) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_FLAG;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -821,12 +774,12 @@ utility::JsonStore Item::set_flag(const std::string &value) {
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
-utility::JsonStore Item::set_prop(const utility::JsonStore &value) {
+JsonStore Item::set_prop(const JsonStore &value) {
     if (prop_ != value) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_PROP;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -844,13 +797,13 @@ utility::JsonStore Item::set_prop(const utility::JsonStore &value) {
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
 void Item::set_actor_addr_direct(const caf::actor_addr &value) { uuid_addr_.second = value; }
 
-utility::JsonStore Item::make_actor_addr_update() const {
-    utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+JsonStore Item::make_actor_addr_update() const {
+    JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
 
     jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
     jsn[0]["redo"]["action"]                                = ItemAction::IA_ADDR;
@@ -860,9 +813,9 @@ utility::JsonStore Item::make_actor_addr_update() const {
     return jsn;
 }
 
-utility::JsonStore Item::set_actor_addr(const caf::actor_addr &value) {
+JsonStore Item::set_actor_addr(const caf::actor_addr &value) {
     if (uuid_addr_.second != value) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_ADDR;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -881,12 +834,12 @@ utility::JsonStore Item::set_actor_addr(const caf::actor_addr &value) {
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
-utility::JsonStore Item::set_markers(const Markers &value) {
+JsonStore Item::set_markers(const Markers &value) {
     if (value != markers_) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_MARKER;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -897,19 +850,17 @@ utility::JsonStore Item::set_markers(const Markers &value) {
         set_markers_direct(value);
         return jsn;
     }
-    return utility::JsonStore();
+    return JsonStore();
 }
 
-void Item::set_range_direct(
-    const utility::FrameRange &avail, const utility::FrameRange &active) {
+void Item::set_range_direct(const FrameRange &avail, const FrameRange &active) {
     set_available_range_direct(avail);
     set_active_range_direct(active);
 }
 
-utility::JsonStore
-Item::set_range(const utility::FrameRange &avail, const utility::FrameRange &active) {
+JsonStore Item::set_range(const FrameRange &avail, const FrameRange &active) {
     if (active != active_range_ || avail != available_range_) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_RANGE;
         jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
@@ -933,18 +884,18 @@ Item::set_range(const utility::FrameRange &avail, const utility::FrameRange &act
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
 
-void Item::set_active_range_direct(const utility::FrameRange &value) {
+void Item::set_active_range_direct(const FrameRange &value) {
     has_active_range_ = true;
     active_range_     = value;
 }
 
-utility::JsonStore Item::set_active_range(const utility::FrameRange &value) {
+JsonStore Item::set_active_range(const FrameRange &value) {
     if (value != active_range_) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
 
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_ACTIVE;
@@ -965,17 +916,17 @@ utility::JsonStore Item::set_active_range(const utility::FrameRange &value) {
         return jsn;
     }
 
-    return utility::JsonStore();
+    return JsonStore();
 }
 
-void Item::set_available_range_direct(const utility::FrameRange &value) {
+void Item::set_available_range_direct(const FrameRange &value) {
     has_available_range_ = true;
     available_range_     = value;
 }
 
-utility::JsonStore Item::set_available_range(const utility::FrameRange &value) {
+JsonStore Item::set_available_range(const FrameRange &value) {
     if (value != available_range_) {
-        utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+        JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
 
         jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
         jsn[0]["undo"]["action"] = jsn[0]["redo"]["action"] = ItemAction::IA_AVAIL;
@@ -995,7 +946,7 @@ utility::JsonStore Item::set_available_range(const utility::FrameRange &value) {
         set_available_range_direct(value);
         return jsn;
     }
-    return utility::JsonStore();
+    return JsonStore();
 }
 
 Items::iterator Item::insert_direct(Items::iterator position, const Item &val) {
@@ -1008,9 +959,8 @@ Items::iterator Item::insert_direct(Items::iterator position, const Item &val) {
     return it;
 }
 
-utility::JsonStore
-Item::insert(Items::iterator position, const Item &value, const utility::JsonStore &blind) {
-    utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+JsonStore Item::insert(Items::iterator position, const Item &value, const JsonStore &blind) {
+    JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
     auto index = std::distance(begin(), position);
 
     jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
@@ -1037,8 +987,8 @@ Item::insert(Items::iterator position, const Item &value, const utility::JsonSto
 
 Items::iterator Item::erase_direct(Items::iterator position) { return Items::erase(position); }
 
-utility::JsonStore Item::erase(Items::iterator position, const utility::JsonStore &blind) {
-    utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+JsonStore Item::erase(Items::iterator position, const JsonStore &blind) {
+    JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
     auto index = std::distance(begin(), position);
 
     jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
@@ -1071,13 +1021,13 @@ void Item::splice_direct(
     Items::splice(pos, other, first, last);
 }
 
-utility::JsonStore Item::splice(
+JsonStore Item::splice(
     Items::const_iterator pos,
     Items &other,
     Items::const_iterator first,
     Items::const_iterator last) {
 
-    utility::JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
+    JsonStore jsn(R"([{"undo":{}, "redo":{}}])"_json);
 
     auto dst_index   = std::distance(cbegin(), pos);
     auto start_index = std::distance(cbegin(), first);
@@ -1121,26 +1071,26 @@ utility::JsonStore Item::splice(
 }
 
 // apply update that occurred outside our tree.
-std::set<utility::Uuid> Item::update(const utility::JsonStore &event) {
-    auto result = std::set<utility::Uuid>();
+std::set<Uuid> Item::update(const JsonStore &event) {
+    auto result = std::set<Uuid>();
     for (const auto &i : event)
         if (process_event(i.at("redo")))
             result.insert(i.at("redo").at("event_id"));
     return result;
 }
 
-void Item::undo(const utility::JsonStore &event) {
+void Item::undo(const JsonStore &event) {
     // reverse ordering..
     for (auto it = event.crbegin(); it != event.crend(); ++it)
         process_event(it->at("undo"));
 }
 
-void Item::redo(const utility::JsonStore &event) {
+void Item::redo(const JsonStore &event) {
     for (const auto &i : event)
         process_event(i.at("redo"));
 }
 
-bool Item::process_event(const utility::JsonStore &event) {
+bool Item::process_event(const JsonStore &event) {
     // spdlog::warn("{} {}", name(), event.dump(2));
 
     if (Uuid(event.at("uuid")) == uuid_addr_.first) {
@@ -1317,8 +1267,8 @@ Item::item_at_frame(const int track_frame) const {
     return {};
 }
 
-utility::FrameRange Item::range_at_index(const int item_index) const {
-    auto result = utility::FrameRange();
+FrameRange Item::range_at_index(const int item_index) const {
+    auto result = FrameRange();
     result.set_rate(trimmed_range().rate());
 
     auto start = trimmed_range().start();
@@ -1361,9 +1311,7 @@ int Item::frame_at_index(const int item_index, const int item_frame) const {
 }
 
 std::optional<int> Item::frame_at_item_frame(
-    const utility::Uuid &item_uuid,
-    const int item_local_frame,
-    const bool skip_disabled) const {
+    const Uuid &item_uuid, const int item_local_frame, const bool skip_disabled) const {
     std::vector<int> result;
     auto item          = find_item(children(), item_uuid);
     auto item_top_left = top_left(item_uuid);
@@ -1384,7 +1332,7 @@ std::optional<Items::const_iterator> Item::item_at_index(const int index) const 
 }
 
 
-std::optional<Point> Item::top_left(const utility::Uuid &_uuid) const {
+std::optional<timeline::Point> Item::top_left(const Uuid &_uuid) const {
 
     if (_uuid == uuid()) {
         return top_left();
@@ -1397,9 +1345,9 @@ std::optional<Point> Item::top_left(const utility::Uuid &_uuid) const {
     return {};
 }
 
-Point Item::top_left() const { return std::make_pair(0, 0); }
+timeline::Point Item::top_left() const { return std::make_pair(0, 0); }
 
-std::optional<Point> Item::bottom_right(const utility::Uuid &_uuid) const {
+std::optional<timeline::Point> Item::bottom_right(const Uuid &_uuid) const {
     if (_uuid == uuid()) {
         return bottom_right();
     } else {
@@ -1411,7 +1359,7 @@ std::optional<Point> Item::bottom_right(const utility::Uuid &_uuid) const {
     return {};
 }
 
-Point Item::bottom_right() const {
+timeline::Point Item::bottom_right() const {
     auto y = 0;
     switch (item_type_) {
     case IT_TIMELINE:
@@ -1443,7 +1391,7 @@ Point Item::bottom_right() const {
     return std::make_pair(trimmed_frame_duration().frames(), y);
 }
 
-std::optional<Box> Item::box(const utility::Uuid &_uuid) const {
+std::optional<Box> Item::box(const Uuid &_uuid) const {
     if (_uuid == uuid()) {
         return box();
     } else {
@@ -1499,7 +1447,7 @@ std::optional<Box> Item::box(const utility::Uuid &_uuid) const {
 Box Item::box() const { return std::make_pair(top_left(), bottom_right()); }
 
 // merge gaps, prune trailing gaps, remove null clips.
-void Item::clean(const bool purge_clips) {
+void Item::merge_gaps(const bool purge_empty_clips) {
     auto previous = end();
     auto it       = begin();
 
@@ -1508,7 +1456,7 @@ void Item::clean(const bool purge_clips) {
         case IT_GAP:
             if (previous != end() and previous->item_type_ == IT_GAP) {
                 // merge..
-                previous->set_available_range(utility::FrameRange(
+                previous->set_available_range(FrameRange(
                     previous->trimmed_start(),
                     previous->trimmed_duration() + it->trimmed_duration(),
                     previous->rate()));
@@ -1522,9 +1470,9 @@ void Item::clean(const bool purge_clips) {
             break;
 
         case IT_CLIP:
-            if (it->prop().value("media_uuid", Uuid()).is_null() and purge_clips) {
+            if (it->prop().value("media_uuid", Uuid()).is_null() and purge_empty_clips) {
                 if (previous != end() and previous->item_type_ == IT_GAP) {
-                    previous->set_available_range(utility::FrameRange(
+                    previous->set_available_range(FrameRange(
                         previous->trimmed_start(),
                         previous->trimmed_duration() + it->trimmed_duration(),
                         previous->rate()));
@@ -1534,7 +1482,7 @@ void Item::clean(const bool purge_clips) {
                 } else {
                     auto gap = Item(IT_GAP, "Gap");
                     gap.set_available_range(
-                        utility::FrameRange(FrameRate(), it->trimmed_duration(), it->rate()));
+                        FrameRange(FrameRate(), it->trimmed_duration(), it->rate()));
                     gap.set_active_range(*(gap.available_range()));
 
                     previous = insert_direct(it, gap);
@@ -1552,7 +1500,7 @@ void Item::clean(const bool purge_clips) {
         case IT_TIMELINE:
         // purge empty tracks from head and tail?
         case IT_STACK:
-            it->clean(purge_clips);
+            it->merge_gaps(purge_empty_clips);
             previous = it;
             it++;
             break;
@@ -1651,9 +1599,9 @@ class BuildFrameIDsHelper {
 
 caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     const media::MediaType media_type,
-    const utility::TimeSourceMode tsm,
-    const utility::FrameRate &override_rate,
-    const utility::UuidSet &focus_list) {
+    const TimeSourceMode tsm,
+    const FrameRate &override_rate,
+    const UuidSet &focus_list) {
     auto foo = caf::actor_cast<caf::event_based_actor *>(actor());
     auto rp  = foo->make_response_promise<media::FrameTimeMapPtr>();
 
@@ -1747,13 +1695,8 @@ void BuildFrameIDsHelper::request_clip_frames() {
     incref();
 
     parent_actor_
-        ->request(
-            current_clip_actor_,
-            infinite,
-            media::get_media_pointer_atom_v,
-            media_type_,
-            clip_timepoints_,
-            base_rate_)
+        ->mail(media::get_media_pointer_atom_v, media_type_, clip_timepoints_, base_rate_)
+        .request(current_clip_actor_, infinite)
         .then(
             [=](const media::AVFrameIDs &mps) mutable {
                 int idx = 0;

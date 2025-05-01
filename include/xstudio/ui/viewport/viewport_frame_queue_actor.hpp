@@ -42,6 +42,8 @@ namespace ui {
           private:
             caf::behavior make_behavior() override { return behavior_; }
 
+            caf::disposable monitor_;
+
             caf::behavior behavior_;
 
             utility::UuidActor playhead_;

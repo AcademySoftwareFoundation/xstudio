@@ -25,9 +25,7 @@ ACTOR_TEST_SETUP()
 TEST(ContactSheetActorTest, Test) {
     // fixture f;
     // auto tmp = f.self->spawn<PlaylistActor>("Test");
-    // f.self->anon_send(
-    //     tmp,
-    //     add_media_atom_v,
+    // f.self->anon_mail(//     add_media_atom_v,
     //     f.self->spawn<MediaActor>(
     //         "test",
     //         Uuid(),
@@ -35,16 +33,14 @@ TEST(ContactSheetActorTest, Test) {
     //             "test",
     //             posix_path_to_uri(TEST_RESOURCE "/media/test.{:04d}.ppm"),
     //             FrameList(1, 10))),
-    //     Uuid());
-    // f.self->anon_send(
-    //     tmp,
-    //     add_media_atom_v,
+    //     Uuid()).send(//     tmp);
+    // f.self->anon_mail(//     add_media_atom_v,
     //     f.self->spawn<MediaActor>(
     //         "test",
     //         Uuid(),
     //         f.self->spawn<MediaSourceActor>(
     //             "test", posix_path_to_uri(TEST_RESOURCE "/media/test.mov"))),
-    //     Uuid());
+    //     Uuid()).send(//     tmp);
 
     // f.self->request(tmp, std::chrono::seconds(10), name_atom_v).receive(
     // 	[&](const std::string &name) {

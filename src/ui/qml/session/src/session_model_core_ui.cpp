@@ -8,10 +8,6 @@
 
 CAF_PUSH_WARNINGS
 #include <QThreadPool>
-#include <QFutureWatcher>
-#include <QtConcurrent>
-#include <QSignalSpy>
-#include <QImage>
 CAF_POP_WARNINGS
 
 using namespace caf;
@@ -315,7 +311,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             index,
                             role);
                     } else {
-                        auto uri = caf::make_uri(j.at("path"));
+                        auto uri = caf::make_uri(j.at("path").get<std::string>());
                         if (uri)
                             result = QVariant::fromValue(QUrlFromUri(*uri));
                     }
@@ -338,7 +334,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             index,
                             role);
                     } else {
-                        auto uri = caf::make_uri(j.at("path_shake"));
+                        auto uri = caf::make_uri(j.at("path_shake").get<std::string>());
                         if (uri)
                             result = QVariant::fromValue(QUrlFromUri(*uri));
                     }
@@ -698,7 +694,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                     } else {
                         auto actor = actorFromString(system(), actor_str);
                         if (actor)
-                            anon_send(actor, media_reader::get_thumbnail_atom_v, 0.5f);
+                            anon_mail(media_reader::get_thumbnail_atom_v, 0.5f).send(actor);
                     }
                 }
             } break;
@@ -713,7 +709,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                             index,
                             role);
                     else {
-                        auto uri = caf::make_uri(j.at("thumbnail_url"));
+                        auto uri = caf::make_uri(j.at("thumbnail_url").get<std::string>());
                         if (uri)
                             result = QVariant::fromValue(QUrlFromUri(*uri));
                     }
@@ -817,8 +813,9 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
                 if (j.count("placeholder")) {
                     result = QVariant::fromValue(true);
                 } else if (
-                    j.count("active_range") and j.at("active_range").is_object() and
-                    j.count("available_range") and j.at("available_range").is_object()) {
+                    j.at("type") != "Gap" and j.count("active_range") and
+                    j.at("active_range").is_object() and j.count("available_range") and
+                    j.at("available_range").is_object()) {
                     try {
                         const auto active = j.value("active_range", FrameRange());
                         const auto avail  = j.value("available_range", FrameRange());
@@ -1058,7 +1055,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                             j["prop"]["media_uuid"] = value;
 
                             if (actor)
-                                anon_send(actor, timeline::link_media_atom_v, ua);
+                                anon_mail(timeline::link_media_atom_v, ua).send(actor);
                             result = true;
                         }
                     }
@@ -1094,7 +1091,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         roles.push_back(trimmedStartRole);
                         roles.push_back(activeRangeValidRole);
                         if (actor)
-                            anon_send(actor, timeline::active_range_atom_v, fr);
+                            anon_mail(timeline::active_range_atom_v, fr).send(actor);
                     }
                 }
                 break;
@@ -1108,7 +1105,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                             auto markers = std::vector<timeline::Marker>();
                             for (const auto &i : j.at("markers"))
                                 markers.emplace_back(timeline::Marker(JsonStore(i)));
-                            anon_send(actor, timeline::item_marker_atom_v, markers);
+                            anon_mail(timeline::item_marker_atom_v, markers).send(actor);
                         }
                     }
                 }
@@ -1121,7 +1118,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         result    = true;
                         roles.push_back(clipMediaUuidRole);
                         if (actor)
-                            anon_send(actor, timeline::item_prop_atom_v, JsonStore(value));
+                            anon_mail(timeline::item_prop_atom_v, JsonStore(value)).send(actor);
                     }
                 }
                 break;
@@ -1150,7 +1147,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         roles.push_back(trimmedDurationRole);
                         roles.push_back(activeRangeValidRole);
                         if (actor)
-                            anon_send(actor, timeline::active_range_atom_v, fr);
+                            anon_mail(timeline::active_range_atom_v, fr).send(actor);
                     }
                 }
                 break;
@@ -1170,7 +1167,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         roles.push_back(activeRangeValidRole);
 
                         if (actor)
-                            anon_send(actor, timeline::available_range_atom_v, fr);
+                            anon_mail(timeline::available_range_atom_v, fr).send(actor);
                     }
                 }
                 break;
@@ -1189,7 +1186,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                         roles.push_back(trimmedDurationRole);
                         roles.push_back(activeRangeValidRole);
                         if (actor)
-                            anon_send(actor, timeline::available_range_atom_v, fr);
+                            anon_mail(timeline::available_range_atom_v, fr).send(actor);
                     }
                 }
                 break;
@@ -1200,7 +1197,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     result       = true;
                     if (type == "Clip" or type == "Gap" or type == "Audio Track" or
                         type == "Video Track" or type == "Stack") {
-                        anon_send(actor, plugin_manager::enable_atom_v, value.get<bool>());
+                        anon_mail(plugin_manager::enable_atom_v, value.get<bool>()).send(actor);
                     }
                 }
                 break;
@@ -1211,7 +1208,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     result      = true;
                     if (type == "Clip" or type == "Gap" or type == "Audio Track" or
                         type == "Video Track" or type == "Stack" or type == "Timeline") {
-                        anon_send(actor, timeline::item_lock_atom_v, value.get<bool>());
+                        anon_mail(timeline::item_lock_atom_v, value.get<bool>()).send(actor);
                     }
                 }
                 break;
@@ -1265,17 +1262,17 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     j["image_actor_uuid"] = value;
                     result                = true;
                     if (type == "MediaSource") {
-                        anon_send(
-                            actor,
+                        anon_mail(
                             media::current_media_stream_atom_v,
                             media::MT_IMAGE,
-                            j["image_actor_uuid"].get<utility::Uuid>());
+                            j["image_actor_uuid"].get<utility::Uuid>())
+                            .send(actor);
                     } else if (type == "Media") {
-                        anon_send(
-                            actor,
+                        anon_mail(
                             media::current_media_source_atom_v,
                             j["image_actor_uuid"].get<utility::Uuid>(),
-                            media::MT_IMAGE);
+                            media::MT_IMAGE)
+                            .send(actor);
                     }
                 }
                 break;
@@ -1305,13 +1302,23 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                             auto mr = request_receive<MediaReference>(
                                 *sys, actor, media::media_reference_atom_v);
                             mr.set_rate(fr);
-                            anon_send(actor, media::media_reference_atom_v, mr);
+                            anon_mail(media::media_reference_atom_v, mr).send(actor);
                         } else if (type == "Session") {
-                            anon_send(session_actor_, session::media_rate_atom_v, fr);
+                            anon_mail(session::media_rate_atom_v, fr).send(session_actor_);
                         }
                     }
                 }
                 break;
+
+            case pixelAspectRole: {
+                auto image_source_actor = j.count("actor") and not j.at("actor").is_null()
+                                              ? actorFromString(system(), j.at("actor"))
+                                              : caf::actor();
+                if (image_source_actor) {
+                    anon_mail(media::pixel_aspect_atom_v, value.get<double>())
+                        .send(image_source_actor);
+                }
+            }
 
             case nameRole:
                 if (j.count("name") and j["name"] != value) {
@@ -1319,7 +1326,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                          type == "Timeline" or type == "Playlist") and
                         actor) {
                         // spdlog::warn("Send update {} {}", j["name"], value);
-                        anon_send(actor, utility::name_atom_v, value.get<std::string>());
+                        anon_mail(utility::name_atom_v, value.get<std::string>()).send(actor);
                         j["name"] = value;
                         result    = true;
                         emit playlistsChanged();
@@ -1340,11 +1347,11 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
 
                             if (pactor) {
                                 // spdlog::warn("Send update {} {}", j["name"], value);
-                                anon_send(
-                                    pactor,
+                                anon_mail(
                                     playlist::rename_container_atom_v,
                                     value.get<std::string>(),
-                                    j.at("container_uuid").get<Uuid>());
+                                    j.at("container_uuid").get<Uuid>())
+                                    .send(pactor);
                                 j["name"] = value;
                                 result    = true;
                             }
@@ -1352,7 +1359,8 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                     } else if (
                         type == "Clip" or type == "Gap" or type == "Stack" or
                         type == "Audio Track" or type == "Video Track") {
-                        anon_send(actor, timeline::item_name_atom_v, value.get<std::string>());
+                        anon_mail(timeline::item_name_atom_v, value.get<std::string>())
+                            .send(actor);
                         j["name"] = value;
                         result    = true;
                     }
@@ -1368,12 +1376,12 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                                                     : caf::actor();
                             if (actor) {
                                 // spdlog::warn("Send update {} {}", j["flag"], value);
-                                anon_send(
-                                    actor,
+                                anon_mail(
                                     playlist::reflag_container_atom_v,
                                     std::make_tuple(
                                         std::optional<std::string>(),
-                                        std::optional<std::string>(value.get<std::string>())));
+                                        std::optional<std::string>(value.get<std::string>())))
+                                    .send(actor);
                                 j["flag_text"] = value;
                                 result         = true;
                             }
@@ -1391,12 +1399,12 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                                                 : caf::actor();
                         if (actor) {
                             // spdlog::warn("Send update {} {}", j["flag"], value);
-                            anon_send(
-                                actor,
+                            anon_mail(
                                 playlist::reflag_container_atom_v,
                                 std::make_tuple(
                                     std::optional<std::string>(value.get<std::string>()),
-                                    std::optional<std::string>()));
+                                    std::optional<std::string>()))
+                                .send(actor);
                             j["flag"] = value;
                             result    = true;
                         }
@@ -1418,11 +1426,11 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
 
                             if (pactor) {
                                 // spdlog::warn("Send update {} {}", j["flag"], value);
-                                anon_send(
-                                    pactor,
+                                anon_mail(
                                     playlist::reflag_container_atom_v,
                                     value.get<std::string>(),
-                                    j.at("container_uuid").get<Uuid>());
+                                    j.at("container_uuid").get<Uuid>())
+                                    .send(pactor);
                                 j["flag"] = value;
                                 result    = true;
                             }
@@ -1435,8 +1443,8 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                                                 ? actorFromString(system(), j.at("actor"))
                                                 : caf::actor();
                         if (actor) {
-                            anon_send(
-                                actor, timeline::item_flag_atom_v, value.get<std::string>());
+                            anon_mail(timeline::item_flag_atom_v, value.get<std::string>())
+                                .send(actor);
                             j["flag"] = value;
                             result    = true;
                         }
@@ -1452,7 +1460,7 @@ bool SessionModel::setData(const QModelIndex &index, const QVariant &qvalue, int
                                             : caf::actor();
                     if (actor) {
                         // spdlog::warn("Send update {} {}", j["flag"], value);
-                        anon_send(actor, playlist::expanded_atom_v, value.get<bool>());
+                        anon_mail(playlist::expanded_atom_v, value.get<bool>()).send(actor);
                         j["expanded"] = value;
                         result        = true;
                     }

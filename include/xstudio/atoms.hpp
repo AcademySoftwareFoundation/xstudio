@@ -11,6 +11,10 @@
 #include <stduuid/uuid.h>
 #include <semver.hpp>
 
+#ifdef __apple__
+#undef nil
+#endif
+
 #include "flicks.hpp"
 #include "xstudio/enums.hpp"
 #include "xstudio/caf_error.hpp"
@@ -267,6 +271,10 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, FIRST_CUSTOM_ID)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::MediaReference))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::PlaylistTree))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::time_point))
+#ifndef __linux__
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::sys_time_point))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::sys_time_duration))    
+#endif
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::Timecode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::TimeSourceMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::Uuid))
@@ -279,6 +287,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, FIRST_CUSTOM_ID)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::playhead::SelectionMode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::timeline::ItemType))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::ColourTriplet))
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (spdlog::level::level_enum))
 
 CAF_END_TYPE_ID_BLOCK(xstudio_simple_types)
 
@@ -329,7 +338,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<int16_t>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<int>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<size_t>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::byte>))
+    // CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::byte>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<int, int>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<int, xstudio::utility::time_point>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::media::MediaKey, xstudio::utility::time_point>>))
@@ -372,7 +381,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
 
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::timeline::Item, xstudio::utility::FrameRate>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::timeline::Marker>))
-    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::optional<std::pair<std::string,caf::uri>>>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::optional<std::tuple<std::string, caf::uri, xstudio::utility::JsonStore>>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::UuidActor, std::pair<xstudio::utility::UuidActor,xstudio::utility::UuidActor>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::pair<xstudio::utility::UuidActor, std::pair<xstudio::utility::UuidActor,xstudio::utility::UuidActor>>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::pair<xstudio::utility::UuidActor, std::pair<std::string, xstudio::utility::UuidActor>>))
@@ -544,6 +553,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_plugin_atoms,  FIRST_CUSTOM_ID + (200 * 3))
     // **************** add new entries here ******************
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::conform, conform_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::conform, conform_tasks_atom)
+    CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::media_hook, get_clip_hook_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_plugin_atoms)
 
@@ -584,6 +594,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, relink_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, rescan_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, source_offset_frames_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media, pixel_aspect_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::media_metadata, get_metadata_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, add_media_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::playlist, add_media_with_subsets_atom)
@@ -631,6 +642,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_session_atoms, FIRST_CUSTOM_ID + (200 * 4))
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, export_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, get_playlist_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, get_playlists_atom)
+    CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, get_push_playlist_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, import_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, load_uris_atom)
     CAF_ADD_ATOM(xstudio_session_atoms, xstudio::session, media_rate_atom)
@@ -854,6 +866,196 @@ CAF_ERROR_CODE_ENUM(xstudio::http_client::http_client_error)
 CAF_ERROR_CODE_ENUM(xstudio::media::media_error)
 CAF_ERROR_CODE_ENUM(xstudio::shotgun_client::shotgun_client_error)
 
+namespace xstudio::global {
+template <class Inspector> bool inspect(Inspector &f, StatusType &x) {
+    using int_t = std::underlying_type_t<StatusType>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<StatusType>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::global
+
+namespace xstudio::ui {
+template <class Inspector> bool inspect(Inspector &f, EventType &x) {
+    using int_t = std::underlying_type_t<EventType>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<EventType>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::ui
+
+namespace xstudio::utility {
+template <class Inspector> bool inspect(Inspector &f, NotificationType &x) {
+    using int_t = std::underlying_type_t<NotificationType>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<NotificationType>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, TimeSourceMode &x) {
+    using int_t = std::underlying_type_t<TimeSourceMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<TimeSourceMode>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::utility
+
+namespace xstudio::timeline {
+template <class Inspector> bool inspect(Inspector &f, ItemType &x) {
+    using int_t = std::underlying_type_t<ItemType>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<ItemType>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::timeline
+
+namespace xstudio::playhead {
+template <class Inspector> bool inspect(Inspector &f, LoopMode &x) {
+    using int_t = std::underlying_type_t<LoopMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<LoopMode>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, AssemblyMode &x) {
+    using int_t = std::underlying_type_t<AssemblyMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<AssemblyMode>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, AutoAlignMode &x) {
+    using int_t = std::underlying_type_t<AutoAlignMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<AutoAlignMode>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, OverflowMode &x) {
+    using int_t = std::underlying_type_t<OverflowMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<OverflowMode>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, SelectionMode &x) {
+    using int_t = std::underlying_type_t<SelectionMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<SelectionMode>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::playhead
+
+namespace xstudio::media {
+template <class Inspector> bool inspect(Inspector &f, MediaStatus &x) {
+    using int_t = std::underlying_type_t<MediaStatus>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<MediaStatus>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, MediaType &x) {
+    using int_t = std::underlying_type_t<MediaType>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<MediaType>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::media
+
+namespace xstudio::ui::viewport {
+template <class Inspector> bool inspect(Inspector &f, FitMode &x) {
+    using int_t = std::underlying_type_t<FitMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<FitMode>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, MirrorMode &x) {
+    using int_t = std::underlying_type_t<MirrorMode>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<MirrorMode>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, GraphicsAPI &x) {
+    using int_t = std::underlying_type_t<GraphicsAPI>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<GraphicsAPI>(val); };
+    return f.apply(getter, setter);
+}
+
+template <class Inspector> bool inspect(Inspector &f, ImageFormat &x) {
+    using int_t = std::underlying_type_t<ImageFormat>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<ImageFormat>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::ui::viewport
+
+namespace xstudio::shotgun_client {
+template <class Inspector> bool inspect(Inspector &f, AUTHENTICATION_METHOD &x) {
+    using int_t = std::underlying_type_t<AUTHENTICATION_METHOD>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<AUTHENTICATION_METHOD>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::shotgun_client
+
+namespace xstudio::session {
+template <class Inspector> bool inspect(Inspector &f, ExportFormat &x) {
+    using int_t = std::underlying_type_t<ExportFormat>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<ExportFormat>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::session
+
+namespace xstudio::thumbnail {
+template <class Inspector> bool inspect(Inspector &f, THUMBNAIL_FORMAT &x) {
+    using int_t = std::underlying_type_t<THUMBNAIL_FORMAT>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<THUMBNAIL_FORMAT>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::thumbnail
+
+namespace spdlog::level {
+template <class Inspector> bool inspect(Inspector &f, level_enum &x) {
+    using int_t = std::underlying_type_t<level_enum>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<level_enum>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace spdlog::level
+
+namespace xstudio::media_metadata {
+template <class Inspector> bool inspect(Inspector &f, MMCertainty &x) {
+    using int_t = std::underlying_type_t<MMCertainty>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<MMCertainty>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::media_metadata
+
+namespace xstudio::media_reader {
+template <class Inspector> bool inspect(Inspector &f, MRCertainty &x) {
+    using int_t = std::underlying_type_t<MRCertainty>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<MRCertainty>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::media_reader
+
+namespace xstudio::plugin {
+template <class Inspector> bool inspect(Inspector &f, HUDElementPosition &x) {
+    using int_t = std::underlying_type_t<HUDElementPosition>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<HUDElementPosition>(val); };
+    return f.apply(getter, setter);
+}
+} // namespace xstudio::plugin
+
+
 namespace xstudio::utility {
 inline auto make_get_version_handler() {
     return [=](version_atom) -> std::string { return PROJECT_VERSION; };
@@ -861,6 +1063,14 @@ inline auto make_get_version_handler() {
 } // namespace xstudio::utility
 
 namespace semver {
+
+template <class Inspector> bool inspect(Inspector &f, prerelease &x) {
+    using int_t = std::underlying_type_t<prerelease>;
+    auto getter = [&x] { return static_cast<int_t>(x); };
+    auto setter = [&x](int_t val) { x = static_cast<prerelease>(val); };
+    return f.apply(getter, setter);
+}
+
 template <class Inspector> bool inspect(Inspector &f, version &x) {
     return f.object(x).fields(
         f.field("major", x.major),
@@ -882,6 +1092,33 @@ template <class Inspector> bool inspect(Inspector &f, xstudio::utility::time_poi
         Duration d(value);
         Time_point tp1(d);
         x = tp1;
+        return true;
+    };
+
+    return f.object(x).fields(f.field("ts", get_ts, set_ts));
+}
+
+template <class Inspector> bool inspect(Inspector &f, xstudio::utility::sys_time_point &x) {
+    using Clock      = xstudio::utility::sysclock;
+    using Time_point = Clock::time_point;
+    using Duration   = Clock::duration;
+
+    auto get_ts = [&x]() -> decltype(auto) { return x.time_since_epoch().count(); };
+    auto set_ts = [&x](Duration::rep value) {
+        Duration d(value);
+        Time_point tp1(d);
+        x = tp1;
+        return true;
+    };
+
+    return f.object(x).fields(f.field("ts", get_ts, set_ts));
+}
+
+template <class Inspector> bool inspect(Inspector &f, xstudio::utility::sys_time_duration &x) {
+
+    auto get_ts = [&x]() -> decltype(auto) { return x.count(); };
+    auto set_ts = [&x](xstudio::utility::sys_time_duration::rep value) {
+        x = xstudio::utility::sys_time_duration(value);
         return true;
     };
 
@@ -956,17 +1193,21 @@ class XStudioError : public std::runtime_error {
         : runtime_error(msg.c_str()), error_type_(xstudio_error_type::xstudio_error) {}
     XStudioError(const std::runtime_error &err) : runtime_error(err) {}
     XStudioError(const caf::error &err) : runtime_error(to_string(err)), caf_error_(err) {
-        if (err.category() == caf::type_id_v<http_client::http_client_error>) {
-            error_type_ = xstudio_error_type::http_client_error;
-        } else if (err.category() == caf::type_id_v<shotgun_client::shotgun_client_error>) {
-            error_type_ = xstudio_error_type::shotgun_client_error;
-        } else if (err.category() == caf::type_id_v<media::media_error>) {
-            error_type_ = xstudio_error_type::media_error;
-        } else if (err.category() == caf::type_id_v<xstudio_error>) {
-            error_type_ = xstudio_error_type::xstudio_error;
-        } else {
+        if (caf_error_) {
+            if (caf_error_.category() == caf::type_id_v<http_client::http_client_error>) {
+                error_type_ = xstudio_error_type::http_client_error;
+            } else if (
+                caf_error_.category() == caf::type_id_v<shotgun_client::shotgun_client_error>) {
+                error_type_ = xstudio_error_type::shotgun_client_error;
+            } else if (caf_error_.category() == caf::type_id_v<media::media_error>) {
+                error_type_ = xstudio_error_type::media_error;
+            } else if (caf_error_.category() == caf::type_id_v<xstudio_error>) {
+                error_type_ = xstudio_error_type::xstudio_error;
+            } else {
+                error_type_ = xstudio_error_type::caf_error;
+            }
+        } else
             error_type_ = xstudio_error_type::caf_error;
-        }
     }
 
     xstudio_error_type type() const { return error_type_; }

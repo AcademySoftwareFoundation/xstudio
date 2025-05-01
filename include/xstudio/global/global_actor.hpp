@@ -34,8 +34,10 @@ namespace global {
     class DLL_PUBLIC GlobalActor : public caf::event_based_actor {
       public:
         GlobalActor(
-            caf::actor_config &cfg, const utility::JsonStore &prefs = utility::JsonStore());
-        ~GlobalActor() override = default;
+            caf::actor_config &cfg,
+            const utility::JsonStore &prefs = utility::JsonStore(),
+            const bool embedded_python      = true);
+        ~GlobalActor();
         const char *name() const override { return NAME.c_str(); }
         void on_exit() override;
 
@@ -47,7 +49,9 @@ namespace global {
             const int maximum,
             const std::string &bind_address,
             caf::actor a);
-        void init(const utility::JsonStore &prefs = utility::JsonStore());
+        void init(
+            const utility::JsonStore &prefs = utility::JsonStore(),
+            const bool embedded_python      = true);
 
         void connect_api(const caf::actor &embedded_python);
         void disconnect_api(const caf::actor &embedded_python, const bool force = false);
@@ -67,6 +71,7 @@ namespace global {
         caf::actor ui_studio_;
         caf::actor event_group_;
         caf::actor apia_;
+        caf::actor gsa_;
 
         bool python_enabled_;
         bool api_enabled_;
@@ -85,6 +90,7 @@ namespace global {
         size_t session_autosave_hash_{0};
         StatusType status_{StatusType::ST_NONE};
         std::set<caf::actor_addr> busy_;
+        utility::JsonStore file_map_regex_;
     };
 } // namespace global
 } // namespace xstudio

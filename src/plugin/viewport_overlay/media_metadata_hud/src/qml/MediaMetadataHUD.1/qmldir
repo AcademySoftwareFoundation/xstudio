@@ -1,0 +1,5 @@
+module MediaMetadataHUD
+
+MediaMetadataHUDSettings 1.0 MediaMetadataHUDSettings.qml
+MediaMetadataViewer 1.0 MediaMetadataViewer.qml
+MediaMetadataViewerWindow 1.0 MediaMetadataViewerWindow.qml

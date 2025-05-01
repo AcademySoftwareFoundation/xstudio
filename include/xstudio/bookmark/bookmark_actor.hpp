@@ -22,6 +22,8 @@ namespace bookmark {
 
         const char *name() const override { return NAME.c_str(); }
 
+        void on_exit() override;
+
       private:
         inline static const std::string NAME = "BookmarkActor";
         void init();
@@ -40,6 +42,7 @@ namespace bookmark {
         Bookmark base_;
         caf::actor_addr owner_;
         caf::actor json_store_;
+        caf::disposable monitor_;
     };
 
 } // namespace bookmark

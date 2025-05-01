@@ -36,6 +36,8 @@ namespace bookmark {
         void csv_export(
             caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp);
 
+        void monitor_bookmark(const caf::actor &actor);
+
       private:
         Bookmarks base_;
         std::string default_category_;

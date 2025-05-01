@@ -23,27 +23,24 @@ StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorV
     link_to(event_group_);
 
     for (auto &source : source_actors_) {
+        monitor(source.actor(), [this, addr = source.actor().address()](const error &) {
+            auto p      = source_actors_.begin();
+            bool change = false;
+            while (p != source_actors_.end()) {
+                if ((*p).actor() == addr) {
+                    p      = source_actors_.erase(p);
+                    change = true;
+                } else {
+                    p++;
+                }
+            }
+            if (change) {
+                mail(utility::event_atom_v, utility::change_atom_v).send(event_group_);
+            }
+        });
 
-        monitor(source.actor());
         utility::join_event_group(this, source.actor());
     }
-
-    set_down_handler([=](down_msg &msg) {
-        // is source down?
-        auto p      = source_actors_.begin();
-        bool change = false;
-        while (p != source_actors_.end()) {
-            if ((*p).actor() == msg.source) {
-                p      = source_actors_.erase(p);
-                change = true;
-            } else {
-                p++;
-            }
-        }
-        if (change) {
-            send(event_group_, utility::event_atom_v, utility::change_atom_v);
-        }
-    });
 
     // Note - out source_actors_ will usually be MediaActors, but might be
     // A TimelineActor or a ClipActor. The event_atom handlers below do nothing
@@ -55,6 +52,7 @@ StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorV
     behavior_.assign(
 
         [=](utility::get_event_group_atom) -> caf::actor { return event_group_; },
+        [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
         [=](media::get_media_pointers_atom atom,
             const media::MediaType media_type,
@@ -76,7 +74,7 @@ StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorV
         [=](utility::event_atom,
             media::add_media_source_atom,
             const utility::UuidActorVector &uav) {
-            send(event_group_, utility::event_atom_v, media::add_media_source_atom_v, uav);
+            mail(utility::event_atom_v, media::add_media_source_atom_v, uav).send(event_group_);
         },
 
         [=](utility::event_atom, timeline::item_atom, const utility::JsonStore &changes, bool) {
@@ -91,6 +89,14 @@ StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorV
 
         [=](utility::event_atom, media::media_display_info_atom, const utility::JsonStore &) {},
 
+        [=](utility::event_atom,
+            media::current_media_source_atom,
+            utility::UuidActor &a,
+            const media::MediaType mt) {
+            mail(utility::event_atom_v, media::current_media_source_atom_v, a, mt)
+                .send(event_group_);
+        },
+
         [=](utility::event_atom, utility::change_atom) {
             // one of the sources has changed -  this might affect its actual
             // frames for display. So we clear the entry in our cache, and
@@ -101,17 +107,15 @@ StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorV
                     source_frames_[s.uuid()].reset();
                 }
             }
-            send(
-                event_group_,
+            mail(
                 utility::event_atom_v,
-                utility::change_atom_v); // triggers refresh of frames_time_list_
+                utility::change_atom_v)
+                .send(event_group_); // triggers refresh of frames_time_list_
         },
 
         [=](utility::event_atom, utility::last_changed_atom, const utility::time_point &) {
-            delegate(
-                caf::actor_cast<caf::actor>(this),
-                utility::event_atom_v,
-                utility::change_atom_v);
+            return mail(utility::event_atom_v, utility::change_atom_v)
+                .delegate(caf::actor_cast<caf::actor>(this));
         },
 
         [=](utility::rate_atom atom, const media::MediaType media_type) -> utility::FrameRate {
@@ -152,13 +156,8 @@ void StringOutActor::build_frame_map(
         (*count)++;
 
         auto source_uuid = c.uuid();
-        request(
-            c.actor(),
-            infinite,
-            media::get_media_pointers_atom_v,
-            media_type,
-            tsm,
-            override_rate)
+        mail(media::get_media_pointers_atom_v, media_type, tsm, override_rate)
+            .request(c.actor(), infinite)
             .then(
                 [=](const media::FrameTimeMapPtr &mpts) mutable {
                     source_frames_[source_uuid] = mpts;

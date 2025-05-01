@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.3
+import QtQuick
+
+
+import QtQuick.Layouts
 import QtQuick.Shapes 1.12
 
 import xStudio 1.0
@@ -81,7 +81,8 @@ Item {
         anchors.bottom: parent.bottom
         x: scaleFactor*viewportPlayhead.loopStartFrame
         width: scaleFactor*(viewportPlayhead.loopEndFrame - viewportPlayhead.loopStartFrame)
-        visible: viewportPlayhead.enableLoopRange && (viewportPlayhead.loopStartFrame || viewportPlayhead.loopEndFrame < (viewportPlayhead.durationFrames-1))
+        property bool vis: viewportPlayhead.enableLoopRange && (viewportPlayhead.loopStartFrame || viewportPlayhead.loopEndFrame < (viewportPlayhead.durationFrames-1))
+        visible: vis == true
         color: XsStyleSheet.accentColor
     }
 
@@ -118,17 +119,23 @@ Item {
     XsBufferedUIProperty {
         id: bufferedCachedFrames
         source: viewportPlayhead.cachedFrames
-        playing: viewportPlayhead.playing
+        playing: viewportPlayhead.playing != undefined ? viewportPlayhead.playing : false
     }
+    property alias cachedFrames: bufferedCachedFrames.value
+
+    // 0: in cache, 1: held frame, 2: not on disk
+    property var cache_indicator_colours: ["green", "#FFE08000", "#FFB00000"]
 
     Item {
+        anchors.fill: parent
+        clip: true
         Repeater {
-            model: bufferedCachedFrames.value ? bufferedCachedFrames.value.length/2 : 0
+            model: cachedFrames
             Rectangle {
-                color: "green"
+                color: cache_indicator_colours[cachedFrames[index].colour_idx]
                 opacity: 0.5
-                x: scaleFactor*bufferedCachedFrames.value[index*2]
-                width: scaleFactor*(bufferedCachedFrames.value[index*2+1])
+                x: scaleFactor*(cachedFrames[index].start - 0.5)
+                width: scaleFactor*(cachedFrames[index].duration)
                 height: 5
                 y: 10
             }
@@ -144,7 +151,7 @@ Item {
     XsBufferedUIProperty {
         id: bufferedX
         source: scaleFactor*viewportPlayhead.logicalFrame
-        playing: viewportPlayhead.playing
+        playing: viewportPlayhead.playing != undefined ? viewportPlayhead.playing : false
     }
 
     Item {

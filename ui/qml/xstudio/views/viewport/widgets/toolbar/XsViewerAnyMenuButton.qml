@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.12
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
+import QtQuick
+
+
+import QtQuick.Layouts
 import QtQml.Models 2.12
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
 
 XsViewerToolbarButtonBase {
+    id: theButton
 
     property var menuModelName
     isActive: loader.item ? loader.item.visible : false
     showBorder: mouseArea.containsMouse
-    id: theButton
 
     // we use a loader so that pop-up menus are only created when we need
     // to show them.

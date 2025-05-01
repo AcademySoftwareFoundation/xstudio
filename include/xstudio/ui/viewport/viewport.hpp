@@ -44,7 +44,12 @@ namespace ui {
             void set_pointer_event_viewport_coords(PointerEvent &pointer_event);
 
             void set_scale(const float scale);
-            void set_size(const float w, const float h, const float devicePixelRatio);
+            void set_size(
+                const float w,
+                const float h,
+                const float window_width,
+                const float window_height,
+                const float pixelRatio);
             void set_pan(const float x_pan, const float y_pan);
             void set_fit_mode(const FitMode md, const bool sync = true);
             void set_mirror_mode(const MirrorMode md);
@@ -141,12 +146,13 @@ namespace ui {
              *  as in order to draw the viewport correctly into the QQuickItem bounds we
              *  need to know how the QQuickItem is transformed into the parent QQuickWindow
              */
-            bool set_scene_coordinates(
-                const Imath::V2f topleft,
-                const Imath::V2f topright,
-                const Imath::V2f bottomright,
-                const Imath::V2f bottomleft,
-                const Imath::V2i scene_size,
+            bool set_geometry(
+                const float x,
+                const float y,
+                const float width,
+                const float height,
+                const float window_width,
+                const float window_height,
                 const float devicePixelRatio);
 
             [[nodiscard]] float scale() const { return state_.scale_; }
@@ -259,7 +265,7 @@ namespace ui {
 
             void reset() override;
 
-            media_reader::ImageBufPtr get_onscreen_image(const bool force_playhead_sync);
+            media_reader::ImageBufPtr get_onscreen_image();
 
             void set_visibility(bool is_visible);
 
@@ -306,12 +312,14 @@ namespace ui {
                 Imath::V3f translate_            = {0.0f, 0.0f, 0.0f};
                 float scale_                     = {1.0f};
                 Imath::V2i image_size_           = {1920, 1080};
+                Imath::V2f window_size_          = {};
                 Imath::V2f size_                 = {};
                 Imath::V2i raw_pointer_position_ = {};
                 Imath::V4f pointer_position_;
                 FitMode fit_mode_       = {Height};
                 MirrorMode mirror_mode_ = {Off};
                 float layout_aspect_    = {16.0f / 9.0f};
+                float devicePixelRatio_ = 1.0f;
             } state_, interact_start_state_;
 
             struct FitModeStat {
@@ -324,6 +332,7 @@ namespace ui {
                 media_reader::ImageBufDisplaySetPtr images;
                 Imath::M44f projection_matrix;
                 Imath::M44f window_to_viewport_matrix;
+                Imath::V2i window_size;
                 ViewportRendererPtr renderer;
                 std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> overlay_renderers;
             };
@@ -415,7 +424,6 @@ namespace ui {
             module::BooleanAttribute *pan_mode_toggle_;
             module::StringChoiceAttribute *fit_mode_;
             module::StringChoiceAttribute *mirror_mode_;
-            module::StringAttribute *frame_error_message_;
             module::StringChoiceAttribute *filter_mode_preference_;
             module::StringChoiceAttribute *texture_mode_preference_;
             module::StringChoiceAttribute *mouse_wheel_behaviour_;
@@ -431,6 +439,7 @@ namespace ui {
             utility::Uuid fit_mode_hotkey_;
             utility::Uuid mirror_mode_hotkey_;
             utility::Uuid hover_select_;
+            utility::Uuid toggle_hug_;
 
             utility::Uuid reset_menu_item_;
 

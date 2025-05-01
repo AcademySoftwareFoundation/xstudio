@@ -1,4 +1,4 @@
-project(embedded_python VERSION 0.1.0 LANGUAGES CXX)
+project(embedded_python VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
 find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)  # or `add_subdirectory(pybind11)`
@@ -30,7 +30,7 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
-		caf::core
+		CAF::core
 	PRIVATE
 		Imath::Imath
 		xstudio::utility
@@ -47,7 +47,8 @@ set_python_to_proper_build_type()
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
 if(WIN32)
-install(DIRECTORY ${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/DLLs/ DESTINATION python)
-install(DIRECTORY ${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/Lib/ DESTINATION python)
+# this looks awkward!
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../../../vcpkg_installed/x64-windows/tools/python3/DLLs/ DESTINATION python)
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../../../vcpkg_installed/x64-windows/tools/python3/Lib/ DESTINATION python)
 install(FILES python310._pth DESTINATION bin)
 endif()

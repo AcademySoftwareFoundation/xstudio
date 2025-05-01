@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <fmt/format.h>
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/media/media_metadata_manager_actor.hpp"
@@ -66,13 +68,12 @@ GlobalMetadataManager::GlobalMetadataManager(caf::actor_config &cfg)
     auto central_models_data_actor =
         home_system().registry().template get<caf::actor>(global_ui_model_data_registry);
 
-    request(
-        central_models_data_actor,
-        infinite,
+    mail(
         ui::model_data::register_model_data_atom_v,
         "media metata exposure model",
         "/ui/qml/media_list_columns_config",
         caf::actor_cast<caf::actor>(this))
+        .request(central_models_data_actor, infinite)
         .then(
             [=](const utility::JsonStore &data) {
                 try {
@@ -84,6 +85,7 @@ GlobalMetadataManager::GlobalMetadataManager(caf::actor_config &cfg)
             [=](caf::error &e) { spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(e)); });
 
     behavior_.assign(
+        [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
         [=](utility::get_event_group_atom atom) -> caf::actor { return event_group_; },
 
@@ -192,11 +194,11 @@ GlobalMetadataManager::GlobalMetadataManager(caf::actor_config &cfg)
             return metadata_extraction_config_;
         },
         [=](media::media_display_info_atom, bool es_event) {
-            send(
-                caf::actor_cast<caf::actor>(current_sender()),
+            mail(
                 utility::event_atom_v,
                 media::media_display_info_atom_v,
-                metadata_extraction_config_);
+                metadata_extraction_config_)
+                .send(caf::actor_cast<caf::actor>(current_sender()));
         },
 
         [=](const caf::error &err) {
@@ -210,10 +212,14 @@ void GlobalMetadataManager::config_updated() {
 
     if (extraction_dict != metadata_extraction_config_) {
         metadata_extraction_config_ = extraction_dict;
-        send(
-            event_group_,
+        mail(
             utility::event_atom_v,
             media::media_display_info_atom_v,
-            metadata_extraction_config_);
+            metadata_extraction_config_)
+            .send(event_group_);
     }
+}
+
+void GlobalMetadataManager::on_exit() {
+    system().registry().erase(global_media_metadata_manager_registry);
 }

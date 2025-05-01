@@ -14,7 +14,7 @@ using namespace xstudio::ui::viewport;
 
 
 AnnotationsRenderer::AnnotationsRenderer(const xstudio::ui::canvas::Canvas &interaction_canvas)
-    : interaction_canvas_(interaction_canvas) {
+    : interaction_canvas_(interaction_canvas), annotations_visible_(true) {
 
     canvas_renderer_.reset(new ui::opengl::OpenGLCanvasRenderer());
 }
@@ -26,9 +26,21 @@ void AnnotationsRenderer::render_image_overlay(
     const xstudio::media_reader::ImageBufPtr &frame,
     const bool have_alpha_buffer) {
 
-    std::unique_lock l(mutex_);
+    auto render_data = frame.plugin_blind_data(AnnotationsTool::PLUGIN_UUID);
+    if (render_data) {
+        const auto *data = dynamic_cast<const AnnotationRenderDataSet *>(render_data.get());
+        if (data) {
+            handle_                       = data->handle_;
+            current_edited_bookmark_uuid_ = data->current_edited_bookmark_uuid_;
+            laser_drawing_mode_           = data->laser_mode_;
+            frame_being_annotated_        = data->interaction_frame_key_;
+            annotations_visible_          = data->show_annotations_;        
+        }
+    }
+    
     if (!annotations_visible_)
         return;
+
     // the xstudio playhead takes care of attaching bookmark data to the
     // ImageBufPtr that we receive here. The bookmark data may have annotations
     // data attached which we can draw to screen....
@@ -71,6 +83,12 @@ void AnnotationsRenderer::render_image_overlay(
             have_alpha_buffer,
             1.f);
     }
+
+    // The canvas drawing routines use the depth buffer and clear it
+    // for this purpose, we need to restore it to what QtQuick renderer
+    // has set it to which I'm pretty sure is 1.0
+    glClearDepth(1.0);
+    glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void AnnotationsRenderer::render_viewport_overlay(
@@ -78,7 +96,6 @@ void AnnotationsRenderer::render_viewport_overlay(
     const Imath::M44f &transform_viewport_to_normalised_coords,
     const float viewport_du_dpixel,
     const bool have_alpha_buffer) {
-    std::unique_lock l(mutex_);
     if (laser_drawing_mode_) {
         canvas_renderer_->render_canvas(
             interaction_canvas_,
@@ -89,18 +106,9 @@ void AnnotationsRenderer::render_viewport_overlay(
             have_alpha_buffer,
             1.f);
     }
-}
-
-void AnnotationsRenderer::update(
-    const bool show_annotations,
-    const xstudio::ui::canvas::HandleState &h,
-    const utility::Uuid &current_edited_bookmark_uuid,
-    const media::MediaKey &frame_being_annotated,
-    bool laser_mode) {
-    std::unique_lock l(mutex_);
-    handle_                       = h;
-    current_edited_bookmark_uuid_ = current_edited_bookmark_uuid;
-    laser_drawing_mode_           = laser_mode;
-    frame_being_annotated_        = frame_being_annotated;
-    annotations_visible_          = show_annotations;
+    // The canvas drawing routines use the depth buffer and clear it
+    // for this purpose, we need to restore it to what QtQuick renderer
+    // has set it to which I'm pretty sure is 1.0
+    glClearDepth(1.0);
+    glClear(GL_DEPTH_BUFFER_BIT);
 }

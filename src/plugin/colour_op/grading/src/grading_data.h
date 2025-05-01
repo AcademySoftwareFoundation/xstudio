@@ -38,7 +38,25 @@ namespace viewport {
     class GradingData : public bookmark::AnnotationBase {
       public:
         GradingData() = default;
-        explicit GradingData(const utility::JsonStore &s);
+        GradingData(const utility::JsonStore &s);
+        GradingData(const GradingData &o) :
+            colour_space_(o.colour_space_),
+            grade_(o.grade_),
+            mask_active_(o.mask_active_),
+            mask_editing_(o.mask_editing_),
+            mask_(o.mask_) {
+                bookmark_uuid_ = o.bookmark_uuid_;
+            }
+
+        GradingData & operator=(const GradingData &o) {
+            colour_space_ = o.colour_space_;
+            grade_ = o.grade_;
+            mask_active_ = o.mask_active_;
+            mask_editing_ = o.mask_editing_;
+            mask_ = o.mask_;
+            bookmark_uuid_ = o.bookmark_uuid_;
+            return *this;
+        }
 
         bool operator==(const GradingData &o) const {
             return (

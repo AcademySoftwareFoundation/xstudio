@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 #include <filesystem>
 #include <openssl/md5.h>
 #include <iostream>
@@ -234,15 +235,16 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
 
     behavior_.assign(
         [=](media::media_status_atom, const MediaReference &mr, caf::actor dest) {
-            anon_send(dest, media::media_status_atom_v, check_media_status(mr));
+            anon_mail(media::media_status_atom_v, check_media_status(mr)).send(dest);
         },
 
         [=](media::checksum_atom atom, const caf::actor &media_source) {
-            request(media_source, infinite, media::media_reference_atom_v)
+            mail(media::media_reference_atom_v)
+                .request(media_source, infinite)
                 .then(
                     [=](const MediaReference &result) mutable {
-                        anon_send(
-                            caf::actor_cast<caf::actor>(this), atom, media_source, result);
+                        anon_mail(atom, media_source, result)
+                            .send(caf::actor_cast<caf::actor>(this));
                     },
                     [=](const caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -252,36 +254,36 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
         [=](media::checksum_atom atom,
             const caf::actor &media_source,
             const MediaReference &mr) {
-            request(helper, infinite, atom, mr)
+            mail(atom, mr)
+                .request(helper, infinite)
                 .then(
                     [=](const std::pair<std::string, uintmax_t> &result) mutable {
-                        anon_send(media_source, atom, result);
+                        anon_mail(atom, result).send(media_source);
                     },
                     [=](const caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     });
         },
 
-        [=](media::rescan_atom atom, const MediaReference &mr) { delegate(helper, atom, mr); },
+        [=](media::rescan_atom atom, const MediaReference &mr) {
+            return mail(atom, mr).delegate(helper);
+        },
 
         [=](media::checksum_atom atom, const MediaReference &mr) {
-            delegate(helper, atom, mr);
+            return mail(atom, mr).delegate(helper);
         },
 
         [=](media::relink_atom atom,
             const std::pair<std::string, uintmax_t> &pin,
-            const caf::uri &path) { delegate(helper, atom, pin, path); },
+            const caf::uri &path) { return mail(atom, pin, path).delegate(helper); },
 
         [=](media::relink_atom atom, const caf::actor &media_source, const caf::uri &path) {
-            request(media_source, infinite, media::checksum_atom_v)
+            mail(media::checksum_atom_v)
+                .request(media_source, infinite)
                 .then(
                     [=](const std::pair<std::string, uintmax_t> &result) mutable {
-                        anon_send(
-                            caf::actor_cast<caf::actor>(this),
-                            atom,
-                            media_source,
-                            result,
-                            path);
+                        anon_mail(atom, media_source, result, path)
+                            .send(caf::actor_cast<caf::actor>(this));
                     },
                     [=](const caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -292,12 +294,14 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
             const caf::actor &media_source,
             const std::pair<std::string, uintmax_t> &pin,
             const caf::uri &path) {
-            request(helper, infinite, atom, pin, path)
+            mail(atom, pin, path)
+                .request(helper, infinite)
                 .then(
                     [=](const caf::uri &result) mutable {
                         if (not result.empty()) {
                             // get mr, and then over write..
-                            request(media_source, infinite, media::media_reference_atom_v)
+                            mail(media::media_reference_atom_v)
+                                .request(media_source, infinite)
                                 .then(
                                     [=](MediaReference mr) mutable {
                                         if (not mr.container()) {
@@ -309,8 +313,8 @@ ScannerActor::ScannerActor(caf::actor_config &cfg) : caf::event_based_actor(cfg)
                                                 mr.set_uri(tmp[0].first);
                                         } else
                                             mr.set_uri(result);
-                                        anon_send(
-                                            media_source, media::media_reference_atom_v, mr);
+                                        anon_mail(media::media_reference_atom_v, mr)
+                                            .send(media_source);
                                     },
                                     [=](const caf::error &err) {
                                         spdlog::warn(

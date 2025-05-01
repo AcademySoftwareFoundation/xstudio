@@ -28,15 +28,19 @@ DefaultViewportLayout::DefaultViewportLayout(
     // are a ViewportLayoutPlugin. We don't want to add these layout modes if
     // this is an instance that is backing a python plugin.
     if (!init_settings.value("is_python", false)) {
-        add_layout_mode("Off", playhead::AssemblyMode::AM_ONE);
-        add_layout_mode("String", playhead::AssemblyMode::AM_STRING);
+        add_layout_mode("Off", 102.0, playhead::AssemblyMode::AM_ONE);
         add_layout_mode(
-            "A/B", playhead::AssemblyMode::AM_TEN, playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+            "A/B",
+            101.0,
+            playhead::AssemblyMode::AM_TEN,
+            playhead::AutoAlignMode::AAM_ALIGN_FRAMES);
+        add_layout_mode("String", 100.0, playhead::AssemblyMode::AM_STRING);
     }
 }
 
-ViewportRenderer *DefaultViewportLayout::make_renderer(const std::string &window_id) {
-    return new opengl::OpenGLViewportRenderer(window_id);
+ViewportRenderer *DefaultViewportLayout::make_renderer(
+    const std::string &window_id, const utility::JsonStore &prefs) {
+    return new opengl::OpenGLViewportRenderer(window_id, prefs);
 }
 
 extern "C" {

@@ -4,7 +4,7 @@ SET(LINK_DEPS
 	xstudio::media
 	xstudio::audio_output
 	xstudio::global
-	caf::core
+	CAF::core
 )
 
 create_tests("${LINK_DEPS}")

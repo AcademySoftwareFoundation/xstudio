@@ -1,9 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.3
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Effects
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -17,7 +14,7 @@ Item {
     // same menu. This creates a circular dependency .. the menu item width
     // depends on the widest item. If it is the widest item its width
     // depends on itself. There must be a better QML solution for this
-    property real minWidth: gap.width + indentSpacer.width + iconDiv.width + label_metrics.width + gap.width + margin*4
+    property int minWidth: rlayout.implicitWidth + margin*4
 
     property var menu_item_text: ""
     property real indent: 0
@@ -62,6 +59,7 @@ Item {
     }
 
     RowLayout {
+        id: rlayout
 
         anchors.left: parent.left
         anchors.right: parent.right
@@ -69,7 +67,7 @@ Item {
         anchors.margins: margin
         spacing: 0
 
-        XsImage {
+        XsIcon {
 
             id: iconDiv
             visible: source != ""
@@ -78,10 +76,7 @@ Item {
             //height: parent.height
             Layout.alignment: Qt.AlignVCenter
             Layout.fillHeight: true
-            layer {
-                enabled: true
-                effect: ColorOverlay { color: hotKeyColor }
-            }
+            imgOverlayColor: hotKeyColor
 
         }
 

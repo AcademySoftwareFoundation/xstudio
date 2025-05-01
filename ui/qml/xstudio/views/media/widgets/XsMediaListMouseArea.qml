@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
+import QtQuick
 
 MouseArea {
     id: mouseArea
@@ -9,7 +9,7 @@ MouseArea {
     hoverEnabled: true
     property bool singleSelect: false
 
-    onPressed: {
+    onPressed: (mouse)=> {
 
         if (mouse.button == Qt.RightButton) {
 
@@ -75,14 +75,14 @@ MouseArea {
 
     }
 
-    onPositionChanged: {
+    onPositionChanged: (mouse)=> {
         if (pressed && mouse.buttons == Qt.LeftButton && mediaSelectionModel.selectedIndexes.length) {
             interactive = false
             drag_drop_handler.doDrag(mouse.x, mouse.y)
         }
     }
 
-    onReleased: {
+    onReleased: (mouse)=> {
 
         if (mouse.button == Qt.RightButton) return;
 

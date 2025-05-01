@@ -32,6 +32,8 @@ HRESULT WindowsAudioOutputDevice::initializeAudioClient(
     long sample_rate /* = 48000 */,
     int num_channels /* = 2 */) {
 
+    CoInitialize(NULL);
+
     CComPtr<IMMDeviceEnumerator> device_enumerator;
     CComPtr<IMMDevice> audio_device;
     HRESULT hr;
@@ -197,17 +199,17 @@ void WindowsAudioOutputDevice::initialize_sound_card() {
 
     HRESULT hr = initializeAudioClient(sound_card, sample_rate_, num_channels_);
     if (FAILED(hr)) {
-        spdlog::error(
+        auto err_str = fmt::format(
             "{} Failed to initialize audio client: HRESULT=0x{:08x}", __PRETTY_FUNCTION__, hr);
-        return; // or handle the error as appropriate
+        throw(std::exception(err_str.c_str()));
     }
 
     // Get an IAudioRenderClient instance
     hr = audio_client_->GetService(
         __uuidof(IAudioRenderClient), reinterpret_cast<void **>(&render_client_));
     if (FAILED(hr)) {
-        spdlog::error("Failed to get IAudioRenderClient: HRESULT=0x{:08x}", hr);
-        return; // or handle the error as appropriate
+        auto err_str = fmt::format("Failed to get IAudioRenderClient: HRESULT=0x{:08x}", hr);
+        throw(std::exception(err_str.c_str()));
     }
 
     audio_client_->Start();

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <iostream>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/plugin_manager/plugin_manager.hpp"
@@ -36,6 +37,9 @@ StudioUI::~StudioUI() {
     }
     system().registry().erase(studio_ui_registry);
     snapshot_offscreen_viewport_->stop();
+    system().registry().erase(
+        offscreen_viewport_registry);
+    delete snapshot_offscreen_viewport_;
 }
 
 void StudioUI::init(actor_system &system_) {
@@ -78,15 +82,6 @@ void StudioUI::init(actor_system &system_) {
 
     // put ourselves in the registry
     system().registry().template put<caf::actor>(studio_ui_registry, as_actor());
-
-    self()->set_down_handler([=](down_msg &msg) {
-        for (auto p = video_output_plugins_.begin(); p != video_output_plugins_.end(); ++p) {
-            if (msg.source == *p) {
-                video_output_plugins_.erase(p);
-                break;
-            }
-        }
-    });
 
     set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
         return {
@@ -147,21 +142,13 @@ void StudioUI::init(actor_system &system_) {
                 // actor based off a QObject - if so it can't do request/receive message
                 // handling with this actor which also lives in the Qt UI thread.
                 offscreen_viewports_.push_back(new xstudio::ui::qt::OffscreenViewport(name));
-                anon_send(
-                    requester,
-                    ui::offscreen_viewport_atom_v,
-                    offscreen_viewports_.back()->as_actor());
+                anon_mail(
+                    ui::offscreen_viewport_atom_v, offscreen_viewports_.back()->as_actor())
+                    .send(requester);
             }
 
         };
     });
-
-    // here we tell the studio that we're up and running so it can send us
-    // any pending 'quickview' requests
-    auto studio = system().registry().template get<caf::actor>(studio_registry);
-    if (studio) {
-        anon_send(studio, ui::open_quickview_window_atom_v, as_actor());
-    }
 }
 
 void StudioUI::setSessionActorAddr(const QString &addr) {
@@ -187,21 +174,21 @@ bool StudioUI::clearImageCache() {
 
 
 QUrl StudioUI::userDocsUrl() const {
-    std::string docs_index = utility::xstudio_root("/../docs/index.html");
+    std::string docs_index = utility::xstudio_resources_dir("docs/index.html");
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 QUrl StudioUI::apiDocsUrl() const {
-    std::string docs_index = utility::xstudio_root("/../docs/api/index.html");
+    std::string docs_index = utility::xstudio_resources_dir("docs/api/index.html");
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
 }
 
 QUrl StudioUI::releaseDocsUrl() const {
-    std::string docs_index = utility::xstudio_root("/user_docs/release_notes/index.html");
+    std::string docs_index = utility::xstudio_resources_dir("docs/user_docs/release_notes/index.html");
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
@@ -212,7 +199,7 @@ void StudioUI::newSession(const QString &name) {
 
     auto session = sys->spawn<session::SessionActor>(StdFromQString(name));
     auto global  = system().registry().template get<caf::actor>(global_registry);
-    sys->anon_send(global, session::session_atom_v, session);
+    anon_mail(session::session_atom_v, session).send(global);
 
     setSessionActorAddr(actorToQString(system(), session));
     emit newSessionCreated(session_actor_addr_);
@@ -234,7 +221,7 @@ QFuture<bool> StudioUI::loadSessionFuture(const QUrl &path, const QVariant &json
 
             auto session = sys->spawn<session::SessionActor>(js, UriFromQUrl(path));
             auto global  = system().registry().template get<caf::actor>(global_registry);
-            sys->anon_send(global, session::session_atom_v, session);
+            anon_mail(session::session_atom_v, session).send(global);
             setSessionActorAddr(actorToQString(system(), session));
             emit sessionLoaded(session_actor_addr_);
             result = true;
@@ -273,7 +260,7 @@ QFuture<bool> StudioUI::loadSessionRequestFuture(const QUrl &path) {
             } catch (...) {
                 // empty..
                 auto session = sys->spawn<session::SessionActor>(js, UriFromQUrl(path));
-                sys->anon_send(global, session::session_atom_v, session);
+                anon_mail(session::session_atom_v, session).send(global);
                 setSessionActorAddr(actorToQString(system(), session));
                 emit sessionLoaded(session_actor_addr_);
             }
@@ -360,12 +347,41 @@ void StudioUI::loadVideoOutputPlugins() {
 
             auto video_output_plugin = request_receive<caf::actor>(
                 *sys, pm, plugin_manager::spawn_plugin_atom_v, i.uuid_);
-            self()->monitor(video_output_plugin);
+
+            self()->monitor(
+                video_output_plugin,
+                [this, addr = video_output_plugin.address()](const error &) {
+                    for (auto p = video_output_plugins_.begin();
+                         p != video_output_plugins_.end();
+                         ++p) {
+                        if (*p == addr) {
+                            video_output_plugins_.erase(p);
+                            break;
+                        }
+                    }
+                });
+
             video_output_plugins_.push_back(video_output_plugin);
         }
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    // here we tell the studio that we're up and running so it can send us
+    // any pending 'quickview' requests. This is only needed if the app itself is
+    // launched with a quickview flag, which isn't normal usage but we action
+    // them anyway
+    auto studio = system().registry().template get<caf::actor>(studio_registry);
+    if (studio) {
+        // we delay our send because xSTUDIO is still starting up at this point
+        // The UI isn't fully plugged into the window manager, it seems, as
+        // without a delay we're finding sometimes on Linux the quickview window
+        // appears with no titlebar which is a serious bug as it can't be closed
+        // or hidden.
+        anon_mail(ui::open_quickview_window_atom_v, as_actor())
+            .delay(std::chrono::seconds(1))
+            .send(studio);
     }
 }
 

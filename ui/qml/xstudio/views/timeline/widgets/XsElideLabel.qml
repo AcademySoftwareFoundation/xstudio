@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import xStudio 1.0
+import QtQuick.Controls.Basic
+
 
 // Qt.ElideLeft
 // Qt.ElideMiddle
@@ -25,6 +27,9 @@ Item {
          id: label
          text: textMetrics.elidedText
          anchors.fill: parent
+         font.pixelSize: XsStyleSheet.fontSize
+         font.family: XsStyleSheet.fontFamily
+
 
          TextMetrics {
              id: textMetrics

@@ -4,7 +4,7 @@ SET(LINK_DEPS
 	xstudio::utility
 	xstudio::module
 	xstudio::media
-	caf::core
+	CAF::core
 )
 
-create_component(playhead 0.1.0 "${LINK_DEPS}")
+create_component(playhead ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

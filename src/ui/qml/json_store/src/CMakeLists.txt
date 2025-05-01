@@ -1,6 +1,6 @@
 SET(LINK_DEPS
-	${CAF_LIBRARY_core}
-	Qt5::Core
+	CAF::core
+	Qt6::Core
 	xstudio::json_store
 	xstudio::ui::qml::helper
 )
@@ -8,4 +8,4 @@ SET(LINK_DEPS
 SET(EXTRAMOC
 )
 
-create_qml_component(json_store 0.1.0 "${LINK_DEPS}" "${EXTRAMOC}")
+create_qml_component(json_store ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${EXTRAMOC}")

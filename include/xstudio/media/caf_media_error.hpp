@@ -22,7 +22,7 @@ namespace media {
         }
     }
 
-    inline bool from_string(caf::string_view in, media_error &out) {
+    inline bool from_string(std::string_view in, media_error &out) {
         if (in == "File missing") {
             out = media_error::missing;
             return true;

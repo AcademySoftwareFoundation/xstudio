@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -21,7 +17,7 @@ ColumnLayout{
 
         Repeater {
             Layout.fillWidth: true
-            Layout.preferredHeight: parent.height
+            Layout.preferredHeight: btnHeight
             model: DelegateModel {
                 id: delegate_model
                 property var notifyModel: currentCategory ==  "Tree" ? treeButtonModel : (currentCategory ==  "Recent" ?  recentButtonModel : menuButtonModel)
@@ -71,18 +67,13 @@ ColumnLayout{
         Layout.minimumHeight: btnHeight
         Layout.maximumHeight: btnHeight
 
-        XsSearchButton{ id: filterBtn
-            Layout.preferredHeight: parent.height
-            Layout.preferredWidth: isExpanded ? parent.width : btnWidth
-            Layout.minimumWidth: btnWidth
-
-            Layout.maximumWidth: isExpanded ? parent.width : btnWidth
-
+        XsSearchBar{ id: filterBtn
+            Layout.fillHeight: true
             Layout.fillWidth: true
-            isExpanded: true
-            hint: "Filter"
+
+            placeholderText: "Filter..."
             onTextChanged: nameFilter = text
-            onEditingCompleted: focus = false
+            onEditingCompleted: toolDiv.focus = true
 
             Connections {
                 target: panel
@@ -92,13 +83,31 @@ ColumnLayout{
             }
         }
 
+        // XsTextInput{ id: filterBtn
+        //     Layout.fillHeight: true
+        //     Layout.fillWidth: true
+
+
+        //     isExpanded: true
+        //     hint: "Filter"
+        //     onTextChanged: nameFilter = text
+        //     onEditingCompleted: focus = false
+
+        //     Connections {
+        //         target: panel
+        //         function onNameFilterChanged() {
+        //             filterBtn.text = nameFilter
+        //         }
+        //     }
+        // }
+
         Item {
             Layout.fillWidth: true
         }
 
         MouseArea {
             Layout.preferredWidth: btnWidth*2.5
-            Layout.preferredHeight: parent.height
+            Layout.fillHeight: true
 
             hoverEnabled: true
 
@@ -118,7 +127,7 @@ ColumnLayout{
         XsComboBoxEditable{ id: filterStep
             Layout.minimumWidth: btnWidth*3
             Layout.preferredWidth: btnWidth*3
-            Layout.preferredHeight: parent.height
+            Layout.fillHeight: true
             model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Pipeline Step") : []
             textRole: "nameRole"
             currentIndex: -1
@@ -147,7 +156,8 @@ ColumnLayout{
         XsComboBoxEditable{ id: filterOnDisk
             Layout.minimumWidth: btnWidth*2
             Layout.preferredWidth: btnWidth*2
-            Layout.preferredHeight: parent.height
+
+            Layout.fillHeight: true
             model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Site") : []
             currentIndex: -1
             textRole: "nameRole"
@@ -179,7 +189,7 @@ ColumnLayout{
 
         XsButtonWithImageAndText{ id: groupBtn
             Layout.preferredWidth: btnWidth*2.2
-            Layout.preferredHeight: parent.height
+            Layout.fillHeight: true
             iconSrc: "qrc:///shotbrowser_icons/account_tree.svg"
             iconText: "Group"
             textDiv.visible: true
@@ -190,7 +200,7 @@ ColumnLayout{
 
         XsSortButton{ id: sortViaNaturalOrderBtn
             Layout.preferredWidth: btnWidth
-            Layout.preferredHeight: parent.height
+            Layout.fillHeight: true
             text: "ShotGrid Order"
             isActive: sortByNaturalOrder
             sortIconText: "SG"
@@ -205,7 +215,7 @@ ColumnLayout{
 
         XsSortButton{ id: sortViaDateBtn
             Layout.preferredWidth: btnWidth
-            Layout.preferredHeight: parent.height
+            Layout.fillHeight: true
             text: "Creation Date"
             isActive: sortByCreationDate
             sortIconSrc: "qrc:///shotbrowser_icons/calendar_month.svg"
@@ -220,7 +230,7 @@ ColumnLayout{
 
         XsSortButton{ id: sortViaShotBtn
             Layout.preferredWidth: btnWidth
-            Layout.preferredHeight: parent.height
+            Layout.fillHeight: true
             text: "Shot Name"
             isActive: sortByShotName
             sortIconText: "AZ"

@@ -140,8 +140,8 @@ AnnotationsTool::AnnotationsTool(
         "Drawing Tools",
         R"(
             import AnnotationsTool 2.0
-            import QtGraphicalEffects 1.15
-            import QtQuick 2.15
+            
+            import QtQuick
             Rectangle {
                 anchors.fill: parent
                 XsDrawingTools {
@@ -168,7 +168,7 @@ AnnotationsTool::AnnotationsTool(
         // qml code to create the left/right dockable widget
         R"(
             import AnnotationsTool 2.0
-            import QtQuick 2.15
+            import QtQuick
             XsDrawingToolsLR {
             }
             )",
@@ -176,7 +176,7 @@ AnnotationsTool::AnnotationsTool(
         // one)
         R"(
             import AnnotationsTool 2.0
-            import QtQuick 2.15
+            import QtQuick
             XsDrawingToolsTB {
             }
             )",
@@ -194,14 +194,16 @@ caf::message_handler AnnotationsTool::message_handler_extensions() {
             // this message is sent when the user finishes a laser bruish stroke
             if (!fade_looping_) {
                 fade_looping_ = true;
-                anon_send(this, utility::event_atom_v);
+                anon_mail(utility::event_atom_v).send(this);
             }
         },
         [=](utility::event_atom) {
             // note Annotation::fade_all_strokes() returns false when all strokes have vanished
             if (is_laser_mode() &&
                 interaction_canvas_.fade_all_strokes(pen_opacity_->value() / 100.f)) {
-                delayed_anon_send(this, std::chrono::milliseconds(25), utility::event_atom_v);
+                anon_mail(utility::event_atom_v)
+                    .delay(std::chrono::milliseconds(25))
+                    .send(this);
             } else {
                 fade_looping_ = false;
             }
@@ -277,13 +279,13 @@ void AnnotationsTool::attribute_changed(const utility::Uuid &attribute_uuid, con
         if (interaction_canvas_.has_selected_caption()) {
 
             // send a delayed message to ourselves to continue the blinking
-            delayed_anon_send(
-                caf::actor_cast<caf::actor>(this),
-                std::chrono::milliseconds(500),
+            anon_mail(
                 module::change_attribute_value_atom_v,
                 attribute_uuid,
                 utility::JsonStore(!text_cursor_blink_attr_->value()),
-                true);
+                true)
+                .delay(std::chrono::milliseconds(500))
+                .send(this);
         }
 
     } else if (attribute_uuid == pen_colour_->uuid()) {
@@ -414,41 +416,38 @@ bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
 
     if (active_tool_->value() == "Draw" || active_tool_->value() == "Erase" ||
         is_laser_mode()) {
-        if (e.type() == ui::Signature::EventType::ButtonDown &&
+        if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_editing(e.context(), pointer_pos);
             start_stroke(image_transformed_ptr_pos(pointer_pos));
         } else if (
-            e.type() == ui::Signature::EventType::Drag &&
-            e.buttons() == ui::Signature::Button::Left) {
+            e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
             update_stroke(image_transformed_ptr_pos(pointer_pos));
-        } else if (e.type() == ui::Signature::EventType::ButtonRelease) {
+        } else if (e.type() == ui::EventType::ButtonRelease) {
             end_drawing();
         }
     } else if (
         active_tool_->value() == "Square" || active_tool_->value() == "Circle" ||
         active_tool_->value() == "Arrow" || active_tool_->value() == "Line") {
-        if (e.type() == ui::Signature::EventType::ButtonDown &&
+        if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_editing(e.context(), pointer_pos);
             start_shape(image_transformed_ptr_pos(pointer_pos));
         } else if (
-            e.type() == ui::Signature::EventType::Drag &&
-            e.buttons() == ui::Signature::Button::Left) {
+            e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
             update_shape(image_transformed_ptr_pos(pointer_pos));
-        } else if (e.type() == ui::Signature::EventType::ButtonRelease) {
+        } else if (e.type() == ui::EventType::ButtonRelease) {
             end_drawing();
         }
     } else if (active_tool_->value() == "Text") {
-        if (e.type() == ui::Signature::EventType::ButtonDown &&
+        if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_editing(e.context(), pointer_pos);
             start_or_edit_caption(
                 image_transformed_ptr_pos(pointer_pos), e.viewport_pixel_scale());
             grab_mouse_focus();
         } else if (
-            e.type() == ui::Signature::EventType::Drag &&
-            e.buttons() == ui::Signature::Button::Left) {
+            e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
             start_editing(e.context(), pointer_pos);
             update_caption_action(image_transformed_ptr_pos(pointer_pos));
             update_caption_handle();
@@ -498,6 +497,27 @@ void AnnotationsTool::key_pressed(
     }
 }
 
+utility::BlindDataObjectPtr AnnotationsTool::onscreen_render_data(
+    const media_reader::ImageBufPtr &image, 
+    const std::string & /*viewport_name*/,
+    const utility::Uuid &/*playhead_uuid*/,
+    const bool is_hero_image) const 
+{
+
+    bool show_annotations =
+        (display_mode_ == Always) || (display_mode_ == OnlyWhenPaused && !playhead_is_playing_);
+
+    auto data = new AnnotationRenderDataSet(
+        show_annotations,
+        handle_state_,
+        current_bookmark_uuid_,
+        image.frame_id().key(),
+        is_laser_mode()
+        );
+    return utility::BlindDataObjectPtr(data);
+
+}
+
 void AnnotationsTool::images_going_on_screen(
     const media_reader::ImageBufDisplaySetPtr &images,
     const std::string viewport_name,
@@ -512,8 +532,6 @@ void AnnotationsTool::images_going_on_screen(
 
     playhead_is_playing_ = playhead_playing;
 
-    bool show_annotations =
-        (display_mode_ == Always) || (display_mode_ == OnlyWhenPaused && !playhead_is_playing_);
 
     // It's useful to keep a hold of the images that are on-screen so if the
     // user starts drawing when there is a bookmark on screen then we can
@@ -558,32 +576,13 @@ void AnnotationsTool::images_going_on_screen(
         }
     }
 
-    if (renderers_.count(viewport_name)) {
-        static_cast<AnnotationsRenderer *>(renderers_[viewport_name].get())
-            ->update(
-                show_annotations,
-                handle_state_,
-                current_bookmark_uuid_,
-                image_being_annotated_.frame_id().key(),
-                is_laser_mode());
-    }
 }
 
 plugin::ViewportOverlayRendererPtr
 AnnotationsTool::make_overlay_renderer(const std::string &viewport_name) {
 
+    return plugin::ViewportOverlayRendererPtr(new AnnotationsRenderer(interaction_canvas_));
 
-    if (viewport_name.find("snapshot") == std::string::npos) {
-        // we need to keep a list of regular viewport or quickview viewport renderers so we can
-        // do real-time updates on their data during interaction
-        renderers_[viewport_name].reset(new AnnotationsRenderer(interaction_canvas_));
-        return renderers_[viewport_name];
-    }
-    // the snapsot viewport is different - we want it to always draw the annotations
-    // when rendering snaphsots
-    auto rt = new AnnotationsRenderer(interaction_canvas_);
-    rt->update(true, handle_state_, utility::Uuid(), media::MediaKey(), false);
-    return plugin::ViewportOverlayRendererPtr(rt);
 }
 
 AnnotationBasePtr AnnotationsTool::build_annotation(const utility::JsonStore &anno_data) {
@@ -617,7 +616,8 @@ void AnnotationsTool::start_editing(
 
     // if the viewport is in grid mode, with multiple images laid out, which one
     // was clicked in ?
-    auto before = image_being_annotated_;
+    auto current_edited_bookmark_id = current_bookmark_uuid_;
+    auto before                     = image_being_annotated_;
     media_reader::ImageBufPtr new_image_to_annotate;
     auto p = viewport_current_images_.find(viewport_name);
     if (p != viewport_current_images_.end() && p->second) {
@@ -638,7 +638,7 @@ void AnnotationsTool::start_editing(
                 pt *= cim.layout_transform().inverse();
 
                 // does the pointer land on the image?
-                float a = 1.0f / cim->image_aspect();
+                float a = 1.0f / image_aspect(cim);
                 if (pt.x / pt.w >= -1.0f && pt.x / pt.w <= 1.0f && pt.y / pt.w >= -a &&
                     pt.y / pt.w <= a) {
                     new_image_to_annotate = cim;
@@ -664,7 +664,9 @@ void AnnotationsTool::start_editing(
     }
 
     if (image_being_annotated_ != before) {
-        // looks like we are starting a new annotation
+        // image has changed since last time we modified an annotation ... we
+        // need to run our logic to decide which annotation (if there is an
+        // existing one on this frame) the start editing
         current_bookmark_uuid_ = utility::Uuid();
     }
 
@@ -679,22 +681,47 @@ void AnnotationsTool::start_editing(
 
     if (is_laser_mode()) {
 
+        // laser mode, no 'current' annotation
         current_bookmark_uuid_ = utility::Uuid();
         clear_caption_handle();
         image_being_annotated_ = media_reader::ImageBufPtr();
 
     } else {
 
-        // Is there an annotation on screen that we should start appending to?
+        // The logic here will 'pick' an annotation to start modifying
+        // if there is an annotation on the current image.
+        // If we were already modifying an annotation and that same annotation
+        // is attached to the new image then we will stick with that annotation
         Annotation *to_edit    = nullptr;
         current_bookmark_uuid_ = utility::Uuid();
         utility::Uuid first_bookmark_uuid;
         if (image_being_annotated_) {
 
+            // first, we check if the last bookmark that was being annotated is
+            // already attached to this image ...
             for (auto &bookmark : image_being_annotated_.bookmarks()) {
 
                 auto anno = dynamic_cast<Annotation *>(bookmark->annotation_.get());
                 if (anno) {
+                    if (bookmark->detail_.uuid_ == current_edited_bookmark_id) {
+                        current_bookmark_uuid_ = current_edited_bookmark_id;
+                        // this on-screen image is carrying the same bookmark
+                        // as the one we were already modifying, so we can now
+                        // exit
+                        return;
+                    }
+                }
+            }
+
+
+            // if we're here, we need to pick a new bookmark to start adding
+            // annotations to
+            for (auto &bookmark : image_being_annotated_.bookmarks()) {
+
+                auto anno = dynamic_cast<Annotation *>(bookmark->annotation_.get());
+                if (anno) {
+                    // we've found a bookmark with an annotation - pick this and
+                    // exit loop
                     to_edit                = anno;
                     current_bookmark_uuid_ = bookmark->detail_.uuid_;
                     break;
@@ -707,7 +734,8 @@ void AnnotationsTool::start_editing(
             }
         }
 
-        clear_caption_handle();
+        if (active_tool_->value() != "Text")
+            clear_caption_handle();
 
         // clone the whole annotation into our 'interaction_canvas_'
         if (to_edit) {
@@ -933,7 +961,7 @@ void AnnotationsTool::end_drawing() {
     if (is_laser_mode()) {
         // start up the laser fade timer loop - see the event handler
         // in the constructor here to see how this works
-        anon_send(caf::actor_cast<caf::actor>(this), utility::event_atom_v, true);
+        anon_mail(utility::event_atom_v, true).send(caf::actor_cast<caf::actor>(this));
 
     } else {
         update_bookmark_annotation_data();

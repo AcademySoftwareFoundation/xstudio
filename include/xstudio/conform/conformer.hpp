@@ -25,6 +25,7 @@ namespace conform {
 
     // item, metadata, insert before this in media list.
     const auto ConformOperationsJSON = R"({
+        "match_only": false,
         "create_media": false,
         "remove_media": false,
         "insert_media": false,
@@ -187,7 +188,8 @@ namespace conform {
         virtual ConformReply conform_request(const ConformRequest &request);
         virtual bool conform_prepare_timeline(
             const utility::UuidActor &timeline, const bool only_create_conform_track);
-        virtual std::vector<std::optional<std::pair<std::string, caf::uri>>>
+        virtual std::vector<
+            std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>
         conform_find_timeline(
             const std::vector<std::pair<utility::UuidActor, utility::JsonStore>> &media);
 
@@ -248,7 +250,8 @@ namespace conform {
                 // find sequence related to media.
                 [=](conform_atom,
                     const std::vector<std::pair<utility::UuidActor, utility::JsonStore>> &media)
-                    -> std::vector<std::optional<std::pair<std::string, caf::uri>>> {
+                    -> std::vector<
+                        std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>> {
                     return conform_.conform_find_timeline(media);
                 },
 
@@ -279,7 +282,8 @@ namespace conform {
                     const utility::JsonStore & /*change*/,
                     const std::string & /*path*/,
                     const utility::JsonStore &full) {
-                    delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+                    return mail(json_store::update_atom_v, full)
+                        .delegate(actor_cast<caf::actor>(this));
                 },
 
                 [=](json_store::update_atom, const utility::JsonStore &js) {

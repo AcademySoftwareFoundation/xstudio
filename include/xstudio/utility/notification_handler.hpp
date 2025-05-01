@@ -166,13 +166,13 @@ class Notification {
 
     void send() {
         if (host_ and destination_)
-            host_->anon_send(destination_, notification_atom_v, *this);
+            anon_mail(notification_atom_v, *this).send(destination_);
     }
 
     void progress(const float value) {
         progress_ = std::min(progress_maximum_, std::max(value, progress_minimum_));
         if (host_ and destination_)
-            host_->anon_send(destination_, notification_atom_v, uuid_, progress_);
+            anon_mail(notification_atom_v, uuid_, progress_).send(destination_);
     }
 
     void progress_maximum(const float value) {
@@ -197,7 +197,7 @@ class Notification {
 
     void remove() {
         if (host_ and destination_)
-            host_->anon_send(destination_, notification_atom_v, uuid_);
+            anon_mail(notification_atom_v, uuid_).send(destination_);
     }
 
     void update_expires() { expires_ = utility::sysclock::now() + expires_in_; }

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/conform/conformer.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -31,7 +32,11 @@ class ShotbrowserConform : public Conformer {
     }
 
 
-    std::vector<std::string> conform_tasks() override { return visible_tasks_; }
+    std::vector<std::string> conform_tasks() override {
+        if (visible_tasks_.empty())
+            spdlog::warn("conform_tasks() empty ? {}", __PRETTY_FUNCTION__);
+        return visible_tasks_;
+    }
 
     bool update_tasks(const utility::JsonStoreSync &presets) {
         auto result = false;
@@ -39,24 +44,29 @@ class ShotbrowserConform : public Conformer {
         std::vector<std::string> visible_tasks;
         std::map<std::string, utility::Uuid> task_uuids;
 
-        // find entry with uuid  == b6e0ca0e-2d23-4b1d-a33a-761596183d5f
         try {
-            auto task_group =
-                presets.find_first("id", Uuid("b6e0ca0e-2d23-4b1d-a33a-761596183d5f"));
-            if (task_group) {
-                // collect preset names.
-                for (const auto &i :
-                     presets.at(*task_group).at("children").at(1).at("children")) {
-                    if (i.value("hidden", false))
-                        continue;
+            for (const auto &i : presets.as_json().at("children")) {
+                if (i.value("hidden", false) or not i.value("favourite", false))
+                    continue;
 
-                    task_uuids[i.value("name", "")] = i.value("id", utility::Uuid());
-                    tasks.emplace_back(i.value("name", ""));
+                auto flags = i.value("flags", std::set<std::string>());
 
-                    if (not i.value("favourite", true))
-                        continue;
+                if (flags.count("Replace") or flags.count("Conform") or
+                    flags.count("Compare")) {
+                    // scan children..
+                    for (const auto &j : i.at("children").at(1).at("children")) {
+                        if (j.value("hidden", false))
+                            continue;
 
-                    visible_tasks.emplace_back(i.value("name", ""));
+                        task_uuids[j.value("name", "")] = j.value("id", utility::Uuid());
+                        tasks.emplace_back(j.value("name", ""));
+
+
+                        if (not j.value("favourite", true))
+                            continue;
+
+                        visible_tasks.emplace_back(j.value("name", ""));
+                    }
                 }
             }
         } catch (const std::exception &err) {
@@ -82,19 +92,24 @@ class ShotbrowserConform : public Conformer {
 
     std::optional<utility::Uuid> get_cut_query_id(const utility::JsonStoreSync &presets) const {
         try {
-            auto task_group =
-                presets.find_first("id", Uuid("86439af3-16be-4a2f-89f3-ee1e5810ae47"));
-            if (task_group) {
-                // collect preset names.
-                for (const auto &i :
-                     presets.at(*task_group).at("children").at(1).at("children")) {
-                    if (i.value("hidden", false))
-                        continue;
+            // iterate over groups looking for flags containing "View In Sequence"
+            for (const auto &i : presets.as_json().at("children")) {
+                if (i.value("hidden", false) or not i.value("favourite", false))
+                    continue;
 
-                    if (not i.value("favourite", true))
-                        continue;
+                auto flags = i.value("flags", std::vector<std::string>());
+                if (std::find(flags.begin(), flags.end(), "View In Sequence") !=
+                    std::end(flags)) {
+                    // scan children..
+                    for (const auto &j : i.at("children").at(1).at("children")) {
+                        if (j.value("hidden", false))
+                            continue;
 
-                    return i.value("id", utility::Uuid());
+                        if (not j.value("favourite", true))
+                            continue;
+
+                        return j.value("id", utility::Uuid());
+                    }
                 }
             }
         } catch (const std::exception &err) {
@@ -150,6 +165,8 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 return rp;
             },
 
+            // manipulate timeline to populate conform track
+            // and also other initial preparations
             [=](conform_atom,
                 const UuidActor &timeline,
                 const bool only_create_conform_track) -> result<bool> {
@@ -159,17 +176,14 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 return rp;
             },
 
-            [=](conform_tasks_atom) -> std::vector<std::string> {
-                setup();
-                conform_.update_tasks(presets_);
-                return conform_.conform_tasks();
-            },
-
+            // return media / sequence pairs.
+            // used when conforming media into new sequences
             [=](conform_atom,
                 const std::vector<std::pair<utility::UuidActor, utility::JsonStore>> &media)
-                -> result<std::vector<std::optional<std::pair<std::string, caf::uri>>>> {
-                auto rp = make_response_promise<
-                    std::vector<std::optional<std::pair<std::string, caf::uri>>>>();
+                -> result<std::vector<
+                    std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>> {
+                auto rp = make_response_promise<std::vector<
+                    std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>>();
                 conform_media(rp, media);
                 return rp;
             },
@@ -184,6 +198,13 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 return rp;
             },
 
+            // return valid tasks for this conform engine
+            [=](conform_tasks_atom) -> std::vector<std::string> {
+                setup();
+                conform_.update_tasks(presets_);
+                return conform_.conform_tasks();
+            },
+
             [=](utility::event_atom,
                 json_store::sync_atom,
                 const Uuid &uuid,
@@ -191,9 +212,9 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 if (uuid == user_preset_event_id_) {
                     presets_.process_event(event);
                     if (conform_.update_tasks(presets_))
-                        anon_send(
-                            system().registry().template get<caf::actor>(conform_registry),
-                            conform_tasks_atom_v);
+                        anon_mail(conform_tasks_atom_v)
+                            .send(
+                                system().registry().template get<caf::actor>(conform_registry));
                 }
             },
 
@@ -201,7 +222,8 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 const utility::JsonStore & /*change*/,
                 const std::string & /*path*/,
                 const utility::JsonStore &full) {
-                delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+                return mail(json_store::update_atom_v, full)
+                    .delegate(actor_cast<caf::actor>(this));
             },
 
             [=](json_store::update_atom, const utility::JsonStore &js) {
@@ -298,6 +320,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                             "type": null,
                             "epoc": null,
                             "audio_source": [],
+                            "sequence_source": [],
                             "visual_source": [],
                             "flag_text": "",
                             "flag_colour": "",
@@ -311,17 +334,17 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         // utility::to_epoc_milliseconds(utility::clock::now());
                         // req["context"]["type"] = "result";
 
-                        request(shotbrowser, infinite, data_source::get_data_atom_v, req)
+                        mail(data_source::get_data_atom_v, req)
+                            .request(shotbrowser, infinite)
                             .then(
                                 [=](const JsonStore &result) mutable {
-                                    request(
-                                        shotbrowser,
-                                        infinite,
+                                    mail(
                                         playlist::add_media_atom_v,
                                         result,
                                         crequest.container_.uuid(),
                                         crequest.container_.actor(),
                                         crequest.items_.at(i).before_)
+                                        .request(shotbrowser, infinite)
                                         .then(
                                             [=](const UuidActorVector &new_media) mutable {
                                                 (*shotgrid_results)[i] = new_media;
@@ -360,10 +383,13 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
         try {
             auto creply = ConformReply(crequest);
             auto clips  = crequest.template_tracks_.at(0).find_all_items(timeline::IT_CLIP);
+            const auto fake_shot_ptr =
+                json::json_pointer("/metadata/shotgun/version/attributes/sg_pipe_tag_3");
 
             // build clip lookup.
             std::map<Uuid, std::string> clip_project_map;
             std::map<Uuid, std::string> clip_shot_map;
+            std::map<Uuid, std::string> clip_meta_shot_map;
 
             // remap start frame if requested via metadata..
             for (auto &t : creply.request_.template_tracks_) {
@@ -400,7 +426,6 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 }
             }
 
-
             for (const auto &c : clips) {
                 auto clip_uuid  = c.get().uuid();
                 auto media_uuid = c.get().prop().value("media_uuid", Uuid());
@@ -410,27 +435,37 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                 auto clip_project =
                     QueryEngine::get_project_name(crequest.metadata_.at(clip_uuid));
                 auto clip_shot = QueryEngine::get_shot_name(crequest.metadata_.at(clip_uuid));
+                auto clip_meta_shot = std::string();
 
                 if (clip_project.empty() and not media_uuid.is_null())
                     clip_project =
                         QueryEngine::get_project_name(crequest.metadata_.at(media_uuid));
+
                 if (clip_shot.empty() and not media_uuid.is_null())
                     clip_shot = QueryEngine::get_shot_name(crequest.metadata_.at(media_uuid));
 
-                clip_project_map[clip_uuid] = clip_project;
-                clip_shot_map[clip_uuid]    = clip_shot;
+                if (not media_uuid.is_null() and
+                    crequest.metadata_.at(media_uuid).contains(fake_shot_ptr) and
+                    not crequest.metadata_.at(media_uuid).at(fake_shot_ptr).is_null())
+                    clip_meta_shot = crequest.metadata_.at(media_uuid).at(fake_shot_ptr);
+
+                clip_project_map[clip_uuid]   = clip_project;
+                clip_shot_map[clip_uuid]      = clip_shot;
+                clip_meta_shot_map[clip_uuid] = clip_meta_shot;
 
                 if (clip_project.empty() or clip_shot.empty()) {
                     spdlog::warn(
-                        "Clip metadata not found, {} project: '{}', 'shot':  {}",
+                        "Clip metadata not found, {} project: '{}', 'shot':  {}, 'meta shot':  "
+                        "{}",
                         c.get().name(),
                         clip_project,
-                        clip_shot);
+                        clip_shot,
+                        clip_meta_shot);
+                } else {
+                    // spdlog::warn("CLIP {} project: '{}', 'shot':  {}, 'meta shot':  {}",
+                    // to_string(clip_uuid), clip_project,
+                    // clip_shot, clip_meta_shot);
                 }
-                // else {
-                //     spdlog::warn("CLIP {} {} {}", to_string(clip_uuid), clip_project,
-                //     clip_shot);
-                // }
             }
 
             std::set<utility::Uuid> matched_clips;
@@ -459,6 +494,12 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         const auto meta = crequest.metadata_.at(i.item_.uuid());
                         auto project    = QueryEngine::get_project_name(meta);
                         auto shot       = QueryEngine::get_shot_name(meta);
+                        auto meta_shot  = std::string();
+
+                        if (meta.contains(fake_shot_ptr) and
+                            not meta.at(fake_shot_ptr).is_null())
+                            meta_shot = meta.at(fake_shot_ptr);
+
 
                         if (project.empty() or shot.empty()) {
                             creply.items_.push_back({});
@@ -468,6 +509,11 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                                 project,
                                 shot);
                         } else {
+                            // spdlog::warn(
+                            //     "Media  metadata, project: {}, shot: {}, meta_shot: {}",
+                            //     project,
+                            //     shot,
+                            //     meta_shot);
                             auto ritems = std::vector<ConformReplyItem>();
 
                             for (const auto &c : clips) {
@@ -475,7 +521,8 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                                 if ((not only_one_match or
                                      not matched_clips.count(clip_uuid)) and
                                     clip_project_map.at(clip_uuid) == project and
-                                    clip_shot_map.at(clip_uuid) == shot) {
+                                    clip_shot_map.at(clip_uuid) == shot and
+                                    clip_meta_shot_map.at(clip_uuid) == meta_shot) {
                                     ritems.push_back(std::make_tuple(c.get().uuid_actor()));
                                     matched_clips.insert(clip_uuid);
                                     if (only_one_match)
@@ -485,10 +532,11 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                             if (ritems.empty()) {
                                 spdlog::warn(
                                     "Media has no matching clip {} project: {}, shot:  "
-                                    "{}",
+                                    "{}, meta_shot: {}",
                                     to_string(i.item_.uuid()),
                                     project,
-                                    shot);
+                                    shot,
+                                    meta_shot);
                                 creply.items_.push_back({});
                             } else
                                 creply.items_.push_back(ritems);
@@ -591,7 +639,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
             vtrack.set_enabled(false);
             // populate vtrack name/metadata
             if (not only_create_conform_track)
-                anon_send(vtrack.actor(), timeline::item_lock_atom_v, true);
+                anon_mail(timeline::item_lock_atom_v, true).send(vtrack.actor());
 
             auto media_metadata = std::map<Uuid, JsonStore>();
             auto tframe         = timeline_item.trimmed_start();
@@ -818,9 +866,9 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         meta.update(pm, true);
 
                         if (not only_create_conform_track) {
-                            anon_send(i.actor(), timeline::item_prop_atom_v, meta);
-                            anon_send(i.actor(), timeline::item_name_atom_v, unknown_name);
-                            anon_send(i.actor(), timeline::item_flag_atom_v, "#FFFF0000");
+                            anon_mail(timeline::item_prop_atom_v, meta).send(i.actor());
+                            anon_mail(timeline::item_name_atom_v, unknown_name).send(i.actor());
+                            anon_mail(timeline::item_flag_atom_v, "#FFFF0000").send(i.actor());
                         }
 
                         i.set_prop(meta);
@@ -848,10 +896,10 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         i.set_enabled(true);
 
                         if (not only_create_conform_track) {
-                            anon_send(i.actor(), timeline::item_prop_atom_v, meta);
-                            anon_send(
-                                i.actor(), timeline::item_name_atom_v, shot.get<std::string>());
-                            anon_send(i.actor(), timeline::item_flag_atom_v, "#FF00FF00");
+                            anon_mail(timeline::item_prop_atom_v, meta).send(i.actor());
+                            anon_mail(timeline::item_name_atom_v, shot.get<std::string>())
+                                .send(i.actor());
+                            anon_mail(timeline::item_flag_atom_v, "#FF00FF00").send(i.actor());
                         }
                     }
                 }
@@ -878,17 +926,25 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
             request_receive<JsonStore>(
                 *sys, timeline_item.actor(), timeline::item_prop_atom_v, tprop);
 
-            // purge other video tracks
+            // purge other video tracks but only if turnover..
             if (not only_create_conform_track and conform_.purge_sequence_on_import() and
                 vcount > 1) {
 
-                request_receive<JsonStore>(
+                // check meta
+                auto tmeta = request_receive<JsonStore>(
                     *sys,
-                    timeline_item.children().front().actor(),
-                    timeline::erase_item_atom_v,
-                    0,
-                    static_cast<int>(vcount - 1),
-                    true);
+                    timeline.actor(),
+                    json_store::get_json_atom_v,
+                    "/metadata/shotgun/version/attributes");
+                if (tmeta.at("sg_twig_type") == "data/clip/cut" and
+                    ends_with(tmeta.at("sg_twig_name").get<std::string>(), "_turnover"))
+                    request_receive<JsonStore>(
+                        *sys,
+                        timeline_item.children().front().actor(),
+                        timeline::erase_item_atom_v,
+                        0,
+                        static_cast<int>(vcount - 1),
+                        true);
             }
 
             // we shouldn't return until the main timeline item is fully sync'd with it's
@@ -910,7 +966,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                             if (i.item_type() == timeline::IT_CLIP and
                                 not(i.flag() == "#FFFF0000" or i.flag() == "#FF00FF00")) {
                                 done = false;
-                                spdlog::warn("Waiting for timeline to sync. {}", timeline_path);
+                                spdlog::info("Waiting for timeline to sync. {}", timeline_path);
                                 std::this_thread::sleep_for(1s);
                                 break;
                             }
@@ -920,7 +976,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         break;
                     }
                 }
-                spdlog::warn("Timeline is ready. {}", timeline_path);
+                spdlog::info("Timeline is ready. {}", timeline_path);
             }
 
             rp.deliver(true);
@@ -931,8 +987,8 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
     }
 
     void conform_media(
-        caf::typed_response_promise<
-            std::vector<std::optional<std::pair<std::string, caf::uri>>>> rp,
+        caf::typed_response_promise<std::vector<
+            std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>> rp,
         const std::vector<std::pair<utility::UuidActor, utility::JsonStore>> &media) {
 
         // for(const auto &i: media) {
@@ -953,11 +1009,17 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
             if (not shotbrowser)
                 throw std::runtime_error("Failed to find shotbrowser");
 
+            auto ivy = system().registry().template get<caf::actor>("IVYDATASOURCE");
+
+            if (not ivy)
+                throw std::runtime_error("Failed to find Ivy Datasource");
+
             if (query_id) {
 
                 auto shotgrid_count   = std::make_shared<size_t>(media.size());
-                auto shotgrid_results = std::make_shared<
-                    std::vector<std::optional<std::pair<std::string, caf::uri>>>>(media.size());
+                auto shotgrid_results = std::make_shared<std::vector<
+                    std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>>(
+                    media.size());
 
                 auto count = 0;
                 for (const auto &i : media) {
@@ -971,47 +1033,90 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         "type": null,
                         "epoc": null,
                         "audio_source": [],
+                        "sequence_source": [],
                         "visual_source": [],
                         "flag_text": "",
                         "flag_colour": "",
                         "truncated": false
                     })"_json;
 
-                    request(shotbrowser, infinite, data_source::get_data_atom_v, req)
+                    mail(data_source::get_data_atom_v, req)
+                        .request(shotbrowser, infinite)
                         .then(
                             [=](const JsonStore &result) mutable {
+                                auto vpath = nlohmann::json::json_pointer("/result/data/0");
                                 auto jpath =
                                     nlohmann::json::json_pointer("/result/data/0/attributes");
                                 auto spath = nlohmann::json::json_pointer(
                                     "/result/data/0/relationships/entity/data");
+
+                                auto preferred_sequence =
+                                    nlohmann::json::json_pointer("/context/sequence_source");
+
+                                //  we need to call ivy to get leafs for this version so we can
+                                //  select the otio
+                                // spdlog::warn("{}", result.dump(2));
+
                                 if (result.contains(jpath)) {
-                                    auto otiopath = result.at(jpath).value(
-                                        "sg_path_to_frames", std::string());
-                                    auto last_dot = otiopath.find_last_of(".");
-                                    otiopath      = otiopath.substr(0, last_dot);
+                                    // make request to ivy..
+                                    mail(
+                                        data_source::get_data_atom_v,
+                                        result.at(jpath).value(
+                                            "sg_project_name", std::string()),
+                                        result.at(jpath).value("sg_ivy_dnuuid", Uuid()))
+                                        .request(ivy, infinite)
+                                        .then(
+                                            [=](const JsonStore &ivyresult) mutable {
+                                                // find otio..
+                                                // iterate over preferred_sequence
+                                                auto otiopath = std::string();
+                                                for (const auto &i :
+                                                     result.at(preferred_sequence)) {
+                                                    for (const auto &file :
+                                                         ivyresult.at("data")
+                                                             .at("versions_by_id")
+                                                             .at(0)
+                                                             .at("files")) {
+                                                        if (file.at("name") == i and
+                                                            fs::exists(forward_remap_file_path(file.at("path")))) {
+                                                            otiopath = file.at("path");
+                                                            break;
+                                                        }
+                                                    }
+                                                    if (not otiopath.empty())
+                                                        break;
+                                                }
 
-                                    // need to test for optimised otio..
-                                    if (not fs::exists(otiopath + "_optimised.otio"))
-                                        otiopath += ".otio";
-                                    else
-                                        otiopath += "_optimised.otio";
+                                                auto name = result.at(spath).value(
+                                                    "name", std::string());
 
-                                    auto name = result.at(spath).value("name", std::string());
+                                                try {
+                                                    auto uri = posix_path_to_uri(otiopath);
+                                                    JsonStore meta(
+                                                        R"({"metadata":{"shotgun":{"version":{}}}})"_json);
+                                                    meta["metadata"]["shotgun"]["version"] =
+                                                        result.at(vpath);
+                                                    (*shotgrid_results)[count] =
+                                                        std::make_tuple(name, uri, meta);
+                                                } catch (...) {
+                                                    (*shotgrid_results)[count] = {};
+                                                }
 
-                                    try {
-                                        auto uri = posix_path_to_uri(otiopath);
-                                        (*shotgrid_results)[count] = std::make_pair(name, uri);
-                                    } catch (...) {
-                                        (*shotgrid_results)[count] = {};
-                                    }
-                                } else
+                                                (*shotgrid_count)--;
+                                                if (not *shotgrid_count)
+                                                    rp.deliver(*shotgrid_results);
+                                            },
+                                            [=](caf::error &err) mutable {
+                                                (*shotgrid_count)--;
+                                                if (not *shotgrid_count)
+                                                    rp.deliver(*shotgrid_results);
+                                            });
+                                } else {
                                     (*shotgrid_results)[count] = {};
-
-                                // spdlog::warn("{}",result.dump(2));
-
-                                (*shotgrid_count)--;
-                                if (not *shotgrid_count)
-                                    rp.deliver(*shotgrid_results);
+                                    (*shotgrid_count)--;
+                                    if (not *shotgrid_count)
+                                        rp.deliver(*shotgrid_results);
+                                }
                             },
                             [=](caf::error &err) mutable {
                                 (*shotgrid_count)--;
@@ -1023,7 +1128,9 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
             } else {
                 spdlog::warn("{} Sequence preset not found", __PRETTY_FUNCTION__);
                 rp.deliver(
-                    std::vector<std::optional<std::pair<std::string, caf::uri>>>(media.size()));
+                    std::vector<
+                        std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>(
+                        media.size()));
             }
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1048,7 +1155,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                     presets_ = JsonStoreSync(data);
 
 
-                    // join events.
+                    // leave events.
                     if (preset_events_) {
                         try {
                             request_receive<bool>(
@@ -1057,6 +1164,8 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                         }
                         preset_events_ = caf::actor();
                     }
+
+                    // join events
                     try {
                         preset_events_ = request_receive<caf::actor>(
                             *sys, sb_actor_, get_event_group_atom_v);
@@ -1065,12 +1174,13 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                     } catch (const std::exception &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                     }
+
                     connected_ = true;
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 }
             } else {
-                // spdlog::warn("NOT CONNECTED");
+                spdlog::warn("{} Failed to connect to ShotBrowser", __PRETTY_FUNCTION__);
             }
         }
     }
@@ -1118,12 +1228,9 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                     trimmed_range.set_start(FrameRate(
                         trimmed_range.rate() * item_meta.at(cut_start_ptr).get<int>()));
 
-                    anon_send(
-                        i.item_.actor(),
-                        timeline::trimmed_range_atom_v,
-                        trimmed_range,
-                        trimmed_range);
-                    anon_send(i.item_.actor(), timeline::item_prop_atom_v, prop);
+                    anon_mail(timeline::trimmed_range_atom_v, trimmed_range, trimmed_range)
+                        .send(i.item_.actor());
+                    anon_mail(timeline::item_prop_atom_v, prop).send(i.item_.actor());
                 }
 
                 // spdlog::warn("{}", creply.request_.metadata_.at(i.item_.uuid()).dump(2));

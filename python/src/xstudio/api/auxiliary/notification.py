@@ -21,7 +21,7 @@ class NotificationPy():
 
     @type.setter
     def type(self, value):
-        self._notification.set_type(ntype)
+        self._notification.set_type(value)
 
     @property
     def text(self):
@@ -74,6 +74,9 @@ class NotificationPy():
     @property
     def progress_text_range(self):
         return self._notification.progress_text_range()
+
+    def set_expires_in(self, seconds):
+        self._notification.set_expires_in(seconds)
 
     def remove(self):
         """Remove Notification"""

@@ -41,6 +41,11 @@ namespace ui {
             Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
             Q_PROPERTY(QString backend READ backend NOTIFY backendChanged)
 
+            Q_PROPERTY(
+                QString shotGridUserName READ shotGridUserName NOTIFY shotGridUserNameChanged)
+            Q_PROPERTY(
+                QString shotGridUserType READ shotGridUserType NOTIFY shotGridUserTypeChanged)
+
             Q_PROPERTY(QObject *presetsModel READ presetsModel NOTIFY presetsModelChanged)
 
             Q_PROPERTY(
@@ -68,8 +73,10 @@ namespace ui {
 
             Q_INVOKABLE QObject *presetsModel();
             Q_INVOKABLE QObject *sequenceTreeModel(const int project_id);
+            Q_INVOKABLE QObject *assetTreeModel(const int project_id);
 
-            Q_INVOKABLE QString getShotgunUserName();
+            Q_INVOKABLE QString shotGridUserName();
+            Q_INVOKABLE QString shotGridUserType();
 
             [[nodiscard]] bool connected() const { return connected_; }
 
@@ -79,7 +86,8 @@ namespace ui {
             void setLiveLinkMetadata(QString &data);
 
             Q_INVOKABLE QString getProjectFromMetadata() const;
-            Q_INVOKABLE QString getShotSequenceFromMetadata() const;
+            Q_INVOKABLE QVariant getEntityFromMetadata() const;
+            // Q_INVOKABLE QString getAssetFromMetadata() const;
 
             QVariant liveLinkKey() const { return live_link_key_; }
             void setLiveLinkKey(const QVariant &key);
@@ -111,6 +119,8 @@ namespace ui {
             void presetModelsChanged();
             void presetsModelChanged();
             void readyChanged();
+            void shotGridUserNameChanged();
+            void shotGridUserTypeChanged();
 
             void projectChanged(const int project_id, const QString &project_name);
 
@@ -123,7 +133,16 @@ namespace ui {
                 }
             }
 
+            utility::JsonStore getUserData() const;
+
             // void updateModel(const QString &name);
+
+            QFuture<QUrl> getSequencePathFuture(
+                const QStringList &preferred, const QString &project, const QUuid &stalk);
+            QUrl getSequencePath(
+                const QStringList &preferred, const QString &project, const QUuid &stalk) {
+                return getSequencePathFuture(preferred, project, stalk).result();
+            }
 
             QFuture<QString> getDataFuture(const QString &type, const int project_id = -1);
 
@@ -165,6 +184,11 @@ namespace ui {
                 return getShotsFuture(project_id).result();
             }
             QFuture<QString> getShotsFuture(const int project_id);
+
+            QString getEpisodes(const int project_id) {
+                return getEpisodesFuture(project_id).result();
+            }
+            QFuture<QString> getEpisodesFuture(const int project_id);
 
             QString getUsers(const int project_id = -1) {
                 return getUsersFuture(project_id).result();
@@ -212,13 +236,15 @@ namespace ui {
             QFuture<QString> updateEntityFuture(
                 const QString &entity, const int record_id, const QString &update_json);
 
-            QString updatePlaylistVersions(const QUuid &playlist) {
-                return updatePlaylistVersionsFuture(playlist).result();
+            QString updatePlaylistVersions(const QUuid &playlist, const bool append = false) {
+                return updatePlaylistVersionsFuture(playlist, append).result();
             }
-            QFuture<QString> updatePlaylistVersionsFuture(const QVariant &playlist) {
-                return updatePlaylistVersionsFuture(playlist.toUuid());
+            QFuture<QString>
+            updatePlaylistVersionsFuture(const QVariant &playlist, const bool append = false) {
+                return updatePlaylistVersionsFuture(playlist.toUuid(), append);
             }
-            QFuture<QString> updatePlaylistVersionsFuture(const QUuid &playlist);
+            QFuture<QString>
+            updatePlaylistVersionsFuture(const QUuid &playlist, const bool append = false);
 
             QString
             refreshPlaylistVersions(const QUuid &playlist, const bool matchOrder = false) {
@@ -342,14 +368,28 @@ namespace ui {
 
             void populateCaches();
 
-            QFuture<QString> executeProjectQuery(
+            // QFuture<QString> executeProjectQuery(
+            //     const QStringList &preset_paths,
+            //     const int project_id,
+            //     const QVariantMap &env           = QVariantMap(),
+            //     const QVariantList &custom_terms = QVariantList(),
+            //     const QVariantMap &customContext = QVariantMap());
+
+            // QFuture<QString> executeQuery(
+            //     const QStringList &preset_paths,
+            //     const QVariantMap &env           = QVariantMap(),
+            //     const QVariantList &custom_terms = QVariantList(),
+            //     const QVariantMap &customContext = QVariantMap());
+
+
+            QFuture<QVariant> executeProjectQueryJSON(
                 const QStringList &preset_paths,
                 const int project_id,
                 const QVariantMap &env           = QVariantMap(),
                 const QVariantList &custom_terms = QVariantList(),
                 const QVariantMap &customContext = QVariantMap());
 
-            QFuture<QString> executeQuery(
+            QFuture<QVariant> executeQueryJSON(
                 const QStringList &preset_paths,
                 const QVariantMap &env           = QVariantMap(),
                 const QVariantList &custom_terms = QVariantList(),
@@ -372,6 +412,44 @@ namespace ui {
                 return addDownloadToMediaFuture(uuid).result();
             }
 
+            QFuture<QUrl> downloadMediaFuture(
+                const int entity_id,
+                const QString &entity_name,
+                const QString &project_name,
+                const QString &parent_name);
+            QUrl downloadMedia(
+                const int entity_id,
+                const QString &entity_name,
+                const QString &project_name,
+                const QString &parent_name) {
+                try {
+                    return downloadMediaFuture(
+                               entity_id, entity_name, project_name, parent_name)
+                        .result();
+                } catch (const std::exception &err) {
+                    return QUrl();
+                }
+            }
+
+            QFuture<QUrl> downloadImageFuture(
+                const int entity_id,
+                const QString &entity,
+                const QString &entity_name,
+                const QString &project_name);
+            QUrl downloadImage(
+                const int entity_id,
+                const QString &entity,
+                const QString &entity_name,
+                const QString &project_name) {
+                try {
+                    return downloadImageFuture(entity_id, entity, entity_name, project_name)
+                        .result();
+                } catch (const std::exception &err) {
+                    spdlog::warn("{}", err.what());
+                    return QUrl();
+                }
+            }
+
             void cacheProject(const int project_id);
 
             void requestData(
@@ -387,8 +465,16 @@ namespace ui {
 
             QFuture<QString> loadPresetModelFuture();
 
+            // unit
             QFuture<QString> getCustomEntity24Future(const int project_id);
+
+            QFuture<QString> getAssetFuture(const int project_id);
+
+            QFuture<QString> getTreeFuture(const int project_id);
+            QFuture<QString> getAssetTreeFuture(const int project_id);
+
             void createUnitCache(const int project_id);
+            void createAssetCache(const int project_id);
 
             QFuture<QString> getStageFuture(const int project_id);
             void createStageCache(const int project_id);
@@ -397,7 +483,9 @@ namespace ui {
             void createPlaylistCache(const int project_id);
 
             void createShotCache(const int project_id);
+            void createEpisodeCache(const int project_id);
             void createSequenceModels(const int project_id);
+            void createAssetModels(const int project_id);
             void createGroupModel(const int project_id);
             void createUserCache(const int project_id);
 
@@ -416,6 +504,7 @@ namespace ui {
             QString name_{"test"};
 
             QMap<int, ShotBrowserSequenceModel *> sequences_tree_map_;
+            QMap<int, ShotBrowserSequenceModel *> asset_tree_map_;
 
             std::map<std::string, bool> preset_update_pending_;
             int maximum_result_count_{2500};

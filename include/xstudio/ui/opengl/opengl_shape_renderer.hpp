@@ -38,14 +38,22 @@ namespace ui {
           private:
             void init_gl();
             void cleanup_gl();
+
+// if we are GL 4.2 or above, we can use SSBO approach.
+#ifdef __OPENGL_4_1__
+            void upload_shape_data_to_tex(const std::vector<float> &data_buf);
+            GLuint tex_id_;
+            GLuint vao_, vbo_;
+#else
             void upload_ssbo(
                 const std::vector<GLQuad> &quads,
                 const std::vector<GLEllipse> &ellipses,
                 const std::vector<GLPolygon> &polygons,
                 const std::vector<GLPoint> &points);
+            std::array<GLuint, 4> ssbo_id_{0, 0, 0, 0};
+#endif
 
             std::unique_ptr<xstudio::ui::opengl::GLShaderProgram> shader_;
-            std::array<GLuint, 4> ssbo_id_{0, 0, 0, 0};
         };
 
     } // namespace opengl

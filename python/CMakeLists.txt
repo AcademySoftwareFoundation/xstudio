@@ -7,51 +7,57 @@ set(VERSION_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/version.py.in")
 set(VERSION_PY_OUT    "${CMAKE_CURRENT_BINARY_DIR}/src/xstudio/version.py")
 set(VERSION_PY    "${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/version.py")
 
-file(GLOB DEPS
-      ${CMAKE_CURRENT_SOURCE_DIR}/*.in
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/api/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/api/auxiliary/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/api/auxiliary/*/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/api/intrinsic/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/api/session/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/api/*/*/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/api/*/*/*/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/cli/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/demo/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/common_api/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/connection/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/gui/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/plugin/*.py
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio/core/*.py
-)
-
-set(OUTPUT "${CMAKE_BINARY_DIR}/bin/python")
+file(GLOB_RECURSE DEPS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio *.py)
 
 set(PYTHONVP "python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
 
-configure_file(${SETUP_PY_IN} ${SETUP_PY})
-configure_file(${VERSION_PY_IN} ${VERSION_PY_OUT} @ONLY)
-configure_file(${VERSION_PY_IN} ${VERSION_PY} @ONLY)
+if(APPLE)
 
-add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
-                   COMMAND ${Python_EXECUTABLE}
-                   ARGS setup.py install --old-and-unmanageable --prefix=${OUTPUT}
-                   DEPENDS ${DEPS})
+    set(VCPKG_LOCATION "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
 
-add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api)
+    configure_file(${SETUP_PY_IN} ${SETUP_PY})
+    configure_file(${VERSION_PY_IN} ${VERSION_PY_OUT} @ONLY)
+    configure_file(${VERSION_PY_IN} ${VERSION_PY} @ONLY)
+
+    add_custom_command(OUTPUT ${VCPKG_LOCATION}/xstudio/api
+                    COMMAND ${Python_EXECUTABLE}
+                    ARGS setup.py install --old-and-unmanageable --prefix=${VCPKG_LOCATION}
+                    DEPENDS ${DEPS})
+
+    add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${VCPKG_LOCATION}/xstudio/api)
+
+    # Here we copy the entire python installation into Frameworks
+    install(DIRECTORY ${VCPKG_LOCATION}/lib/${PYTHONVP} DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Frameworks/lib/)
+
+else()
+
+    set(OUTPUT "${CMAKE_BINARY_DIR}/bin/python")
+
+    configure_file(${SETUP_PY_IN} ${SETUP_PY})
+    configure_file(${VERSION_PY_IN} ${VERSION_PY_OUT} @ONLY)
+    configure_file(${VERSION_PY_IN} ${VERSION_PY} @ONLY)
+
+    add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
+                    COMMAND ${Python_EXECUTABLE}
+                    ARGS setup.py install --old-and-unmanageable --prefix=${OUTPUT}
+                    DEPENDS ${DEPS})
+
+    add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api)
+    
+endif()
 
 
-if(INSTALL_PYTHON_MODULE)
-  install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
-          DESTINATION lib/python/)
-
-  install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-control
-          DESTINATION bin)
-  install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-inject
-          DESTINATION bin)
-  install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudiopy
-          DESTINATION bin)
+if(NOT APPLE)
+    if(INSTALL_PYTHON_MODULE)
+        install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
+            DESTINATION lib/python/)
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-control
+            DESTINATION bin)
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-inject
+            DESTINATION bin)
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudiopy
+            DESTINATION bin)
+     endif()
 endif()
 
 if(WIN32)

@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import QtQuick
+import QtQuick.Layouts
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.15
-import QtQml 2.15
-import QtQuick.Dialogs 1.3
-import QtGraphicalEffects 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
 import QuickFuture 1.0
 import QuickPromise 1.0
 
@@ -27,7 +20,7 @@ Item{
     property real panelPadding: XsStyleSheet.panelPadding
     property color panelColor: XsStyleSheet.panelBgColor
 
-    property var activeScopeIndex: ShotBrowserEngine.presetsModel.index(-1,-1)
+    property var activeScopeIndex: helpers.qModelIndex()
 
     // Track the uuid of the media that is currently visible in the Viewport
     property var onScreenMediaUuid: currentPlayhead.mediaUuid
@@ -58,11 +51,20 @@ Item{
         path: "/plugin/data_source/shotbrowser/add_after_selection"
     }
 
+    XsPreference {
+        id: pauseOnPlaying
+        path: "/plugin/data_source/shotbrowser/pause_update_on_playing"
+    }
+
     onOnScreenLogicalFrameChanged: {
-        if(updateTimer.running) {
-            updateTimer.restart()
-            if(isPanelEnabled && !isPaused) {
-                isPaused = true
+        if(visible) {
+            if(currentPlayhead.playing && !pauseOnPlaying.value) {
+                // no op
+            } else if(updateTimer.running) {
+                updateTimer.restart()
+                if(isPanelEnabled && !isPaused) {
+                    isPaused = true
+                }
             }
         }
     }
@@ -75,9 +77,6 @@ Item{
         onTriggered: {
             isPaused = false
             ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
-            // if(onScreenMediaUuid == "{00000000-0000-0000-0000-000000000000}") {
-            //     results.setResultData([])
-            // }
         }
     }
 
@@ -85,6 +84,7 @@ Item{
         target: ShotBrowserEngine
         function onReadyChanged() {
             setIndexFromPreference()
+            runQuery()
         }
     }
 
@@ -97,12 +97,15 @@ Item{
                     activeScopeIndex = i
             }
         }
-        runQuery()
     }
+
     function getScopeIndex(scope_name) {
-        let m = ShotBrowserEngine.presetsModel
-        let p = m.searchRecursive("c5ce1db6-dac0-4481-a42b-202e637ac819", "idRole", ShotBrowserEngine.presetsModel.index(-1, -1), 0, 1)
-        return m.searchRecursive(scope_name, "nameRole", p, 0, 0)
+        for (const ind of ShotBrowserEngine.presetsModel.shotHistoryScope) {
+            if(ShotBrowserEngine.presetsModel.get(ind, "nameRole") == scope_name){
+                return ind
+            }
+        }
+        return helpers.qModelIndex()
     }
 
     onActiveScopeIndexChanged: {
@@ -116,34 +119,35 @@ Item{
     Connections {
         target: ShotBrowserEngine
         function onLiveLinkMetadataChanged() {
-            if(!isPaused && isPanelEnabled && panel.visible) {
-                runQuery()
-            }
+            runQuery()
         }
     }
 
     onIsPanelEnabledChanged: {
         if(isPanelEnabled) {
-            if(!ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid))
-                runQuery()
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            runQuery()
         }
     }
 
     Component.onCompleted: {
         if(visible) {
             ShotBrowserEngine.connected = true
-            if(!ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid))
-                runQuery()
-        }
-        setIndexFromPreference()
+            setIndexFromPreference()
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            isPaused = false
+            runQuery()
+        } else
+            setIndexFromPreference()
     }
 
     onVisibleChanged: {
         if(visible) {
             ShotBrowserEngine.connected = true
             setIndexFromPreference()
-            if(!ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid))
-                runQuery()
+            ShotBrowserHelpers.updateMetadata(isPanelEnabled, onScreenMediaUuid)
+            isPaused = false
+            runQuery()
         }
     }
 
@@ -157,6 +161,7 @@ Item{
             onPropertiesInitialised: {
                 prefs.initialised = true
                 setIndexFromPreference()
+                runQuery()
             }
         }
         property bool initialised: false
@@ -164,7 +169,7 @@ Item{
     }
 
     function runQuery() {
-        if(isPanelEnabled && activeScopeIndex.valid) {
+        if(!isPaused && panel.visible && ShotBrowserEngine.ready && isPanelEnabled && activeScopeIndex.valid) {
             // make sure the results appear in sync.
             let custom = []
             if(sentTo != "" && sentTo != "Ignore")
@@ -176,7 +181,7 @@ Item{
                 })
 
             if(onScreenMediaUuid == "{00000000-0000-0000-0000-000000000000}") {
-                resultsBaseModel.setResultData([])
+                resultsBaseModel.setResultDataJSON([])
             } else {
                 queryCounter += 1
                 queryRunning += 1
@@ -190,7 +195,7 @@ Item{
                                 )
 
                 Future.promise(
-                    ShotBrowserEngine.executeQuery(
+                    ShotBrowserEngine.executeQueryJSON(
                         [ShotBrowserEngine.presetsModel.get(activeScopeIndex, "jsonPathRole")],
                         {},
                         custom,
@@ -200,13 +205,13 @@ Item{
                     function(json_string) {
                         if(queryCounter == i) {
                             resultsSelectionModel.clear()
-                            resultsBaseModel.setResultData([json_string])
+                            resultsBaseModel.setResultDataJSON([json_string])
                         }
                         queryRunning -= 1
                     },
                     function() {
                         resultsSelectionModel.clear()
-                        resultsBaseModel.setResultData([])
+                        resultsBaseModel.setResultDataJSON([])
                         queryRunning -= 1
                     }
                 )

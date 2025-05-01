@@ -1,9 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.3
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Effects
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -17,11 +14,12 @@ Item {
     // same menu. This creates a circular dependency .. the menu item width
     // depends on the widest item. If it is the widest item its width
     // depends on itself. There must be a better QML solution for this
-    property real minWidth: gap.width + final_spacer.width + indentSpacer.width + iconDiv.width + hotkey_metrics.width + label_metrics.width + gap.width + subMenuIndicatorDiv.width + margin*4
+    property int indent: 0
+    readonly property int margin: 4
+    readonly property int subMenuIndicatorWidth: 16
+    property real minWidth: rl.implicitWidth + rl2.implicitWidth + (margin * 2) + subMenuIndicatorWidth
 
-    property real indent: 0
     property real leftIconSize: 3 + iconDiv.width
-    property var margin: 4
     property var sub_menu
     property var menu_model
     property var menu_model_index
@@ -29,8 +27,9 @@ Item {
     property var parent_menu
     property alias icon: iconDiv.source
     property var is_enabled: typeof menu_item_enabled !== 'undefined' ? menu_item_enabled : true
-    property bool has_sub_menu: false
+    property bool has_sub_menu: menu_model && menu_model.rowCount(menu_model_index) || menu_model.get(menu_model_index,"menu_item_type") == "multichoice"
 
+    property bool isSubMenuActive: sub_menu ? sub_menu.visible : false
     property bool isHovered: menuMouseArea.containsMouse
     property bool isActive: menuMouseArea.pressed
 
@@ -40,7 +39,9 @@ Item {
     property var __menuContextData: menuContextData
 
     onVisibleChanged: {
-        if (sub_menu && !visible) sub_menu.visible = false
+        if (sub_menu && !visible) {
+            sub_menu.visible = false
+        }
     }
 
     enabled: is_enabled
@@ -107,6 +108,7 @@ Item {
                 // are multiple instances of the same menu.
                 // console.log("widget.parent", widget.parent)
                 menu_model.nodeActivated(menu_model_index, "menu", helpers.contextPanel(widget))
+
                 parent_menu.closeAll()
 
             }
@@ -121,19 +123,19 @@ Item {
         border.color: palette.highlight
         border.width: borderWidth
         color: isActive ? palette.highlight : "transparent"
-        visible: widget.isHovered
+        visible: widget.isHovered || widget.isSubMenuActive
 
     }
 
     RowLayout {
+        id: rl
 
         anchors.left: parent.left
-        anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         anchors.margins: margin
         spacing: 0
 
-        XsImage {
+        XsIcon {
 
             id: iconDiv
             visible: source != ""
@@ -142,10 +144,7 @@ Item {
             //height: parent.height
             Layout.alignment: Qt.AlignVCenter
             Layout.fillHeight: true
-            layer {
-                enabled: true
-                effect: ColorOverlay { color: hotKeyColor }
-            }
+            imgOverlayColor: hotKeyColor
 
         }
 
@@ -167,20 +166,20 @@ Item {
 
         }
 
-        TextMetrics {
-            id:     label_metrics
-            font:   labelDiv.font
-            text:   labelDiv.text
-        }
-
         Item {
             id: gap
-            width: hotKeyDiv.text != "" || subMenuIndicatorDiv.visible ? 10 : 0
+            width: 10//hotKeyDiv.text != "" || subMenuIndicatorDiv.visible ? 10 : 0
         }
 
-        Item {
-            Layout.fillWidth: true
-        }
+    }
+
+    RowLayout {
+        id: rl2
+
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.margins: margin
+        spacing: 0
 
         XsText {
 
@@ -193,26 +192,16 @@ Item {
             verticalAlignment: Text.AlignVCenter
         }
 
-        TextMetrics {
-            id:     hotkey_metrics
-            font:   hotKeyDiv.font
-            text:   hotKeyDiv.text
-        }
-
-        Image {
+        XsIcon {
 
             Layout.alignment: Qt.AlignVCenter
             id: subMenuIndicatorDiv
             visible: widget.has_sub_menu ? !is_in_bar: false
-            width: visible ? 16 : 0
+            width: subMenuIndicatorWidth//visible ? subMenuIndicatorWidth : 0
+            height: width
             source: "qrc:/icons/chevron_right.svg"
-            sourceSize.height: 16
-            sourceSize.width: 16
-            smooth: true
-            layer {
-                enabled: true
-                effect: ColorOverlay { color: hotKeyColor }
-            }
+            imgOverlayColor: widget.isSubMenuActive? palette.highlight : hotKeyColor
+
         }
 
         // this is needed because the chevron has about 3 empty pixels around it
@@ -227,7 +216,7 @@ Item {
 
     Component.onCompleted: {
         if (menu_model && menu_model.rowCount(menu_model_index) || menu_model.get(menu_model_index,"menu_item_type") == "multichoice") {
-            has_sub_menu = true
+            //has_sub_menu = true
         }
     }
 

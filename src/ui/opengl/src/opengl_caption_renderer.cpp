@@ -8,7 +8,7 @@ using namespace xstudio::ui::opengl;
 namespace {
 
 const char *flat_color_vertex_shader = R"(
-    #version 430 core
+    #version 410 core
     uniform mat4 to_coord_system;
     uniform mat4 to_canvas;
     layout (location = 0) in vec2 aPos;

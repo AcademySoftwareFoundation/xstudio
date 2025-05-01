@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Window 2.15
-import QtQuick.Controls 2.15
-import Qt.labs.qmlmodels 1.0
-import QtQml.Models 2.14
-import QtQuick.Layouts 1.4
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtMultimedia
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -328,7 +326,7 @@ ApplicationWindow {
     }
 
     // pause playback on minimise
-    onVisibilityChanged: {
+    onVisibilityChanged: (visibility)=> {
         if(visibility == 3) { // QWindow::Minimized
             sessionData.current_playhead.playing = false
         }
@@ -486,13 +484,15 @@ ApplicationWindow {
     // of a view being involved.
     // The place to do this is in its singleton item as doing it in views is
     // problematic as a there may be multiple instances of any given view.
-    ListView {
+    Repeater {
         model: DelegateModel {
             model: singletonsModel
             delegate: Item {
                 id: parent_item
                 property var dynamic_widget
-                Component.onCompleted: {
+                property var source__: source
+                onSource__Changed: {
+                    if (!source) return
                     if (source.endsWith(".qml")) {
                         let component = Qt.createComponent(source)
                         if (component.status == Component.Ready) {
@@ -644,6 +644,13 @@ ApplicationWindow {
             }
         }
     }
+
+    XsPreference {
+        id: __suppressQuickview
+        path: "/ui/qml/disable_quickview_windows"
+    }
+    property bool suppressQuickviewWindows: __suppressQuickview.value
+
     // For dynamic loading of QML by plugins
     XsRuntimeQMLItems {
     }

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import Grading 2.0
@@ -91,24 +89,6 @@ Item{
             Layout.maximumWidth: 2
             Layout.fillHeight: true
         }
-
-        // Dodge & Burn not implemented yet...
-        // Repeater{
-        //     model: mask2ToolsModel
-        //     GTToolButton{ id: polyBtn
-        //         Layout.fillWidth: true
-        //         Layout.minimumWidth: maskBtnWidth/2
-        //         Layout.maximumWidth: maskBtnWidth/2
-        //         Layout.preferredHeight: itemHeight *2 + 1
-        //         text: toolName
-        //         src: toolImg
-        //         isActive: activeButton == text
-        //         enabled: false
-        //         onClicked: {
-        //             activeButton = text
-        //         }
-        //     }
-        // }
 
         RowLayout{ id: propertiesGrid
             enabled: mask_attrs.mask_selected_shape >= 0

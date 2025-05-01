@@ -42,6 +42,7 @@ namespace ui {
             caf::actor store;
             caf::actor store_events;
             QString json_string_;
+            caf::disposable monitor_;
         };
     } // namespace qml
 } // namespace ui

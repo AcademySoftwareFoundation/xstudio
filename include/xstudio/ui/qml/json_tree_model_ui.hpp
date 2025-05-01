@@ -305,6 +305,7 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
         if (invert != invert_) {
             invert_ = invert;
             emit invertChanged();
+            invalidateFilter();
         }
     }
 
@@ -330,6 +331,7 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
         if (ascending != (sortOrder() == Qt::AscendingOrder ? true : false)) {
             sort(0, ascending ? Qt::AscendingOrder : Qt::DescendingOrder);
             emit sortAscendingChanged();
+            invalidate();
         }
     }
 
@@ -346,8 +348,9 @@ class HELPER_QML_EXPORT JSONTreeFilterModel : public QSortFilterProxyModel {
     void setSortRoleName(const QString &role) {
         auto role_id = roleId(role);
         if (role_id != sortRole()) {
-            setSortRole(role_id);
             emit sortRoleNameChanged();
+            setSortRole(role_id);
+            invalidate();
         }
     }
 

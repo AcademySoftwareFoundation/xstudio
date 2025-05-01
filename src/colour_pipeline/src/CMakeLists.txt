@@ -2,7 +2,7 @@ SET(LINK_DEPS
 	xstudio::utility
 	xstudio::plugin_manager
 	xstudio::module
-	caf::core
+	CAF::core
 )
 
-create_component(colour_pipeline 0.1.0 "${LINK_DEPS}")
+create_component(colour_pipeline ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

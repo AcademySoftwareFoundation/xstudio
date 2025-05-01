@@ -8,5 +8,6 @@ CAF_POP_WARNINGS
 
 #include "xstudio/utility/uuid.hpp"
 
+PYBIND11_MAKE_OPAQUE(std::vector<std::string>)
 PYBIND11_MAKE_OPAQUE(std::vector<xstudio::utility::Uuid>)
 PYBIND11_MAKE_OPAQUE(std::vector<xstudio::utility::UuidActor>)

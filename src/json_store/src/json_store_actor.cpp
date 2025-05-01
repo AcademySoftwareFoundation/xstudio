@@ -74,10 +74,14 @@ JsonStoreActor::JsonStoreActor(
                             return JsonStore(json_store_.get(np));
                         }
                     }
-                    return make_error(
+                    // Instead of returning an error which can cause spamming
+                    // of the log, we can will a null here as we haven't
+                    // managed a reg-ex match to metadata path.
+                    return JsonStore();
+                    /*return make_error(
                         xstudio_error::error,
                         std::string("Failed to do regex json path match to ") +
-                            std::string(path, 6));
+                            std::string(path, 6));*/
                 }
                 std::string np = path;
                 return JsonStore(json_store_.get(np));
@@ -88,8 +92,20 @@ JsonStoreActor::JsonStoreActor(
             }
         },
 
+        [=](get_json_atom, const std::vector<std::string> &paths) -> JsonStore {
+            JsonStore result;
+            for (const auto &path : paths) {
+                try {
+                    result[path] = json_store_.get(path);
+                } catch (...) {
+                    result[path] = nlohmann::json();
+                }
+            }
+            return result;
+        },
+
         [=](jsonstore_change_atom) {
-            send(broadcast_, update_atom_v, json_store_);
+            mail(update_atom_v, json_store_).send(broadcast_);
             update_pending_ = false;
         },
 
@@ -117,7 +133,7 @@ JsonStoreActor::JsonStoreActor(
 
         [=](set_json_atom atom, const JsonStore &json, const std::string &path) {
             std::string p = path;
-            delegate(caf::actor_cast<actor>(this), atom, json, p, false);
+            return mail(atom, json, p, false).delegate(caf::actor_cast<actor>(this));
         },
 
         [=](set_json_atom, const JsonStore &json) -> bool {
@@ -166,7 +182,8 @@ JsonStoreActor::JsonStoreActor(
         [=](subscribe_atom, const std::string &path, caf::actor _actor) -> caf::result<bool> {
             // delegate to reader, return promise ?
             auto rp = make_response_promise<bool>();
-            this->request(_actor, caf::infinite, utility::get_group_atom_v)
+            mail(utility::get_group_atom_v)
+                .request(_actor, caf::infinite)
                 .then(
                     [&, path, _actor, rp](
                         const std::tuple<caf::actor, caf::actor, JsonStore> &data) mutable {
@@ -174,7 +191,8 @@ JsonStoreActor::JsonStoreActor(
                         actor_group_[actor_cast<actor_addr>(_actor)] = grp;
                         group_path_[grp]                             = path;
 
-                        this->request(grp, caf::infinite, broadcast::join_broadcast_atom_v)
+                        mail(broadcast::join_broadcast_atom_v)
+                            .request(grp, caf::infinite)
                             .then(
                                 [=](const bool) mutable {},
                                 [=](const error &err) mutable {
@@ -199,7 +217,7 @@ JsonStoreActor::JsonStoreActor(
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](update_atom, const JsonStore &json) {
@@ -234,11 +252,13 @@ void JsonStoreActor::broadcast_change(
     std::string p = path;
     if (broadcast_delay_.count() and async) {
         if (not update_pending_) {
-            delayed_anon_send(this, broadcast_delay_, jsonstore_change_atom_v);
+            anon_mail(jsonstore_change_atom_v)
+                .delay(broadcast_delay_)
+                .send(caf::actor_cast<caf::actor>(this), weak_ref);
             update_pending_ = true;
         }
     } else {
         // minor change, send now (DANGER MAYBE CAUSE ASYNC ISSUES)
-        send(broadcast_, update_atom_v, change, p, json_store_);
+        mail(update_atom_v, change, p, json_store_).send(broadcast_);
     }
 }

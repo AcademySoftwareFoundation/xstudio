@@ -22,9 +22,6 @@ class PictureInPicturePlugin(ViewportLayoutPlugin):
             connection,
             "Picture In Picture")
         
-        # declare our mode
-        self.add_layout_mode("PiP", AssemblyMode.AM_ALL)
-
         # add an attribute to control the inset border for the small images
         self.inset = self.add_attribute(
             "PiP Inset",
@@ -84,6 +81,10 @@ class PictureInPicturePlugin(ViewportLayoutPlugin):
         self.add_layout_settings_attribute(self.sizing, "PiP")
         self.add_layout_settings_attribute(self.start_position, "PiP")
         self.add_layout_settings_attribute(self.layout_direction, "PiP")
+
+        # declare our mode
+        self.add_layout_mode("PiP", 23.0, AssemblyMode.AM_ALL)
+
 
     def do_layout(self, layout_name, image_set_data):
         

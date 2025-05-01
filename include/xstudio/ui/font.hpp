@@ -9,6 +9,7 @@ namespace xstudio {
 namespace ui {
 
     enum Justification { JustifyLeft, JustifyRight, JustifyCentre };
+    enum VerticalJustification { JustifyTopLine, JustifyTop, JustifyBottom, JustifyVCentre };
 
     class Fonts {
 
@@ -80,7 +81,9 @@ namespace ui {
             const float wrap_width,
             const float text_size,
             const Justification &just,
-            const float line_spacing) const;
+            const float line_spacing,
+            const bool align_around_position   = true,
+            const VerticalJustification v_just = JustifyTopLine) const;
 
         /**
          * @brief Given a position in the viewport, does it correspond to a character

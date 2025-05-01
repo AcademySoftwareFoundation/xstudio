@@ -9,6 +9,7 @@ from xstudio.api.session.media.media import Media
 from xstudio.api.session.playlist.timeline.item import Item
 from xstudio.api.session.playhead import Playhead, PlayheadSelection
 from xstudio.api.auxiliary import NotificationHandler
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
 def create_gap(connection, name="Gap"):
     """Create Gap object.
@@ -109,7 +110,7 @@ def create_item_container_from_type(connection, item_type, uuid, actor):
     return result
 
 
-class Timeline(Item, NotificationHandler):
+class Timeline(Item, NotificationHandler, JsonStoreHandler):
     """Timeline object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -126,6 +127,7 @@ class Timeline(Item, NotificationHandler):
         """
         Item.__init__(self, connection, remote, uuid)
         NotificationHandler.__init__(self, self)
+        JsonStoreHandler.__init__(self, self)
 
     def __len__(self):
         """Get size.
@@ -381,12 +383,12 @@ class Timeline(Item, NotificationHandler):
             otio_body,
             clear)[0]
 
-    def export_otio(self, path):
+    def export_otio(self, path, schema=""):
         """Export timeline via OpenTimelineIO. File path extension infers the
         format of the exported file.
 
         Args:
-            path(str/uri): Path to expor to.
+            path(str/uri): Path to export to.
 
         Returns:
             bool: True on success, False on failure
@@ -394,8 +396,20 @@ class Timeline(Item, NotificationHandler):
         otio_string = self.connection.request_receive(self.remote, export_atom())[0]
 
         from opentimelineio.adapters import read_from_string, write_to_file
+        from opentimelineio import versioning
+
         otio_object = read_from_string(otio_string)
-        return write_to_file(otio_object, path)
+
+        result = False
+
+        if schema:
+            # versioning.full_map() contains list..
+            downgrade_manifest = versioning.fetch_map("OTIO_CORE", schema)
+            result = write_to_file(otio_object, path, target_schema_versions=downgrade_manifest)
+        else:
+            result = write_to_file(otio_object, path)
+
+        return result
 
     @property
     def audio_tracks(self):

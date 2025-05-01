@@ -13,5 +13,13 @@ namespace media {
         MS_UNREADABLE  = 0x04L
     } MediaStatus;
 
+    typedef enum {
+        PS_DONT_HOLD_FRAME = 0,
+        PS_HOLD_FRAME,
+        PS_COLLAPSE_TO_ON_DISK_FRAMES
+    } PartialSeqBehaviour;
+
+    typedef enum { FS_ON_DISK = 0, FS_NOT_ON_DISK, FS_HELD_FRAME, FS_UNKNOWN } FrameStatus;
+
 } // namespace media
 } // namespace xstudio

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -14,7 +12,7 @@ ColumnLayout {
         Layout.fillWidth: true
     }
 
-     Rectangle{
+    Rectangle{
         color: panelColor
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -29,6 +27,5 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.minimumHeight: XsStyleSheet.widgetStdHeight
         Layout.maximumHeight: XsStyleSheet.widgetStdHeight
-        parentWidth: parent.width - 2
     }
 }

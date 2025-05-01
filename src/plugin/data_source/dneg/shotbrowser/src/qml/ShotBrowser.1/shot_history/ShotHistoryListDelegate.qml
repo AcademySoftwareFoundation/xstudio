@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+
 import QuickFuture 1.0
 
 import ShotBrowser 1.0
@@ -41,6 +38,9 @@ Rectangle{ id: frame
     required property string authorRole
     required property string thumbRole
     required property string clientFilenameRole
+    required property string projectRole
+    required property int idRole
+    required property string entityRole
 
     required property int onSiteChn
     required property int onSiteLon
@@ -59,7 +59,9 @@ Rectangle{ id: frame
 
     property bool isPlaylist: false
 
-    property bool isHovered: mArea.containsMouse || versionArrowBtn.hovered
+    property bool isHovered: mArea.containsMouse || versionArrowBtn.hovered || sec1.playerMA.containsMouse
+
+    signal playMovie(path: var)
 
     Connections {
         target: resultsSelectionModel
@@ -73,8 +75,6 @@ Rectangle{ id: frame
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-        readonly property var special_sauce: [helpers.QVariantFromUuidString("087c4ff5-2da0-4e54-afcf-c7914a247fae"), helpers.QVariantFromUuidString("7cb214ce-e14c-4626-b2c4-76c188bf12b9")]
-
         // wierd workaround for flickable..
         propagateComposedEvents: false
         onReleased: {
@@ -84,13 +84,13 @@ Rectangle{ id: frame
 
         onDoubleClicked: (mouse)=> {
             let m = ShotBrowserHelpers.mapIndexesToResultModel([delegateModel.modelIndex(index)])[0].model
-            if(! special_sauce.includes(m.groupId) )
-                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addAfterSelection.value)
-            else
+            if(m.groupDetail.flags.includes("Load Sequence"))
                 ShotBrowserHelpers.addSequencesToNewPlaylist([delegateModel.modelIndex(index)])
+            else
+                ShotBrowserHelpers.addToCurrent([delegateModel.modelIndex(index)], panelType != "ShotBrowser", addAfterSelection.value)
         }
 
-        onPressed: {
+        onPressed: (mouse)=> {
             // required for doubleclick to work
             mouse.accepted = true
 

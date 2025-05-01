@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.12
-import QtGraphicalEffects 1.12
-import QtQuick.Layouts 1.15
+import QtQuick
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -34,15 +31,15 @@ XsViewerAnyMenuButton  {
         menuPath: ""
         menuItemPosition: 2.75
         menuModelName: source_button.menuModelName
-        onActivated: {
+        onActivated: (menuContext) => {
             // awkward! We have an instance of this XsMenuModelItem for each viewport
             // toolbar instance. When the user clicks on "Select ..." button in the
             // menu, every XsMenuModelItem instance here will get onActivated signal.
             // This means we will end up running the code here multiple times and
             // would get multiple XsViewerSourceSelectorPopupWindow showing.
             // However, the onActivated signal has a 'menuContext' argument which is the
-            // high level XsViewportPanel object. 
-            // Thus we filter on that here to ensure we don't have multiple source 
+            // high level XsViewportPanel object.
+            // Thus we filter on that here to ensure we don't have multiple source
             // selector windows pop-up.
             if (menuContext == viewportWidget) {
                 loader.sourceComponent = dialog

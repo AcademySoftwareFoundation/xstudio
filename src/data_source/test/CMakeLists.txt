@@ -2,7 +2,7 @@ include(CTest)
 
 SET(LINK_DEPS
 	xstudio::data_source
-	caf::core
+	CAF::core
 )
 
 create_tests("${LINK_DEPS}")

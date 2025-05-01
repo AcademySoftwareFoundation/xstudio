@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -17,6 +13,7 @@ XsPrimaryButton{ id: thisItem
     property var delegateModel: null
     property var selectionModel: null
     property string groupName: ""
+    property bool isUserPreset: updateRole == undefined
 
     opacity: hiddenRole ? 0.5 : 1.0
 
@@ -26,6 +23,9 @@ XsPrimaryButton{ id: thisItem
     property bool isRunning: queryRunning && isActive
     property bool itemDragging: isDragging && isSelected
     property int itemDraggingOffset: itemDragging ? draggingOffset : 0
+
+    normalColor:  isUserPreset ? Qt.darker("#44FFFFFF", XsStyleSheet.darkerFactor) : Qt.darker("#33FFFFFF", XsStyleSheet.darkerFactor)
+    bgColorNormal:  isUserPreset ? Qt.darker("#10FFFFFF", XsStyleSheet.darkerFactor) : Qt.darker("#1AFFFFFF", XsStyleSheet.darkerFactor)
 
     property int oldY: 0
     property var oldParent: null
@@ -211,15 +211,17 @@ XsPrimaryButton{ id: thisItem
 
     Rectangle{ id: selectedBgDiv
         anchors.fill: parent
-        color: isSelected? Qt.darker(palette.highlight, 2): "transparent"
+        color: isSelected ? Qt.darker(palette.highlight, 2): "transparent"
         // opacity: 0.6
     }
+
     Rectangle{ id: activeIndicatorDiv
         anchors.bottom: parent.bottom
         width: borderWidth*9
         height: parent.height
         color: isActive ? bgColorPressed : "transparent"
     }
+
     RowLayout{
         anchors.fill: parent
         spacing: 1

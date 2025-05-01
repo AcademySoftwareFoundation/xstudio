@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/global_store/global_store_actor.hpp"
@@ -97,31 +99,25 @@ caf::message_handler GlobalStoreActor::message_handler() {
 
         [=](autosave_atom, const bool enable) {
             if (enable != base_.autosave_)
-                send(base_.event_group(), utility::event_atom_v, autosave_atom_v, enable);
+                mail(utility::event_atom_v, autosave_atom_v, enable).send(base_.event_group());
             base_.autosave_ = enable;
             if (base_.autosave_)
-                delayed_anon_send(
-                    actor_cast<caf::actor>(this),
-                    std::chrono::seconds(base_.autosave_interval_),
-                    do_autosave_atom_v);
+                anon_mail(do_autosave_atom_v)
+                    .delay(std::chrono::seconds(base_.autosave_interval_))
+                    .send(actor_cast<caf::actor>(this), weak_ref);
         },
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        [=](const group_down_msg & /*msg*/) {
-            //      if(msg.source == store_events)
-            // unsubscribe();
-        },
-
         [=](do_autosave_atom) {
             if (base_.autosave_)
-                delayed_anon_send(
-                    actor_cast<caf::actor>(this),
-                    std::chrono::seconds(base_.autosave_interval_),
-                    do_autosave_atom_v);
+                anon_mail(do_autosave_atom_v)
+                    .delay(std::chrono::seconds(base_.autosave_interval_))
+                    .send(actor_cast<caf::actor>(this), weak_ref);
 
             for (const auto &context : PreferenceContexts)
-                request(actor_cast<caf::actor>(this), infinite, save_atom_v, context)
+                mail(save_atom_v, context)
+                    .request(actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](const bool result) mutable {
                             if (result)
@@ -134,16 +130,18 @@ caf::message_handler GlobalStoreActor::message_handler() {
                         });
         },
 
-        [=](get_json_atom atom) { delegate(jsonactor_, atom); },
+        [=](get_json_atom atom) { return mail(atom).delegate(jsonactor_); },
 
-        [=](get_json_atom atom, const std::string &path) { delegate(jsonactor_, atom, path); },
+        [=](get_json_atom atom, const std::string &path) {
+            return mail(atom, path).delegate(jsonactor_);
+        },
 
         [=](json_store::update_atom atom,
             const JsonStore &change,
             const std::string &path,
             const JsonStore &full) {
-            send(base_.event_group(), utility::event_atom_v, atom, change, path);
-            delegate(actor_cast<caf::actor>(this), atom, full);
+            mail(utility::event_atom_v, atom, change, path).send(base_.event_group());
+            return mail(atom, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &json) {
@@ -218,18 +216,22 @@ caf::message_handler GlobalStoreActor::message_handler() {
             return result;
         },
 
-        [=](set_json_atom atom, const JsonStore &json) { delegate(jsonactor_, atom, json); },
+        [=](set_json_atom atom, const JsonStore &json) {
+            return mail(atom, json).delegate(jsonactor_);
+        },
 
         [=](set_json_atom atom, const JsonStore &json, const std::string &path) {
-            delegate(jsonactor_, atom, json, path);
+            return mail(atom, json, path).delegate(jsonactor_);
         },
 
         [=](set_json_atom atom,
             const JsonStore &json,
             const std::string &path,
-            const bool broadcast) { delegate(jsonactor_, atom, json, path, false, broadcast); },
+            const bool broadcast) {
+            return mail(atom, json, path, false, broadcast).delegate(jsonactor_);
+        },
 
-        [=](utility::get_group_atom atom) { delegate(jsonactor_, atom); }};
+        [=](utility::get_group_atom atom) { return mail(atom).delegate(jsonactor_); }};
 }
 
 

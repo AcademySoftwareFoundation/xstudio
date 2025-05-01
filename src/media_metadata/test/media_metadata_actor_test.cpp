@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/all.hpp>
 #include <gtest/gtest.h>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/global/global_actor.hpp"

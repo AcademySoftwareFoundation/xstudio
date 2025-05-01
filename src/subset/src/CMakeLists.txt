@@ -2,7 +2,7 @@ SET(LINK_DEPS
 	xstudio::playhead
 	xstudio::utility
 	xstudio::audio_output
-	caf::core
+	CAF::core
 )
 
-create_component(subset 0.1.0 "${LINK_DEPS}")
+create_component(subset ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}")

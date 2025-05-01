@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtGraphicalEffects 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Effects
 import QuickFuture 1.0
 
 import xStudio 1.0
@@ -103,8 +102,6 @@ Rectangle{
                 }
             }
 
-
-
             XsPrimaryButton {
                 imgSrc: "qrc:///shotbrowser_icons/attach_file.svg"
                 height: 20
@@ -116,23 +113,32 @@ Rectangle{
                 visible: attachmentsRole && attachmentsRole.length
                 imgOverlayColor: isHovered ? (pressed ? palette.highlight : palette.text) : XsStyleSheet.hintColor
                 onClicked: {
+                    let images = []
                     attachmentsRole.forEach(function (item, index) {
-                        Future.promise(
-                                helpers.openURLFuture("http://shotgun.dneg.com/thumbnail/full/"+item.type+"/"+item.id)
-                        ).then(function(result) {
-                        })
+                        images.push([item.name, ShotBrowserEngine.downloadImage(
+                            item.id,
+                            "Attachment",
+                            item.name,
+                            projectRole)])
+
+                        // Future.promise(
+                        //         helpers.openURLFuture("http://shotgun.dneg.com/thumbnail/full/"+item.type+"/"+item.id)
+                        // ).then(function(result) {
+                        // })
                     })
+                    showImages(images)
                 }
 
                 layer.enabled: true
-                layer.effect: DropShadow{
-                    verticalOffset: 1
-                    horizontalOffset: 1
-                    color: "#010101"
-                    radius: 1
-                    samples: 3
-                    spread: 0.5
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: "#010101"
+                    shadowVerticalOffset: 2
+                    shadowHorizontalOffset: 2
+                    shadowScale: 1.5
+                    shadowBlur: 0.2
                 }
+
 
             }
         }

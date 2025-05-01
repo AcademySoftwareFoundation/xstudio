@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.14
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+
+import QtQuick.Layouts
+
+
 
 import QuickFuture 1.0
 
@@ -154,9 +153,26 @@ XsWindow{
             )
 
             Future.promise(
+
                 ShotBrowserEngine.pushPlaylistNotesFuture(payload, playlistUuid)
+
             ).then(function(json_string) {
-                console.log(json_string)
+
+                try {
+                    var json_obj = JSON.parse(json_string)
+                    if (json_obj.hasOwnProperty("error")) {
+                        message = JSON.stringify(json_obj.error)
+                        if (json_obj.error.hasOwnProperty("message") && json_obj.error.hasOwnProperty("source")) {
+                            message = "" + json_obj.error.source + " : " + json_obj.error.message
+                        }
+                        
+                        message = "Publish notes has failed with the following error...\n\n"+message+"\n\nPlease retry first. Contact xSTUDIO support team with details of the error if it persists."
+                        dialogHelpers.errorDialogFunc("Publish Shotgrid Notes Failed", message)
+                        return
+                    }
+                } catch (err) {
+                    // unable to parse as json
+                }
 
                 publish_notes_feedback.isPlaylistNotes = isPlaylistNotes
                 publish_notes_feedback.parseFeedback(json_string)

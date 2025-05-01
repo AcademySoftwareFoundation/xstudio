@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
+import QtQuick
 
 DropArea { 
     
@@ -75,17 +75,17 @@ DropArea {
         "application/x-dneg-ivy-entities-v1"
     ]
 
-    onEntered: {
+    onEntered: (drag)=> {
         externalDrag = true
         dragging = true
         dragDropDragged(Qt.point(drag.x, drag.y), "External", drag)
     }
 
-    onPositionChanged: {
+    onPositionChanged: (drag)=> {
         dragDropDragged(Qt.point(drag.x, drag.y), "External", drag)
     }
 
-    onDropped: {
+    onDropped: (drop)=> {
 
         if(drop.hasUrls) {
             let uris = ""

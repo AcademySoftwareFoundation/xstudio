@@ -27,7 +27,7 @@ ContactSheetActor::ContactSheetActor(
 
 ContactSheetActor::ContactSheetActor(
     caf::actor_config &cfg, caf::actor playlist, const std::string &name)
-    : SubsetActor(cfg, playlist, name, "ContactSheet") {
+    : SubsetActor(cfg, playlist, name, utility::Uuid::generate(), "ContactSheet") {
     init();
 }
 
@@ -36,7 +36,8 @@ void ContactSheetActor::init() {
     // here we join our own events channel. The 'change_event_group' just emits
     // change events when the underlying container (i.e. the SubSet base class)
     // changes, i.e. when media is added, removed or re-ordered
-    request(caf::actor_cast<caf::actor>(this), infinite, get_change_event_group_atom_v)
+    mail(get_change_event_group_atom_v)
+        .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](caf::actor grp) { join_broadcast(this, grp); },
             [=](caf::error &err) {
@@ -50,7 +51,7 @@ void ContactSheetActor::init() {
             // clone ourself..
             auto actor =
                 spawn<ContactSheetActor>(caf::actor_cast<caf::actor>(playlist_), base_.name());
-            anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
+            anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate()).send(actor);
             // get uuid from actor..
             try {
                 caf::scoped_actor sys(system());
@@ -86,28 +87,27 @@ void ContactSheetActor::init() {
                 caf::actor_cast<caf::actor_addr>(this));
             link_to(actor);
 
-            anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
+            anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate()).send(actor);
 
             playhead_ = UuidActor(uuid, actor);
 
             // now get the playhead to load our media
-            request(caf::actor_cast<caf::actor>(this), infinite, playlist::get_media_atom_v)
+            mail(playlist::get_media_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActorVector &media) mutable {
-                        request(playhead_.actor(), infinite, playhead::source_atom_v, media)
+                        mail(playhead::source_atom_v, media)
+                            .request(playhead_.actor(), infinite)
                             .then(
                                 [=](bool) mutable {
                                     // restore the playhead state, if we have serialisation data
                                     if (!playhead_serialisation_.is_null()) {
-                                        anon_send(
-                                            playhead_.actor(),
-                                            module::deserialise_atom_v,
-                                            playhead_serialisation_);
+                                        anon_mail(
+                                            module::deserialise_atom_v, playhead_serialisation_)
+                                            .send(playhead_.actor());
                                     } else {
-                                        anon_send(
-                                            playhead_.actor(),
-                                            playhead::compare_mode_atom_v,
-                                            "Grid");
+                                        anon_mail(playhead::compare_mode_atom_v, "Grid")
+                                            .send(playhead_.actor());
                                     }
                                 },
                                 [=](caf::error &err) {
@@ -123,10 +123,11 @@ void ContactSheetActor::init() {
         [=](utility::event_atom, utility::change_atom) {
             if (!playhead_)
                 return;
-            request(caf::actor_cast<caf::actor>(this), infinite, playlist::get_media_atom_v)
+            mail(playlist::get_media_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActorVector &media) mutable {
-                        anon_send(playhead_.actor(), playhead::source_atom_v, media);
+                        anon_mail(playhead::source_atom_v, media).send(playhead_.actor());
                     },
                     [=](caf::error &err) {
                         spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));

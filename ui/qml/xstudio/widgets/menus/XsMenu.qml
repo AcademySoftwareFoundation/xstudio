@@ -1,8 +1,7 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Qt.labs.qmlmodels
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -66,7 +65,7 @@ XsPopup {
 
     }
 
-    ListView {
+    XsListView {
 
         id: view
         orientation: ListView.Vertical
@@ -78,7 +77,9 @@ XsPopup {
         snapMode: ListView.SnapToItem
         clip: true
 
-        ScrollBar.vertical: ScrollBar {
+        cacheBuffer: 1000
+
+        ScrollBar.vertical: XsScrollBar {
             parent: view.parent
             id: scrollBar;
             width: 10

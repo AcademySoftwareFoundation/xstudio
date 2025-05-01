@@ -7,4 +7,4 @@ SET(LINK_DEPS
 	OpenColorIO::OpenColorIO
 )
 
-create_plugin_with_alias(media_hook_dneg xstudio::media_hook::dnhook 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(media_hook_dneg xstudio::media_hook::dnhook ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")

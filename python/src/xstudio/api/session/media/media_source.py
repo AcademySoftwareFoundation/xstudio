@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_media_stream_atom, current_media_stream_atom, MediaType, media_reference_atom, rescan_atom, invalidate_cache_atom
-from xstudio.core import media_status_atom, get_json_atom, set_json_atom, JsonStore
+from xstudio.core import media_status_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_stream import MediaStream
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
 import json
 
-class MediaSource(Container):
+class MediaSource(Container, JsonStoreHandler):
     """MediaSource object."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -25,6 +26,7 @@ class MediaSource(Container):
             str(MediaType.MT_IMAGE): None,
             str(MediaType.MT_AUDIO): None
         }
+        JsonStoreHandler.__init__(self, self)
 
     @property
     def image_streams(self):
@@ -131,54 +133,6 @@ class MediaSource(Container):
             result(bool): Flushed ?
         """
         return self.connection.request_receive(self.remote, invalidate_cache_atom())[0]
-
-    @property
-    def metadata(self):
-        """Get media metadata.
-
-        Returns:
-            metadata(json): Media metadata.
-        """
-        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), "")[0].dump())
-
-
-    @metadata.setter
-    def metadata(self, new_metadata):
-        """Set media reference rate.
-
-        Args:
-            new_metadata(json): Json dict to set as media source metadata
-
-        Returns:
-            bool: success
-
-        """
-        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(new_metadata))
-
-    def get_metadata(self, path):
-        """Get metdata at JSON path
-
-        Args:
-            path(str): JSON Pointer
-
-        Returns:
-            metadata(json) Json at pointer location
-        """
-
-        return json.loads(self.connection.request_receive(self.remote, get_json_atom(), path)[0].dump())
-
-    def set_metadata(self, data, path):
-        """Get metdata at JSON path
-
-        Args:
-            data(json): JSON Data
-            path(str): JSON Pointer
-
-        Returns:
-            bool: success
-        """
-
-        return self.connection.request_receive(self.remote, set_json_atom(), JsonStore(data), path)[0]
 
     @property
     def image_stream(self):

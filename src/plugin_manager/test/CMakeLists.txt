@@ -40,7 +40,7 @@ target_link_libraries(plugin_test
 	PUBLIC
 		xstudio::plugin_manager
 		xstudio::utility
-		caf::core
+		CAF::core
 )
 set_target_properties(${name}
     PROPERTIES

@@ -2,8 +2,12 @@
 #pragma once
 
 // clang-format off
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
 // clang-format on
 
 #include "xstudio/media_reader/media_reader.hpp"

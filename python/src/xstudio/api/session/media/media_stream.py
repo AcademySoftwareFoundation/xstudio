@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_media_type_atom, get_stream_detail_atom
-
 from xstudio.api.session.container import Container
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
-class MediaStream(Container):
+class MediaStream(Container, JsonStoreHandler):
     """MediaStream object, contains media track."""
 
     def __init__(self, connection, remote, uuid=None):
@@ -17,6 +17,7 @@ class MediaStream(Container):
             uuid(Uuid): Uuid of remote actor.
         """
         Container.__init__(self, connection, remote, uuid)
+        JsonStoreHandler.__init__(self, self)
 
     @property
     def media_type(self):
@@ -35,3 +36,4 @@ class MediaStream(Container):
             stream_detail(StreamDetail): Detail of media stream.
         """
         return self.connection.request_receive(self.remote, get_stream_detail_atom())[0]
+

@@ -3,4 +3,4 @@ SET(LINK_DEPS
 	xstudio::utility
 )
 
-create_plugin_with_alias(conform_shotbrowser xstudio::conform::shotbrowser 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(conform_shotbrowser xstudio::conform::shotbrowser ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include <tuple>
 
 #include "xstudio/atoms.hpp"
@@ -20,6 +22,10 @@ using namespace caf;
 
 namespace {} // namespace
 
+void BookmarkActor::on_exit() {
+    leave_event_group(this, json_store_);
+    json_store_ = caf::actor();
+}
 
 BookmarkActor::BookmarkActor(caf::actor_config &cfg, const utility::JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<utility::JsonStore>(jsn["base"])) {
@@ -73,7 +79,8 @@ caf::message_handler BookmarkActor::message_handler() {
             const std::string &path,
             const bool /*fanout*/) -> caf::result<std::pair<UuidActor, JsonStore>> {
             auto rp = make_response_promise<std::pair<UuidActor, JsonStore>>();
-            request(json_store_, infinite, atom, path)
+            mail(atom, path)
+                .request(json_store_, infinite)
                 .then(
                     [=](const JsonStore &jsn) mutable {
                         rp.deliver(std::make_pair(UuidActor(base_.uuid(), this), jsn));
@@ -91,37 +98,40 @@ caf::message_handler BookmarkActor::message_handler() {
             const std::string &path,
             const JsonStore &full) {
             if (current_sender() == json_store_) {
-                send(base_.event_group(), json_store::update_atom_v, change, path, full);
+                mail(json_store::update_atom_v, change, path, full).send(base_.event_group());
             }
         },
 
         [=](json_store::update_atom, const JsonStore &full) mutable {
             if (current_sender() == json_store_) {
-                send(base_.event_group(), json_store::update_atom_v, full);
+                mail(json_store::update_atom_v, full).send(base_.event_group());
             }
         },
 
+        [=](json_store::get_json_atom atom) { return mail(atom).delegate(json_store_); },
+
         [=](json_store::get_json_atom atom, const std::string &path) {
-            delegate(json_store_, atom, path);
+            return mail(atom, path).delegate(json_store_);
         },
 
         [=](json_store::set_json_atom atom, const JsonStore &json) {
-            delegate(json_store_, atom, json);
+            return mail(atom, json).delegate(json_store_);
         },
 
         [=](json_store::merge_json_atom atom, const JsonStore &json) {
-            delegate(json_store_, atom, json);
+            return mail(atom, json).delegate(json_store_);
         },
 
         [=](json_store::set_json_atom atom, const JsonStore &json, const std::string &path) {
-            delegate(json_store_, atom, json, path);
+            return mail(atom, json, path).delegate(json_store_);
         },
 
 
         [=](utility::serialise_atom) -> result<JsonStore> {
             auto rp = make_response_promise<JsonStore>();
 
-            request(json_store_, infinite, json_store::get_json_atom_v, "")
+            mail(json_store::get_json_atom_v, "")
+                .request(json_store_, infinite)
                 .then(
                     [=](const JsonStore &meta) mutable {
                         JsonStore jsn;
@@ -142,21 +152,18 @@ caf::message_handler BookmarkActor::message_handler() {
             // this 'reassociates' a bookmark with it's source media actor that
             // it is attached (associated) with.
             auto rp = make_response_promise<bool>();
-            request(
-                system().registry().template get<caf::actor>(studio_registry),
-                infinite,
-                session::session_atom_v)
+            mail(session::session_atom_v)
+                .request(
+                    system().registry().template get<caf::actor>(studio_registry), infinite)
                 .then(
                     [=](caf::actor session) mutable {
-                        request(session, infinite, playlist::get_media_atom_v, base_.owner())
+                        mail(playlist::get_media_atom_v, base_.owner())
+                            .request(session, infinite)
                             .then(
                                 [=](caf::actor media) mutable {
                                     utility::UuidActor ua(base_.owner(), media);
-                                    request(
-                                        caf::actor_cast<caf::actor>(this),
-                                        infinite,
-                                        associate_bookmark_atom_v,
-                                        ua)
+                                    mail(associate_bookmark_atom_v, ua)
+                                        .request(caf::actor_cast<caf::actor>(this), infinite)
                                         .then(
                                             [=](bool r) mutable { rp.deliver(r); },
                                             [=](caf::error &err) mutable { rp.deliver(err); });
@@ -175,18 +182,13 @@ caf::message_handler BookmarkActor::message_handler() {
 
             auto rp = make_response_promise<BookmarkDetail>();
 
-            request(
-                caf::actor_cast<caf::actor>(owner_),
-                infinite,
-                playlist::reflag_container_atom_v)
+            mail(playlist::reflag_container_atom_v)
+                .request(caf::actor_cast<caf::actor>(owner_), infinite)
                 .then(
                     [=](const std::tuple<std::string, std::string> &flag) mutable {
                         detail.media_flag_ = std::get<1>(flag);
-                        request(
-                            caf::actor_cast<caf::actor>(owner_),
-                            infinite,
-                            media::media_reference_atom_v,
-                            utility::Uuid())
+                        mail(media::media_reference_atom_v, utility::Uuid())
+                            .request(caf::actor_cast<caf::actor>(owner_), infinite)
                             .then(
                                 [=](const std::pair<Uuid, MediaReference> result) mutable {
                                     (*(detail.owner_)).actor() =
@@ -207,18 +209,13 @@ caf::message_handler BookmarkActor::message_handler() {
             auto changed = base_.update(detail);
             if (detail.owner_) {
                 base_.set_owner((*detail.owner_).uuid());
-                anon_send(
-                    caf::actor_cast<caf::actor>(this),
-                    associate_bookmark_atom_v,
-                    *detail.owner_);
+                anon_mail(associate_bookmark_atom_v, *detail.owner_)
+                    .send(caf::actor_cast<caf::actor>(this));
             }
 
             if (changed) {
-                send(
-                    base_.event_group(),
-                    utility::event_atom_v,
-                    bookmark_change_atom_v,
-                    base_.uuid());
+                mail(utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
+                    .send(base_.event_group());
                 base_.send_changed();
             }
             return changed;
@@ -251,11 +248,8 @@ caf::message_handler BookmarkActor::message_handler() {
             if (base_.annotation_ == anno)
                 return false;
             base_.annotation_ = anno;
-            send(
-                base_.event_group(),
-                utility::event_atom_v,
-                bookmark_change_atom_v,
-                base_.uuid());
+            mail(utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
+                .send(base_.event_group());
             // base_.send_changed();
             return true;
         },
@@ -281,7 +275,8 @@ caf::message_handler BookmarkActor::message_handler() {
 
         [=](bookmark_detail_atom, get_annotation_atom) -> result<BookmarkAndAnnotationPtr> {
             auto rp = make_response_promise<BookmarkAndAnnotationPtr>();
-            request(caf::actor_cast<caf::actor>(this), infinite, bookmark_detail_atom_v)
+            mail(bookmark_detail_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const BookmarkDetail &detail) mutable {
                         auto data         = new BookmarkAndAnnotation;
@@ -297,13 +292,15 @@ caf::message_handler BookmarkActor::message_handler() {
         [=](utility::duplicate_atom) -> result<utility::UuidActor> {
             auto rp = make_response_promise<UuidActor>();
 
-            request(json_store_, infinite, json_store::get_json_atom_v)
+            mail(json_store::get_json_atom_v)
+                .request(json_store_, infinite)
                 .then(
                     [=](const JsonStore &meta) mutable {
                         auto uuid  = utility::Uuid::generate();
                         auto actor = spawn<BookmarkActor>(uuid, base_);
 
-                        request(actor, infinite, json_store::set_json_atom_v, meta)
+                        mail(json_store::set_json_atom_v, meta)
+                            .request(actor, infinite)
                             .then(
                                 [=](bool) mutable { rp.deliver(UuidActor(uuid, actor)); },
                                 [=](const error &err) mutable { rp.deliver(err); });
@@ -318,7 +315,8 @@ caf::message_handler BookmarkActor::message_handler() {
                 return make_error(xstudio_error::error, "Bookmark unassociated.");
 
             auto rp = make_response_promise<utility::MediaReference>();
-            request(caf::actor_cast<caf::actor>(owner_), infinite, atom, utility::Uuid())
+            mail(atom, utility::Uuid())
+                .request(caf::actor_cast<caf::actor>(owner_), infinite)
                 .then(
                     [=](const std::pair<Uuid, MediaReference> result) mutable {
                         rp.deliver(result.second);
@@ -334,7 +332,8 @@ caf::message_handler BookmarkActor::message_handler() {
             auto rp = make_response_promise<media::AVFrameID>();
 
             // need media ref
-            request(caf::actor_cast<caf::actor>(this), infinite, media::media_reference_atom_v)
+            mail(media::media_reference_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const utility::MediaReference &mediaref) mutable {
                         // also need bookmark detail
@@ -357,20 +356,15 @@ void BookmarkActor::init() {
     print_on_create(this, base_);
     print_on_exit(this, base_);
 
-    set_down_handler([=](down_msg &msg) {
-        // find in playhead list..
-        if (msg.source == caf::actor_cast<caf::actor>(owner_)) {
-            set_owner(caf::actor(), true);
-            send_exit(this, caf::exit_reason::user_shutdown);
-        }
-    });
-
     attach_functor([=](const caf::error &reason) {
         // this sends a dummy change event that will propagate from the owner, to playhead
         // so that playhead knows bookmark frame ranges have changed, for example
+        // monitor_.dispose();
+
         auto owner = caf::actor_cast<caf::actor>(owner_);
-        if (owner)
-            send(owner, utility::event_atom_v, remove_bookmark_atom_v, base_.uuid());
+        if (owner) {
+            mail(utility::event_atom_v, remove_bookmark_atom_v, base_.uuid()).send(owner);
+        }
     });
 }
 
@@ -382,24 +376,19 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
             return;
         auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
 
-        request(
-            pm,
-            infinite,
-            plugin_manager::spawn_plugin_atom_v,
-            plugin_uuid,
-            utility::JsonStore())
+        mail(plugin_manager::spawn_plugin_atom_v, plugin_uuid, utility::JsonStore())
+            .request(pm, infinite)
             .then(
                 [=](caf::actor annotations_plugin) {
-                    request(annotations_plugin, infinite, build_annotation_atom_v, anno_data)
+                    mail(build_annotation_atom_v, anno_data)
+                        .request(annotations_plugin, infinite)
                         .then(
                             [=](AnnotationBasePtr &anno) {
                                 anno->bookmark_uuid_ = base_.uuid();
                                 base_.annotation_    = anno;
-                                send(
-                                    base_.event_group(),
-                                    utility::event_atom_v,
-                                    bookmark_change_atom_v,
-                                    base_.uuid());
+                                mail(
+                                    utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
+                                    .send(base_.event_group());
                             },
                             [=](caf::error &err) mutable {
                                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
@@ -409,22 +398,17 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                                 // the desired plugin.
                                 base_.annotation_.reset(
                                     new AnnotationBase(anno_data, base_.uuid()));
-                                send(
-                                    base_.event_group(),
-                                    utility::event_atom_v,
-                                    bookmark_change_atom_v,
-                                    base_.uuid());
+                                mail(
+                                    utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
+                                    .send(base_.event_group());
                             });
                 },
                 [=](caf::error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                     // see comment above.
                     base_.annotation_.reset(new AnnotationBase(anno_data, base_.uuid()));
-                    send(
-                        base_.event_group(),
-                        utility::event_atom_v,
-                        bookmark_change_atom_v,
-                        base_.uuid());
+                    mail(utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
+                        .send(base_.event_group());
                 });
 
     } else {
@@ -433,7 +417,8 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
                 "{} AnnotationBase serialised data does not include annotations plugin uuid",
                 __PRETTY_FUNCTION__);
         base_.annotation_.reset(new AnnotationBase(anno_data, base_.uuid()));
-        send(base_.event_group(), utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
+        mail(utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
+            .send(base_.event_group());
     }
 }
 
@@ -441,7 +426,7 @@ void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
 
     // Note, owner is a MediaActor
     if (owner_) {
-        demonitor(caf::actor_cast<caf::actor>(owner_));
+        monitor_.dispose();
         if (not dead) {
             auto src = caf::actor_cast<caf::event_based_actor *>(owner_);
             if (src)
@@ -452,13 +437,22 @@ void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
     owner_ = caf::actor_cast<caf::actor_addr>(owner);
 
     if (owner) {
-        monitor(owner);
-        request(base_.event_group(), infinite, broadcast::join_broadcast_atom_v, owner)
+        monitor_ = monitor(owner, [this, addr = owner.address()](const error &) {
+            if (addr == owner_) {
+                // stop msg to media on killing bookmakr
+                owner_ = caf::actor_addr();
+                quit();
+            }
+        });
+
+        mail(broadcast::join_broadcast_atom_v, owner)
+            .request(base_.event_group(), infinite)
             .then(
                 [=](const bool) mutable {},
                 [=](const error &err) mutable {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
                 });
-        send(base_.event_group(), utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
+        mail(utility::event_atom_v, bookmark_change_atom_v, base_.uuid())
+            .send(base_.event_group());
     }
 }

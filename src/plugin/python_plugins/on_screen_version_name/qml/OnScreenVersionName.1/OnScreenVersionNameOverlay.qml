@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
-import QtQuick 2.14
-import QuickFuture 1.0
-import QuickPromise 1.0
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQuick
+import QuickFuture
+import QuickPromise
 
 // These imports are necessary to have access to custom QML types that are
 // part of the xSTUDIO UI implementation.
@@ -41,7 +41,7 @@ Item {
         verticalAlignment: Text.AlignVCenter
         text: version_name
         color: font_colour
-        onTextChanged: {
+        onTextChanged: (text)=> {
             root.opacity = 1.0
             if (auto_hide && text != "") {
                 auto_hide_timer.running = false
@@ -49,7 +49,7 @@ Item {
             }
         }
 
-    }    
+    }
 
     XsTimer {
         id: auto_hide_timer

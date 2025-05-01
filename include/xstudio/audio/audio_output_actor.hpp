@@ -41,7 +41,8 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                 const utility::JsonStore & /*change*/,
                 const std::string & /*path*/,
                 const utility::JsonStore &full) {
-                delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+                return mail(json_store::update_atom_v, full)
+                    .delegate(actor_cast<caf::actor>(this));
             },
             [=](json_store::update_atom, const utility::JsonStore & /*j*/) {
                 // TODO: restart soundcard connection with new prefs
@@ -67,7 +68,7 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
 
                 if (!waiting_for_samples_) {
                     // start playback loop
-                    anon_send(actor_cast<caf::actor>(this), push_samples_atom_v);
+                    anon_mail(push_samples_atom_v).send(actor_cast<caf::actor>(this));
                 }
             },
             [=](utility::event_atom, playhead::play_atom, const bool is_playing) {
@@ -89,17 +90,6 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                 if (!output_device_)
                     return;
 
-                /*if (!num_samps_soundcard_wants) {
-                    // soundcard buffer is probably full. Wait 1ms, and continue
-                    // continue the loop
-                    if (playing_) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                        anon_send(
-                            actor_cast<caf::actor>(this), push_samples_atom_v);
-                    }
-                    return;
-                }*/
-
                 // The 'waiting_for_samples_' flag allows us to ensure that we
                 // don't have multiple requests for samples to play in flight -
                 // since each response to a request then sends another
@@ -108,29 +98,54 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                 // essentially we have two loops running within the single actor.
                 if (waiting_for_samples_)
                     return;
-                waiting_for_samples_                 = true;
                 const long num_samps_soundcard_wants = (long)output_device_->desired_samples();
+                if (!num_samps_soundcard_wants) {
+                    // soundcard buffer is probably full. Wait 2ms, and continue
+                    // continue the loop. Why 1ms ? for really low latency, we might
+                    // have just a few 100 samples in the soundcard buffer. At 48Khz
+                    // (common sample rate)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                    anon_mail(push_samples_atom_v).send(actor_cast<caf::actor>(this));
+                    return;
+                }
+
+                waiting_for_samples_ = true;
+
+                if (!num_samps_soundcard_wants) {
+                    // soundcard doesn't want any more samples yet, it's buffer
+                    // must be full.
+                    if (playing_) {
+                        // continue the loop, but sleep for 5ms so we don't create
+                        // a tight loop and the soundcard can drain some samples
+                        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                        anon_mail(push_samples_atom_v)
+                            .send(actor_cast<caf::actor>(this));
+                    }
+
+                    return;
+                }
+
+                waiting_for_samples_                 = true;
 
                 auto tt = utility::clock::now();
-                request(
-                    audio_samples_actor_,
-                    infinite,
+                mail(
                     get_samples_for_soundcard_atom_v,
                     num_samps_soundcard_wants,
                     (long)output_device_->latency_microseconds(),
                     (int)output_device_->num_channels(),
                     (int)output_device_->sample_rate())
+                    .request(audio_samples_actor_, infinite)
                     .then(
                         [=](const std::vector<int16_t> &samples_to_play) mutable {
                             waiting_for_samples_ = false;
-                            if (output_device_->push_samples(
-                                    (const void *)samples_to_play.data(),
-                                    samples_to_play.size())) {
+                            if (samples_to_play.size()) {
+                                if (output_device_->push_samples(
+                                        (const void *)samples_to_play.data(),
+                                        samples_to_play.size())) {
 
-                                // continue the loop
-                                if (playing_) {
-                                    anon_send(
-                                        actor_cast<caf::actor>(this), push_samples_atom_v);
+                                    // continue the loop
+                                    anon_mail(push_samples_atom_v)
+                                        .send(actor_cast<caf::actor>(this));
                                 }
                             }
                         },
@@ -190,6 +205,7 @@ class AudioOutputActor : public caf::event_based_actor, AudioOutputControl {
     std::shared_ptr<AudioOutputDevice> output_device_;
     caf::actor playhead_;
     bool is_global_;
+    utility::time_point last_audio_sounding_tp_;
 };
 
 /* Singleton class that receives audio sample buffers from the current
@@ -213,6 +229,10 @@ class GlobalAudioOutputActor : public caf::event_based_actor, module::Module {
         const utility::Uuid &hotkey_uuid,
         const std::string &context,
         const std::string &window) override;
+
+    const char *name() const override {
+        return dynamic_cast<const module::Module *>(this)->name().c_str();
+    }
 
 
   private:

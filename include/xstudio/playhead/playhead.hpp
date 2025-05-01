@@ -194,7 +194,7 @@ namespace playhead {
         module::BooleanAttribute *forward_;
         module::StringChoiceAttribute *auto_align_mode_;
         module::IntegerAttribute *audio_delay_millisecs_;
-        module::IntegerVecAttribute *cached_frames_;
+        module::JsonAttribute *cached_frames_;
         module::IntegerVecAttribute *bookmarked_frames_;
         module::IntegerVecAttribute *media_transition_frames_;
 
@@ -204,6 +204,7 @@ namespace playhead {
         module::BooleanAttribute *timeline_mode_;
         module::IntegerAttribute *viewport_scrub_sensitivity_;
         module::IntegerAttribute *source_offset_frames_;
+        module::BooleanAttribute *connect_to_ui_attr_;
 
         module::StringChoiceAttribute *loop_mode_;
         module::IntegerAttribute *loop_start_frame_;

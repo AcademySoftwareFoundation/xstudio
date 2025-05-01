@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -23,7 +24,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
     system().registry().put(plugin_manager_registry, this);
 
-    manager_.emplace_front_path(xstudio_root("/plugin"));
+    manager_.emplace_front_path(xstudio_plugin_dir());
 
     // use env var 'XSTUDIO_PLUGIN_PATH' to extend the folders searched for
     // xstudio plugins
@@ -53,7 +54,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         // helper for dealing with URI's
@@ -170,13 +171,8 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             const FrameRate &media_rate) -> result<UuidActorVector> {
             auto rp = make_response_promise<UuidActorVector>();
 
-            request(
-                caf::actor_cast<caf::actor>(this),
-                infinite,
-                data_source::use_data_atom_v,
-                uri,
-                media_rate,
-                playlist ? false : true)
+            mail(data_source::use_data_atom_v, uri, media_rate, playlist ? false : true)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActorVector &results) mutable {
                         // uri can contain playlist or media currently.
@@ -188,18 +184,15 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                                 auto type =
                                     request_receive<std::string>(*sys, i.actor(), type_atom_v);
                                 if (type == "Media" and playlist) {
-                                    anon_send(
-                                        playlist,
-                                        playlist::add_media_atom_v,
-                                        i,
-                                        utility::Uuid());
+                                    anon_mail(playlist::add_media_atom_v, i, utility::Uuid())
+                                        .send(playlist);
                                 } else if (type == "Playlist" && session) {
-                                    anon_send(
-                                        session,
+                                    anon_mail(
                                         session::add_playlist_atom_v,
                                         i.actor(),
                                         utility::Uuid(),
-                                        false);
+                                        false)
+                                        .send(session);
                                 }
                                 // spdlog::warn("type {}", type);
                             } catch (const std::exception &err) {
@@ -270,7 +263,8 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         },
 
         [=](spawn_plugin_atom atom, const utility::Uuid &uuid) {
-            delegate(actor_cast<caf::actor>(this), atom, uuid, utility::JsonStore());
+            return mail(atom, uuid, utility::JsonStore())
+                .delegate(actor_cast<caf::actor>(this));
         },
 
         [=](spawn_plugin_atom,
@@ -398,22 +392,16 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             if (manager_.factories().at(uuid).factory()->resident())
                 enable_resident(uuid, enabled);
 
-            send(
-                event_group_,
-                utility::event_atom_v,
-                utility::detail_atom_v,
-                manager_.plugin_detail());
+            mail(utility::event_atom_v, utility::detail_atom_v, manager_.plugin_detail())
+                .send(event_group_);
 
             return true;
         },
 
         [=](json_store::update_atom) -> int {
             int result = manager_.load_plugins();
-            send(
-                event_group_,
-                utility::event_atom_v,
-                utility::detail_atom_v,
-                manager_.plugin_detail());
+            mail(utility::event_atom_v, utility::detail_atom_v, manager_.plugin_detail())
+                .send(event_group_);
             return result;
         },
 

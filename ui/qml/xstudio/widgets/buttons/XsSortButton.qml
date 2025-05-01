@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
+import QtQuick
+
+
+import QtQuick.Layouts
 
 import xStudio 1.0
 
@@ -17,7 +17,7 @@ XsPrimaryButton{
     property alias sortIconSrc: sortCategoryIcon.source
     property bool isDescendingOrder: false
 
-    XsImage{ id: sortCategoryIcon
+    XsIcon{ id: sortCategoryIcon
         source: ""
         width: parent.width/2
         height: width
@@ -34,7 +34,7 @@ XsPrimaryButton{
         x: 5
     }
 
-    XsImage{ id: sortOrderIcon
+    XsIcon{ id: sortOrderIcon
         source: "qrc:///shotbrowser_icons/up_arrow.svg"
         rotation: isDescendingOrder? 180 : 0
         width: parent.width/2

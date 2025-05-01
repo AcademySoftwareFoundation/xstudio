@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include <tuple>
 
 #include "xstudio/atoms.hpp"
@@ -31,7 +33,7 @@ BookmarksActor::BookmarksActor(caf::actor_config &cfg, const utility::JsonStore 
             auto uuid        = utility::Uuid(key);
             auto actor       = spawn<BookmarkActor>(static_cast<JsonStore>(value));
             bookmarks_[uuid] = actor;
-            monitor(actor);
+            monitor_bookmark(actor);
             join_event_group(this, actor);
         } catch (const std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -59,6 +61,27 @@ void BookmarksActor::on_exit() {
         send_exit(it.second, caf::exit_reason::user_shutdown);
     }
 }
+
+void BookmarksActor::monitor_bookmark(const caf::actor &actor) {
+    monitor(actor, [this, addr = actor.address()](const error &) {
+        // find in playhead list..
+
+        // why is this looping ?
+
+        auto it = bookmarks_.begin();
+        while (it != bookmarks_.end()) {
+            if (addr == it->second) {
+                base_.send_changed();
+                mail(utility::event_atom_v, remove_bookmark_atom_v, it->first)
+                    .send(base_.event_group());
+                it = bookmarks_.erase(it);
+            } else {
+                it++;
+            }
+        }
+    });
+}
+
 
 caf::message_handler BookmarksActor::message_handler() {
     return caf::message_handler{
@@ -262,6 +285,63 @@ caf::message_handler BookmarksActor::message_handler() {
             return make_error(xstudio_error::error, "Invalid uuid");
         },
 
+        [=](bookmark::render_annotations_atom,
+            const utility::Uuid bookmark_id,
+            const int width,
+            bool /*thumnail*/
+            ) -> result<thumbnail::ThumbnailBufferPtr> {
+            // render the first frame of the given bookmark with overlay annotations
+            auto rp = make_response_promise<thumbnail::ThumbnailBufferPtr>();
+            mail(bookmark_detail_atom_v, bookmark_id)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const BookmarkDetail &detail) mutable {
+                        caf::actor owner        = detail.owner_->actor();
+                        auto offscreen_renderer = system().registry().template get<caf::actor>(
+                            offscreen_viewport_registry);
+
+                        rp.delegate(
+                            offscreen_renderer,
+                            ui::viewport::render_viewport_to_image_atom_v,
+                            owner,                                 // media used to fetch image
+                            *(detail.logical_start_frame_),        // media frame
+                            thumbnail::THUMBNAIL_FORMAT::TF_RGB24, // format
+                            width,                                 // output width
+                            false, // 'auto scale' (where width is set by source image)
+                            true   // render annotations
+                        );
+                    },
+                    [=](const caf::error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
+
+        [=](bookmark::render_annotations_atom,
+            const utility::Uuid bookmark_id,
+            const int width) -> result<std::vector<std::byte>> {
+            // render the first frame of the given bookmark with overlay annotations
+            // and convert to a JPEG buffer
+
+            auto rp = make_response_promise<std::vector<std::byte>>();
+            mail(render_annotations_atom_v, bookmark_id, width, true)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
+                .then(
+                    [=](const thumbnail::ThumbnailBufferPtr &thumb) mutable {
+                        auto thumbnail_manager = system().registry().template get<caf::actor>(
+                            thumbnail_manager_registry);
+
+                        // badly named/atomed message - this gets the thumnail
+                        // manager to convert a thumb to JPEG (using Qt API)
+                        rp.delegate(
+                            thumbnail_manager,
+                            media_reader::get_thumbnail_atom_v,
+                            thumb,
+                            100 // jpeg quality = 100
+                        );
+                    },
+                    [=](const caf::error &err) mutable { rp.deliver(err); });
+            return rp;
+        },
+
         [=](get_bookmark_atom,
             const utility::UuidList &uuids) -> result<std::vector<UuidActor>> {
             std::vector<UuidActor> r;
@@ -280,13 +360,14 @@ caf::message_handler BookmarksActor::message_handler() {
             if (bookmarks_.count(uuid)) {
                 // clone it..
                 auto rp = make_response_promise<utility::UuidActor>();
-                request(bookmarks_[uuid], infinite, utility::duplicate_atom_v)
+                mail(utility::duplicate_atom_v)
+                    .request(bookmarks_[uuid], infinite)
                     .then(
                         [=](const utility::UuidActor &ua) mutable {
                             // assign to src.
                             BookmarkDetail bd;
                             bd.owner_ = src;
-                            anon_send(ua.actor(), bookmark_detail_atom_v, bd);
+                            anon_mail(bookmark_detail_atom_v, bd).send(ua.actor());
                             rp.deliver(ua);
                         },
                         [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -298,9 +379,9 @@ caf::message_handler BookmarksActor::message_handler() {
         [=](add_bookmark_atom, const UuidActorVector &bookmarks) -> bool {
             for (const auto &i : bookmarks) {
                 bookmarks_[i.uuid()] = i.actor();
-                monitor(i.actor());
+                monitor_bookmark(i.actor());
                 join_event_group(this, i.actor());
-                send(base_.event_group(), utility::event_atom_v, add_bookmark_atom_v, i);
+                mail(utility::event_atom_v, add_bookmark_atom_v, i).send(base_.event_group());
             }
             base_.send_changed();
             return true;
@@ -309,13 +390,14 @@ caf::message_handler BookmarksActor::message_handler() {
         // create and assign.
         [=](add_bookmark_atom, const UuidActor &src) -> result<utility::UuidActor> {
             auto rp = make_response_promise<utility::UuidActor>();
-            request(caf::actor_cast<caf::actor>(this), infinite, add_bookmark_atom_v)
+            mail(add_bookmark_atom_v)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const utility::UuidActor &ua) mutable {
                         // associate..
                         BookmarkDetail bd;
                         bd.owner_ = src;
-                        anon_send(ua.actor(), bookmark_detail_atom_v, bd);
+                        anon_mail(bookmark_detail_atom_v, bd).send(ua.actor());
                         rp.deliver(ua);
                     },
                     [=](const caf::error &err) mutable { rp.deliver(err); });
@@ -325,11 +407,11 @@ caf::message_handler BookmarksActor::message_handler() {
 
         // change to bookmark
         [=](utility::event_atom, bookmark_change_atom, const utility::Uuid &uuid) {
-            send(
-                base_.event_group(),
+            mail(
                 utility::event_atom_v,
                 bookmark_change_atom_v,
-                UuidActor(uuid, bookmarks_[uuid]));
+                UuidActor(uuid, bookmarks_[uuid]))
+                .send(base_.event_group());
         },
 
         [=](add_bookmark_atom) -> utility::UuidActor {
@@ -337,15 +419,12 @@ caf::message_handler BookmarksActor::message_handler() {
             auto actor = spawn<BookmarkActor>(uuid);
 
             bookmarks_[uuid] = actor;
-            monitor(actor);
+            monitor_bookmark(actor);
             join_event_group(this, actor);
 
             base_.send_changed();
-            send(
-                base_.event_group(),
-                utility::event_atom_v,
-                add_bookmark_atom_v,
-                UuidActor(uuid, actor));
+            mail(utility::event_atom_v, add_bookmark_atom_v, UuidActor(uuid, actor))
+                .send(base_.event_group());
 
             return UuidActor(uuid, actor);
         },
@@ -360,11 +439,10 @@ caf::message_handler BookmarksActor::message_handler() {
                 // data.
                 if (bookmark_serialised_data.contains("base") &&
                     bookmark_serialised_data["base"].contains("annotation")) {
-                    request(
-                        bookmarks_[bookmark_uuid],
-                        infinite,
+                    mail(
                         bookmark::add_annotation_atom_v,
                         utility::JsonStore(bookmark_serialised_data["base"]["annotation"]))
+                        .request(bookmarks_[bookmark_uuid], infinite)
                         .then(
                             [=](bool) mutable {
                                 utility::UuidActor ua(bookmark_uuid, bookmarks_[bookmark_uuid]);
@@ -380,15 +458,13 @@ caf::message_handler BookmarksActor::message_handler() {
 
                 auto actor                = spawn<BookmarkActor>(bookmark_serialised_data);
                 bookmarks_[bookmark_uuid] = actor;
-                monitor(actor);
+                monitor_bookmark(actor);
                 join_event_group(this, actor);
                 base_.send_changed();
-                send(
-                    base_.event_group(),
-                    utility::event_atom_v,
-                    add_bookmark_atom_v,
-                    UuidActor(bookmark_uuid, actor));
-                anon_send(actor, associate_bookmark_atom_v, true);
+                mail(
+                    utility::event_atom_v, add_bookmark_atom_v, UuidActor(bookmark_uuid, actor))
+                    .send(base_.event_group());
+                anon_mail(associate_bookmark_atom_v, true).send(actor);
                 rp.deliver(UuidActor(bookmark_uuid, actor));
             }
             return rp;
@@ -560,9 +636,7 @@ caf::message_handler BookmarksActor::message_handler() {
             if (!detail.owner_ || !detail.start_ | !detail.owner_->actor())
                 return;
 
-            request(
-                offscreen_renderer,
-                infinite,
+            mail(
                 ui::viewport::render_viewport_to_image_atom_v,
                 detail.owner_->actor(),
                 *(detail.start_),
@@ -570,14 +644,12 @@ caf::message_handler BookmarksActor::message_handler() {
                 width,
                 false, // autoscale (renders at source imate fomat if true)
                 true /*show annotations*/)
+                .request(offscreen_renderer, infinite)
                 .then(
                     [=](const thumbnail::ThumbnailBufferPtr &thumbnail) {
                         if (thumbnail)
-                            anon_send(
-                                receiver,
-                                media_reader::get_thumbnail_atom_v,
-                                detail,
-                                thumbnail);
+                            anon_mail(media_reader::get_thumbnail_atom_v, detail, thumbnail)
+                                .send(receiver);
                         else
                             spdlog::warn(
                                 "{} {}",
@@ -594,32 +666,13 @@ caf::message_handler BookmarksActor::message_handler() {
 void BookmarksActor::init() {
     print_on_create(this, base_);
     print_on_exit(this, base_);
-
-    set_down_handler([=](down_msg &msg) {
-        // find in playhead list..
-        auto it = bookmarks_.begin();
-        while (it != bookmarks_.end()) {
-            if (msg.source == it->second) {
-                demonitor(it->second);
-                // spdlog::warn("bookmark exited {}", to_string(it->first));
-                base_.send_changed();
-                send(
-                    base_.event_group(),
-                    utility::event_atom_v,
-                    remove_bookmark_atom_v,
-                    it->first);
-                it = bookmarks_.erase(it);
-            } else {
-                it++;
-            }
-        }
-    });
 }
 
 void BookmarksActor::csv_export(
     caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp) {
     // collect all bookmark details..
-    request(actor_cast<caf::actor>(this), infinite, bookmark_detail_atom_v, UuidVector())
+    mail(bookmark_detail_atom_v, UuidVector())
+        .request(actor_cast<caf::actor>(this), infinite)
         .then(
             [=](std::vector<BookmarkDetail> details) mutable {
                 std::vector<std::vector<std::string>> data;

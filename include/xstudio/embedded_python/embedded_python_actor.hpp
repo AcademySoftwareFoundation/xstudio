@@ -25,6 +25,8 @@ namespace embedded_python {
         void leave_broadcast(caf::actor act);
         void delayed_callback(utility::Uuid &cb_id, const int microseconds_delay);
 
+        void main_loop();
+
       private:
         inline static const std::string NAME = "EmbeddedPythonActor";
 

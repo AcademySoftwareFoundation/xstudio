@@ -17,13 +17,8 @@ void MediaWorker::add_media_step_1(
     caf::actor media,
     const JsonStore &jsn,
     const FrameRate &media_rate) {
-    request(
-        actor_cast<caf::actor>(this),
-        infinite,
-        media::add_media_source_atom_v,
-        jsn,
-        media_rate,
-        true)
+    mail(media::add_media_source_atom_v, jsn, media_rate, true)
+        .request(actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const UuidActor &movie_source) mutable {
                 add_media_step_2(rp, media, jsn, media_rate, movie_source);
@@ -41,8 +36,8 @@ void MediaWorker::add_media_step_2(
     const FrameRate &media_rate,
     const UuidActor &movie_source) {
     // now get image..
-    request(
-        actor_cast<caf::actor>(this), infinite, media::add_media_source_atom_v, jsn, media_rate)
+    mail(media::add_media_source_atom_v, jsn, media_rate)
+        .request(actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const UuidActor &image_source) mutable {
                 // check to see if what we've got..
@@ -79,25 +74,26 @@ void MediaWorker::add_media_step_3(
     caf::actor media,
     const JsonStore &jsn,
     const UuidActorVector &srcs) {
-    request(media, infinite, media::add_media_source_atom_v, srcs)
+    mail(media::add_media_source_atom_v, srcs)
+        .request(media, infinite)
         .then(
             [=](const bool) mutable {
                 rp.deliver(true);
                 // push metadata to media actor.
-                anon_send(
-                    media,
+                anon_mail(
                     json_store::set_json_atom_v,
                     utility::Uuid(),
                     jsn,
-                    ShotgunMetadataPath + "/version");
+                    ShotgunMetadataPath + "/version")
+                    .send(media);
 
-                anon_send(
-                    media,
+                anon_mail(
                     json_store::set_json_atom_v,
                     utility::Uuid(),
                     JsonStore(
                         R"({"icon": "qrc:/shotbrowser_icons/shot_grid.svg", "tooltip": "ShotGrid Version"})"_json),
-                    "/ui/decorators/shotgrid");
+                    "/ui/decorators/shotgrid")
+                    .send(media);
 
                 // dispatch delayed shot data.
                 try {
@@ -105,21 +101,18 @@ void MediaWorker::add_media_step_3(
                     shotreq["shot_id"] =
                         jsn.at("relationships").at("entity").at("data").value("id", 0);
 
-                    request(
-                        caf::actor_cast<caf::actor>(data_source_),
-                        infinite,
-                        data_source::get_data_atom_v,
-                        shotreq)
+                    mail(data_source::get_data_atom_v, shotreq)
+                        .request(caf::actor_cast<caf::actor>(data_source_), infinite)
                         .then(
                             [=](const JsonStore &jsn) mutable {
                                 try {
                                     if (jsn.count("data"))
-                                        anon_send(
-                                            media,
+                                        anon_mail(
                                             json_store::set_json_atom_v,
                                             utility::Uuid(),
                                             JsonStore(jsn.at("data")),
-                                            ShotgunMetadataPath + "/shot");
+                                            ShotgunMetadataPath + "/shot")
+                                            .send(media);
                                 } catch (const std::exception &err) {
                                     spdlog::warn("A {} {}", __PRETTY_FUNCTION__, err.what());
                                 }
@@ -164,7 +157,8 @@ MediaWorker::MediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
                     auto source            = spawn<media::MediaSourceActor>(
                         "SG Movie", uri, media_rate, source_uuid);
 
-                    request(source, infinite, media::acquire_media_detail_atom_v, media_rate)
+                    mail(media::acquire_media_detail_atom_v, media_rate)
+                        .request(source, infinite)
                         .then(
                             [=](bool) mutable { rp.deliver(UuidActor(source_uuid, source)); },
                             [=](error &err) mutable {
@@ -214,7 +208,8 @@ MediaWorker::MediaWorker(caf::actor_config &cfg, const caf::actor_addr source)
                             : spawn<media::MediaSourceActor>(
                                   "SG Frames", uri, frame_list, media_rate, source_uuid);
 
-                    request(source, infinite, media::acquire_media_detail_atom_v, media_rate)
+                    mail(media::acquire_media_detail_atom_v, media_rate)
+                        .request(source, infinite)
                         .then(
                             [=](bool) mutable { rp.deliver(UuidActor(source_uuid, source)); },
                             [=](error &err) mutable {

@@ -1,7 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+
+
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -22,18 +21,21 @@ XsMenu {
     // The JsonTree desrcibes menu(s) and sub-menus - we can add to it and
     // modfiy it from QML or the backend - we just need the ID to get to it.
 
+    // N.B. - this XsPanelMenuModelFilter MUST be declared before 'the_model'
+    // that drives it. Otherwise, at clean-up time, the_model is destroyed and
+    // it triggers an obscure bug in Qt.
+    XsPanelMenuModelFilter {
+        id: filteredMenuModel
+        sourceModel: the_model
+        panelAddress: helpers.contextPanelAddress(popup_menu)
+    }
+
     XsMenusModel {
         id: the_model
         modelDataName: menu_model_name
         onJsonChanged: {
             menu_model_index = filteredMenuModel.index(-1, -1)
         }
-    }
-
-    XsPanelMenuModelFilter {
-        id: filteredMenuModel
-        sourceModel: the_model
-        panelAddress: helpers.contextPanelAddress(popup_menu)
     }
 
     function showMenu(refItem, refX, refY, altRightEdge) {

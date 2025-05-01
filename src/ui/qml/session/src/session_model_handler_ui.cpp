@@ -9,18 +9,10 @@
 #include "xstudio/ui/qml/job_control_ui.hpp"
 #include "xstudio/ui/qml/session_model_ui.hpp"
 
-CAF_PUSH_WARNINGS
-#include <QThreadPool>
-#include <QFutureWatcher>
-#include <QtConcurrent>
-#include <QSignalSpy>
-CAF_POP_WARNINGS
-
 using namespace caf;
 using namespace xstudio;
 using namespace xstudio::utility;
 using namespace xstudio::ui::qml;
-
 
 void SessionModel::updateMedia() {
     mediaStatusChangePending_ = false;
@@ -43,15 +35,15 @@ void SessionModel::triggerMediaStatusChange(const QModelIndex &index) {
 void SessionModel::init(caf::actor_system &_system) {
     super::init(_system);
 
-    self()->set_default_handler(
-        [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
-            //  UNCOMMENT TO DEBUG UNEXPECT MESSAGES
+    // self()->set_default_handler(
+    //     [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
+    //         //  UNCOMMENT TO DEBUG UNEXPECT MESSAGES
 
-            spdlog::warn(
-                "Got adfd from {} {}", to_string(self()->current_sender()), to_string(msg));
+    //         spdlog::warn(
+    //             "Got adfd from {} {}", to_string(self()->current_sender()), to_string(msg));
 
-            return message{};
-        });
+    //         return message{};
+    //     });
     setModified(false, true);
 
     try {
@@ -1162,11 +1154,6 @@ void SessionModel::init(caf::actor_system &_system) {
             },
 
             [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
-
-            [=](const group_down_msg &g) {
-                caf::aout(self()) << "down: " << to_string(g.source) << std::endl;
-            }
-
-        };
+            [=](caf::message) { spdlog::warn("Unexpected message"); }};
     });
 }

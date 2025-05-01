@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtGraphicalEffects 1.12
-import QtQuick.Layouts 1.3
-import QtQuick.Window 2.2
-import QtQuick.Dialogs 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Dialogs
 
 import xstudio.qml.models 1.0
 import xStudio 1.0
@@ -30,10 +27,26 @@ XsWindow {
 
     title: "Viewer Snapshot"
 
-
     XsGradientRectangle{ id: bgDiv
         z: -10
         anchors.fill: parent
+    }
+
+    function saveScreenshot(path, folder) {
+
+        var result = studio.renderScreenShotToDisk(
+            typeof path != "url" ? helpers.QUrlFromQString(""+path) : path,
+            0,
+            parseInt(widthInput.text),
+            parseInt(heightInput.text))
+
+        if (result != "") {
+            dialogHelpers.errorDialogFunc("Snapshot Failed", result)
+        } else {
+            dialogHelpers.messageDialogFunc("Snapshot Saved", "Snapshot image saved to path " + path)
+        }
+        dialog.close()
+
     }
 
     // parent: sessionWidget
@@ -54,33 +67,6 @@ XsWindow {
         Rectangle {
             color: "transparent"
             Layout.fillHeight: true
-        }
-
-        FileDialog {
-            id: filedialog
-            title: qsTr("Name / select a file to save")
-            selectMultiple: false
-            selectFolder: false
-            selectExisting: false
-            nameFilters: [ "JPEG files (*.jpg)", "PNG files (*.png)", "TIF files (*.tif *.tiff)", "EXR files (*.exr)" ]
-            property var suffixes: ["jpg", "png", "tif", "exr"]
-            defaultSuffix: "jpg"
-            selectedNameFilter: "JPEG files (*.jpg)"
-            onAccepted: {
-                var fixedfileUrl = fileUrl.toString()
-                var result = studio.renderScreenShotToDisk(
-                    fixedfileUrl,
-                    0,
-                    parseInt(widthInput.text),
-                    parseInt(heightInput.text))
-
-                if (result != "") {
-                    dialogHelpers.errorDialogFunc("Snapshot Failed", result)
-                } else {
-                    dialog.close()
-                    dialogHelpers.messageDialogFunc("Snapshot Saved", "Snapshot image saved to path " + fixedfileUrl)
-                }
-            }
         }
 
         Rectangle {
@@ -224,16 +210,33 @@ XsWindow {
                 text: qsTr("Save to Clipboard")
                 width: XsStyleSheet.primaryButtonStdWidth*4
                 onClicked: {
-                    studio.renderScreenShotToClipboard(
+                    var err_msg = studio.renderScreenShotToClipboard(
                         parseInt(widthInput.text),
                         parseInt(heightInput.text))
+                    if (err_msg != "") {
+                        dialogHelpers.errorDialogFunc("Snapshot Failed", err_msg)
+                    } else {
+                        dialogHelpers.messageDialogFunc("Screenshot", "Screenshot copied to clipboard.", "OK")
+                    }
+                    dialog.close()
                 }
             }
             XsSimpleButton {
                 id: btnSave
                 text: qsTr("Save")
                 width: XsStyleSheet.primaryButtonStdWidth*2
-                onClicked: filedialog.open()
+                onClicked: {
+                    dialog.close()
+                    dialogHelpers.showFileDialog(
+                        dialog.saveScreenshot,
+                        file_functions.defaultSessionFolder(),
+                        "Save Screenshot",
+                        "jpg",
+                        [ "JPEG files (*.jpg)", "PNG files (*.png)", "TIF files (*.tif *.tiff)", "EXR files (*.exr)" ],
+                        false,
+                        false
+                        )                    
+                }
             }
 
         }

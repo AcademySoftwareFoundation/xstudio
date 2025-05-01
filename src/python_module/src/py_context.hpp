@@ -18,6 +18,7 @@ CAF_POP_WARNINGS
 
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/utility/uuid.hpp"
+#include "xstudio/embedded_python/python_thread_locker.hpp"
 
 namespace caf::python {
 
@@ -29,10 +30,7 @@ class py_context : public py_config {
   public:
     py_context(int argc = 0, char **argv = nullptr);
 
-    virtual ~py_context() {
-        // shutdown system
-        disconnect();
-    }
+    virtual ~py_context();
 
     std::optional<message> py_build_message(const py::args &xs);
     void py_send(const py::args &xs);
@@ -42,13 +40,14 @@ class py_context : public py_config {
     void py_send_exit(const py::args &xs);
     py::tuple
     tuple_from_message(const message_id mid, const strong_actor_ptr sender, const message &msg);
-    py::tuple py_tuple_from_wrapped_message(const py::args &xs);
+    void
+    execute_event_callback(const caf::message &msg, const xstudio::utility::Uuid &callback_id);
+    void erase_func(py::function &callback_func);
+
     py::tuple py_dequeue();
     py::tuple py_dequeue_with_timeout(xstudio::utility::absolute_receive_timeout timeout);
-    void py_run_xstudio_message_loop();
-    void py_add_message_callback(const py::args &xs);
-    void py_remove_message_callback(const py::args &xs);
-    void py_register_python_plugin_instance(const py::args &xs);
+    xstudio::utility::Uuid py_add_message_callback(const py::args &xs);
+    void py_remove_message_callback(const xstudio::utility::Uuid &id);
 
     actor py_self() { return self_; }
     actor py_remote() { return remote_; }
@@ -65,6 +64,10 @@ class py_context : public py_config {
     bool connect_local(caf::actor actor);
     std::string host() { return host_; }
     uint16_t port() { return port_; }
+
+    void pause_main_python_thread();
+    void unpause_main_python_thread();
+
 
   public:
     std::string host_;
@@ -89,12 +92,15 @@ class py_context : public py_config {
 
     scoped_actor self_;
     actor remote_;
+    actor embedded_python_actor_;
     py::function my_func;
     std::thread my_thread;
 
-    std::map<caf::actor_addr, std::vector<py::function>> message_handler_callbacks_;
-    std::map<caf::actor_addr, py::function> message_conversion_function_;
-    std::map<xstudio::utility::Uuid, py::function> delayed_callbacks_;
+    xstudio::embedded_python::PythonThreadLocker *thread_pauser_;
+    xstudio::utility::BlindDataObjectPtr thread_pauser_ptr_;
+
+    std::map<xstudio::utility::Uuid, caf::actor> message_callback_handler_actors_;
+    std::map<xstudio::utility::Uuid, py::function> message_callback_funcs_;
     std::map<xstudio::utility::Uuid, py::object> plugin_registry_;
 };
 } // namespace caf::python

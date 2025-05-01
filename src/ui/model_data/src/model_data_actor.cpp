@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <fmt/format.h>
 #include <caf/policy/select_all.hpp>
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/atoms.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/json_store/json_store_actor.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/tree.hpp"
 #include "xstudio/module/attribute.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/ui/model_data/model_data_actor.hpp"
@@ -49,20 +52,18 @@ utility::JsonTree *find_node_matching_string_field(
     }
     if (depth) {
         for (auto c = data->begin(); c != data->end(); c++) {
-            try {
-                utility::JsonTree *r = find_node_matching_string_field(
-                    &(*c), field_name, field_value, depth - 1, real_depth + 1);
-                if (r)
-                    return r;
-            } catch (...) {
-            }
+            utility::JsonTree *r = find_node_matching_string_field(
+                &(*c), field_name, field_value, depth - 1, real_depth + 1);
+            if (r)
+                return r;
         }
     }
     if (!real_depth) {
-        std::stringstream ss;
+        /*std::stringstream ss;
         ss << "Failed to find field \"" << field_name << "\" with value matching \""
            << field_value << "\"";
-        throw std::runtime_error(ss.str().c_str());
+        std::cerr << ss.str() << "\n";
+        throw std::runtime_error(ss.str().c_str());*/
     }
     return nullptr;
 }
@@ -369,12 +370,13 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
 
                 const auto model_data = model_data_as_json(model_name);
                 for (auto &client : models_[model_name]->clients_) {
-                    anon_send(
-                        client,
-                        utility::event_atom_v,
-                        model_data_atom_v,
-                        model_name,
-                        model_data);
+                    if (client)
+                        anon_send(
+                            client,
+                            utility::event_atom_v,
+                            model_data_atom_v,
+                            model_name,
+                            model_data);
                 }
             }
             models_to_be_fully_broadcasted_.clear();
@@ -443,25 +445,24 @@ void GlobalUIModelData::set_data(
 
             if (!role.empty()) {
                 for (auto &client : models_[model_name]->clients_) {
-                    send(
-                        client,
-                        utility::event_atom_v,
-                        set_node_data_atom_v,
-                        model_name,
-                        path,
-                        data,
-                        role,
-                        uuid_role_data);
+                    if (client)
+                        mail(
+                            utility::event_atom_v,
+                            set_node_data_atom_v,
+                            model_name,
+                            path,
+                            data,
+                            role,
+                            uuid_role_data)
+                            .send(client);
                 }
             } else {
                 for (auto &client : models_[model_name]->clients_) {
-                    send(
-                        client,
-                        utility::event_atom_v,
-                        set_node_data_atom_v,
-                        model_name,
-                        path,
-                        data);
+                    if (client) {
+                        mail(
+                            utility::event_atom_v, set_node_data_atom_v, model_name, path, data)
+                            .send(client);
+                    }
                 }
             }
 
@@ -473,15 +474,16 @@ void GlobalUIModelData::set_data(
                 if (p != models_[model_name]->menu_watchers_.end()) {
                     auto &watchers = p->second;
                     for (auto watcher : watchers) {
-                        send(
-                            watcher,
-                            utility::event_atom_v,
-                            set_node_data_atom_v,
-                            model_name,
-                            path,
-                            role,
-                            data,
-                            uuid_role_data.is_null() ? uuid : uuid_role_data);
+                        if (watcher)
+                            mail(
+                                utility::event_atom_v,
+                                set_node_data_atom_v,
+                                model_name,
+                                path,
+                                role,
+                                data,
+                                uuid_role_data.is_null() ? uuid : uuid_role_data)
+                                .send(watcher);
                     }
                 }
             }
@@ -514,6 +516,10 @@ void GlobalUIModelData::set_data(
         utility::JsonTree *node = find_node_matching_string_field(
             &(models_[model_name]->data_), attr_uuid_role_name, to_string(attribute_uuid));
 
+        if (!node) {
+            throw std::runtime_error(fmt::format("Couln't find attr UUID in data.").c_str());
+        }
+
         auto &j = node->data();
 
         bool changed = false;
@@ -537,15 +543,15 @@ void GlobalUIModelData::set_data(
 
             for (auto &client : models_[model_name]->clients_) {
                 if (client != setter)
-                    send(
-                        client,
+                    mail(
                         utility::event_atom_v,
                         set_node_data_atom_v,
                         model_name,
                         path,
                         data,
                         role,
-                        uuid_role_data);
+                        uuid_role_data)
+                        .send(client);
             }
 
             push_to_prefs(model_name);
@@ -559,15 +565,15 @@ void GlobalUIModelData::set_data(
                         // we don't notify the thing that is setting this data
                         // as it will update it's local data
                         if (watcher != setter)
-                            send(
-                                watcher,
+                            mail(
                                 utility::event_atom_v,
                                 set_node_data_atom_v,
                                 model_name,
                                 path,
                                 role,
                                 data,
-                                uuid_role_data);
+                                uuid_role_data)
+                                .send(watcher);
                     }
                 }
             }
@@ -610,8 +616,30 @@ void GlobalUIModelData::insert_attribute_data_into_model(
 
     utility::JsonTree *parent_node = &(models_[model_name]->data_);
     try {
-        parent_node = find_node_matching_string_field(
+        auto pnode = find_node_matching_string_field(
             parent_node, attr_uuid_role_name, to_string(attribute_uuid));
+
+        if (!pnode) {
+            if (!sort_role.empty() && attribute_data.contains(sort_role)) {
+                const auto &sort_v = attribute_data[sort_role];
+                auto insert_pt     = parent_node->begin();
+                while (insert_pt != parent_node->end()) {
+                    if (insert_pt->data().contains(sort_role)) {
+                        if (insert_pt->data()[sort_role] >= sort_v) {
+                            break;
+                        }
+                    }
+                    insert_pt++;
+                }
+                parent_node->insert(insert_pt, attribute_data);
+            } else {
+                parent_node->insert(parent_node->end(), attribute_data);
+            }
+            broadcast_whole_model_data(model_name);
+            return;
+        }
+
+        parent_node = pnode;
 
         const auto &d = parent_node->data();
 
@@ -1025,14 +1053,14 @@ void GlobalUIModelData::node_activated(
                 if (p != models_[model_name]->menu_watchers_.end()) {
                     auto &watchers = p->second;
                     for (auto watcher : watchers) {
-                        send(
-                            watcher,
+                        mail(
                             utility::event_atom_v,
                             menu_node_activated_atom_v,
                             path,
                             utility::JsonStore(j),
                             user_data,
-                            from_hotkey);
+                            from_hotkey)
+                            .send(watcher);
                     }
                 }
             }
@@ -1070,15 +1098,15 @@ void GlobalUIModelData::insert_into_menu_model(
             std::vector<std::string> parent_menus = utility::split(menu_path, '|');
 
             while (parent_menus.size()) {
-                try {
-                    menu_model_data = find_node_matching_string_field(
-                        menu_model_data, "name", parent_menus.front(), 1);
+                auto node = find_node_matching_string_field(
+                    menu_model_data, "name", parent_menus.front(), 1);
 
-                    parent_menus.erase(parent_menus.begin());
-                } catch (std::exception &e) {
-                    // exception is thrown if we fail to find a match
+                if (!node)
                     break;
-                }
+
+                menu_model_data = node;
+
+                parent_menus.erase(parent_menus.begin());
             }
 
             while (parent_menus.size()) {
@@ -1202,6 +1230,9 @@ void GlobalUIModelData::set_menu_node_position(
                 // menu item in the menu model
                 menu_model_data = find_node_matching_string_field(
                     menu_model_data, "name", parent_menus.front());
+                if (!menu_model_data) {
+                    throw std::runtime_error(fmt::format("No such menu {}", menu_path).c_str());
+                }
                 parent_menus.erase(parent_menus.begin());
             }
 
@@ -1368,6 +1399,11 @@ void GlobalUIModelData::update_hotkeys_model_data(const Hotkey &hotkey) {
 
                 auto menu_model_data = find_node_matching_string_field(
                     &(p.second->data_), "hotkey_uuid", to_string(hotkey.uuid()));
+                if (!menu_model_data) {
+                    throw std::runtime_error(
+                        fmt::format("No such hotkey {}", p.second->name_).c_str());
+                }
+
                 set_data(
                     p.second->name_,
                     path_from_node(menu_model_data),
@@ -1396,6 +1432,10 @@ void GlobalUIModelData::hotkey_pressed(
                 // find the menu item that is linked to the hotkey
                 auto menu_model_data = find_node_matching_string_field(
                     &(p.second->data_), "hotkey_uuid", to_string(hotkey_uuid));
+                if (!menu_model_data) {
+                    throw std::runtime_error(
+                        fmt::format("No such hotkey {}", to_string(hotkey_uuid)).c_str());
+                }
 
                 if (p.second->name_ == "popout windows" && menu_model_data) {
                     // special case .. the "popout windows" model is the button tray

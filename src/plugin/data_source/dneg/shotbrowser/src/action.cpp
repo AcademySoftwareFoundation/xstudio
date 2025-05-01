@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -24,8 +25,8 @@ void ShotBrowser::use_action(
                 system().registry().template get<caf::actor>(global_registry),
                 session::session_atom_v);
 
-            request(
-                caf::actor_cast<caf::actor>(this), infinite, use_data_atom_v, action, session)
+            mail(use_data_atom_v, action, session)
+                .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const UuidActor &) mutable {
                         rp.deliver(JsonStore(R"({"data": {"status": "successful"}})"_json));
@@ -90,9 +91,7 @@ void ShotBrowser::use_action(
                     auto squery  = R"({})"_json;
                     squery["id"] = i;
 
-                    request(
-                        caf::actor_cast<caf::actor>(this),
-                        std::chrono::seconds(static_cast<int>(timeout_->value())),
+                    mail(
                         shotgun_entity_filter_atom_v,
                         "Versions",
                         JsonStore(squery),
@@ -100,16 +99,15 @@ void ShotBrowser::use_action(
                         std::vector<std::string>(),
                         1,
                         4999)
+                        .request(
+                            caf::actor_cast<caf::actor>(this),
+                            std::chrono::seconds(static_cast<int>(timeout_->value())))
                         .then(
                             [=](const JsonStore &js) mutable {
                                 // load version..
-                                request(
-                                    caf::actor_cast<caf::actor>(this),
-                                    infinite,
-                                    playlist::add_media_atom_v,
-                                    js,
-                                    create_playlist,
-                                    media_rate)
+                                mail(
+                                    playlist::add_media_atom_v, js, create_playlist, media_rate)
+                                    .request(caf::actor_cast<caf::actor>(this), infinite)
                                     .then(
                                         [=](const UuidActorVector &uav) mutable {
                                             (*count)--;
@@ -149,12 +147,8 @@ void ShotBrowser::use_action(
                 auto id           = std::atoi(i.c_str());
                 auto js           = JsonStore(UseLoadPlaylist);
                 js["playlist_id"] = id;
-                request(
-                    caf::actor_cast<caf::actor>(this),
-                    infinite,
-                    use_data_atom_v,
-                    js,
-                    caf::actor())
+                mail(use_data_atom_v, js, caf::actor())
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](const UuidActor &ua) mutable {
                             // process result to build playlist..
@@ -265,8 +259,23 @@ void ShotBrowser::get_action(
 
         } else if (operation == "LinkMedia") {
             link_media(rp, utility::Uuid(action.at("playlist_uuid")));
-        } else if (operation == "DownloadMedia") {
-            download_media(rp, utility::Uuid(action.at("media_uuid")));
+        } else if (operation == "AddShotgridMedia") {
+            add_shotgrid_media(rp, utility::Uuid(action.at("media_uuid")));
+        } else if (operation == "DownloadShotgridMedia") {
+            download_shotgrid_media(
+                rp,
+                action.at("entity"),
+                action.at("entity_id"),
+                action.at("entity_name"),
+                action.at("project_name"),
+                action.at("parent_name"));
+        } else if (operation == "DownloadShotgridImage") {
+            download_shotgrid_image(
+                rp,
+                action.at("entity"),
+                action.at("entity_id"),
+                action.at("entity_name"),
+                action.at("project_name"));
         } else if (operation == "GetData") {
             get_data(rp, action.at("type"), action.at("project_id"));
         } else if (operation == "Precache") {
@@ -309,7 +318,7 @@ void ShotBrowser::put_action(
         auto operation = action.value("operation", "");
 
         if (operation == "UpdatePlaylistVersions") {
-            update_playlist_versions(rp, Uuid(action["playlist_uuid"]));
+            update_playlist_versions(rp, Uuid(action["playlist_uuid"]), action["append"]);
         } else {
             rp.deliver(make_error(xstudio_error::error, "Invalid operation."));
         }

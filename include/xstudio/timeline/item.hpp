@@ -130,9 +130,11 @@ namespace timeline {
         using Items::splice;
 
 
-        [[nodiscard]] Item clone() const {
+        [[nodiscard]] Item clone(const bool reset_uuids = false) const {
             Item item = *this;
             item.unbind();
+            if (reset_uuids)
+                item.reset_uuid(true);
             return item;
         }
 
@@ -228,7 +230,7 @@ namespace timeline {
         bool replace_child(const Item &child);
         std::set<utility::Uuid> update(const utility::JsonStore &event);
 
-        void clean(const bool purge_clips = false);
+        void merge_gaps(const bool purge_empty_clips = false);
         utility::JsonStore refresh(const int depth = std::numeric_limits<int>::max());
 
         void set_uuid(const utility::Uuid &uuid) { uuid_addr_.first = uuid; }
@@ -258,6 +260,7 @@ namespace timeline {
         utility::JsonStore set_available_range(const utility::FrameRange &value);
         utility::JsonStore
         set_range(const utility::FrameRange &avail, const utility::FrameRange &active);
+
         utility::JsonStore insert(
             Items::iterator position,
             const Item &val,

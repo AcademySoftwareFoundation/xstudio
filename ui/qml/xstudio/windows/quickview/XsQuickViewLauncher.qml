@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
+import QtQuick
 
 import "."
 
@@ -11,13 +11,14 @@ Item {
      *
      ****************************************************************/
 
-
     Connections {
 
         target: studio
 
         function onOpenQuickViewers(media_actors, compare_mode, in_frame, out_frame) {
-            launchQuickViewer(media_actors, compare_mode, in_frame, out_frame)
+            if (!suppressQuickviewWindows) {
+                launchQuickViewer(media_actors, compare_mode, in_frame, out_frame)
+            }
         }
 
         function onSessionRequest(path, jsn) {

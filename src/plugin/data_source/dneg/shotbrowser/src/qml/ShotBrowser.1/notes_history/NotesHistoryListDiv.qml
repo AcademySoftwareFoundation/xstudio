@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -16,6 +15,28 @@ XsListView{
 
     property int rightSpacing: list.height < list.contentHeight ? 16 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+
+    ScrollBar.vertical: XsScrollBar {
+        visible: list.height < list.contentHeight
+        parent: list.parent
+        anchors.top: list.top
+        anchors.right: list.right
+        anchors.bottom: list.bottom
+        x: -5
+    }
+
+
+    XsSBImageViewer {
+        id: imagePlayer
+        anchors.fill: parent
+        visible: false
+        onEject: visible = false
+    }
+
+    function viewImages(images) {
+        imagePlayer.images = images
+        imagePlayer.visible = true
+    }
 
     XsLabel {
         text: "Select the 'Scope' and the 'Note Type' to view the Note History."
@@ -49,6 +70,7 @@ XsListView{
 
             delegateModel: chooserModel
             popupMenu: resultPopup
+            onShowImages: (images) => list.viewImages(images)
         }
     }
 }

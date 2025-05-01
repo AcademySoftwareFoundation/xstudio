@@ -177,52 +177,6 @@ class HELPER_QML_EXPORT MediaListColumnsModel : public UIModelData {
     explicit MediaListColumnsModel(QObject *parent = nullptr);
 };
 
-class HELPER_QML_EXPORT MediaListFilterModel : public QSortFilterProxyModel {
-
-    Q_OBJECT
-
-    Q_PROPERTY(
-        QString searchString READ searchString WRITE setSearchString NOTIFY searchStringChanged)
-
-  public:
-    using super = QSortFilterProxyModel;
-
-    MediaListFilterModel(QObject *parent = nullptr);
-
-    const QString &searchString() const { return search_string_; }
-
-    void setSearchString(const QString &ss) {
-        if (ss != search_string_) {
-            search_string_ = ss;
-            emit searchStringChanged();
-            invalidateFilter();
-        }
-    }
-
-    [[nodiscard]] QHash<int, QByteArray> roleNames() const override {
-        if (!sourceModel())
-            return QHash<int, QByteArray>();
-        return sourceModel()->roleNames();
-    }
-
-    Q_INVOKABLE [[nodiscard]] QModelIndex rowToSourceIndex(const int row) const;
-
-    Q_INVOKABLE [[nodiscard]] int sourceIndexToRow(const QModelIndex &) const;
-
-    Q_INVOKABLE [[nodiscard]] int
-    getRowWithMatchingRoleData(const QVariant &searchValue, const QString &searchRole) const;
-
-  protected:
-    [[nodiscard]] bool
-    filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
-
-  signals:
-    void searchStringChanged();
-
-  private:
-    QString search_string_;
-};
-
 class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject> {
 
     Q_OBJECT
@@ -232,7 +186,7 @@ class HELPER_QML_EXPORT MenuModelItem : public caf::mixin::actor_object<QObject>
 
     explicit MenuModelItem(QObject *parent = nullptr);
 
-    ~MenuModelItem() override;
+    virtual ~MenuModelItem() override;
 
     virtual void init(caf::actor_system &system);
 
@@ -440,6 +394,8 @@ class HELPER_QML_EXPORT PanelMenuModelFilter : public QSortFilterProxyModel {
         }
         return QVariant();
     }
+
+    void setSourceModel(QAbstractItemModel *sourceModel) override;
 
   public slots:
 

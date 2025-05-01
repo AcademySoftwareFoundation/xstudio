@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/io/all.hpp>
 #include <caf/policy/select_all.hpp>
-#include <tuple>
+#include <caf/actor_registry.hpp>
 
+#include <tuple>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
-
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -35,9 +35,9 @@
 // include for system (soundcard) audio output
 #ifdef __linux__
 #include "xstudio/audio/linux_audio_output_device.hpp"
-#elif __APPLE__
-// TO DO
-#elif _WIN32
+#elif defined(__apple__)
+#include "xstudio/audio/macos_audio_output_device.hpp"
+#elif defined(_WIN32)
 #include "xstudio/audio/windows_audio_output_device.hpp"
 #endif
 
@@ -61,7 +61,8 @@ APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
             // don't expose global..
             auto rp = make_response_promise<std::string>();
 
-            request(global_, infinite, get_application_mode_atom_v)
+            mail(get_application_mode_atom_v)
+                .request(global_, infinite)
                 .then(
                     [=](const std::string &result) mutable { rp.deliver(result); },
                     [=](caf::error &err) mutable { rp.deliver(err); });
@@ -105,7 +106,7 @@ APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
 
         [=](json_store::update_atom, const JsonStore &j) mutable {
@@ -125,10 +126,13 @@ APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
         });
 }
 
-GlobalActor::GlobalActor(caf::actor_config &cfg, const utility::JsonStore &prefs)
+GlobalActor::GlobalActor(
+    caf::actor_config &cfg, const utility::JsonStore &prefs, const bool embedded_python)
     : caf::event_based_actor(cfg), rsm_(remote_session_path()) {
-    init(prefs);
+    init(prefs, embedded_python);
 }
+
+GlobalActor::~GlobalActor() {}
 
 int GlobalActor::publish_port(
     const int minimum, const int maximum, const std::string &bind_address, caf::actor a) {
@@ -146,7 +150,7 @@ int GlobalActor::publish_port(
     return port;
 }
 
-void GlobalActor::init(const utility::JsonStore &prefs) {
+void GlobalActor::init(const utility::JsonStore &prefs, const bool embedded_python) {
     // launch global actors..
     // preferences first..
     // this will need more configuration
@@ -157,15 +161,13 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
     // spawning the 'GlobalModuleAttrEventsActor' first because subsequent
     // actors might want to connect with it on creation .. see Module::connect_to_ui()
-    auto gsa = caf::actor();
-
     if (prefs.is_null()) {
-        gsa = spawn<global_store::GlobalStoreActor>(
+        gsa_ = spawn<global_store::GlobalStoreActor>(
             "GlobalStore",
             global_store::global_store_builder(
-                std::vector<std::string>{xstudio_root("/preference")}));
+                std::vector<std::string>{xstudio_resources_dir("preference")}));
     } else {
-        gsa = spawn<global_store::GlobalStoreActor>("GlobalStore", prefs);
+        gsa_ = spawn<global_store::GlobalStoreActor>("GlobalStore", prefs);
     }
 
     auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();
@@ -182,10 +184,11 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     auto gcca            = spawn<colour_pipeline::GlobalColourCacheActor>();
     auto gmha            = spawn<media_hook::GlobalMediaHookActor>();
     auto thumbnail       = spawn<thumbnail::ThumbnailManagerActor>();
-    auto pa              = spawn<embedded_python::EmbeddedPythonActor>("Python");
-    auto scanner         = spawn<scanner::ScannerActor>();
-    auto conform         = spawn<conform::ConformManagerActor>();
-    auto vpmgr           = spawn<ui::viewport::ViewportLayoutManager>();
+    auto pa =
+        embedded_python ? spawn<embedded_python::EmbeddedPythonActor>("Python") : caf::actor();
+    auto scanner = spawn<scanner::ScannerActor>();
+    auto conform = spawn<conform::ConformManagerActor>();
+    auto vpmgr   = spawn<ui::viewport::ViewportLayoutManager>();
 
     link_to(audio);
     link_to(colour);
@@ -196,9 +199,9 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     link_to(gmha);
     link_to(gmma);
     link_to(gmra);
-    link_to(gsa);
     link_to(keyboard_events);
-    link_to(pa);
+    if (embedded_python)
+        link_to(pa);
     link_to(phev);
     link_to(pm);
     link_to(scanner);
@@ -210,17 +213,18 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     // Make default audio output
 #ifdef __linux__
     auto audio_out = spawn_audio_output_actor<audio::LinuxAudioOutputDevice>(prefs);
-    link_to(audio_out);
-#elif __APPLE__
-    // TO DO
-#elif _WIN32
-    auto audio_out = spawn_audio_output_actor<audio::WindowsAudioOutputDevice>(prefs);
-    link_to(audio_out);
 #endif
 
-    if (audio_out) {
-        system().registry().put(pc_audio_output_registry, audio_out);
-    }
+#ifdef _WIN32
+    auto audio_out = spawn_audio_output_actor<audio::WindowsAudioOutputDevice>(prefs);
+#endif
+
+#ifdef __apple__
+    auto audio_out = spawn_audio_output_actor<audio::MacOSAudioOutputDevice>(prefs);
+#endif
+
+    system().registry().put(pc_audio_output_registry, audio_out);
+    link_to(audio_out);
 
     python_enabled_ = false;
     connected_      = false;
@@ -236,17 +240,27 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
     apia_ = spawn<APIActor>(this);
 
     try {
-        auto prefs = GlobalStoreHelper(system());
         JsonStore j;
+        auto prefs = GlobalStoreHelper(system());
         join_broadcast(this, prefs.get_group(j));
         // spawn resident plugins (application level)
-        anon_send(pm, plugin_manager::spawn_plugin_atom_v, j);
-        anon_send(apia_, json_store::update_atom_v, j);
-        anon_send(this, json_store::update_atom_v, j);
+        anon_mail(plugin_manager::spawn_plugin_atom_v, j).send(pm);
+        anon_mail(json_store::update_atom_v, j).send(apia_);
+        anon_mail(json_store::update_atom_v, j).send(this);
+
+        // here we set-up filepath remapping (only once here, at start-up)
+        file_map_regex_["/core/media_reader/filepath_map_regex_replace"] =
+            prefs.value<utility::JsonStore>("/core/media_reader/filepath_map_regex_replace");
+
+        file_map_regex_["/core/media_reader/user_filepath_map_regex_replace"] =
+            prefs.value<utility::JsonStore>(
+                "/core/media_reader/user_filepath_map_regex_replace");
+
+        utility::setup_filepath_remap_regex(file_map_regex_);
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
-
 
     behavior_.assign(
         make_get_version_handler(),
@@ -262,24 +276,25 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
         [=](busy_atom, const bool value) mutable {
             if (value) {
                 busy_.insert(caf::actor_cast<caf::actor_addr>(current_sender()));
-                delegate(
-                    actor_cast<caf::actor>(this), status_atom_v, StatusType::ST_BUSY, true);
+                return mail(status_atom_v, StatusType::ST_BUSY, true)
+                    .delegate(actor_cast<caf::actor>(this));
             } else {
                 busy_.erase(caf::actor_cast<caf::actor_addr>(current_sender()));
                 if (busy_.empty()) {
-                    delegate(
-                        actor_cast<caf::actor>(this),
-                        status_atom_v,
-                        StatusType::ST_BUSY,
-                        false);
+                    return mail(status_atom_v, StatusType::ST_BUSY, false)
+                        .delegate(actor_cast<caf::actor>(this));
                 } else {
-                    delegate(
-                        actor_cast<caf::actor>(this), status_atom_v, StatusType::ST_BUSY, true);
+                    return mail(status_atom_v, StatusType::ST_BUSY, true)
+                        .delegate(actor_cast<caf::actor>(this));
                 }
             }
         },
 
-        [=](get_actor_from_registry_atom, std::string actor_name) -> result<caf::actor> {
+        [=](history::log_atom, const spdlog::level::level_enum level, const std::string &log) {
+            spdlog::log(level, log);
+        },
+
+        [=](get_actor_from_registry_atom, const std::string &actor_name) -> result<caf::actor> {
             try {
                 return system().registry().template get<caf::actor>(actor_name);
             } catch (std::exception &e) {
@@ -294,7 +309,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                 status_ = status_ | field;
             else
                 status_ = status_ & ~field;
-            send(event_group_, utility::event_atom_v, status_atom_v, status_);
+            mail(utility::event_atom_v, status_atom_v, status_).send(event_group_);
             return status_;
         },
 
@@ -302,24 +317,22 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
         [=](global_store::autosave_atom, const bool enable) {
             // if (enable != session_autosave_)
-            //     send(event_group_, utility::event_atom_v, autosave_atom_v, enable);
+            //     mail(utility::event_atom_v, autosave_atom_v, enable).send(event_group_);
             if (session_autosave_ != enable) {
                 session_autosave_ = enable;
                 if (session_autosave_)
-                    delayed_anon_send(
-                        actor_cast<caf::actor>(this),
-                        std::chrono::seconds(session_autosave_interval_),
-                        global_store::do_autosave_atom_v);
+                    anon_mail(global_store::do_autosave_atom_v)
+                        .delay(std::chrono::seconds(session_autosave_interval_))
+                        .send(actor_cast<caf::actor>(this), weak_ref);
             }
         },
 
         [=](global_store::do_autosave_atom) {
             // trigger next autosave
             if (session_autosave_)
-                delayed_anon_send(
-                    actor_cast<caf::actor>(this),
-                    std::chrono::seconds(session_autosave_interval_),
-                    global_store::do_autosave_atom_v);
+                anon_mail(global_store::do_autosave_atom_v)
+                    .delay(std::chrono::seconds(session_autosave_interval_))
+                    .send(actor_cast<caf::actor>(this), weak_ref);
             if (session_autosave_path_.empty()) {
                 spdlog::warn("Autosave path not set, autosave skipped.");
             } else {
@@ -327,11 +340,13 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                     spdlog::debug("Skipping autosave whilst playing.");
                 } else {
                     // get session actor
-                    request(studio_, infinite, session::session_atom_v)
+                    mail(session::session_atom_v)
+                        .request(studio_, infinite)
                         .then(
                             [=](caf::actor session) {
                                 // request path from session
-                                request(session, infinite, session::path_atom_v)
+                                mail(session::path_atom_v)
+                                    .request(session, infinite)
                                     .then(
                                         [=](const std::pair<caf::uri, fs::file_time_type>
                                                 &path_time) {
@@ -371,13 +386,13 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                                                     saves.erase(saves.begin());
                                                 }
 
-                                                request(
-                                                    session,
-                                                    infinite,
+                                                mail(
+
                                                     global_store::save_atom_v,
                                                     posix_path_to_uri(fspath.string()),
                                                     session_autosave_hash_,
                                                     false)
+                                                    .request(session, infinite)
                                                     .then(
                                                         [=](const size_t hash) {
                                                             if (hash !=
@@ -444,7 +459,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             // 'colour' is the colour pipeline manager. To get to the
             // actual colour pipelin actor (OCIO plugin) we delegate to
             // the manager. Getting to the manager alon is not interesting.
-            delegate(colour, atom);
+            return mail(atom).delegate(colour);
         },
 
         [=](get_global_audio_cache_atom) -> caf::actor { return gaca; },
@@ -454,7 +469,7 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 
         [=](get_global_playhead_events_atom) -> caf::actor { return phev; },
 
-        [=](get_global_store_atom) -> caf::actor { return gsa; },
+        [=](get_global_store_atom) -> caf::actor { return gsa_; },
 
         [=](get_global_thumbnail_atom) -> caf::actor { return thumbnail; },
 
@@ -464,14 +479,22 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
         [&](get_studio_atom) -> caf::actor { return studio_; },
 
         [=](json_store::update_atom,
-            const JsonStore & /*change*/,
-            const std::string & /*path*/,
+            const JsonStore &change,
+            const std::string &path,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            // THe 'user_filepath_map_regex_replace' preference can change during the
+            // session. Here we update the regex list that can re-map filepaths on-the-fly
+            if (path == "/core/media_reader/user_filepath_map_regex_replace/value") {
+                file_map_regex_["/core/media_reader/user_filepath_map_regex_replace"] = change;
+                utility::setup_filepath_remap_regex(file_map_regex_);
+            } else {
+                std::ignore = mail(json_store::update_atom_v, full)
+                                  .delegate(actor_cast<caf::actor>(this));
+            }
         },
 
         [=](json_store::update_atom, const JsonStore &j) mutable {
-            anon_send(apia_, json_store::update_atom_v, j);
+            anon_mail(json_store::update_atom_v, j).send(apia_);
 
             try {
                 python_enabled_ = preference_value<bool>(j, "/core/python/enabled");
@@ -494,10 +517,8 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
                     preference_value<bool>(j, "/core/session/autosave/enabled");
 
                 if (session_autosave != session_autosave_) {
-                    anon_send(
-                        actor_cast<caf::actor>(this),
-                        global_store::autosave_atom_v,
-                        session_autosave);
+                    anon_mail(global_store::autosave_atom_v, session_autosave)
+                        .send(actor_cast<caf::actor>(this));
                 }
 
                 disconnect_api(pa);
@@ -507,7 +528,9 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             }
         },
 
-        [=](last_changed_atom atom, const time_point &stp) { delegate(studio_, atom, stp); },
+        [=](last_changed_atom atom, const time_point &stp) {
+            return mail(atom, stp).delegate(studio_);
+        },
 
         [=](remote_session_name_atom, const std::string &session_name) {
             if (not session_name.empty() and session_name != remote_api_session_name_) {
@@ -531,15 +554,13 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
             }
         },
 
-        [=](session::session_atom _atom) { delegate(studio_, _atom); },
+        [=](session::session_atom _atom) { return mail(_atom).delegate(studio_); },
 
-        [=](session::session_atom _atom, caf::actor actor) { delegate(studio_, _atom, actor); },
-
-        [=](session::session_request_atom _atom, const std::string &path, const JsonStore &js) {
-            delegate(studio_, _atom, path, js);
+        [=](session::session_atom _atom, caf::actor actor) {
+            return mail(_atom, actor).delegate(studio_);
         },
 
-        [=](bookmark::get_bookmark_atom atom) { delegate(studio_, atom); }
+        [=](bookmark::get_bookmark_atom atom) { return mail(atom).delegate(studio_); }
 
     );
 }
@@ -547,15 +568,18 @@ void GlobalActor::init(const utility::JsonStore &prefs) {
 void GlobalActor::on_exit() {
     // shutdown
     // clear autosave.
-    send(event_group_, exit_atom_v);
+    mail(exit_atom_v).send(event_group_);
+
+    // this will not work as global store is already gone.
     auto prefs = global_store::GlobalStoreHelper(system());
-    // prefs.set_value("", "/core/session/autosave/last_auto_save", false);
     prefs.save("APPLICATION");
 
     if (system().has_middleman()) {
         system().middleman().unpublish(apia_, port_);
     }
     send_exit(apia_, caf::exit_reason::user_shutdown);
+    send_exit(gsa_, caf::exit_reason::user_shutdown);
+    gsa_  = caf::actor();
     apia_ = caf::actor();
 
     system().registry().erase(global_registry);
@@ -578,9 +602,8 @@ void GlobalActor::connect_api(const caf::actor &embedded_python) {
                 remote_api_session_name_);
             connected_ = true;
             if (python_enabled_) {
-                // request(pa, infinite, connect_atom_v,
-                // actor_cast<actor>(this)).then(
-                request(embedded_python, infinite, connect_atom_v, port_)
+                mail(connect_atom_v, port_)
+                    .request(embedded_python, infinite)
                     .then(
                         [=](const bool result) {
                             if (result)
@@ -607,7 +630,8 @@ void GlobalActor::disconnect_api(const caf::actor &embedded_python, const bool f
         (force or not api_enabled_ or port_ > port_maximum_ or port_ < port_minimum_)) {
         connected_ = false;
         if (system().has_middleman() and python_enabled_) {
-            request(embedded_python, infinite, connect_atom_v, 0)
+            mail(connect_atom_v, 0)
+                .request(embedded_python, infinite)
                 .then(
                     [=](const bool result) {
                         if (result)
@@ -618,7 +642,7 @@ void GlobalActor::disconnect_api(const caf::actor &embedded_python, const bool f
                     [=](const error &err) {
                         spdlog::warn("Disconnected failed {}.", to_string(err));
                     });
-            send(event_group_, api_exit_atom_v);
+            mail(api_exit_atom_v).send(event_group_);
 
             // wait..?
             system().middleman().unpublish(apia_, port_);

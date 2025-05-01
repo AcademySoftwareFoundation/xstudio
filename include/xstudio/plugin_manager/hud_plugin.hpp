@@ -50,6 +50,17 @@ namespace plugin {
         void add_hud_settings_attribute(module::Attribute *attr);
 
         /**
+         *  @brief Provide a QML string to instance a dialog that is launched when the
+         *  user clicks on the settings button (the cog) for this HUD plugin
+         *
+         *  @details If this is not called, a default settings dialog is created based
+         *  on attributes that have been passed to 'add_hud_settings_attribute'. This
+         *  method is provided to allow for complete flexibility on having a custom
+         *  interface for configuring the HUD plugin as desired.
+         */
+        void set_custom_settings_qml(const std::string &code);
+
+        /**
          *  @brief Declare qml code that adds to the HUD. Plugins are responsible for
          * providing attribute data and linking up with the qml code etc. See pixel_probe
          * plugin for a reference example.

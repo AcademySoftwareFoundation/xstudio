@@ -1,9 +1,9 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtGraphicalEffects 1.12
+import QtQuick
+
+import QtQuick.Layouts
+
+
+
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -53,13 +53,11 @@ Item {
         XsSecondaryButton{
 
             id: settingsBtn
-            width: height
+            Layout.preferredWidth: height
             Layout.fillHeight: true
             Layout.margins: 4
             imgSrc: "qrc:/icons/settings.svg"
-            // isActive:
             onClicked: {
-                // isActive = !isActive
                 widget.menu_model.nodeActivated(widget.menu_model_index,"settings_button", helpers.contextPanel(widget))
             }
         }

@@ -14,6 +14,7 @@ XsMainMenuBar             1.0 ../windows/main_menu_bar/XsMainMenuBar.qml
 XsSnippetMenu             1.0 ../windows/main_menu_bar/XsSnippetMenu.qml
 XsFileFunctions           1.0 ../windows/main_menu_bar/file_menu/XsFileFunctions.qml
 XsSnapshotMenu            1.0 ../windows/main_menu_bar/snapshots_menu/XsSnapshotMenu.qml
+XsRuntimeQMLItems         1.0 ../windows/runtime/XsRuntimeQMLItems.qml
 
 XsDragDropHandler         1.0 ../layout_framework/XsDragDropHandler.qml
 XsLayoutModeBar           1.0 ../layout_framework/XsLayoutModeBar.qml
@@ -27,10 +28,11 @@ XsStoredPanelProperties           1.0 ../layout_framework/XsStoredPanelPropertie
 XsMedialist                     1.0 ../views/media/XsMediaPanel.qml
 XsMediaListSwitchSourceMenu     1.0 ../views/media/widgets/XsMediaListSwitchSourceMenu.qml
 
-XsPlaylistsView           1.0 ../views/playlists/XsPlaylists.qml
+XsPlaylistContextMenu     1.0 ../views/playlists/menus/XsPlaylistContextMenu.qml
 XsPlaylistItems           1.0 ../views/playlists/XsPlaylistItems.qml
 XsPlaylistPlusMenu        1.0 ../views/playlists/menus/XsPlaylistPlusMenu.qml
-XsPlaylistContextMenu     1.0 ../views/playlists/menus/XsPlaylistContextMenu.qml
+XsPlaylistRemoveMenu      1.0 ../views/playlists/menus/XsPlaylistRemoveMenu.qml
+XsPlaylistsView           1.0 ../views/playlists/XsPlaylists.qml
 
 XsPythonPanel     		  1.0 ../views/python/XsPythonPanel.qml
 XsLogPanel     		      1.0 ../views/log/XsLogPanel.qml
@@ -95,6 +97,7 @@ XsSortButton              1.0 ../widgets/buttons/XsSortButton.qml
 XsAttrComboBox            1.0 ../widgets/controls/XsAttrComboBox.qml
 XsScrollBar               1.0 ../widgets/controls/XsScrollBar.qml
 XsCheckBox                1.0 ../widgets/controls/XsCheckBox.qml
+XsCheckBoxSimple          1.0 ../widgets/controls/XsCheckBoxSimple.qml
 XsComboBox                1.0 ../widgets/controls/XsComboBox.qml
 XsComboBoxEditable        1.0 ../widgets/controls/XsComboBoxEditable.qml
 XsComboBoxMultiSelectable 1.0 ../widgets/controls/XsComboBoxMultiSelectable.qml
@@ -109,12 +112,13 @@ XsIntegerAttrControl      1.0 ../widgets/controls/attr_controls/XsIntegerAttrCon
 
 XsAttributesPanel         1.0 ../widgets/dialogs/XsAttributesPanel.qml
 XsPopup                   1.0 ../widgets/dialogs/XsPopup.qml
-XsOpenSessionDialog       1.0 ../widgets/dialogs/XsOpenSessionDialog.qml
 XsSnapshotDialog          1.0 ../widgets/dialogs/XsSnapshotDialog.qml
 XsStringRequestDialog     1.0 ../widgets/dialogs/XsStringRequestDialog.qml
+XsTextEditDialog          1.0 ../widgets/dialogs/XsTextEditDialog.qml
 XsWindow                  1.0 ../widgets/dialogs/XsWindow.qml
 XsPreferencesDialog       1.0 ../widgets/dialogs/preferences/XsPreferencesDialog.qml
 XsCompareModePref         1.0 ../widgets/dialogs/preferences/delegates/XsCompareModePref.qml
+XsJsonPreference          1.0 ../widgets/dialogs/preferences/delegates/XsJsonPreference.qml
 XsHotkeysDialog           1.0 ../widgets/dialogs/hotkeys/XsHotkeysDialog.qml
 
 XsBusyIndicator           1.0 ../widgets/indicators/XsBusyIndicator.qml
@@ -148,6 +152,7 @@ XsMenuItemToggleWithSettings 1.0 ../widgets/menus/XsMenuItemToggleWithSettings.q
 XsPopupMenu               1.0 ../widgets/menus/XsPopupMenu.qml
 
 XsGridView                1.0 ../widgets/outputs/XsGridView.qml
+XsIcon                    1.0 ../widgets/outputs/XsIcon.qml
 XsImage                   1.0 ../widgets/outputs/XsImage.qml
 XsListView                1.0 ../widgets/outputs/XsListView.qml
 XsSplitView               1.0 ../widgets/outputs/XsSplitView.qml

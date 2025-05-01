@@ -19,6 +19,7 @@ namespace ui {
         class GLDoubleBufferedTexture;
         class GLColourLutTexture;
         class GLShaderProgram;
+        class OpenGLTextRendererSDF;
 
         typedef std::shared_ptr<GLShaderProgram> GLShaderProgramPtr;
 
@@ -43,7 +44,8 @@ namespace ui {
 
         class OpenGLViewportRenderer : public viewport::ViewportRenderer {
           public:
-            OpenGLViewportRenderer(const std::string &window_id);
+            OpenGLViewportRenderer(
+                const std::string &window_id, const utility::JsonStore &prefs);
 
             virtual ~OpenGLViewportRenderer() override;
 
@@ -51,6 +53,7 @@ namespace ui {
                 const media_reader::ImageBufDisplaySetPtr &images,
                 const Imath::M44f &window_to_viewport_matrix,
                 const Imath::M44f &viewport_to_image_matrix,
+                const Imath::V2i &window_size,
                 const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
                     &overlay_renderers) override;
 
@@ -62,12 +65,19 @@ namespace ui {
                 const Imath::M44f &viewport_to_image_space,
                 const float viewport_du_dx);
 
-            utility::JsonStore default_prefs() override;
-
-            void set_prefs(const utility::JsonStore &prefs) override;
-
           protected:
+            const std::array<int, 4> &viewport_coords_in_window() {
+                return viewport_coords_in_window_;
+            }
+
             void __draw_image(
+                const media_reader::ImageBufDisplaySetPtr &all_images,
+                const int index,
+                const Imath::M44f &window_to_viewport_matrix,
+                const Imath::M44f &viewport_to_image_space,
+                const float viewport_du_dx);
+
+            void __draw_per_image_overlays(
                 const media_reader::ImageBufDisplaySetPtr &all_images,
                 const int index,
                 const Imath::M44f &window_to_viewport_matrix,
@@ -85,7 +95,8 @@ namespace ui {
             void upload_image_and_colour_data(const media_reader::ImageBufPtr &image);
             void bind_textures(const media_reader::ImageBufPtr &image);
             void release_textures();
-            void clear_viewport_area(const Imath::M44f &window_to_viewport_matrix);
+            void clear_viewport_area(
+                const Imath::M44f &to_scene_matrix, const Imath::V2i &window_size);
 
             typedef std::shared_ptr<GLDoubleBufferedTexture> GLTexturePtr;
 
@@ -93,11 +104,15 @@ namespace ui {
                 std::vector<GLTexturePtr> textures_;
                 std::map<std::string, GLShaderProgramPtr> programs_;
                 ColourPipeLutCollection colour_pipe_textures_;
+                std::unique_ptr<OpenGLTextRendererSDF> text_renderer_;
                 unsigned int vbo_ = 0;
                 unsigned int vao_ = 0;
                 GLShaderProgramPtr no_image_shader_program_;
                 void init();
+                SharedResources(const utility::JsonStore &prefs);
                 ~SharedResources();
+                bool use_ssbo    = false;
+                int num_textures = {4};
             };
 
             typedef std::shared_ptr<SharedResources> SharedResourcesPtr;
@@ -120,9 +135,8 @@ namespace ui {
             GLShaderProgramPtr active_shader_program_;
             std::string latest_colour_pipe_data_cacheid_;
             const std::string window_id_;
-            bool use_ssbo_  = {false};
-            bool use_alpha_ = {false};
-            std::array<int, 4> scissor_coords_;
+            bool use_ssbo_ = {false};
+            std::array<int, 4> viewport_coords_in_window_;
         };
     } // namespace opengl
 } // namespace ui

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "audio_waveform_overlay.hpp"
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/media_reader/image_buffer.hpp"
@@ -7,8 +9,12 @@
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
 
-#include <GL/gl.h>
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
+#include <GL/gl.h>
+#endif
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
@@ -175,7 +181,9 @@ AudioWaveformOverlay::AudioWaveformOverlay(
         [=](utility::event_atom,
             playhead::sound_audio_atom,
             const std::vector<media_reader::AudioBufPtr> &audio_buffers,
-            const utility::Uuid &sub_playhead) {},
+            const utility::Uuid &sub_playhead,
+            const bool scrubbing,
+            const timebase::flicks) {},
         [=](utility::event_atom,
             playhead::position_atom,
             const timebase::flicks playhead_position,
@@ -215,7 +223,8 @@ void AudioWaveformOverlay::attribute_changed(
 utility::BlindDataObjectPtr AudioWaveformOverlay::onscreen_render_data(
     const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
-    const utility::Uuid &playhead_uuid) const {
+    const utility::Uuid &playhead_uuid,
+    const bool is_hero_image) const {
 
     auto r = utility::BlindDataObjectPtr();
     if (!visible())

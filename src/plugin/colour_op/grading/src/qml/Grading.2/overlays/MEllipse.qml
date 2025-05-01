@@ -1,4 +1,4 @@
-import QtQuick 2.14
+import QtQuick
 import QtQuick.Shapes 1.6
 
 import "VecLib.js" as VL
@@ -14,17 +14,13 @@ Item {
     property real drawScale: 200
     property real strokeWidth: 2 / viewScale * drawScale
     property real handleSize: 8 / viewScale * drawScale
-    property real handleDetectSize: 32 / viewScale * drawScale
+    property real handleDetectSize: 10 / viewScale
     property real handleRadius: 5 / viewScale * drawScale
-    property var handleColor: isSelected() ? "lime" : "red"
-    property bool interacting: rr_rotation.interacting || rr_center.interacting || rr_right.interacting || rr_top.interacting
+    property var handleColor: interacting ? "lime" : "red"
+    property bool interacting: activeShape == modelIndex
     readonly property var shape: shape
     readonly property var shapePath: sp
 
-    // Default implementation
-    function isSelected() {
-        return true;
-    }
 
     transform: [
         Scale { xScale: 1.0 / root.drawScale; yScale: 1.0 / root.drawScale }
@@ -39,9 +35,13 @@ Item {
             strokeWidth: root.strokeWidth
             fillColor: "transparent"
 
-            property var center
-            property var radius
-            property real angle
+            property var center: Qt.point(
+                modelValue.center[2] * drawScale,
+                modelValue.center[3] * drawScale * -1.0)
+            property var radius: Qt.point(
+                modelValue.radius[2] * drawScale,
+                modelValue.radius[3] * drawScale)
+            property real angle: modelValue.angle
 
             // Derived properties for convenience
             property var left: VL.rotateVec(Qt.point(center.x - radius.x, center.y), center, angle)
@@ -76,237 +76,209 @@ Item {
                 xAxisRotation : sp.angle
             }
 
-            onRadiusChanged: updateBackend()
-            onCenterChanged: updateBackend()
-            onAngleChanged: updateBackend()
+        }
+    }
 
-            function updateBackend() {
-                root.updateBackend(false)
+    function mouseReleased(buttons) {
+        if (hovered_object) {
+            attrs.interacting = false
+            hovered_object = undefined
+        }
+    }
+
+    property var hovered_object
+
+    function mouseMoved(mousePosition, buttons, modifiers) {
+
+        if (hovered_object && buttons == 1) {
+
+            hovered_object.drag(mousePosition, modifiers)
+
+        } else if (buttons == 0) {
+
+            // mouse over/hover logic
+            var nh = undefined
+            var dist_to_handle = handleDetectSize
+            for (var i = 0; i < handles.children.length; ++i) {
+
+                var d = VL.subtractVec(
+                    Qt.point(mousePosition.x, -mousePosition.y),
+                    VL.scaleVec(handles.children[i].pos,1.0/drawScale)
+                )
+                var l = VL.lengthVec(d)
+                if (l < dist_to_handle) {
+                    dist_to_handle = l
+                    nh = handles.children[i]
+                }
             }
 
-            Component.onCompleted: {
-                // Force backend update on init
-                root.updateBackend(true)
+            if (nh != hovered_object) {
+                hovered_object = nh
             }
+
         }
     }
 
     Item {
-        id: selector
 
-        // Rotation handle
-        Item {
-            id: rr_rotation
+        id: handles
 
-            property bool hovering: false
-            property bool interacting: false
+        Rectangle {
+            id: centre_handle
+            property bool hovered: hovered_object == centre_handle
+            property var pos: sp.center
+            x: pos.x - width / 2
+            y: pos.y - height / 2
+            radius: root.handleRadius
+            color: hovered ? "yellow" : root.handleColor
+            width: root.handleSize
+            height: root.handleSize
+            function drag(position, modifiers) {
+                var v = modelValue;
+                v.center[2] = position.x;
+                v.center[3] = position.y;
+                updateModelValue(v);
+            }
+            function dragstart(position, modifiers) {}
+        }
 
-            x: sp.center.x
-            y: sp.center.y - height / 2
+        Rectangle {
+            id: right_handle
+            property bool hovered: hovered_object == right_handle
+            property var pos: sp.right
+            x: pos.x - width / 2
+            y: pos.y - height / 2
+            radius: root.handleRadius
+            color: hovered ? "yellow" : root.handleColor
+            width: root.handleSize
+            height: root.handleSize
+            property var ref_point
+            function dragstart(position, modifiers) {
 
-            width: sp.radius.x / 2
-            height: root.handleDetectSize / 2
-            transformOrigin: Item.Left
-            rotation: sp.angle
-
-            Rectangle {
-                anchors.centerIn: parent
-                width: sp.radius.x / 2
-                height: root.handleSize / 2
-                radius: root.handleRadius / 4
-                color: rr_rotation.hovering || interacting ? "yellow" : root.handleColor
+                var rd = VL.rotateVec(Qt.point(-modelValue.radius[2], 0), Qt.point(0, 0), sp.angle)
+                ref_point = {"A": VL.addVec(Qt.point(modelValue.center[2], modelValue.center[3]), rd),
+                            "B": Qt.point(modelValue.center[2], modelValue.center[3])}
             }
 
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
+            function drag(position, modifiers) {
+                
+                var v = modelValue;
+                var d = VL.subtractVec(position, ((modifiers & Qt.ShiftModifier) ? ref_point.A : ref_point.B));
+                var norm = VL.rotateVec(Qt.point(1, 0), Qt.point(0, 0), sp.angle);
+                var fac = Math.max(VL.dotProduct(d, norm), 0.001);
+                if (modifiers & Qt.ShiftModifier) {
 
-                onEntered: rr_rotation.hovering = true
-                onExited: rr_rotation.hovering = false
-                onPressed: rr_rotation.interacting = true
-                onReleased: rr_rotation.interacting = false
-                onPositionChanged: {
-                    if (rr_rotation.interacting) {
-                        var pt = mapToItem(rr_rotation.parent, mouse.x, mouse.y);
+                    v.radius[2] = fac*0.5
+                    v.center[2] = ref_point.A.x+VL.scaleVec(norm, -fac*0.5).x
+                    v.center[3] = ref_point.A.y+VL.scaleVec(norm, -fac*0.5).y
+                                        
+                } else {                
 
-                        var newDir = VL.normVec(VL.subtractVec(pt, sp.center));
-                        var currDir = VL.normVec(VL.subtractVec(sp.right, sp.center));
-                        var rotDir = VL.crossProduct(newDir, currDir) >= 0 ? 1 : -1;
-                        var angle = Math.acos(VL.dotProduct(newDir, currDir));
-                        var degrees = angle * 180.0 / Math.PI;
-                        sp.angle = (sp.angle + rotDir * degrees) % 360;
-                    }
+                    v.radius[2] = fac
+
                 }
-                onDoubleClicked: {
-                    sp.angle = 0;
-                }
+                updateModelValue(v);
+
             }
         }
 
-        // Center move
-        Item {
-            id: rr_center
+        Rectangle {
+            id: top_handle
+            property bool hovered: hovered_object == top_handle
+            property var pos: sp.top
+            x: pos.x - width / 2
+            y: pos.y - height / 2
+            radius: root.handleRadius
+            color: hovered ? "yellow" : root.handleColor
+            width: root.handleSize
+            height: root.handleSize
+            property var ref_point
+            function dragstart(position, modifiers) {
 
-            property bool hovering: false
-            property bool interacting: false
-
-            x: sp.center.x - width / 2
-            y: sp.center.y - height / 2
-
-            width: root.handleDetectSize
-            height: root.handleDetectSize
-
-            Rectangle {
-                anchors.centerIn: parent
-                radius: root.handleRadius
-                color: rr_center.hovering || rr_center.interacting ? "yellow" : root.handleColor
-                width: root.handleSize
-                height: root.handleSize
-        
+                var rd = VL.rotateVec(Qt.point(0, modelValue.radius[3]), Qt.point(0, 0), sp.angle)
+                ref_point = {"A": VL.addVec(Qt.point(modelValue.center[2], modelValue.center[3]), rd),
+                            "B": Qt.point(modelValue.center[2], modelValue.center[3])}
             }
 
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
+            function drag(position, modifiers) {
+                
+                var v = modelValue;
+                var d = VL.subtractVec(position, ((modifiers & Qt.ShiftModifier) ? ref_point.A : ref_point.B));
+                var norm = VL.rotateVec(Qt.point(0, -1), Qt.point(0, 0), sp.angle);
+                var fac = Math.max(VL.dotProduct(d, norm), 0.001);
+                if (modifiers & Qt.ShiftModifier) {
 
-                onEntered: rr_center.hovering = true
-                onExited: rr_center.hovering = false
-                onPressed: {
-                    rr_center.interacting = true
-                    cursorShape = Qt.OpenHandCursor;
+                    v.radius[3] = fac*0.5
+                    v.center[2] = ref_point.A.x+VL.scaleVec(norm, fac*0.5).x
+                    v.center[3] = ref_point.A.y+VL.scaleVec(norm, fac*0.5).y
+                                        
+                } else {                
+
+                    v.radius[3] = fac
+
                 }
-                onReleased: {
-                    rr_center.interacting = false
-                    cursorShape = Qt.ArrowCursor;
-                }
-                onPositionChanged: {
-                    if (rr_center.interacting) {
-                        var pt = mapToItem(rr_center.parent, mouse.x, mouse.y);
-                        sp.center = Qt.point(pt.x, pt.y);
-                    }
-                }
+                updateModelValue(v);
+
             }
         }
 
-        // Right extend
-        Item {
-            id: rr_right
+        Rectangle {
+            id: rotate_handle
+            property bool hovered: hovered_object == rotate_handle
+            property var pos: VL.addVec(sp.center, VL.scaleVec(VL.subtractVec(sp.right, sp.center), 0.5))
+            x: pos.x - width / 2
+            y: pos.y - height / 2
+            radius: root.handleRadius
+            color: hovered ? "yellow" : root.handleColor
+            width: root.handleSize
+            height: root.handleSize
+            function dragstart(position, modifiers) {}
+            function drag(position, modifiers) {
+                
+                var v = modelValue;
+                var centre = Qt.point(v.center[2], v.center[3])
+                var d = VL.subtractVec(position, centre);
+                v.angle = (Math.atan2(d.y, d.x) * 180) / Math.PI
+                updateModelValue(v);
 
-            property bool hovering: false
-            property bool interacting: false
-
-            x: sp.right.x - width / 2
-            y: sp.right.y - height / 2
-
-            width: root.handleDetectSize
-            height: root.handleDetectSize
-
-            Rectangle {
-                anchors.centerIn: parent
-                radius: root.handleRadius
-                color: rr_right.hovering || rr_right.interacting ? "yellow" : root.handleColor
-                width: root.handleSize
-                height: root.handleSize
-        
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-
-                onEntered: rr_right.hovering = true
-                onExited: rr_right.hovering = false
-                onPressed: {
-                    rr_right.interacting = true
-                    cursorShape = Qt.SizeHorCursor;
-                }
-                onReleased: {
-                    rr_right.interacting = false
-                    cursorShape = Qt.ArrowCursor;
-                }
-                onPositionChanged: {
-                    if (rr_right.interacting) {
-                        var pt = mapToItem(rr_right.parent, mouse.x, mouse.y);
-
-                        // Project onto ellipse "horizontal" axis
-                        var toNewRight = VL.subtractVec(pt, sp.center);
-                        var hDir = VL.normVec(VL.subtractVec(sp.right, sp.center));
-                        // Make sure the ellipse is still well behaved (axis size >= 1)
-                        var dot = Math.max(VL.dotProduct(toNewRight, hDir), 1.0);
-                        pt = VL.addVec(sp.center, VL.scaleVec(hDir, dot));
-
-                        if (mouse.modifiers & Qt.ShiftModifier) {
-                            sp.center = VL.addVec(sp.left, VL.scaleVec(VL.subtractVec(pt, sp.left), 0.5));
-                            sp.radius = Qt.point(VL.lengthVec(VL.subtractVec(pt, sp.center)), sp.radius.y);
-                        }
-                        else {
-                            var newRadius = VL.lengthVec(VL.subtractVec(pt, sp.center));
-                            sp.radius = Qt.point(Math.max(newRadius, 1.0), sp.radius.y);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Top extend
-        Item {
-            id: rr_top
-
-            property bool hovering: false
-            property bool interacting: false
-
-            x: sp.top.x - width / 2
-            y: sp.top.y - height / 2
-
-            width: root.handleDetectSize
-            height: root.handleDetectSize
-
-            Rectangle {
-                anchors.centerIn: parent
-                radius: root.handleRadius
-                color: rr_top.hovering || rr_top.interacting ? "yellow" : root.handleColor
-                width: root.handleSize
-                height: root.handleSize
-        
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-
-                onEntered: rr_top.hovering = true
-                onExited: rr_top.hovering = false
-                onPressed: {
-                    rr_top.interacting = true
-                    cursorShape = Qt.SizeVerCursor;
-                }
-                onReleased: {
-                    rr_top.interacting = false
-                    cursorShape = Qt.ArrowCursor;
-                }
-                onPositionChanged: {
-                    if (rr_top.interacting) {
-                        var pt = mapToItem(rr_top.parent, mouse.x, mouse.y);
-
-                        // Project onto ellipse "vertical" axis
-                        var toNewTop = VL.subtractVec(pt, sp.center);
-                        var vDir = VL.normVec(VL.subtractVec(sp.top, sp.center));
-                        // Make sure the ellipse is still well behaved (axis size >= 1)
-                        var dot = Math.max(VL.dotProduct(toNewTop, vDir), 1.0);
-                        pt = VL.addVec(sp.center, VL.scaleVec(vDir, dot));
-
-                        if (mouse.modifiers & Qt.ShiftModifier) {
-                            sp.center = VL.addVec(sp.bottom, VL.scaleVec(VL.subtractVec(pt, sp.bottom), 0.5));
-                            sp.radius = Qt.point(sp.radius.x, VL.lengthVec(VL.subtractVec(pt, sp.center)));
-                        }
-                        else {
-                            var newRadius = VL.lengthVec(VL.subtractVec(pt, sp.center));
-                            sp.radius = Qt.point(sp.radius.x, Math.max(newRadius, 1.0));
-                        }
-
-                    }
-                }
             }
         }
     }
+
+    function mousePressed(position, buttons, modifiers) {
+        if (hovered_object && buttons == 1) {
+            attrs.interacting = true
+            set_interaction_shape(modelIndex)
+            hovered_object.dragstart(position, modifiers)
+        }
+    }
+
+    function mouseDoubleClicked(mousePosition, buttons, modifiers) {
+    }
+
+    // Rotation handle
+    Item {
+        id: rr_rotation
+
+        property bool hovering: false
+        property bool interacting: false
+
+        x: sp.center.x
+        y: sp.center.y - height / 2
+
+        width: sp.radius.x / 2
+        height: root.handleDetectSize / 2
+        transformOrigin: Item.Left
+        rotation: sp.angle
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: sp.radius.x / 2
+            height: root.handleSize / 2
+            radius: root.handleRadius / 4
+            color: rr_rotation.hovering || interacting ? "yellow" : root.handleColor
+        }
+
+    }
+
 }

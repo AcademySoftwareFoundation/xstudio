@@ -4,8 +4,6 @@
 #include <caf/all.hpp>
 
 #include "xstudio/timeline/stack.hpp"
-#include "xstudio/utility/json_store.hpp"
-#include "xstudio/utility/uuid.hpp"
 
 namespace xstudio {
 namespace timeline {
@@ -71,6 +69,8 @@ namespace timeline {
         std::map<utility::Uuid, caf::actor> actors_;
         // might need to prune.. ?
         std::set<utility::Uuid> events_processed_;
+
+        std::map<caf::actor_addr, caf::disposable> monitor_;
     };
 } // namespace timeline
 } // namespace xstudio

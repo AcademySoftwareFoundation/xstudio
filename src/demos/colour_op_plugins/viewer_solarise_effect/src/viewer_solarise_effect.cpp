@@ -11,7 +11,7 @@ namespace {
 const static utility::Uuid PLUGIN_UUID{"300bd462-d30c-4d24-a854-439c9ae94495"};
 
 const char *glsl_shader_code = R"(
-#version 430 core
+#version 410 core
 uniform float solarise;
 
 vec4 colour_transform_op(vec4 rgba) {

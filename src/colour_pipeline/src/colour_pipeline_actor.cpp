@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <caf/sec.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline_actor.hpp"
@@ -35,15 +36,6 @@ GlobalColourPipelineActor::GlobalColourPipelineActor(caf::actor_config &cfg)
     load_colour_pipe_details();
 
     set_parent_actor_addr(actor_cast<caf::actor_addr>(this));
-
-    set_down_handler([=](down_msg &msg) {
-        for (auto p = colour_piplines_.begin(); p != colour_piplines_.end(); ++p) {
-            if (p->second == msg.source) {
-                colour_piplines_.erase(p);
-                break;
-            }
-        }
-    });
 }
 
 GlobalColourPipelineActor::~GlobalColourPipelineActor() { colour_piplines_.clear(); }
@@ -74,12 +66,8 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
             if (colour_piplines_.find("thumbnail_processor") != colour_piplines_.end()) {
                 rp.deliver(colour_piplines_["thumbnail_processor"]);
             } else {
-                request(
-                    caf::actor_cast<caf::actor>(this),
-                    infinite,
-                    colour_pipeline_atom_v,
-                    "thumbnail_processor",
-                    "offscreen")
+                mail(colour_pipeline_atom_v, "thumbnail_processor", "offscreen")
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](caf::actor colour_pipe) mutable { rp.deliver(colour_pipe); },
                         [=](caf::error &err) mutable { rp.deliver(err); });
@@ -90,7 +78,7 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
             const JsonStore & /*change*/,
             const std::string & /*path*/,
             const JsonStore &full) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
+            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
         },
         [=](json_store::update_atom, const JsonStore &js) { prefs_jsn_ = js; },
         [=](media_reader::process_thumbnail_atom,
@@ -104,10 +92,8 @@ caf::behavior GlobalColourPipelineActor::make_behavior() {
                     mptr,
                     buf);
             } else {
-                request(
-                    caf::actor_cast<caf::actor>(this),
-                    infinite,
-                    get_thumbnail_colour_pipeline_atom_v)
+                mail(get_thumbnail_colour_pipeline_atom_v)
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](caf::actor colour_pipe) mutable {
                             rp.delegate(
@@ -177,7 +163,8 @@ void GlobalColourPipelineActor::make_colour_pipeline(
         }
 
         auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
-        request(pm, infinite, plugin_manager::spawn_plugin_atom_v, uuid, jsn)
+        mail(plugin_manager::spawn_plugin_atom_v, uuid, jsn)
+            .request(pm, infinite)
             .await(
                 [=](caf::actor colour_pipe) mutable {
                     // link_to(colour_pipe);
@@ -188,7 +175,19 @@ void GlobalColourPipelineActor::make_colour_pipeline(
                         send_exit(colour_pipe, caf::exit_reason::user_shutdown);
                     } else {
                         colour_piplines_[viewport_name] = colour_pipe;
-                        monitor(colour_pipe);
+
+                        monitor(
+                            colour_pipe, [this, addr = colour_pipe.address()](const error &) {
+                                for (auto p = colour_piplines_.begin();
+                                     p != colour_piplines_.end();
+                                     ++p) {
+                                    if (p->second == addr) {
+                                        colour_piplines_.erase(p);
+                                        break;
+                                    }
+                                }
+                            });
+
                         rp.deliver(colour_pipe);
                     }
                 },

@@ -1,12 +1,12 @@
-project(session_snapshots VERSION 0.1.0 LANGUAGES CXX)
+project(session_snapshots VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
-find_package(Qt5 COMPONENTS Core Quick Gui Widgets Concurrent REQUIRED)
+find_package(Qt6 COMPONENTS Core Quick Gui Widgets Concurrent REQUIRED)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-QT5_WRAP_CPP(SNAPSHOTS_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/snapshot_model_ui.hpp")
+QT6_WRAP_CPP(SNAPSHOTS_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/snapshot_model_ui.hpp")
 
 set(SOURCES
 	snapshot_model_ui.cpp
@@ -24,21 +24,13 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::utility
 		xstudio::plugin_manager
 		xstudio::ui::qml::helper
-		xstudio::plugin_manager
-		Qt5::Core
-		Qt5::Quick
-		Qt5::Gui
-		Qt5::Widgets
-		Qt5::Concurrent
+		Qt6::Core
+		Qt6::Quick
+		Qt6::Gui
+		Qt6::Widgets
+		Qt6::Concurrent
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
-add_subdirectory(qml)
-
-IF(UNIX)
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                 COMMAND ${CMAKE_COMMAND} -E
-                     copy ${CMAKE_BINARY_DIR}/bin/plugin/libsession_snapshots.so ${CMAKE_BINARY_DIR}/bin/plugin/qml/SessionSnapshots.1/)
-ELSEIF(WIN32)
-ENDIF()
+add_plugin_qml(${PROJECT_NAME} qml)

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.15
-import QtQml 2.15
+import QtQuick
+
+import QtQuick.Layouts
+
 import xstudio.qml.bookmarks 1.0
-import Qt.labs.qmlmodels 1.0
-import QtQml.Models 2.14
+
 import QuickFuture 1.0
 import QuickPromise 1.0
 
@@ -29,9 +27,27 @@ Item{
             compareModel.notifyModel = engine
             compareModel.rootIndex = engine.index(-1,-1)
         }
+
+        Component.onCompleted: {
+            replaceModel.notifyModel = engine
+            replaceModel.rootIndex = engine.index(-1,-1)
+            compareModel.notifyModel = engine
+            compareModel.rootIndex = engine.index(-1,-1)
+        }
 	}
 
-    XsHotkey {
+
+   Component.onCompleted: {
+        // make sure the 'Add' sub-menu appears in the correct place
+        helpers.setMenuPathPosition("More", "media_list_menu_", 199)
+    }
+
+    XsPreference {
+        id: siblingPref
+        path: "/core/conform/conform_sibling_count"
+    }
+
+       XsHotkey {
         id: next_version_hotkey
         sequence: "Alt+n"
         name: "Next Version"
@@ -250,7 +266,7 @@ Item{
         if(selection.length) {
             Future.promise(
                 engine.conformToNewSequenceFuture(
-                    selection, "", playlistIndex
+                    selection, "", -1, playlistIndex
                 )
             ).then(
                 function(uuid_list) {
@@ -267,7 +283,24 @@ Item{
         if(selection.length) {
             Future.promise(
                 engine.conformToNewSequenceFuture(
-                    selection, task, playlistIndex
+                    selection, task, -1, playlistIndex
+                )
+            ).then(
+                function(uuid_list) {
+                    // console.log("nope", uuid_list)
+                },
+                function(err) {
+                    dialogHelpers.errorDialogFunc("Conform With", "No Sequence found for media")
+                }
+            )
+        }
+    }
+
+    function conformWithSiblingsToNewSequence(selection, task, playlistIndex=helpers.qModelIndex()) {
+        if(selection.length) {
+            Future.promise(
+                engine.conformToNewSequenceFuture(
+                    selection, task, siblingPref.value, playlistIndex
                 )
             ).then(
                 function(uuid_list) {
@@ -330,7 +363,7 @@ Item{
         text: "Conform"
         menuItemType: "divider"
         menuPath: ""
-        menuItemPosition: 20
+        menuItemPosition: 100
         menuModelName: "media_list_menu_"
     }
 
@@ -338,7 +371,7 @@ Item{
         text: "Replace"
         // menuItemType: "button"
         menuPath: ""
-        menuItemPosition: 21
+        menuItemPosition: 101
         menuModelName: "media_list_menu_"
     }
 
@@ -346,7 +379,7 @@ Item{
         text: "Compare"
         // menuItemType: "button"
         menuPath: ""
-        menuItemPosition: 22
+        menuItemPosition: 102
         menuModelName: "media_list_menu_"
     }
 
@@ -354,7 +387,15 @@ Item{
         text: "Conform With"
         // menuItemType: "button"
         menuPath: ""
-        menuItemPosition: 22.5
+        menuItemPosition: 103
+        menuModelName: "media_list_menu_"
+    }
+
+    XsMenuModelItem {
+        text: "Conform With Siblings"
+        // menuItemType: "button"
+        menuPath: ""
+        menuItemPosition: 104
         menuModelName: "media_list_menu_"
     }
 
@@ -362,7 +403,7 @@ Item{
         text: "Conform To New Sequence"
         // menuItemType: "button"
         menuPath: ""
-        menuItemPosition: 23
+        menuItemPosition: 105
         menuModelName: "media_list_menu_"
         onActivated: conformToNewSequence(menuContext.mediaSelection)
     }
@@ -370,23 +411,24 @@ Item{
     XsMenuModelItem {
         text: "Conform To Current Sequence"
         // menuItemType: "button"
-        menuPath: ""
-        menuItemPosition: 25
+        menuPath: "More"
+        menuItemPosition: 1
         menuModelName: "media_list_menu_"
         onActivated: conformToSequence(menuContext.mediaSelection, viewportCurrentMediaContainerIndex)
+    }
+
+
+    XsMenuModelItem {
+        text: "Auto-Conform"
+        menuPath: ""
+        menuItemPosition: 8
+        menuModelName: "timeline_clip_menu_"
     }
 
     XsMenuModelItem {
         text: "Replace"
         menuPath: ""
         menuItemPosition: 8.5
-        menuModelName: "timeline_clip_menu_"
-    }
-
-    XsMenuModelItem {
-        text: "Auto-Conform"
-        menuPath: ""
-        menuItemPosition: 8
         menuModelName: "timeline_clip_menu_"
     }
 
@@ -509,6 +551,26 @@ Item{
                     onActivated: conformSelectionTimeline(text, menuContext.theTimeline.timelineSelection.selectedIndexes)
                 }
 
+                // XsMenuModelItem {
+                //     text: nameRole
+                //     menuItemType: "button"
+                //     menuPath: "Auto-Conform Around"
+                //     menuItemPosition: index
+                //     menuModelName: "timeline_clip_menu_"
+                //     onActivated: {
+                //         let items = [].concat(menuContext.theTimeline.timelineSelection.selectedIndexes)
+                //         let newitems = []
+                //         for(let i = 0; i < items.length; i++) {
+                //             let expanded = theSessionData.modifyItemSelectionHorizontal([items[i]], 1, 1)
+                //             newitems = newitems.concat(
+                //                 expanded.filter(value => !newitems.includes(value))
+                //             )
+                //         }
+
+                //         conformSelectionTimeline(text, newitems)
+                //     }
+                // }
+
                 XsMenuModelItem {
                     text: nameRole
                     menuItemType: "button"
@@ -516,6 +578,14 @@ Item{
                     menuItemPosition: index
                     menuModelName: "media_list_menu_"
                     onActivated: conformWithToNewSequence(menuContext.mediaSelection, text)
+                }
+                XsMenuModelItem {
+                    text: nameRole
+                    menuItemType: "button"
+                    menuPath: "Conform With Siblings"
+                    menuItemPosition: index
+                    menuModelName: "media_list_menu_"
+                    onActivated: conformWithSiblingsToNewSequence(menuContext.mediaSelection, text)
                 }
 			}
 	}

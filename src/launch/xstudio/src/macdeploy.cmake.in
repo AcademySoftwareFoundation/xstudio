@@ -1,0 +1,3 @@
+message("Running @macdeployqt_exe@ with args: ${CMAKE_BINARY_DIR}/xSTUDIO.app -qmldir=@CMAKE_SOURCE_DIR@/ui")
+execute_process(COMMAND "@macdeployqt_exe@" ${CMAKE_BINARY_DIR}/xSTUDIO.app -qmldir=@CMAKE_SOURCE_DIR@/ui
+    WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}")

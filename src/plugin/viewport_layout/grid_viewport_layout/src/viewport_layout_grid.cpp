@@ -36,9 +36,9 @@ sets the aspect of all cells in the layout. 16:9 or 1.89 forces equivalent aspec
     add_layout_settings_attribute(aspect_mode_, "Grid");
     aspect_mode_->set_preference_path("/plugin/viewport_layout/grid_layout_aspect_mode");
 
-    add_layout_mode("Grid", playhead::AssemblyMode::AM_ALL);
-    add_layout_mode("Horizontal", playhead::AssemblyMode::AM_ALL);
-    add_layout_mode("Vertical", playhead::AssemblyMode::AM_ALL);
+    add_layout_mode("Grid", 20.0, playhead::AssemblyMode::AM_ALL);
+    add_layout_mode("Horizontal", 21.0, playhead::AssemblyMode::AM_ALL);
+    add_layout_mode("Vertical", 22.0, playhead::AssemblyMode::AM_ALL);
 }
 
 void GridViewportLayout::do_layout(
@@ -55,13 +55,13 @@ void GridViewportLayout::do_layout(
 
     const auto hero_image = image_set->hero_image();
 
-    float hero_aspect = hero_image ? hero_image->image_aspect() : 16.0f / 9.0f;
+    float hero_aspect = image_aspect(hero_image);
     if (aspect_mode_->value() == "Auto") {
         std::map<float, int> aspects;
         for (int i = 0; i < num_images; ++i) {
             const auto &im = image_set->onscreen_image(i);
             if (im) {
-                float a = im->image_aspect();
+                float a = image_aspect(im);
                 if (aspects.count(a)) {
                     aspects[a]++;
                 } else {
@@ -93,6 +93,7 @@ void GridViewportLayout::do_layout(
                                                : num_images;
 
     layout_data.layout_aspect_ = (hero_aspect) * float(num_cols) / float(num_rows);
+    layout_data.draw_hero_overlays_only_ = false;
 
     float scale = (1.0f - spacing_->value() / 100.0f) / float(num_cols);
 
@@ -106,8 +107,8 @@ void GridViewportLayout::do_layout(
         const auto &im = image_set->onscreen_image(i);
         float xs       = 1.0f;
         if (im) {
-            if (im->image_aspect() < hero_aspect) {
-                xs = im->image_aspect() / hero_aspect;
+            if (image_aspect(im) < hero_aspect) {
+                xs = image_aspect(im) / hero_aspect;
             }
         }
         int row        = i / num_cols;
@@ -126,8 +127,9 @@ void GridViewportLayout::do_layout(
     }
 }
 
-ViewportRenderer *GridViewportLayout::make_renderer(const std::string &window_id) {
-    return new opengl::OpenGLViewportRenderer(window_id);
+ViewportRenderer *GridViewportLayout::make_renderer(
+    const std::string &window_id, const utility::JsonStore &prefs) {
+    return new opengl::OpenGLViewportRenderer(window_id, prefs);
 }
 
 extern "C" {

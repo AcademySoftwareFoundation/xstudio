@@ -134,6 +134,8 @@ namespace ui {
             void
             reset_model(const std::string &model_name, const std::string &preferences_path);
 
+            void monitor_item(const caf::actor &actor);
+
             void reset_model(
                 const std::string &model_name,
                 const utility::JsonStore &data,

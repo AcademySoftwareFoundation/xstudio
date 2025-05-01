@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <chrono>
 
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/atoms.hpp"
 #include "xstudio/media/media.hpp"
 #include "xstudio/colour_pipeline/colour_cache_actor.hpp"
@@ -76,7 +78,8 @@ GlobalColourCacheActor::GlobalColourCacheActor(caf::actor_config &cfg)
         },
 
         [=](json_store::update_atom, const JsonStore &js) {
-            delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, js, "", js);
+            return mail(json_store::update_atom_v, js, "", js)
+                .delegate(actor_cast<caf::actor>(this));
         },
 
         [=](keys_atom) -> std::vector<std::string> { return cache_.keys(); },

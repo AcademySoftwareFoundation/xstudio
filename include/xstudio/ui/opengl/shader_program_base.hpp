@@ -4,8 +4,12 @@
 // clang-format off
 #include <Imath/ImathVec.h>
 #include <Imath/ImathMatrix.h>
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
 // clang-format on
 
 #include "xstudio/utility/json_store.hpp"
@@ -46,7 +50,7 @@ namespace ui {
 
             void inject_colour_op_shader(const std::string &colour_op_shader);
 
-            void compile();
+            void compile(const bool force_combine_frag_shaders = false);
             void use() const;
             void stop_using() const;
             void set_shader_parameters(const utility::JsonStore &shader_params);

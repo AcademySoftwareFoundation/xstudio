@@ -264,7 +264,7 @@ void SnapshotMenuModel::setPaths(const QVariant &value) {
 
                 for (const auto &i : jsn) {
                     if (i.count("name") and i.count("path")) {
-                        auto uri = caf::make_uri(i.at("path"));
+                        auto uri = caf::make_uri(i.at("path").get<std::string>());
                         if (uri)
                             items_.insert(items_.end(), FileSystemItem(i.at("name"), *uri));
                     }
@@ -339,7 +339,7 @@ SessionSnapshotsPlugin::SessionSnapshotsPlugin(
     // clicks on the top level menu item.
     register_singleton_qml(
         R"(
-            import QtQuick 2.15
+            import QtQuick
             import xstudio.qml.models 1.0
 
             XsMenuModelItem {

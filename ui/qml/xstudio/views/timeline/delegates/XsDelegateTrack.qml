@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
-import QtGraphicalEffects 1.0
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQml.Models
+import Qt.labs.qmlmodels
+
 import QuickFuture 1.0
 import QuickPromise 1.0
 
@@ -44,12 +44,14 @@ Rectangle {
 	property bool isDragging: false
 	property int moveY: "move_y" in userDataRole ? userDataRole.move_y : 0
 
+	onMoveYChanged: track_header.updateY()
+
 	width: ListView.view.width
 	height: itemHeight * scaleY
 
 	property bool isHovered: hoveredItem == control
 	property bool isSelected: false
-	property bool isConformSource:  DelegateModel.model.modelIndex(index) == conformSourceIndex
+	property bool isConformSource:  modelIndex() == conformSourceIndex
 	property var timelineSelection: ListView.view.timelineSelection
     property var hoveredItem: ListView.view.hoveredItem
     property var itemTypeRole: typeRole
@@ -77,10 +79,13 @@ Rectangle {
 			track_header.parent = new_parent
 			track_header.mappedX = (-orig.x) + 10
 			track_header.mappedY = -orig.y
+			track_header.updateY()
+
 		} else {
 			track_header.parent = control
 			track_header.mappedX = 0
 			track_header.mappedY = 0
+			track_header.updateY()
 		}
 
 	}
@@ -92,14 +97,18 @@ Rectangle {
 		anchors.top: isDragging ? undefined : parent.top
 		anchors.left: isDragging ? undefined : parent.left
 
-		property real mappedX: 0
-		property real mappedY: 0
+		property int mappedX: 0
+		property int mappedY: 0
 		x: mappedX
-		y: mappedY + (
+		y: 0
+
+		// this shouldn't be needed
+		function updateY() {
+			y = mappedY + (
 			moveY > 0 ? (moveY * height) + height/2 :
 				(moveY < 0 ? ((moveY-1) * height) + height/2 : 0)
-		)
-
+			)
+		}
 
 		width: trackHeaderWidth
 		height: Math.ceil(control.itemHeight * control.scaleY)
@@ -118,25 +127,26 @@ Rectangle {
 		isSizerDragging: control.isSizerDragging
 		notificationModel: notificationRole
 
-		onSizerHovered: setSizerHovered(hovered)
-		onSizerDragging: setSizerDragging(dragging)
+		onSizerHovered: hovered => setSizerHovered(hovered)
+		onSizerDragging: dragging => setSizerDragging(dragging)
 
 		onEnabledClicked: enabledRole = !enabledRole
 		onLockedClicked: lockedRole = !lockedRole
 		onConformSourceClicked: conformSourceIndex = helpers.makePersistent(modelIndex())
-		onFlagSet: flagItems([modelIndex()], flag == "#00000000" ? "": flag)
-
-	    onDraggingStarted: {
+		onFlagSet: (flag, flag_text) => {
+			flagItems([modelIndex()], flag == "#00000000" ? "": flag)
+		}
+	    onDraggingStarted: mode => {
 	    	control.draggingStarted(modelIndex(), control, mode)
 	    	isDragging = true
 	    }
 
-		onDragging: {
+		onDragging: (mode, x, y) => {
 			control.dragging(modelIndex(), control, mode, x / scaleX, y / scaleY / control.itemHeight)
 		}
 		// onDoubleTapped: control.doubleTapped(control, mode)
-		onTapped: control.tapped(button, x, y, modifiers, control)
-		onDraggingStopped: {
+		onTapped: (button, x, y, modifiers) => control.tapped(button, x, y, modifiers, control)
+		onDraggingStopped: mode => {
 			control.draggingStopped(modelIndex(), control, mode)
 	    	isDragging = false
 		}

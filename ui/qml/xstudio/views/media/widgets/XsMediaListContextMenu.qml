@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.12
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.12
+import QtQuick
+import QtQuick.Layouts
+import Qt.labs.qmlmodels
+// import QtQml.Models 2.12
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -44,11 +43,14 @@ XsPopupMenu {
 
     Component.onCompleted: {
         // make sure the 'Add' sub-menu appears in the correct place
-        helpers.setMenuPathPosition("Select", "media_list_menu_", 3)
-        helpers.setMenuPathPosition("Add Media To", "media_list_menu_", 1)
-        helpers.setMenuPathPosition("Copy To Clipboard", "media_list_menu_", 10)
-        helpers.setMenuPathPosition("Reveal Source", "media_list_menu_", 15)
-        helpers.setMenuPathPosition("Advanced", "media_list_menu_", 30)
+        helpers.setMenuPathPosition("Select", "media_list_menu_", 10)
+        helpers.setMenuPathPosition("Add Media To", "media_list_menu_", 20)
+
+        helpers.setMenuPathPosition("Copy To Clipboard", "media_list_menu_", 70)
+        helpers.setMenuPathPosition("Reveal Source", "media_list_menu_", 60)
+        helpers.setMenuPathPosition("Advanced", "media_list_menu_", 1200)
+        helpers.setMenuPathPosition("Advanced|Print", "media_list_menu_", 90)
+        helpers.setMenuPathPosition("Snippet", "media_list_menu_", 1100)
         //helpers.setMenuPathPosition("Set Media Source", "media_list_menu_", 15.5)
 
         // need to reorder snippet menus..
@@ -59,6 +61,57 @@ XsPopupMenu {
             let mp = si.model.get(si, "menuPathRole")
             helpers.setMenuPathPosition(mp,"media_list_menu_", 17 + ((1.0/rc)*i) )
         }
+    }
+
+
+    XsMenuModelItem {
+        text: "All Media"
+        menuItemType: "button"
+        menuPath: "Select"
+        menuItemPosition: 3
+        menuModelName: btnMenu.menu_model_name
+        hotkeyUuid: select_all_hotkey.uuid
+        onActivated: selectAll()
+        panelContext: btnMenu.panelContext
+    }
+
+    XsMenuModelItem {
+        text: "All Offline Media"
+        menuItemType: "button"
+        menuPath: "Select"
+        menuItemPosition: 3.2
+        menuModelName: btnMenu.menu_model_name
+        onActivated: selectAllOffline()
+        panelContext: btnMenu.panelContext
+    }
+
+    XsMenuModelItem {
+        text: "Adjusted Media"
+        menuItemType: "button"
+        menuPath: "Select"
+        menuItemPosition: 3.3
+        menuModelName: btnMenu.menu_model_name
+        onActivated: selectAllAdjusted()
+        panelContext: btnMenu.panelContext
+    }
+
+    XsMenuModelItem {
+        text: "Invert Selection"
+        menuItemType: "button"
+        menuPath: "Select"
+        menuItemPosition: 3.4
+        menuModelName: btnMenu.menu_model_name
+        onActivated: invertSelection()
+        panelContext: btnMenu.panelContext
+    }
+
+    XsFlagMenuInserter {
+        text: qsTr("Flagged Media")
+        panelContext: btnMenu.panelContext
+        menuModelName: btnMenu.menu_model_name
+        menuPath: "Select"
+        menuPosition: 3.5
+        onFlagSet: selectFlagged(flag)
     }
 
     XsMenuModelItem {
@@ -153,7 +206,7 @@ XsPopupMenu {
         menuModelName: btnMenu.menu_model_name
         menuPath: ""
         menuPosition: 2
-        onFlagSet: {
+        onFlagSet: (flag, flag_text) => {
             let sindexs = mediaSelectionModel.selectedIndexes
             for(let i = 0; i< sindexs.length; i++) {
                 theSessionData.set(sindexs[i], flag, "flagColourRole")
@@ -163,57 +216,6 @@ XsPopupMenu {
             }
         }
     }
-
-    XsMenuModelItem {
-        text: "All Media"
-        menuItemType: "button"
-        menuPath: "Select"
-        menuItemPosition: 3
-        menuModelName: btnMenu.menu_model_name
-        hotkeyUuid: select_all_hotkey.uuid
-        onActivated: selectAll()
-        panelContext: btnMenu.panelContext
-    }
-
-    XsMenuModelItem {
-        text: "All Offline Media"
-        menuItemType: "button"
-        menuPath: "Select"
-        menuItemPosition: 3.2
-        menuModelName: btnMenu.menu_model_name
-        onActivated: selectAllOffline()
-        panelContext: btnMenu.panelContext
-    }
-
-    XsMenuModelItem {
-        text: "Adjusted Media"
-        menuItemType: "button"
-        menuPath: "Select"
-        menuItemPosition: 3.3
-        menuModelName: btnMenu.menu_model_name
-        onActivated: selectAllAdjusted()
-        panelContext: btnMenu.panelContext
-    }
-
-    XsMenuModelItem {
-        text: "Invert Selection"
-        menuItemType: "button"
-        menuPath: "Select"
-        menuItemPosition: 3.4
-        menuModelName: btnMenu.menu_model_name
-        onActivated: invertSelection()
-        panelContext: btnMenu.panelContext
-    }
-
-    XsFlagMenuInserter {
-        text: qsTr("Flagged Media")
-        panelContext: btnMenu.panelContext
-        menuModelName: btnMenu.menu_model_name
-        menuPath: "Select"
-        menuPosition: 3.5
-        onFlagSet: selectFlagged(flag)
-    }
-
 
     // XsMenuModelItem {
     //     text: "TEST"
@@ -243,7 +245,7 @@ XsPopupMenu {
 
     XsMenuModelItem {
         menuItemType: "divider"
-        menuItemPosition: 5
+        menuItemPosition: 40
         menuPath: ""
         menuModelName: btnMenu.menu_model_name
     }
@@ -251,7 +253,7 @@ XsPopupMenu {
     XsMenuModelItem {
         text: "Duplicate"
         menuPath: ""
-        menuItemPosition: 6
+        menuItemPosition: 50
         menuModelName: btnMenu.menu_model_name
         onActivated: {
             let items = []
@@ -269,28 +271,13 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Quick-View Selected"
-        menuPath: ""
-        menuItemPosition: 6.1
+        text: "On Disk..."
+        menuPath: "Reveal Source"
+        menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
-        onActivated: {
-            if (mediaSelectionModel.selectedIndexes.length > 8) {
-                dialogHelpers.errorDialogFunc(
-                    "Warning",
-                    "The quick view feature is limited to a selection of 8 or fewer media items!"
-                    )
-                return;
-            }
-            for (var i in mediaSelectionModel.selectedIndexes) {
-                let idx = mediaSelectionModel.selectedIndexes[i]
-                var actor = theSessionData.get(idx, "actorRole")
-                quick_view_launcher.launchQuickViewer([actor], "Off", -1, -1)
-            }
-
-        }
+        onActivated: helpers.showURIS(mediaSelectionModel.getSelectedMediaUrl())
         panelContext: btnMenu.panelContext
     }
-
 
     XsMenuModelItem {
         menuPath: "Copy To Clipboard"
@@ -384,13 +371,36 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "On Disk..."
-        menuPath: "Reveal Source"
-        menuItemPosition: 1
+        menuItemType: "divider"
+        menuItemPosition: 80
+        menuPath: ""
         menuModelName: btnMenu.menu_model_name
-        onActivated: helpers.showURIS(mediaSelectionModel.getSelectedMediaUrl())
+    }
+
+
+    XsMenuModelItem {
+        text: "Open In QuickView"
+        menuPath: ""
+        menuItemPosition: 90
+        menuModelName: btnMenu.menu_model_name
+        onActivated: {
+            if (mediaSelectionModel.selectedIndexes.length > 8) {
+                dialogHelpers.errorDialogFunc(
+                    "Warning",
+                    "The quick view feature is limited to a selection of 8 or fewer media items!"
+                    )
+                return;
+            }
+            for (var i in mediaSelectionModel.selectedIndexes) {
+                let idx = mediaSelectionModel.selectedIndexes[i]
+                var actor = theSessionData.get(idx, "actorRole")
+                quick_view_launcher.launchQuickViewer([actor], "Off", -1, -1)
+            }
+
+        }
         panelContext: btnMenu.panelContext
     }
+
 
     /*XsMenuModelItem {
         text: "Foo"
@@ -405,38 +415,18 @@ XsPopupMenu {
         customMenuQml: "import xStudio 1.0; XsMediaListSwitchSourceMenu {}"
 
     }*/
-    XsMenuModelItem {
-        text: "Snippet"
-        menuItemType: "divider"
-        menuItemPosition: 16
-        menuPath: ""
-        menuModelName: btnMenu.menu_model_name
-    }
 
-    Repeater {
-        model: DelegateModel {
-            model: embeddedPython.mediaMenuModel
-            delegate: Item {XsMenuModelItem {
-                text: nameRole
-                menuPath: menuPathRole
-                menuItemPosition: (index*0.01)+16
-                menuModelName: btnMenu.menu_model_name
-                onActivated: embeddedPython.pyEvalFile(scriptPathRole)
-            }}
-        }
-    }
 
+    // XsMenuModelItem {
+    //     menuItemType: "divider"
+    //     menuItemPosition: 100
+    //     menuPath: ""
+    //     menuModelName: btnMenu.menu_model_name
+    // }
 
     XsMenuModelItem {
-        menuItemType: "divider"
-        menuItemPosition: 29
-        menuPath: ""
-        menuModelName: btnMenu.menu_model_name
-    }
-
-    XsMenuModelItem {
-        text: "Dump Metadata"
-        menuPath: "Advanced"
+        text: "Media Metadata"
+        menuPath: "Advanced|Print"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -446,8 +436,8 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Dump Source Metadata"
-        menuPath: "Advanced"
+        text: "Source Metadata"
+        menuPath: "Advanced|Print"
         menuItemPosition: 1
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -458,8 +448,8 @@ XsPopupMenu {
 
 
     XsMenuModelItem {
-        text: "Dump JSON"
-        menuPath: "Advanced"
+        text: "JSON"
+        menuPath: "Advanced|Print"
         menuItemPosition: 2
         menuModelName: btnMenu.menu_model_name
         onActivated: {
@@ -470,9 +460,9 @@ XsPopupMenu {
 
 
     XsMenuModelItem {
-        text: "Clear Cache"
+        text: "Clear Cache All"
         menuPath: "Advanced"
-        menuItemPosition: 3
+        menuItemPosition: 10
         menuModelName: btnMenu.menu_model_name
         onActivated: studio.clearImageCache()
         panelContext: btnMenu.panelContext
@@ -480,18 +470,18 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Clear Selected Media From Cache"
+        text: "Clear Cache Selected"
         menuPath: "Advanced"
-        menuItemPosition: 4
+        menuItemPosition: 20
         menuModelName: btnMenu.menu_model_name
         onActivated: Future.promise(theSessionData.clearCacheFuture(mediaSelectionModel.selectedIndexes)).then(function(result){})
         panelContext: btnMenu.panelContext
     }
 
     XsMenuModelItem {
-        text: "Set Selected Media Rate"
+        text: "Set Media Rate..."
         menuPath: "Advanced"
-        menuItemPosition: 5
+        menuItemPosition: 30
         menuModelName: btnMenu.menu_model_name
         onActivated: {
             let mi = mediaSelectionModel.selectedIndexes[0]
@@ -518,22 +508,51 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Load Additional Sources For Selected Media"
+        text: "Set Media Pixel Aspect..."
         menuPath: "Advanced"
-        menuItemPosition: 6
+        menuItemPosition: 40
+        menuModelName: btnMenu.menu_model_name
+        onActivated: {
+            let mi = mediaSelectionModel.selectedIndexes[0]
+            let ms = theSessionData.searchRecursive(theSessionData.get(mi, "imageActorUuidRole"), "actorUuidRole", mi)
+
+            dialogHelpers.numberInputDialog(
+                function(new_pixel_aspect, button) {
+                    if(button == "Set Pixel Aspect") {
+                        mediaSelectionModel.selectedIndexes.forEach(
+                            (element) => {
+                                let mi = theSessionData.searchRecursive(theSessionData.get(element, "imageActorUuidRole"), "actorUuidRole", element)
+                                mi.model.set(mi, parseFloat(new_pixel_aspect), "pixelAspectRole")
+                            }
+                        )
+                    }
+                },
+                "Set Pixel Aspect Ratio",
+                "Enter new pixel aspect ratio to apply to selected media",
+                 mi.model.get(ms, "pixelAspectRole"),
+                ["Cancel", "Set Pixel Aspect"])
+
+        }
+        panelContext: btnMenu.panelContext
+    }
+
+    XsMenuModelItem {
+        text: "Load Additional Sources"
+        menuPath: "Advanced"
+        menuItemPosition: 60
         menuModelName: btnMenu.menu_model_name
         onActivated: theSessionData.gatherMediaFor(theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]), mediaSelectionModel.selectedIndexes)
         panelContext: btnMenu.panelContext
     }
 
     XsMenuModelItem {
-        text: "Relink Selected Media"
+        text: "Relink Media..."
         menuPath: "Advanced"
-        menuItemPosition: 7
+        menuItemPosition: 70
         menuModelName: btnMenu.menu_model_name
         onActivated: {
-           dialogHelpers.showFileDialogFolderMode(
-                function(path, folder, chaserFunc) {
+           dialogHelpers.showFolderDialog(
+                function(path, chaserFunc) {
                     theSessionData.relinkMedia(mediaSelectionModel.selectedIndexes, path)
                 },
                 file_functions.defaultSessionFolder(),
@@ -543,27 +562,49 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Decompose Selected Media"
+        text: "Decompose Media"
         menuPath: "Advanced"
-        menuItemPosition: 8
+        menuItemPosition: 80
         menuModelName: btnMenu.menu_model_name
         onActivated: theSessionData.decomposeMedia(mediaSelectionModel.selectedIndexes)
         panelContext: btnMenu.panelContext
     }
 
+
+    XsMenuModelItem {
+        menuItemType: "divider"
+        menuItemPosition: 1000
+        menuPath: ""
+        menuModelName: btnMenu.menu_model_name
+    }
+
     XsMenuModelItem {
         text: "Reload Selected Media"
-        menuPath: "Advanced"
-        menuItemPosition: 9
+        menuPath: ""
+        menuItemPosition: 1010
         menuModelName: btnMenu.menu_model_name
         onActivated: theSessionData.rescanMedia(mediaSelectionModel.selectedIndexes)
         panelContext: btnMenu.panelContext
         hotkeyUuid: reload_selected_media_hotkey.uuid
     }
 
+    Repeater {
+        model: DelegateModel {
+            model: embeddedPython.mediaMenuModel
+            delegate: Item {XsMenuModelItem {
+                text: nameRole
+                menuPath: "Snippet|"+menuPathRole
+                menuItemPosition: (index*0.01)+16
+                menuModelName: btnMenu.menu_model_name
+                onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+            }}
+        }
+    }
+
+
     XsMenuModelItem {
         menuItemType: "divider"
-        menuItemPosition: 99
+        menuItemPosition: 2000
         menuPath: ""
         menuModelName: btnMenu.menu_model_name
     }
@@ -571,7 +612,7 @@ XsPopupMenu {
     XsMenuModelItem {
         text: "Remove Selected"
         menuPath: ""
-        menuItemPosition: 100
+        menuItemPosition: 2010
         menuModelName: btnMenu.menu_model_name
         hotkeyUuid: delete_selected.uuid
         onActivated: {

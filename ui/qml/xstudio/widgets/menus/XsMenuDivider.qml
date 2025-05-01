@@ -1,22 +1,17 @@
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 
 Item {
 
     height: name ? 30 : XsStyleSheet.menuPadding*2 + XsStyleSheet.menuDividerHeight
-    property var minWidth: label_metrics.width + 20
-
-    TextMetrics {
-        id:     label_metrics
-        font:   labelDiv.font
-        text:   labelDiv.text
-    }
+    property int minWidth: rlayout.implicitWidth
 
     function hideSubMenus() {}
 
     RowLayout {
+        id: rlayout
 
         anchors.fill: parent
         spacing: 0

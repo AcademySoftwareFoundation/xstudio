@@ -8,4 +8,4 @@ SET(LINK_DEPS
 
 find_package(Imath)
 
-create_plugin_with_alias(audio_waveform_overlay xstudio::viewport::audio_waveform_overlay 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(audio_waveform_overlay xstudio::viewport::audio_waveform_overlay ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")

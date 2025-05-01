@@ -58,7 +58,7 @@ MediaReference::MediaReference(
 MediaReference::MediaReference(const JsonStore &jsn)
     : container_(jsn.at("container")), duration_(jsn.at("duration")) {
 
-    auto uri = caf::make_uri(jsn.at("uri"));
+    auto uri = caf::make_uri(jsn.at("uri").get<std::string>());
     if (uri)
         uri_ = *uri;
     else {
@@ -74,20 +74,22 @@ MediaReference::MediaReference(const JsonStore &jsn)
             throw XStudioError("Invalid URI " + jsn.at("uri").get<std::string>());
     }
 
-    frame_list_ = jsn.at("frame_list");
-    timecode_   = jsn.at("timecode");
-    offset_     = jsn.value("offset", 0);
+    frame_list_         = jsn.at("frame_list");
+    timecode_           = jsn.at("timecode");
+    offset_             = jsn.value("offset", 0);
+    start_frame_offset_ = jsn.value("start_frame_offset", 0);
 }
 
 JsonStore MediaReference::serialise() const {
     JsonStore jsn;
 
-    jsn["uri"]        = to_string(uri_);
-    jsn["container"]  = container_;
-    jsn["duration"]   = duration_;
-    jsn["frame_list"] = static_cast<nlohmann::json>(frame_list_);
-    jsn["timecode"]   = static_cast<nlohmann::json>(timecode_);
-    jsn["offset"]     = offset_;
+    jsn["uri"]                = to_string(uri_);
+    jsn["container"]          = container_;
+    jsn["duration"]           = duration_;
+    jsn["frame_list"]         = static_cast<nlohmann::json>(frame_list_);
+    jsn["timecode"]           = static_cast<nlohmann::json>(timecode_);
+    jsn["offset"]             = offset_;
+    jsn["start_frame_offset"] = start_frame_offset_;
 
     return jsn;
 }
@@ -222,4 +224,13 @@ std::optional<caf::uri> MediaReference::uri(const int logical_frame, int &file_f
 
     return {};
 }
+
+void MediaReference::fill_partial_sequences() {
+    // any frame sequence that has gaps, steps etc. will have the frame list
+    // filled out so we have a contiguous set of frames.
+    if (!frame_list_.empty()) {
+        set_frame_list(FrameList(frame_list_.start(), frame_list_.frames().back()));
+    }
+}
+
 } // namespace xstudio::utility

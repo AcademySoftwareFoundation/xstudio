@@ -1,30 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
-#include <algorithm>
 
 #include "xstudio/timeline/stack.hpp"
-#include "xstudio/utility/helpers.hpp"
 
 using namespace xstudio;
 using namespace xstudio::timeline;
 using namespace xstudio::utility;
 
 Stack::Stack(
-    const std::string &name,
-    const utility::FrameRate &rate,
-    const utility::Uuid &uuid_,
-    const caf::actor &actor)
+    const std::string &name, const FrameRate &rate, const Uuid &uuid_, const caf::actor &actor)
     : Container(name, "Stack", uuid_),
       item_(
           ItemType::IT_STACK,
-          utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor)),
+          UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor)),
           {},
-          utility::FrameRange(FrameRateDuration(0, rate))) {
+          FrameRange(FrameRateDuration(0, rate))) {
     item_.set_name(name);
 }
 
 Stack::Stack(const JsonStore &jsn)
-    : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
-      item_(static_cast<utility::JsonStore>(jsn.at("item"))) {}
+    : Container(static_cast<JsonStore>(jsn.at("container"))),
+      item_(static_cast<JsonStore>(jsn.at("item"))) {}
 
 Stack::Stack(const Item &item, const caf::actor &actor)
     : Container(item.name(), "Stack", item.uuid()), item_(item.clone()) {
@@ -41,7 +36,7 @@ JsonStore Stack::serialise() const {
 }
 
 Stack Stack::duplicate() const {
-    utility::JsonStore jsn;
+    JsonStore jsn;
 
     auto dup_container = Container::duplicate();
     auto dup_item      = item_;

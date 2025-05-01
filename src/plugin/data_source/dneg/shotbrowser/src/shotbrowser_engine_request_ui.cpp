@@ -22,14 +22,17 @@ using namespace xstudio::ui::qml;
     }                                                                                          \
     catch (const XStudioError &err) {                                                          \
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());                                \
-        auto error                = R"({'error':{})"_json;                                     \
+        JsonStore error;                                                                       \
         error["error"]["source"]  = to_string(err.type());                                     \
-        error["error"]["message"] = err.what();                                                \
-        return QStringFromStd(JsonStore(error).dump());                                        \
+        error["error"]["message"] = err.caf_error().what();                                    \
+        return QStringFromStd(error.dump());                                                   \
     }                                                                                          \
     catch (const std::exception &err) {                                                        \
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());                                \
-        return QStringFromStd(err.what());                                                     \
+        JsonStore error;                                                                       \
+        error["error"]["source"]  = "Exception";                                               \
+        error["error"]["message"] = err.what();                                                \
+        return QStringFromStd(error.dump());                                                   \
     }                                                                                          \
     }                                                                                          \
     return QString();                                                                          \
@@ -50,7 +53,7 @@ QFuture<QString> ShotBrowserEngine::loadPresetModelFuture() {
     data["uuid"]    = uuids[1];
     data["data"] =
         request_receive<JsonStore>(*sys, backend_, json_store::sync_atom_v, uuids[1]);
-    anon_send(as_actor(), shotgun_info_atom_v, request, JsonStore(data));
+    anon_mail(shotgun_info_atom_v, request, JsonStore(data)).send(as_actor());
 
     // get user presests
     request         = JsonStore(GetData);
@@ -59,7 +62,7 @@ QFuture<QString> ShotBrowserEngine::loadPresetModelFuture() {
     data["uuid"]    = uuids[0];
     data["data"] =
         request_receive<JsonStore>(*sys, backend_, json_store::sync_atom_v, uuids[0]);
-    anon_send(as_actor(), shotgun_info_atom_v, request, JsonStore(data));
+    anon_mail(shotgun_info_atom_v, request, JsonStore(data)).send(as_actor());
 
     return QStringFromStd(data.dump());
 
@@ -79,7 +82,7 @@ QFuture<QString> ShotBrowserEngine::getDataFuture(const QString &type, const int
     auto data = request_receive_wait<JsonStore>(
         *sys, backend_, SHOTGRID_TIMEOUT, get_data_atom_v, request);
 
-    anon_send(as_actor(), shotgun_info_atom_v, request, data);
+    anon_mail(shotgun_info_atom_v, request, data).send(as_actor());
 
     return QStringFromStd(data.dump());
 
@@ -200,6 +203,10 @@ QFuture<QString> ShotBrowserEngine::getShotsFuture(const int project_id) {
     return getDataFuture(QString("shot"), project_id);
 }
 
+QFuture<QString> ShotBrowserEngine::getEpisodesFuture(const int project_id) {
+    return getDataFuture(QString("episode"), project_id);
+}
+
 
 QFuture<QString> ShotBrowserEngine::getUsersFuture(const int project_id) {
     return getDataFuture(QString("user"), project_id);
@@ -246,8 +253,8 @@ QFuture<QString> ShotBrowserEngine::getReferenceTagsFuture() {
         i["attributes"]["name"] = str.substr(0, str.size() - sizeof(".REFERENCE") + 1);
     }
 
-    anon_send(
-        as_actor(), shotgun_info_atom_v, JsonStore(R"({"type": "reference_tag"})"_json), data);
+    anon_mail(shotgun_info_atom_v, JsonStore(R"({"type": "reference_tag"})"_json), data)
+        .send(as_actor());
 
     return QStringFromStd(data.dump());
 
@@ -256,6 +263,18 @@ QFuture<QString> ShotBrowserEngine::getReferenceTagsFuture() {
 
 QFuture<QString> ShotBrowserEngine::getCustomEntity24Future(const int project_id) {
     return getDataFuture(QString("unit"), project_id);
+}
+
+QFuture<QString> ShotBrowserEngine::getAssetFuture(const int project_id) {
+    return getDataFuture(QString("asset"), project_id);
+}
+
+QFuture<QString> ShotBrowserEngine::getTreeFuture(const int project_id) {
+    return getDataFuture(QString("tree"), project_id);
+}
+
+QFuture<QString> ShotBrowserEngine::getAssetTreeFuture(const int project_id) {
+    return getDataFuture(QString("asset_tree"), project_id);
 }
 
 QFuture<QString> ShotBrowserEngine::getStageFuture(const int project_id) {
@@ -395,8 +414,6 @@ ShotBrowserEngine::pushPlaylistNotesFuture(const QString &notes, const QUuid &pl
     req["playlist_uuid"] = to_string(UuidFromQUuid(playlist));
     req["payload"]       = JsonStore(nlohmann::json::parse(StdFromQString(notes))["payload"]);
 
-    spdlog::warn("pushPlaylistNotesFuture {}", req.dump(2));
-
     auto js = request_receive_wait<JsonStore>(
         *sys, backend_, SHOTGRID_TIMEOUT, data_source::post_data_atom_v, req);
 
@@ -430,12 +447,14 @@ QFuture<QString> ShotBrowserEngine::createPlaylistFuture(
     REQUEST_END()
 }
 
-QFuture<QString> ShotBrowserEngine::updatePlaylistVersionsFuture(const QUuid &playlist) {
+QFuture<QString>
+ShotBrowserEngine::updatePlaylistVersionsFuture(const QUuid &playlist, const bool append) {
     REQUEST_BEGIN()
 
     scoped_actor sys{system()};
     auto req             = JsonStore(PutUpdatePlaylistVersions);
     req["playlist_uuid"] = to_string(UuidFromQUuid(playlist));
+    req["append"]        = append;
     auto js              = request_receive_wait<JsonStore>(
         *sys, backend_, SHOTGRID_TIMEOUT, data_source::put_data_atom_v, req);
     return QStringFromStd(js.dump());
@@ -717,7 +736,7 @@ QFuture<QString> ShotBrowserEngine::addDownloadToMediaFuture(const QUuid &media)
     REQUEST_BEGIN()
 
     scoped_actor sys{system()};
-    auto req          = JsonStore(GetDownloadMedia);
+    auto req          = JsonStore(GetShotgridMedia);
     req["media_uuid"] = to_string(UuidFromQUuid(media));
 
     return QStringFromStd(
@@ -726,4 +745,51 @@ QFuture<QString> ShotBrowserEngine::addDownloadToMediaFuture(const QUuid &media)
             .dump());
 
     REQUEST_END()
+}
+
+QFuture<QUrl> ShotBrowserEngine::downloadMediaFuture(
+    const int entity_id,
+    const QString &entity_name,
+    const QString &project_name,
+    const QString &parent_name) {
+    return QtConcurrent::run([=]() {
+        if (backend_) {
+            scoped_actor sys{system()};
+            auto req            = JsonStore(GetDownloadMedia);
+            req["entity_id"]    = entity_id;
+            req["entity_name"]  = StdFromQString(entity_name);
+            req["project_name"] = StdFromQString(project_name);
+            req["parent_name"]  = StdFromQString(parent_name);
+
+            return QUrl(QStringFromStd(
+                request_receive_wait<JsonStore>(
+                    *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
+                    .get<std::string>()));
+        }
+        return QUrl();
+    });
+}
+
+QFuture<QUrl> ShotBrowserEngine::downloadImageFuture(
+    const int entity_id,
+    const QString &entity,
+    const QString &entity_name,
+    const QString &project_name) {
+    return QtConcurrent::run([=]() {
+        if (backend_) {
+            scoped_actor sys{system()};
+            auto req = JsonStore(GetDownloadImage);
+
+            req["entity_id"]    = entity_id;
+            req["entity"]       = StdFromQString(entity);
+            req["entity_name"]  = StdFromQString(entity_name);
+            req["project_name"] = StdFromQString(project_name);
+
+            return QUrl(QStringFromStd(
+                request_receive_wait<JsonStore>(
+                    *sys, backend_, SHOTGRID_TIMEOUT, data_source::get_data_atom_v, req)
+                    .get<std::string>()));
+        }
+        return QUrl();
+    });
 }

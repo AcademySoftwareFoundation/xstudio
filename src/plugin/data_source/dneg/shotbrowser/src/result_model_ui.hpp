@@ -7,15 +7,16 @@
 
 
 CAF_PUSH_WARNINGS
-#include <QUrl>
-#include <qqml.h>
-#include <QQmlEngineExtensionPlugin>
 #include <QAbstractListModel>
-#include <QQmlApplicationEngine>
 #include <QFuture>
-#include <QtConcurrent>
+#include <qqml.h>
+#include <QQmlApplicationEngine>
+#include <QQmlEngineExtensionPlugin>
 #include <QQmlPropertyMap>
+#include <QRegularExpression>
 #include <QSortFilterProxyModel>
+#include <QtConcurrent>
+#include <QUrl>
 CAF_POP_WARNINGS
 
 namespace xstudio::ui::qml {
@@ -32,10 +33,11 @@ class ShotBrowserResultModel : public JSONTreeModel {
     Q_PROPERTY(int maxResult READ maxResult NOTIFY stateChanged)
 
     Q_PROPERTY(QUuid presetId READ presetId NOTIFY stateChanged)
-    Q_PROPERTY(QUuid groupId READ groupId NOTIFY stateChanged)
+    Q_PROPERTY(QVariant groupDetail READ groupDetail NOTIFY stateChanged)
 
-    Q_PROPERTY(QString audioSource READ audioSource NOTIFY stateChanged)
-    Q_PROPERTY(QString visualSource READ visualSource NOTIFY stateChanged)
+    Q_PROPERTY(QStringList audioSource READ audioSource NOTIFY stateChanged)
+    Q_PROPERTY(QStringList visualSource READ visualSource NOTIFY stateChanged)
+    Q_PROPERTY(QStringList sequenceSource READ sequenceSource NOTIFY stateChanged)
     Q_PROPERTY(QString flagColour READ flagColour NOTIFY stateChanged)
     Q_PROPERTY(QString flagText READ flagText NOTIFY stateChanged)
     Q_PROPERTY(QString entity READ entity NOTIFY stateChanged)
@@ -65,10 +67,12 @@ class ShotBrowserResultModel : public JSONTreeModel {
         dateSubmittedToClientRole,
         departmentRole,
         detailRole,
+        entityRole,
         frameRangeRole,
         frameSequenceRole,
         linkedVersionsRole,
         loginRole,
+        locationRole,
         movieRole,
         nameRole,
         noteCountRole,
@@ -79,7 +83,6 @@ class ShotBrowserResultModel : public JSONTreeModel {
         onSiteMum,
         onSiteSyd,
         onSiteVan,
-        otioRole,
         pipelineStatusFullRole,
         pipelineStatusRole,
         pipelineStepRole,
@@ -97,6 +100,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
         subjectRole,
         submittedToDailiesRole,
         tagRole,
+        textFilterRole,
         thumbRole,
         twigNameRole,
         twigTypeRole,
@@ -117,10 +121,15 @@ class ShotBrowserResultModel : public JSONTreeModel {
     bool
     setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 
-    Q_INVOKABLE bool setResultData(const QStringList &data) {
-        return setResultDataFuture(data).result();
+    // Q_INVOKABLE bool setResultData(const QStringList &data) {
+    //     return setResultDataFuture(data).result();
+    // }
+    // Q_INVOKABLE QFuture<bool> setResultDataFuture(const QStringList &data);
+
+    Q_INVOKABLE bool setResultDataJSON(const QVariant &data) {
+        return setResultDataJSONFuture(data).result();
     }
-    Q_INVOKABLE QFuture<bool> setResultDataFuture(const QStringList &data);
+    Q_INVOKABLE QFuture<bool> setResultDataJSONFuture(const QVariant &data);
 
     void fetchMore(const QModelIndex &parent) override;
 
@@ -130,10 +139,11 @@ class ShotBrowserResultModel : public JSONTreeModel {
     [[nodiscard]] int executionMilliseconds() const;
 
     [[nodiscard]] QUuid presetId() const;
-    [[nodiscard]] QUuid groupId() const;
+    [[nodiscard]] QVariant groupDetail() const;
 
-    [[nodiscard]] QString audioSource() const;
-    [[nodiscard]] QString visualSource() const;
+    [[nodiscard]] QStringList audioSource() const;
+    [[nodiscard]] QStringList visualSource() const;
+    [[nodiscard]] QStringList sequenceSource() const;
     [[nodiscard]] QString flagColour() const;
     [[nodiscard]] QString flagText() const;
     [[nodiscard]] QString entity() const;
@@ -234,6 +244,8 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
             &QSortFilterProxyModel::rowsMoved,
             this,
             &ShotBrowserResultFilterModel::lengthChanged);
+
+        filterNameRE_.setPatternOptions(QRegularExpression::CaseInsensitiveOption);
     }
 
     [[nodiscard]] bool sortByNaturalOrder() const { return ordering_ == OM_NATURAL; }
@@ -302,6 +314,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
 
     QString filterPipeStep_{};
     QString filterName_{};
+    QRegularExpression filterNameRE_{};
 
     OrderMode ordering_{OM_NATURAL};
 };

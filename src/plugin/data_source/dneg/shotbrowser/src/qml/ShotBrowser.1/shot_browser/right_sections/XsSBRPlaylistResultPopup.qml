@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
 import QuickFuture 1.0
 
 import xStudio 1.0
@@ -62,7 +58,8 @@ XsPopupMenu {
     }
 
     XsMenuModelItem {
-        text: "Reveal In ShotGrid"
+        text: "Reveal In ShotGrid..." + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuItemPosition: 5
         menuPath: ""
         menuModelName: rightClickMenu.menu_model_name

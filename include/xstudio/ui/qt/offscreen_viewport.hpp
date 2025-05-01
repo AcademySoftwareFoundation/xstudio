@@ -52,8 +52,9 @@ namespace ui {
 
           public slots:
 
-            void autoDelete();
+            void cleanup();
             void sceneChanged();
+            void renderViewportUnderQML();
 
           private:
             caf::actor_system &system() { return self()->home_system(); }
@@ -116,7 +117,7 @@ namespace ui {
                 const caf::uri path,
                 const std::string &ext);
 
-            void setupTextureAndFrameBuffer(
+            bool setupTextureAndFrameBuffer(
                 const int width, const int height, const viewport::ImageFormat format);
 
             void make_conversion_lut();
@@ -148,6 +149,7 @@ namespace ui {
             caf::actor video_output_actor_;
             std::vector<media_reader::ImageBufPtr> output_buffers_;
             media_reader::ImageBufPtr last_rendered_frame_;
+            media_reader::ImageBufPtr image_to_render_;
             std::vector<uint32_t> half_to_int_32_lut_;
 
             caf::actor local_playhead_;

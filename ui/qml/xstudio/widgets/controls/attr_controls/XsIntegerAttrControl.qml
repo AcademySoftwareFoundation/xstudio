@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.14
-import QtQuick.Controls 2.14
-import QtQuick.Controls 1.4
-import QtQuick.Layouts 1.15
-import QtGraphicalEffects 1.15
+import QtQuick
+
+
+import QtQuick.Layouts
+
 
 import xStudio 1.0
 
@@ -31,7 +31,10 @@ RowLayout {
         sortAscending: true
         property var attrTitle: attr_title
         onAttrTitleChanged: {
-            setRoleFilter(attrTitle, "title")
+            if (sourceModel) setRoleFilter(attrTitle, "title")
+        }
+        onSourceModelChanged: {
+            if (attrTitle) setRoleFilter(attrTitle, "title")
         }
     }
 
@@ -42,6 +45,8 @@ RowLayout {
             text: root.text
             fromValue: integer_min
             toValue: integer_max
+            width: 100
+            height: 50
         }
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <set>
 #include <nlohmann/json.hpp>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/ui/qml/model_data_ui.hpp"
@@ -72,12 +73,8 @@ void UIModelData::setModelDataName(QString name) {
 
         if (model_name_ != "") {
             // stops us from watching the old model
-            anon_send(
-                central_models_data_actor_,
-                ui::model_data::register_model_data_atom_v,
-                model_name_,
-                true,
-                as_actor());
+            anon_mail(ui::model_data::register_model_data_atom_v, model_name_, true, as_actor())
+                .send(central_models_data_actor_);
         }
 
         model_name_ = m_name;
@@ -121,8 +118,6 @@ void UIModelData::setModelDataName(QString name) {
 
 void UIModelData::init(caf::actor_system &system) {
     super::init(system);
-
-    self()->set_default_handler(caf::drop);
 
     try {
         utility::print_on_create(as_actor(), "UIModelData");
@@ -227,7 +222,8 @@ void UIModelData::init(caf::actor_system &system) {
                     setModelData(data);
                 }
                 return true;
-            }};
+            },
+            [=](caf::message) {}};
     });
 }
 
@@ -255,12 +251,12 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
                                               .constData());
             }
 
-            anon_send(
-                central_models_data_actor_,
+            anon_mail(
                 xstudio::ui::model_data::set_node_data_atom_v,
                 model_name_,
                 reverse_apply_filter(path),
-                j);
+                j)
+                .send(central_models_data_actor_);
 
 
         } else {
@@ -271,13 +267,13 @@ bool UIModelData::setData(const QModelIndex &index, const QVariant &value, int r
             if (id >= 0 and id < static_cast<int>(role_names_.size())) {
                 auto field        = role_names_.at(id);
                 nlohmann::json &j = indexToData(index);
-                anon_send(
-                    central_models_data_actor_,
+                anon_mail(
                     xstudio::ui::model_data::set_node_data_atom_v,
                     model_name_,
                     reverse_apply_filter(path),
                     utility::JsonStore(j[field]),
-                    field);
+                    field)
+                    .send(central_models_data_actor_);
             }
         }
 
@@ -296,13 +292,13 @@ bool UIModelData::removeRows(int row, int count, const QModelIndex &parent) {
     try {
 
         auto path = getIndexPath(parent).to_string();
-        anon_send(
-            central_models_data_actor_,
+        anon_mail(
             xstudio::ui::model_data::remove_rows_atom_v,
             model_name_,
             reverse_apply_filter(path),
             row,
-            count);
+            count)
+            .send(central_models_data_actor_);
 
         result = true;
 
@@ -323,14 +319,14 @@ bool UIModelData::removeRowsSync(int row, int count, const QModelIndex &parent) 
         auto path = getIndexPath(parent).to_string();
 
         auto a = caf::actor_cast<caf::event_based_actor *>(self());
-        a->send(
-            central_models_data_actor_,
-            xstudio::ui::model_data::remove_rows_atom_v,
-            model_name_,
-            reverse_apply_filter(path),
-            row,
-            count,
-            false);
+        a->mail(
+             xstudio::ui::model_data::remove_rows_atom_v,
+             model_name_,
+             reverse_apply_filter(path),
+             row,
+             count,
+             false)
+            .send(central_models_data_actor_);
 
         result = JSONTreeModel::removeRows(row, count, parent);
 
@@ -359,12 +355,12 @@ bool UIModelData::moveRows(
         // we send the whole data set to the central models data store as
         // move rows hasn't been properly implemented on that backend
         auto a = caf::actor_cast<caf::event_based_actor *>(self());
-        a->send(
-            central_models_data_actor_,
-            xstudio::ui::model_data::reset_model_atom_v,
-            model_name_,
-            utility::JsonStore(modelData()),
-            false);
+        a->mail(
+             xstudio::ui::model_data::reset_model_atom_v,
+             model_name_,
+             utility::JsonStore(modelData()),
+             false)
+            .send(central_models_data_actor_);
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -384,14 +380,14 @@ bool UIModelData::insertRows(int row, int count, const QModelIndex &parent) {
 
         auto bod = R"({})";
 
-        anon_send(
-            central_models_data_actor_,
+        anon_mail(
             xstudio::ui::model_data::insert_rows_atom_v,
             model_name_,
             reverse_apply_filter(path),
             row,
             count,
-            utility::JsonStore(nlohmann::json::parse(bod)));
+            utility::JsonStore(nlohmann::json::parse(bod)))
+            .send(central_models_data_actor_);
 
         result = true;
 
@@ -416,15 +412,15 @@ bool UIModelData::insertRowsSync(int row, int count, const QModelIndex &parent) 
         // this instance of UIModelData, because we are going to update our
         // own local copy of the model data
         auto a = caf::actor_cast<caf::event_based_actor *>(self());
-        a->send(
-            central_models_data_actor_,
-            xstudio::ui::model_data::insert_rows_atom_v,
-            model_name_,
-            reverse_apply_filter(path),
-            row,
-            count,
-            utility::JsonStore(nlohmann::json::parse(bod)),
-            false);
+        a->mail(
+             xstudio::ui::model_data::insert_rows_atom_v,
+             model_name_,
+             reverse_apply_filter(path),
+             row,
+             count,
+             utility::JsonStore(nlohmann::json::parse(bod)),
+             false)
+            .send(central_models_data_actor_);
 
         // here we update our own
         result = JSONTreeModel::insertRows(row, count, parent);
@@ -446,12 +442,12 @@ void UIModelData::nodeActivated(
             add_context_object_lookup(context_panel);
         }
         // Tell the backend item that a node in the model has been 'activated'
-        anon_send(
-            central_models_data_actor_,
+        anon_mail(
             xstudio::ui::model_data::menu_node_activated_atom_v,
             model_name_,
             reverse_apply_filter(path),
-            StdFromQString(Helpers::objPtrTostring(context_panel)));
+            StdFromQString(Helpers::objPtrTostring(context_panel)))
+            .send(central_models_data_actor_);
 
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -502,11 +498,8 @@ std::string UIModelData::reverse_apply_filter(const std::string &path) const {
 
 void UIModelData::restoreDefaults() {
 
-    anon_send(
-        central_models_data_actor_,
-        xstudio::ui::model_data::reset_model_atom_v,
-        model_name_,
-        data_preference_path_);
+    anon_mail(xstudio::ui::model_data::reset_model_atom_v, model_name_, data_preference_path_)
+        .send(central_models_data_actor_);
 }
 
 void UIModelData::add_context_object_lookup(QObject *obj) {
@@ -535,6 +528,7 @@ MenusModelData::MenusModelData(QObject *parent) : UIModelData(parent) {
         "choices",
         "choices_ids",
         "current_choice",
+        "combo_box_options_enabled",
         "hotkey_uuid",
         "menu_icon",
         "custom_menu_qml",
@@ -553,11 +547,8 @@ ViewsModelData::ViewsModelData(QObject *parent) : UIModelData(parent) {
     setModelDataName("view widgets");
 
     // make the rows in the model order by the 'button_position' role
-    anon_send(
-        central_models_data_actor_,
-        ui::model_data::set_row_ordering_role_atom_v,
-        "view widgets",
-        "position");
+    anon_mail(ui::model_data::set_row_ordering_role_atom_v, "view widgets", "position")
+        .send(central_models_data_actor_);
 }
 
 void ViewsModelData::register_view(QString qml_path, QString view_name, const float position) {
@@ -573,15 +564,15 @@ void ViewsModelData::register_view(QString qml_path, QString view_name, const fl
     data["view_name"]       = StdFromQString(view_name);
     data["view_qml_source"] = StdFromQString(qml_path);
     data["position"]        = position;
-    anon_send(
-        central_models_data_actor_,
+    anon_mail(
         ui::model_data::insert_rows_atom_v,
         "view widgets", // the model called 'view widgets' is what's used to build the
                         // panels menu
         "",             // (path) add to root
         0,              // row
         1,              // count
-        data);
+        data)
+        .send(central_models_data_actor_);
 }
 
 QVariant ViewsModelData::view_qml_source(QString view_name) {
@@ -607,11 +598,8 @@ PopoutWindowsData::PopoutWindowsData(QObject *parent) : UIModelData(parent) {
     setModelDataName("popout windows");
 
     // make the rows in the model order by the 'button_position' role
-    anon_send(
-        central_models_data_actor_,
-        ui::model_data::set_row_ordering_role_atom_v,
-        "popout windows",
-        "button_position");
+    anon_mail(ui::model_data::set_row_ordering_role_atom_v, "popout windows", "button_position")
+        .send(central_models_data_actor_);
 }
 
 void PopoutWindowsData::register_popout_window(
@@ -633,14 +621,14 @@ void PopoutWindowsData::register_popout_window(
 
     try {
 
-        anon_send(
-            central_models_data_actor_,
+        anon_mail(
             ui::model_data::insert_rows_atom_v,
             "popout windows",
             "", // (path) add to root
             0,  // row
             1,  // count
-            data);
+            data)
+            .send(central_models_data_actor_);
 
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -876,113 +864,6 @@ MediaListColumnsModel::MediaListColumnsModel(QObject *parent)
         "regex_format"});
 }
 
-MediaListFilterModel::MediaListFilterModel(QObject *parent) : super(parent) {
-    setDynamicSortFilter(true);
-}
-
-bool MediaListFilterModel::filterAcceptsRow(
-    int source_row, const QModelIndex &source_parent) const {
-
-    // filter in Media items only
-    QVariant t = sourceModel()->data(
-        sourceModel()->index(source_row, 0, source_parent), SessionModel::Roles::typeRole);
-
-    if (t.toString() != "Media")
-        return false;
-
-    // return false;
-    // surely we never run this if sourceModel is nullptr but check just in case.
-    if (search_string_.isEmpty())
-        return true;
-
-    // here we get the mediaDisplayInfoRole data ... this is QList<QList<QVariant>>
-    // The outer list is because we have multiple media list panels with independently
-    // configured columns of information - one inner list per media list panel
-    // The inner list is the data for each column that is shown in the media list
-    // panel against each media item
-    QVariant v = sourceModel()->data(
-        sourceModel()->index(source_row, 0, source_parent),
-        SessionModel::Roles::mediaDisplayInfoRole);
-
-
-    QList<QVariant> cols = v.toList();
-    if (cols.size()) {
-        bool match = false;
-        // do a string match against any bit of data that can be converted
-        // to a string
-        for (const auto &col : cols) {
-            if (col.toString().contains(search_string_, Qt::CaseInsensitive)) {
-                match = true;
-                break;
-            }
-        }
-        return match;
-    }
-    return true;
-}
-
-QModelIndex MediaListFilterModel::rowToSourceIndex(const int row) const {
-
-    QModelIndex srcIdx;
-    if (row == -1) {
-        // last row
-        srcIdx                      = mapToSource(index(rowCount() - 1, 0));
-        QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
-        if (mdl) {
-            srcIdx = mdl->mapToModel(srcIdx);
-        }
-        // next item
-        srcIdx = srcIdx.siblingAtRow(srcIdx.row() + 1);
-
-    } else {
-        srcIdx                      = mapToSource(index(row, 0));
-        QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
-        if (mdl) {
-            srcIdx = mdl->mapToModel(srcIdx);
-        }
-    }
-    return srcIdx;
-}
-
-int MediaListFilterModel::sourceIndexToRow(const QModelIndex &idx) const {
-
-    // idx comes from SessionModelUI, which is the sourceModel of OUR sourceModel
-    QModelIndex remapped        = idx;
-    QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
-    if (mdl) {
-        // map from SessionModelUI to OUR sourceModel
-        remapped = mdl->mapFromModel(remapped);
-    }
-    // now map from OUR sourceModel to our own index
-    remapped = mapFromSource(remapped);
-    if (!remapped.isValid())
-        return -1;
-    return remapped.row();
-}
-
-int MediaListFilterModel::getRowWithMatchingRoleData(
-    const QVariant &searchValue, const QString &searchRole) const {
-
-    QTreeModelToTableModel *mdl = dynamic_cast<QTreeModelToTableModel *>(sourceModel());
-    if (mdl) {
-        // map from SessionModelUI to OUR sourceModel
-        SessionModel *sessionModel = dynamic_cast<SessionModel *>(mdl->model());
-        if (sessionModel) {
-            // note - we use this for the auto-scroll in the media list. We have the uuid of the
-            // on-screen media, we need to find our row in the model. If we are looking at a
-            // playlist, we don't want to match to media in a subset or timeline that also
-            // contains the media. The depth=2 in this call means we only search the playlist
-            // not its children
-            QModelIndex r =
-                sessionModel->searchRecursive(searchValue, searchRole, mdl->rootIndex(), 0, 2);
-            if (r.isValid()) {
-                return sourceIndexToRow(r);
-            }
-        }
-    }
-    return -1;
-}
-
 MenuModelItem::MenuModelItem(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 }
@@ -998,8 +879,6 @@ MenuModelItem::~MenuModelItem() {
 
 void MenuModelItem::init(caf::actor_system &system) {
     super::init(system);
-
-    self()->set_default_handler(caf::drop);
 
     try {
         utility::print_on_create(as_actor(), "MenuModelItem");
@@ -1038,7 +917,8 @@ void MenuModelItem::init(caf::actor_system &system) {
                     setCurrentChoice(QStringFromStd(data.get<std::string>()));
                 }
                 dont_update_model_ = false;
-            }};
+            },
+            [=](caf::message) {}};
     });
 }
 
@@ -1144,11 +1024,8 @@ void MenuModelItem::insertIntoMenuModel() {
             if (!model_entry_id_.is_null() && item_id != model_entry_id_) {
                 // NEEDS OPTIMISATION!!!! THIS GETS CALLED LIKE MAD AS MENU_ITEMS BUILD
                 std::string menu_name_string = StdFromQString(menu_name_);
-                anon_send(
-                    central_models_data_actor,
-                    ui::model_data::remove_node_atom_v,
-                    menu_name_string,
-                    model_entry_id_);
+                anon_mail(ui::model_data::remove_node_atom_v, menu_name_string, model_entry_id_)
+                    .send(central_models_data_actor);
             }
             model_entry_id_ = item_id;
 
@@ -1167,13 +1044,13 @@ void MenuModelItem::insertIntoMenuModel() {
 
             std::string menu_name_string = StdFromQString(menu_name_);
             std::string menu_path_string = StdFromQString(menu_path_);
-            anon_send(
-                central_models_data_actor,
+            anon_mail(
                 ui::model_data::insert_or_update_menu_node_atom_v,
                 menu_name_string,
                 menu_path_string,
                 menu_item_data,
-                as_actor());
+                as_actor())
+                .send(central_models_data_actor);
 
         } catch (std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -1192,12 +1069,12 @@ void MenuModelItem::setMenuPathPosition(const QString &menu_path, const QVariant
         const float pos = position.toFloat(&ok);
 
         if (ok) {
-            anon_send(
-                central_models_data_actor,
+            anon_mail(
                 ui::model_data::insert_or_update_menu_node_atom_v,
                 StdFromQString(menu_name_),
                 StdFromQString(menu_path),
-                pos);
+                pos)
+                .send(central_models_data_actor);
         } else {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, "Third parameter should be a number.");
         }
@@ -1218,18 +1095,25 @@ QObject *MenuModelItem::contextPanel() {
     return nullptr;
 }
 
-PanelMenuModelFilter::PanelMenuModelFilter(QObject *parent) : QSortFilterProxyModel(parent) {
+PanelMenuModelFilter::PanelMenuModelFilter(QObject *parent) : QSortFilterProxyModel(parent) {}
 
-    QObject::connect(this, &QSortFilterProxyModel::sourceModelChanged, [=]() {
-        if (auto m = dynamic_cast<UIModelData *>(sourceModel())) {
-            menu_item_context_role_id_ = m->roleId(QString("menu_item_context"));
-            source_model_              = m;
-        }
-    });
+void PanelMenuModelFilter::setSourceModel(QAbstractItemModel *sourceModel) {
+
+    if (auto m = dynamic_cast<UIModelData *>(sourceModel)) {
+        menu_item_context_role_id_ = m->roleId(QString("menu_item_context"));
+        source_model_              = m;
+    } else {
+        menu_item_context_role_id_ = 0;
+        source_model_              = nullptr;
+    }
+    QSortFilterProxyModel::setSourceModel(sourceModel);
 }
 
 bool PanelMenuModelFilter::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
+
+    if (!sourceModel())
+        return false;
 
     if (menu_item_context_role_id_) {
 

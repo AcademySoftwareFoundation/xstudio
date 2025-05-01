@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -77,14 +73,15 @@ XsPopupMenu {
         menuModelName: rightClickMenu.menu_model_name
     }
     XsMenuModelItem {
-        text: "Reveal In ShotGrid"
+        text: "Reveal In ShotGrid..." + (enabled ? "" : " (Production Only)")
+        enabled: ShotBrowserEngine.shotGridUserType != "User"
         menuItemPosition: 5
         menuPath: ""
         menuModelName: rightClickMenu.menu_model_name
         onActivated: ShotBrowserHelpers.revealInShotgrid(popupSelectionModel.selectedIndexes)
     }
     XsMenuModelItem {
-        text: "Reveal In Ivy"
+        text: "Reveal In Ivy..."
         menuItemPosition: 6
         menuPath: ""
         menuModelName: rightClickMenu.menu_model_name
@@ -121,6 +118,19 @@ XsPopupMenu {
     //     onActivated: {}
     // }
 
+    XsMenuModelItem {
+        text: "To Here"
+        menuItemPosition: 0.5
+        menuPath: "Transfer Selected"
+        menuModelName: rightClickMenu.menu_model_name
+        onActivated: ShotBrowserHelpers.transfer(helpers.getEnv("DNSITEDATA_SHORT_NAME"), popupSelectionModel.selectedIndexes)
+    }
+    XsMenuModelItem {
+        menuItemType: "divider"
+        menuItemPosition: 0.6
+        menuPath: "Transfer Selected"
+        menuModelName: rightClickMenu.menu_model_name
+    }
 
     XsMenuModelItem {
         text: "To Chennai"
@@ -186,7 +196,7 @@ XsPopupMenu {
                         uuids.push(helpers.QUuidToQString(uuid))
                 }
             }
-            helpers.startDetachedProcess("dnenv-do", [helpers.getEnv("SHOW"), helpers.getEnv("SHOT"), "--", "maketransfer"].concat(uuids))
+            helpers.startDetachedProcess("dnenv-do", [helpers.getEnv("SHOW"), "--", "maketransfer"].concat(uuids))
         }
 
         Component.onCompleted: {

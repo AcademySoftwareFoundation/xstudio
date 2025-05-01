@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.14
+import QtQuick
 
 Rectangle {
     color: "white"

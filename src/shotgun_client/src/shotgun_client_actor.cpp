@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -461,7 +462,8 @@ void ShotgunClientActor::acquire_token_primary(
         // spdlog::warn("not base_.refresh_token().empty()");
         if (request_refresh_queue_.empty()) {
             request_refresh_queue_.push(rp);
-            request(actor_cast<caf::actor>(this), infinite, shotgun_refresh_token_atom_v)
+            mail(shotgun_refresh_token_atom_v)
+                .request(actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](const std::pair<std::string, std::string> &tokens) mutable {
                         // spdlog::info("refresh from token");
@@ -490,11 +492,10 @@ void ShotgunClientActor::acquire_token_primary(
         } else {
             // spdlog::info("refresh from login");
             // request secret.
-            request(
-                actor_cast<caf::actor>(secret_source_),
-                infinite,
+            mail(
                 shotgun_acquire_authentication_atom_v,
                 base_.failed_authentication() ? "Authentication failed, try again." : "")
+                .request(actor_cast<caf::actor>(secret_source_), infinite)
                 .then(
                     [=](const AuthenticateShotgun &auth) mutable {
                         base_.set_credentials_method(auth);
@@ -516,14 +517,13 @@ void ShotgunClientActor::acquire_token(
         request_acquire_queue_.push(rp);
 
         // spdlog::error("REQUEST ACCESS TOKEN");
-        request(
-            http_,
-            infinite,
+        mail(
             http_post_simple_atom_v,
             base_.scheme_host_port(),
             "/api/v1/auth/access_token",
             base_.get_headers(),
             base_.get_auth_request_params())
+            .request(http_, infinite)
             .then(
                 [=](const std::string &body) mutable {
                     try {
@@ -535,11 +535,11 @@ void ShotgunClientActor::acquire_token(
                             j["refresh_token"],
                             j["expires_in"]);
                         base_.set_authenticated(true);
-                        send(
-                            event_group_,
+                        mail(
                             utility::event_atom_v,
                             shotgun_acquire_token_atom_v,
-                            std::make_pair(base_.token(), base_.refresh_token()));
+                            std::make_pair(base_.token(), base_.refresh_token()))
+                            .send(event_group_);
 
                         while (not request_acquire_queue_.empty()) {
                             request_acquire_queue_.front().deliver(
@@ -582,14 +582,13 @@ void ShotgunClientActor::refresh_token(
         rp.deliver(std::make_pair(base_.token(), base_.refresh_token()));
     } else {
         // spdlog::error("REFRESH TOKEN");
-        request(
-            http_,
-            infinite,
+        mail(
             http_post_simple_atom_v,
             base_.scheme_host_port(),
             "/api/v1/auth/access_token",
             base_.get_headers(),
             base_.get_auth_refresh_params())
+            .request(http_, infinite)
             .then(
                 [=](const std::string &body) mutable {
                     try {
@@ -600,19 +599,11 @@ void ShotgunClientActor::refresh_token(
                             j["access_token"],
                             j["refresh_token"],
                             j["expires_in"]);
-                        // auto refresh
-                        //          delayed_anon_send(
-                        //  actor_cast<caf::actor>(this),
-                        //  std::chrono::seconds(1),
-                        //  shotgun_acquire_token_atom_v
-                        // );
-                        // spdlog::error("REFRESH TOKEN SUCCESS {} {}", base_.token(),
-                        // base_.refresh_token());
-                        send(
-                            event_group_,
+                        mail(
                             utility::event_atom_v,
                             shotgun_acquire_token_atom_v,
-                            std::make_pair(base_.token(), base_.refresh_token()));
+                            std::make_pair(base_.token(), base_.refresh_token()))
+                            .send(event_group_);
                         rp.deliver(std::make_pair(base_.token(), base_.refresh_token()));
                     } catch (const std::exception &err) {
                         // spdlog::error("FAILED REFRESH");
@@ -629,9 +620,7 @@ void ShotgunClientActor::request_image(
     const bool thumbnail,
     caf::typed_response_promise<std::string> rp) {
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_get_atom_v,
         base_.scheme_host_port(),
         std::string(fmt::format(
@@ -640,6 +629,7 @@ void ShotgunClientActor::request_image(
             record_id,
             (thumbnail ? "thumbnail" : "original"))),
         base_.get_auth_headers())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 if (response.status == 200)
@@ -671,38 +661,40 @@ void ShotgunClientActor::request_attachment(
     const std::string &property,
     caf::typed_response_promise<std::string> rp) {
 
-    request(
-        http_,
-        infinite,
-        http_get_atom_v,
-        base_.scheme_host_port(),
-        std::string(
-            fmt::format("/api/v1/entity/{}/{}/{}?alt=original", entity, record_id, property)),
-        base_.get_auth_headers())
-        // base_.get_auth_headers("video/webm"))
-        .then(
-            [=](const httplib::Response &response) mutable {
-                if (response.status == 200) {
-                    return rp.deliver(response.body);
-                }
+    std::string path;
 
-                try {
-                    auto jsn = nlohmann::json::parse(response.body);
-                    if (not check_failed_authenticate(jsn, rp, [=]() {
-                            request_attachment(entity, record_id, property, rp);
-                        })) {
-                        // missing thumbnail
-                        rp.deliver(make_error(sce::response_error, response.body));
+    if (property.empty())
+        path = std::string(fmt::format("/api/v1/entity/{}/{}?alt=original", entity, record_id));
+    else
+        path = std::string(
+            fmt::format("/api/v1/entity/{}/{}/{}?alt=original", entity, record_id, property)),
+
+        mail(http_get_atom_v, base_.scheme_host_port(), path, base_.get_auth_headers())
+            // base_.get_auth_headers("video/webm"))
+            .request(http_, infinite)
+            .then(
+                [=](const httplib::Response &response) mutable {
+                    if (response.status == 200) {
+                        return rp.deliver(response.body);
                     }
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    rp.deliver(make_error(sce::response_error, err.what()));
-                }
-            },
-            [=](error &err) mutable {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                rp.deliver(std::move(err));
-            });
+
+                    try {
+                        auto jsn = nlohmann::json::parse(response.body);
+                        if (not check_failed_authenticate(jsn, rp, [=]() {
+                                request_attachment(entity, record_id, property, rp);
+                            })) {
+                            // missing thumbnail
+                            rp.deliver(make_error(sce::response_error, response.body));
+                        }
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        rp.deliver(make_error(sce::response_error, err.what()));
+                    }
+                },
+                [=](error &err) mutable {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                    rp.deliver(std::move(err));
+                });
 }
 
 void ShotgunClientActor::request_text_search(
@@ -719,15 +711,14 @@ void ShotgunClientActor::request_text_search(
     jsn["entity_types"]   = conditions;
 
     // requires authentication..
-    request(
-        http_,
-        infinite,
+    mail(
         http_post_atom_v,
         base_.scheme_host_port(),
         std::string("/api/v1/entity/_text_search"),
         base_.get_auth_headers(),
         jsn.dump(),
         base_.content_type_hash())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -759,14 +750,8 @@ void ShotgunClientActor::request_schema_entity_fields(
         path += "/" + field;
 
     // requires authentication..
-    request(
-        http_,
-        infinite,
-        http_get_atom_v,
-        base_.scheme_host_port(),
-        path,
-        base_.get_auth_headers(),
-        params)
+    mail(http_get_atom_v, base_.scheme_host_port(), path, base_.get_auth_headers(), params)
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -830,14 +815,13 @@ void ShotgunClientActor::request_entity_filter(
         */
         // requires authentication..
 
-        request(
-            http_,
-            infinite,
+        mail(
             http_get_atom_v,
             base_.scheme_host_port(),
             std::string("/api/v1/entity/" + entity),
             base_.get_auth_headers(),
             params)
+            .request(http_, infinite)
             .then(
                 [=](const httplib::Response &response) mutable {
                     try {
@@ -864,14 +848,13 @@ void ShotgunClientActor::request_entity(
     const std::vector<std::string> &fields,
     caf::typed_response_promise<utility::JsonStore> rp) {
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_get_atom_v,
         base_.scheme_host_port(),
         std::string("/api/v1/entity/" + entity + "/" + std::to_string(record_id)),
         base_.get_auth_headers(),
         httplib::Params({{"fields", fields.empty() ? "*" : join_as_string(fields, ",")}}))
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -906,15 +889,14 @@ void ShotgunClientActor::request_entity_search(
     jsn["filters"] = conditions;
 
     // requires authentication..
-    request(
-        http_,
-        infinite,
+    mail(
         http_post_atom_v,
         base_.scheme_host_port(),
         std::string("/api/v1/entity/" + entity + "/_search"),
         base_.get_auth_headers(),
         jsn.dump(),
         base_.content_type_hash())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -944,14 +926,13 @@ void ShotgunClientActor::request_schema_entity(
         params.insert(std::make_pair("project_id", std::to_string(id)));
 
     // requires authentication..
-    request(
-        http_,
-        infinite,
+    mail(
         http_get_atom_v,
         base_.scheme_host_port(),
         "/api/v1/schema/" + entity,
         base_.get_auth_headers(),
         params)
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -976,14 +957,13 @@ void ShotgunClientActor::request_schema(
     if (id != -1)
         params.insert(std::make_pair("project_id", std::to_string(id)));
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_get_atom_v,
         base_.scheme_host_port(),
         "/api/v1/schema",
         base_.get_auth_headers(),
         params)
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1002,13 +982,8 @@ void ShotgunClientActor::request_schema(
 void ShotgunClientActor::request_link(
     const std::string &link, caf::typed_response_promise<utility::JsonStore> rp) {
     // spdlog::warn("shotgun_link_atom");
-    request(
-        http_,
-        infinite,
-        http_get_atom_v,
-        base_.scheme_host_port(),
-        link,
-        base_.get_auth_headers())
+    mail(http_get_atom_v, base_.scheme_host_port(), link, base_.get_auth_headers())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1031,9 +1006,7 @@ void ShotgunClientActor::update_entity(
     const std::vector<std::string> &fields,
     caf::typed_response_promise<utility::JsonStore> rp) {
 
-    request(
-        http_,
-        infinite,
+    mail(
         http_put_atom_v,
         base_.scheme_host_port(),
         std::string("/api/v1/entity/" + entity + "/" + std::to_string(record_id)),
@@ -1042,6 +1015,7 @@ void ShotgunClientActor::update_entity(
         httplib::Params(
             {{"options[fields]", fields.empty() ? "*" : join_as_string(fields, ",")}}),
         base_.content_type_json())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1062,15 +1036,14 @@ void ShotgunClientActor::delete_entity(
     const std::string &entity,
     const int record_id,
     caf::typed_response_promise<utility::JsonStore> rp) {
-    request(
-        http_,
-        infinite,
+    mail(
         http_delete_atom_v,
         base_.scheme_host_port(),
         std::string("/api/v1/entity/" + entity + "/") + std::to_string(record_id),
         base_.get_auth_headers(),
         "",
         base_.content_type_json())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1094,15 +1067,14 @@ void ShotgunClientActor::create_entity(
     const std::string &entity,
     const JsonStore &body,
     caf::typed_response_promise<utility::JsonStore> rp) {
-    request(
-        http_,
-        infinite,
+    mail(
         http_post_atom_v,
         base_.scheme_host_port(),
         std::string("/api/v1/entity/" + entity),
         base_.get_auth_headers(),
         body.dump(),
         base_.content_type_json())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1121,13 +1093,8 @@ void ShotgunClientActor::create_entity(
 void ShotgunClientActor::request_info(caf::typed_response_promise<utility::JsonStore> rp) {
 
     // spdlog::warn("shotgun_info_atom");
-    request(
-        http_,
-        infinite,
-        http_get_simple_atom_v,
-        base_.scheme_host_port(),
-        "/api/v1/",
-        base_.get_headers())
+    mail(http_get_simple_atom_v, base_.scheme_host_port(), "/api/v1/", base_.get_headers())
+        .request(http_, infinite)
         .then(
             [=](const std::string &body) mutable {
                 try {
@@ -1141,13 +1108,12 @@ void ShotgunClientActor::request_info(caf::typed_response_promise<utility::JsonS
 
 void ShotgunClientActor::request_preference(
     caf::typed_response_promise<utility::JsonStore> rp) {
-    request(
-        http_,
-        infinite,
+    mail(
         http_get_atom_v,
         base_.scheme_host_port(),
         "/api/v1/preferences",
         base_.get_auth_headers())
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1175,14 +1141,8 @@ void ShotgunClientActor::upload_start(
         url += field + "/";
     url += "_upload";
 
-    request(
-        http_,
-        infinite,
-        http_get_atom_v,
-        base_.scheme_host_port(),
-        url,
-        base_.get_auth_headers(),
-        params)
+    mail(http_get_atom_v, base_.scheme_host_port(), url, base_.get_auth_headers(), params)
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1214,15 +1174,14 @@ void ShotgunClientActor::upload_transfer(
         auto path      = url.substr(host_port.size());
         auto headers   = httplib::Headers({{"Content-Type", content_type}});
 
-        request(
-            http_,
-            infinite,
+        mail(
             http_put_atom_v,
             host_port,
             path,
             headers,
             std::string(reinterpret_cast<const char *>(data.data()), data.size()),
             content_type)
+            .request(http_, infinite)
             .then(
                 [=](const httplib::Response &response) mutable {
                     try {
@@ -1245,15 +1204,14 @@ void ShotgunClientActor::upload_finish(
     const std::string &path,
     const JsonStore &info,
     caf::typed_response_promise<utility::JsonStore> rp) {
-    request(
-        http_,
-        infinite,
+    mail(
         http_post_atom_v,
         base_.scheme_host_port(),
         path,
         base_.get_auth_headers(),
         info.dump(2),
         "application/json")
+        .request(http_, infinite)
         .then(
             [=](const httplib::Response &response) mutable {
                 try {
@@ -1284,14 +1242,8 @@ void ShotgunClientActor::upload(
     const std::vector<std::byte> &data,
     const std::string &content_type,
     caf::typed_response_promise<bool> rp) {
-    request(
-        caf::actor_cast<caf::actor>(this),
-        infinite,
-        shotgun_upload_atom_v,
-        entity,
-        record_id,
-        field,
-        name)
+    mail(shotgun_upload_atom_v, entity, record_id, field, name)
+        .request(caf::actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const JsonStore &upload_req) mutable {
                 // should have destination for upload and completion url.
@@ -1299,13 +1251,8 @@ void ShotgunClientActor::upload(
                 // trim prefix..
                 // upload..
                 // spdlog::warn("{}", upload_req.dump(2));
-                request(
-                    caf::actor_cast<caf::actor>(this),
-                    infinite,
-                    shotgun_upload_atom_v,
-                    upload_link,
-                    content_type,
-                    data)
+                mail(shotgun_upload_atom_v, upload_link, content_type, data)
+                    .request(caf::actor_cast<caf::actor>(this), infinite)
                     .then(
                         [=](const JsonStore &upload_resp) mutable {
                             // if good...
@@ -1319,14 +1266,13 @@ void ShotgunClientActor::upload(
                                     upload_resp["data"]["upload_id"];
 
                             // finalise upload..
-                            request(
-                                caf::actor_cast<caf::actor>(this),
-                                infinite,
+                            mail(
                                 shotgun_upload_atom_v,
                                 upload_resp.at("links")
                                     .at("complete_upload")
                                     .get<std::string>(),
                                 info)
+                                .request(caf::actor_cast<caf::actor>(this), infinite)
                                 .then(
                                     [=](const JsonStore &final) mutable {
                                         // spdlog::warn("{}", final.dump(2));
@@ -1345,13 +1291,8 @@ void ShotgunClientActor::request_image_buffer(
     const bool thumbnail,
     const bool as_buffer,
     caf::typed_response_promise<thumbnail::ThumbnailBufferPtr> rp) {
-    request(
-        actor_cast<caf::actor>(this),
-        infinite,
-        shotgun_image_atom_v,
-        entity,
-        record_id,
-        thumbnail)
+    mail(shotgun_image_atom_v, entity, record_id, thumbnail)
+        .request(actor_cast<caf::actor>(this), infinite)
         .then(
             [=](const std::string &data) mutable {
                 // request conversion..

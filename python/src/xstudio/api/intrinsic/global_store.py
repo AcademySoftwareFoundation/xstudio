@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import autosave_atom
-from xstudio.api.auxiliary.json_store import JsonStorePy
+from xstudio.api.session import Container
+from xstudio.api.auxiliary.json_store import JsonStoreHandler
 
-class GlobalStore(JsonStorePy):
+class GlobalStore(Container, JsonStoreHandler):
     """Access global state dictionary"""
 
     def __init__(self, connection, remote, uuid=None):
@@ -15,7 +16,8 @@ class GlobalStore(JsonStorePy):
         Kwargs:
             uuid(Uuid): Uuid of remote actor.
         """
-        JsonStorePy.__init__(self, connection, remote, uuid)
+        Container.__init__(self, connection, remote, uuid)
+        JsonStoreHandler.__init__(self, self)
 
     @property
     def autosave(self):

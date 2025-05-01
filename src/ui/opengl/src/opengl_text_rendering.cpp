@@ -3,8 +3,13 @@
 #include <memory>
 #include <sstream>
 
+#ifdef __apple__
+#include <OpenGL/gl3.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
+#endif
+
 #include <ft2build.h>
 #include <freetype/freetype.h>
 #include <freetype/ftoutln.h>
@@ -97,7 +102,7 @@ OpenGLTextRendererBitmap::OpenGLTextRendererBitmap(
     glGenBuffers(1, &vbo_);
     glBindVertexArray(vao_);
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8192 * 4, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8192 * 8, nullptr, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -142,7 +147,7 @@ void OpenGLTextRendererBitmap::render_text(
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // render quad
-    glDrawArrays(GL_QUADS, 0, precomputed_vertex_buffer.size() / 4);
+    glDrawArrays(GL_TRIANGLES, 0, precomputed_vertex_buffer.size() / 4);
     // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
 
     glBindVertexArray(0);
@@ -195,6 +200,13 @@ OpenGLTextRendererSDF::OpenGLTextRendererSDF(
     const std::string ttf_font_path, const int glyph_image_size_in_pixels)
     : SDFBitmapFont(ttf_font_path, glyph_image_size_in_pixels) {
 
+    int skip_rows, skip_pixels, row_length, alignment, hh;
+    glGetIntegerv(GL_UNPACK_SKIP_ROWS, &skip_rows);
+    glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &skip_pixels);
+    glGetIntegerv(GL_UNPACK_ROW_LENGTH, &row_length);
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
+    glGetIntegerv(GL_UNPACK_IMAGE_HEIGHT, &hh);
+
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // disable byte-alignment restriction
     glPixelStorei(GL_UNPACK_ROW_LENGTH, atlas_width());
     glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, atlas_height());
@@ -234,11 +246,20 @@ OpenGLTextRendererSDF::OpenGLTextRendererSDF(
     glGenBuffers(1, &vbo_);
     glBindVertexArray(vao_);
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8192 * 4, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8192, nullptr, GL_DYNAMIC_DRAW);
+    buf_size_ = 8192;
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    glBindTexture(GL_TEXTURE_RECTANGLE, 0);
+
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, skip_rows);
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, skip_pixels);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, row_length);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+    glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, hh);
 }
 
 
@@ -282,15 +303,25 @@ void OpenGLTextRendererSDF::render_text(
     // update content of vbo_ memory
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferSubData(
-        GL_ARRAY_BUFFER,
-        0,
-        sizeof(float) * precomputed_vertex_buffer.size(),
-        precomputed_vertex_buffer.data());
+    if (precomputed_vertex_buffer.size() > buf_size_) {
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            sizeof(float) * precomputed_vertex_buffer.size(),
+            precomputed_vertex_buffer.data(),
+            GL_DYNAMIC_DRAW);
+        auto b = const_cast<unsigned int *>(&buf_size_);
+        *b     = precomputed_vertex_buffer.size();
+    } else {
+        glBufferSubData(
+            GL_ARRAY_BUFFER,
+            0,
+            sizeof(float) * precomputed_vertex_buffer.size(),
+            precomputed_vertex_buffer.data());
+    }
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // render quad
-    glDrawArrays(GL_QUADS, 0, precomputed_vertex_buffer.size() / 4);
+    glDrawArrays(GL_TRIANGLES, 0, precomputed_vertex_buffer.size() / 4);
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_RECTANGLE, 0);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <limits>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/ui/opengl/shader_program_base.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -22,8 +23,7 @@ namespace {
 
 
 const char *fragment_shader = R"(
-#version 430 core
-
+#version 410 core
 #define SCENE_LINEAR 0
 #define COMPOSITING_LOG 1
 
@@ -49,18 +49,15 @@ struct Grade {
 
 uniform bool      tool_active;
 uniform int       grade_count;
-uniform sampler2D masks[32];
-uniform Grade     grades[32];
+uniform sampler2D masks[8];
+uniform Grade     grades[8];
 
-vec4 apply_grade(vec4 rgba, Grade grade)
+vec4 apply_grade(vec4 rgba, int layer_index)
 {
+
+    Grade grade = grades[layer_index];
+
     vec4 outColor = rgba;
-
-    if (!grade.grade_active)
-    {
-        return outColor;
-    }
-
 
     // Exposure
 
@@ -108,14 +105,14 @@ vec4 apply_grade(vec4 rgba, Grade grade)
 
 vec4 apply_layer(vec4 rgba, vec2 image_pos, int layer_index)
 {
-    Grade grade = grades[layer_index];
 
+    Grade grade = grades[layer_index];
     vec4 mask_color = grade.mask_active ? texture(masks[layer_index], image_pos) : vec4(1.0);
     float mask_alpha = clamp(mask_color.a, 0.0, 1.0);
 
     if (grade.mask_active && !grade.mask_editing)
     {
-        vec4 graded_col = apply_grade(rgba, grade);
+        vec4 graded_col = apply_grade(rgba, layer_index);
         return vec4(mix(rgba.rgb, graded_col.rgb, mask_alpha), rgba.a);
     }
     else if (grade.mask_active)
@@ -125,7 +122,7 @@ vec4 apply_layer(vec4 rgba, vec2 image_pos, int layer_index)
     }
     else
     {
-        return apply_grade(rgba, grade);
+        return apply_grade(rgba, layer_index);
     }
 }
 
@@ -160,13 +157,14 @@ vec4 colour_transform_op(vec4 rgba, vec2 image_pos)
 
         for (int i = 0; i < grade_count; ++i)
         {
-            int grade_space = grades[i].color_space;
-            if (grade_space != current_space)
-            {
-                image_col = apply_color_conv(image_col, current_space, grade_space);
-                current_space = grade_space;
+            if (grades[i].grade_active) {
+                if (grades[i].color_space != current_space)
+                {
+                    image_col = apply_color_conv(image_col, current_space, grades[i].color_space);
+                    current_space = grades[i].color_space;
+                }
+                image_col = apply_layer(image_col, image_pos, i);
             }
-            image_col = apply_layer(image_col, image_pos, i);
         }
 
         if (current_space != SCENE_LINEAR)
@@ -187,13 +185,15 @@ GradingColourOperator::GradingColourOperator(
 
     // ask plugin manager for the instance of the GradingTool plugin
     auto pm = system().registry().template get<caf::actor>(plugin_manager_registry);
-    request(pm, infinite, plugin_manager::get_resident_atom_v, GradingTool::PLUGIN_UUID)
+    mail(plugin_manager::get_resident_atom_v, GradingTool::PLUGIN_UUID)
+        .request(pm, infinite)
         .then(
             [=](caf::actor grading_tool) mutable {
                 // ping the grading tool with a pointer to ourselves, so it can
                 // send us updates on the 'bypass' attr. GradingTool of course has
                 // the necessary message handler for this
-                anon_send(grading_tool, "follow_bypass", caf::actor_cast<caf::actor>(this));
+                anon_mail("follow_bypass", caf::actor_cast<caf::actor>(this))
+                    .send(grading_tool);
             },
             [=](caf::error &err) mutable {
 
@@ -266,9 +266,21 @@ GradingColourOperator::update_shader_uniforms(const media_reader::ImageBufPtr &i
         // All other values will be treated as being the current colour space.
         uniforms_dict[grade_str + "color_space"] =
             grade_data->colour_space() == "compositing_log" ? 1 : 0;
-        uniforms_dict[grade_str + "mask_active"]  = !grade_data->mask().empty();
-        uniforms_dict[grade_str + "mask_editing"] = grade_data->mask_editing();
-        uniforms_dict[grade_str + "slope"]        = {
+        uniforms_dict[grade_str + "mask_active"] = !grade_data->mask().empty();
+
+        // NOTE (Ted) ..
+        // When grade_data->mask_editing() is true, the mask is drawn applied
+        // to the image as a yellow mix - in other words the grade isn't applied.
+        // but the mask is shown in transparent yellow.
+        // This depends on the 'display_mode' attr in the plugin, but ther is
+        // nowhere in the UI to control this. Therefore, I disable here because
+        // otherwise I'm sometimes seeing the mask_editing() flag as true, seems
+        // a bit random and it's undesired
+        uniforms_dict[grade_str + "mask_editing"] = false;
+        // Here's what we used to have here:
+        // uniforms_dict[grade_str + "mask_editing"] = grade_data->mask_editing();
+
+        uniforms_dict[grade_str + "slope"] = {
             "vec3",
             1,
             grade_data->grade().slope[0] * grade_data->grade().slope[3],
@@ -297,6 +309,8 @@ GradingColourOperator::update_shader_uniforms(const media_reader::ImageBufPtr &i
         uniforms_dict["grade_count"] = grade_count;
         uniforms_dict["tool_active"] = true;
     }
+
+    //std::cerr << uniforms_dict.dump() << "\n";
 
     return uniforms_dict;
 }
@@ -334,7 +348,8 @@ std::shared_ptr<ColourOperationData> GradingColourOperator::setup_shader_data(
         fs_luts.insert(fs_luts.end(), luts.begin(), luts.end());
     }
 
-    gradingop_shader_       = std::make_shared<ui::opengl::OpenGLShader>(PLUGIN_UUID, fs_str);
+    gradingop_shader_ = std::make_shared<ui::opengl::OpenGLShader>(PLUGIN_UUID, fs_str);
+
     colour_op_data->shader_ = gradingop_shader_;
     colour_op_data->set_cache_id(
         fmt::format("{}", std::hash<std::string_view>{}(fragment_shader)));

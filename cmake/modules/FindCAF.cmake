@@ -120,25 +120,25 @@ mark_as_advanced(CAF_ROOT_DIR
                  CAF_LIBRARIES
                  CAF_INCLUDE_DIRS)
 
-if (CAF_core_FOUND AND NOT TARGET caf::core)
-  add_library(caf::core UNKNOWN IMPORTED)
-  set_target_properties(caf::core PROPERTIES
+if (CAF_core_FOUND AND NOT TARGET CAF::core)
+  add_library(CAF::core UNKNOWN IMPORTED)
+  set_target_properties(CAF::core PROPERTIES
     IMPORTED_LOCATION "${CAF_LIBRARY_CORE}"
     INTERFACE_INCLUDE_DIRECTORIES "${CAF_INCLUDE_DIR_CORE}")
 endif ()
-if (CAF_io_FOUND AND NOT TARGET caf::io)
-  add_library(caf::io UNKNOWN IMPORTED)
-  set_target_properties(caf::io PROPERTIES
+if (CAF_io_FOUND AND NOT TARGET CAF::io)
+  add_library(CAF::io UNKNOWN IMPORTED)
+  set_target_properties(CAF::io PROPERTIES
     IMPORTED_LOCATION "${CAF_LIBRARY_IO}"
     INTERFACE_INCLUDE_DIRECTORIES "${CAF_INCLUDE_DIR_IO}"
-    INTERFACE_LINK_LIBRARIES "caf::core")
+    INTERFACE_LINK_LIBRARIES "CAF::core")
 endif ()
 if (CAF_openssl_FOUND AND NOT TARGET caf::openssl)
   add_library(caf::openssl UNKNOWN IMPORTED)
   set_target_properties(caf::openssl PROPERTIES
     IMPORTED_LOCATION "${CAF_LIBRARY_OPENSSL}"
     INTERFACE_INCLUDE_DIRECTORIES "${CAF_INCLUDE_DIR_OPENSSL}"
-    INTERFACE_LINK_LIBRARIES "caf::core;caf::io")
+    INTERFACE_LINK_LIBRARIES "CAF::core;CAF::io")
   if (NOT BUILD_SHARED_LIBS)
     include(CMakeFindDependencyMacro)
     set(OPENSSL_USE_STATIC_LIBS TRUE)
@@ -151,5 +151,5 @@ if (CAF_test_FOUND AND NOT TARGET caf::test)
   add_library(caf::test INTERFACE IMPORTED)
   set_target_properties(caf::test PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${CAF_INCLUDE_DIR_TEST}"
-    INTERFACE_LINK_LIBRARIES "caf::core")
+    INTERFACE_LINK_LIBRARIES "CAF::core")
 endif ()

@@ -75,6 +75,7 @@ namespace shotbrowser {
         void update_playlist_versions(
             caf::typed_response_promise<utility::JsonStore> rp,
             const utility::Uuid &playlist_uuid,
+            const bool ordered               = true,
             const int playlist_id            = 0,
             const utility::Uuid &notify_uuid = utility::Uuid());
         void refresh_playlist_versions(
@@ -83,6 +84,7 @@ namespace shotbrowser {
             const bool match_order = false);
         // void refresh_playlist_notes(caf::typed_response_promise<utility::JsonStore> rp, const
         // utility::Uuid &playlist_uuid);
+
         void create_playlist(
             caf::typed_response_promise<utility::JsonStore> rp, const utility::JsonStore &js);
 
@@ -156,8 +158,23 @@ namespace shotbrowser {
         void link_media(
             caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
 
-        void download_media(
+        void add_shotgrid_media(
             caf::typed_response_promise<utility::JsonStore> rp, const utility::Uuid &uuid);
+
+        void download_shotgrid_media(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &entity,
+            const int entity_id,
+            const std::string &entity_name,
+            const std::string &project_name,
+            const std::string &parent_name);
+
+        void download_shotgrid_image(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &entity,
+            const int entity_id,
+            const std::string &entity_name,
+            const std::string &project_name);
 
         void get_data(
             caf::typed_response_promise<utility::JsonStore> rp,
@@ -209,6 +226,18 @@ namespace shotbrowser {
             const std::string &type,
             const int project_id);
 
+        void get_data_asset(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &type,
+            const int project_id,
+            const int page                      = 1,
+            const utility::JsonStore &prev_data = utility::JsonStore(R"([])"_json));
+
+        void get_data_tree(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &type,
+            const int project_id);
+
         void get_data_stage(
             caf::typed_response_promise<utility::JsonStore> rp,
             const std::string &type,
@@ -247,6 +276,13 @@ namespace shotbrowser {
             const int page                      = 1,
             const utility::JsonStore &prev_data = utility::JsonStore(R"([])"_json));
 
+        void get_data_episode(
+            caf::typed_response_promise<utility::JsonStore> rp,
+            const std::string &type,
+            const int project_id,
+            const int page                      = 1,
+            const utility::JsonStore &prev_data = utility::JsonStore(R"([])"_json));
+
         void get_data_playlist(
             caf::typed_response_promise<utility::JsonStore> rp,
             const std::string &type,
@@ -269,12 +305,6 @@ namespace shotbrowser {
         std::shared_ptr<BuildPlaylistMediaJob> get_next_build_task(bool &is_ivy_build_task);
         void do_add_media_sources_from_shotgun(std::shared_ptr<BuildPlaylistMediaJob>);
         void do_add_media_sources_from_ivy(std::shared_ptr<BuildPlaylistMediaJob>);
-
-        void publish_note_annotations(
-            caf::typed_response_promise<utility::JsonStore> rp,
-            const caf::actor &session,
-            const int note_id,
-            const utility::JsonStore &annotations);
 
         void execute_query(
             caf::typed_response_promise<utility::JsonStore> rp,

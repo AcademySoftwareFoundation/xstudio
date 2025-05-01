@@ -26,8 +26,8 @@ class ConformWorkerActor : public caf::event_based_actor {
         const ConformRequest &request);
 
     void get_media_sequences(
-        caf::typed_response_promise<
-            std::vector<std::optional<std::pair<std::string, caf::uri>>>> rp,
+        caf::typed_response_promise<std::vector<
+            std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>> rp,
         const utility::UuidActorVector &media);
 
     void prepare_sequence(

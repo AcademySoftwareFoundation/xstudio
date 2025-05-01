@@ -1,5 +1,5 @@
-import QtQml.Models 2.14
-import QtQuick 2.15
+import QtQuick
+
 import xStudio 1.0
 import xstudio.qml.helpers 1.0
 import xstudio.qml.models 1.0

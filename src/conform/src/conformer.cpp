@@ -19,9 +19,11 @@ ConformReply Conformer::conform_request(const ConformRequest &request) {
     return ConformReply(request);
 }
 
-std::vector<std::optional<std::pair<std::string, caf::uri>>> Conformer::conform_find_timeline(
+std::vector<std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>
+Conformer::conform_find_timeline(
     const std::vector<std::pair<utility::UuidActor, utility::JsonStore>> &media) {
-    return std::vector<std::optional<std::pair<std::string, caf::uri>>>(media.size());
+    return std::vector<std::optional<std::tuple<std::string, caf::uri, utility::JsonStore>>>(
+        media.size());
 }
 
 bool Conformer::conform_prepare_timeline(

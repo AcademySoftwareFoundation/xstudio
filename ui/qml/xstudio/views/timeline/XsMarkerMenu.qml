@@ -1,6 +1,6 @@
 import xstudio.qml.models 1.0
 import xStudio 1.0
-import QtQml.Models 2.14
+
 
 XsPopupMenu {
 
@@ -20,7 +20,13 @@ XsPopupMenu {
 
     function setComment(new_name, button) {
         if (button == "Set") {
-            markerIndex.model.set(markerIndex, JSON.parse(new_name), "commentRole")
+            try {
+                var a = JSON.parse(new_name);
+                markerIndex.model.set(markerIndex, a, "commentRole")
+            } catch (e) {
+                markerIndex.model.set(markerIndex, new_name, "commentRole")
+            }
+            
         }
     }
 
@@ -45,11 +51,17 @@ XsPopupMenu {
         menuItemPosition: 2
         menuModelName: markerMenu.menu_model_name
         onActivated: {
+            var str
+            try {
+                str = JSON.stringify(markerIndex.model.get(markerIndex, "commentRole"), null, 2)
+            } catch (e) {
+                str = "" + markerIndex.model.get(markerIndex, "commentRole")
+            }
             dialogHelpers.textAreaInputDialog(
-                markerMenu.setName,
+                markerMenu.setComment,
                 "Set Marker Comment",
                 "Enter a comment.",
-                JSON.stringify(markerIndex.model.get(markerIndex, "commentRole"), null, 2),
+                str,
                 ["Cancel", "Set"])
         }
     }
@@ -59,7 +71,9 @@ XsPopupMenu {
         menuModelName: markerMenu.menu_model_name
         menuPath: ""
         menuPosition: 3
-        onFlagSet: markerIndex.model.set(markerIndex, flag == "#00000000" ? "": flag, "flagRole")
+        onFlagSet: (flag, flag_text) => {
+            markerIndex.model.set(markerIndex, flag == "#00000000" ? "": flag, "flagRole")
+        }
         panelContext: markerMenu.panelContext
     }
 

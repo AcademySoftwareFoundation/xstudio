@@ -92,7 +92,7 @@ void PlayheadBase::add_attributes() {
     playhead_media_frame_ = add_integer_attribute("Media Frame", "Media Frame", 0);
     duration_frames_      = add_integer_attribute("Duration Frames", "Duration Frames", 0);
     duration_seconds_     = add_float_attribute("Duration Seconds", "Duration Seconds", 0.0);
-    cached_frames_        = add_int_vec_attribute("Cached Frames");
+    cached_frames_        = add_json_attribute("Cached Frames");
     bookmarked_frames_    = add_int_vec_attribute("Bookmarked Frames");
 
     media_transition_frames_ = add_int_vec_attribute("Media Transition Frames");
@@ -132,6 +132,9 @@ void PlayheadBase::add_attributes() {
 
     source_offset_frames_ =
         add_integer_attribute("Source Offset Frames", "Source Offset Frames", 0);
+
+    connect_to_ui_attr_ =
+        add_boolean_attribute("Force Connect To UI", "Force Connect To UI", false);
 
     timeline_mode_ = add_boolean_attribute("Timeline Mode", "Timeline Mode", false);
 
@@ -686,8 +689,7 @@ void PlayheadBase::disconnect_from_ui() {
 bool PlayheadBase::pointer_event(const ui::PointerEvent &e) {
 
     bool used = false;
-    if (e.type() == ui::Signature::EventType::ButtonDown &&
-        e.buttons() == ui::Signature::Button::Left) {
+    if (e.type() == ui::EventType::ButtonDown && e.buttons() == ui::Signature::Button::Left) {
 
         click_timepoint_                = utility::clock::now();
         drag_start_x_                   = e.x();
@@ -697,9 +699,7 @@ bool PlayheadBase::pointer_event(const ui::PointerEvent &e) {
         set_playing(false);
         user_is_frame_scrubbing_->set_value(true);
 
-    } else if (
-        e.type() == ui::Signature::EventType::Drag &&
-        e.buttons() == ui::Signature::Button::Left) {
+    } else if (e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
 
         float delta_x     = e.x() - drag_start_x_;
         auto new_position = drag_start_playhead_position_;
@@ -716,11 +716,11 @@ bool PlayheadBase::pointer_event(const ui::PointerEvent &e) {
             max(timebase::k_flicks_zero_seconds,
                 min(new_position, duration_ - playhead_rate_.to_flicks()));
         if (self())
-            anon_send(self(), jump_atom_v, new_position);
+            anon_mail(jump_atom_v, new_position).send(self());
 
         used = true;
 
-    } else if (e.type() == ui::Signature::EventType::ButtonRelease) {
+    } else if (e.type() == ui::EventType::ButtonRelease) {
 
         const auto milliseconds_since_press =
             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -749,7 +749,7 @@ void PlayheadBase::play_faster(const bool forwards) {
         set_forward(forwards);
         velocity_multiplier_->set_value(1.0f);
         if (self())
-            anon_send(self(), play_atom_v, true);
+            anon_mail(play_atom_v, true).send(self());
     } else if (forwards != forward_->value()) {
         forward_->set_value(forwards);
         velocity_multiplier_->set_value(1.0f);

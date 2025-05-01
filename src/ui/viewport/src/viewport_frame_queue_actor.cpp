@@ -24,17 +24,6 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
 
     print_on_exit(this, "ViewportFrameQueueActor");
 
-    set_default_handler(caf::drop);
-
-    set_down_handler([=](down_msg &msg) {
-        // find in playhead list..
-        if (msg.source == playhead_.actor()) {
-            demonitor(playhead_.actor());
-            playhead_ = utility::UuidActor();
-            frames_to_draw_per_playhead_.clear();
-        }
-    });
-
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
@@ -83,7 +72,8 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
                 return;
             last_playhead_switch_tp_ = tp;
 
-            request(sub_playhead.actor(), infinite, playhead::buffer_atom_v)
+            mail(playhead::buffer_atom_v)
+                .request(sub_playhead.actor(), infinite)
                 .then(
                     [=](media_reader::ImageBufPtr &intial_frame) {
                         // ensure we only store this intial_frame for the viewport
@@ -121,10 +111,21 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             // colour pipe to do its thing at draw time. We assume that the colour_pipeline_ has
             // an effective local cacheing system so when we do actually need that data
             // immediately at draw time it will be available immediately.
-            anon_send(
-                colour_pipeline_,
+            anon_mail(
                 colour_pipeline::get_colour_pipe_data_atom_v,
-                frame_ids_for_colour_mgmnt_lookeahead);
+                frame_ids_for_colour_mgmnt_lookeahead)
+                .send(colour_pipeline_);
+
+            // While we are at it, we can also send these frameIDs to other overlay plugins that
+            // might want to fetch/compute data for media that is about to go on-screen.
+            // For example, the Media Metadata HUD plugin uses this to fetch metadata for the
+            // media that is due on screen soon.
+            for (auto p : viewport_overlay_plugins_) {
+                anon_mail(
+                    playhead::colour_pipeline_lookahead_atom_v,
+                    frame_ids_for_colour_mgmnt_lookeahead)
+                    .send(p.second);
+            }
         },
 
         [=](playhead::play_atom, const bool playing) { playing_ = playing; },
@@ -156,7 +157,7 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             playing_ = is_playing;
             queue_image_buffer_for_drawing(buf, playhead_uuid);
             drop_old_frames(utility::clock::now() - std::chrono::milliseconds(100));
-            anon_send(viewport_, playhead::redraw_viewport_atom_v);
+            anon_mail(playhead::redraw_viewport_atom_v).send(viewport_);
         },
 
         // these are frame bufs that we expect to draw in the very near future
@@ -228,17 +229,17 @@ ViewportFrameQueueActor::ViewportFrameQueueActor(
             playhead::media_source_atom,
             caf::actor media_actor,
             const utility::Uuid &media_uuid) {
-            anon_send(
-                colour_pipeline_,
-                utility::event_atom_v,
-                playhead::media_source_atom_v,
-                media_actor,
-                media_uuid);
+            anon_mail(
+                utility::event_atom_v, playhead::media_source_atom_v, media_actor, media_uuid)
+                .send(colour_pipeline_);
         },
         [=](utility::event_atom, playhead::velocity_atom, const float velocity) {
             playhead_velocity_ = velocity;
         },
-        [=](const error &err) mutable { aout(this) << err << std::endl; });
+        [=](const error &err) mutable {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+        },
+        [=](caf::message) {});
 }
 
 ViewportFrameQueueActor::~ViewportFrameQueueActor() {}
@@ -316,7 +317,8 @@ void ViewportFrameQueueActor::get_frames_for_display_sync(
         // here we fetch the on-screen image buffer for the given sub-playhead
         // from the playhead
         const auto id = playhead_id;
-        request(playhead_.actor(), infinite, playhead::buffer_atom_v, playhead_id)
+        mail(playhead::buffer_atom_v, playhead_id)
+            .request(playhead_.actor(), infinite)
             .then(
                 [=](const media_reader::ImageBufPtr &buf) mutable {
                     if (buf) {
@@ -472,20 +474,7 @@ void ViewportFrameQueueActor::append_overlays_data(
             }
         }
 
-        request(
-            colour_pipeline_,
-            infinite,
-            colour_pipeline::get_colour_pipe_data_atom_v,
-            result->onscreen_image(img_idx))
-            .then(
-                [=](media_reader::ImageBufPtr image_with_colour_data) mutable {
-                    result->set_on_screen_image(img_idx, image_with_colour_data);
-                    append_overlays_data(rp, img_idx, result, response_count);
-                },
-                [=](caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                    append_overlays_data(rp, img_idx, result, response_count);
-                });
+        append_overlays_data(rp, img_idx, result, response_count);
     }
 }
 
@@ -504,12 +493,8 @@ void ViewportFrameQueueActor::append_overlays_data(
                 // for the layout. Some layout plugins are provided by python,
                 // and could be slower so we have 0.25s timeout
                 result->finalise();
-                request(
-                    viewport_layout_manager_,
-                    std::chrono::milliseconds(250),
-                    viewport_layout_atom_v,
-                    viewport_layout_mode_name_,
-                    v)
+                mail(viewport_layout_atom_v, viewport_layout_mode_name_, v)
+                    .request(viewport_layout_manager_, std::chrono::milliseconds(250))
                     .then(
                         [=](const media_reader::ImageSetLayoutDataPtr &layout_data) mutable {
                             result->set_layout_data(layout_data);
@@ -526,7 +511,7 @@ void ViewportFrameQueueActor::append_overlays_data(
                             rp.deliver(v);
                         },
                         [=](caf::error &err) mutable {
-                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                            spdlog::warn("C {} {}", __PRETTY_FUNCTION__, to_string(err));
                             result->finalise();
                             rp.deliver(v);
                         });
@@ -537,27 +522,41 @@ void ViewportFrameQueueActor::append_overlays_data(
         }
     };
 
+    auto get_colour_pip_data = [=]() mutable {
+        mail(colour_pipeline::get_colour_pipe_data_atom_v, result->onscreen_image(img_idx))
+            .request(colour_pipeline_, infinite)
+            .then(
+                [=](media_reader::ImageBufPtr image_with_colour_data) mutable {
+                    result->set_on_screen_image(img_idx, image_with_colour_data);
+                    check_and_respond();
+                },
+                [=](caf::error &err) mutable {
+                    spdlog::warn("B {} {}", __PRETTY_FUNCTION__, to_string(err));
+                    check_and_respond();
+                });
+    };
+
     for (auto p : viewport_overlay_plugins_) {
 
         utility::Uuid overlay_plugin_uuid = p.first;
         caf::actor overlay_plugin         = p.second;
 
-        request(
-            overlay_plugin,
-            infinite,
+        mail(
             prepare_overlay_render_data_atom_v,
             result->onscreen_image(img_idx),
             viewport_name_,
-            playhead_.uuid())
+            playhead_.uuid(),
+            result->hero_sub_playhead_index() == img_idx)
+            .request(overlay_plugin, infinite)
             .then(
                 [=](const utility::BlindDataObjectPtr &bdata) mutable {
                     result->onscreen_image_m(img_idx).add_plugin_blind_data(
                         overlay_plugin_uuid, bdata);
-                    check_and_respond();
+                    get_colour_pip_data();
                 },
                 [=](caf::error &err) mutable {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                    check_and_respond();
+                    spdlog::warn("A {} {}", __PRETTY_FUNCTION__, to_string(err));
+                    get_colour_pip_data();
                 });
     }
 }
@@ -811,26 +810,38 @@ caf::typed_response_promise<bool> ViewportFrameQueueActor::set_playhead(
     auto rp = make_response_promise<bool>();
     // join the playhead's broadcast group - image buffers are streamed to
     // us via the broacast group
-    request(playhead.actor(), infinite, broadcast::join_broadcast_atom_v, self)
+    auto do_join = [=]() mutable {
+        mail(broadcast::join_broadcast_atom_v, self)
+        .request(playhead.actor(), infinite)
         .then(
             [=](const bool) mutable {
                 // Get the 'key' child playhead UUID
-                request(playhead.actor(), infinite, playhead::key_child_playhead_atom_v)
+                mail(playhead::key_child_playhead_atom_v)
+                    .request(playhead.actor(), infinite)
                     .then(
                         [=](utility::UuidVector curr_playhead_uuids) mutable {
-                            if (playhead_)
-                                demonitor(playhead_.actor());
+                            monitor_.dispose();
                             playhead_ = playhead;
-                            monitor(playhead_.actor());
+
+                            monitor_ = monitor(
+                                playhead_.actor(),
+                                [this, addr = playhead_.actor().address()](const error &err) {
+                                    if (addr == playhead_.actor()) {
+                                        playhead_ = utility::UuidActor();
+                                        frames_to_draw_per_playhead_.clear();
+                                    }
+                                });
 
                             // this message will make the playhead re-broadcaset the
                             // media_source_atom event to it's 'broacast' group (of which we are
                             // a member). This info from the playhead is received in a message
                             // handler below and we send on the info about the media source to
                             // our colour pipeline which needs to do some set-up.
-                            send(playhead_.actor(), playhead::media_source_atom_v, true, true);
-                            send(playhead_.actor(), playhead::jump_atom_v);
-                            request(playhead_.actor(), infinite, playhead::velocity_atom_v)
+                            mail(playhead::media_source_atom_v, true, true)
+                                .send(playhead_.actor());
+                            mail(playhead::jump_atom_v).send(playhead_.actor());
+                            mail(playhead::velocity_atom_v)
+                                .request(playhead_.actor(), infinite)
                                 .then(
                                     [=](float v) { playhead_velocity_ = v; },
                                     [=](caf::error &err) {});
@@ -845,5 +856,20 @@ caf::typed_response_promise<bool> ViewportFrameQueueActor::set_playhead(
                         [=](const error &err) mutable { rp.deliver(err); });
             },
             [=](const error &err) mutable { rp.deliver(err); });
+    };
+
+    if (playhead_) {
+        // it's crucial that we stop listening to the previous playhead!
+        mail(broadcast::leave_broadcast_atom_v, self).request(playhead_.actor(), infinite).then(
+            [=](bool) mutable {
+                do_join();
+            },
+            [=](caf::error &) mutable {
+                do_join();
+            });
+    } else {
+        do_join();
+    }
+
     return rp;
 }

@@ -10,7 +10,7 @@
 namespace caf::python {
 
 void register_addr_class(py::module &m, const std::string &name);
-void register_group_class(py::module &m, const std::string &name);
+// void register_group_class(py::module &m, const std::string &name);
 void register_actor_class(py::module &m, const std::string &name);
 
 void py_config::add_types() {
@@ -24,7 +24,7 @@ void py_config::add_types() {
 
     // create Python bindings for builtin CAF types
     add_cpp<actor>("actor", "caf::actor", register_actor_class);
-    add_cpp<group>("group", "caf::actor", register_group_class);
+    // add_cpp<group>("group", "caf::actor", register_group_class);
     add_cpp<actor_addr>("addr", "caf::actor_addr", register_addr_class);
     add_cpp<message>("message", "caf::message");
     add_cpp<error>("error", "caf::error");
@@ -39,6 +39,8 @@ void py_config::add_types() {
     add_cpp<int64_t>("int64_t", "int64_t", nullptr);
     add_cpp<int>("int", "int", nullptr);
     add_cpp<std::string>("str", "std::string", nullptr);
-    add_cpp<std::vector<std::string>>("strvec", "std::vector<std::string>", nullptr);
+    add_cpp<std::vector<std::string>>("VectorString", "std::vector<std::string>", nullptr);
+    add_cpp<std::vector<xstudio::utility::Uuid>>(
+        "VectorUuid", "std::vector<xstudio::utility::Uuid>", nullptr);
 }
 } // namespace caf::python

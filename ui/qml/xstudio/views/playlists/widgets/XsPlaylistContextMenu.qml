@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQml.Models 2.12
+import QtQuick
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -58,7 +57,7 @@ XsPopupMenu {
         menuModelName: contextMenu.menu_model_name
         menuPath: ""
         menuPosition: 0.0
-        onFlagSet: {
+        onFlagSet: (flag, flag_text) => {
             for (var i = 0; i < sessionSelectionModel.selectedIndexes.length; ++i) {
                 let index = sessionSelectionModel.selectedIndexes[i]
                 theSessionData.set(index, flag, "flagColourRole")
@@ -110,7 +109,13 @@ XsPopupMenu {
         menuPath: "Copy To Clipboard"
         menuItemPosition: 2.0
         menuModelName: contextMenu.menu_model_name
-        onActivated: clipboard.text = theSessionData.get(sessionSelectionModel.selectedIndexes[0], "nameRole")
+        onActivated: {
+            let result = []
+            for(let i =0;i<sessionSelectionModel.selectedIndexes.length;i++) {
+                result.push(theSessionData.get(sessionSelectionModel.selectedIndexes[i], "nameRole"))
+            }
+            clipboard.text = result.join("\n")
+        }
         panelContext: contextMenu.panelContext
     }
 

@@ -33,6 +33,8 @@ void grab_framebuffer_to_disk() {
     }
 }
 
+#ifdef OPENGL_DEBUG_CB
+
 void debug_message_callback(
     GLenum source,
     GLenum type,
@@ -142,5 +144,7 @@ void debug_message_callback(
     // problematic opengl call.
     // std::raise(SIGINT);
 }
+
+#endif
 
 } // namespace xstudio::ui::opengl

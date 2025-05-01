@@ -13,6 +13,10 @@
 #include <iterator>
 #include <cstdlib>
 
+#ifdef __apple__
+#undef nil
+#endif
+
 #include <caf/all.hpp>
 #include <caf/uri_builder.hpp>
 
@@ -130,12 +134,12 @@ namespace utility {
     }
 
 
-    inline std::vector<caf::byte> hex_to_bytes(const std::string &hex) {
-        std::vector<caf::byte> bytes;
+    inline std::vector<std::byte> hex_to_bytes(const std::string &hex) {
+        std::vector<std::byte> bytes;
 
         for (unsigned int i = 0; i < hex.length(); i += 2) {
             bytes.push_back(
-                static_cast<caf::byte>(strtol(hex.substr(i, 2).c_str(), nullptr, 16)));
+                static_cast<std::byte>(strtol(hex.substr(i, 2).c_str(), nullptr, 16)));
         }
 
         return bytes;
@@ -148,7 +152,8 @@ namespace utility {
         const caf::timespan &wait_for,
         Ts const &...args) {
         R result{};
-        src.request(dest, wait_for, args...)
+        src.mail(args...)
+            .request(dest, wait_for)
             .receive(
                 [&result](const R &res) mutable { result = std::move(res); },
                 [=](const caf::error &e) { throw XStudioError(e); });
@@ -160,7 +165,8 @@ namespace utility {
     R request_receive(caf::blocking_actor &src, const caf::actor &dest, Ts const &...args) {
         // spdlog::warn("REQUEST");
         R result{};
-        src.request(dest, caf::infinite, args...)
+        src.mail(args...)
+            .request(dest, caf::infinite)
             .receive(
                 [&result](const R &res) mutable {
                     // spdlog::error("RECEIVE");
@@ -178,7 +184,9 @@ namespace utility {
     R request_receive_high_priority(
         caf::blocking_actor &src, const caf::actor &dest, Ts const &...args) {
         R result{};
-        src.request<caf::message_priority::high>(dest, caf::infinite, args...)
+        src.mail(args...)
+            .urgent()
+            .request(dest, caf::infinite)
             .receive(
                 [&result](const R &res) mutable { result = std::move(res); },
                 [=](const caf::error &e) { throw XStudioError(e); });
@@ -252,7 +260,7 @@ namespace utility {
     inline std::array<uint8_t, 16> get_signature(const caf::uri &uri) {
         std::array<uint8_t, 16> sig{};
         // read header.. caller myse use try block to catch errors
-        if (to_string(uri.scheme()) != "file")
+        if (uri.scheme() != "file")
             return sig;
 
         std::ifstream myfile;
@@ -271,35 +279,11 @@ namespace utility {
         return sig;
     }
 
-    inline std::string xstudio_root(const std::string &append_path = "") {
-        auto root = get_env("XSTUDIO_ROOT");
+    std::string xstudio_root(const std::string &append_path = "");
 
-        std::string fallback_root;
-#ifdef _WIN32
-        char filename[MAX_PATH];
-        DWORD nSize  = _countof(filename);
-        DWORD result = GetModuleFileNameA(NULL, filename, nSize);
-        if (result == 0) {
-            spdlog::critical(
-                "Unable to determine executable path from Windows API, falling back "
-                "to standard methods");
-        } else {
-            auto exePath = fs::path(filename);
+    std::string xstudio_plugin_dir(const std::string &append_path = "");
 
-            // The first parent path gets us to the bin directory, the second gets us to the
-            // level above bin.
-            auto xstudio_root = exePath.parent_path().parent_path();
-            fallback_root     = xstudio_root.string() + "/share/xstudio";
-        }
-#else
-        // TODO: This could inspect the current running process and look one directory up.
-        fallback_root = std::string(BINARY_DIR);
-#endif
-
-        std::string path = (root ? (*root) + append_path : fallback_root + append_path);
-        const auto p     = fs::path(path).string();
-        return p;
-    }
+    std::string xstudio_resources_dir(const std::string &append_path = "");
 
     inline std::string remote_session_path() {
         const char *root;
@@ -563,6 +547,27 @@ namespace utility {
         return result;
     }
 
+    std::string forward_remap_file_path(const std::string path);
+
+    std::string reverse_remap_file_path(const std::string path);
+
+    // The json store here must be an array. Each element in the array must be
+    // another array of 2 strings and a boolean.
+    //
+    // For each entry, the first string is a regex_replace search/match expression.
+    // The second string is the regex_replace format string.
+    // The (third) boolean indicates if the remapping is forwards or reverse.
+    // Currently for this system to work correctly, the reverse is necessary
+    // because of the way we go back and forth via uri_to_posix_path and
+    // posix_path_to_uri to do other types of path manipulation.
+    //
+    // Example json to replace /jobs/ with J so that:
+    //
+    //    [
+    //        ["\\/jobs\\/", "J\\:\\", true],
+    //        ["J\\:\\", "\\/jobs\\/", false]
+    //    ]
+    void setup_filepath_remap_regex(const utility::JsonStore &);
 
 } // namespace utility
 } // namespace xstudio

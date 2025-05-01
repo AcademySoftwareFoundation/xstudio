@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+// OpenGL SSBO not supported on deprecated MacOS drivers!
+#ifndef __OPENGL_4_1__
+
 #include <cmath>
 #include <iostream>
 #include <memory.h>
@@ -61,5 +64,7 @@ void GLSsboTex::compute_size(const size_t required_size_bytes) {
         }
     }
 
-    tex_data_size_ = pow(2, ceil(log((1 + (required_size_bytes / 4096)) * 4096) / log(2.0)));
+    tex_data_size_ =
+        pow(2, ceil(std::log((1 + (required_size_bytes / 4096)) * 4096) / std::log(2.0)));
 }
+#endif

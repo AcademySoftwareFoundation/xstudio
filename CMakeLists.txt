@@ -1,43 +1,34 @@
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
+cmake_policy(VERSION 3.26)
 
-option(USE_VCPKG "Use Vcpkg for package management" OFF)
-if(WIN32)
-    set(USE_VCPKG ON)
-endif()
-
-if (USE_VCPKG)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
-endif()
-
-set(XSTUDIO_GLOBAL_VERSION "2.4.0" CACHE STRING "Version string")
+set(XSTUDIO_GLOBAL_VERSION "2.5.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
+set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
+
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
-
-set(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION OFF)
-
-cmake_policy(VERSION 3.26)
 
 option(BUILD_TESTING "Build tests" OFF)
 option(INSTALL_PYTHON_MODULE "Install python module" ON)
 option(INSTALL_XSTUDIO "Install xstudio" ON)
-option(BUILD_DOCS "Build xStudio documentation" OFF)
+option(BUILD_DOCS "Build xStudio documentation" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy, ninja clang-tidy." OFF)
 option(ENABLE_CLANG_FORMAT "Enable clang format, ninja clangformat." OFF)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." TRUE)
 option(OPTIMIZE_FOR_NATIVE "Build with -march=native" OFF)
 option(BUILD_RESKIN "Build xstudio reskin binary" ON)
 option(OTIO_SUBMODULE "Automatically build OpenTimelineIO as a submodule" OFF)
+option(USE_VCPKG "Use Vcpkg for package management" OFF)
+option(BUILD_PYSIDE_WIDGETS "Build xstudio player as PySide widget" OFF)
 
 if(WIN32)
-    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-") 
-    set(OTIO_SUBMODULE ON)
+    set(USE_VCPKG ON)
+    #include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/vcpkg.cmake)
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /Oy-")
     add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
-    # enable UUID System Generator 
+    # enable UUID System Generator
     add_definitions(-DUUID_SYSTEM_GENERATOR=ON)
 endif()
-
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(STUDIO_PLUGINS "" CACHE STRING "Enable compilation of SITE plugins")
 
@@ -51,7 +42,12 @@ if (("${CMAKE_GENERATOR}" MATCHES "Makefiles" OR ("${CMAKE_GENERATOR}" MATCHES "
 endif()
 
 set(CXXOPTS_BUILD_TESTS OFF CACHE BOOL "Enable or disable cxxopts' tests")
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fdiagnostics-color=always")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -fmax-errors=5 -fdiagnostics-color=always")
 endif()
 
@@ -167,12 +163,10 @@ if(WIN32)
   # https://github.com/nlohmann/json/issues/3868#issuecomment-1563726354
   add_definitions(-DJSON_HAS_THREE_WAY_COMPARISON=OFF)
 
-  add_subdirectory("extern/otio")
-
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
   # When moving to Qt6 or greater, we might be able to use qt_generate_deploy_app_script
-  #set(deploy_script "${Qt5_DIR}/../../../windeployqt.exe  )
+  #set(deploy_script "${Qt6_DIR}/../../../windeployqt.exe  )
 endif()
 
 if(MSVC)
@@ -181,32 +175,45 @@ if(MSVC)
 
 endif()
 
-# Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
-if(USE_VCPKG)
+if (USE_VCPKG)
+
+  # When building with VCPKG, we will use OTIO submodule
+  set(OTIO_SUBMODULE true)
+  add_subdirectory("extern/otio")  
 
   set(VCPKG_INTEGRATION ON)
-  # Set Python in VCPKG
-  set(Python_EXECUTABLE "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3/python.exe")  
+    
   # Install pip and sphinx
+  find_package(Python COMPONENTS Interpreter Development)
+
+  message("Python_RUNTIME_LIBRARY_DIRS ${Python_RUNTIME_LIBRARY_DIRS}")
+
   execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m ensurepip --upgrade
+    COMMAND "${Python_EXECUTABLE}" -m ensurepip --upgrade
     RESULT_VARIABLE ENSUREPIP_RESULT
   )
+
   if(ENSUREPIP_RESULT)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows/tools/python3" python.exe -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
+      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
       message(FATAL_ERROR "Failed to install Sphinx using pip.")
     endif()
   endif()
-  # append vcpkg packages
-  list(APPEND CMAKE_PREFIX_PATH "${VCPKG_DIRECTORY}/../vcpkg_installed/x64-windows")
-  
+
+else()
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
+  if(${OTIO_SUBMODULE})
+	  add_subdirectory("extern/otio")
+  endif()
+ 	find_package(PkgConfig REQUIRED)
 endif()
+
+# Add the necessary libraries from Vcpkg if Vcpkg integration is enabled
 
 find_package(nlohmann_json CONFIG REQUIRED)
 include(CTest)
@@ -231,7 +238,7 @@ if(INSTALL_XSTUDIO)
 
   # build quickpromise
   add_subdirectory(extern/quickpromise)
-  add_subdirectory(extern/quickfuture) 
+  add_subdirectory(extern/quickfuture)
 
   install(DIRECTORY include/xstudio
           DESTINATION include)
@@ -243,33 +250,41 @@ if(INSTALL_XSTUDIO)
   add_subdirectory(share/fonts)
 
   if(BUILD_DOCS)
-    #add_subdirectory(docs)
+    add_subdirectory(docs)
   else()
-    install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
+    if (APPLE)    
+      install(DIRECTORY share/docs/ DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/docs)
+    else()
+      install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
+    endif()
   endif ()
 
-  include(CMakePackageConfigHelpers)
+  if (NOT APPLE)
 
-  configure_package_config_file(xStudioConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
-    INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
-  )
-  write_basic_package_version_file("xStudioConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-  )
+    include(CMakePackageConfigHelpers)
 
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfigVersion.cmake
+    configure_package_config_file(xStudioConfig.cmake.in
+      ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
+      INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
+    )
+    write_basic_package_version_file("xStudioConfigVersion.cmake"
+      VERSION ${PROJECT_VERSION}
+      COMPATIBILITY SameMajorVersion
+    )
+
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfig.cmake
+                ${CMAKE_CURRENT_BINARY_DIR}/xStudioConfigVersion.cmake
+        DESTINATION lib/cmake/${PROJECT_NAME}
+    )
+
+    install(EXPORT xstudio
       DESTINATION lib/cmake/${PROJECT_NAME}
-  )
-
-  install(EXPORT xstudio
-    DESTINATION lib/cmake/${PROJECT_NAME}
-    FILE ${PROJECT_NAME}Targets.cmake
-    NAMESPACE xstudio::
-    EXPORT_LINK_INTERFACE_LIBRARIES
-  )
+      FILE ${PROJECT_NAME}Targets.cmake
+      NAMESPACE xstudio::
+      EXPORT_LINK_INTERFACE_LIBRARIES
+    )
+    
+  endif()
 
 endif ()
 
@@ -280,9 +295,12 @@ if(USE_VCPKG)
 endif()
 
 if (WIN32)
-  set(CPACK_PACKAGE_VERSION "2.4.0")
+
+  include(InstallRequiredSystemLibraries)
+
+  set(CPACK_PACKAGE_VERSION "2.5.0")
   set(CPACK_PACKAGE_VERSION_MAJOR "2")
-  set(CPACK_PACKAGE_VERSION_MINOR "4")
+  set(CPACK_PACKAGE_VERSION_MINOR "5")
   set(CPACK_PACKAGE_VERSION_PATCH "0")
   set(CPACK_PACKAGE_VENDOR "DNEG / Academy Software Foundation")
   set (CPACK_NSIS_MUI_ICON
@@ -298,9 +316,17 @@ if (WIN32)
       "share/docs/index.html"
       "xSTUDIO Help")
 
-  set(CPACK_NSIS_CREATE_ICONS_EXTRA
-    "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\xSTUDIO.lnk' '$INSTDIR\\\\bin\\\\xstudio.exe' '--allow-qt-warnings'"
-  )
+  if("${STUDIO_PLUGINS}" STREQUAL "dneg")
+    # for dneg deployment, we add some CLI args to pick up our customised facility preferences thus:
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+      "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\xSTUDIO.lnk' '$INSTDIR\\\\bin\\\\xstudio.exe' '--pref N:\\\\SITE\\\\data\\\\xStudio\\\\dneg_defaults.json --pref N:\\\\SITE\\\\data\\\\xStudio\\\\windows_extra_config\\\\dneg_windows_defaults.json'"
+    )
+  else()
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+      "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\xSTUDIO.lnk' '$INSTDIR\\\\bin\\\\xstudio.exe'"
+    )
+  endif()
+
   #set (CPACK_PACKAGE_EXECUTABLES "xstudio" "xSTUDIO" )
 
   set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "

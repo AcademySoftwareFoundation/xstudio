@@ -135,6 +135,10 @@ namespace session {
         std::vector<utility::UuidActorAddr> selectedMedia_;
 
         utility::UuidActorVector selection_;
+
+        caf::disposable viewed_monitor_;
+        caf::disposable inspected_monitor_;
+        std::map<caf::actor_addr, caf::disposable> serialise_monitor_;
     };
 } // namespace session
 } // namespace xstudio

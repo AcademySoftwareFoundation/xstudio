@@ -30,7 +30,8 @@ caf::message_handler ColourOpPlugin::message_handler_extensions() {
 
             // use the AVFrameID to get to the MediaSourceActor
             auto media_source = utility::UuidActor(
-                media_ptr.source_uuid(), caf::actor_cast<caf::actor>(media_ptr.actor_addr()));
+                media_ptr.source_uuid(),
+                caf::actor_cast<caf::actor>(media_ptr.media_source_addr()));
 
             if (!media_source.actor()) {
                 // no media source (missing media etc.) - return empty object
@@ -39,7 +40,8 @@ caf::message_handler ColourOpPlugin::message_handler_extensions() {
             }
 
             // now get to the MediaActor that owns the MediaSourceActor
-            request(media_source.actor(), infinite, utility::parent_atom_v)
+            mail(utility::parent_atom_v)
+                .request(media_source.actor(), infinite)
                 .then(
                     [=](caf::actor media_actor) mutable {
                         auto media = utility::UuidActor(media_ptr.media_uuid(), media_actor);
@@ -66,11 +68,8 @@ caf::message_handler ColourOpPlugin::message_handler_extensions() {
             auto self  = caf::actor_cast<caf::actor>(this);
             auto count = std::make_shared<int>(mptr_and_timepoints.size());
             for (size_t i = 0; i < mptr_and_timepoints.size(); ++i) {
-                request(
-                    self,
-                    infinite,
-                    get_colour_pipe_data_atom_v,
-                    *(mptr_and_timepoints[i].second))
+                mail(get_colour_pipe_data_atom_v, *(mptr_and_timepoints[i].second))
+                    .request(self, infinite)
                     .then(
                         [=](const ColourOperationDataPtr &d) mutable {
                             (*result)[i] = d;
@@ -113,16 +112,13 @@ void ColourOpPlugin::onscreen_source_colour_metadata_merge(
     const utility::JsonStore &additional_colour_params) {
     if (on_screen_source_.actor()) {
 
-        request(
-            on_screen_source_.actor(), infinite, colour_pipeline::get_colour_pipe_params_atom_v)
+        mail(colour_pipeline::get_colour_pipe_params_atom_v)
+            .request(on_screen_source_.actor(), infinite)
             .then(
                 [=](utility::JsonStore params) {
                     params.merge(additional_colour_params);
-                    request(
-                        on_screen_source_.actor(),
-                        infinite,
-                        colour_pipeline::set_colour_pipe_params_atom_v,
-                        params)
+                    mail(colour_pipeline::set_colour_pipe_params_atom_v, params)
+                        .request(on_screen_source_.actor(), infinite)
                         .then(
                             [=](bool) {
 

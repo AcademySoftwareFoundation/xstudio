@@ -247,15 +247,13 @@ namespace ui {
             void exclusiveChanged();
 
           private:
-
             void notifyExclusiveChanged();
-            
+
             QString sequence_;
             QString hotkey_name_;
             QUuid hotkey_uuid_;
             std::string context_;
             bool exclusive_ = {false};
-
         };
 
     } // namespace qml

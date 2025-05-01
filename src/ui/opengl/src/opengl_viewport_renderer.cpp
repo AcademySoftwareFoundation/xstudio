@@ -7,6 +7,7 @@
 #include "xstudio/ui/opengl/opengl_ssbo_image_texture.hpp"
 #include "xstudio/ui/opengl/opengl_multi_buffered_texture.hpp"
 #include "xstudio/ui/opengl/opengl_viewport_renderer.hpp"
+#include "xstudio/ui/opengl/opengl_text_rendering.hpp"
 #include "xstudio/ui/opengl/gl_debug_utils.hpp"
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/uuid.hpp"
@@ -84,15 +85,20 @@ void ColourPipeLutCollection::bind_luts(GLShaderProgramPtr shader, int &tex_idx)
 std::map<std::string, OpenGLViewportRenderer::SharedResourcesPtr>
     OpenGLViewportRenderer::s_resources_store_;
 
-OpenGLViewportRenderer::OpenGLViewportRenderer(const std::string &window_id)
+OpenGLViewportRenderer::OpenGLViewportRenderer(
+    const std::string &window_id, const utility::JsonStore &prefs)
     : viewport::ViewportRenderer(), window_id_(window_id) {
     // Instances of OpenGLViewportRenderer that are in the same xstudio
     // window need to share texture resources as they display exactly the
     // same image.
+
+    use_ssbo_ =
+        prefs.get("/ui/viewport/texture_mode").value("value", std::string("")) == "SSBO";
+
     if (s_resources_store_.contains(window_id)) {
         resources_ = s_resources_store_[window_id];
     } else {
-        s_resources_store_[window_id].reset(new SharedResources);
+        s_resources_store_[window_id].reset(new SharedResources(prefs));
         resources_ = s_resources_store_[window_id];
     }
 }
@@ -122,6 +128,7 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
         return;
 
     if (image) {
+
         if (image->error_state() == BufferErrorState::HAS_ERROR) {
             // the frame contains errors, no need to continue from that point
             active_shader_program_ = no_image_shader_program();
@@ -187,19 +194,8 @@ void OpenGLViewportRenderer::release_textures() {
 
 // static std::mutex m;
 
-void OpenGLViewportRenderer::clear_viewport_area(const Imath::M44f &window_to_viewport_matrix) {
-
-    // The GL viewport does not necessarily match the area of the xstudio
-    // viewport ... for example, the xstudio viewport is typically embedded in
-    // a QML interface with various other widgets arranged around it. At render
-    // time, we take account of this using the 'window_to_viewport_matrix' which maps from
-    // the current GL_VIEWPORT to the area of the xstudio viewport within it.
-    // In this case, we are using this to run glClear but only on the area of
-    // the viewport. This might save a tiny bit of time when rendering the whole
-    // interface, but also means we don't stomp on something that has been drawn
-    // into the GL canvas that is supposed to be there!
-    std::array<int, 4> vp;
-    glGetIntegerv(GL_VIEWPORT, vp.data());
+void OpenGLViewportRenderer::clear_viewport_area(
+    const Imath::M44f &window_to_viewport_matrix, const Imath::V2i &window_size) {
 
     // Our ref coord system maps -1.0, -1.0 to the bottom left of the viewport and
     // 1.0, 1.0 to the top right
@@ -213,48 +209,35 @@ void OpenGLViewportRenderer::clear_viewport_area(const Imath::M44f &window_to_vi
     botomleft *= 1.0f / botomleft.w;
     topright *= 1.0f / topright.w;
 
-    float left   = 0.5f * (botomleft.x + 1.0f) * float(vp[2]);
-    float bottom = 0.5f * (botomleft.y + 1.0f) * float(vp[3]);
-    float top    = 0.5f * (topright.y + 1.0f) * float(vp[3]);
-    float right  = 0.5f * (topright.x + 1.0f) * float(vp[2]);
+    float bottom = 0.5f * (botomleft.y + 1.0f) * float(window_size.y);
+    float top    = 0.5f * (topright.y + 1.0f) * float(window_size.y);
 
-    scissor_coords_[0] = (int)round(left);
-    scissor_coords_[1] = (int)round(bottom);
-    scissor_coords_[2] = (int)round(right - left);
-    scissor_coords_[3] = (int)round(top - bottom);
+    float left  = 0.5f * (botomleft.x + 1.0f) * float(window_size.x);
+    float right = 0.5f * (topright.x + 1.0f) * float(window_size.x);
+
+    viewport_coords_in_window_[0] = (int)round(left);
+    viewport_coords_in_window_[1] = (int)round(bottom);
+    viewport_coords_in_window_[2] = (int)round(right - left);
+    viewport_coords_in_window_[3] = (int)round(top - bottom);
+
+    glViewport(0, 0, window_size.x, window_size.y);
 
     glEnable(GL_SCISSOR_TEST);
-    glScissor(scissor_coords_[0], scissor_coords_[1], scissor_coords_[2], scissor_coords_[3]);
-    glClearColor(0.0f, 0.0f, 0.0f, use_alpha_ ? 0.0f : 1.0f);
+    glScissor(
+        viewport_coords_in_window()[0],
+        viewport_coords_in_window()[1],
+        viewport_coords_in_window()[2],
+        viewport_coords_in_window()[3]);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
-}
-
-utility::JsonStore OpenGLViewportRenderer::default_prefs() {
-    JsonStore r(R"("texture_mode": {
-				"path": "/ui/viewport/texture_mode",
-				"default_value": "Image Texture",
-				"description": "Viewport Low Level Texture mode - SSBO can give better performance on some systems but not all",
-				"value": "Image Texture",
-				"value_range": ["Image Texture", "SSBO"]
-				"datatype": "string",
-				"context": ["APPLICATION"]
-			})");
-    return r;
-}
-
-void OpenGLViewportRenderer::set_prefs(const utility::JsonStore &prefs) {
-    const std::string tex_mode = prefs.value("texture_mode", "SSBO");
-    if (tex_mode == "SSBO")
-        use_ssbo_ = true;
-    else
-        use_ssbo_ = false;
 }
 
 void OpenGLViewportRenderer::render(
     const media_reader::ImageBufDisplaySetPtr &images,
     const Imath::M44f &window_to_viewport_matrix,
     const Imath::M44f &viewport_to_image_space,
+    const Imath::V2i &window_size,
     const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
 
     init();
@@ -274,44 +257,29 @@ void OpenGLViewportRenderer::render(
     const float viewport_x_size_in_window =
         window_to_viewport_matrix[0][0] / window_to_viewport_matrix[3][3];
 
-    // the gl viewport corresponds to the parent window size.
-    std::array<int, 4> gl_viewport;
-    glGetIntegerv(GL_VIEWPORT, gl_viewport.data());
-    const auto viewport_width = (float)gl_viewport[2];
-
     // this value tells us how much a screen pixel width in the viewport is in the units
     // of viewport coordinate space
     const float viewport_du_dx =
-        image_zoom_in_viewport / (viewport_width * viewport_x_size_in_window);
+        image_zoom_in_viewport / (window_size.x * viewport_x_size_in_window);
 
     /* we do our own clear of the viewport */
-    clear_viewport_area(window_to_viewport_matrix);
+    clear_viewport_area(window_to_viewport_matrix, window_size);
 
     glUseProgram(0);
 
-    /* Call the render functions of overlay plugins - for the BeforeImage pass, we only call
-    this if we have an alpha buffer that allows us to 'under' the image with the overlay
-    drawings. */
-    if (use_alpha_) {
-        for (auto orf : overlay_renderers) {
-            if (orf.second->preferred_render_pass() ==
-                plugin::ViewportOverlayRenderer::BeforeImage) {
-                orf.second->render_viewport_overlay(
-                    window_to_viewport_matrix,
-                    viewport_to_image_space,
-                    abs(viewport_du_dx),
-                    use_alpha_);
-            }
-        }
-    }
 
     if (images && images->layout_data()) {
 
         glDisable(GL_DEPTH_TEST);
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquation(GL_FUNC_ADD);
+        // we must avoid painting outside the geometry of the viewport window, or it will be
+        // visible underneath QML elements with opactity etc. or other viewports in the
+        // same window
+        glScissor(
+            viewport_coords_in_window()[0],
+            viewport_coords_in_window()[1],
+            viewport_coords_in_window()[2],
+            viewport_coords_in_window()[3]);
 
         textures()[0]->queue_image_set_for_upload(images);
 
@@ -321,21 +289,41 @@ void OpenGLViewportRenderer::render(
                 idx,
                 window_to_viewport_matrix,
                 viewport_to_image_space,
+                viewport_du_dx);
+        }
+
+        glEnable(GL_SCISSOR_TEST);
+        if (images->layout_data()->draw_hero_overlays_only_) {
+            __draw_per_image_overlays(
+                images,
+                images->hero_sub_playhead_index(),
+                window_to_viewport_matrix,
+                viewport_to_image_space,
                 viewport_du_dx,
                 overlay_renderers);
-        }
-    }
-
-    if (!use_alpha_) {
-        for (auto orf : overlay_renderers) {
-            if (orf.second->preferred_render_pass() ==
-                plugin::ViewportOverlayRenderer::BeforeImage) {
-                orf.second->render_viewport_overlay(
+        } else {
+            for (const auto &idx : images->layout_data()->image_draw_order_hint_) {
+                __draw_per_image_overlays(
+                    images,
+                    idx,
                     window_to_viewport_matrix,
                     viewport_to_image_space,
-                    abs(viewport_du_dx),
-                    use_alpha_);
+                    viewport_du_dx,
+                    overlay_renderers);
+                
             }
+        }
+        glDisable(GL_SCISSOR_TEST);
+
+    }
+
+    // Some plugins want to draw on the whole viewport canvas (not over a particular
+    // image)
+    for (auto orf : overlay_renderers) {
+        if (orf.second->preferred_render_pass() ==
+            plugin::ViewportOverlayRenderer::BeforeImage) {
+            orf.second->render_viewport_overlay(
+                window_to_viewport_matrix, viewport_to_image_space, abs(viewport_du_dx), false);
         }
     }
 
@@ -362,15 +350,15 @@ void OpenGLViewportRenderer::__draw_image(
     const int index,
     const Imath::M44f &window_to_viewport_matrix,
     const Imath::M44f &viewport_to_image_space,
-    const float viewport_du_dx,
-    const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
+    const float viewport_du_dx) {
 
-    media_reader::ImageBufPtr image_to_be_drawn;
     if (!images || images->empty()) {
-        active_shader_program_ = no_image_shader_program();
-    } else {
-        image_to_be_drawn = images->onscreen_image(index);
+        return;
     }
+
+    media_reader::ImageBufPtr image_to_be_drawn = images->onscreen_image(index);
+    if (!image_to_be_drawn)
+        return;
 
     Imath::M44f to_image_matrix =
         (image_to_be_drawn.layout_transform() * viewport_to_image_space.inverse()).inverse();
@@ -378,69 +366,84 @@ void OpenGLViewportRenderer::__draw_image(
     /* Here we allow plugins to run arbitrary GPU draw & computation routines.
     This will allow pixel data to be rendered to textures (offscreen), for example,
     which can then be sampled at actual draw time.*/
-    if (image_to_be_drawn) {
-
-        for (auto hook : pre_render_gpu_hooks_) {
-            hook.second->pre_viewport_draw_gpu_hook(
-                window_to_viewport_matrix, to_image_matrix, viewport_du_dx, image_to_be_drawn);
-        }
-
-        // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
-        // draw, upload the data
-        upload_image_and_colour_data(image_to_be_drawn);
+    for (auto hook : pre_render_gpu_hooks_) {
+        hook.second->pre_viewport_draw_gpu_hook(
+            window_to_viewport_matrix, to_image_matrix, viewport_du_dx, image_to_be_drawn);
     }
 
-    // we must avoid painting outside the geometry of the viewport window, or it will be
-    // visible underneath QML elements with opactity etc. or other viewports in the
-    // same window
+    // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
+    // draw, upload the data
+    upload_image_and_colour_data(image_to_be_drawn);
+
     glEnable(GL_SCISSOR_TEST);
-    glScissor(scissor_coords_[0], scissor_coords_[1], scissor_coords_[2], scissor_coords_[3]);
+    draw_image(
+        image_to_be_drawn,
+        images->layout_data(),
+        index,
+        window_to_viewport_matrix,
+        viewport_to_image_space,
+        viewport_du_dx);
+    glDisable(GL_SCISSOR_TEST);
 
-    /* Call the render functions of overlay plugins - for the BeforeImage pass, we only call
-    this if we have an alpha buffer that allows us to 'under' the image with the overlay
-    drawings. */
-    if (image_to_be_drawn && use_alpha_) {
-        for (auto orf : overlay_renderers) {
-            if (orf.second->preferred_render_pass() ==
-                plugin::ViewportOverlayRenderer::BeforeImage) {
-                orf.second->render_image_overlay(
-                    window_to_viewport_matrix,
-                    to_image_matrix,
-                    abs(viewport_du_dx),
-                    image_to_be_drawn,
-                    use_alpha_);
-            }
-        }
+    textures()[0]->release(image_to_be_drawn);
+}
+
+
+void OpenGLViewportRenderer::__draw_per_image_overlays(
+    const media_reader::ImageBufDisplaySetPtr &images,
+    const int index,
+    const Imath::M44f &window_to_viewport_matrix,
+    const Imath::M44f &viewport_to_image_space,
+    const float viewport_du_dx,
+    const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
+
+
+    if (!images || images->empty()) {
+        return;
     }
-    if (image_to_be_drawn) {
-        // scissor test on main draw
-        draw_image(
-            image_to_be_drawn,
-            images->layout_data(),
-            index,
-            window_to_viewport_matrix,
-            viewport_to_image_space,
-            viewport_du_dx);
-    }
+
+    media_reader::ImageBufPtr target_image = images->onscreen_image(index);
+
+    Imath::M44f to_image_matrix =
+        (target_image.layout_transform() * viewport_to_image_space.inverse()).inverse();
 
     /* Call the render functions of overlay plugins - note that if the overlay prefers to draw
     before the image but we have no alpha channel, we still call its render function here */
-    if (image_to_be_drawn) {
-        textures()[0]->release(image_to_be_drawn);
+    if (target_image) {
+
+
         for (auto orf : overlay_renderers) {
-            if (orf.second->preferred_render_pass() ==
-                    plugin::ViewportOverlayRenderer::AfterImage ||
-                !use_alpha_) {
-                orf.second->render_image_overlay(
-                    window_to_viewport_matrix,
-                    to_image_matrix,
-                    abs(viewport_du_dx),
-                    image_to_be_drawn,
-                    use_alpha_);
-            }
+            orf.second->render_image_overlay(
+                window_to_viewport_matrix,
+                to_image_matrix,
+                abs(viewport_du_dx),
+                target_image,
+                false);
+        }
+
+        // display err message attached to image if there is one
+        if (!target_image.error_details().empty()) {
+
+            std::vector<float> vtxs;
+            resources_->text_renderer_->precompute_text_rendering_vertex_layout(
+                vtxs,
+                target_image.error_details(),
+                Imath::V2f(0.0f, 0.0f),
+                1.0f,
+                24.0f,
+                JustifyCentre,
+                1.0f);
+
+            resources_->text_renderer_->render_text(
+                vtxs,
+                window_to_viewport_matrix,
+                to_image_matrix,
+                utility::ColourTriplet(1.0f, 1.0f, 1.0f),
+                viewport_du_dx,
+                15.0f,
+                1.0f);
         }
     }
-    glDisable(GL_SCISSOR_TEST);
 }
 
 void OpenGLViewportRenderer::draw_image(
@@ -465,32 +468,14 @@ void OpenGLViewportRenderer::draw_image(
 
     active_shader_program_->set_shader_parameters(shader_params);
 
-
-    if (use_alpha_) {
-
-        // this set-up allows the image to be drawn 'under' overlays that are
-        // drawn first onto the black canvas - (e.g. annotations that can
-        // be drawn better this way)
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
-        glBlendEquation(GL_FUNC_ADD);
-    }
-
+    glDisable(GL_BLEND);
     // the actual draw .. a quad that spans -1.0, 1.0 in x & y.
     glBindVertexArray(vao());
     glEnableVertexAttribArray(0);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glDisableVertexAttribArray(0);
     glBindVertexArray(0);
-
     glUseProgram(0);
-
-    if (use_alpha_) {
-        // this set-up allows the image to be drawn 'under' overlays that are
-        // drawn first onto the black canvas - (e.g. annotations that can
-        // be drawn better this way)
-        glDisable(GL_BLEND);
-    }
 }
 
 bool OpenGLViewportRenderer::activate_shader(
@@ -554,16 +539,12 @@ bool OpenGLViewportRenderer::activate_shader(
     return active_shader_program_ != no_image_shader_program();
 }
 
-void OpenGLViewportRenderer::pre_init() {
+void OpenGLViewportRenderer::pre_init() { resources_->init(); }
 
-    // we need to know if we have alpha in our draw buffer, which might require
-    // different strategies for drawing overlays
-    int alpha_bits;
-    glGetIntegerv(GL_ALPHA_BITS, &alpha_bits);
-    // TODO: not using alpha buffer at all right now, making offscreen rendering
-    // of annotations go wrong.
-    use_alpha_ = false; // alpha_bits != 0;
-    resources_->init();
+OpenGLViewportRenderer::SharedResources::SharedResources(const utility::JsonStore &prefs) {
+
+    use_ssbo = prefs.get("/ui/viewport/texture_mode").value("value", std::string("")) == "SSBO";
+    num_textures = prefs.get("/ui/viewport/num_textures").value("value", 4);
 }
 
 OpenGLViewportRenderer::SharedResources::~SharedResources() {
@@ -579,7 +560,9 @@ void OpenGLViewportRenderer::SharedResources::init() {
     if (textures_.size())
         return;
 
+#ifndef __apple__
     glewInit();
+#endif
 
 // #define OPENGL_DEBUG_CB
 #ifdef OPENGL_DEBUG_CB
@@ -590,8 +573,16 @@ void OpenGLViewportRenderer::SharedResources::init() {
     // Alternative would be using glDebugMessageControl
 #endif
 
-    textures_.emplace_back(GLDoubleBufferedTexture::create<GLBlindRGBA8bitTex>());
-
+#ifdef __OPENGL_4_1__
+    textures_.emplace_back(GLDoubleBufferedTexture::create<GLBlindRGBA8bitTex>(num_textures));
+#else
+    if (use_ssbo) {
+        textures_.emplace_back(GLDoubleBufferedTexture::create<GLSsboTex>(num_textures));
+    } else {
+        textures_.emplace_back(
+            GLDoubleBufferedTexture::create<GLBlindRGBA8bitTex>(num_textures));
+    }
+#endif
     // Set up the geometry used at draw time ... it couldn't be more simple,
     // it's just two triangles to make a rectangle
     glGenBuffers(1, &vbo_);
@@ -637,8 +628,14 @@ void OpenGLViewportRenderer::SharedResources::init() {
     glBindVertexArray(0);
 
     // glDeleteBuffers(1, &vbo);
+    text_renderer_ = std::make_unique<ui::opengl::OpenGLTextRendererSDF>(
+        utility::xstudio_resources_dir("fonts/Overpass-Regular.ttf"), 96);
 
     // add shader for no image render
-    no_image_shader_program_ =
-        GLShaderProgramPtr(static_cast<GLShaderProgram *>(new NoImageShaderProgram()));
+    try {
+        no_image_shader_program_ =
+            GLShaderProgramPtr(static_cast<GLShaderProgram *>(new NoImageShaderProgram()));
+    } catch (std::exception &e) {
+        spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
 }

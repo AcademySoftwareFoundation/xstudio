@@ -83,6 +83,20 @@ class Connection(object):
             (type(event[0]) == type(exit_atom()))):
             self.disconnect()
 
+    def add_event_callback(self, remote, handler):
+        """Add a callback function to recieve event broadcasts from some actor
+
+        Args:
+           remote (Actor): Owner of broadcast actor.
+           handler (func(sender, req_id, event)): Handler to install.
+
+        Returns:
+            handler_id(str): Handler Id.
+        """
+        agrp = self.get_broadcast(remote)
+        return self.link.add_message_callback(
+                agrp, handler
+            )
 
     def add_handler(self, remote, handler):
         """Add handler to remote broadcasts.
@@ -443,14 +457,6 @@ class Connection(object):
             except TimeoutError as e:
                 break
 
-    def caf_message_to_tuple(self, caf_message):
-        """Decompose a CAF message object into a tuple of message params.
-
-        Args:
-           caf_message (CafMessage): A message originating in xstudio backend.
-        """
-        return self.link.tuple_from_message(caf_message)
-
     def _dequeue_messages(self, timeout_milli, watch_for = None):
         """Pop response messages off stack.
 
@@ -540,9 +546,32 @@ class Connection(object):
             search_paths = os.environ["XSTUDIO_PYTHON_PLUGIN_PATH"].split(":")
             for search_path in search_paths:
                 self.load_plugins_in_path(search_path)
+
         # XSTUDIO_LOCAL_PLUGIN_PATH points us at the folder where python plugins
-        # installed/deployed as part of xstudio live
+        # installed/deployed as part of xstudio app bundle
         self.load_plugins_in_path(XSTUDIO_LOCAL_PLUGIN_PATH)
+
+        try:
+
+            # use python_plugin_search_folders and 
+            # user_python_plugin_search_folders prefs to scan for python plugins
+
+            import json
+            extra_paths = json.loads(
+                self.api.global_store.value(
+                    "/core/python/python_plugin_search_folders").dump()
+                    )
+            extra_paths += json.loads(
+                self.api.global_store.value(
+                    "/core/python/user_python_plugin_search_folders").dump()
+                    )
+
+            for extra_path in extra_paths:
+                if os.path.isdir(extra_path):
+                    self.load_plugins_in_path(extra_path)
+
+        except Exception as e:
+            print("Error in load_python_plugins: {}".format(e))
 
 
     def load_plugins_in_path(self, path):
@@ -555,6 +584,8 @@ class Connection(object):
             # silently ignore invalid paths, this is accepted behaviour for
             # search path mechanisms
             return
+
+        print("Scanning folder {} for python plugins.".format(path))
 
         for p in Path(path).iterdir():
             if p.is_dir():

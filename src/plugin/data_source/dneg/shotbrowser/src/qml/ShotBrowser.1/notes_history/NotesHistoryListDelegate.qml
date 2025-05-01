@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.12
-import QtQuick.Controls 2.14
-import QtGraphicalEffects 1.15
-import QtQuick.Layouts 1.15
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+
+
+import QtQuick.Layouts
+
 import QuickFuture 1.0
 
 import xStudio 1.0
@@ -40,10 +39,14 @@ Item{ id: thisItem
     required property string contentRole
     required property string versionNameRole
     required property string artistRole
+    required property string projectRole
+    required property int idRole
     required property var attachmentsRole
     required property var addressingRole
     required property var createdDateRole
     required property int index
+
+    signal showImages(items: var)
 
     Connections {
         target: resultsSelectionModel

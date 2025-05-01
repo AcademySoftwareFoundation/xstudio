@@ -92,12 +92,12 @@ class ShotgunThumbnailReader : public ControllableJob<std::pair<QImage, QString>
                     (mode == "thumbnail" ? true : false),
                     true);
                 if (thumbnail_cache)
-                    sys->anon_send(
-                        thumbnail_cache,
+                    anon_mail(
                         media_cache::store_atom_v,
                         key,
                         static_cast<size_t>(std::max(requestedSize_.width(), 128)),
-                        tbp);
+                        tbp)
+                        .send(thumbnail_cache);
             }
 
             if (not cjc.shouldRun())

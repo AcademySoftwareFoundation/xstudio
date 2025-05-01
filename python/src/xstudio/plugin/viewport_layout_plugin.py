@@ -33,12 +33,13 @@ class ViewportLayoutPlugin(PluginBase):
             self,
             self.layout_callback)
 
-    def add_layout_mode(self, name, playhead_assembly_mode, auto_align_mode=AutoAlignMode.AAM_ALIGN_OFF):
+    def add_layout_mode(self, name, menu_position, playhead_assembly_mode, auto_align_mode=AutoAlignMode.AAM_ALIGN_OFF):
         """Add a viewport layout mode 
 
         Args:
             name(str): Name of the layout. This must be unique and not one that
             has already been added by another plugin
+            menu_position(float): Position in the 'Compare' toobar menu.
             playhead_assembly_mode (xstudio.core.AssemblyMode): The playhead 
             assembly mode. Can be AM_STRING for stringing together the selected
             media to play in sequence. AM_ONE means only one image is needed for
@@ -49,6 +50,7 @@ class ViewportLayoutPlugin(PluginBase):
                 self.remote,
                 viewport_layout_atom(),
                 name,
+                menu_position,
                 playhead_assembly_mode,
                 auto_align_mode)            
 
@@ -62,10 +64,14 @@ class ViewportLayoutPlugin(PluginBase):
         via the Compare toolbar button.
 
         Args:
-            attr_uuid(ModuleAttribute): The attribute to be exposed in the
+            attr(Attribute): The attribute to be exposed in the
                 settings dialog.
         """
-        attr.expose_in_ui_attrs_group(layout_name + " Settings")
+        self.connection.send(
+                self.remote,
+                viewport_layout_atom(),
+                layout_name,
+                attr.uuid)
 
     def do_layout(self, layout_name, image_set_data):
         """Re-implement this function to do your custom layout. You must return

@@ -45,6 +45,8 @@ void GLBlindTex::do_pixel_upload() {
     lk.unlock();
     cv_.notify_one();
 
+    // std::cerr << "UPLOADED " << to_string(media_key_) << "\n";
+
     /*std::cerr << "Tex " << to_string(media_key_) << " uploaded in " <<
     std::chrono::duration_cast<std::chrono::microseconds>(utility::clock::now()-t0).count()
     <<
@@ -84,7 +86,7 @@ void GLBlindTex::prepare_for_upload(const media_reader::ImageBufPtr &frame) {
 
         gpu_mapped_mem_ = map_buffer_for_upload(pending_source_frame_->size());
         if (!gpu_mapped_mem_) {
-            spdlog::warn("Failed to map buffer for frame {} ", to_string(media_key_));
+            spdlog::warn("Failed to map buffer for frame {} ", to_string(pending_media_key_));
             media_key_ = media::MediaKey();
             pending_source_frame_.reset();
             return;

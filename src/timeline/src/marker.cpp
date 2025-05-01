@@ -7,7 +7,7 @@ using namespace xstudio;
 using namespace xstudio::timeline;
 using namespace xstudio::utility;
 
-Marker::Marker(const utility::JsonStore &jsn) {
+Marker::Marker(const JsonStore &jsn) {
     uuid_  = jsn.at("uuid");
     range_ = jsn.at("range");
     name_  = jsn.value("name", "");
@@ -15,8 +15,8 @@ Marker::Marker(const utility::JsonStore &jsn) {
     prop_  = jsn.value("prop", JsonStore());
 }
 
-utility::JsonStore Marker::serialise() const {
-    utility::JsonStore jsn;
+JsonStore Marker::serialise() const {
+    JsonStore jsn;
 
     jsn["uuid"]  = uuid_;
     jsn["range"] = range_;

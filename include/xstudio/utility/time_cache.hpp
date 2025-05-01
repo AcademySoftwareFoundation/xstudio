@@ -50,6 +50,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_set>
 
 #include "xstudio/utility/chrono.hpp"
 #include "xstudio/utility/helpers.hpp"
@@ -465,7 +466,7 @@ namespace utility {
             return ptr;
 
         // release in special time order..
-        long int max_offset(0);
+        long long max_offset(0);
 
         typename cache_type::iterator it = cache_.end();
         typename cache_type::iterator i  = cache_.begin();
@@ -485,7 +486,7 @@ namespace utility {
             // the furthest point in the future that we would need this Value)
             // compare to 'max_offset' ?
             if (timepoints.size()) {
-                long int offset =
+                long long offset =
                     std::abs(std::chrono::duration_cast<std::chrono::microseconds>(
                                  ntp - *(timepoints.rbegin()))
                                  .count());
@@ -514,7 +515,7 @@ namespace utility {
         typename cache_type::iterator it = cache_.end();
         typename cache_type::iterator i  = cache_.begin();
 
-        long int maxx = 0;
+        long long maxx = 0;
 
         // loop over every cache entry
         while (i != cache_.end()) {
@@ -526,9 +527,9 @@ namespace utility {
             // the furthest point in the future that we would need this Value)
             // compare to 'max_offset' ?
             if (timepoints.size()) {
-                long int offset = std::chrono::duration_cast<std::chrono::microseconds>(
-                                      out_of_date_time - *(timepoints.rbegin()))
-                                      .count();
+                long long offset = std::chrono::duration_cast<std::chrono::microseconds>(
+                                       out_of_date_time - *(timepoints.rbegin()))
+                                       .count();
                 if (offset >= maxx) {
                     maxx = offset;
                     it   = i;

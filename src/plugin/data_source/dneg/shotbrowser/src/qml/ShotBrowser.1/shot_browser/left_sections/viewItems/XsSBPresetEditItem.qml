@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import Qt.labs.qmlmodels 1.0
+import QtQuick
+import QtQuick.Layouts
 
 import xStudio 1.0
 import ShotBrowser 1.0
@@ -18,6 +15,8 @@ Rectangle{
     property var delegateModel: null
     property var termModel: []
     property var termValueRole: valueRole
+    // property var isSelected: false
+    property bool isSelected: termSelection.isSelected(helpers.makePersistent(delegateModel.notifyModel.mapRowToModel(index)))
 
     onTermValueRoleChanged: {
         if(valueBox.count && valueBox.currentText != valueRole) {
@@ -30,6 +29,13 @@ Rectangle{
         }
     }
 
+    Connections {
+        target: termSelection
+        function onSelectionChanged(selected, deselected) {
+            isSelected = termSelection.isSelected(helpers.makePersistent(delegateModel.notifyModel.mapRowToModel(index)))
+        }
+    }
+
     function setTermValue(value) {
         valueRole = value
     }
@@ -37,12 +43,54 @@ Rectangle{
     Item{ id: rowItems
         anchors.fill: parent
 
+        Rectangle{ id: selectedBgDiv
+            anchors.fill: parent
+            color: isSelected ? Qt.darker(palette.highlight, 2): "transparent"
+            // opacity: 0.6
+        }
+
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: (height+1) * delegateModel.notifyModel.depthAtRow(index)
             spacing: 1
 
             opacity: enabledRole && parentEnabledRole ? 1.0 : 0.5
+
+            MouseArea {
+                Layout.minimumWidth: 9
+                Layout.maximumWidth: 9
+                Layout.fillHeight: true
+
+                cursorShape: Qt.PointingHandCursor
+
+                onClicked: (mouse)=> {
+                    if( mouse.modifiers == Qt.NoModifier ) {
+                        termSelection.select(helpers.makePersistent(delegateModel.notifyModel.mapRowToModel(index)), ItemSelectionModel.ClearAndSelect)
+                    } else if(mouse.modifiers == Qt.ShiftModifier ) {
+                        if(termSelection.selectedIndexes.length) {
+                            // find last selected entry ?
+                            let m = termSelection.selectedIndexes[termSelection.selectedIndexes.length-1]
+                            let s = Math.min(delegateModel.notifyModel.mapRowToModel(index).row, m.row)
+                            let e = Math.max(delegateModel.notifyModel.mapRowToModel(index).row, m.row)
+                            let items = []
+
+                            for(let i=s; i<=e; i++) {
+                                items.push(termSelection.model.index(i, 0, delegateModel.notifyModel.mapRowToModel(index).parent))
+                            }
+                            termSelection.select(helpers.createItemSelection(items), ItemSelectionModel.ClearAndSelect)
+                        } else {
+                            termSelection.select(helpers.makePersistent(delegateModel.notifyModel.mapRowToModel(index)), ItemSelectionModel.ClearAndSelect)
+                        }
+                    } else if(mouse.modifiers == Qt.ControlModifier ) {
+                        termSelection.select(helpers.makePersistent(delegateModel.notifyModel.mapRowToModel(index)), ItemSelectionModel.Toggle)
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: isSelected ? palette.highlight : XsStyleSheet.widgetBgNormalColor
+                }
+            }
 
             XsPrimaryButton { id: checkBox
                 Layout.minimumWidth: height
@@ -199,13 +247,14 @@ Rectangle{
 
                 imgSrc: "qrc:/icons/more_vert.svg"
                 // scale: 0.95
-                isActive: termMenu.visible && termMenu.termModelIndex == delegateModel.notifyModel.mapRowToModel(index)
+                isActive: termMenu.visible && isSelected
                 onClicked:{
                     if(termMenu.visible) {
                         termMenu.visible = false
                     }
                     else{
-                        termMenu.termModelIndex = delegateModel.notifyModel.mapRowToModel(index)
+                        if(!isSelected)
+                            termSelection.select(delegateModel.notifyModel.mapRowToModel(index), ItemSelectionModel.ClearAndSelect)
                         termMenu.showMenu(moreBtn, width/2, height/2)
                     }
                 }

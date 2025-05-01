@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
-import QtQuick 2.14
+
+import QtQuick.Layouts
+import QtQuick
 import QuickFuture 1.0
 import QuickPromise 1.0
 import xStudio 1.0

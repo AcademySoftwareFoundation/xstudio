@@ -20,7 +20,7 @@ qml_folder_name = "qml/ViewportFlagIndicator.1"
 # one for you with controls for adjusting attributes that you want the user to
 # be able to change.
 settings_box_qml = """
-import QtQuick 2.12
+import QtQuick
 ViewportFlagIndicatorSettingsDialog {
 }
 """

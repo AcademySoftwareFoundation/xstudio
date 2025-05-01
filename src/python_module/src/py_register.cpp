@@ -39,10 +39,6 @@ namespace py = pybind11;
 using namespace xstudio;
 namespace caf::python {
 
-void register_group_down_msg(py::module &m, const std::string &name) {
-    py::class_<caf::group_down_msg>(m, name.c_str()).def(py::init<>());
-}
-
 void register_playlistitem_class(py::module &m, const std::string &name) {
     // auto str_impl = [](const utility::PlaylistItem& x) { return to_string(x); };
     py::class_<utility::PlaylistItem>(m, name.c_str())
@@ -297,6 +293,8 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("timecode", &utility::MediaReference::timecode)
         .def("offset", &utility::MediaReference::offset)
         .def("set_offset", &utility::MediaReference::set_offset)
+        .def("start_frame_offset", &utility::MediaReference::start_frame_offset)
+        .def("set_start_frame_offset", &utility::MediaReference::set_start_frame_offset)
         .def("frame", [](const utility::MediaReference &x, int i) {
             auto f = x.frame(i);
             if (f)
@@ -371,7 +369,8 @@ void register_jsonstore_class(py::module &m, const std::string &name) {
         .def("remove", &utility::JsonStore::remove)
         .def("empty", &utility::JsonStore::empty)
         .def("get_preferences", get_preferences_impl)
-        .def("get_values", get_preference_values_impl);
+        .def("get_values", get_preference_values_impl)
+        .def("parse_string", &utility::JsonStore::parse_string);
 }
 
 void register_FrameRate_class(py::module &m, const std::string &name) {
@@ -404,7 +403,7 @@ void register_FrameRateDuration_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::FrameRateDuration &x) { return to_string(x); };
     py::class_<utility::FrameRateDuration>(m, name.c_str())
         .def(py::init<>())
-        .def(py::init<int, utility::FrameRate>())
+        .def(py::init<const int, utility::FrameRate>())
         .def(
             "frames",
             &utility::FrameRateDuration::frames,
@@ -439,10 +438,10 @@ void register_actor_class(py::module &m, const std::string &name) {
         .def("__str__", str_impl);
 }
 
-void register_group_class(py::module &m, const std::string &name) {
-    auto str_impl = [](const caf::group &x) { return to_string(x); };
-    py::class_<caf::group>(m, name.c_str()).def(py::init()).def("__str__", str_impl);
-}
+// void register_group_class(py::module &m, const std::string &name) {
+//     auto str_impl = [](const caf::group &x) { return to_string(x); };
+//     py::class_<caf::group>(m, name.c_str()).def(py::init()).def("__str__", str_impl);
+// }
 
 void register_addr_class(py::module &m, const std::string &name) {
     auto str_impl = [](const caf::actor_addr &x) { return to_string(x); };
@@ -483,28 +482,6 @@ void register_uuid_actor_vector_class(py::module &m, const std::string &name) {
         .def(
             "__iter__",
             [](std::vector<xstudio::utility::UuidActor> &v) {
-                return py::make_iterator(v.begin(), v.end());
-            },
-            py::keep_alive<0, 1>());
-}
-
-void register_uuidvec_class(py::module &m, const std::string &name) {
-    // auto str_impl = [](const std::vector<xstudio::utility::Uuid>& x) { return
-    // to_string(x);
-    // };
-    py::class_<std::vector<xstudio::utility::Uuid>>(m, name.c_str())
-        .def(py::init())
-        // .def("__str__", str_impl)
-        .def("clear", &std::vector<xstudio::utility::Uuid>::clear)
-        .def(
-            "push_back",
-            py::overload_cast<const xstudio::utility::Uuid &>(
-                &std::vector<xstudio::utility::Uuid>::push_back))
-        .def("pop_back", &std::vector<xstudio::utility::Uuid>::pop_back)
-        .def("__len__", &std::vector<xstudio::utility::Uuid>::size)
-        .def(
-            "__iter__",
-            [](std::vector<xstudio::utility::Uuid> &v) {
                 return py::make_iterator(v.begin(), v.end());
             },
             py::keep_alive<0, 1>());

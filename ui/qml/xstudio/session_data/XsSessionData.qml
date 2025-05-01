@@ -1,4 +1,4 @@
-import QtQuick 2.15
+import QtQuick
 
 import xstudio.qml.session 1.0
 import xstudio.qml.helpers 1.0
@@ -8,8 +8,7 @@ import xstudio.qml.bookmarks 1.0
 import xstudio.qml.helpers 1.0
 import xstudio.qml.embedded_python 1.0
 
-import QtQml.Models 2.14
-import Qt.labs.qmlmodels 1.0
+
 
 Item {
 
@@ -238,8 +237,8 @@ Item {
             embeddedPython.createSession()
         }
 
-        onStdoutEvent: text += str
-        onStderrEvent: text += str
+        onStdoutEvent: str => text += str
+        onStderrEvent: str => text += str
     }
 
     property alias embeddedPython: embeddedPython

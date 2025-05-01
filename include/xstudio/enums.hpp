@@ -11,5 +11,6 @@
 #include "xstudio/shotgun_client/enums.hpp"
 #include "xstudio/thumbnail/enums.hpp"
 #include "xstudio/timeline/enums.hpp"
+#include "xstudio/ui/enums.hpp"
 #include "xstudio/ui/viewport/enums.hpp"
 #include "xstudio/utility/enums.hpp"

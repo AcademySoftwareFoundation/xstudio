@@ -12,5 +12,6 @@ namespace utility {
         NT_PROGRESS_RANGE,
         NT_PROGRESS_PERCENTAGE
     };
+
 } // namespace utility
 } // namespace xstudio

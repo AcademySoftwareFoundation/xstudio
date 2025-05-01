@@ -38,7 +38,7 @@ const auto PresetTemplate = R"({
 	"type": "preset",
 	"name": "PRESET",
     "hidden": false,
-    "favourite": true,
+    "favourite": false,
     "update": null,
     "userdata": "",
     "children": []
@@ -52,6 +52,7 @@ const auto GroupTemplate = R"({
     "favourite": true,
 	"entity": "",
     "update": null,
+    "flags": [],
     "userdata": "",
     "children": [
         {
@@ -114,6 +115,7 @@ const auto ValidTerms = R"_({
         "Operator",
         "Author",
         "Disable Global",
+        "Entity",
         "Exclude Shot Status",
         "Filter",
         "Flag Media",
@@ -134,6 +136,7 @@ const auto ValidTerms = R"_({
         "Sequence",
         "Shot Status",
         "Shot",
+        "Shot Alternative",
         "Tag",
         "Twig Name",
         "Twig Type",
@@ -142,11 +145,14 @@ const auto ValidTerms = R"_({
     "Versions" : [
         "Operator",
         "Author",
+        "Asset",
         "Client Filename",
         "Completion Location",
         "Disable Global",
         "dnTag",
         "Entity",
+        "Episode",
+        "Exclude Self",
         "Exclude Shot Status",
         "Filter",
         "Flag Media",
@@ -163,6 +169,7 @@ const auto ValidTerms = R"_({
         "Pipeline Step",
         "Playlist",
         "Preferred Audio",
+        "Preferred Sequence",
         "Preferred Visual",
         "Production Status",
         "Project",
@@ -175,12 +182,15 @@ const auto ValidTerms = R"_({
         "Sequence",
         "Shot Status",
         "Shot",
+        "Shot Alternative",
         "Stage",
+        "Stalk Uuid",
         "Tag",
         "Tag (Version)",
         "Twig Name",
         "Twig Type",
-        "Unit"
+        "Unit",
+        "Viewable"
     ]
 })_"_json;
 
@@ -232,13 +242,33 @@ const auto OrderByTermValues = R"([
         {"name": "Client Submit ASC"},
         {"name": "Client Submit DESC"},
         {"name": "Version ASC"},
-        {"name": "Version DESC"}
+        {"name": "Version DESC"},
+        {"name": "Pipeline Status ASC"},
+        {"name": "Pipeline Status DESC"}
     ])"_json;
 
 const auto BoolTermValues = R"([{"name": "True"},{"name": "False"}])"_json;
 const auto SubmittedTermValues =
     R"([{"name": "Any"}, {"name": "Client"}, {"name": "Dailies"}, {"name": "Ignore"}])"_json;
 const auto OperatorTermValues = R"([{"name": "And"},{"name": "Or"}])"_json;
+
+// "Menu",
+// "Tree",
+// "Recent",
+
+const auto GroupFlags = R"([
+        "Compare",
+        "Conform",
+        "Ignore Toolbar",
+        "Load Sequence",
+        "Note History Scope",
+        "Note History Type",
+        "Quick Load",
+        "Replace",
+        "Shot History Scope",
+        "System Group",
+        "View In Sequence"
+    ])"_json;
 
 const auto FlagTermValues = R"([
         {"name": "Red", "id":"#FFFF0000"},
@@ -249,6 +279,18 @@ const auto FlagTermValues = R"([
         {"name": "Purple", "id":"#FF800080"},
         {"name": "Black", "id":"#FF000000"},
         {"name": "White", "id":"#FFFFFFFF"}
+    ])"_json;
+
+const auto SequenceTermValues = R"([
+        { "name": "dneg_shot_mixdown" },
+        { "name": "extracted_otio" },
+        { "name": "fcp" },
+        { "name": "jsoncut" },
+        { "name": "main" },
+        { "name": "otio" },
+        { "name": "otio_optimised" },
+        { "name": "shot_mixdown" },
+        { "name": "source" }
     ])"_json;
 
 const auto SourceTermValues = R"([
@@ -277,6 +319,7 @@ const auto SourceTermValues = R"([
     ])"_json;
 
 const auto TermProperties = R"_({
+    "Asset": { "negated": false, "livelink": false },
     "Author": { "negated": null, "livelink": false },
     "Client Filename": { "negated": false, "livelink": null },
     "Completion Location": { "negated": false, "livelink": null },
@@ -284,13 +327,15 @@ const auto TermProperties = R"_({
     "Disable Global": { "negated": null, "livelink": null },
     "dnTag": { "negated": false, "livelink": null },
     "Entity": { "negated": null, "livelink": true },
+    "Episode": { "negated": false, "livelink": false },
+    "Exclude Self": { "negated": null, "livelink": true },
     "Exclude Shot Status": { "negated": null, "livelink": null },
     "Filter": { "negated": false, "livelink": null },
     "Flag Media": { "negated": null, "livelink": null },
     "Has Attachments": { "negated": null, "livelink": null },
     "Has Contents": { "negated": null, "livelink": null },
     "Has Notes": { "negated": null, "livelink": null },
-    "Id": { "negated": false, "livelink": null },
+    "Id": { "negated": false, "livelink": false },
     "Is Hero": { "negated": null, "livelink": null },
     "Latest Version": { "negated": null, "livelink": null },
     "Lookback": { "negated": null, "livelink": null },
@@ -305,6 +350,7 @@ const auto TermProperties = R"_({
     "Playlist Type": { "negated": false, "livelink": null },
     "Playlist": { "negated": null, "livelink": null },
     "Preferred Audio": { "negated": null, "livelink": false },
+    "Preferred Sequence": { "negated": null, "livelink": null },
     "Preferred Visual": { "negated": null, "livelink": false },
     "Production Status": { "negated": false, "livelink": null },
     "Project": { "negated": null, "livelink": false },
@@ -319,44 +365,38 @@ const auto TermProperties = R"_({
     "Sequence": { "negated": false, "livelink": false },
     "Shot Status": { "negated": false, "livelink": null },
     "Shot": { "negated": false, "livelink": false },
+    "Shot Alternative": { "negated": null, "livelink": true },
     "Site": { "negated": false, "livelink": null },
     "Stage": { "negated": null, "livelink": null },
+    "Stalk Uuid": { "negated": null, "livelink": null },
     "Tag (Version)": { "negated": false, "livelink": null },
     "Tag": { "negated": false, "livelink": null },
     "Twig Name": { "negated": false, "livelink": false },
     "Twig Type": { "negated": false, "livelink": false },
     "Unit": { "negated": false, "livelink": null },
+    "Viewable": { "negated": null, "livelink": null },
     "Version Name": { "negated": false, "livelink": false }
 })_"_json;
 
 const std::set<std::string> TermHasProjectKey = {
-    "shot",
-    "sequence",
-    "playlist",
-    "unit",
-    "stage",
-    "user",
-    "group",
-    "Group",
-    "Shot",
-    "ShotSequence",
-    "ShotSequenceList",
-    "Sequence",
-    "Stage",
-    "Unit",
-    "User",
-    "Author",
-    "Recipient",
-    "Playlist"};
+    "Asset",     "asset",     "Author",       "episode",
+    "Episode",   "group",     "Group",        "playlist",
+    "Playlist",  "Recipient", "sequence",     "Sequence",
+    "shot",      "Shot",      "ShotSequence", "ShotSequenceList",
+    "AssetList", "stage",     "Stage",        "unit",
+    "Unit",      "user",      "User"};
 
 const std::set<std::string> TermHasNoModel = {
     "Client Filename",
     "dnTag",
     "Entity",
+    "Exclude Self",
     "Filter",
     "Id",
     "Newer Version",
     "Older Version",
+    "Shot Alternative",
+    "Stalk Uuid",
     "Tag (Version)",
     "Tag",
     "Twig Name",
@@ -372,7 +412,7 @@ class QueryEngine {
     static utility::JsonStore build_query(
         const int project_id,
         const std::string &entity,
-        const utility::Uuid &group_id,
+        const utility::JsonStore &group_detail,
         const utility::JsonStore &group_terms,
         const utility::JsonStore &terms,
         const utility::JsonStore &custom_terms,
@@ -445,6 +485,9 @@ class QueryEngine {
 
     static std::vector<std::string> get_sequence_name(
         const int project_id, const int shot_id, const utility::JsonStore &lookup);
+
+    static std::vector<std::string>
+    get_asset_name(const int project_id, const int asset_id, const utility::JsonStore &lookup);
 
     static utility::JsonStore get_livelink_value(
         const std::string &term,
@@ -566,8 +609,11 @@ class QueryEngine {
 
     static void set_shot_sequence_list_cache(
         const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache);
-
     void set_shot_sequence_list_cache(const std::string &key, const utility::JsonStore &data);
+
+    static void set_asset_list_cache(
+        const std::string &key, const utility::JsonStore &data, utility::JsonStore &cache);
+    void set_asset_list_cache(const std::string &key, const utility::JsonStore &data);
 
     std::optional<utility::JsonStore> get_cache(const std::string &key) const;
     std::optional<utility::JsonStore> get_lookup(const std::string &key) const;

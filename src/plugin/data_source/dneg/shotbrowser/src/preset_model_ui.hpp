@@ -34,13 +34,27 @@ namespace ui::qml {
         Q_PROPERTY(QStringList entities READ entities NOTIFY entitiesChanged)
         Q_PROPERTY(QQmlPropertyMap *termLists READ termLists NOTIFY termListsChanged)
 
+        Q_PROPERTY(QVariantList quickLoad READ quickLoad NOTIFY quickLoadChanged)
+
+        Q_PROPERTY(
+            QVariantList shotHistoryScope READ shotHistoryScope NOTIFY shotHistoryScopeChanged)
+
+        Q_PROPERTY(
+            QVariantList noteHistoryScope READ noteHistoryScope NOTIFY noteHistoryScopeChanged)
+        Q_PROPERTY(
+            QVariantList noteHistoryType READ noteHistoryType NOTIFY noteHistoryTypeChanged)
+
+        Q_PROPERTY(QStringList groupFlags READ groupFlags NOTIFY groupFlagsChanged)
+
         Q_OBJECT
       public:
         enum Roles {
             enabledRole = JSONTreeModel::Roles::LASTROLE,
             entityRole,
             favouriteRole,
+            flagRole,
             groupFavouriteRole,
+            groupFlagRole,
             groupIdRole,
             groupUserDataRole,
             hiddenRole,
@@ -71,6 +85,12 @@ namespace ui::qml {
         Q_INVOKABLE QModelIndex insertPreset(const int row, const QModelIndex &parent);
         Q_INVOKABLE QModelIndex
         insertTerm(const QString &term, const int row, const QModelIndex &parent);
+
+        Q_INVOKABLE QVariantList noteHistoryScope();
+        Q_INVOKABLE QVariantList noteHistoryType();
+        Q_INVOKABLE QVariantList shotHistoryScope();
+        Q_INVOKABLE QVariantList quickLoad();
+        Q_INVOKABLE QStringList groupFlags() const;
 
         Q_INVOKABLE QModelIndex
         insertOperatorTerm(const bool anding, const int row, const QModelIndex &parent);
@@ -114,14 +134,34 @@ namespace ui::qml {
 
         void updateTermModel(const std::string &key, const bool cache);
 
+        void modelModelReset();
+        void modelRowsInsertedRemoved(const QModelIndex &parent, int first, int last);
+        void modelRowsMoved(
+            const QModelIndex &sourceParent,
+            int sourceStart,
+            int sourceEnd,
+            const QModelIndex &destinationParent,
+            int destinationRow);
+        void modelDataChanged(
+            const QModelIndex &topLeft,
+            const QModelIndex &bottomRight,
+            const QVector<int> &roles = QVector<int>());
+
       signals:
         void entitiesChanged();
         void termListsChanged();
         void presetChanged(QModelIndex);
         void presetHidden(QModelIndex, bool);
+        void shotHistoryScopeChanged();
+        void noteHistoryScopeChanged();
+        void noteHistoryTypeChanged();
+        void quickLoadChanged();
+        void groupFlagsChanged();
 
       private:
         void markedAsUpdated(const QModelIndex &parent);
+
+        // need flag role ?
 
         const std::map<std::string, int> role_map_ = {
             {"update", Roles::updateRole},
@@ -133,11 +173,16 @@ namespace ui::qml {
             {"userdata", Roles::userDataRole},
             {"userdata", Roles::groupUserDataRole},
             {"name", Roles::nameRole},
+            {"flags", Roles::flagRole},
             {"negated", Roles::negatedRole}};
         QQmlPropertyMap *term_lists_{nullptr};
 
         QMap<QString, QObject *> term_models_;
         QueryEngine &query_engine_;
+        bool reset_note_history_scope_{false};
+        bool reset_note_history_type_{false};
+        bool reset_shot_history_scope_{false};
+        bool reset_quick_load_{false};
     };
 
     class ShotBrowserPresetTreeFilterModel : public QSortFilterProxyModel {
@@ -165,8 +210,8 @@ namespace ui::qml {
         Q_PROPERTY(bool onlyShowPresets READ onlyShowPresets WRITE setOnlyShowPresets NOTIFY
                        onlyShowPresetsChanged)
 
-        Q_PROPERTY(bool ignoreSpecialGroups READ ignoreSpecialGroups WRITE
-                       setIgnoreSpecialGroups NOTIFY ignoreSpecialGroupsChanged)
+        Q_PROPERTY(bool ignoreToolbar READ ignoreToolbar WRITE setIgnoreToolbar NOTIFY
+                       ignoreToolbarChanged)
 
         Q_PROPERTY(QVariant filterUserData READ filterUserData WRITE setFilterUserData NOTIFY
                        filterUserDataChanged)
@@ -184,7 +229,7 @@ namespace ui::qml {
         [[nodiscard]] bool showHidden() const { return show_hidden_; }
         [[nodiscard]] bool onlyShowFavourite() const { return only_show_favourite_; }
         [[nodiscard]] bool onlyShowPresets() const { return only_show_presets_; }
-        [[nodiscard]] bool ignoreSpecialGroups() const { return ignore_special_groups_; }
+        [[nodiscard]] bool ignoreToolbar() const { return ignore_tool_bar_; }
         [[nodiscard]] QVariant filterUserData() const { return filter_user_data_; }
         [[nodiscard]] QVariant filterGroupUserData() const { return filter_group_user_data_; }
 
@@ -193,10 +238,10 @@ namespace ui::qml {
         Q_INVOKABLE void setShowHidden(const bool value);
         Q_INVOKABLE void setOnlyShowFavourite(const bool value);
         Q_INVOKABLE void setOnlyShowPresets(const bool value);
-        Q_INVOKABLE void setIgnoreSpecialGroups(const bool value);
+        Q_INVOKABLE void setIgnoreToolbar(const bool value);
 
       signals:
-        void ignoreSpecialGroupsChanged();
+        void ignoreToolbarChanged();
         void showHiddenChanged();
         void onlyShowPresetsChanged();
         void onlyShowFavouriteChanged();
@@ -212,15 +257,8 @@ namespace ui::qml {
         bool show_hidden_{false};
         bool only_show_favourite_{false};
         bool only_show_presets_{false};
-        bool ignore_special_groups_{false};
+        bool ignore_tool_bar_{false};
         QVariant filter_user_data_;
-        std::set<utility::Uuid> special_groups_{
-            utility::Uuid("ef787e88-1b8f-4d89-bbc7-3ecf85987792"), // quick menu
-            utility::Uuid("28612cf7-a814-4714-a4eb-443126cf0cd4"), // note history
-            utility::Uuid("4c512dae-e1e3-43b7-a02a-4fb7d93fde62"), // shot history
-            utility::Uuid("b6e0ca0e-2d23-4b1d-a33a-761596183d5f"), // replace/conform
-            utility::Uuid("86439af3-16be-4a2f-89f3-ee1e5810ae47")  // view in cut
-        };
     };
 } // namespace ui::qml
 } // namespace xstudio

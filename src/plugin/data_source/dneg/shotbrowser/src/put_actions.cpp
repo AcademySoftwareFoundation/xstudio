@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/notification_handler.hpp"
@@ -13,6 +15,7 @@ using namespace xstudio::utility;
 void ShotBrowser::update_playlist_versions(
     caf::typed_response_promise<JsonStore> rp,
     const utility::Uuid &playlist_uuid,
+    const bool append,
     const int playlist_id,
     const utility::Uuid &notification_uuid_) {
     // src should be a playlist actor..
@@ -24,18 +27,18 @@ void ShotBrowser::update_playlist_versions(
 
     auto failed = [=](const caf::actor &dest, const Uuid &uuid) mutable {
         if (dest and not uuid.is_null()) {
-            auto notify = Notification::WarnNotification("Publish Playlist Failed");
+            auto notify = Notification::WarnNotification("Update Playlist Failed");
             notify.uuid(uuid);
-            anon_send(dest, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(dest);
         }
     };
 
     auto succeeded = [=](const caf::actor &dest, const Uuid &uuid) mutable {
         if (dest and not uuid.is_null()) {
             auto notify = Notification::InfoNotification(
-                "Publish Playlist Succeeded", std::chrono::seconds(5));
+                "Update Playlist Succeeded", std::chrono::seconds(5));
             notify.uuid(uuid);
-            anon_send(dest, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(dest);
         }
     };
 
@@ -52,9 +55,9 @@ void ShotBrowser::update_playlist_versions(
             *sys, session, session::get_playlist_atom_v, playlist_uuid);
 
         if (notification_uuid.is_null()) {
-            auto notify       = Notification::ProcessingNotification("Publishing Playlist");
+            auto notify       = Notification::ProcessingNotification("Updating Playlist");
             notification_uuid = notify.uuid();
-            anon_send(playlist, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(playlist);
         }
 
         auto pl_id = playlist_id;
@@ -68,13 +71,41 @@ void ShotBrowser::update_playlist_versions(
         auto media =
             request_receive<std::vector<UuidActor>>(*sys, playlist, playlist::get_media_atom_v);
 
-        // foreach medai actor get it's shogtun metadata.
+        // foreach media actor get it's shogtun metadata.
         auto jsn = R"({"versions":[]})"_json;
         auto ver = R"({"id": 0, "type": "Version"})"_json;
-
         std::map<int, int> version_order_map;
+
+        if (append) {
+            auto current_vers = request_receive_wait<JsonStore>(
+                                    *sys,
+                                    shotgun_,
+                                    infinite,
+                                    shotgun_entity_atom_v,
+                                    "Playlists",
+                                    pl_id,
+                                    std::vector<std::string>({"versions"}))
+                                    .at("data")
+                                    .at("relationships")
+                                    .at("versions")
+                                    .at("data");
+
+            for (const auto &i : current_vers) {
+                ver["id"] = i.at("id");
+                jsn["versions"].push_back(ver);
+
+                // we won't acutally use this, but will stop adding same version multiple times.
+                version_order_map[i.at("id").get<int>()] = 0;
+            }
+            // {
+            //   "id": 48906133,
+            //   "name": "CG_ldev_pipe_lighting_sgco_test_L010_BEAUTY_v005",
+            //   "type": "Version"
+            // },
+        }
+
         // get media detail
-        int sort_order = 1;
+        int sort_order = 10;
         for (const auto &i : media) {
             try {
                 auto mjson = request_receive<JsonStore>(
@@ -83,102 +114,101 @@ void ShotBrowser::update_playlist_versions(
                     json_store::get_json_atom_v,
                     utility::Uuid(),
                     ShotgunMetadataPath + "/version");
-                auto id   = mjson["id"].template get<int>();
-                ver["id"] = id;
-                jsn["versions"].push_back(ver);
-                version_order_map[id] = sort_order;
+                auto id = mjson["id"].template get<int>();
 
-                sort_order++;
+                if (not version_order_map.count(id)) {
+                    ver["id"] = id;
+                    jsn["versions"].push_back(ver);
+                    version_order_map[id] = sort_order;
+
+                    sort_order += 10;
+                }
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             }
         }
 
-        // update playlist
-        request(
-            shotgun_,
-            infinite,
-            shotgun_update_entity_atom_v,
-            "Playlists",
-            pl_id,
-            utility::JsonStore(jsn))
+        // update playlist with versions
+        mail(shotgun_update_entity_atom_v, "Playlists", pl_id, utility::JsonStore(jsn))
+            .request(shotgun_, infinite)
             .then(
                 [=](const JsonStore &result) mutable {
                     // spdlog::warn("{}", JsonStore(result["data"]).dump(2));
                     // update playorder..
                     // get PlaylistVersionConnections
-                    scoped_actor sys{system()};
+                    if (not append) {
+                        scoped_actor sys{system()};
 
-                    auto order_filter = R"(
-                {
-                    "logical_operator": "and",
-                    "conditions": [
-                        ["playlist", "is", {"type":"Playlist", "id":0}]
-                    ]
-                })"_json;
+                        auto order_filter = R"(
+                    {
+                        "logical_operator": "and",
+                        "conditions": [
+                            ["playlist", "is", {"type":"Playlist", "id":0}]
+                        ]
+                    })"_json;
 
-                    order_filter["conditions"][0][2]["id"] = pl_id;
+                        order_filter["conditions"][0][2]["id"] = pl_id;
 
-                    try {
-                        auto order = request_receive<JsonStore>(
-                            *sys,
-                            shotgun_,
-                            shotgun_entity_search_atom_v,
-                            "PlaylistVersionConnection",
-                            JsonStore(order_filter),
-                            std::vector<std::string>({"sg_sort_order", "version"}),
-                            std::vector<std::string>({"sg_sort_order"}),
-                            1,
-                            4999);
-                        // update all PlaylistVersionConnection's with new sort_order.
-                        for (const auto &i : order["data"]) {
-                            auto version_id = i.at("relationships")
-                                                  .at("version")
-                                                  .at("data")
-                                                  .at("id")
-                                                  .get<int>();
-                            auto sort_order =
-                                i.at("attributes").at("sg_sort_order").is_null()
-                                    ? 0
-                                    : i.at("attributes").at("sg_sort_order").get<int>();
-                            // spdlog::warn("{} {}", std::to_string(sort_order),
-                            // std::to_string(version_order_map[version_id]));
-                            if (sort_order != version_order_map[version_id]) {
-                                auto so_jsn             = R"({"sg_sort_order": 0})"_json;
-                                so_jsn["sg_sort_order"] = version_order_map[version_id];
-                                try {
-                                    request_receive<JsonStore>(
-                                        *sys,
-                                        shotgun_,
-                                        shotgun_update_entity_atom_v,
-                                        "PlaylistVersionConnection",
-                                        i.at("id").get<int>(),
-                                        utility::JsonStore(so_jsn),
-                                        std::vector<std::string>({"id"}));
-                                } catch (const std::exception &err) {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        try {
+                            auto order = request_receive<JsonStore>(
+                                *sys,
+                                shotgun_,
+                                shotgun_entity_search_atom_v,
+                                "PlaylistVersionConnection",
+                                JsonStore(order_filter),
+                                std::vector<std::string>({"sg_sort_order", "version"}),
+                                std::vector<std::string>({"sg_sort_order"}),
+                                1,
+                                4999);
+                            // update all PlaylistVersionConnection's with new sort_order.
+                            for (const auto &i : order["data"]) {
+                                auto version_id = i.at("relationships")
+                                                      .at("version")
+                                                      .at("data")
+                                                      .at("id")
+                                                      .get<int>();
+                                auto sort_order =
+                                    i.at("attributes").at("sg_sort_order").is_null()
+                                        ? 0
+                                        : i.at("attributes").at("sg_sort_order").get<int>();
+                                // spdlog::warn("{} {}", std::to_string(sort_order),
+                                // std::to_string(version_order_map[version_id]));
+                                if (sort_order != version_order_map[version_id]) {
+                                    auto so_jsn             = R"({"sg_sort_order": 0})"_json;
+                                    so_jsn["sg_sort_order"] = version_order_map[version_id];
+                                    try {
+                                        request_receive<JsonStore>(
+                                            *sys,
+                                            shotgun_,
+                                            shotgun_update_entity_atom_v,
+                                            "PlaylistVersionConnection",
+                                            i.at("id").get<int>(),
+                                            utility::JsonStore(so_jsn),
+                                            std::vector<std::string>({"id"}));
+                                    } catch (const std::exception &err) {
+                                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                                    }
                                 }
                             }
-                        }
 
-                    } catch (const std::exception &err) {
-                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        } catch (const std::exception &err) {
+                            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        }
                     }
 
-
                     if (pl_id != playlist_id) {
-                        anon_send(
-                            playlist,
+                        anon_mail(
                             json_store::set_json_atom_v,
                             JsonStore(result["data"]),
-                            ShotgunMetadataPath + "/playlist");
+                            ShotgunMetadataPath + "/playlist")
+                            .send(playlist);
 
-                        anon_send(
-                            playlist,
+                        anon_mail(
                             json_store::set_json_atom_v,
                             JsonStore(
                                 R"({"icon": "qrc:/shotbrowser_icons/shot_grid.svg", "tooltip": "ShotGrid Playlist"})"_json),
-                            "/ui/decorators/shotgrid");
+                            "/ui/decorators/shotgrid")
+                            .send(playlist);
                     }
                     succeeded(playlist, notification_uuid);
 

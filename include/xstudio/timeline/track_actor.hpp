@@ -6,8 +6,6 @@
 #include "xstudio/timeline/clip.hpp"
 #include "xstudio/timeline/stack.hpp"
 #include "xstudio/timeline/track.hpp"
-#include "xstudio/utility/json_store.hpp"
-#include "xstudio/utility/uuid.hpp"
 #include "xstudio/utility/notification_handler.hpp"
 
 namespace xstudio {
@@ -129,6 +127,8 @@ namespace timeline {
         // might need to prune.. ?
         std::set<utility::Uuid> events_processed_;
         utility::NotificationHandler notification_;
+
+        std::map<caf::actor_addr, caf::disposable> monitor_;
     };
 } // namespace timeline
 } // namespace xstudio

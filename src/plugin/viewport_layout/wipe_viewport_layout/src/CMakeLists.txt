@@ -8,6 +8,6 @@ SET(LINK_DEPS
 
 find_package(Imath)
 
-create_plugin_with_alias(wipe_viewport_layout xstudio::viewport::wipe_viewport_layout 0.1.0  "${LINK_DEPS}")
+create_plugin_with_alias(wipe_viewport_layout xstudio::viewport::wipe_viewport_layout ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")
 
-add_subdirectory(qml)
+add_plugin_qml(${PROJECT_NAME} qml)

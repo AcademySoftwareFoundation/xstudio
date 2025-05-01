@@ -1,0 +1,4 @@
+module ViewportFieldChartPlugin
+
+ViewportFieldChart 1.0 ViewportFieldChart.qml
+ViewportFieldCharSettingsDialog 1.0 ViewportFieldCharSettingsDialog.qml

@@ -1,5 +1,5 @@
 
-import QtQuick 2.15
+import QtQuick
 import QuickFuture 1.0
 import QuickPromise 1.0
 
@@ -419,7 +419,7 @@ Item {
             let p = recentFiles[0]
             return p.substr(0, p.lastIndexOf("/"))
         }
-        return null
+        return ""
     }
 
     function newRecentPath(path) {

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <caf/actor_registry.hpp>
+
 #include "xstudio/shotgun_client/shotgun_client.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/thumbnail/thumbnail.hpp"
@@ -12,101 +14,6 @@ using namespace xstudio::shotbrowser;
 using namespace xstudio::utility;
 
 
-void ShotBrowser::publish_note_annotations(
-    caf::typed_response_promise<utility::JsonStore> rp,
-    const caf::actor &session,
-    const int note_id,
-    const utility::JsonStore &annotations) {
-
-    auto offscreen_renderer =
-        system().registry().template get<caf::actor>(offscreen_viewport_registry);
-    auto thumbnail_manager =
-        system().registry().template get<caf::actor>(thumbnail_manager_registry);
-
-    for (const auto &anno : annotations) {
-        request(
-            session, infinite, playlist::get_media_atom_v, utility::Uuid(anno.at("media_uuid")))
-            .then(
-                [=](const caf::actor &media_actor) mutable {
-                    // spdlog::warn("render annotation {}",
-                    // anno["media_frame"].get<int>());
-                    request(
-                        offscreen_renderer,
-                        infinite,
-                        ui::viewport::render_viewport_to_image_atom_v,
-                        media_actor,
-                        anno.at("media_frame").get<int>(),
-                        thumbnail::THUMBNAIL_FORMAT::TF_RGB24,
-                        2560, // forcing QHD resolution for details
-                        false,
-                        true)
-                        .then(
-                            [=](const thumbnail::ThumbnailBufferPtr &tnail) {
-                                // got buffer. convert to jpg..
-                                request(
-                                    thumbnail_manager,
-                                    infinite,
-                                    media_reader::get_thumbnail_atom_v,
-                                    tnail,
-                                    100 // jpeg quality = 100
-                                    )
-                                    .then(
-                                        [=](const std::vector<std::byte> &jpgbuf) mutable {
-                                            // final step...
-                                            auto title = std::string(fmt::format(
-                                                "{}_{}.jpg",
-                                                anno.at("media_name").get<std::string>(),
-                                                anno.at("timecode_frame").get<int>()));
-                                            request(
-                                                shotgun_,
-                                                infinite,
-                                                shotgun_upload_atom_v,
-                                                "note",
-                                                note_id,
-                                                "",
-                                                title,
-                                                jpgbuf,
-                                                "image/jpeg")
-                                                .then(
-                                                    [=](const bool) {},
-                                                    [=](const error &err) mutable {
-                                                        spdlog::warn(
-                                                            "{} "
-                                                            "Failed"
-                                                            " uploa"
-                                                            "d of "
-                                                            "annota"
-                                                            "tion "
-                                                            "{}",
-                                                            __PRETTY_FUNCTION__,
-                                                            to_string(err));
-                                                    }
-
-                                                );
-                                        },
-                                        [=](const error &err) mutable {
-                                            spdlog::warn(
-                                                "{} Failed jpeg "
-                                                "conversion {}",
-                                                __PRETTY_FUNCTION__,
-                                                to_string(err));
-                                        });
-                            },
-                            [=](const error &err) mutable {
-                                spdlog::warn(
-                                    "{} Failed render annotation "
-                                    "{}",
-                                    __PRETTY_FUNCTION__,
-                                    to_string(err));
-                            });
-                },
-                [=](const error &err) mutable {
-                    spdlog::warn("{} Failed get media {}", __PRETTY_FUNCTION__, to_string(err));
-                });
-    }
-}
-
-
 void ShotBrowser::create_playlist_notes(
     caf::typed_response_promise<utility::JsonStore> rp,
     const utility::JsonStore &notes,
@@ -114,7 +21,7 @@ void ShotBrowser::create_playlist_notes(
 
     const std::string ui(R"(
         import xStudio 1.0
-        import QtQuick 2.14
+        import QtQuick
         XsLabel {
             anchors.fill: parent
             font.pixelSize: XsStyle.popupControlFontSize*1.2
@@ -144,16 +51,34 @@ void ShotBrowser::create_playlist_notes(
 
         auto index = 0;
 
+        // here we get the set of bookmark uuids for all the bookmarks that
+        // have annotations that are going to be part of the publish
+        std::map<utility::Uuid, std::pair<std::string, std::vector<std::byte>>>
+            annotated_bookmark_uuids;
+        for (const auto &j : notes) {
+            const auto &ann_uuids = j.at("note_annotation");
+            for (const auto &anno_details : ann_uuids) {
+                auto bookmark_uuid =
+                    anno_details.at("bookmark_uuid").template get<utility::Uuid>();
+                auto annotation_title = anno_details.at("title").template get<std::string>();
+                auto jpeg_buf         = request_receive<std::vector<std::byte>>(
+                    *sys,
+                    bookmarks,
+                    bookmark::render_annotations_atom_v,
+                    bookmark_uuid,
+                    2560 // QHD res for sharpness
+                );
+                annotated_bookmark_uuids[bookmark_uuid] =
+                    std::make_pair(annotation_title, jpeg_buf);
+            }
+        }
+
         for (const auto &j : notes) {
 
             // need to capture result to embed in playlist and add any media..
             // spdlog::warn("{}", j["payload"].dump(2));
-            request(
-                shotgun_,
-                infinite,
-                shotgun_create_entity_atom_v,
-                "notes",
-                utility::JsonStore(j.at("payload")))
+            mail(shotgun_create_entity_atom_v, "notes", utility::JsonStore(j.at("payload")))
+                .request(shotgun_, infinite)
                 .then(
                     [=](const JsonStore &result) mutable {
                         (*results)[index] = result;
@@ -164,31 +89,58 @@ void ShotBrowser::create_playlist_notes(
 
                                 // get new playlist id..
                                 auto note_id = result.at("data").at("id").template get<int>();
-                                // we have a note...
-                                if (not j.at("has_annotation").empty()) {
-                                    publish_note_annotations(
-                                        rp, session, note_id, j.at("has_annotation"));
+
+                                // attach any annotations that we generated to the note
+                                for (const auto &ju : j.at("bookmark_uuid")) {
+                                    auto p = annotated_bookmark_uuids.find(ju.get<Uuid>());
+                                    if (p == annotated_bookmark_uuids.end())
+                                        continue;
+                                    mail(
+                                        shotgun_upload_atom_v,
+                                        "note",
+                                        note_id,
+                                        "",
+                                        p->second.first,  // image title
+                                        p->second.second, // jpeg buf
+                                        "image/jpeg")
+                                        .request(shotgun_, infinite)
+                                        .then(
+                                            [=](const bool) {},
+                                            [=](const error &err) mutable {
+                                                spdlog::warn(
+                                                    "{} "
+                                                    "Failed"
+                                                    " uploa"
+                                                    "d of "
+                                                    "annota"
+                                                    "tion "
+                                                    "{}",
+                                                    __PRETTY_FUNCTION__,
+                                                    to_string(err));
+                                            }
+
+                                        );
                                 }
 
                                 // spdlog::warn("note {}", result.dump(2));
                                 // send json to note..
 
                                 for (const auto &ju : j.at("bookmark_uuid")) {
-                                    anon_send(
-                                        bookmarks,
+                                    anon_mail(
                                         json_store::set_json_atom_v,
                                         ju.get<Uuid>(),
                                         utility::JsonStore(result.at("data")),
-                                        ShotgunMetadataPath + "/note");
+                                        ShotgunMetadataPath + "/note")
+                                        .send(bookmarks);
 
                                     // add shotgun decorator to note.
-                                    anon_send(
-                                        bookmarks,
+                                    anon_mail(
                                         json_store::set_json_atom_v,
                                         ju.get<Uuid>(),
                                         JsonStore(
                                             R"({"icon": "qrc:/shotbrowser_icons/shot_grid.svg", "tooltip": "Published to ShotGrid"})"_json),
-                                        "/ui/decorators/shotgrid");
+                                        "/ui/decorators/shotgrid")
+                                        .send(bookmarks);
                                 }
 
                                 (*succeed)++;
@@ -255,8 +207,14 @@ void ShotBrowser::create_playlist_notes(
             index++;
         }
 
+    } catch (const XStudioError &err) {
+
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.caf_error().what());
+        rp.deliver(make_error(xstudio_error::error, err.caf_error().what()));
+
     } catch (const std::exception &err) {
-        spdlog::error("{} {}", __PRETTY_FUNCTION__, err.what());
+
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         rp.deliver(make_error(xstudio_error::error, err.what()));
     }
 }
@@ -273,7 +231,7 @@ void ShotBrowser::create_playlist(
         if (dest and not uuid.is_null()) {
             auto notify = Notification::WarnNotification("Publish Playlist Failed");
             notify.uuid(uuid);
-            anon_send(dest, utility::notification_atom_v, notify);
+            anon_mail(utility::notification_atom_v, notify).send(dest);
         }
     };
 
@@ -313,16 +271,12 @@ void ShotBrowser::create_playlist(
 
         auto notify       = Notification::ProcessingNotification("Publishing Playlist");
         notification_uuid = notify.uuid();
-        anon_send(playlist, utility::notification_atom_v, notify);
+        anon_mail(utility::notification_atom_v, notify).send(playlist);
 
 
         // need to capture result to embed in playlist and add any media..
-        request(
-            shotgun_,
-            infinite,
-            shotgun_create_entity_atom_v,
-            "playlists",
-            utility::JsonStore(jsn))
+        mail(shotgun_create_entity_atom_v, "playlists", utility::JsonStore(jsn))
+            .request(shotgun_, infinite)
             .then(
                 [=](const JsonStore &result) mutable {
                     try {
@@ -331,7 +285,7 @@ void ShotBrowser::create_playlist(
                         // update shotgun versions from our source playlist.
                         // return the result..
                         update_playlist_versions(
-                            rp, playlist_uuid, playlist_id, notification_uuid);
+                            rp, playlist_uuid, true, playlist_id, notification_uuid);
 
                     } catch (const std::exception &err) {
                         failed(playlist, notification_uuid);
@@ -359,21 +313,17 @@ void ShotBrowser::rename_tag(
     // as this is an update, we have to pull current list and then add / push it back.. (I
     // THINK)
     try {
-
-        scoped_actor sys{system()};
-
         auto payload    = R"({"name": null})"_json;
         payload["name"] = value;
 
         // send update request..
-        request(
-            shotgun_,
-            infinite,
+        mail(
             shotgun_update_entity_atom_v,
             "Tag",
             tag_id,
             utility::JsonStore(payload),
             std::vector<std::string>({"id"}))
+            .request(shotgun_, infinite)
             .then(
                 [=](const JsonStore &result) mutable { rp.deliver(result); },
                 [=](error &err) mutable {
@@ -396,15 +346,8 @@ void ShotBrowser::remove_entity_tag(
     // as this is an update, we have to pull current list and then add / push it back.. (I
     // THINK)
     try {
-
-        scoped_actor sys{system()};
-        request(
-            caf::actor_cast<caf::actor>(this),
-            infinite,
-            shotgun_entity_atom_v,
-            entity,
-            entity_id,
-            std::vector<std::string>({"tags"}))
+        mail(shotgun_entity_atom_v, entity, entity_id, std::vector<std::string>({"tags"}))
+            .request(caf::actor_cast<caf::actor>(this), infinite)
             .then(
                 [=](const JsonStore &result) mutable {
                     try {
@@ -421,14 +364,13 @@ void ShotBrowser::remove_entity_tag(
                         payload["tags"] = current_tags;
 
                         // send update request..
-                        request(
-                            shotgun_,
-                            infinite,
+                        mail(
                             shotgun_update_entity_atom_v,
                             entity,
                             entity_id,
                             utility::JsonStore(payload),
                             std::vector<std::string>({"id", "code", "tags"}))
+                            .request(shotgun_, infinite)
                             .then(
                                 [=](const JsonStore &result) mutable { rp.deliver(result); },
                                 [=](error &err) mutable {
@@ -453,16 +395,14 @@ void ShotBrowser::create_tag(
     caf::typed_response_promise<JsonStore> rp, const std::string &value) {
 
     try {
-        scoped_actor sys{system()};
-
         auto jsn = R"({
             "name": null
          })"_json;
 
         jsn["name"] = value;
 
-        request(
-            shotgun_, infinite, shotgun_create_entity_atom_v, "tags", utility::JsonStore(jsn))
+        mail(shotgun_create_entity_atom_v, "tags", utility::JsonStore(jsn))
+            .request(shotgun_, infinite)
             .then(
                 [=](const JsonStore &result) mutable {
                     try {
@@ -492,15 +432,8 @@ void ShotBrowser::add_entity_tag(
     // as this is an update, we have to pull current list and then add / push it back.. (I
     // THINK)
     try {
-
-        scoped_actor sys{system()};
-        request(
-            caf::actor_cast<caf::actor>(this),
-            infinite,
-            shotgun_entity_atom_v,
-            entity,
-            entity_id,
-            std::vector<std::string>({"tags"}))
+        mail(shotgun_entity_atom_v, entity, entity_id, std::vector<std::string>({"tags"}))
+            .request(caf::actor_cast<caf::actor>(this), infinite)
             .then(
                 [=](const JsonStore &result) mutable {
                     try {
@@ -514,14 +447,13 @@ void ShotBrowser::add_entity_tag(
                         payload["tags"] = current_tags;
 
                         // send update request..
-                        request(
-                            shotgun_,
-                            infinite,
+                        mail(
                             shotgun_update_entity_atom_v,
                             entity,
                             entity_id,
                             utility::JsonStore(payload),
                             std::vector<std::string>({"id", "code", "tags"}))
+                            .request(shotgun_, infinite)
                             .then(
                                 [=](const JsonStore &result) mutable { rp.deliver(result); },
                                 [=](error &err) mutable {

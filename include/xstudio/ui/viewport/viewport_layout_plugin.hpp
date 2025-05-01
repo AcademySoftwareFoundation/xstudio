@@ -63,7 +63,8 @@ namespace ui {
              *  @details See the default renderer implementations for a reference
              *  for creating a custom viewport renderer
              */
-            virtual ViewportRenderer *make_renderer(const std::string &window_id) = 0;
+            virtual ViewportRenderer *
+            make_renderer(const std::string &window_id, const utility::JsonStore &prefs) = 0;
 
             /**
              *  @brief Call this method to add a layout mode that your plugin
@@ -76,6 +77,7 @@ namespace ui {
              */
             void add_layout_mode(
                 const std::string &name,
+                const float menu_position,
                 const playhead::AssemblyMode mode,
                 const playhead::AutoAlignMode default_auto_align =
                     playhead::AutoAlignMode::AAM_ALIGN_OFF);
@@ -122,9 +124,8 @@ namespace ui {
 
             caf::message_handler handler_;
 
-            module::BooleanAttribute *settings_toggle_;
-
             std::map<utility::Uuid, module::StringAttribute *> layout_names_;
+            std::set<std::string> layouts_with_settings_;
 
             std::map<std::string, std::map<size_t, media_reader::ImageSetLayoutDataPtr>>
                 layouts_cache_;

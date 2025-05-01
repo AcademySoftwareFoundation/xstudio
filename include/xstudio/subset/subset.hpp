@@ -14,7 +14,10 @@ namespace xstudio {
 namespace subset {
     class Subset : public utility::Container {
       public:
-        Subset(const std::string &name = "Subset", const std::string &type = "Subset");
+        Subset(
+            const std::string &name   = "Subset",
+            const std::string &type   = "Subset",
+            const utility::Uuid &uuid = utility::Uuid::generate());
         Subset(const utility::JsonStore &jsn);
 
         ~Subset() override = default;

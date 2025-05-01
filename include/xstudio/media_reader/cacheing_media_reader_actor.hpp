@@ -25,14 +25,11 @@ namespace media_reader {
         const char *name() const override { return NAME.c_str(); }
 
       private:
-      
         struct ImmediateImageReqest {
 
             ImmediateImageReqest(
-                const media::AVFrameID mptr,
-                caf::typed_response_promise<ImageBufPtr> &rp)
-                : mptr_(mptr),
-                  response_promise_(rp) {}
+                const media::AVFrameID mptr, caf::typed_response_promise<ImageBufPtr> &rp)
+                : mptr_(mptr), response_promise_(rp) {}
 
             ImmediateImageReqest(const ImmediateImageReqest &) = default;
             ImmediateImageReqest()                             = default;
@@ -45,8 +42,9 @@ namespace media_reader {
 
         void do_urgent_get_image();
         caf::typed_response_promise<ImageBufPtr> receive_image_buffer_request(
-            const media::AVFrameID &mptr,
-            const utility::Uuid playhead_uuid);
+            const media::AVFrameID &mptr, const utility::Uuid playhead_uuid);
+
+        ImageBufPtr make_error_buffer(const caf::error &err, const media::AVFrameID &mptr);
 
         std::map<const utility::Uuid, ImmediateImageReqest> pending_get_image_requests_;
 
@@ -62,6 +60,8 @@ namespace media_reader {
         caf::actor urgent_worker_;
         caf::actor precache_worker_;
         caf::actor audio_worker_;
+
+        ImageBufPtr blank_image_;
     };
 } // namespace media_reader
 } // namespace xstudio

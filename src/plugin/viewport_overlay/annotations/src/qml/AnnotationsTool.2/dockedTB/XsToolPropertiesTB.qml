@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Window 2.15
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Dialogs
+
 import QtQml 2.15
 import xstudio.qml.bookmarks 1.0
-import QtQml.Models 2.14
-import QtQuick.Dialogs 1.3
-import QtGraphicalEffects 1.15
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
@@ -131,7 +128,7 @@ Item{
             }
             Item{id:centerItem; anchors.centerIn: parent}
             Rectangle{ id: colorPreviewDuplicate
-                opacity: (!isAnyToolSelected || currentTool === "Erase")? (parent.enabled?1:0.5): 0
+                // opacity: (!isAnyToolSelected || currentTool === "Erase")? (parent.enabled?1:0.5): 0
                 color: currentTool === "Erase" ? "white" : parent.enabled ? currentToolColour ? currentToolColour : "grey" : "grey"
                 border.width: 1
                 border.color: parent.enabled? "black" : "dark grey"
@@ -141,54 +138,6 @@ Item{
                 anchors.rightMargin: 4
                 height: XsStyleSheet.primaryButtonStdHeight/1.6;
                 anchors.verticalCenter: centerItem.verticalCenter
-                onXChanged: {
-                    colorPreview.x= colorPreviewDuplicate.x
-                    colorPreview.y= colorPreviewDuplicate.y
-                }
-            }
-            Rectangle{ id: colorPreview
-                visible: (isAnyToolSelected && currentTool !== "Erase")
-                x: colorPreviewDuplicate.x
-                y: colorPreviewDuplicate.y
-                z: 100
-                width: colorPreviewDuplicate.width
-                onWidthChanged: {
-                    x= colorPreviewDuplicate.x
-                    y= colorPreviewDuplicate.y
-                }
-                height: colorPreviewDuplicate.height
-                color: colorPreviewDuplicate.color
-                border.width: 1
-                border.color: "black"
-                scale: dragArea.drag.active? 0.7: 1
-
-                Drag.active: dragArea.drag.active
-                Drag.hotSpot.x: colorPreview.width
-                Drag.hotSpot.y: colorPreview.height
-
-                MouseArea{
-                    id: dragArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    drag.target: parent
-                    drag.minimumX: -toolProperties.width
-                    drag.maximumX: toolProperties.width
-                    drag.minimumY: XsStyleSheet.primaryButtonStdHeight
-                    drag.maximumY: XsStyleSheet.primaryButtonStdHeight*4
-                    onReleased: {
-                        colorProp.isPressed = false
-                        parent.Drag.drop()
-                        parent.x = colorPreviewDuplicate.x
-                        parent.y = colorPreviewDuplicate.y
-                    }
-                    onClicked: {
-                        colorProp.isPressed = false
-                        colorDialog.open()
-                    }
-                    onPressed: {
-                        colorProp.isPressed = true
-                    }
-                }
             }
         }
 

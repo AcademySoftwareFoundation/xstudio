@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import QtQuick
+import Qt.labs.qmlmodels
+
 import xstudio.qml.models 1.0
 import xStudio 1.0
-import QtQml.Models 2.14
-import QtQuick 2.12
-
 import xstudio.qml.helpers 1.0
 
 XsPopupMenu {
@@ -43,6 +45,15 @@ XsPopupMenu {
         timelineSelection.select(helpers.createItemSelection(
                 theSessionData.modifyItemSelectionVertical(timelineSelection.selectedIndexes, u, d)
             ), ItemSelectionModel.ClearAndSelect)
+    }
+
+    XsMenuModelItem {
+        text: "Select None"
+        menuPath: "Select"
+        menuItemPosition: 0.5
+        menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
+        onActivated: timelineSelection.select(helpers.createItemSelection([]), ItemSelectionModel.ClearAndSelect)
     }
 
     XsMenuModelItem {
@@ -212,7 +223,9 @@ XsPopupMenu {
         menuModelName: timelineMenu.menu_model_name
         menuPath: ""
         menuPosition: 22
-        onFlagSet: theTimeline.flagItems(timelineSelection.selectedIndexes, flag == "#00000000" ? "": flag)
+        onFlagSet: (flag, flag_text) => {
+            theTimeline.flagItems(timelineSelection.selectedIndexes, flag == "#00000000" ? "": flag)
+        }
         panelContext: timelineMenu.panelContext
     }
 

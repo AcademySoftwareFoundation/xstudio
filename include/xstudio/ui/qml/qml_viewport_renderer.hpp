@@ -75,6 +75,7 @@ namespace ui {
                 QString manufacturer,
                 QString serialNumber,
                 double refresh_rate);
+
             [[nodiscard]] QString name() const {
                 return viewport_renderer_ ? QStringFromStd(viewport_renderer_->name())
                                           : QString("Not Yet");
@@ -86,6 +87,7 @@ namespace ui {
 
             void setIsQuickViewer(const bool is_quick_viewer);
             void visibleChanged(const bool is_visible);
+            QPointF toViewportCoords(const QPointF &in) const;
 
           public slots:
 

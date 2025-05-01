@@ -1,5 +1,5 @@
-import QtQuick 2.12
-import QtGraphicalEffects 1.15
+import QtQuick
+import QtQuick.Effects
 
 Item {
 	id: control
@@ -29,12 +29,12 @@ Item {
 	}
 
     layer.enabled: true
-    layer.effect: DropShadow{
-        verticalOffset: 0
-        horizontalOffset: 0
-        color: shadowColor
-        radius: 1
-        samples: 3
-        spread: 1.5
-    }
+	layer.effect: MultiEffect {
+		shadowEnabled: true
+		shadowColor: control.shadowColor
+		shadowVerticalOffset: 0
+		shadowHorizontalOffset: 0
+		shadowScale: 1.5
+		shadowBlur: 0.2
+	}
 }
