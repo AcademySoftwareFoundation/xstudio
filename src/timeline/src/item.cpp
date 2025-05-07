@@ -1075,7 +1075,7 @@ std::set<Uuid> Item::update(const JsonStore &event) {
     auto result = std::set<Uuid>();
     for (const auto &i : event)
         if (process_event(i.at("redo")))
-            result.insert(i.at("redo").at("event_id"));
+            result.insert(i.at("redo").at("event_id").get<utility::Uuid>());
     return result;
 }
 
