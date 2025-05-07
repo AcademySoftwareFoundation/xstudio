@@ -8,6 +8,7 @@ from xstudio.core import get_global_playhead_events_atom, show_message_box_atom
 import sys
 import os
 import traceback
+import pathlib
 
 def make_simple_string(string_in):
     import re
@@ -79,10 +80,13 @@ class PluginBase(ModuleBase):
         # set we add an import directive to the qml code with the path to the
         # plugin location. This allows plugins with qml to be relocatable.
         if "qml_code" in attribute_role_data and self.qml_folder:
-            attribute_role_data["qml_code"] =\
-                "import \"file://{0}/{1}\"\n{2}".format(
+            uri = pathlib.Path(
+                "{0}/{1}".format(
                     self.plugin_path,
-                    self.qml_folder,
+                    self.qml_folder)).as_uri()
+            attribute_role_data["qml_code"] =\
+                "import \"{0}\"\n{1}".format(
+                    uri,
                     attribute_role_data["qml_code"]
                 )
 

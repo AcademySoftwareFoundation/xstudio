@@ -1,5 +1,6 @@
 from xstudio.plugin.plugin_base import PluginBase
 from xstudio.core import hud_settings_atom, HUDElementPosition
+import pathlib
 
 class HUDPlugin(PluginBase):
 
@@ -68,10 +69,15 @@ class HUDPlugin(PluginBase):
         # set we add an import directive to the qml code with the path to the
         # plugin location. This allows plugins with qml to be relocatable.
         if self.qml_folder:
-            qml_code =\
-                "import \"file://{0}/{1}\"\n{2}".format(
+
+            uri = pathlib.Path(
+                "{0}/{1}".format(
                     self.plugin_path,
-                    self.qml_folder,
+                    self.qml_folder)).as_uri()
+
+            qml_code =\
+                "import \"{0}\"\n{1}".format(
+                    uri,
                     qml_code
                 )
 
@@ -96,10 +102,14 @@ class HUDPlugin(PluginBase):
         # attribute if the plugin author wants to provide a custom settings
         # dialog.
         if self.qml_folder:
-            qml_code =\
-                "import \"file://{0}/{1}\"\n{2}".format(
+            uri = pathlib.Path(
+                "{0}/{1}".format(
                     self.plugin_path,
-                    self.qml_folder,
+                    self.qml_folder)).as_uri()
+
+            qml_code =\
+                "import \"{0}\"\n{1}".format(
+                    uri,
                     qml_code
                 )
         self.get_attribute(self.name).set_role_data("user_data", qml_code)
