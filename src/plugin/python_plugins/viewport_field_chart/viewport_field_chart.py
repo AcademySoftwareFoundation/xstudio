@@ -7,6 +7,7 @@ from xstudio.core import AttributeRole
 import json
 import sys
 from os import path
+import pathlib
 
 qml_folder_name = "qml/ViewportFieldChartPlugin.1"
 
@@ -37,8 +38,9 @@ class ViewportFieldChart(HUDPlugin):
 
         # A json that is a list of the charts provided with this plugin
         # that can be toggled on or off
+        uri = pathlib.Path("{0}/{1}".format(cdir, "qml/mkt_anim_grid.svg")).as_uri()
         self.default_charts = {
-            "Anim Grid 1": 'file://{0}/{1}'.format(cdir, "qml/mkt_anim_grid.svg")
+            "Anim Grid 1": str(uri)
             }
 
         # this attr holds the list of charts that has been toggled on to be
