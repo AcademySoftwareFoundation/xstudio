@@ -319,9 +319,9 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                 base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
                 link_to(base_plugins_[name]);
             }*/
-            auto rp = make_response_promise<caf::actor>();
+            caf::actor result;
             if (class_name == "HUDPlugin") {
-                rp.deliver(spawn<plugin::HUDPluginBase>(name, json)); // base_plugins_[name];
+                result = spawn<plugin::HUDPluginBase>(name, json); // base_plugins_[name];
             } else if (class_name == "ViewportLayoutPlugin") {
                 // slightly awkward. We want to spawn an instance of
                 // ViewportLayoutPlugin class to back a Python plugin for
@@ -335,21 +335,23 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
                             auto j         = json;
                             j["name"]      = name;
                             j["is_python"] = true;
-                            rp.deliver(
-                                manager_.spawn(*scoped_actor(system()), detail.uuid_, j));
+                            result = 
+                                manager_.spawn(*scoped_actor(system()), detail.uuid_, j);
+
                         } catch (std::exception &e) {
-                            rp.deliver(make_error(xstudio_error::error, e.what()));
+                            return make_error(xstudio_error::error, e.what());
                         }
                     }
                 }
-                if (rp.pending()) {
-                    rp.deliver(make_error(
-                        xstudio_error::error, "Failed to spawn base ViewportLayoutPlugin"));
+                if (!result) {
+                    return make_error(
+                        xstudio_error::error, "Failed to spawn base ViewportLayoutPlugin");
                 }
-                return rp;
+            } else {
+                result = spawn<plugin::StandardPlugin>(name, json); // base_plugins_[name];
             }
-            rp.deliver(spawn<plugin::StandardPlugin>(name, json)); // base_plugins_[name];
-            return rp;
+            link_to(result);
+            return result;
         },
 
         [=](spawn_plugin_base_atom, const std::string name) -> result<caf::actor> {

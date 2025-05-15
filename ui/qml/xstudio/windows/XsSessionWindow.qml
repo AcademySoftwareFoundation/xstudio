@@ -2,7 +2,8 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import QtMultimedia
+import QtQml.Models
+import QtQml
 
 import xStudio 1.0
 import xstudio.qml.models 1.0
