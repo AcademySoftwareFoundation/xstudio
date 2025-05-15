@@ -14,7 +14,6 @@ These docs are not accurate and are to be updated soon. Note that xSTUDIO now re
     sudo dnf install freeglut-devel libjpeg-devel libuuid-devel
     sudo dnf install doxygen python3-sphinx
     sudo dnf install opus-devel libvpx-devel openjpeg2-devel lame-devel
-    sudo dnf install qt5 qt5-devel
     pip install --user sphinx_rtd_theme breathe
 
 
@@ -52,9 +51,9 @@ These docs are not accurate and are to be updated soon. Note that xSTUDIO now re
 
 
 #### ActorFramework
-    wget https://github.com/actor-framework/actor-framework/archive/refs/tags/0.18.4.tar.gz
-    tar -xf 0.18.4.tar.gz
-    cd actor-framework-0.18.4
+    git clone https://github.com/actor-framework/actor-framework
+    cd actor-framework
+    git checkout 1.0.2
     ./configure
     cd build
     make -j $JOBS
