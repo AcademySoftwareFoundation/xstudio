@@ -34,9 +34,14 @@ OCIOColourPipeline::OCIOColourPipeline(
     worker_pool_ = caf::actor_pool::make(
         system(),
         4,
-        [&] { return system().spawn<OCIOEngineActor>(); },
+        [=] {
+            caf::actor worker = system().spawn<OCIOEngineActor>();
+            workers_.push_back(worker);
+            return worker;
+        },
         caf::actor_pool::round_robin());
     link_to(worker_pool_);
+
 #pragma GCC diagnostic pop
 
     setup_ui();
@@ -74,6 +79,11 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                        OCIOGlobalData old_settings = global_settings_;
                        from_json(settings, global_settings_);
 
+                       m_engine_.set_default_config(global_settings_.default_config);
+                       for (auto &a : workers_) {
+                           anon_mail(global_ocio_controls_atom_v, settings).send(a);
+                       }
+
                        // if the 'auto adjust source' global setting is ON, the user
                        // cannot set the source colourspace as this is automatically
                        // set by logic in this plugin. We disable/enable
@@ -90,12 +100,9 @@ caf::message_handler OCIOColourPipeline::message_handler_extensions() {
                            update_bypass(global_settings_.colour_bypass);
                        }
 
-                       if (global_settings_.global_view != old_settings.global_view) {
-                           media_source_changed(
-                               current_source_uuid_, current_source_colour_mgmt_metadata_);
-                       }
-
-                       if (global_settings_.adjust_source != old_settings.adjust_source) {
+                       if (global_settings_ != old_settings) {
+                           // this forces an update ot the UI - OCIO view/display menus
+                           // etc.
                            media_source_changed(
                                current_source_uuid_, current_source_colour_mgmt_metadata_);
                        }
@@ -154,8 +161,8 @@ size_t OCIOColourPipeline::fast_display_transform_hash(const media::AVFrameID &m
     if (!global_settings_.colour_bypass) {
         hash = m_engine_.compute_hash(
             media_ptr.params(),
-            display_->value() + view_->value() +
-                (global_settings_.adjust_source ? "auto_adjust" : ""));
+            display_->value() + view_->value() + (global_settings_.adjust_source ? "adj" : "") +
+                global_settings_.default_config);
     }
 
     return hash;
@@ -339,7 +346,9 @@ void OCIOColourPipeline::hotkey_pressed(
 }
 
 void OCIOColourPipeline::hotkey_released(
-    const utility::Uuid &hotkey_uuid, const std::string &context) {
+    const utility::Uuid &hotkey_uuid,
+    const std::string &context,
+    const bool due_to_focus_change) {
 
     if (hotkey_uuid == exposure_hotkey_) {
         exposure_->set_role_data(module::Attribute::Activated, false);

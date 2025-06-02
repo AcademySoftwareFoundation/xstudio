@@ -44,7 +44,6 @@ Item{
     property var categoryPreset: (new Map())
 
     property bool sequenceTreeLiveLink: false
-    property bool sequenceTreeShowPresets: true
 
     property bool isPopout: typeof panels_layout_model_index == "undefined"
 
@@ -100,6 +99,27 @@ Item{
         onTriggered: {
             isPaused = false
             updateMetaData()
+        }
+    }
+
+    Timer {
+        id: favouriteTimer
+        interval: 1000
+        running: false
+        repeat: false
+        onTriggered: {
+            // restore favourites.
+            if(prefs.inited && sequenceBaseModel && assetBaseModel && sequenceBaseModel.rowCount() && assetBaseModel.rowCount() ) {
+                if(prefs.shotTreeHidden != undefined && projectPref.value in prefs.shotTreeHidden) {
+                    sequenceBaseModel.setHidden(prefs.shotTreeHidden[projectPref.value])
+                }
+
+                if(prefs.assetTreeHidden != undefined && projectPref.value in prefs.assetTreeHidden) {
+                    assetBaseModel.setHidden(prefs.assetTreeHidden[projectPref.value])
+                }
+            } else {
+                favouriteTimer.restart()
+            }
         }
     }
 
@@ -245,23 +265,39 @@ Item{
         property string category: "Tree"
         property string quickLoad: ""
         property bool hideEmpty: false
+        property bool showHidden: true
+        property bool showHiddenPresets: false
         property bool showUnit: false
         property bool showOnlyFavourites: false
         property bool showStatus: false
         property bool showType: false
+        property bool showVisibility: false
+        property bool showPresetVisibility: false
         property var hideStatus: ["omt", "na", "del", "omtnto", "omtnwd"]
         property var filterProjects: []
         property var filterProjectStatus: []
-        property var filterUnit: (new Map())
+        property var filterUnit: {}
         property var filterType: []
+
+        property var shotTreeHidden: {}
+        property var assetTreeHidden: {}
+        // property var presetHidden: []
+
+        property bool inited: false
 
         onShowOnlyFavouritesChanged: {
             treeModel.setOnlyShowFavourite(showOnlyFavourites)
             menuModel.setOnlyShowFavourite(showOnlyFavourites)
-            recentModel.setOnlyShowFavourite(showOnlyFavourites)
         }
 
+        // onInitedChanged: {
+        //     if(inited) {
+        //         ShotBrowserEngine.presetsModel.hidden = prefs.presetHidden
+        //     }
+        // }
+
         XsStoredPanelProperties {
+            onPropertiesInitialised: prefs.inited = true
 
             propertyNames: [
                 "resultPanelWidth",
@@ -269,9 +305,16 @@ Item{
                 "treePanelWidth",
                 "category",
                 "showOnlyFavourites",
+                "showHidden",
+                "showHiddenPresets",
                 "hideEmpty",
                 "showUnit",
                 "showType",
+                // "presetHidden",
+                "shotTreeHidden",
+                "assetTreeHidden",
+                "showVisibility",
+                "showPresetVisibility",
                 "hideStatus",
                 "showStatus",
                 "quickLoad",
@@ -281,7 +324,22 @@ Item{
                 "filterProjectStatus"
             ]
         }
+    }
 
+    // function updatePresetsHidden() {
+    //     prefs.presetHidden = ShotBrowserEngine.presetsModel.getHidden()
+    // }
+
+    function updateHidden() {
+        if(assetMode) {
+            let tmp = prefs.assetTreeHidden == undefined  ? {} : prefs.assetTreeHidden
+            tmp[projectIndex.model.get(projectIndex,"nameRole")] = assetBaseModel.getHidden()
+            prefs.assetTreeHidden = tmp
+        } else {
+            let tmp = prefs.shotTreeHidden == undefined  ? {} : prefs.shotTreeHidden
+            tmp[projectIndex.model.get(projectIndex,"nameRole")] = sequenceBaseModel.getHidden()
+            prefs.shotTreeHidden = tmp
+        }
     }
 
     ShotBrowserSequenceFilterModel {
@@ -289,10 +347,11 @@ Item{
         sourceModel: sequenceBaseModel
         hideStatus: prefs.hideStatus
         hideEmpty: prefs.hideEmpty
+        showHidden: prefs.showHidden
         typeFilter: prefs.filterType
         // unitFilter:
         onUnitFilterChanged: {
-            let tmp = prefs.filterUnit
+            let tmp = prefs.filterUnit == undefined  ? {} : prefs.filterUnit
             tmp[projectIndex.model.get(projectIndex,"nameRole")] = unitFilter
             prefs.filterUnit = tmp
         }
@@ -302,6 +361,7 @@ Item{
         id: assetFilterModel
         sourceModel: assetBaseModel
         hideStatus: prefs.hideStatus
+        showHidden: prefs.showHidden
     }
 
     QTreeModelToTableModel {
@@ -376,7 +436,7 @@ Item{
 
     ShotBrowserPresetFilterModel {
         id: treeModel
-        showHidden: false
+        showHidden: prefs.showHiddenPresets
         // onlyShowFavourite: true
         filterGroupUserData: "tree"
         sourceModel: ShotBrowserEngine.presetsModel
@@ -412,16 +472,6 @@ Item{
     }
 
     ShotBrowserPresetFilterModel {
-        id: recentButtonModel
-        showHidden: false
-        onlyShowFavourite: true
-        onlyShowPresets: true
-        ignoreToolbar: true
-        filterGroupUserData: "recent"
-        sourceModel: buttonModelBase
-    }
-
-    ShotBrowserPresetFilterModel {
         id: menuButtonModel
         showHidden: false
         onlyShowFavourite: true
@@ -439,17 +489,9 @@ Item{
 
     ShotBrowserPresetFilterModel {
         id: menuModel
-        showHidden: false
+        showHidden: prefs.showHiddenPresets
         // onlyShowFavourite: true
         filterGroupUserData: "menus"
-        sourceModel: ShotBrowserEngine.presetsModel
-    }
-
-    ShotBrowserPresetFilterModel {
-        id: recentModel
-        showHidden: false
-        // onlyShowFavourite: true
-        filterGroupUserData: "recent"
         sourceModel: ShotBrowserEngine.presetsModel
     }
 
@@ -460,9 +502,10 @@ Item{
             ShotBrowserEngine.cacheProject(i)
             sequenceBaseModel = ShotBrowserEngine.sequenceTreeModel(i)
             assetBaseModel = ShotBrowserEngine.assetTreeModel(i)
-
             projectPref.value = m.get(projectIndex, "nameRole")
             projectId = i
+
+            favouriteTimer.start()
         }
     }
 
@@ -470,37 +513,24 @@ Item{
         id: main_split
         anchors.fill: parent
 
-        property bool treePlusActive: currentCategory == "Tree" && sequenceTreeShowPresets
-
-        readonly property int minimumResultWidth: 600
-        readonly property int minimumPresetWidth: 330
-        readonly property int minimumTreeWidth: 230
+        readonly property int minimumResultWidth: 500
+        readonly property int minimumPresetWidth: 250
+        readonly property int minimumTreeWidth: 150
 
         XsSBLeftSection{ id: leftSection
             SplitView.fillHeight: true
-            // SplitView.fillWidth: true
-            SplitView.minimumWidth: (
-                main_split.treePlusActive ?
-                prefs.treePanelWidth + 150 :
-                main_split.minimumPresetWidth
-            )
-            SplitView.preferredWidth: (main_split.treePlusActive ? main_split.width - prefs.treePlusResultPanelWidth : main_split.width -prefs.resultPanelWidth)
+            SplitView.minimumWidth: prefs.treePanelWidth + 150
+            SplitView.preferredWidth: main_split.width - prefs.treePlusResultPanelWidth
         }
 
         XsGradientRectangle{
             SplitView.fillHeight: true
             SplitView.fillWidth: true
-            // SplitView.preferredWidth: (main_split.treePlusActive ? prefs.treePlusResultPanelWidth : prefs.resultPanelWidth)
             SplitView.minimumWidth: main_split.minimumResultWidth
 
             onWidthChanged: {
-                if(SplitView.view.resizing) {
-                    if(main_split.treePlusActive) {
-                        prefs.treePlusResultPanelWidth = width
-                    } else {
-                        prefs.resultPanelWidth = width
-                    }
-                }
+                if(SplitView.view.resizing)
+                    prefs.treePlusResultPanelWidth = width
             }
 
             XsSBRightSection {
@@ -539,27 +569,6 @@ Item{
                 Future.promise(
                     ShotBrowserEngine.executeQueryJSON(
                         [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], {}, [], customContext)
-                    ).then(function(json_string) {
-                        // console.log(json_string)
-                        if(queryCounter == i) {
-                            resultsSelectionModel.clear()
-                            resultsBaseModel.setResultDataJSON([json_string])
-                        }
-                        queryRunningCount -= 1
-                    },
-                    function() {
-                        resultsBaseModel.setResultDataJSON([])
-                        queryRunningCount -= 1
-                    })
-            } else if(currentCategory == "Recent") {
-                queryCounter += 1
-                queryRunningCount += 1
-
-                let i = queryCounter
-
-                Future.promise(
-                    ShotBrowserEngine.executeProjectQueryJSON(
-                        [ShotBrowserEngine.presetsModel.get(currentPresetIndex, "jsonPathRole")], projectId, {}, [], customContext)
                     ).then(function(json_string) {
                         // console.log(json_string)
                         if(queryCounter == i) {
@@ -624,7 +633,10 @@ Item{
                 }
 
                 // only run, if selection in tree.
-                if(custom.length || ShotBrowserEngine.presetsModel.get(currentPresetIndex, "entityRole") == "Playlists") {
+                if(custom.length || ShotBrowserEngine.presetsModel.get(currentPresetIndex, "entityRole") == "Playlists" || ShotBrowserEngine.presetsModel.get(currentPresetIndex, "groupFlagRole").includes("Allow Project Query")) {
+                    if(ShotBrowserEngine.presetsModel.get(currentPresetIndex, "groupFlagRole").includes("Ignore Tree Selection"))
+                        custom = []
+
                     queryCounter += 1
                     queryRunningCount += 1
 

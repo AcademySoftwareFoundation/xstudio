@@ -31,8 +31,10 @@ namespace ui {
                 const utility::Uuid &uuid,
                 const std::string &context,
                 const std::string &window) override;
-            void
-            hotkey_released(const utility::Uuid &uuid, const std::string &context) override;
+            void hotkey_released(
+                const utility::Uuid &uuid,
+                const std::string &context,
+                const bool due_to_focus_change) override;
             bool pointer_event(const ui::PointerEvent &e) override;
             void text_entered(const std::string &text, const std::string &context) override;
             void key_pressed(
@@ -50,9 +52,10 @@ namespace ui {
                 const bool playhead_playing) override;
 
             utility::BlindDataObjectPtr onscreen_render_data(
-                const media_reader::ImageBufPtr &, const std::string & /*viewport_name*/,
-                const utility::Uuid &/*playhead_uuid*/,
-                const bool is_hero_image) const override;            
+                const media_reader::ImageBufPtr &,
+                const std::string & /*viewport_name*/,
+                const utility::Uuid & /*playhead_uuid*/,
+                const bool is_hero_image) const override;
 
             void viewport_dockable_widget_activated(std::string &widget_name) override;
 
@@ -62,6 +65,11 @@ namespace ui {
 
           private:
             bool is_laser_mode() const;
+
+            media_reader::ImageBufPtr image_under_pointer(
+                const std::string &viewport_name,
+                const Imath::V2f &pointer_position,
+                Imath::V2i *pixel_position = nullptr);
 
             void start_editing(
                 const std::string &viewport_name,
@@ -92,12 +100,16 @@ namespace ui {
             void update_bookmark_annotation_data();
             Imath::V2f image_transformed_ptr_pos(const Imath::V2f &p) const;
             void do_redraw();
+            caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
+            void update_colour_picker_info(const ui::PointerEvent &e);
 
           private:
-            enum Tool { Draw, Laser, Square, Circle, Arrow, Line, Text, Erase, None };
+            enum Tool { Draw, Laser, Square, Circle, Arrow, Line, Text, Erase, Dropper, None };
             enum DisplayMode { OnlyWhenPaused, Always };
 
-            const std::map<int, std::string> tool_names_ = {
+            [[nodiscard]] Tool current_tool() const { return current_tool_; }
+
+            const std::map<Tool, std::string> tool_names_ = {
                 {Draw, "Draw"},
                 {Laser, "Laser"},
                 {Square, "Square"},
@@ -105,7 +117,16 @@ namespace ui {
                 {Arrow, "Arrow"},
                 {Line, "Line"},
                 {Text, "Text"},
-                {Erase, "Erase"}};
+                {Erase, "Erase"},
+                {Dropper, "Colour Picker"},
+                {None, "None"}};
+
+            const std::string &tool_name(const Tool t) const {
+                auto p = tool_names_.find(t);
+                if (p != tool_names_.end())
+                    return p->second;
+                return tool_names_.rbegin()->second;
+            }
 
             module::StringChoiceAttribute *active_tool_{nullptr};
 
@@ -125,6 +146,10 @@ namespace ui {
 
             module::StringChoiceAttribute *display_mode_attribute_{nullptr};
 
+            module::BooleanAttribute *colour_picker_take_average_{nullptr};
+            module::BooleanAttribute *colour_picker_take_show_magnifier_{nullptr};
+            module::BooleanAttribute *colour_picker_hide_drawings_{nullptr};
+
             module::Attribute *dockable_widget_attr_{nullptr};
 
             DisplayMode display_mode_{OnlyWhenPaused};
@@ -134,6 +159,7 @@ namespace ui {
             utility::Uuid undo_hotkey_;
             utility::Uuid redo_hotkey_;
             utility::Uuid clear_hotkey_;
+            utility::Uuid colour_picker_hotkey_;
 
             // Annotations
             utility::Uuid current_bookmark_uuid_;
@@ -143,6 +169,8 @@ namespace ui {
             // AnnotationsRenderer which has a direct access to it for on-screen
             // rendering of brush-strokes during user interaction.
             xstudio::ui::canvas::Canvas interaction_canvas_;
+
+            PixelPatch pixel_patch_;
 
             std::string current_interaction_viewport_name_;
 
@@ -156,13 +184,15 @@ namespace ui {
             Imath::V2f caption_drag_caption_start_pos_;
             Imath::V2f caption_drag_width_height_;
             Imath::V2f shape_anchor_;
+            Imath::V4f cumulative_picked_colour_ = Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f);
 
-            std::string last_tool_ = {"Draw"};
+            Tool current_tool_ = None;
+            Tool last_tool_    = Draw;
 
             bool fade_looping_{false};
             std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
             media_reader::ImageBufPtr image_being_annotated_;
-
+            std::map<std::string, caf::actor> colour_pipelines_;
         };
 
     } // namespace viewport

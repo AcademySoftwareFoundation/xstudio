@@ -48,10 +48,10 @@ namespace timeline {
             const utility::Uuid &uuid,
             const utility::Uuid &before_uuid = utility::Uuid());
 
-        void deliver_media_pointer(
-            caf::typed_response_promise<media::AVFrameID> rp,
-            const int logical_frame,
-            const media::MediaType media_type);
+        // void deliver_media_pointer(
+        //     caf::typed_response_promise<media::AVFrameID> rp,
+        //     const int logical_frame,
+        //     const media::MediaType media_type);
 
         void add_media(
             caf::typed_response_promise<utility::UuidActor> rp,

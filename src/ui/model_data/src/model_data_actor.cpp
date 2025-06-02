@@ -391,7 +391,8 @@ GlobalUIModelData::GlobalUIModelData(caf::actor_config &cfg) : caf::event_based_
             const utility::Uuid kotkey_uuid,
             const bool pressed,
             const std::string &context,
-            const std::string &window) {
+            const std::string &window,
+            const bool due_to_focus_change) {
             if (pressed)
                 hotkey_pressed(kotkey_uuid, context, window);
         },

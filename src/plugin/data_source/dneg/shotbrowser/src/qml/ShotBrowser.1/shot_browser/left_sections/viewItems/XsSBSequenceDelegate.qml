@@ -20,6 +20,7 @@ MouseArea {
 
     property bool showStatus: false
     property bool showType: false
+    property bool showVisibility: false
 
     property var delegateModel: null
     property var selectionModel: null
@@ -86,14 +87,46 @@ MouseArea {
                     opacity: enabled? 1 : 0.5
                     imageDiv.rotation: (isExpanded)? 90:0
 
-                    onClicked: {
-                        if(isExpanded) {
-                            delegateModel.collapseRow(index)
-                            isExpanded =  delegateModel.isExpanded(index)
+
+                    // TapHandler {
+                    //     acceptedModifiers: Qt.ControlModifier
+                    //     onTapped: {
+                    //         if(isExpanded) {
+                    //             delegateModel.collapseRecursively(index)
+                    //             isExpanded =  delegateModel.isExpanded(index)
+                    //         }
+                    //         else {
+                    //             delegateModel.expandRecursively(index,-1)
+                    //             isExpanded =  delegateModel.isExpanded(index)
+                    //         }
+                    //     }
+                    // }
+
+                    TapHandler {
+                        acceptedModifiers: Qt.ShiftModifier
+                        onTapped: {
+                            if(isExpanded) {
+                                delegateModel.collapseRecursively(index)
+                                isExpanded =  delegateModel.isExpanded(index)
+                            }
+                            else {
+                                delegateModel.expandRecursively(index,-1)
+                                isExpanded =  delegateModel.isExpanded(index)
+                            }
                         }
-                        else {
-                            delegateModel.expandRow(index)
-                            isExpanded =  delegateModel.isExpanded(index)
+                    }
+
+                    TapHandler {
+                        acceptedModifiers: Qt.NoModifier
+                        onTapped: {
+                            if(isExpanded) {
+                                delegateModel.collapseRow(index)
+                                isExpanded =  delegateModel.isExpanded(index)
+                            }
+                            else {
+                                delegateModel.expandRow(index)
+                                isExpanded =  delegateModel.isExpanded(index)
+                            }
                         }
                     }
                 }
@@ -140,6 +173,59 @@ MouseArea {
                     font.pixelSize: XsStyleSheet.fontSize*1.2
                     elide: Text.ElideRight
                     rightPadding: 8
+                }
+
+                XsSecondaryButton{ id: favBtn
+                    Layout.topMargin: 1
+                    Layout.bottomMargin: 1
+                    Layout.preferredHeight: parent.height
+                    Layout.preferredWidth: parent.height
+
+                    visible: showVisibility
+
+                    isColoured: hiddenRole
+                    imgSrc: hiddenRole ? "qrc:///icons/visibility_off.svg" : "qrc:///icons/visibility.svg"
+                    scale: 0.95
+
+                    opacity: parentHiddenRole ? 0.4 : 0.7
+
+                    TapHandler {
+                        acceptedModifiers: Qt.ControlModifier
+                        onTapped: {
+                            if(isParent) {
+                                let myindex = delegateModel.mapRowToModel(index)
+                                for(let i = 0; i < delegateModel.model.rowCount(myindex); i++) {
+                                    let cindex = myindex.model.index(i, 0, myindex)
+                                    myindex.model.set(cindex, !myindex.model.get(cindex,"hiddenRole"), "hiddenRole")
+                                }
+
+                                updateHidden()
+                            }
+                        }
+                    }
+
+                    TapHandler {
+                        acceptedModifiers: Qt.ShiftModifier
+                        onTapped: {
+                            if(isParent) {
+                                let myindex = delegateModel.mapRowToModel(index)
+                                for(let i = 0; i < delegateModel.model.rowCount(myindex); i++) {
+                                    let cindex = myindex.model.index(i, 0, myindex)
+                                    myindex.model.set(cindex, hiddenRole, "hiddenRole")
+                                }
+
+                                updateHidden()
+                            }
+                        }
+                    }
+
+                    TapHandler {
+                        acceptedModifiers: Qt.NoModifier
+                        onTapped: {
+                            hiddenRole = !hiddenRole
+                            updateHidden()
+                        }
+                    }
                 }
             }
         }

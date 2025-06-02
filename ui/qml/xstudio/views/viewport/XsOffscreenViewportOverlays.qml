@@ -22,7 +22,7 @@ Item  {
     property var imageBoundariesInViewport
     property var imageResolutions
     property var sessionActorAddr
-    property var helpers
+    property bool isQuickview: false
 
     /*****************************************************************
      *

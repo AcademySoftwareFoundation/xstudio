@@ -32,17 +32,27 @@ namespace media_reader {
                 PixelChannelInfo{channel_name, NullPixelValue, code_value});
         }
 
-        void add_raw_channel_info(const std::string &channel_name, const float pixel_value) {
-            raw_data_.push_back(PixelChannelInfo{channel_name, pixel_value, NullCodeValue});
+        void add_raw_channel_info(const std::string &channel_name, const float channel_value) {
+            raw_data_.push_back(PixelChannelInfo{channel_name, channel_value, NullCodeValue});
         }
 
-        void add_linear_channel_info(const std::string &channel_name, const float pixel_value) {
-            linear_data_.push_back(PixelChannelInfo{channel_name, pixel_value, NullCodeValue});
+        void
+        add_linear_channel_info(const std::string &channel_name, const float channel_value) {
+            linear_data_.push_back(
+                PixelChannelInfo{channel_name, channel_value, NullCodeValue});
         }
 
-        void add_display_rgb_info(const std::string &channel_name, const float pixel_value) {
+        void add_display_rgb_info(const std::string &channel_name, const float channel_value) {
             screen_rgb_data_.push_back(
-                PixelChannelInfo{channel_name, pixel_value, NullCodeValue});
+                PixelChannelInfo{channel_name, channel_value, NullCodeValue});
+        }
+
+        void add_extra_pixel_raw_rgba(const Imath::V4f &pix_rgba) {
+            extra_pixel_raw_rgba_values_.push_back(pix_rgba);
+        }
+
+        void add_extra_pixel_display_rgba(const Imath::V4f &pix_rgba) {
+            extra_pixel_display_rgba_values_.push_back(pix_rgba);
         }
 
         void set_raw_colourspace_name(const std::string &name) { raw_colourspace_name_ = name; }
@@ -56,9 +66,9 @@ namespace media_reader {
         }
 
         struct PixelChannelInfo {
-            std::string channel_name;     // NOLINT
-            float pixel_value = {-10.0f}; // NOLINT
-            int code_value    = {-888};   // NOLINT
+            std::string channel_name;       // NOLINT
+            float channel_value = {-10.0f}; // NOLINT
+            int code_value      = {-888};   // NOLINT
         };
 
         typedef std::vector<PixelChannelInfo> PixelChannelsData;
@@ -85,6 +95,12 @@ namespace media_reader {
         }
         [[nodiscard]] const Imath::V2i &location_in_image() const { return location_; }
         [[nodiscard]] const std::string &layer_name() const { return layer_name_; }
+        [[nodiscard]] const std::vector<Imath::V4f> &extra_pixel_raw_rgba_values() const {
+            return extra_pixel_raw_rgba_values_;
+        }
+        [[nodiscard]] const std::vector<Imath::V4f> &extra_pixel_display_rgba_values() const {
+            return extra_pixel_display_rgba_values_;
+        }
 
       private:
         PixelChannelsData screen_rgb_data_;
@@ -96,6 +112,8 @@ namespace media_reader {
         std::string linear_colourspace_name_  = "Linear";
         std::string layer_name_;
         Imath::V2i location_;
+        std::vector<Imath::V4f> extra_pixel_raw_rgba_values_;
+        std::vector<Imath::V4f> extra_pixel_display_rgba_values_;
     };
 } // namespace media_reader
 } // namespace xstudio

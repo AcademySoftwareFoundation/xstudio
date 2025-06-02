@@ -18,7 +18,6 @@ namespace audio {
     class MacOSAudioOutputDevice : public AudioOutputDevice {
 
       public:
-
         MacOSAudioOutputDevice(const utility::JsonStore &prefs);
 
         ~MacOSAudioOutputDevice() override;
@@ -42,17 +41,15 @@ namespace audio {
         [[nodiscard]] SampleFormat sample_format() const override { return sample_format_; }
 
       private:
-
         long aprx_buffer_water_level_microsecs_ = {80000};
-        long sample_rate_           = {48000};
-        int num_channels_           = {2};
-        long buffer_size_           = {2048};
-        SampleFormat sample_format_ = {SampleFormat::INT16};
+        long sample_rate_                       = {48000};
+        int num_channels_                       = {2};
+        long buffer_size_                       = {2048};
+        SampleFormat sample_format_             = {SampleFormat::INT16};
 
         const utility::JsonStore prefs_;
 
         std::unique_ptr<MacOSAudioOutData> audio_out_data_;
-
     };
 } // namespace audio
 } // namespace xstudio

@@ -70,15 +70,22 @@ namespace ui {
             const std::string &context,
             const std::string &window,
             const bool auto_repeat,
-            caf::actor keypress_monitor);
+            caf::actor keypress_monitor,
+            const bool due_to_focus_change = false);
 
         static void
         sequence_to_key_and_modifier(const std::string &sequence, int &keycode, int &modifier);
 
       private:
         void notify(
-            const std::string &context, const std::string &window, caf::actor keypress_monitor);
-        void notify_watchers(const std::string &context, const std::string &window);
+            const std::string &context,
+            const std::string &window,
+            caf::actor keypress_monitor,
+            const bool due_to_focus_change);
+        void notify_watchers(
+            const std::string &context,
+            const std::string &window,
+            const bool due_to_focus_change);
 
         int key_       = 0;
         int modifiers_ = 0;

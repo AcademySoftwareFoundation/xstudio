@@ -39,6 +39,7 @@ const auto PresetTemplate = R"({
 	"name": "PRESET",
     "hidden": false,
     "favourite": false,
+    "checksum": null,
     "update": null,
     "userdata": "",
     "children": []
@@ -68,6 +69,7 @@ const auto GroupTemplate = R"({
     	{
     		"id": null,
     		"type": "presets",
+            "hidden": false,
     		"children": []
     	}
     ]
@@ -77,6 +79,7 @@ const auto RootTemplate = R"({
     "id": null,
     "name": "root",
     "type": "root",
+    "hidden": false,
     "children": []
 })"_json;
 
@@ -254,12 +257,13 @@ const auto OperatorTermValues = R"([{"name": "And"},{"name": "Or"}])"_json;
 
 // "Menu",
 // "Tree",
-// "Recent",
 
 const auto GroupFlags = R"([
+        "Allow Project Query",
         "Compare",
         "Conform",
         "Ignore Toolbar",
+        "Ignore Tree Selection",
         "Load Sequence",
         "Note History Scope",
         "Note History Type",
@@ -471,6 +475,8 @@ class QueryEngine {
 
         return _type;
     }
+
+    static std::string checksum(const utility::JsonStore &data);
 
     static utility::JsonStore validate_presets(
         const utility::JsonStore &data,

@@ -400,39 +400,158 @@ Item::find_all_items(const ItemType item_type, const ItemType track_type) {
     return result;
 }
 
-/*void Item::print(
-    const timebase::flicks print_range_in,
-    const timebase::flicks print_range_out,
-    const timebase::flicks frame_inteval,
+void Item::resolve_and_request_clip_frames(
+    caf::actor &helper,
+    std::vector<bool> &filled_frames,
+    const FrameRate ref_time,
+    const timebase::flicks frame_duration,
     const media::MediaType mt,
     const UuidSet &focus,
-    const bool must_have_focus) const
-{
+    bool only_if_focussed) const {
+
+    // This function recurses down through the tree of Timeline Item objects.
+
+    // It is used to build (or 'bake') a complete map of individual FrameIDs that
+    // allow a playhead to do playback and it is executed every time something
+    // changes in the timeline (or any of its objects within). Therefore it is
+    // crucial that this is as fast as possible.
+
+    // When it recurses down to something that actually delivers frames of video
+    // or audio (namely a Clip) we work out what frames the Clip contributes to
+    // the timeline, we then send the timepoints for those frames to our
+    // helper. This in turn requests the FrameIDs from the Clip and puts them
+    // into the final map. This strategy means that our main loop going down
+    // into the timeline doesn't get blocked on waiting for Clips to return
+    // FrameIDs.
+
+    // ref_time tells us the start position in the timeline for which we
+    // evaluate an Item. So at the clip level ref_time is the timepoint in the
+    // timeline where the clip's first frame will be shown.
+
     if (transparent())
         return;
 
-    if (print_range_in >= trimmed_duration()) return;
-    if (print_range_out >= trimmed_start()) return;
-
-    // If TRACK...
-    const auto ts = trimmed_start();
-
-    timebase::flicks time = print_range_in;
-
-    // loop over clips
-    for (const auto &it : *this) {
-
-        const auto td = it.trimmed_duration();
-        while (time < td && time <= print_range_out) {
-            // print clip/gap frame here
-            result[idx++] = std::pair<const Item &, FrameRate>(it, time +
-it.trimmed_start()); time += frame_inteval;
-        }
-
-
+    // if this item is focussed, and we are only interested in focussed items,
+    // all children don't need to be focussed because they inherit focus from
+    // the parent
+    if (only_if_focussed && focus.count(uuid())) {
+        only_if_focussed = false;
     }
 
-}*/
+    switch (item_type_) {
+
+    case IT_TIMELINE:
+        // pass to stack
+        if (not empty()) {
+            front().resolve_and_request_clip_frames(
+                helper, filled_frames, ref_time, frame_duration, mt, focus, only_if_focussed);
+        }
+        break;
+
+    case IT_STACK: {
+        const auto track_type =
+            mt == media::MediaType::MT_IMAGE ? IT_VIDEO_TRACK : IT_AUDIO_TRACK;
+
+        for (const auto &it : *this) {
+
+            // Skip tracks whose media type doesn't match requested media type
+            if (it.transparent() or it.item_type() != track_type)
+                continue;
+            it.resolve_and_request_clip_frames(
+                helper,
+                filled_frames,
+                ref_time + trimmed_start(),
+                frame_duration,
+                mt,
+                focus,
+                only_if_focussed);
+        }
+
+    } break;
+
+    case IT_AUDIO_TRACK:
+    case IT_VIDEO_TRACK: {
+        // note the core logic here is that the duration of each item in the
+        // video track offsets the start of the next item by the same amount.
+        auto ts = ref_time;
+        for (const auto &it : *this) {
+            it.resolve_and_request_clip_frames(
+                helper, filled_frames, ts, frame_duration, mt, focus, only_if_focussed);
+            ts += it.trimmed_duration();
+        }
+    } break;
+
+    case IT_CLIP:
+
+        if (!only_if_focussed or focus.count(uuid())) {
+
+            // the frame range of the clip in the timeline
+            int64_t timeline_in_frame  = ref_time.count() / frame_duration.count();
+            int64_t timeline_out_frame = std::min(
+                int64_t((ref_time + trimmed_duration()).count() / frame_duration.count()),
+                int64_t(filled_frames.size()));
+
+            // (clip local) timestamp of the first clip frame
+            auto clip_local_frame_time = trimmed_start();
+
+            // vector of timestamps in clip time space for which we want FrameIDs
+            std::vector<FrameRate> clip_timepoints;
+
+            auto frame_timeline_pos = ref_time;
+            auto subrange_ref       = ref_time;
+
+            // loop over the clip frames in the timeline
+            for (int64_t tl_logical_frame = timeline_in_frame;
+                 tl_logical_frame < timeline_out_frame;
+                 ++tl_logical_frame) {
+
+                // check if the current timeline logical frame has already been
+                // resolved (by a clip in a track above this one)
+                if (!filled_frames[tl_logical_frame]) {
+
+                    // if we're starting a new run of frames to drop into the map for this clip
+                    // we need to hold the timeline timestamp of the current frame
+                    if (clip_timepoints.empty()) {
+                        subrange_ref = frame_timeline_pos;
+                        clip_timepoints.reserve(timeline_out_frame - timeline_in_frame);
+                    }
+
+                    clip_timepoints.push_back(clip_local_frame_time);
+
+                    // mark the frame as fulfilled - other tracks can't overwrite this
+                    // timeline logical frame
+                    filled_frames[tl_logical_frame] = true;
+
+                } else if (!clip_timepoints.empty()) {
+
+                    // we've got a run of clip frames to put in the map and we've
+                    // hit a frame that's already filled in (by another clip
+                    // on a higher track). Dispatch the set of clip timepoints
+                    // to our helper so it can handle the request to the clip actor
+                    // and fill in the frame map
+                    anon_mail(
+                        media::get_media_pointer_atom_v, actor(), clip_timepoints, subrange_ref)
+                        .send(helper);
+                    clip_timepoints.clear();
+                }
+                clip_local_frame_time += frame_duration;
+                frame_timeline_pos += frame_duration;
+            }
+
+            if (!clip_timepoints.empty()) {
+                // Dispatch request for clip frames to our helper
+                anon_mail(
+                    media::get_media_pointer_atom_v, actor(), clip_timepoints, subrange_ref)
+                    .send(helper);
+            }
+        }
+    case IT_GAP:
+    case IT_NONE:
+    default:
+        break;
+    }
+}
+
 
 std::optional<ResolvedItem> Item::resolve_time(
     const FrameRate &time,
@@ -1539,61 +1658,69 @@ void Item::reset_media_uuid() {
 }
 
 namespace xstudio::timeline {
-/* Doing sync requests to the clip actors to build our FrameTimeMap can
-get a bit ugly. To help with this we have this helper that processes the
-responses from the clip actors and self destroys once all the expected responses
-come in*/
-class BuildFrameIDsHelper {
+
+/* Simple one-trick actor that enacts the playback loop. */
+class BuildFrameIDsHelper : public caf::event_based_actor {
 
   public:
     BuildFrameIDsHelper(
+        caf::actor_config &cfg,
         caf::typed_response_promise<media::FrameTimeMapPtr> rp,
-        const int rcount,
-        Item *parent,
+        media::FrameTimeMap *r,
+        FrameRate base_rate,
         const media::MediaType media_type)
-        : rp_(rp), media_type_(media_type) {
+        : caf::event_based_actor(cfg),
+          rp_(rp),
+          result_(r),
+          base_rate_(base_rate),
+          media_type_(media_type) {
 
-        base_rate_    = parent->rate();
-        parent_actor_ = caf::actor_cast<caf::event_based_actor *>(parent->actor());
-        count_        = size_t(rcount);
-        blank_frame   = media::make_blank_frame(media_type);
-        result        = new media::FrameTimeMap;
+        t0 = utility::clock::now();
+
+        behavior_.assign([=](media::get_media_pointer_atom,
+                             caf::actor clip_actor,
+                             const std::vector<FrameRate> &clip_timepoints,
+                             const FrameRate clip_timeline_position) {
+            if (clip_timepoints.empty() ||
+                result_->lower_bound(clip_timeline_position) == result_->end())
+                return;
+
+            mail(media::get_media_pointer_atom_v, media_type_, clip_timepoints, base_rate_)
+                .request(clip_actor, infinite)
+                .then(
+                    [=](const media::AVFrameIDs &mps) mutable {
+                        auto p = result_->lower_bound(clip_timeline_position);
+                        for (const auto &mp : mps) {
+                            p->second = mp;
+                            p++;
+                            if (p == result_->end())
+                                break;
+                        }
+                    },
+                    [=](error &err) mutable {});
+        });
     }
 
-    void add_blank_frame(timebase::flicks timeline_tp);
-    void add_frame(caf::actor, timebase::flicks, const FrameRate &clip_tp);
+    ~BuildFrameIDsHelper() {
 
-    void incref() { refcount_++; }
+        // When this actor is destroyed it means that all references to this
+        // actor held in the CAF mailbox have expired. Therefore it has received
+        // all messages and fulfilled all responses to the requests it has made.
+        // We can deliver on the response promise now.
+        rp_.deliver(media::FrameTimeMapPtr(result_));
 
-    void decref() {
-        refcount_--;
-        if (!refcount_) {
-            if (rp_.pending()) {
-                rp_.deliver(make_error(
-                    xstudio_error::error, "Timeline Item failed to complete frame IDs build."));
-            }
-            delete this;
-        }
+        // spdlog::critical("BuildFrameIDsHelper milliseconds: {}",
+        // std::chrono::duration_cast<std::chrono::milliseconds>(utility::clock::now()-t0).count());
     }
 
-    void request_clip_frames();
-
-    void decrement_count(const size_t n = 1);
-
-  private:
-    // store for the result
-    media::FrameTimeMap *result;
-    size_t count_;
-    int refcount_ = {0};
-    FrameRate base_rate_;
-    caf::event_based_actor *parent_actor_ = nullptr;
-    caf::actor current_clip_actor_;
-    std::vector<timebase::flicks> timeline_timepoints_;
-    std::vector<FrameRate> clip_timepoints_;
-    const media::MediaType media_type_;
+    caf::behavior behavior_;
+    media::FrameTimeMap *result_;
     caf::typed_response_promise<media::FrameTimeMapPtr> rp_;
-    // blank frame
-    std::shared_ptr<const media::AVFrameID> blank_frame;
+    FrameRate base_rate_;
+    const media::MediaType media_type_;
+    utility::clock::time_point t0;
+
+    caf::behavior make_behavior() override { return behavior_; }
 };
 } // namespace xstudio::timeline
 
@@ -1602,8 +1729,15 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     const TimeSourceMode tsm,
     const FrameRate &override_rate,
     const UuidSet &focus_list) {
-    auto foo = caf::actor_cast<caf::event_based_actor *>(actor());
-    auto rp  = foo->make_response_promise<media::FrameTimeMapPtr>();
+
+    // This crucial function bakes a timeline into a 'FrameTimeMap' which is
+    // a map of individual frame IDs against a zero based time point which is
+    // what a playhead needs to do playback. Every time the timeline updates we
+    // need to re-generate the FrameTimeMap. Therefore, to keep timeline
+    // interaction snappy and interactive this algorithm must be really fast.
+
+    auto local_actor = caf::actor_cast<caf::event_based_actor *>(actor());
+    auto rp          = local_actor->make_response_promise<media::FrameTimeMapPtr>();
 
     if (!available_range()) {
         rp.deliver(media::FrameTimeMapPtr());
@@ -1614,115 +1748,61 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     const int start_frame = available_range()->frame_start().frames(override_rate);
     const int end_frame =
         start_frame + available_range()->frame_duration().frames(override_rate);
-    const int num_frames = end_frame - start_frame;
 
-    BuildFrameIDsHelper *helper = new BuildFrameIDsHelper(rp, num_frames, this, media_type);
-    helper->incref();
-
-    const timebase::flicks delta = override_rate.to_flicks();
+    const timebase::flicks delta = rate().to_flicks();
     timebase::flicks timepoint   = start_frame * delta;
 
-    // TODO: this needs optimisation - for multi-track, long timlines we see
-    // this taking 100s of milliseconds. The problem is the recursive call into
-    // resolve_time on every frame, recurses from Timeline->Stack->Video Track->clip/gap
-    //
-    // One solution that might work is to get an Item to 'print' itself into
-    // a result vector, eliminating function calls on every frame as a Clip will
-    // just do a simple loop to print itself into the result.
+    // first step - we make a map of all frames in the timeline, and fill
+    // with blank frames.
+    media::FrameTimeMap *result = new media::FrameTimeMap;
+    auto blank_frame            = media::make_blank_frame(media_type);
+    timepoint                   = start_frame * delta;
     for (auto i = start_frame; i < end_frame; i++) {
-
-        std::optional<ResolvedItem> clip_item =
-            resolve_time(FrameRate(timepoint), media_type, focus_list);
-
-        if (clip_item)
-            helper->add_frame(clip_item->first.actor(), timepoint, clip_item->second);
-        else
-            helper->add_blank_frame(timepoint);
+        result->emplace(std::make_pair(FrameRate(timepoint), blank_frame));
         timepoint += delta;
     }
 
-    helper->request_clip_frames();
+    // make a vector that tells us which frames in the frame time map have been
+    // resolved. resolve_and_request_clip_frames will recurse through
+    // video tracks - if a visible clip covers certain frames in the timeline
+    // then it must mark the frames as resolved so that the video track that
+    // is underneath doesn't try and overwrite those FrameIDs.
+    std::vector<bool> resolved_frames(end_frame - start_frame, false);
 
-    // in case start_frame = end_frame, i.e. nothing to process this
-    // call will ensure we deliver ont the RP
-    helper->decrement_count(0);
-    helper->decref();
+    // now spawn a worker actor that will receive FrameIDs from individual clips
+    // in the timeline and add them into 'result'
+    auto helper = local_actor->spawn<BuildFrameIDsHelper>(rp, result, rate(), media_type);
+
+    // recursively call down into the timeline tree (Timeline->Stack->Track->Clip)
+    // When we hit clips we evaluate the frames that the clip contributes to the
+    // entire timeline frames map and request the frameIDs from the clip. The
+    // response is then handled by our helper
+
+    if (!focus_list.empty()) {
+        // if we have a list of focussed items, these must overwrite their frames
+        // regardless whether they are 'underneath' other clips (i.e. in tracks
+        // lower down in the stack). We do this by resolving frames for focussed
+        // items first
+        resolve_and_request_clip_frames(
+            helper,
+            resolved_frames,
+            FrameRate(start_frame * delta),
+            delta,
+            media_type,
+            focus_list,
+            true // only print frames into map for focussed items
+        );
+    }
+
+    resolve_and_request_clip_frames(
+        helper,
+        resolved_frames,
+        FrameRate(start_frame * delta),
+        delta,
+        media_type,
+        focus_list,
+        false // print frames into map whether focussed or not
+    );
 
     return rp;
-}
-
-void BuildFrameIDsHelper::add_blank_frame(timebase::flicks timeline_tp) {
-    if (current_clip_actor_) {
-        request_clip_frames();
-        current_clip_actor_ = caf::actor();
-        timeline_timepoints_.clear();
-        clip_timepoints_.clear();
-    }
-    (*result)[timeline_tp] = blank_frame;
-    decrement_count();
-}
-
-void BuildFrameIDsHelper::add_frame(
-    caf::actor clip_actor, timebase::flicks timeline_tp, const FrameRate &clip_tp) {
-
-    if (clip_actor != current_clip_actor_) {
-
-        // we've moved to a new clip ...
-        request_clip_frames();
-        current_clip_actor_ = clip_actor;
-        timeline_timepoints_.clear();
-        clip_timepoints_.clear();
-    }
-
-    timeline_timepoints_.emplace_back(timeline_tp);
-    clip_timepoints_.emplace_back(clip_tp);
-}
-
-void BuildFrameIDsHelper::request_clip_frames() {
-
-    if (!current_clip_actor_) {
-        incref();
-        for (const auto &tp : timeline_timepoints_) {
-            (*result)[tp] = blank_frame;
-        }
-        decrement_count(timeline_timepoints_.size());
-        decref();
-        return;
-    }
-
-    const auto timeline_timepoints_cpy = timeline_timepoints_;
-
-    incref();
-
-    parent_actor_
-        ->mail(media::get_media_pointer_atom_v, media_type_, clip_timepoints_, base_rate_)
-        .request(current_clip_actor_, infinite)
-        .then(
-            [=](const media::AVFrameIDs &mps) mutable {
-                int idx = 0;
-                for (const auto &mp : mps) {
-                    (*result)[timeline_timepoints_cpy[idx++]] = mp;
-                }
-                decrement_count(timeline_timepoints_cpy.size());
-                decref();
-            },
-
-            [=](error &err) mutable {
-                for (const auto &tp : timeline_timepoints_cpy) {
-                    (*result)[tp] = blank_frame;
-                }
-                decrement_count(timeline_timepoints_cpy.size());
-                decref();
-            });
-}
-
-void BuildFrameIDsHelper::decrement_count(const size_t n) {
-
-    if (n >= count_ && rp_.pending()) {
-        media::FrameTimeMapPtr r(result);
-        rp_.deliver(r);
-
-    } else {
-        count_ -= n;
-    }
 }

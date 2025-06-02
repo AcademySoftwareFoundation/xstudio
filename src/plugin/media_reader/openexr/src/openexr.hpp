@@ -34,8 +34,10 @@ namespace media_reader {
         }
 
       private:
-        static PixelInfo
-        exr_buffer_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location);
+        static PixelInfo exr_buffer_pixel_picker(
+            const ImageBuffer &buf,
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss);
 
         void get_channel_names_by_layer(
             const Imf::Header &header,

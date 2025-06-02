@@ -172,8 +172,8 @@ namespace playhead {
         utility::Uuid cycle_image_layer_up_;
         utility::Uuid cycle_image_layer_down_;
 
-        bool deserialised_ = {false};
-        float drag_start_x_;
+        bool deserialised_  = {false};
+        float drag_start_x_ = -1000.0f;
         timebase::flicks drag_start_playhead_position_;
         utility::time_point click_timepoint_;
 

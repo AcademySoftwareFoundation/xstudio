@@ -483,9 +483,9 @@ void PlayheadActor::init() {
         // this is a 'hack'. We need to force the playhead to re-broadcast info about
         // the current media source when setting up a new viewport. Calling
         // connected_to_ui_changed will do what we want. see viewport_frame_queue_actor.cpp
-        [=](media_source_atom atom, bool, bool) { 
+        [=](media_source_atom atom, bool, bool) {
             if (connected_to_ui()) {
-                connected_to_ui_changed(); 
+                connected_to_ui_changed();
             }
         },
 
@@ -1693,11 +1693,11 @@ void PlayheadActor::new_source_list() {
     if (previous_source_actors_ != source_actors_) {
 
         // One last check ... do we have a completely new set of sources?
-        // If so, we should turn off any loop region as we are now viewing 
+        // If so, we should turn off any loop region as we are now viewing
         // completely different media to what was being viewed before.
         bool match = false;
-        for (const auto &a: previous_source_actors_) {
-            for (const auto &b: source_actors_) {
+        for (const auto &a : previous_source_actors_) {
+            for (const auto &b : source_actors_) {
                 if (a == b) {
                     match = true;
                     break;
@@ -1854,7 +1854,7 @@ void PlayheadActor::switch_key_playhead(int idx) {
         return;
 
     caf::scoped_actor sys(system());
-    bool force_move = false;
+    bool force_move        = false;
     const bool new_sources = idx == -1;
     if (idx < 0) {
         // let's see if one of the child playheads is showing a media source that matches
@@ -1891,12 +1891,13 @@ void PlayheadActor::switch_key_playhead(int idx) {
         key_playhead_index_->set_value(idx);
         anon_mail(bookmark::get_bookmarks_atom_v).send(hero_sub_playhead_.actor());
 
-        if (assembly_mode() != AM_STRING && assembly_mode() != AM_ONE && sub_playheads_.size() > 1 && !new_sources) {
+        if (assembly_mode() != AM_STRING && assembly_mode() != AM_ONE &&
+            sub_playheads_.size() > 1 && !new_sources) {
 
             // If we're in A/B mode, say, with multiple things selected we want to be
             // able to rapidly switch the on-screen source via 1,2,3 hotkeys. This
             // message will get to the ViewportFrameQueueActor to tell it the 'hero'
-            // sub playhead has changed. It then does an immediate frame retrieve 
+            // sub playhead has changed. It then does an immediate frame retrieve
             // and disaplay to get 'snappy' switching.
             mail(key_child_playhead_atom_v, hero_sub_playhead_, utility::clock::now())
                 .send(broadcast_);
@@ -1962,7 +1963,8 @@ void PlayheadActor::switch_key_playhead(int idx) {
                         align_audio_playhead();
                     },
                     [=](const caf::error &err) {
-                        spdlog::warn("{} {} {}", Module::name(), __PRETTY_FUNCTION__, to_string(err));
+                        spdlog::warn(
+                            "{} {} {}", Module::name(), __PRETTY_FUNCTION__, to_string(err));
                     });
 
             mail(media_frame_ranges_atom_v)
@@ -2953,7 +2955,9 @@ void PlayheadActor::hotkey_pressed(
 }
 
 void PlayheadActor::hotkey_released(
-    const utility::Uuid &hotkey_uuid, const std::string &context) {
+    const utility::Uuid &hotkey_uuid,
+    const std::string &context,
+    const bool due_to_focus_change) {
 
     if (hotkey_uuid == step_forward_ || hotkey_uuid == step_backward_) {
         set_playing(false);

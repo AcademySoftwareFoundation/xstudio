@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Templates 2.15 as T
+// import QtQuick.Templates as T
 
 import xStudio 1.0
 
@@ -31,12 +31,17 @@ ComboBox { id: widget
     property real borderRadius: 0
     property real framePadding: 6
 
-    property string defaultText: ""
+    property alias placeholderText: textField.placeholderText
+    property alias placeholderTextColor: textField.placeholderTextColor
+    property alias defaultText: textField.placeholderText
 
     property real fontSize: XsStyleSheet.fontSize
     property var fontFamily: XsStyleSheet.fontFamily
 
     rightPadding: editable? (padding*2 + indicator.width): (padding)
+
+    property bool textTruncated: textField.elidedText != textMetrics2.text
+    property var unElidedTextWidth: textMetrics2.width
 
     focusPolicy: Qt.StrongFocus
     activeFocusOnTab: true
@@ -76,8 +81,9 @@ ComboBox { id: widget
 
     contentItem:
     TextField{ id: textField
+        // placeholderText: defaultText
 
-        text: activeFocus && widget.editable ? widget.displayText : (textMetrics.elidedText ? textMetrics.elidedText : defaultText)
+        text: widget.displayText// activeFocus && widget.editable ? widget.displayText : (textMetrics.elidedText ? textMetrics.elidedText : "")
 
         onFocusChanged: {
             if(focus) {
@@ -110,11 +116,18 @@ ComboBox { id: widget
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
 
-        TextMetrics { id: textMetrics
+        placeholderTextColor: textColorDisabled
+
+        // TextMetrics { id: textMetrics
+        //     font: textField.font
+        //     text: widget.displayText
+        //     elideWidth: textField.width - 8
+        //     elide: Text.ElideRight
+        // }
+
+        TextMetrics { id: textMetrics2
             font: textField.font
             text: widget.displayText
-            elideWidth: textField.width - 8
-            elide: Text.ElideRight
         }
 
         background:
@@ -158,6 +171,7 @@ ComboBox { id: widget
             XsScrollBar {id: control
                 padding: 2
                 policy: listView.model && (listView.height< (widget.height*listView.model.count))? ScrollBar.AlwaysOn: ScrollBar.AlwaysOff
+                z:2
             }
         }
 
@@ -187,6 +201,7 @@ ComboBox { id: widget
 
         contentItem:
         XsText {
+            id: tt
             text: widget.textRole ? (Array.isArray(widget.model) ? modelData[widget.textRole]: model[widget.textRole]): modelData
             font.pixelSize: fontSize
             font.family: fontFamily
@@ -197,6 +212,14 @@ ComboBox { id: widget
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             anchors.verticalCenter: itemDelegate.verticalCenter
+
+            XsToolTip{
+                id: toolTip
+                text: tt.text
+                visible: widget.highlightedIndex === index && tt.truncated
+                x: 0 //#TODO: flex/pointer
+            }
+    
         }
 
         highlighted: widget.highlightedIndex === index

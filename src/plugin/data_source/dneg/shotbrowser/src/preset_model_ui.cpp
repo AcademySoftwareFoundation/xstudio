@@ -29,23 +29,11 @@ const static auto q_quick_load         = QStringFromStd("Quick Load");
 ShotBrowserPresetModel::ShotBrowserPresetModel(QueryEngine &query_engine, QObject *parent)
     : query_engine_(query_engine), JSONTreeModel(parent) {
     setRoleNames(std::vector<std::string>(
-        {"enabledRole",
-         "entityRole",
-         "favouriteRole",
-         "flagRole",
-         "groupFavouriteRole",
-         "groupFlagRole",
-         "groupIdRole",
-         "groupUserDataRole",
-         "hiddenRole",
-         "livelinkRole",
-         "nameRole",
-         "negatedRole",
-         "parentEnabledRole",
-         "termRole",
-         "typeRole",
-         "updateRole",
-         "userDataRole",
+        {"checksumRole",  "checksumSystemRole", "enabledRole",        "entityRole",
+         "favouriteRole", "flagRole",           "groupFavouriteRole", "groupFlagRole",
+         "groupIdRole",   "groupUserDataRole",  "hiddenRole",         "livelinkRole",
+         "nameRole",      "negatedRole",        "parentEnabledRole",  "parentHiddenRole",
+         "termRole",      "typeRole",           "updateRole",         "userDataRole",
          "valueRole"}));
 
     term_lists_ = new QQmlPropertyMap(this);
@@ -76,6 +64,7 @@ ShotBrowserPresetModel::ShotBrowserPresetModel(QueryEngine &query_engine, QObjec
 
     connect(this, &JSONTreeModel::dataChanged, this, &ShotBrowserPresetModel::modelDataChanged);
 }
+
 QStringList ShotBrowserPresetModel::groupFlags() const {
     auto result = QStringList();
 
@@ -84,6 +73,70 @@ QStringList ShotBrowserPresetModel::groupFlags() const {
 
     return result;
 }
+
+// void ShotBrowserPresetModel::setHidden(const QStringList &hidden) {
+//     std::set<std::string> hset;
+//     for(const auto &i: hidden)
+//         hset.insert(StdFromQString(i));
+
+//     set_hidden(hset);
+
+//     emit hiddenChanged();
+// }
+
+// QStringList ShotBrowserPresetModel::getHidden() const {
+//     auto result = QStringList();
+
+//     for(const auto &i :get_hidden())
+//         result.push_back(QStringFromStd(i));
+
+//     return result;
+// }
+
+// std::vector<std::string> ShotBrowserPresetModel::get_hidden(const QModelIndex &pindex) const
+// {
+//     auto result = std::vector<std::string>();
+
+//     try {
+//         if (pindex.isValid()) {
+//             if (data(pindex, hiddenRole).toBool())
+//                 result.emplace_back(StdFromQString(data(pindex, idRole).toString()));
+//         }
+
+//         for (auto i = 0; i < rowCount(pindex); i++) {
+//             auto c = get_hidden(index(i, 0, pindex));
+//             result.insert(result.end(), c.begin(), c.end());
+//         }
+//     } catch (const std::exception &err) {
+//         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+//     }
+
+//     return result;
+// }
+
+// void ShotBrowserPresetModel::set_hidden(
+//     const std::set<std::string> &hset,
+//     const QModelIndex &pindex) {
+
+//     try {
+//         if (pindex.isValid()) {
+//             auto ishidden  = data(pindex, hiddenRole).toBool();
+//             auto id     = StdFromQString(data(pindex, idRole).toString());
+//             auto newval = false;
+
+//             if (hset.count(id))
+//                 newval = true;
+
+//             if (newval != ishidden)
+//                 setData(pindex, newval, hiddenRole);
+//         }
+
+//         for (auto i = 0; i < rowCount(pindex); i++)
+//             set_hidden(hset, index(i, 0, pindex));
+//     } catch (const std::exception &err) {
+//         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+//     }
+// }
 
 void ShotBrowserPresetModel::modelDataChanged(
     const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
@@ -538,6 +591,27 @@ QVariant ShotBrowserPresetModel::data(const QModelIndex &index, int role) const 
                 }
             } break;
 
+            case Roles::checksumRole:
+                if (j.contains("checksum") and j.at("checksum").is_string() and
+                    j.at("update").is_boolean() and j.at("update") == true) {
+                    result = QStringFromStd(j.at("checksum"));
+                } else {
+                    result = QString();
+                }
+                break;
+
+            case Roles::checksumSystemRole:
+                if (j.contains("update") and j.at("update").is_boolean()) {
+                    if (auto preset = query_engine_.find_by_id(
+                            j.at("id"), query_engine_.system_presets().as_json());
+                        preset) {
+                        result = QStringFromStd(QueryEngine::checksum(*preset));
+                    } else
+                        result = QString();
+                } else
+                    result = QString();
+                break;
+
             case Roles::favouriteRole:
                 if (j.count("favourite") and not j.at("favourite").is_null())
                     result = j.at("favourite").get<bool>();
@@ -549,15 +623,38 @@ QVariant ShotBrowserPresetModel::data(const QModelIndex &index, int role) const 
                 break;
 
             case Roles::hiddenRole:
-                // check parent hidden
-                if (j.value("type", "") == "preset" and
-                    index.parent().parent().data(Roles::hiddenRole).toBool())
-                    result = true;
-                else if (j.count("hidden") and not j.at("hidden").is_null())
+                if (j.contains("hidden") and j.at("hidden").is_boolean())
                     result = j.at("hidden").get<bool>();
                 else
                     result = false;
                 break;
+
+            // need to ignore presets type, as real parent is group..
+            case Roles::parentHiddenRole:
+                if (index.parent().isValid()) {
+                    auto pi = index.parent();
+
+                    if (data(pi, hiddenRole).toBool())
+                        result = true;
+                    else if (data(pi, parentHiddenRole).toBool())
+                        result = true;
+                    else
+                        result = false;
+                } else {
+                    result = false;
+                }
+                break;
+
+                // case Roles::hiddenRole:
+                //     // check parent hidden
+                //     if (j.value("type", "") == "preset" and
+                //         index.parent().parent().data(Roles::hiddenRole).toBool())
+                //         result = true;
+                //     else if (j.count("hidden") and not j.at("hidden").is_null())
+                //         result = j.at("hidden").get<bool>();
+                //     else
+                //         result = false;
+                //     break;
 
             case Roles::updateRole:
                 if (j.count("update") and not j.at("update").is_null())
@@ -727,23 +824,58 @@ bool ShotBrowserPresetModel::setData(
             }
             break;
 
-        case Roles::hiddenRole:
-            result = baseSetData(index, value, "hidden", QVector<int>({role}), true);
+        case Roles::hiddenRole: {
+            std::function<void(const QModelIndex &)> changedChild =
+                [&](const QModelIndex &parent) {
+                    for (auto i = 0; i < rowCount(parent); i++) {
+                        auto child = ShotBrowserPresetModel::index(i, 0, parent);
+                        if (data(child, typeRole).toString() != "term")
+                            changedChild(child);
+                    }
 
-            // if changed mark update field.
+                    emit dataChanged(
+                        ShotBrowserPresetModel::index(0, 0, parent),
+                        ShotBrowserPresetModel::index(rowCount(parent) - 1, 0, parent),
+                        QVector<int>({ShotBrowserListModel::Roles::parentHiddenRole}));
+                };
+
+
+            result = baseSetData(index, value.toBool(), "hidden", QVector<int>({role}), true);
+
+            // spdlog::warn("{} {} {}", result, value.toBool(), StdFromQString(data(index,
+            // typeRole).toString()));
+
             if (result) {
-                emit presetHidden(index, value.toBool());
+                //                emit presetHidden(index, value.toBool());
                 markedAsUpdated(index.parent());
 
-                if (index.data(typeRole).toString() == "group") {
-                    auto presets = ShotBrowserPresetModel::index(1, 0, index);
-                    emit dataChanged(
-                        ShotBrowserPresetModel::index(0, 0, presets),
-                        ShotBrowserPresetModel::index(rowCount(presets) - 1, 0, presets),
-                        roles);
+                // enable parents.
+                if (not value.toBool() and index.parent().isValid()) {
+                    setData(index.parent(), false, Roles::hiddenRole);
                 }
+
+                changedChild(index);
             }
-            break;
+        } break;
+
+
+            // case Roles::hiddenRole:
+            //     result = baseSetData(index, value, "hidden", QVector<int>({role}), true);
+
+            //     // if changed mark update field.
+            //     if (result) {
+            //         emit presetHidden(index, value.toBool());
+            //         markedAsUpdated(index.parent());
+
+            //         if (index.data(typeRole).toString() == "group") {
+            //             auto presets = ShotBrowserPresetModel::index(1, 0, index);
+            //             emit dataChanged(
+            //                 ShotBrowserPresetModel::index(0, 0, presets),
+            //                 ShotBrowserPresetModel::index(rowCount(presets) - 1, 0, presets),
+            //                 roles);
+            //         }
+            //     }
+            //     break;
 
         case Roles::negatedRole:
             result         = baseSetData(index, value, "negated", QVector<int>({role}), true);
@@ -954,13 +1086,26 @@ void ShotBrowserPresetModel::markedAsUpdated(const QModelIndex &parent) {
     while (preset_index.isValid() and preset_index.data(Roles::typeRole).toString() != "preset")
         preset_index = preset_index.parent();
 
-    if (preset_index.isValid() and not preset_index.data(Roles::updateRole).isNull())
+    if (preset_index.isValid() and not preset_index.data(Roles::updateRole).isNull()) {
+        if (preset_index.data(Roles::updateRole).toBool() == false) {
+            // init checksum value.
+            baseSetData(
+                preset_index,
+                preset_index.data(Roles::checksumSystemRole),
+                "checksum",
+                QVector<int>({Roles::checksumRole}),
+                true);
+        }
+
         baseSetData(
             preset_index,
             QVariant::fromValue(true),
             "update",
             QVector<int>({Roles::updateRole}),
             true);
+        // flag checksum as invalid
+        // emit dataChanged(preset_index, preset_index, QVector<int>({checksumRole}));
+    }
 }
 
 QObject *ShotBrowserPresetModel::termModel(
@@ -1283,6 +1428,12 @@ bool ShotBrowserPresetFilterModel::filterAcceptsRow(
         auto type           = source_index.data(ShotBrowserPresetModel::Roles::typeRole);
         auto favoured       = QVariant();
         auto group_favoured = QVariant();
+
+        auto ptype = source_index.parent().data(ShotBrowserPresetModel::Roles::typeRole);
+
+        if (type == "preset" and ptype == "group")
+            return false;
+
         if (only_show_favourite_) {
             favoured = source_index.data(ShotBrowserPresetModel::Roles::favouriteRole);
             group_favoured =

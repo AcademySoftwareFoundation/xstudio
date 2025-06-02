@@ -53,7 +53,8 @@ HotkeysUI::HotkeysUI(QObject *parent) : super(parent) {
                 const utility::Uuid kotkey_uuid,
                 const bool pressed,
                 const std::string &context,
-                const std::string &window) {
+                const std::string &window,
+                const bool due_to_focus_change) {
                 // actual hotkey pressed or release ... we ignore
             }};
     });
@@ -200,7 +201,8 @@ void HotkeyUI::init(actor_system &system_) {
                 const utility::Uuid &uuid,
                 const bool hotkey_pressed,
                 const std::string &context,
-                const std::string &window) {
+                const std::string &window,
+                const bool due_to_focus_change) {
                 // if the hotkey was pressed in a different parent window to
                 // the parent of this XsHotkey item, we don't activate
                 if (hotkey_pressed && StdFromQString(window_name_) != window)
@@ -357,7 +359,8 @@ void HotkeyReferenceUI::init(caf::actor_system &system_) {
                 const utility::Uuid kotkey_uuid,
                 const bool pressed,
                 const std::string &context,
-                const std::string &window) {
+                const std::string &window,
+                const bool due_to_focus_change) {
                 // actual hotkey pressed or release ... we ignore
                 if (pressed && QUuidFromUuid(kotkey_uuid) == hotkey_uuid_ &&
                     (context_.empty() || context_ == context)) {

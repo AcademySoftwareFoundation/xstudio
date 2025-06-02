@@ -58,7 +58,8 @@ void xstudio::utility::setup_filepath_remap_regex(const utility::JsonStore &j) {
 
         for (auto p = j.begin(); p != j.end(); ++p) {
             auto f = p.value();
-            if (!f.is_array()) continue;
+            if (!f.is_array())
+                continue;
             for (const auto &e : f) {
                 if (e.size() != 3 || !e[0].is_string() || !e[1].is_string() ||
                     !e[2].is_boolean())
@@ -72,7 +73,8 @@ void xstudio::utility::setup_filepath_remap_regex(const utility::JsonStore &j) {
 
         for (auto p = j.begin(); p != j.end(); ++p) {
             auto f = p.value();
-            if (!f.is_array()) continue;
+            if (!f.is_array())
+                continue;
             for (const auto &e : f) {
                 if (e[2].get<bool>())
                     s_forward_remap_regex.emplace_back(
@@ -867,9 +869,8 @@ std::string xstudio::utility::xstudio_root(const std::string &append_path) {
     DWORD nSize  = _countof(filename);
     DWORD result = GetModuleFileNameA(NULL, filename, nSize);
     if (result == 0) {
-        spdlog::critical(
-            "Unable to determine executable path from Windows API, falling back "
-            "to standard methods");
+        spdlog::critical("Unable to determine executable path from Windows API, falling back "
+                         "to standard methods");
     } else {
         auto exePath = fs::path(filename);
 
@@ -883,14 +884,14 @@ std::string xstudio::utility::xstudio_root(const std::string &append_path) {
     // Assuming binary is in MacOS folder in bundle
     uint32_t sz = 4096;
     std::array<char, 4096> bin_path;
-    auto vv = _NSGetExecutablePath(bin_path.data(), &sz);
-    auto exePath = fs::path(bin_path.data());
-    fallback_root     = exePath.parent_path().parent_path();
+    auto vv       = _NSGetExecutablePath(bin_path.data(), &sz);
+    auto exePath  = fs::path(bin_path.data());
+    fallback_root = exePath.parent_path().parent_path();
 #else
 
     // TODO: This could inspect the current running process and look one directory up.
     fallback_root = std::string(BINARY_DIR);
-    
+
 #endif
 
     std::string path = (root ? (*root) + append_path : fallback_root + append_path);
@@ -898,18 +899,15 @@ std::string xstudio::utility::xstudio_root(const std::string &append_path) {
     return p;
 }
 
-std::string xstudio::utility::xstudio_plugin_dir(const std::string &append_path)
-{
+std::string xstudio::utility::xstudio_plugin_dir(const std::string &append_path) {
 #ifdef __apple__
     return xstudio_root("/PlugIns/xstudio" + append_path);
 #else
     return xstudio_root("/plugin" + append_path);
 #endif
-
 }
 
-std::string xstudio::utility::xstudio_resources_dir(const std::string &append_path)
-{
+std::string xstudio::utility::xstudio_resources_dir(const std::string &append_path) {
 #ifdef __apple__
     return xstudio_root("/Resources/" + append_path);
 #else

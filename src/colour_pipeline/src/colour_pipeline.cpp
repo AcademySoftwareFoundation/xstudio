@@ -218,16 +218,10 @@ caf::message_handler ColourPipeline::message_handler_extensions() {
         },
         [=](pixel_info_atom atom,
             const media_reader::PixelInfo &pixel_info,
-            const media::AVFrameID &mptr) -> result<media_reader::PixelInfo> {
-            auto rp = make_response_promise<media_reader::PixelInfo>();
-            if (pixel_probe_worker_) {
-                rp.delegate(pixel_probe_worker_, atom, pixel_info, mptr);
-            } else {
-                auto p = pixel_info;
-                extend_pixel_info(p, mptr);
-                rp.deliver(p);
-            }
-            return rp;
+            const media::AVFrameID &mptr) -> media_reader::PixelInfo {
+            auto p = pixel_info;
+            extend_pixel_info(p, mptr);
+            return p;
         },
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {
             // nop

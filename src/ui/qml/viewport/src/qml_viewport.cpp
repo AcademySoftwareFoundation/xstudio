@@ -269,7 +269,8 @@ void QMLViewport::hoverLeaveEvent(QHoverEvent *event) {
 
 QPointF QMLViewport::toViewportCoords(const QPointF &in) const {
 
-    if (!renderer_actor) return in;
+    if (!renderer_actor)
+        return in;
     return renderer_actor->toViewportCoords(QPointF(
         2.0f * (in.x() - float(width()) * 0.5f) / float(width()),
         2.0f * ((height() - in.y()) - float(height()) * 0.5f) / float(height())));
@@ -476,13 +477,12 @@ void QMLViewport::sendResetShortcut() {
     qApp->postEvent((QObject *)this, (QEvent *)eventOff1);
 }
 
-void QMLViewport::setOverrideCursor(const QString &name, const bool centerOffset) {
+void QMLViewport::setOverrideCursor(
+    const QString &name, const int size, const int x_offset, const int y_offset) {
 
     if (name != "") {
         this->setCursor(QCursor(
-            QPixmap(name).scaledToWidth(32, Qt::SmoothTransformation),
-            centerOffset ? -1 : 0,
-            centerOffset ? -1 : 0));
+            QPixmap(name).scaledToWidth(size, Qt::SmoothTransformation), x_offset, y_offset));
     } else {
         this->setCursor(cursor_);
     }
@@ -528,7 +528,7 @@ void QMLViewport::onVisibleChanged() {
         renderer_actor->visibleChanged(isVisible());
 }
 
-QVariantList QMLViewport::imageResolutions() { 
+QVariantList QMLViewport::imageResolutions() {
     return renderer_actor ? renderer_actor->imageResolutions() : QVariantList();
 }
 

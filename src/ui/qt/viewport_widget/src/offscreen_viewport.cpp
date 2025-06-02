@@ -31,6 +31,7 @@
 #include <QQuickRenderControl>
 #include <QQuickRenderTarget>
 #include <QQuickGraphicsDevice>
+#include <QFontDatabase>
 
 
 using namespace caf;
@@ -408,9 +409,7 @@ OffscreenViewport::OffscreenViewport(const std::string name, bool include_qml_ov
     initGL();
 }
 
-OffscreenViewport::~OffscreenViewport() {
-
-}
+OffscreenViewport::~OffscreenViewport() {}
 
 void OffscreenViewport::cleanup() {
 
@@ -440,7 +439,6 @@ void OffscreenViewport::cleanup() {
     delete surface_;
 
     video_output_actor_ = caf::actor();
-
 }
 
 void OffscreenViewport::initGL() {
@@ -491,9 +489,18 @@ void OffscreenViewport::initGL() {
 
         gl_context_->moveToThread(thread_);
         qml_engine_->moveToThread(thread_);
+        qml_engine_->rootContext()->moveToThread(thread_);
         render_control_->moveToThread(thread_);
         moveToThread(thread_);
         render_control_->prepareThread(thread_);
+
+        helper_ = new qml::Helpers(qml_engine_);
+        helper_->moveToThread(thread_);
+        qml_engine_->rootContext()->setContextProperty("helpers", helper_);
+
+        const QFont fixedFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+        qml_engine_->rootContext()->setContextProperty(
+            "systemFixedWidthFontFamily", fixedFont.family());
 
         connect(
             quick_win_,
@@ -502,7 +509,7 @@ void OffscreenViewport::initGL() {
             &OffscreenViewport::renderViewportUnderQML,
             Qt::DirectConnection);
 
-        quick_win_->setColor(QColor(0,1,0,0));
+        quick_win_->setColor(QColor(0, 1, 0, 0));
 
         thread_->start();
 
@@ -679,7 +686,6 @@ void OffscreenViewport::renderViewportUnderQML() {
     glPopClientAttrib();
 
     quick_win_->endExternalCommands();
-
 }
 
 bool OffscreenViewport::setupTextureAndFrameBuffer(
@@ -814,18 +820,9 @@ bool OffscreenViewport::loadQMLOverlays() {
 
     quick_win_->setColor(QColor(1, 1, 0, 1));
 
-    quick_win_->setGraphicsDevice(
-        QQuickGraphicsDevice::fromOpenGLContext(gl_context_)
-        );
+    quick_win_->setGraphicsDevice(QQuickGraphicsDevice::fromOpenGLContext(gl_context_));
 
     render_control_->initialize();
-
-    helper_ = new qml::Helpers(qml_engine_, this);
-    helper_->moveToThread(thread_);
-
-    QVariant v;
-    v.fromValue((QObject *)&helper_);
-    root_qml_overlays_item_->setProperty("helpers", v);
 
     root_qml_overlays_item_->setProperty(
         "name", qml::QStringFromStd(viewport_renderer_->name()));
@@ -856,7 +853,7 @@ void OffscreenViewport::renderToImageBuffer(
     // intialises shaders and textures where necessary
     viewport_renderer_->init();
 
-    const bool updateTarget =setupTextureAndFrameBuffer(w, h, format);
+    const bool updateTarget = setupTextureAndFrameBuffer(w, h, format);
 
     auto t1 = utility::clock::now();
 
@@ -871,7 +868,7 @@ void OffscreenViewport::renderToImageBuffer(
         w,    // viewport width in window
         h,    // viewport height in window
         w,    // window width
-        h,     // window height,
+        h,    // window height,
         1.0f  // pixel scaling (high DPI support)
     );
 
@@ -897,7 +894,8 @@ void OffscreenViewport::renderToImageBuffer(
 
         // now do some set-up for QML engine
         if (updateTarget) {
-            quick_win_->setRenderTarget(QQuickRenderTarget::fromOpenGLTexture(texId_, QSize(w, h)));
+            quick_win_->setRenderTarget(
+                QQuickRenderTarget::fromOpenGLTexture(texId_, QSize(w, h)));
         }
 
         root_qml_overlays_item_->setWidth(w);
@@ -965,7 +963,6 @@ void OffscreenViewport::renderToImageBuffer(
         auto t2 = utility::clock::now();
 
         glActiveTexture(GL_TEXTURE0);
-
     }
 
     glFlush();

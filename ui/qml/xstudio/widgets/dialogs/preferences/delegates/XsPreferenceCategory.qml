@@ -13,7 +13,7 @@ import "."
 XsListView {
 
     property var category
-    property var prefsLabelWidth: 200
+    property var prefsLabelWidth: width/3
     property var theIndex
 
     spacing: 8
@@ -55,6 +55,18 @@ XsListView {
             XsStringMultichoicePreference {
             }
         }
+        DelegateChoice {
+            roleValue: "file path"
+            XsFilePreference {
+            }
+        }
+        DelegateChoice {
+            roleValue: "read only string"
+            XsStringPreference {
+                readonly: true
+            }
+        }
+        
         DelegateChoice {
             roleValue: "colour"
             XsColourPreference {

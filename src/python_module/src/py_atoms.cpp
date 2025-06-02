@@ -384,5 +384,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::keypress_monitor, hotkey_event_atom);
 
     ADD_ATOM(xstudio::ui::model_data, menu_node_activated_atom);
+    ADD_ATOM(xstudio::ui, set_clipboard_atom);
 }
 } // namespace caf::python

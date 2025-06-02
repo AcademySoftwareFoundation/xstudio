@@ -262,7 +262,6 @@ namespace colour_pipeline {
         std::map<std::string, std::pair<std::string, std::string>> cache_keys_cache_;
 
         caf::actor thumbnail_processor_pool_;
-        caf::actor pixel_probe_worker_;
         caf::actor cache_;
         std::vector<caf::actor> workers_;
         bool colour_ops_loaded_ = false;

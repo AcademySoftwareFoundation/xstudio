@@ -32,7 +32,7 @@ Rectangle {
             Layout.preferredHeight: control.height
 
             model: termModel
-            displayText: currentIndex == -1? "Add Term..." : currentText
+            placeholderText: "Add Term..."
 
             currentIndex: -1
             onModelChanged: {

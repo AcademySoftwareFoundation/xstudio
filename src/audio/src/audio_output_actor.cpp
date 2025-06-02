@@ -94,11 +94,12 @@ void AudioOutputActor::init() {
             // get samples for the soundcard
 
             std::vector<int16_t> samples;
-            samples.resize(num_samps_to_push * num_channels);
-            memset(samples.data(), 0, samples.size() * sizeof(int16_t));
 
             if (muted() || (!playing_ && !audio_scrubbing_))
                 return samples;
+
+            samples.resize(num_samps_to_push * num_channels);
+            memset(samples.data(), 0, samples.size() * sizeof(int16_t));
 
             try {
 

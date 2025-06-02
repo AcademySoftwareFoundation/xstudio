@@ -26,7 +26,9 @@ namespace ui::qml {
             "createdRole",
             "descriptionRole",
             "divisionRole",
+            "hiddenRole",
             "nameRole",
+            "parentHiddenRole",
             "projectStatusRole",
             "sgTypeRole",
             "statusRole",
@@ -38,7 +40,9 @@ namespace ui::qml {
             createdRole = JSONTreeModel::Roles::LASTROLE,
             descriptionRole,
             divisionRole,
+            hiddenRole,
             nameRole,
+            parentHiddenRole,
             projectStatusRole,
             sgTypeRole,
             statusRole,
@@ -54,6 +58,19 @@ namespace ui::qml {
 
         [[nodiscard]] QVariant
         data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+        Q_INVOKABLE [[nodiscard]] QVariant getHidden() const;
+
+        Q_INVOKABLE void setHidden(const QVariant &fdata);
+
+        bool setData(
+            const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
+
+      private:
+        nlohmann::json get_hidden(const QModelIndex &index = QModelIndex()) const;
+        void set_hidden(
+            const std::map<std::string, std::set<int>> &fmap,
+            const QModelIndex &pindex = QModelIndex());
     };
 
     class ShotBrowserSequenceModel : public ShotBrowserListModel {
@@ -105,6 +122,7 @@ namespace ui::qml {
             QStringList hideStatus READ hideStatus WRITE setHideStatus NOTIFY hideStatusChanged)
 
         Q_PROPERTY(bool hideEmpty READ hideEmpty WRITE setHideEmpty NOTIFY hideEmptyChanged)
+        Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
 
         Q_PROPERTY(QVariantList unitFilter READ unitFilter WRITE setUnitFilter NOTIFY
                        unitFilterChanged)
@@ -121,6 +139,9 @@ namespace ui::qml {
         Q_INVOKABLE [[nodiscard]] QVariant
         get(const QModelIndex &item, const QString &role = "display") const;
 
+        Q_INVOKABLE [[nodiscard]] bool
+        set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
+
         Q_INVOKABLE QModelIndex searchRecursive(
             const QVariant &value,
             const QString &role       = "display",
@@ -129,6 +150,8 @@ namespace ui::qml {
             const int depth           = -1);
 
         [[nodiscard]] bool hideEmpty() const { return hide_empty_; }
+        [[nodiscard]] bool showHidden() const { return show_hidden_; }
+
         [[nodiscard]] QStringList hideStatus() const;
         [[nodiscard]] QVariantList unitFilter() const { return filter_unit_; }
         [[nodiscard]] QVariantList typeFilter() const { return filter_type_; }
@@ -139,6 +162,15 @@ namespace ui::qml {
             if (hide_empty_ != value) {
                 hide_empty_ = value;
                 emit hideEmptyChanged();
+                invalidateFilter();
+                emit filterChanged();
+            }
+        }
+
+        void setShowHidden(const bool value) {
+            if (show_hidden_ != value) {
+                show_hidden_ = value;
+                emit showHiddenChanged();
                 invalidateFilter();
                 emit filterChanged();
             }
@@ -165,6 +197,7 @@ namespace ui::qml {
 
       signals:
         void hideStatusChanged();
+        void showHiddenChanged();
         void unitFilterChanged();
         void typeFilterChanged();
         void hideEmptyChanged();
@@ -180,6 +213,7 @@ namespace ui::qml {
         QVariantList filter_unit_;
         QVariantList filter_type_;
         bool hide_empty_{false};
+        bool show_hidden_{true};
     };
 
 
@@ -219,6 +253,9 @@ namespace ui::qml {
 
         Q_INVOKABLE [[nodiscard]] QVariant
         get(const QModelIndex &item, const QString &role = "display") const;
+
+        Q_INVOKABLE [[nodiscard]] bool
+        set(const QModelIndex &item, const QVariant &value, const QString &role = "display");
 
         [[nodiscard]] int length() const { return rowCount(); }
 

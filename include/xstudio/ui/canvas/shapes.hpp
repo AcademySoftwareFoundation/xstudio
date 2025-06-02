@@ -88,35 +88,25 @@ namespace ui {
 } // end namespace ui
 } // end namespace xstudio
 
-namespace std
-{
-    template <>
-    struct hash<xstudio::ui::canvas::Quad>
-    {
-        std::size_t operator()(const xstudio::ui::canvas::Quad &item) const
-        {
-            std::hash<std::string> hasher;
-            return hasher(item.hash());
-        }
-    };
+namespace std {
+template <> struct hash<xstudio::ui::canvas::Quad> {
+    std::size_t operator()(const xstudio::ui::canvas::Quad &item) const {
+        std::hash<std::string> hasher;
+        return hasher(item.hash());
+    }
+};
 
-    template <>
-    struct hash<xstudio::ui::canvas::Polygon>
-    {
-        std::size_t operator()(const xstudio::ui::canvas::Polygon &item) const
-        {
-            std::hash<std::string> hasher;
-            return hasher(item.hash());
-        }
-    };
+template <> struct hash<xstudio::ui::canvas::Polygon> {
+    std::size_t operator()(const xstudio::ui::canvas::Polygon &item) const {
+        std::hash<std::string> hasher;
+        return hasher(item.hash());
+    }
+};
 
-    template <>
-    struct hash<xstudio::ui::canvas::Ellipse>
-    {
-        std::size_t operator()(const xstudio::ui::canvas::Ellipse &item) const
-        {
-            std::hash<std::string> hasher;
-            return hasher(item.hash());
-        }
-    };
-}
+template <> struct hash<xstudio::ui::canvas::Ellipse> {
+    std::size_t operator()(const xstudio::ui::canvas::Ellipse &item) const {
+        std::hash<std::string> hasher;
+        return hasher(item.hash());
+    }
+};
+} // namespace std

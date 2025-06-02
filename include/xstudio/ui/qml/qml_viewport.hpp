@@ -86,7 +86,11 @@ namespace ui {
             QVariantList imageResolutions();
             QVariantList imageBoundariesInViewport();
             void sendResetShortcut();
-            void setOverrideCursor(const QString &name, const bool centerOffset);
+            void setOverrideCursor(
+                const QString &name,
+                const int size     = 24,
+                const int x_offset = -1,
+                const int y_offset = -1);
             void setOverrideCursor(const Qt::CursorShape cname);
             void setPlayhead(const QString actorAddress);
             void reset();

@@ -106,7 +106,7 @@ RowLayout {id: titleDiv
                 model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Sent To") : []
                 currentIndex: -1
                 textRole: "nameRole"
-                displayText: currentIndex==-1? "Sent To" : currentText
+                placeholderText: "Sent To"
 
                 onModelChanged: currentIndex = -1
 

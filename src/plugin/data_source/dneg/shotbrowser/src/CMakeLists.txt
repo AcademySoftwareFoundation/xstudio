@@ -5,6 +5,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 COMPONENTS Concurrent Core Quick Gui Qml Widgets OpenGL Multimedia REQUIRED)
+find_package(OpenSSL)
 
 QT6_WRAP_CPP(SHOTBROWSER_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shotbrowser_engine_ui.hpp")
 QT6_WRAP_CPP(RESULT_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/result_model_ui.hpp")
@@ -53,6 +54,7 @@ target_link_libraries(${PROJECT_NAME}
 		Qt6::Quick
 		Qt6::Concurrent
 		Qt6::Multimedia
+		OpenSSL::SSL
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)

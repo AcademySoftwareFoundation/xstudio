@@ -149,6 +149,8 @@ void OpenGLViewportWipeRenderer::draw_image(
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+        glDisable(GL_BLEND);
+
         // the actual draw!
         glEnableVertexAttribArray(0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -210,7 +212,7 @@ void WipeViewportLayout::do_layout(
     layout_data.image_transforms_.resize(image_set->num_onscreen_images());
     layout_data.custom_layout_data_["wipe_pos"] = wipe_position_->value().x;
 
-    layout_data.layout_aspect_ = image_aspect(image_set->onscreen_image(wipeA));
+    layout_data.layout_aspect_           = image_aspect(image_set->onscreen_image(wipeA));
     layout_data.draw_hero_overlays_only_ = false;
 }
 

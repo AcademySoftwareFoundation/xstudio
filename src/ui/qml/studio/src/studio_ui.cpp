@@ -11,6 +11,11 @@
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/logging.hpp"
 
+CAF_PUSH_WARNINGS
+#include <QClipboard>
+#include <QGuiApplication>
+CAF_POP_WARNINGS
+
 using namespace caf;
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -37,8 +42,7 @@ StudioUI::~StudioUI() {
     }
     system().registry().erase(studio_ui_registry);
     snapshot_offscreen_viewport_->stop();
-    system().registry().erase(
-        offscreen_viewport_registry);
+    system().registry().erase(offscreen_viewport_registry);
     delete snapshot_offscreen_viewport_;
 }
 
@@ -96,6 +100,11 @@ void StudioUI::init(actor_system &system_) {
 
             [=](utility::event_atom, session::session_atom, caf::actor session) {
                 setSessionActorAddr(actorToQString(system(), session));
+            },
+
+            [=](ui::set_clipboard_atom, const std::string &message) {
+                QClipboard *clipboard = QGuiApplication::clipboard();
+                clipboard->setText(QStringFromStd(message));
             },
 
             [=](utility::event_atom,
@@ -188,7 +197,8 @@ QUrl StudioUI::apiDocsUrl() const {
 }
 
 QUrl StudioUI::releaseDocsUrl() const {
-    std::string docs_index = utility::xstudio_resources_dir("docs/user_docs/release_notes/index.html");
+    std::string docs_index =
+        utility::xstudio_resources_dir("docs/user_docs/release_notes/index.html");
     if (docs_index.find("/") == 0)
         docs_index.erase(docs_index.begin());
     return QUrl(QString(tr("file:///")) + QStringFromStd(docs_index));
@@ -229,6 +239,75 @@ QFuture<bool> StudioUI::loadSessionFuture(const QUrl &path, const QVariant &json
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
+        return result;
+    });
+}
+
+QFuture<bool> StudioUI::importSessionFuture(const QUrl &path, const QVariant &json) {
+
+    return QtConcurrent::run([=]() {
+        scoped_actor sys{system()};
+        bool result = false;
+        JsonStore js;
+
+        auto global = system().registry().template get<caf::actor>(global_registry);
+        // get current session.
+        auto session_actor = request_receive<caf::actor>(*sys, global, session::session_atom_v);
+
+        auto notify_processing = Notification::ProcessingNotification(
+            "Importing Session " + StdFromQString(path.path()));
+        auto notification_uuid = notify_processing.uuid();
+        anon_mail(utility::notification_atom_v, notify_processing).send(session_actor);
+
+        if (json.isNull()) {
+            try {
+                js = utility::open_session(UriFromQUrl(path));
+            } catch (const std::exception &err) {
+                auto notify = Notification::WarnNotification(
+                    std::string("Import Session Failed - ") + err.what());
+                notify.uuid(notification_uuid);
+                anon_mail(utility::notification_atom_v, notify).send(session_actor);
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                return false;
+            }
+        } else {
+            try {
+                js = JsonStore(qvariant_to_json(json));
+            } catch (const std::exception &err) {
+                auto notify = Notification::WarnNotification(
+                    std::string("Import Session Failed - ") + err.what());
+                notify.uuid(notification_uuid);
+                anon_mail(utility::notification_atom_v, notify).send(session_actor);
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                return false;
+            }
+        }
+
+        try {
+            spdlog::stopwatch sw;
+
+            auto session = sys->spawn<session::SessionActor>(js, UriFromQUrl(path));
+
+            request_receive<utility::UuidVector>(
+                *sys, session_actor, session::merge_session_atom_v, session);
+
+            spdlog::info(
+                "Session {} merged in {:.3} seconds.", StdFromQString(path.path()), sw);
+
+            result      = true;
+            auto notify = Notification::InfoNotification(
+                "Import Session Succeeded", std::chrono::seconds(5));
+            notify.uuid(notification_uuid);
+            anon_mail(utility::notification_atom_v, notify).send(session_actor);
+
+        } catch (const std::exception &err) {
+            auto notify = Notification::WarnNotification(
+                std::string("Import Session Failed - ") + err.what());
+            notify.uuid(notification_uuid);
+            anon_mail(utility::notification_atom_v, notify).send(session_actor);
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        }
+
         return result;
     });
 }

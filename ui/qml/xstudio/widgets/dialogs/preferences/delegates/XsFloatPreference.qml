@@ -16,8 +16,10 @@ RowLayout {
 
     XsLabel {
         Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
-        Layout.preferredWidth: parent.width/2 //prefsLabelWidth
-        Layout.maximumWidth: parent.width/2
+        Layout.preferredWidth: prefsLabelWidth //prefsLabelWidth
+        Layout.maximumWidth: prefsLabelWidth
+        wrapMode: Text.NoWrap
+        elide: Text.ElideLeft
 
         text: displayNameRole ? displayNameRole : nameRole
         horizontalAlignment: Text.AlignRight
@@ -29,8 +31,8 @@ RowLayout {
         Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
         text: valueRole
         wrapMode: Text.Wrap
-        Layout.preferredWidth: prefsLabelWidth
-        Layout.minimumWidth: prefsLabelWidth/2
+        Layout.preferredWidth: 50
+        Layout.minimumWidth: 50
         Layout.fillHeight: true
         clip: true
         bgColor: palette.base

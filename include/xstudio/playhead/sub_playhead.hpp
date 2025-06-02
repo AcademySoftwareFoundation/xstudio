@@ -187,7 +187,10 @@ namespace playhead {
             ImageAndLut;
         bool up_to_date_{false};
         bool full_precache_activated_{false};
+
+
         utility::time_point last_change_timepoint_;
+        utility::time_point last_update_requested_;
         std::vector<caf::typed_response_promise<caf::actor>> inflight_update_requests_;
     };
 } // namespace playhead

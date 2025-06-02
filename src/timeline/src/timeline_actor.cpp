@@ -1811,18 +1811,18 @@ caf::message_handler TimelineActor::message_handler() {
             return false;
         },
 
-        [=](media::get_media_pointer_atom,
-            const media::MediaType media_type,
-            const int logical_frame) -> result<media::AVFrameID> {
-            // get actors attached to our media..
-            if (not base_.empty()) {
-                auto rp = make_response_promise<media::AVFrameID>();
-                deliver_media_pointer(rp, logical_frame, media_type);
-                return rp;
-            }
+        // [=](media::get_media_pointer_atom,
+        //     const media::MediaType media_type,
+        //     const int logical_frame) -> result<media::AVFrameID> {
+        //     // get actors attached to our media..
+        //     if (not base_.empty()) {
+        //         auto rp = make_response_promise<media::AVFrameID>();
+        //         deliver_media_pointer(rp, logical_frame, media_type);
+        //         return rp;
+        //     }
 
-            return result<media::AVFrameID>(make_error(xstudio_error::error, "No media"));
-        },
+        //     return result<media::AVFrameID>(make_error(xstudio_error::error, "No media"));
+        // },
 
         [=](playlist::get_media_uuid_atom) -> UuidVector { return base_.media_vector(); },
 
@@ -2905,60 +2905,67 @@ void TimelineActor::on_exit() {
         send_exit(i.second, caf::exit_reason::user_shutdown);
 }
 
-void TimelineActor::deliver_media_pointer(
-    caf::typed_response_promise<media::AVFrameID> rp,
-    const int logical_frame,
-    const media::MediaType media_type) {
+// void TimelineActor::deliver_media_pointer(
+//     caf::typed_response_promise<media::AVFrameID> rp,
+//     const int logical_frame,
+//     const media::MediaType media_type) {
 
-    std::vector<caf::actor> actors;
-    for (const auto &i : base_.media())
-        actors.push_back(media_actors_[i]);
+//     spdlog::stopwatch sw;
 
-    fan_out_request<policy::select_all>(actors, infinite, media::media_reference_atom_v, Uuid())
-        .then(
-            [=](std::vector<std::pair<Uuid, MediaReference>> refs) mutable {
-                // re-order vector based on playlist order
-                std::vector<std::pair<Uuid, MediaReference>> ordered_refs;
-                for (const auto &i : base_.media()) {
-                    for (const auto &ii : refs) {
-                        const auto &[uuid, ref] = ii;
-                        if (uuid == i) {
-                            ordered_refs.push_back(ii);
-                            break;
-                        }
-                    }
-                }
+//     std::vector<caf::actor> actors;
+//     for (const auto &i : base_.media())
+//         actors.push_back(media_actors_[i]);
 
-                // step though list, and find the relevant ref..
-                std::pair<Uuid, MediaReference> m;
-                int frames             = 0;
-                bool exceeded_duration = true;
+//     fan_out_request<policy::select_all>(actors, infinite, media::media_reference_atom_v,
+//     Uuid())
+//         .then(
+//             [=](std::vector<std::pair<Uuid, MediaReference>> refs) mutable {
+//                 // re-order vector based on playlist order
+//                 std::vector<std::pair<Uuid, MediaReference>> ordered_refs;
+//                 for (const auto &i : base_.media()) {
+//                     for (const auto &ii : refs) {
+//                         const auto &[uuid, ref] = ii;
+//                         if (uuid == i) {
+//                             ordered_refs.push_back(ii);
+//                             break;
+//                         }
+//                     }
+//                 }
 
-                for (auto it = std::begin(ordered_refs); it != std::end(ordered_refs); ++it) {
-                    if ((logical_frame - frames) < it->second.duration().frames()) {
-                        m                 = *it;
-                        exceeded_duration = false;
-                        break;
-                    }
-                    frames += it->second.duration().frames();
-                }
+//                 // step though list, and find the relevant ref..
+//                 std::pair<Uuid, MediaReference> m;
+//                 int frames             = 0;
+//                 bool exceeded_duration = true;
 
-                try {
-                    if (exceeded_duration)
-                        throw std::runtime_error("No frames left");
-                    // send request media atom..
-                    mail(media::get_media_pointer_atom_v, media_type, logical_frame - frames)
-                        .request(media_actors_[m.first], infinite)
-                        .then(
-                            [=](const media::AVFrameID &mp) mutable { rp.deliver(mp); },
-                            [=](error &err) mutable { rp.deliver(std::move(err)); });
+//                 for (auto it = std::begin(ordered_refs); it != std::end(ordered_refs); ++it)
+//                 {
+//                     if ((logical_frame - frames) < it->second.duration().frames()) {
+//                         m                 = *it;
+//                         exceeded_duration = false;
+//                         break;
+//                     }
+//                     frames += it->second.duration().frames();
+//                 }
 
-                } catch (const std::exception &e) {
-                    rp.deliver(make_error(xstudio_error::error, e.what()));
-                }
-            },
-            [=](error &err) mutable { rp.deliver(std::move(err)); });
-}
+//                 try {
+//                     if (exceeded_duration)
+//                         throw std::runtime_error("No frames left");
+//                     // send request media atom..
+//                     mail(media::get_media_pointer_atom_v, media_type, logical_frame - frames)
+//                         .request(media_actors_[m.first], infinite)
+//                         .then(
+//                             [=](const media::AVFrameID &mp) mutable {
+//                                 spdlog::warn("delivered {:.3f}", sw);
+//                                 rp.deliver(mp);
+//                             },
+//                             [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+//                 } catch (const std::exception &e) {
+//                     rp.deliver(make_error(xstudio_error::error, e.what()));
+//                 }
+//             },
+//             [=](error &err) mutable { rp.deliver(std::move(err)); });
+// }
 
 
 void TimelineActor::sort_by_media_display_info(

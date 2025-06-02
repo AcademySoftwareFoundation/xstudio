@@ -200,7 +200,9 @@ namespace module {
 
         // re-implement to handle viewport hotkey release events
         virtual void hotkey_released(
-            const utility::Uuid & /*hotkey_uuid*/, const std::string & /*context*/) {}
+            const utility::Uuid & /*hotkey_uuid*/,
+            const std::string & /*context*/,
+            const bool /*due_to_focus_change*/) {}
 
         // re-implement to handle viewport pointer events
         virtual bool pointer_event(const ui::PointerEvent &) { return false; }

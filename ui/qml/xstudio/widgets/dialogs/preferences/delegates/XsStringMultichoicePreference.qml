@@ -29,9 +29,10 @@ RowLayout {
 
     XsLabel {
         Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
-        Layout.preferredWidth: parent.width/2 //prefsLabelWidth
-        Layout.maximumWidth: parent.width/2
-
+        Layout.preferredWidth: prefsLabelWidth //prefsLabelWidth
+        Layout.maximumWidth: prefsLabelWidth
+        wrapMode: Text.NoWrap
+        elide: Text.ElideLeft
         text: displayNameRole
         horizontalAlignment: Text.AlignRight
     }
@@ -40,8 +41,8 @@ RowLayout {
 
         id: combo_box
         Layout.alignment: Qt.AlignVCenter|Qt.AlignLeft
-        Layout.preferredWidth: prefsLabelWidth
-        Layout.minimumWidth: prefsLabelWidth/2
+        Layout.preferredWidth: Math.min(unElidedTextWidth+40, prefsLabelWidth)
+        Layout.minimumWidth: 50
         Layout.fillHeight: true
         model: optionsRole
         property bool settingFromBackend: false
@@ -60,6 +61,14 @@ RowLayout {
             settingFromBackend = false
         }
 
+        XsToolTip{
+            id: toolTip
+            text: value__
+            visible: combo_box.hovered && combo_box.textTruncated
+            x: 0 //#TODO: flex/pointer
+        }
+    
+    
     }
 
     XsPreferenceInfoButton {

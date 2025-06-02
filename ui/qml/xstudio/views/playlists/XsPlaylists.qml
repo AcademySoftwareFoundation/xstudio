@@ -54,14 +54,11 @@ Item{
     }
 
     ColumnLayout {
-
-        id: titleDiv
         anchors.fill: parent
         anchors.margins: panelPadding
 
         RowLayout{
-
-            x: panelPadding
+            // x: panelPadding
             spacing: 1
             Layout.fillWidth: true
 
@@ -107,7 +104,7 @@ Item{
             // }
 
             Repeater {
-                Layout.preferredHeight: btnHeight
+                // Layout.preferredHeight: btnHeight
                 model: notificationProperty.value == undefined ? [] : notificationProperty.value
 
                 // notify widget

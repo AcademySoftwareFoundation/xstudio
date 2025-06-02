@@ -33,29 +33,24 @@ Item{
             spacing: buttonSpacing
             z: 1
 
-
-            XsComboBoxEditable{ id: searchBtn
-                Layout.fillWidth: true
+            XsSBTreeSearchButton{ id: searchBtn
+                Layout.fillWidth: isExpanded
                 Layout.minimumWidth: btnWidth
                 Layout.preferredWidth: btnWidth
                 Layout.preferredHeight: parent.height
-                property bool isExpanded: true
-
+                isExpanded: true
+                hint: "Search..."
                 model: assetMode ? assetListMode : seqListMode
-                textRole: "nameRole"
-                currentIndex: -1
-                displayText: currentIndex ==-1 ? "Search..." : currentText
-
-                onModelChanged: currentIndex = -1
 
                 ShotBrowserSequenceFilterModel {
                     id: seqListMode
                     sourceModel: ShotBrowserEngine.presetsModel.termModel("ShotSequenceList", "", projectId)
                     hideStatus: prefs.hideStatus
                     hideEmpty: prefs.hideEmpty
+                    showHidden: prefs.showHidden
                     typeFilter: prefs.filterType
                     unitFilter: {
-                        if( projectIndex && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
+                        if( projectIndex && projectIndex.model && projectIndex.model.get(projectIndex,"nameRole") in prefs.filterUnit)
                             return prefs.filterUnit[projectIndex.model.get(projectIndex,"nameRole")]
                         return []
                     }
@@ -67,15 +62,7 @@ Item{
                     hideStatus: prefs.hideStatus
                 }
 
-                onAccepted: {
-                    // try find first match?
-                    if(currentIndex == -1) {
-                        currentIndex = find(textField.text, Qt.MatchContains)
-                    }
-                    selectInTree()
-                }
-
-                function selectInTree() {
+                function selectInTree(currentIndex) {
                     // possibility of id collisions ?
                     if(currentIndex != -1) {
                         let index = model.index(currentIndex, 0)
@@ -114,105 +101,32 @@ Item{
                     }
                 }
 
-                onActivated: selectInTree()
+                onIndexSelected: (index) => {
+                    selectInTree(index)
+                }
             }
 
-
-
-            // XsSBTreeSearchButton{ id: searchBtn
-            //     Layout.fillWidth: isExpanded
-            //     Layout.minimumWidth: btnWidth
-            //     Layout.preferredWidth: btnWidth
-            //     Layout.preferredHeight: parent.height
-            //     isExpanded: false
-            //     hint: "Search..."
-            //     model: assetMode ? assetListMode : seqListMode
-
-            //     ShotBrowserFilterModel {
-            //         id: seqListMode
-            //         sourceModel: ShotBrowserEngine.presetsModel.termModel("ShotSequenceList", "", projectId)
-            //     }
-
-            //     ShotBrowserFilterModel {
-            //         id: assetListMode
-            //         sourceModel: ShotBrowserEngine.presetsModel.termModel("AssetList", "", projectId)
-            //     }
-
-            //     onIndexSelected: (index) => {
-            //         // possibility of id collisions ?
-            //         let mid = index.model.get(index, "idRole")
-            //         let baseModel = sequenceBaseModel
-            //         let filterModel = sequenceFilterModel
-            //         let selectionModel = sequenceSelectionModel
-            //         let treemodel = sequenceTreeModel
-
-            //         if(assetMode) {
-            //             baseModel = assetBaseModel
-            //             filterModel = assetFilterModel
-            //             selectionModel = assetSelectionModel
-            //             treemodel = assetTreeModel
-            //         }
-
-            //         let bi = baseModel.searchRecursive(mid, "idRole")
-            //         if(bi.valid) {
-            //             let fi = filterModel.mapFromSource(bi)
-            //             if(fi.valid) {
-            //                 let parents = helpers.getParentIndexes([fi])
-            //                 for(let i = 0; i< parents.length; i++){
-            //                     if(parents[i].valid) {
-            //                         // find in tree.. Order ?
-            //                         let ti = treemodel.mapFromModel(parents[i])
-            //                         if(ti.valid) {
-            //                             treemodel.expandRow(ti.row)
-            //                         }
-            //                     }
-            //                 }
-            //                 // should now be visible
-            //                 let ti = treemodel.mapFromModel(fi)
-            //                 selectionModel.select(ti, ItemSelectionModel.ClearAndSelect)
-            //             }
-            //         }
-            //     }
-            // }
             Item{
                 Layout.fillWidth: !searchBtn.isExpanded
                 Layout.preferredWidth: searchBtn.isExpanded? buttonSpacing : buttonSpacing*8
                 Layout.preferredHeight: parent.height
             }
-            XsButtonWithImageAndText{ id: liveLinkBtn
-                Layout.fillWidth: !searchBtn.isExpanded
-                Layout.minimumWidth: btnWidth
-                Layout.preferredWidth: searchBtn.isExpanded? btnWidth : btnWidth*2
-                Layout.maximumWidth: btnWidth*2
+            XsPrimaryButton{ id: liveLinkBtn
+                Layout.preferredWidth: btnWidth
                 Layout.preferredHeight: parent.height
-                iconSrc: "qrc:/icons/link.svg"
-                iconText: "Link"
-                textDiv.visible: true
+                imgSrc: "qrc:/icons/link.svg"
+
                 isActive: sequenceTreeLiveLink && !isPaused
                 onClicked: {
                     // searchBtn.isExpanded = false
                     sequenceTreeLiveLink  = !sequenceTreeLiveLink
                 }
             }
+
             Item{
                 Layout.fillWidth: !searchBtn.isExpanded
                 Layout.preferredWidth: searchBtn.isExpanded? buttonSpacing : buttonSpacing*8
                 Layout.preferredHeight: parent.height
-            }
-            XsPrimaryButton{ id: seqBtn
-                Layout.preferredWidth: btnWidth
-                Layout.preferredHeight: parent.height
-                imgSrc: "qrc:/icons/movie.svg"
-                isActive: !assetMode
-                onClicked: assetMode = false
-            }
-            XsPrimaryButton{ id: assBtn
-                Layout.preferredWidth: btnWidth
-                Layout.preferredHeight: parent.height
-                Layout.rightMargin: 4
-                imgSrc: "qrc:/icons/deployed_cube.svg"
-                isActive: assetMode
-                onClicked: assetMode = true
             }
 
             XsPrimaryButton{ id: filterBtn
@@ -271,13 +185,41 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Hide Empty"
+                text: "Show Visibility Icon"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.3
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: prefs.showVisibility
+                onActivated: prefs.showVisibility = !prefs.showVisibility
+            }
+
+            XsMenuModelItem {
+                text: "Hide Misc"
+                menuItemType: "divider"
+                menuPath: ""
+                menuItemPosition: 0.5
+                menuModelName: shotFilterPopup.menu_model_name
+            }
+
+            XsMenuModelItem {
+                text: "Empty"
                 menuItemType: "toggle"
                 menuPath: ""
                 menuItemPosition: 0.9
                 menuModelName: shotFilterPopup.menu_model_name
                 isChecked: prefs.hideEmpty
                 onActivated: prefs.hideEmpty = !prefs.hideEmpty
+            }
+
+            XsMenuModelItem {
+                text: "Not Visible"
+                menuItemType: "toggle"
+                menuPath: ""
+                menuItemPosition: 0.95
+                menuModelName: shotFilterPopup.menu_model_name
+                isChecked: !prefs.showHidden
+                onActivated: prefs.showHidden = !prefs.showHidden
             }
 
             XsMenuModelItem {
@@ -477,6 +419,17 @@ Item{
                             selectionModel: sequenceSelectionModel
                             showStatus: prefs.showStatus
                             showType: prefs.showType
+                            showVisibility: prefs.showVisibility
+                        }
+                    }
+                    DelegateChoice {
+                        roleValue: "Project";
+                        XsSBSequenceDelegate{
+                            width: sequenceTreeView.width - sequenceTreeView.rightSpacing
+                            height: btnHeight-4
+                            delegateModel: sequenceTreeModel
+                            selectionModel: sequenceSelectionModel
+                            showVisibility: prefs.showVisibility
                         }
                     }
                     DelegateChoice {
@@ -488,6 +441,7 @@ Item{
                             selectionModel: sequenceSelectionModel
                             showStatus: prefs.showStatus
                             showType: prefs.showType
+                            showVisibility: prefs.showVisibility
                         }
                     }
                     DelegateChoice {
@@ -499,6 +453,7 @@ Item{
                             selectionModel: sequenceSelectionModel
                             showStatus: prefs.showStatus
                             showType: prefs.showType
+                            showVisibility: prefs.showVisibility
                         }
                     }
                     DelegateChoice {
@@ -511,6 +466,7 @@ Item{
                             showUnit: prefs.showUnit
                             showStatus: prefs.showStatus
                             showType: prefs.showType
+                            showVisibility: prefs.showVisibility
                         }
                     }
                 }
@@ -554,6 +510,7 @@ Item{
                             selectionModel: assetSelectionModel
                             showStatus: prefs.showStatus
                             showType: prefs.showType
+                            showVisibility: prefs.showVisibility
                         }
                     }
                 }

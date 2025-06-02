@@ -644,7 +644,7 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 				m.get(indexes[i], "stalkUuidRole")
 			)
 
-			if(path) {
+			if(path != "") {
 				let meta = m.get(indexes[i], "jsonRole");
 				if(!playlist_index || !playlist_index.valid)
 					playlist_index = theSessionData.createPlaylist(playlist_name)
@@ -657,13 +657,12 @@ function addSequencesToPlaylist(indexes, playlist_index=null, playlist_name ="Sh
 
 		            	callback(playlist_index, [theSessionData.get(tindex, "actorUuidRole")])
 		            },
-			        function() {
+			        function(err) {
+				    	dialogHelpers.errorDialogFunc("Add Sequence", err)
 			        }
 		        )
-
 			} else {
-		    	console.log("Path doesn't exist ", paths)
-		    	dialogHelpers.errorDialogFunc("Add Sequence", "Path doesn't exist " + paths)
+		    	dialogHelpers.errorDialogFunc("Add Sequence", "Timeline not found " + path)
 			}
 		}
 	}
@@ -837,10 +836,6 @@ function updateMetadata(enabled, mediaUuid) {
 
 function transfer(destination, indexes) {
     let project = null
-    let source = null
-
-    let uuids = []
-
 	indexes = mapIndexesToResultModel(indexes)
 
     if(indexes.length) {
@@ -853,12 +848,16 @@ function transfer(destination, indexes) {
 		            project = model.get(indexes[i],"projectRole")
 
 		        let dnuuid = model.get(indexes[i],"stalkUuidRole")
- 		    	let source = model.get(indexes[i],"locationRole")
+ 		    	let location = model.get(indexes[i],"locationRole")
 
-		    	if(!sources.has(source))
-		    		sources.set(source, [])
+ 		    	if(location) {
+			    	if(!sources.has(location))
+			    		sources.set(location, [])
 
-		        sources.get(source).push(dnuuid)
+			        sources.get(location).push(dnuuid)
+			    } else {
+			    	console.log("No source location found for", dnuuid)
+			    }
    	    	} catch (err) {
 	    		console.log(err)
 	    	}
@@ -868,7 +867,7 @@ function transfer(destination, indexes) {
 	    	project = helpers.getEnv("SHOW")
 
 	    if(project && destination && sources.size) {
-			sources.forEach(function (value, key, map) {
+			sources.forEach((value, key) => {
 			    var fa = ShotBrowserEngine.requestFileTransferFuture(value, project, key, destination)
 
 			    Future.promise(fa).then(

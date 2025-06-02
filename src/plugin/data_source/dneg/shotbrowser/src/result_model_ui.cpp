@@ -53,6 +53,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
          "playlistNameRole",
          "playlistTypeRole",
          "productionStatusRole",
+         "productionStatusFullRole",
          "projectIdRole",
          "projectRole",
          "resultRowRole",
@@ -365,6 +366,17 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                 QString::fromStdString(j.at("attributes").value("sg_production_status", ""));
             break;
 
+        case Roles::productionStatusFullRole: {
+            result = QString::fromStdString(
+                QueryEngine::resolve_attribute_value(
+                    "Production Status",
+                    j.at("attributes").at("sg_production_status"),
+                    ShotBrowserEngine::instance()->queryEngine().lookup())
+                    .at("name")
+                    .get<std::string>());
+        } break;
+
+
         case Roles::dateSubmittedToClientRole:
             result = QDateTime::fromString(
                 QStringFromStd(j.at("attributes").value("sg_date_submitted_to_client", "")),
@@ -401,15 +413,17 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
         case Roles::textFilterRole: {
             auto tmp    = QStringList();
             auto troles = std::vector<int>(
-                {nameRole,
-                 clientFilenameRole,
-                 artistRole,
+                {artistRole,
                  authorRole,
+                 clientFilenameRole,
+                 contentRole,
                  departmentRole,
-                 subjectRole,
-                 playlistTypeRole,
+                 nameRole,
                  noteTypeRole,
-                 pipelineStatusFullRole});
+                 pipelineStatusFullRole,
+                 playlistTypeRole,
+                 subjectRole,
+                 versionNameRole});
 
             for (auto r : troles)
                 if (auto txt = data(index, r); txt.canConvert<QString>())

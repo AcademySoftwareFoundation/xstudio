@@ -15,9 +15,9 @@ import "./delegates"
 XsWindow {
     id: dialog
 
-	width: 550
+	width: 750
 	minimumWidth: 550
-	height: 350
+	height: 450
 	// minimumHeight: 250
 
     title: "xSTUDIO Preferences"

@@ -101,8 +101,18 @@ void blocking_loader(
                               default_rate,
                               source_uuid);
 
+                // use the stem of the filepath as the name for the media item.
+                // We do a further trim to the first . so that numbered paths
+                // like 'some_exr.####.exr' becomes 'some_exr'
+                const auto path    = fs::path(uri_to_posix_path(uri));
+                auto filename_stem = path.stem().string();
+                const auto dotpos  = filename_stem.find(".");
+                if (dotpos && dotpos != std::string::npos) {
+                    filename_stem = std::string(filename_stem, 0, dotpos);
+                }
+
                 auto media =
-                    self->spawn<media::MediaActor>("New Media", uuid, UuidActorVector());
+                    self->spawn<media::MediaActor>(filename_stem, uuid, UuidActorVector());
 
                 self->mail(
 

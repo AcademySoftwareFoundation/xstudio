@@ -273,7 +273,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_simple_types, FIRST_CUSTOM_ID)
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::time_point))
 #ifndef __linux__
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::sys_time_point))
-    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::sys_time_duration))    
+    CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::sys_time_duration))
 #endif
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::Timecode))
     CAF_ADD_TYPE_ID(xstudio_simple_types, (xstudio::utility::TimeSourceMode))
@@ -856,6 +856,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms,  FIRST_CUSTOM_ID + (200 * 6))
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, offscreen_viewport_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, video_output_actor_atom)
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, turn_off_overlay_interaction_atom)
+
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, set_clipboard_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_ui_atoms)
 

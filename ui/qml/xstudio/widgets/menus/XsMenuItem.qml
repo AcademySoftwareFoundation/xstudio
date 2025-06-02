@@ -17,7 +17,7 @@ Item {
     property int indent: 0
     readonly property int margin: 4
     readonly property int subMenuIndicatorWidth: 16
-    property real minWidth: rl.implicitWidth + rl2.implicitWidth + (margin * 2) + subMenuIndicatorWidth
+    property real minWidth: rl.implicitWidth + rl2.implicitWidth + (margin * 2) + (is_in_bar ? 0 : subMenuIndicatorWidth)
 
     property real leftIconSize: 3 + iconDiv.width
     property var sub_menu
@@ -141,9 +141,8 @@ Item {
             visible: source != ""
             source: menu_icon ? menu_icon : ""
             Layout.preferredWidth: source != "" ? height : 0
-            //height: parent.height
+            Layout.preferredHeight: XsStyleSheet.menuHeight-4
             Layout.alignment: Qt.AlignVCenter
-            Layout.fillHeight: true
             imgOverlayColor: hotKeyColor
 
         }

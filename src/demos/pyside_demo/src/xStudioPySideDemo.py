@@ -1,5 +1,30 @@
-#! /usr/bin/env python
-# SPDX-License-Identifier: Apache-2.0
+#! /usr/bin/env bash
+'''':
+# Hack to enter the xstudio bob world and set-up environment before running
+# this script again as python
+# if root isn't set
+if [ -z "$XSTUDIO_ROOT" ]
+then
+	# use bob world path
+	if [ ! -z "$BOB_WORLD_SLOT_dneg_xstudio" ]
+	then
+		export XSTUDIO_ROOT=$BOB_WORLD_SLOT_dneg_xstudio/share/xstudio
+		export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$XSTUDIO_ROOT/lib
+        exec python "${BASH_SOURCE[0]}" "$@"
+	else
+        exec bob-world -t xstudio-pyside -d /builds/targets/gen-2025-05-20T16:03:54.596603 -- "${BASH_SOURCE[0]}" "$@"
+	fi
+fi
+'''
+
+import sys
+import os
+
+if 'BOB_WORLD_SLOT_dneg_xstudio' in os.environ:
+    os.environ['XSTUDIO_ROOT'] = os.environ['BOB_WORLD_SLOT_dneg_xstudio'] + "/share/xstudio"
+    os.environ['LD_LIBRARY_PATH'] = os.environ['XSTUDIO_ROOT'] + "/lib"
+
+print (os.environ['LD_LIBRARY_PATH'])
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QMainWindow
@@ -13,7 +38,6 @@ from PySide6.QtWidgets import QFileDialog
 from PySide6.QtCore import QTimer
 from PySide6.QtCore import Qt
 from xstudio.gui import PySideQmlViewport, XstudioPyApp, PlainViewport
-import sys
 import time
 from xstudio.core import event_atom, add_media_atom, position_atom, duration_frames_atom
 

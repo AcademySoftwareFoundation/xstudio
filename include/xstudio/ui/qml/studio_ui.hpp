@@ -21,10 +21,7 @@ namespace xstudio {
 namespace ui {
     namespace qml {
 
-        void setup_xstudio_qml_emgine(
-            QQmlEngine *engine,
-            caf::actor_system &system
-            );
+        void setup_xstudio_qml_emgine(QQmlEngine *engine, caf::actor_system &system);
 
         //  top level utility actor, for stuff that lives out side the session.
         class STUDIO_QML_EXPORT StudioUI : public QMLActor {
@@ -52,6 +49,14 @@ namespace ui {
             }
             Q_INVOKABLE QFuture<bool>
             loadSessionFuture(const QUrl &path, const QVariant &json = QVariant());
+
+
+            Q_INVOKABLE bool
+            importSession(const QUrl &path, const QVariant &json = QVariant()) {
+                return importSessionFuture(path, json).result();
+            }
+            Q_INVOKABLE QFuture<bool>
+            importSessionFuture(const QUrl &path, const QVariant &json = QVariant());
 
             Q_INVOKABLE bool loadSessionRequest(const QUrl &path) {
                 return loadSessionRequestFuture(path).result();

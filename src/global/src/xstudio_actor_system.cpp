@@ -189,6 +189,7 @@ caf::actor CafActorSystem::__global_actor(
 
         // at this stage we ensure that a 'studio' actor (that manages sessions)
         // exists
+
         utility::request_receive<caf::actor>(
             *self, global_actor_, global::create_studio_atom_v, "XStudio");
     }
@@ -223,7 +224,7 @@ CafActorSystem::~CafActorSystem() {
         }
         ct++;
     }
-#endif    
+#endif
 
     // The caf actors should only clear up when they have completed doing any
     // work still pending. For example, saving a session or saving the current

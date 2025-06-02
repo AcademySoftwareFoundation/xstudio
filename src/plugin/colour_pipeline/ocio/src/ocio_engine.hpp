@@ -119,6 +119,10 @@ class OCIOEngine {
         const std::string &display,
         const std::string &view);
 
+    void set_default_config(const std::string &default_config) {
+        default_config_ = default_config;
+    }
+
   private:
     // OCIO logic
     const char *working_space(const utility::JsonStore &src_colour_mgmt_metadata) const;
@@ -205,12 +209,13 @@ class OCIOEngine {
     size_t last_pixel_probe_source_hash_;
     OCIO::ConstCPUProcessorRcPtr pixel_probe_to_display_proc_;
     OCIO::ConstCPUProcessorRcPtr pixel_probe_to_lin_proc_;
+    std::string default_config_;
 };
 
 /* Actor wrapper for OCIOEngine, allowing us to execute 'heavy' OCIO based
 IO and computation via CAF messaging so that OCIOColourPipeline instances
 can offload tasks to a worker pool. */
-class OCIOEngineActor : public caf::event_based_actor {
+class OCIOEngineActor : public caf::event_based_actor, OCIOEngine {
 
   public:
     OCIOEngineActor(caf::actor_config &cfg);
@@ -223,8 +228,6 @@ class OCIOEngineActor : public caf::event_based_actor {
     inline static const std::string NAME = "OCIOEngineActor";
 
     caf::behavior behavior_;
-
-    OCIOEngine m_engine_;
 };
 
 } // namespace xstudio::colour_pipeline::ocio

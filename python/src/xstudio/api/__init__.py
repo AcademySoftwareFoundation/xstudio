@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import get_studio_atom, get_global_image_cache_atom, get_global_audio_cache_atom, get_global_thumbnail_atom
 from xstudio.core import get_global_store_atom, get_plugin_manager_atom, get_scanner_atom, exit_atom, get_python_atom
-from xstudio.core import get_actor_from_registry_atom, log_atom
+from xstudio.core import get_actor_from_registry_atom, log_atom, set_clipboard_atom
 from xstudio.core import LogLevel
 from xstudio.common_api import CommonAPI
 from xstudio.api.studio import Studio
@@ -160,6 +160,14 @@ class API(CommonAPI):
             messge(str): Log message
         """
         self.log(LogLevel.SPDLOG_LEVEL_CRITICAL, messge)
+
+    def set_clipboard(self, content):
+        """Set UI clipboard
+        Args:
+            content(str): content
+        """
+        self.app.set_clipboard(content)
+
 
     @property
     def global_store(self):
@@ -322,7 +330,7 @@ class API(CommonAPI):
         if s["connection"]["connected"]:
             print("Connection:")
             print("  Remote:", s["connection"]["host"] + ":" + str(s["connection"]["port"]))
-            print("  Detail:", s["connection"]["application"], s["connection"]["type"], s["connection"]["version"])
+            print("  Detail:", s["connection"]["application"], s["connection"]["version"])
             print("Cache:")
             print("  Image:", s["cache"]["image"]["count"], str(Filesize(s["cache"]["image"]["size"])),)
             print("  Audio:", s["cache"]["audio"]["count"], str(Filesize(s["cache"]["audio"]["size"])),)

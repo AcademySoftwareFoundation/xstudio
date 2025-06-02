@@ -111,6 +111,7 @@ XsBoolAttributeCheckBox   1.0 ../widgets/controls/XsBoolAttributeCheckBox.qml
 XsIntegerAttrControl      1.0 ../widgets/controls/attr_controls/XsIntegerAttrControl.qml
 
 XsAttributesPanel         1.0 ../widgets/dialogs/XsAttributesPanel.qml
+XsColourDialog            1.0 ../widgets/dialogs/XsColourDialog.qml
 XsPopup                   1.0 ../widgets/dialogs/XsPopup.qml
 XsSnapshotDialog          1.0 ../widgets/dialogs/XsSnapshotDialog.qml
 XsStringRequestDialog     1.0 ../widgets/dialogs/XsStringRequestDialog.qml

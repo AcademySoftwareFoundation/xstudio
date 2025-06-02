@@ -83,8 +83,10 @@ namespace media_reader {
         supported(const caf::uri &uri, const std::array<uint8_t, 16> &signature);
 
       private:
-        static PixelInfo
-        default_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+        static PixelInfo default_pixel_picker(
+            const ImageBuffer &buf,
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss) {
             return PixelInfo(pixel_location);
         }
         const std::string name_;

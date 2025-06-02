@@ -99,6 +99,7 @@ ShotBrowserSequenceModel::flatToAssetTree(const nlohmann::json &src, QStringList
                         if (path == parent) {
                             auto asset        = i;
                             asset["name"]     = asset.at("attributes").at("code");
+                            asset["hidden"]   = false;
                             asset["children"] = json::array();
 
                             result.emplace_back(asset);
@@ -115,6 +116,7 @@ ShotBrowserSequenceModel::flatToAssetTree(const nlohmann::json &src, QStringList
                                 auto asset        = i;
                                 asset["name"]     = asset.at("attributes").at("code");
                                 asset["children"] = json::array();
+                                asset["hidden"]   = false;
 
                                 result[assets[parent]]["children"].emplace_back(asset);
 
@@ -179,7 +181,9 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                         // if already there then skip
 
                         if (not seqs.count(id)) {
-                            seq["name"]    = seq.at("attributes").at("code");
+                            seq["name"]   = seq.at("attributes").at("code");
+                            seq["hidden"] = false;
+
                             seq["subtype"] = seq.at(sg_sequence_type).is_null()
                                                  ? "No Type"
                                                  : seq.at(sg_sequence_type);
@@ -201,6 +205,7 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                                 if (shots.is_array()) {
                                     seq["children"] = seq["relationships"]["shots"]["data"];
                                     for (auto &i : seq["children"]) {
+                                        i["hidden"] = false;
                                         if (i.at("type") == "Shot" and not i.count("subtype")) {
                                             i["subtype"] = i.at(sg_shot_type).is_null()
                                                                ? "No Type"
@@ -240,6 +245,7 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                                 if (shots.is_array()) {
                                     seq["children"] = seq["relationships"]["shots"]["data"];
                                     for (auto &i : seq["children"]) {
+                                        i["hidden"] = false;
                                         if (i.at("type") == "Shot" and not i.count("subtype")) {
                                             i["subtype"] = i.at(sg_shot_type).is_null()
                                                                ? "No Type"
@@ -285,6 +291,7 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                     // already logged ?
                     if (not seqs.count(id)) {
                         unseq["name"]    = unseq.at("attributes").at("code");
+                        unseq["hidden"]  = false;
                         unseq["subtype"] = unseq.at(sg_sequence_type).is_null()
                                                ? "No Type"
                                                : unseq.at(sg_sequence_type);
@@ -299,6 +306,8 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                         if (shots.is_array()) {
                             unseq["children"] = unseq["relationships"]["shots"]["data"];
                             for (auto &i : unseq["children"]) {
+                                i["hidden"] = false;
+
                                 if (i.at("type") == "Shot" and not i.count("subtype")) {
                                     i["subtype"] = i.at(sg_shot_type).is_null()
                                                        ? "No Type"
@@ -340,6 +349,8 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
                 ep["children"]  = json::array();
                 ep["type"]      = "Episode";
                 ep["subtype"]   = "Episode";
+                ep["hidden"]    = false;
+
 
                 // we now need to reparent any sequences.
                 for (const auto &i : ep.at("relationships").at("sg_sequences").at("data")) {
@@ -390,6 +401,52 @@ ShotBrowserSequenceModel::flatToTree(const nlohmann::json &src, QStringList &_ty
     return result;
 }
 
+bool ShotBrowserListModel::setData(const QModelIndex &index, const QVariant &value, int role) {
+    bool result = false;
+
+    QVector<int> roles({role});
+
+    try {
+        // nlohmann::json &j = indexToData(index);
+        switch (role) {
+
+        case Roles::hiddenRole: {
+
+            result = baseSetData(index, value, "hidden", QVector<int>({role}), true);
+
+            std::function<void(const QModelIndex &)> changedChild =
+                [&](const QModelIndex &parent) {
+                    for (auto i = 0; i < rowCount(parent); i++) {
+                        auto child = ShotBrowserListModel::index(i, 0, parent);
+                        changedChild(child);
+                    }
+
+                    emit dataChanged(
+                        ShotBrowserListModel::index(0, 0, parent),
+                        ShotBrowserListModel::index(rowCount(parent) - 1, 0, parent),
+                        QVector<int>({ShotBrowserListModel::Roles::parentHiddenRole}));
+                };
+            if (result) {
+                // enable parents.
+                if (not value.toBool() and index.parent().isValid()) {
+                    setData(index.parent(), false, Roles::hiddenRole);
+                }
+
+                changedChild(index);
+            }
+        } break;
+
+        default:
+            result = JSONTreeModel::setData(index, value, role);
+            break;
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
+}
+
 
 QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
     auto result                        = QVariant();
@@ -425,6 +482,28 @@ QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
             if (j.contains("type") and j.at("type").is_string())
                 result = QString::fromStdString(j.at("type").get<std::string>());
             break;
+
+        case Roles::hiddenRole:
+            if (j.contains("hidden") and j.at("hidden").is_boolean())
+                result = j.at("hidden").get<bool>();
+            else
+                result = false;
+            break;
+
+        case Roles::parentHiddenRole: {
+            auto pi = index.parent();
+            if (pi.isValid()) {
+                if (data(pi, hiddenRole).toBool())
+                    result = true;
+                else if (data(pi, parentHiddenRole).toBool())
+                    result = true;
+                else
+                    result = false;
+            } else {
+                result = false;
+            }
+            break;
+        }
 
         case Roles::descriptionRole:
             if (j.contains(sg_description) and j.at(sg_description).is_string())
@@ -495,9 +574,85 @@ QVariant ShotBrowserListModel::data(const QModelIndex &index, int role) const {
     return result;
 }
 
+nlohmann::json ShotBrowserListModel::get_hidden(const QModelIndex &pindex) const {
+    auto jsn = R"([])"_json;
+
+    try {
+        if (pindex.isValid()) {
+            if (data(pindex, hiddenRole).toBool()) {
+                auto tmp = R"({"t": null, "i": 0})"_json;
+                tmp["t"] = StdFromQString(data(pindex, typeRole).toString());
+                tmp["i"] = data(pindex, idRole).toInt();
+                jsn.emplace_back(tmp);
+            }
+        }
+
+        for (auto i = 0; i < rowCount(pindex); i++) {
+            auto c = get_hidden(index(i, 0, pindex));
+            jsn.insert(jsn.end(), c.begin(), c.end());
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return jsn;
+}
+
+
+void ShotBrowserListModel::setHidden(const QVariant &fdata) {
+    // iterate over entire tree reseting favourite state.
+    // build map..
+    auto fmap = std::map<std::string, std::set<int>>();
+    auto jsn  = mapFromValue(fdata);
+
+    for (const auto &i : jsn) {
+        auto type = i.at("t").get<std::string>();
+        auto id   = i.at("i").get<int>();
+
+        if (not fmap.count(type))
+            fmap[type] = std::set<int>();
+
+        fmap[type].insert(id);
+    }
+    set_hidden(fmap);
+}
+
+void ShotBrowserListModel::set_hidden(
+    const std::map<std::string, std::set<int>> &fmap, const QModelIndex &pindex) {
+    try {
+        if (pindex.isValid()) {
+            auto isfav  = data(pindex, hiddenRole).toBool();
+            auto type   = StdFromQString(data(pindex, typeRole).toString());
+            auto id     = data(pindex, idRole).toInt();
+            auto newfav = false;
+
+            if (auto it = fmap.find(type); it != fmap.end())
+                newfav = it->second.count(id);
+
+            if (newfav != isfav)
+                setData(pindex, newfav, hiddenRole);
+        }
+
+        for (auto i = 0; i < rowCount(pindex); i++)
+            set_hidden(fmap, index(i, 0, pindex));
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+}
+
+
+QVariant ShotBrowserListModel::getHidden() const { return mapFromValue(get_hidden()); }
+
+
 QVariant ShotBrowserFilterModel::get(const QModelIndex &item, const QString &role) const {
     auto index = mapToSource(item);
     return dynamic_cast<ShotBrowserListModel *>(sourceModel())->get(index, role);
+}
+
+bool ShotBrowserFilterModel::set(
+    const QModelIndex &item, const QVariant &value, const QString &role) {
+    auto index = mapToSource(item);
+    return dynamic_cast<ShotBrowserListModel *>(sourceModel())->set(index, value, role);
 }
 
 QModelIndex ShotBrowserFilterModel::searchRecursive(
@@ -516,6 +671,13 @@ ShotBrowserSequenceFilterModel::get(const QModelIndex &item, const QString &role
     auto index = mapToSource(item);
     return dynamic_cast<ShotBrowserListModel *>(sourceModel())->get(index, role);
 }
+
+bool ShotBrowserSequenceFilterModel::set(
+    const QModelIndex &item, const QVariant &value, const QString &role) {
+    auto index = mapToSource(item);
+    return dynamic_cast<ShotBrowserListModel *>(sourceModel())->set(index, value, role);
+}
+
 
 QModelIndex ShotBrowserSequenceFilterModel::searchRecursive(
     const QVariant &value,
@@ -582,6 +744,13 @@ bool ShotBrowserSequenceFilterModel::filterAcceptsRow(
     int source_row, const QModelIndex &source_parent) const {
     auto result       = true;
     auto source_index = sourceModel()->index(source_row, 0, source_parent);
+
+    // spdlog::warn("{} {} {}", hide_not_favourite_, source_index.isValid(), not
+    // source_index.data(ShotBrowserListModel::Roles::favouriteRole).toBool());
+
+    if (not show_hidden_ and source_index.isValid() and
+        source_index.data(ShotBrowserListModel::Roles::hiddenRole).toBool())
+        return false;
 
     if (not hide_status_.empty() and source_index.isValid() and
         hide_status_.count(

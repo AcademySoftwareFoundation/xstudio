@@ -113,18 +113,18 @@ XsListView {
             }
 
             XsButtonWithImageAndText{ id: groupBtn
+
                 iconText: "Position"
                 anchors.right: parent.right
-                width: height //XsStyleSheet.primaryButtonStdWidth
-                height: XsStyleSheet.primaryButtonStdHeight
-                anchors.verticalCenter: parent.verticalCenter
-                z: 100
+                width: 90
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
                 iconSrc: "qrc:/icons/dock_left.svg"
                 iconRotation: placement == "top" ? 90 : 270
-                textDiv.visible: false
+                paddingSpace: 2
+                textDiv.visible: true
                 textDiv.font.bold: false
                 textDiv.font.pixelSize: XsStyleSheet.fontSize
-                paddingSpace: 2
 
                 onClicked:{
                     if(dockPositionMenu.visible) dockPositionMenu.visible = false

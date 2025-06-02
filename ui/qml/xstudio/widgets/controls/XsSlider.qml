@@ -64,7 +64,7 @@ Slider{ id: widget
         implicitHeight:  orientation==Qt.Vertical? 6:16
         // radius: implicitHeight/2
         color: widget.pressed ? Qt.darker(handleColor,1.3) : handleColor
-        border.color: widget.hovered? palette.highlight : "transparent"
+        border.color: widget.hovered? palette.highlight : "black"
     }
 
 }

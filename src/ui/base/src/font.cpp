@@ -45,7 +45,8 @@ std::map<std::string, std::string> Fonts::available_fonts() {
     // use the font 'name' from the .ttf file?
     return {
         {"Vera Mono", xstudio::utility::xstudio_resources_dir("fonts/VeraMono.ttf")},
-        {"Overpass Regular", xstudio::utility::xstudio_resources_dir("fonts/Overpass-Regular.ttf")}};
+        {"Overpass Regular",
+         xstudio::utility::xstudio_resources_dir("fonts/Overpass-Regular.ttf")}};
 }
 
 AlphaBitmapFont::AlphaBitmapFont(const std::string &font_path, const int glyph_pixel_size)

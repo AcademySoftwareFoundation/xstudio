@@ -19,10 +19,15 @@ XsWindow{
 
     property int itemHeight: 24
 
+    property bool isSystemPreset: false
+
     property int dragWidth: btnWidth/2
     property int termWidth: btnWidth*4
     property int modeWidth: itemHeight
     property int closeWidth: btnWidth
+
+    minimumWidth: 500
+    minimumHeight: 400
 
     width: 460
     height: 40 + 200 + (nameDiv.height + coln.spacing*2) //+ presetList.height
@@ -36,6 +41,7 @@ XsWindow{
             presetTermModel.model = ShotBrowserEngine.presetsModel
             presetTermModel.rootIndex = presetIndex
             presetList.model.newTermParent = presetIndex
+            isSystemPreset = ShotBrowserEngine.presetsModel.get(presetIndex, "updateRole") != undefined
         }
     }
 
@@ -173,14 +179,21 @@ XsWindow{
             Layout.maximumHeight: itemHeight
             Layout.minimumHeight: itemHeight
 
-            Item{
-                Layout.preferredWidth: presetEditPopup.width / 3 * 2
+            // XsLabel{
+            //     visible: isSystemPreset
+            //     color: palette.highlight
+            //     text: "This is a System Preset, changes will not be preserved."
+            //     Layout.fillHeight: true
+            // }
+            Item {
                 Layout.fillHeight: true
+                Layout.fillWidth: true
             }
 
             XsPrimaryButton{
-                Layout.fillWidth: true
+                Layout.preferredWidth: presetEditPopup.width/3
                 Layout.fillHeight: true
+                Layout.alignment: Qt.AlignRight
                 text: "Close"
                 onClicked: {
                     close()

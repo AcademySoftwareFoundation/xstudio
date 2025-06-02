@@ -92,7 +92,7 @@ void GridViewportLayout::do_layout(
                    : layout_mode == "Vertical" ? 1
                                                : num_images;
 
-    layout_data.layout_aspect_ = (hero_aspect) * float(num_cols) / float(num_rows);
+    layout_data.layout_aspect_           = (hero_aspect) * float(num_cols) / float(num_rows);
     layout_data.draw_hero_overlays_only_ = false;
 
     float scale = (1.0f - spacing_->value() / 100.0f) / float(num_cols);

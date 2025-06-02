@@ -4,17 +4,14 @@ import QtQuick.Layouts
 import xStudio 1.0
 import xstudio.qml.models 1.0
 
-XsListView {
+Item {
 
     id: row
-    orientation: ListView.Horizontal
-    interactive: false
 
     property string placement: "left"
     property var dockedWidgetsModel
     property real framePadding: XsStyleSheet.panelPadding/2
-
-    model: delegate_model
+    property var contentWidth: ll.width
 
     XsModuleData {
         id: dockables
@@ -73,80 +70,85 @@ XsListView {
                 docked_widgets.append({"widget_name": widget_name, "showing": true})
             }
         }
+
     }
 
-    DelegateModel {
-        id: delegate_model
-        model: docked_widgets
-        delegate: Item {
-            id: container
-            clip: true
-            height: row.height
-            property var widgetName: widget_name
-            property var dynamic_widget
-            onWidgetNameChanged: load_widget(0)
-            
-            function load_widget(attempt) {
+    RowLayout {
+        id: ll
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        spacing: 0
+        Repeater {
+            model: docked_widgets
+            Item {
+                id: container
+                clip: true
+                Layout.fillHeight: true
+                property var widgetName: widget_name
+                property var dynamic_widget
+                onWidgetNameChanged: load_widget(0)
 
-                var idx = dockables.searchRecursive(widgetName, "title")                
-                if (!idx.valid && attempt < 10) {
-                    callbackTimer.setTimeout(function() { return function() {
-                        load_widget(attempt+1)
-                    }}(), 500);
-                    return
-                } else if (!idx.valid) {
-                    console.log("Unable to create dockable widget: ", widgetName)
-                    return;
-                }
-                var source = dockables.get(idx, "left_right_dock_widget_qml_code")
-                if (source != undefined && source != "") {
-                    dynamic_widget = Qt.createQmlObject(source, container)
-                } else if (source == undefined) {
-                    console.log("Unable to make a", widgetName, "left/right dockable widget - plugin does not provide the widget")
-                }
+                function load_widget(attempt) {
 
-                widgetNameForMenu = widgetName
-            }
-            states: [
-                State {
-                    name: "showing"
-                    when: showing
-                    PropertyChanges { target: container; implicitWidth: dynamic_widget ? dynamic_widget.dockWidgetSize : 0}
-                },
-                State {
-                    name: "hiding"
-                    when: !showing
-                    PropertyChanges { target: container; implicitWidth: 0}
-                }
-            ]
-
-            transitions: Transition {
-                NumberAnimation { properties: "implicitWidth"; duration: 150 }
-            }
-
-            XsButtonWithImageAndText{ id: groupBtn
-                iconText: "Position"
-                anchors.bottom: parent.bottom
-                width: parent.width - framePadding*2
-                height: XsStyleSheet.primaryButtonStdHeight
-                anchors.horizontalCenter: parent.horizontalCenter
-                z: 100
-                iconSrc: "qrc:/icons/dock_left.svg"
-                iconRotation: placement == "left" ? 0 : 180
-                textDiv.visible: true
-                textDiv.font.bold: false
-                textDiv.font.pixelSize: XsStyleSheet.fontSize
-                paddingSpace: 4
-
-                onClicked:{
-                    if(dockPositionMenu.visible) dockPositionMenu.visible = false
-                    else{
-                        dockPositionMenu.x = x
-                        dockPositionMenu.y = y + height
-                        dockPositionMenu.visible = true
+                    var idx = dockables.searchRecursive(widgetName, "title")                
+                    if (!idx.valid && attempt < 10) {
+                        callbackTimer.setTimeout(function() { return function() {
+                            load_widget(attempt+1)
+                        }}(), 500);
+                        return
+                    } else if (!idx.valid) {
+                        console.log("Unable to create dockable widget: ", widgetName)
+                        return;
                     }
+                    var source = dockables.get(idx, "left_right_dock_widget_qml_code")
+                    if (source != undefined && source != "") {
+                        dynamic_widget = Qt.createQmlObject(source, container)
+                    } else if (source == undefined) {
+                        console.log("Unable to make a", widgetName, "left/right dockable widget - plugin does not provide the widget")
+                    }
+
+                    widgetNameForMenu = widgetName
                 }
-                forcedBgColorNormal: XsStyleSheet.panelBgGradTopColor
+                states: [
+                    State {
+                        name: "showing"
+                        when: showing
+                        PropertyChanges { target: container; implicitWidth: dynamic_widget ? dynamic_widget.dockWidgetSize : 0}
+                    },
+                    State {
+                        name: "hiding"
+                        when: !showing
+                        PropertyChanges { target: container; implicitWidth: 0}
+                    }
+                ]
+
+                transitions: Transition {
+                    NumberAnimation { properties: "implicitWidth"; duration: 150 }
+                }
+
+                XsButtonWithImageAndText{ id: groupBtn
+                    iconText: "Position"
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: XsStyleSheet.primaryButtonStdHeight
+                    iconSrc: "qrc:/icons/dock_left.svg"
+                    iconRotation: placement == "left" ? 0 : 180
+                    textDiv.visible: true
+                    textDiv.font.bold: false
+                    textDiv.font.pixelSize: XsStyleSheet.fontSize
+                    paddingSpace: 4
+
+                    onClicked:{
+                        if(dockPositionMenu.visible) dockPositionMenu.visible = false
+                        else{
+                            dockPositionMenu.x = x
+                            dockPositionMenu.y = y + height
+                            dockPositionMenu.visible = true
+                        }
+                    }
+                    forcedBgColorNormal: XsStyleSheet.panelBgGradTopColor
+                }
             }
 
         }

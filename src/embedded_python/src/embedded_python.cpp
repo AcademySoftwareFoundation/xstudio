@@ -40,28 +40,28 @@ void EmbeddedPython::setup() {
             spdlog::debug("py::initialize_interpreter");
 
             PyConfig config;
-            PyConfig_InitPythonConfig(&config);        
+            PyConfig_InitPythonConfig(&config);
 
 #ifndef _WIN32
             // Since we're running embedded python, we need to set the PYTHONHOME
             // correctly at runtime. We can use dladdr to get to the filesystem
-            // location of the Py_IsInitialized symbol, say, to get the path of 
+            // location of the Py_IsInitialized symbol, say, to get the path of
             // the python.dylib - this should be in the same location as the
-            // rest of the python installation            
+            // rest of the python installation
             Dl_info info;
             // Some of the libc headers miss `const` in `dladdr(const void*, Dl_info*)`
-            const int res = dladdr((void*)(&Py_IsInitialized), &info);
+            const int res = dladdr((void *)(&Py_IsInitialized), &info);
             if (res) {
                 auto p = fs::path(info.dli_fname);
-                std::string python_home;
+                std::string python_home = p;
                 if (python_home.find("Contents/Frameworks") != std::string::npos) {
-                    // String match will happen On MacOS install, here python 
+                    // String match will happen On MacOS install, here python
                     // installation is in Frameworks colder in the app bundle
                     python_home = p.parent_path();
                 } else {
                     // Otherwise, we jump up twice to get above the 'lib' folder
                     // where python310.so is installed, as python home should
-                    // be the parent folder of where the main python DSO is 
+                    // be the parent folder of where the main python DSO is
                     // installed
                     python_home = p.parent_path().parent_path();
                 }

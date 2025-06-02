@@ -15,7 +15,7 @@ XsPrimaryButton{ id: thisItem
     property string groupName: ""
     property bool isUserPreset: updateRole == undefined
 
-    opacity: hiddenRole ? 0.5 : 1.0
+    // opacity: hiddenRole ? 0.5 : 1.0
 
     property bool isActive: presetModelIndex() == currentPresetIndex
     property bool isSelected: selectionModel.isSelected(presetModelIndex())
@@ -24,8 +24,8 @@ XsPrimaryButton{ id: thisItem
     property bool itemDragging: isDragging && isSelected
     property int itemDraggingOffset: itemDragging ? draggingOffset : 0
 
-    normalColor:  isUserPreset ? Qt.darker("#44FFFFFF", XsStyleSheet.darkerFactor) : Qt.darker("#33FFFFFF", XsStyleSheet.darkerFactor)
-    bgColorNormal:  isUserPreset ? Qt.darker("#10FFFFFF", XsStyleSheet.darkerFactor) : Qt.darker("#1AFFFFFF", XsStyleSheet.darkerFactor)
+    normalColor:  Qt.darker("#33FFFFFF", XsStyleSheet.darkerFactor)
+    bgColorNormal:  Qt.darker("#1AFFFFFF", XsStyleSheet.darkerFactor)
 
     property int oldY: 0
     property var oldParent: null
@@ -232,11 +232,22 @@ XsPrimaryButton{ id: thisItem
             Layout.preferredWidth: 100
             Layout.fillHeight: true
 
-            text: isModified? nameRole+"*" : nameRole
+            text: nameRole + (isModified ? "*" : "")
             font.weight: isSelected? Font.Bold : Font.Normal
             horizontalAlignment: Text.AlignLeft
             leftPadding: busyIndicator.width //25
             elide: Text.ElideRight
+        }
+
+        XsIcon {
+            visible: isModified && checksumSystemRole != checksumRole
+            opacity: 0.2
+            Layout.topMargin: 1
+            Layout.bottomMargin: 1
+            Layout.preferredWidth: height
+            Layout.fillHeight: true
+            source: "qrc:///icons/upgrade.svg"
+            scale: 0.95
         }
 
         XsSecondaryButton{ id: editBtn
@@ -277,6 +288,27 @@ XsPrimaryButton{ id: thisItem
             }
         }
 
+        XsIcon {
+            visible: isUserPreset
+            opacity: 0.2
+            Layout.topMargin: 1
+            Layout.bottomMargin: 1
+            Layout.preferredWidth: height
+            Layout.fillHeight: true
+            // height: parent.height
+            // imgOverlayColor: toolTipMArea.containsMouse? palette.highlight : XsStyleSheet.secondaryTextColor
+            source: "qrc:///icons/person.svg"
+            scale: 0.95
+        }
+
+        Item {
+            Layout.topMargin: 1
+            Layout.bottomMargin: 1
+            Layout.preferredWidth: height
+            Layout.fillHeight: true
+            visible: !favBtn.visible
+        }
+
         XsSecondaryButton{ id: favBtn
             Layout.topMargin: 1
             Layout.bottomMargin: 1
@@ -293,6 +325,22 @@ XsPrimaryButton{ id: thisItem
             onClicked: favouriteRole = !favouriteRole
         }
 
+        XsSecondaryButton{ id: hiddenBtn
+            Layout.topMargin: 1
+            Layout.bottomMargin: 1
+            Layout.preferredWidth: height
+            Layout.fillHeight: true
+
+            visible: prefs.showPresetVisibility
+
+            opacity: parentHiddenRole ? 0.4 : 0.7
+
+            // showHoverOnActive: favouriteRole && !thisItem.hovered
+            isColoured: hiddenRole// && thisItem.hovered
+            imgSrc: hiddenRole ? "qrc:///icons/visibility_off.svg" : "qrc:///icons/visibility.svg"
+            scale: 0.95
+            onClicked: hiddenRole = !hiddenRole
+        }
     }
 
 

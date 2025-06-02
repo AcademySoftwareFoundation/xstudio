@@ -580,7 +580,9 @@ FFMpegMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_si
 #define ALPHA_UNSET -1e6f
 
 PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
-    const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+    const ImageBuffer &buf,
+    const Imath::V2i &pixel_location,
+    const std::vector<Imath::V2i> &extra_pixel_locations) {
 
     // This function is close to being a C++ implementation of the the
     // glsl shader(s) at the top of this file. It allows xstudio to inspect
@@ -792,25 +794,43 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             }
         };
 
-        Imath::V4f rgba_pix;
-        if (rgb == 0) {
-            rgba_pix = fetch_rgba_pixel_from_yuv(pixel_location);
-        } else if (rgb == 9) {
-            rgba_pix = fetch_rgba_pixel_from_rgba_64(pixel_location);
-        } else if (rgb == 8) {
-            rgba_pix = fetch_rgba_pixel_from_rgb_48(pixel_location);
-        } else if (rgb == 7) {
-            rgba_pix = fetch_rgba_pixel_from_gbr_planar(pixel_location);
-        } else if (rgb > 2) {
-            rgba_pix = fetch_rgba_pixel_from_rgba32(pixel_location);
-        } else {
-            rgba_pix = fetch_rgba_pixel_from_rgb24(pixel_location, rgb == 2);
-        }
+        auto fetch_rgba_pixel = [&](const Imath::V2i pixel_location) -> Imath::V4f {
+            Imath::V4f rgba_pix;
+            if (rgb == 0) {
+                rgba_pix = fetch_rgba_pixel_from_yuv(pixel_location);
+            } else if (rgb == 9) {
+                rgba_pix = fetch_rgba_pixel_from_rgba_64(pixel_location);
+            } else if (rgb == 8) {
+                rgba_pix = fetch_rgba_pixel_from_rgb_48(pixel_location);
+            } else if (rgb == 7) {
+                rgba_pix = fetch_rgba_pixel_from_gbr_planar(pixel_location);
+            } else if (rgb > 2) {
+                rgba_pix = fetch_rgba_pixel_from_rgba32(pixel_location);
+            } else {
+                rgba_pix = fetch_rgba_pixel_from_rgb24(pixel_location, rgb == 2);
+            }
+            return rgba_pix;
+        };
+
+        Imath::V4f rgba_pix = fetch_rgba_pixel(pixel_location);
         r.add_raw_channel_info("R", rgba_pix.x);
         r.add_raw_channel_info("G", rgba_pix.y);
         r.add_raw_channel_info("B", rgba_pix.z);
         if (rgba_pix.w != ALPHA_UNSET)
             r.add_raw_channel_info("A", rgba_pix.w);
+
+
+        for (const auto &p : extra_pixel_locations) {
+
+            if (pixel_location.x < 0 || pixel_location.x >= width || pixel_location.y < 0 ||
+                pixel_location.y >= height) {
+                r.add_extra_pixel_raw_rgba(Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f));
+            } else {
+                Imath::V4f rgba_pix = fetch_rgba_pixel(pixel_location);
+                r.add_extra_pixel_raw_rgba(fetch_rgba_pixel(p));
+            }
+        }
+
         return r;
 
     } catch (std::exception &e) {

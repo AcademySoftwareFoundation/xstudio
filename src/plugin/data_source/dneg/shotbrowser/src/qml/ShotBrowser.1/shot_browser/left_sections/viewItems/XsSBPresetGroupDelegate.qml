@@ -9,7 +9,7 @@ import xStudio 1.0
 import xstudio.qml.models 1.0
 import ShotBrowser 1.0
 
- 
+
 MouseArea {
     id: thisItem
 
@@ -25,7 +25,7 @@ MouseArea {
 
     property bool isParent:  true
     property bool isIconVisible: false
-    property bool isMouseHovered: groupOnlyMArea.containsMouse || addBtn.hovered || editBtn.hovered || moreBtn.hovered || favBtn.hovered
+    property bool isMouseHovered: groupOnlyMArea.containsMouse || addBtn.hovered || editBtn.hovered || hiddenBtn.hovered || moreBtn.hovered || favBtn.hovered
 
     property color itemColorActive: palette.highlight
     property color itemColorNormal: XsStyleSheet.widgetBgNormalColor //palette.base
@@ -198,10 +198,9 @@ MouseArea {
         property bool isDivSelected: false
         property int slNumber: index+1
 
-        color: isSelected ? Qt.darker(palette.highlight, 2) :
-            isUserGroup ? Qt.lighter(palette.base, 1.7) :  Qt.lighter(palette.base, 1.5) //XsStyleSheet.widgetBgNormalColor
+        color: isSelected ? Qt.darker(palette.highlight, 2) : Qt.lighter(palette.base, 1.5)
 
-        opacity: hiddenRole ? 0.5 : 1.0
+        // opacity: hiddenRole ? 0.5 : 1.0
 
         border.width: 1
         border.color: isMouseHovered? itemColorActive : itemColorNormal
@@ -251,9 +250,14 @@ MouseArea {
                     // else
                     //     presetsTreeModel.expandRow(index)
 
-                    expandedModel.select(presetModelIndex(), ItemSelectionModel.Toggle)
-                    if(expandedModel.model.rowCount(ind.model.index(1, 0, ind)))
+                    if(isExpanded) {
+                        expandedModel.select(ind, ItemSelectionModel.Deselect)
+                        expandedModel.select(ind.model.index(1, 0, ind), ItemSelectionModel.Deselect)
+                    }
+                    else {
+                        expandedModel.select(ind, ItemSelectionModel.Select)
                         expandedModel.select(ind.model.index(1, 0, ind), ItemSelectionModel.Select)
+                    }
                 }
             }
 
@@ -350,15 +354,66 @@ MouseArea {
                 imgSrc: "qrc:/icons/more_vert.svg"
                 scale: 0.95
                 isActive: groupMenu.visible && groupMenu.presetModelIndex == presetModelIndex()
-                onClicked:{
-                    if(groupMenu.visible) {
-                        groupMenu.visible = false
+
+                TapHandler {
+                    acceptedModifiers: Qt.ControlModifier
+                    onTapped: {
+                        if(groupMenu.visible)
+                            groupMenu.visible = false
+                        else {
+                            ShotBrowserHelpers.ctrlSelectItem(selectionModel, presetModelIndex())
+                            showGroupMenu(moreBtn, moreBtn.width/2, moreBtn.height/2)
+                        }
                     }
-                    else{
-                        showGroupMenu(moreBtn, width/2, height/2)
+                }
+
+                TapHandler {
+                    acceptedModifiers: Qt.ShiftModifier
+                    onTapped: {
+                        if(groupMenu.visible)
+                            groupMenu.visible = false
+                        else {
+                            ShotBrowserHelpers.shiftSelectItem(selectionModel, presetModelIndex())
+                            showGroupMenu(moreBtn, moreBtn.width/2, moreBtn.height/2)
+                        }
+                    }
+                }
+
+                TapHandler {
+                    acceptedModifiers: Qt.NoModifier
+                    onTapped: {
+                        if(groupMenu.visible)
+                            groupMenu.visible = false
+                        else {
+                            selectionModel.select(presetModelIndex(), ItemSelectionModel.ClearAndSelect)
+                            showGroupMenu(moreBtn, moreBtn.width/2, moreBtn.height/2)
+                        }
                     }
                 }
             }
+
+            XsIcon {
+                visible: isUserGroup
+                opacity: 0.2
+                Layout.topMargin: 1
+                Layout.bottomMargin: 1
+                Layout.preferredWidth: height
+                Layout.fillHeight: true
+                // height: parent.height
+                // imgOverlayColor: toolTipMArea.containsMouse? palette.highlight : XsStyleSheet.secondaryTextColor
+                source: "qrc:///icons/person.svg"
+                scale: 0.95
+            }
+
+            Item {
+                Layout.topMargin: 1
+                Layout.bottomMargin: 1
+                Layout.preferredWidth: height
+                Layout.fillHeight: true
+                visible: !favBtn.visible
+            }
+
+
             XsSecondaryButton{ id: favBtn
                 Layout.topMargin: 1
                 Layout.bottomMargin: 1
@@ -374,6 +429,62 @@ MouseArea {
                 // isActive: favouriteRole
                 scale: 0.95
                 onClicked: favouriteRole = !favouriteRole
+            }
+
+            XsSecondaryButton{ id: hiddenBtn
+                Layout.topMargin: 1
+                Layout.bottomMargin: 1
+                Layout.minimumWidth: height
+                Layout.maximumWidth: height
+                Layout.fillHeight: true
+
+                visible: prefs.showPresetVisibility
+
+                isColoured: hiddenRole
+                imgSrc: hiddenRole ? "qrc:///icons/visibility_off.svg" : "qrc:///icons/visibility.svg"
+                scale: 0.95
+
+                opacity: parentHiddenRole ? 0.4 : 0.7
+
+                TapHandler {
+                    acceptedModifiers: Qt.ControlModifier
+                    onTapped: {
+                        let myindex = ShotBrowserEngine.presetsModel.index(1,0,presetModelIndex())
+                        for(let i = 0; i < ShotBrowserEngine.presetsModel.rowCount(myindex); i++) {
+                            let cindex = ShotBrowserEngine.presetsModel.index(i, 0, myindex)
+                            ShotBrowserEngine.presetsModel.set(
+                                cindex,
+                                !ShotBrowserEngine.presetsModel.get(cindex,"hiddenRole"), "hiddenRole"
+                            )
+                        }
+                    }
+                }
+
+                TapHandler {
+                    acceptedModifiers: Qt.ShiftModifier
+                    onTapped: {
+                        let myindex = ShotBrowserEngine.presetsModel.index(1,0,presetModelIndex())
+                        for(let i = 0; i < ShotBrowserEngine.presetsModel.rowCount(myindex); i++) {
+                            ShotBrowserEngine.presetsModel.set(
+                                ShotBrowserEngine.presetsModel.index(i, 0, myindex),
+                                hiddenRole, "hiddenRole"
+                            )
+                        }
+                    }
+                }
+
+                TapHandler {
+                    acceptedModifiers: Qt.NoModifier
+                    onTapped: {
+                        hiddenRole = !hiddenRole
+                        // also set hidden child..
+                        ShotBrowserEngine.presetsModel.set(
+                            ShotBrowserEngine.presetsModel.index(1, 0, presetModelIndex()),
+                            hiddenRole,
+                            "hiddenRole"
+                        )
+                    }
+                }
             }
         }
     }
@@ -413,5 +524,4 @@ MouseArea {
             ypos);
 
     }
-
 }

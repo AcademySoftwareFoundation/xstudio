@@ -55,6 +55,9 @@ QFuture<QVariant> SessionModel::importTimelineFuture(
                     else
                         rc = rowCount(index(2, 0, playlist_index));
                 }
+            } else {
+                throw std::runtime_error(
+                    fmt::format("Not a valid timeline '{}'", uri_to_posix_path(uri)));
             }
         } catch (const std::exception &err) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());

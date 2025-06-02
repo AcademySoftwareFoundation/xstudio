@@ -32,6 +32,7 @@ namespace ui {
                 const std::string &context,
                 const bool auto_repeat    = false,
                 const std::string &window = std::string());
+            void all_keys_up(const std::string &context);
 
           protected:
             caf::actor keyboard_events_group_, hotkey_config_events_group_;

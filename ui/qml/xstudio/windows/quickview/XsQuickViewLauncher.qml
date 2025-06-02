@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick
+import QuickFuture 1.0
 
 import "."
 
@@ -21,11 +22,29 @@ Item {
             }
         }
 
+        function sessionRequestWithCheckCallback(response, path, json) {
+            if( response == "Replace") {
+                Future.promise(studio.loadSessionFuture(path, json)).then(function(result){})
+                file_functions.newRecentPath(path)
+            } else if(response == "Import") {
+                Future.promise(studio.importSessionFuture(path, json)).then(function(result){})
+                file_functions.newRecentPath(path)
+            }
+        }
+
         function onSessionRequest(path, jsn) {
             // TODO: handle remote request to load a session - need a prompt to
             // check if user wants to overwrite the current session?
-            Future.promise(studio.loadSessionFuture(path, jsn)).then(function(result){})
-            file_functions.newRecentPath(path)
+            dialogHelpers.multiChoiceDialog(
+                function() { return function(response) {
+                        sessionRequestWithCheckCallback (response, path, jsn)
+                    }}(),
+
+                "Load Session",
+                "Load session Request.",
+                ["Cancel", "Import", "Replace"],
+                undefined)
+
         }
 
         function onShowMessageBox(title, body, closeButton, timeoutSecs) {
@@ -35,14 +54,14 @@ Item {
                 title,
                 body,
                 closeButton ? ["Close"] : [])
-        
+
             // try again in 200 milliseconds
             if (timeoutSecs != 0) {
                 callbackTimer.setTimeout(function() { return function() {
                     dialogHelpers.hideLastDialog()
                 }}(), timeoutSecs*1000);
             }
-                
+
         }
 
     }

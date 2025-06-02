@@ -114,7 +114,7 @@ void QMLViewportRenderer::setSceneCoordinates(
             float(topleft.y()),
             float(topright.x() - topleft.x()),
             float(bottomleft.y() - topleft.y()),
-            float(sceneSize.width()) ,
+            float(sceneSize.width()),
             float(sceneSize.height()),
             devicePixelRatio)
             .send(self());

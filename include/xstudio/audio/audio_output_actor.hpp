@@ -118,14 +118,13 @@ class AudioOutputDeviceActor : public caf::event_based_actor {
                         // continue the loop, but sleep for 5ms so we don't create
                         // a tight loop and the soundcard can drain some samples
                         std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                        anon_mail(push_samples_atom_v)
-                            .send(actor_cast<caf::actor>(this));
+                        anon_mail(push_samples_atom_v).send(actor_cast<caf::actor>(this));
                     }
 
                     return;
                 }
 
-                waiting_for_samples_                 = true;
+                waiting_for_samples_ = true;
 
                 auto tt = utility::clock::now();
                 mail(
