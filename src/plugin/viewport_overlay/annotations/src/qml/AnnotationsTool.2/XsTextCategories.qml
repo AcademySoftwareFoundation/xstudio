@@ -9,7 +9,9 @@ import xstudio.qml.bookmarks 1.0
 import xStudio 1.0
 import xstudio.qml.models 1.0
 
-Item{ id: textCategory
+Item{ 
+    
+    id: textCategory
 
     XsModuleData {
         id: anno_font_options
@@ -26,12 +28,10 @@ Item{ id: textCategory
         XsComboBox {
 
             id: dropdownFonts
-
             x: itemSpacing*2
             width: parent.width
-            height: buttonHeight
+            height: parent.height
             model: combo_box_options
-            anchors.verticalCenter: parent.verticalCenter
 
             property var value_: value ? value : null
             onValue_Changed: {

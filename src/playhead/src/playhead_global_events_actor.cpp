@@ -108,9 +108,14 @@ void PlayheadGlobalEventsActor::init() {
             }
             return r;
         },
-        [=](ui::viewport::viewport_cursor_atom, const std::string &cursor_name) {
+        [=](ui::viewport::viewport_cursor_atom,
+            const std::string &cursor_name,
+            const int size,
+            const int x_offset,
+            const int y_offset) {
             for (auto &p : viewports_) {
-                anon_mail(ui::viewport::viewport_cursor_atom_v, cursor_name)
+                anon_mail(
+                    ui::viewport::viewport_cursor_atom_v, cursor_name, size, x_offset, y_offset)
                     .send(p.second.viewport);
             }
         },

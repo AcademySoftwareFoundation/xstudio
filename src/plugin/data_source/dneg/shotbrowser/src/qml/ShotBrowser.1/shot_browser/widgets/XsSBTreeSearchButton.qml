@@ -26,54 +26,58 @@ Item{
 
     function selectionMade(index) {
         indexSelected(index)
-        isExpanded = false
+        model.setFilterWildcard("")
+        searchField.text = ""
+        searchField.focus = false
+        searchPop.close()
+        // isExpanded = false
     }
 
-    onIsExpandedChanged: {
-        if(isExpanded) {
-            searchField.forceActiveFocus()
-            searchPop.open()
-        } else {
-            searchPop.close()
-            searchField.clearSearch()
-            searchField.focus = false
-        }
-    }
+    // onIsExpandedChanged: {
+    //     if(isExpanded) {
+    //         searchField.forceActiveFocus()
+    //         searchPop.open()
+    //     } else {
+    //         searchPop.close()
+    //         searchField.clearSearch()
+    //         searchField.focus = false
+    //     }
+    // }
 
-    XsPrimaryButton{ id: searchBtn
-        width: XsStyleSheet.primaryButtonStdWidth
-        height: parent.height
-        imgSrc: "qrc:/icons/search.svg"
-        text: "Search"
-        isActive: isExpanded
+    // XsPrimaryButton{ id: searchBtn
+    //     width: XsStyleSheet.primaryButtonStdWidth
+    //     height: parent.height
+    //     imgSrc: "qrc:/icons/search.svg"
+    //     text: "Search"
+    //     isActive: isExpanded
 
-        onClicked: isExpanded = !isExpanded
-    }
+    //     onClicked: isExpanded = !isExpanded
+    // }
 
 
     Item{
         id: widget
         visible: isExpanded
-        width: parent.width - searchBtn.width
-        height: parent.height // + combo.popupOptions.height
-        anchors.left: searchBtn.right
+        anchors.fill: parent
+        // width: parent.width - searchBtn.width
+        // height: parent.height // + combo.popupOptions.height
+        // anchors.left: searchBtn.right
 
         XsSearchBar { id: searchField
             width: parent.width
             height: parent.height
 
-            placeholderText: width? "Search...":""
+            placeholderText: hint
             forcedHover: clearButton.hovered
 
             onAccepted: {
                 if(searchList.currentIndex!==-1) {
-                    selectionMade(sequenceModelDelegate.modelIndex(searchList.currentIndex))
-                    model.setFilterWildcard("")
-                    text = ""
+                    selectionMade(currentIndex)
                 }
             }
 
             onTextEdited: {
+                searchPop.open()
                 model.filterCaseSensitivity =  Qt.CaseInsensitive
                 model.setFilterWildcard(text)
                 searchList.currentIndex = 0
@@ -138,7 +142,7 @@ Item{
 
             MouseArea{id: mouseArea; anchors.fill: parent; hoverEnabled: true
                 onEntered: searchList.currentIndex = index
-                onClicked: selectionMade(modelDelegate.modelIndex(index))
+                onClicked: selectionMade(index)
             }
         }
     }
@@ -155,7 +159,7 @@ Item{
 
         closePolicy: searchBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
-        onClosed: button.isExpanded = false
+        // onClosed: button.isExpanded = false
 
         ListView {
             id: searchList

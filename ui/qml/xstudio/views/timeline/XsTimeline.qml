@@ -1069,7 +1069,7 @@ Rectangle {
         hotkeyName: "Move Forwards through media/clips"
         // Because the Playhead also watches this hotkey, we want to exclusively
         // grab it if the timeline is active
-        exclusive: isPlayheadActive
+        exclusive: theTimeline.have_timeline && isPlayheadActive
         onActivated: {
             if(!timeline.timelineSelection.selectedIndexes.length){
                 // transportBar.skipToNext(true)
@@ -1084,7 +1084,7 @@ Rectangle {
     XsHotkeyReference {
         id: select_previous_hotkey
         hotkeyName: "Move backwards through media/clips"
-        exclusive: isPlayheadActive
+        exclusive: theTimeline.have_timeline && isPlayheadActive
         onActivated: {
             if(!timeline.timelineSelection.selectedIndexes.length) {
                 timelinePlayhead.logicalFrame = theSessionData.getPreviousTimelineClipFrame(timeline_items.rootIndex, timelinePlayhead.logicalFrame)

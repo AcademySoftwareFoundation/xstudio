@@ -20,7 +20,7 @@ ColumnLayout{
             Layout.preferredHeight: btnHeight
             model: DelegateModel {
                 id: delegate_model
-                property var notifyModel: currentCategory ==  "Tree" ? treeButtonModel : (currentCategory ==  "Recent" ?  recentButtonModel : menuButtonModel)
+                property var notifyModel: currentCategory ==  "Tree" ? treeButtonModel :  menuButtonModel
                 model: notifyModel
                 delegate: XsPrimaryButton {
                     Layout.fillWidth: true
@@ -70,6 +70,7 @@ ColumnLayout{
         XsSearchBar{ id: filterBtn
             Layout.fillHeight: true
             Layout.fillWidth: true
+            Layout.minimumWidth: 50
 
             placeholderText: "Filter..."
             onTextChanged: nameFilter = text
@@ -81,28 +82,6 @@ ColumnLayout{
                     filterBtn.text = nameFilter
                 }
             }
-        }
-
-        // XsTextInput{ id: filterBtn
-        //     Layout.fillHeight: true
-        //     Layout.fillWidth: true
-
-
-        //     isExpanded: true
-        //     hint: "Filter"
-        //     onTextChanged: nameFilter = text
-        //     onEditingCompleted: focus = false
-
-        //     Connections {
-        //         target: panel
-        //         function onNameFilterChanged() {
-        //             filterBtn.text = nameFilter
-        //         }
-        //     }
-        // }
-
-        Item {
-            Layout.fillWidth: true
         }
 
         MouseArea {
@@ -125,13 +104,15 @@ ColumnLayout{
         }
 
         XsComboBoxEditable{ id: filterStep
-            Layout.minimumWidth: btnWidth*3
+            Layout.minimumWidth: btnWidth/2
             Layout.preferredWidth: btnWidth*3
+            Layout.maximumWidth: btnWidth*3
+            Layout.fillWidth: true
             Layout.fillHeight: true
             model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Pipeline Step") : []
             textRole: "nameRole"
             currentIndex: -1
-            displayText: currentIndex ==-1 ? "Pipeline Step" : currentText
+            placeholderText: "Pipeline Step"
 
             onModelChanged: currentIndex = -1
 
@@ -140,11 +121,15 @@ ColumnLayout{
                     pipeStep = ""
             }
             onAccepted: {
-                pipeStep = model.get(model.index(currentIndex, 0), "nameRole")
+                if(currentIndex != -1)
+                    pipeStep = model.get(model.index(currentIndex, 0), "nameRole")
                 focus = false
             }
 
-            onActivated: pipeStep = model.get(model.index(currentIndex,0), "nameRole")
+            onActivated: {
+                if(currentIndex != -1)
+                    pipeStep = model.get(model.index(currentIndex,0), "nameRole")
+            }
 
             Connections {
                 target: panel
@@ -154,14 +139,17 @@ ColumnLayout{
             }
         }
         XsComboBoxEditable{ id: filterOnDisk
-            Layout.minimumWidth: btnWidth*2
-            Layout.preferredWidth: btnWidth*2
-
             Layout.fillHeight: true
+            Layout.fillWidth: true
+
+            Layout.minimumWidth: btnWidth/2
+            Layout.preferredWidth: btnWidth*2.2
+            Layout.maximumWidth: btnWidth*2.2
+
             model: ShotBrowserEngine.ready ? ShotBrowserEngine.presetsModel.termModel("Site") : []
             currentIndex: -1
             textRole: "nameRole"
-            displayText: currentIndex==-1? "On Disk" : currentText
+            placeholderText: "On Disk"
 
             onModelChanged: currentIndex = -1
 
@@ -171,11 +159,15 @@ ColumnLayout{
             }
 
             onAccepted: {
-                onDisk = model.get(model.index(currentIndex,0), "nameRole")
+                if(currentIndex != -1)
+                    onDisk = model.get(model.index(currentIndex,0), "nameRole")
                 focus = false
             }
 
-            onActivated: onDisk = model.get(model.index(currentIndex,0), "nameRole")
+            onActivated: {
+                if(currentIndex != -1)
+                    onDisk = model.get(model.index(currentIndex,0), "nameRole")
+            }
 
             Connections {
                 target: panel
@@ -183,16 +175,16 @@ ColumnLayout{
                     filterOnDisk.currentIndex = filterOnDisk.find(onDisk)
                 }
             }
-
         }
 
-
-        XsButtonWithImageAndText{ id: groupBtn
-            Layout.preferredWidth: btnWidth*2.2
+        XsPrimaryButton{ id: groupBtn
+            Layout.leftMargin: 2
+            Layout.rightMargin: 2
+            Layout.preferredWidth: btnWidth
             Layout.fillHeight: true
-            iconSrc: "qrc:///shotbrowser_icons/account_tree.svg"
-            iconText: "Group"
-            textDiv.visible: true
+
+            imgSrc: "qrc:///shotbrowser_icons/account_tree.svg"
+            toolTip: "Group By Version"
             isActive: resultsBaseModel.isGrouped
             visible: resultsBaseModel.canBeGrouped
             onClicked: resultsBaseModel.isGrouped = !resultsBaseModel.isGrouped

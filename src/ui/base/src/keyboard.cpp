@@ -55,7 +55,8 @@ void Hotkey::update_state(
     const std::string &context,
     const std::string &window,
     const bool auto_repeat,
-    caf::actor keypress_monitor) {
+    caf::actor keypress_monitor,
+    const bool due_to_focus_change) {
 
     // context tells us where the hotkey interaction happened (e.g. 'main_viewport')
     // If this hotkey has a context specifier that doesn't match then we don't
@@ -79,19 +80,22 @@ void Hotkey::update_state(
         if (!pressed_) {
 
             pressed_ = true;
-            notify(context, window, keypress_monitor);
+            notify(context, window, keypress_monitor, due_to_focus_change);
 
         } else if (auto_repeat && auto_repeat_) {
-            notify(context, window, keypress_monitor);
+            notify(context, window, keypress_monitor, due_to_focus_change);
         }
     } else if (pressed_) {
         pressed_ = false;
-        notify(context, window, keypress_monitor);
+        notify(context, window, keypress_monitor, due_to_focus_change);
     }
 }
 
 void Hotkey::notify(
-    const std::string &context, const std::string &window, caf::actor keypress_monitor) {
+    const std::string &context,
+    const std::string &window,
+    caf::actor keypress_monitor,
+    const bool due_to_focus_change) {
 
 
     auto p = exclusive_watchers_.begin();
@@ -99,7 +103,13 @@ void Hotkey::notify(
         auto exclusive = caf::actor_cast<caf::actor>(*p);
         if (exclusive) {
             // we've found a valid 'exclusive' hotkey watcher
-            anon_mail(keypress_monitor::hotkey_event_atom_v, uuid_, pressed_, context, window)
+            anon_mail(
+                keypress_monitor::hotkey_event_atom_v,
+                uuid_,
+                pressed_,
+                context,
+                window,
+                due_to_focus_change)
                 .send(exclusive);
             return;
         } else {
@@ -109,8 +119,14 @@ void Hotkey::notify(
     }
 
     // no exclusive watchers, broadcast hotkey event to everyone!
-    notify_watchers(context, window);
-    anon_mail(keypress_monitor::hotkey_event_atom_v, uuid_, pressed_, context, window)
+    notify_watchers(context, window, due_to_focus_change);
+    anon_mail(
+        keypress_monitor::hotkey_event_atom_v,
+        uuid_,
+        pressed_,
+        context,
+        window,
+        due_to_focus_change)
         .send(keypress_monitor);
 }
 
@@ -154,14 +170,21 @@ void Hotkey::add_watcher(caf::actor_addr w) {
 }
 
 
-void Hotkey::notify_watchers(const std::string &context, const std::string &window) {
+void Hotkey::notify_watchers(
+    const std::string &context, const std::string &window, const bool due_to_focus_change) {
     auto p = watchers_.begin();
     while (p != watchers_.end()) {
         auto a = caf::actor_cast<caf::actor>(*p);
         if (!a) {
             p = watchers_.erase(p); // the 'watcher' must have closed down - let's remove it
         } else {
-            anon_mail(keypress_monitor::hotkey_event_atom_v, uuid_, pressed_, context, window)
+            anon_mail(
+                keypress_monitor::hotkey_event_atom_v,
+                uuid_,
+                pressed_,
+                context,
+                window,
+                due_to_focus_change)
                 .send(a);
             p++;
         }

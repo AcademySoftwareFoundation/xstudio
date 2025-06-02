@@ -738,7 +738,9 @@ OpenEXRMediaReader::thumbnail(const media::AVFrameID &mptr, const size_t thumb_s
  *
  */
 PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
-    const ImageBuffer &buf, const Imath::V2i &pixel_location) {
+    const ImageBuffer &buf,
+    const Imath::V2i &pixel_location,
+    const std::vector<Imath::V2i> &extra_pixel_locations) {
     int width                         = buf.image_size_in_pixels().x;
     int height                        = buf.image_size_in_pixels().y;
     int num_channels                  = buf.shader_params().value("num_channels", 0);
@@ -783,6 +785,56 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
         return Imath::V2f(v[0], v[1]);
     };
 
+    auto get_pixel_rgba = [&](int pixel_address_bytes) -> Imath::V4f {
+        Imath::V2f pixRG = get_image_data_2xhalf_float(pixel_address_bytes);
+
+        Imath::V4f result;
+
+        if (pix_type_r == 1) {
+            result.x = pixRG.x;
+            pixel_address_bytes += 2;
+        } else {
+            result.x = get_image_data_float32(pixel_address_bytes);
+            pixel_address_bytes += 4;
+        }
+
+        if (num_channels >= 2) {
+
+            if (pix_type_g == 1) {
+                result.y = pixRG.y;
+                pixel_address_bytes += 2;
+            } else {
+                result.y = get_image_data_float32(pixel_address_bytes);
+                pixel_address_bytes += 4;
+            }
+
+            if (num_channels == 2) {
+                return Imath::V4f(
+                    result.x, result.x, result.x, result.y); // using Luminance/Alpha layout
+            }
+
+            Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes);
+
+            if (pix_type_b == 1) {
+                result.z = pixBA.x;
+                pixel_address_bytes += 2;
+            } else {
+                result.z = get_image_data_float32(pixel_address_bytes);
+                pixel_address_bytes += 4;
+            }
+
+            if (num_channels == 3)
+                return Imath::V4f(result.x, result.y, result.z, 0.0f);
+
+            if (pix_type_a == 1) {
+                result.w = pixBA.y;
+            } else {
+                result.w = get_image_data_float32(pixel_address_bytes);
+            }
+        } // else 1 channel, assume luminance
+        return result;
+    };
+
     if (pixel_location.x < image_bounds_min.x || pixel_location.x >= image_bounds_max.x)
         return r;
     if (pixel_location.y < image_bounds_min.y || pixel_location.y >= image_bounds_max.y)
@@ -814,30 +866,45 @@ PixelInfo OpenEXRMediaReader::exr_buffer_pixel_picker(
             r.add_raw_channel_info(channel_names[1], G);
         }
 
-        if (num_channels == 2)
-            return r; // using Luminance/Alpha layout
+        if (num_channels > 2) {
 
-        Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes);
+            Imath::V2f pixBA = get_image_data_2xhalf_float(pixel_address_bytes);
 
-        if (pix_type_b == 1) {
-            r.add_raw_channel_info(channel_names[2], pixBA.x);
-            pixel_address_bytes += 2;
-        } else {
-            float B = get_image_data_float32(pixel_address_bytes);
-            pixel_address_bytes += 4;
-            r.add_raw_channel_info(channel_names[2], B);
-        }
+            if (pix_type_b == 1) {
+                r.add_raw_channel_info(channel_names[2], pixBA.x);
+                pixel_address_bytes += 2;
+            } else {
+                float B = get_image_data_float32(pixel_address_bytes);
+                pixel_address_bytes += 4;
+                r.add_raw_channel_info(channel_names[2], B);
+            }
 
-        if (num_channels == 3)
-            return r;
+            if (num_channels > 3) {
 
-        if (pix_type_a == 1) {
-            r.add_raw_channel_info(channel_names[3], pixBA.y);
-        } else {
-            float A = get_image_data_float32(pixel_address_bytes);
-            r.add_raw_channel_info(channel_names[3], A);
+                if (pix_type_a == 1) {
+                    r.add_raw_channel_info(channel_names[3], pixBA.y);
+                } else {
+                    float A = get_image_data_float32(pixel_address_bytes);
+                    r.add_raw_channel_info(channel_names[3], A);
+                }
+            }
         }
     } // else 1 channel, assume luminance
+
+
+    for (const auto &p : extra_pixel_locations) {
+
+        if (p.x < image_bounds_min.x || p.x >= image_bounds_max.x || p.y < image_bounds_min.y ||
+            p.y >= image_bounds_max.y) {
+            r.add_extra_pixel_raw_rgba(Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f));
+        } else {
+            int pixel_address_bytes =
+                ((p.x - image_bounds_min.x) +
+                 (p.y - image_bounds_min.y) * (image_bounds_max.x - image_bounds_min.x)) *
+                bytes_per_pixel;
+            r.add_extra_pixel_raw_rgba(get_pixel_rgba(pixel_address_bytes));
+        }
+    }
 
     return r;
 }

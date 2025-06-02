@@ -10,27 +10,27 @@ import xstudio.qml.bookmarks 1.0
 import xStudio 1.0
 import xstudio.qml.models 1.0
 
-Item{ id: toolActionsDiv
+GridLayout {
 
-    property alias displayBtn: displayBtn
+    id: toolProperties
+    
+    columns: horizontal ? -1 : 1
+    rows: horizontal ? 1 : -1
+    rowSpacing: 1
+    columnSpacing: 6
 
-    Rectangle{ id: dispText
-        x: framePadding
-        width: parent.width - x*2
-        height:  XsStyleSheet.primaryButtonStdHeight/1.5
-        color: "transparent"
-
-        Text{
-            text: "Display"
-            font.pixelSize: fontSize
-            font.family: fontFamily
-            color: toolInactiveTextColor
-            width: parent.width
-            elide: Text.ElideRight
-            horizontalAlignment: Text.AlignHCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: framePadding
-        }
+    Text{
+        text: "Display"
+        font.pixelSize: fontSize
+        font.family: fontFamily
+        color: toolInactiveTextColor
+        elide: Text.ElideRight
+        horizontalAlignment: horizontal ? Text.AlignRight : Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        Layout.preferredWidth: horizontal ? XsStyleSheet.primaryButtonStdHeight*4 : -1
+        Layout.preferredHeight: horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight
+        Layout.fillWidth: horizontal ? false : true
+        Layout.fillHeight: horizontal ? true : false
     }
 
     // Sigh - hooking up the draw mode backen attr to the combo box here
@@ -47,13 +47,15 @@ Item{ id: toolActionsDiv
     }
     property alias display_mode: __display_mode.value
 
-    XsButtonWithImageAndText{ id: displayBtn
+    XsButtonWithImageAndText{ 
+        
+        id: displayBtn
         iconText: display_mode.substring(display_mode.length-6, display_mode.length)
-        x: framePadding
-        width: parent.width- x*2
-        height: XsStyleSheet.primaryButtonStdHeight
-        anchors.top: dispText.bottom
-        iconSrc: "qrc:///anno_icons/pause_circle.svg"
+        Layout.preferredWidth: horizontal ? XsStyleSheet.primaryButtonStdHeight*3 : -1
+        Layout.preferredHeight: horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight
+        Layout.fillWidth: horizontal ? false : true
+        Layout.fillHeight: horizontal ? true : false
+        iconSrc: display_mode == "Always" ? "qrc:///anno_icons/check_circle.svg" : "qrc:///anno_icons/pause_circle.svg"
         textDiv.visible: true
         textDiv.font.bold: false
         textDiv.font.pixelSize: XsStyleSheet.fontSize
@@ -73,7 +75,7 @@ Item{ id: toolActionsDiv
     XsPopupMenu {
         id: displayMenu
         visible: false
-        menu_model_name: "displayMenu" + toolActionsDiv
+        menu_model_name: "displayMenu" + toolProperties
     }
     XsMenuModelItem {
         text: "Always"
@@ -83,7 +85,6 @@ Item{ id: toolActionsDiv
         menuModelName: displayMenu.menu_model_name
         onActivated: {
             display_mode = "Always"
-            displayBtn.iconSrc = menuCustomIcon
         }
     }
     XsMenuModelItem {
@@ -94,7 +95,6 @@ Item{ id: toolActionsDiv
         menuModelName: displayMenu.menu_model_name
         onActivated: {
             display_mode = "Only When Paused"
-            displayBtn.iconSrc = menuCustomIcon
         }
     }
 

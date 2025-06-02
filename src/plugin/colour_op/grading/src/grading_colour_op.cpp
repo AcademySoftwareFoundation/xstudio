@@ -310,7 +310,7 @@ GradingColourOperator::update_shader_uniforms(const media_reader::ImageBufPtr &i
         uniforms_dict["tool_active"] = true;
     }
 
-    //std::cerr << uniforms_dict.dump() << "\n";
+    // std::cerr << uniforms_dict.dump() << "\n";
 
     return uniforms_dict;
 }

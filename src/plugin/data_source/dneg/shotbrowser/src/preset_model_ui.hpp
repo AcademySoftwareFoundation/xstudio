@@ -46,10 +46,14 @@ namespace ui::qml {
 
         Q_PROPERTY(QStringList groupFlags READ groupFlags NOTIFY groupFlagsChanged)
 
+        // Q_PROPERTY(QStringList hidden READ getHidden WRITE setHidden NOTIFY hiddenChanged)
+
         Q_OBJECT
       public:
         enum Roles {
-            enabledRole = JSONTreeModel::Roles::LASTROLE,
+            checksumRole = JSONTreeModel::Roles::LASTROLE,
+            checksumSystemRole,
+            enabledRole,
             entityRole,
             favouriteRole,
             flagRole,
@@ -62,6 +66,7 @@ namespace ui::qml {
             nameRole,
             negatedRole,
             parentEnabledRole,
+            parentHiddenRole,
             termRole,
             typeRole,
             updateRole,
@@ -91,6 +96,9 @@ namespace ui::qml {
         Q_INVOKABLE QVariantList shotHistoryScope();
         Q_INVOKABLE QVariantList quickLoad();
         Q_INVOKABLE QStringList groupFlags() const;
+        // Q_INVOKABLE QStringList getHidden() const;
+
+        // Q_INVOKABLE void setHidden(const QStringList &hidden);
 
         Q_INVOKABLE QModelIndex
         insertOperatorTerm(const bool anding, const int row, const QModelIndex &parent);
@@ -151,15 +159,23 @@ namespace ui::qml {
         void entitiesChanged();
         void termListsChanged();
         void presetChanged(QModelIndex);
-        void presetHidden(QModelIndex, bool);
+        // void presetHidden(QModelIndex, bool);
         void shotHistoryScopeChanged();
         void noteHistoryScopeChanged();
         void noteHistoryTypeChanged();
         void quickLoadChanged();
         void groupFlagsChanged();
+        // void hiddenChanged();
 
       private:
         void markedAsUpdated(const QModelIndex &parent);
+
+        // std::vector<std::string> get_hidden(const QModelIndex &index = QModelIndex()) const;
+
+        // void set_hidden(
+        //     const std::set<std::string> &hset,
+        //     const QModelIndex &pindex = QModelIndex());
+
 
         // need flag role ?
 
@@ -251,6 +267,7 @@ namespace ui::qml {
       protected:
         [[nodiscard]] bool
         filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+
 
       private:
         QVariant filter_group_user_data_;

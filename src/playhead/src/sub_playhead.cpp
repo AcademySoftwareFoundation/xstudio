@@ -23,6 +23,8 @@ using namespace xstudio::playhead;
 using namespace xstudio::media_reader;
 using namespace xstudio::colour_pipeline;
 using namespace caf;
+using namespace std::chrono_literals;
+
 
 SubPlayhead::SubPlayhead(
     caf::actor_config &cfg,
@@ -155,21 +157,21 @@ void SubPlayhead::init() {
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
-        [=](source_atom, utility::time_point update_tp) -> result<caf::actor> {
-            // the message will be sent with a delay - the time it was sent
-            // is update_tp, which, if it matches last_change_timepoint_, then
-            // no other updates have been requested since so we continue with
-            // the develop
-            auto rp = make_response_promise<caf::actor>();
-            if (last_change_timepoint_ == update_tp) {
-                get_full_timeline_frame_list(rp);
-            } else {
-                // a new update request has been issued since the message we're
-                // processing now was sent so we can skip.
-                rp.deliver(caf::actor());
-            }
-            return rp;
-        },
+        // [=](source_atom, utility::time_point update_tp) -> result<caf::actor> {
+        //     // the message will be sent with a delay - the time it was sent
+        //     // is update_tp, which, if it matches last_change_timepoint_, then
+        //     // no other updates have been requested since so we continue with
+        //     // the develop
+        //     auto rp = make_response_promise<caf::actor>();
+        //     if (last_change_timepoint_ == update_tp) {
+        //         get_full_timeline_frame_list(rp);
+        //     } else {
+        //         // a new update request has been issued since the message we're
+        //         // processing now was sent so we can skip.
+        //         rp.deliver(caf::actor());
+        //     }
+        //     return rp;
+        // },
 
         [=](source_atom) -> result<caf::actor> {
             auto rp = make_response_promise<caf::actor>();
@@ -177,11 +179,11 @@ void SubPlayhead::init() {
             return rp;
         },
 
-        [=](source_atom, bool /*retry*/) -> result<caf::actor> {
-            auto rp = make_response_promise<caf::actor>();
-            get_full_timeline_frame_list(rp);
-            return rp;
-        },
+        // [=](source_atom, bool /*retry*/) -> result<caf::actor> {
+        //     auto rp = make_response_promise<caf::actor>();
+        //     get_full_timeline_frame_list(rp);
+        //     return rp;
+        // },
 
         [=](utility::event_atom, playlist::add_media_atom, const utility::UuidActorVector &) {},
 
@@ -656,10 +658,7 @@ void SubPlayhead::init() {
             // made, we can skip excessive updates
             up_to_date_            = false;
             last_change_timepoint_ = utility::clock::now();
-
-            anon_mail(source_atom_v, last_change_timepoint_)
-                .delay(std::chrono::milliseconds(50))
-                .send(this);
+            anon_mail(source_atom_v).send(this);
         },
 
         [=](utility::event_atom, media::media_status_atom, const media::MediaStatus) {
@@ -813,11 +812,16 @@ void SubPlayhead::init() {
         },
 
         [=](utility::event_atom, utility::change_atom) {
+            // up_to_date_            = false;
+            // last_change_timepoint_ = utility::clock::now();
+
             up_to_date_            = false;
             last_change_timepoint_ = utility::clock::now();
-            anon_mail(source_atom_v, last_change_timepoint_)
-                .delay(std::chrono::milliseconds(50))
-                .send(this);
+            anon_mail(source_atom_v).send(this);
+
+            // anon_mail(source_atom_v, last_change_timepoint_)
+            //     .delay(std::chrono::milliseconds(50))
+            //     .send(this);
         },
 
         [=](utility::event_atom, utility::last_changed_atom, const time_point &) {
@@ -1468,9 +1472,22 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
 
     if (up_to_date_) {
         rp.deliver(source_.actor());
+        // also clean queue..
+        for (auto &i : inflight_update_requests_)
+            i.deliver(source_.actor());
+        inflight_update_requests_.clear();
+
         return;
     }
 
+    if (utility::clock::now() - last_update_requested_ < std::chrono::milliseconds(10)) {
+        // too soon..
+        // we just did a request..
+        if (inflight_update_requests_.empty())
+            anon_mail(source_atom_v).delay(std::chrono::milliseconds(10)).send(this);
+        inflight_update_requests_.push_back(rp);
+        return;
+    }
 
     inflight_update_requests_.push_back(rp);
 
@@ -1481,19 +1498,21 @@ void SubPlayhead::get_full_timeline_frame_list(caf::typed_response_promise<caf::
             rprm.deliver(source_.actor());
         }
         inflight_update_requests_.clear();
-        up_to_date_ = true;
+        up_to_date_            = true;
+        last_update_requested_ = utility::clock::now();
+
         return;
     }
 
     // check if we've already requested an update (in the request immediately
     // below here) that hasn't come baack yet. If so, don't make the request
     // again
-    if (inflight_update_requests_.size() > 1)
-        return;
+    // if (inflight_update_requests_.size() > 1)
+    //     return;
+
+    last_update_requested_ = utility::clock::now();
 
     const auto request_update_timepoint = utility::clock::now();
-
-    auto ttt = utility::clock::now();
 
     mail(media::get_media_pointers_atom_v, media_type_, time_source_mode_, override_frame_rate_)
         .request(source_.actor(), infinite)

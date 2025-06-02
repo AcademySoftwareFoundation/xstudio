@@ -560,6 +560,20 @@ void GlobalActor::init(const utility::JsonStore &prefs, const bool embedded_pyth
             return mail(_atom, actor).delegate(studio_);
         },
 
+        [=](session::session_request_atom,
+            const std::string &path,
+            const JsonStore &js) -> result<bool> {
+            if (studio_) {
+                auto rp = make_response_promise<bool>();
+                // need to chat to UI ?
+                rp.delegate(studio_, session::session_request_atom_v, path, js);
+                return rp;
+            }
+
+            return make_error(xstudio_error::error, "studio actor not created.");
+        },
+
+
         [=](bookmark::get_bookmark_atom atom) { return mail(atom).delegate(studio_); }
 
     );

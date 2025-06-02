@@ -61,6 +61,11 @@ ApplicationWindow {
 
     }
 
+    onClosing: (close)=> {
+        close.accepted = false
+        file_functions.quitWithCheck()
+    }
+
 
     XsPreference {
         id: bufferedUIDelay

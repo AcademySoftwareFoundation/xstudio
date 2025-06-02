@@ -34,7 +34,9 @@ namespace bookmark {
         }
 
         void csv_export(
-            caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp);
+            caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+            const session::ExportFormat ef,
+            const caf::uri &path);
 
         void monitor_bookmark(const caf::actor &actor);
 

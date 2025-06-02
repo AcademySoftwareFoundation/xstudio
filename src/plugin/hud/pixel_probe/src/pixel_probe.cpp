@@ -53,10 +53,10 @@ using namespace xstudio::ui::viewport;
 
         std::stringstream ss;
         for (const auto cd_val: pixel_info.code_values_data()) {
-            ss << "Code Val (" << cd_val.channel_name << ") : " << cd_val.pixel_value << "\n";
+            ss << "Code Val (" << cd_val.channel_name << ") : " << cd_val.channel_value << "\n";
         }
         for (const auto cd_val: pixel_info.channels_data()) {
-            ss << cd_val.channel_name << " (RAW) : " << cd_val.pixel_value << "\n";
+            ss << cd_val.channel_name << " (RAW) : " << cd_val.channel_value << "\n";
         }
 
         ss << " @ pixel (" << pixel_info.location_in_image().x << "," <<
@@ -274,7 +274,7 @@ void PixelProbeHUD::make_pixel_info_onscreen_text(const media_reader::PixelInfo 
             bool is_code_value = false;
             for (size_t i = 0; i < info.size(); ++i) {
                 ss << info[i].channel_name;
-                if (info[i].pixel_value == media_reader::PixelInfo::NullPixelValue)
+                if (info[i].channel_value == media_reader::PixelInfo::NullPixelValue)
                     is_code_value = true;
                 if (i != (info.size() - 1))
                     ss << ",";
@@ -298,7 +298,7 @@ void PixelProbeHUD::make_pixel_info_onscreen_text(const media_reader::PixelInfo 
                 sprintf(prc, "%%.%df", precision);
                 char buf[128];
                 for (size_t i = 0; i < info.size(); ++i) {
-                    sprintf(buf, prc, info[i].pixel_value);
+                    sprintf(buf, prc, info[i].channel_value);
                     ss << buf;
                     if (i != (info.size() - 1))
                         ss << ", ";

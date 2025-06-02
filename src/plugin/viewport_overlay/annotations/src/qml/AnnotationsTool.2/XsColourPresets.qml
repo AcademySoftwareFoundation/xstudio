@@ -3,61 +3,35 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 
-
 import xstudio.qml.bookmarks 1.0
-
-
 
 import xStudio 1.0
 
-Rectangle{
+GridLayout {
 
-    color: "transparent"
-
-    property int itemCount: currentColorPresetModel.count
-
-    ListView{ id: presetColours
-        x: framePadding
-        width: parent.width - framePadding*2
-        height: buttonHeight
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: (itemSpacing!==0)?itemSpacing/2: 0
-        clip: false
-        interactive: false
-        orientation: ListView.Horizontal
+    columns: 4
+    rows: 2
+    columnSpacing: 0
+    rowSpacing: 0
+    Repeater {
 
         model: currentColorPresetModel
-        delegate:
-        Item{
-            property bool isMouseHovered: presetMArea.containsMouse
-            width: index == itemCount-1? presetColours.width/itemCount : presetColours.width/itemCount-presetColours.spacing;
-            height: presetColours.height
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width
-                height: parent.height
-                radius: 0
-                color: preset
-                border.width: 1
-                border.color: parent.isMouseHovered? palette.highlight: (currentToolColour === preset)? "white": "black"
+        Rectangle {
 
-                MouseArea{
-                    id: presetMArea
-                    property color temp_color
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    smooth: true
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            color: modelData
 
-                    onClicked: {
-                        temp_color = currentColorPresetModel.get(index).preset;
-                        currentToolColour = temp_color
-                    }
+            MouseArea{
+
+                anchors.fill: parent
+
+                onClicked: {
+                    currentToolColour = color
                 }
-
             }
+
         }
     }
-
-
 }
 

@@ -47,7 +47,7 @@ Button {
     font.pixelSize: XsStyleSheet.fontSize *1.1
     font.weight: Font.Medium
 
-    implicitWidth: textDiv.textWidth + 10
+    //implicitWidth: textDiv.textWidth + 10
 
     onHoveredChanged: {
         if(hovered) {

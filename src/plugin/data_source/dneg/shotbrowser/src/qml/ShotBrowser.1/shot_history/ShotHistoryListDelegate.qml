@@ -41,6 +41,7 @@ Rectangle{ id: frame
     required property string projectRole
     required property int idRole
     required property string entityRole
+    required property string productionStatusFullRole
 
     required property int onSiteChn
     required property int onSiteLon

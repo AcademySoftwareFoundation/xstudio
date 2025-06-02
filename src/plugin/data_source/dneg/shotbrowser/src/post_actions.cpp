@@ -185,14 +185,23 @@ void ShotBrowser::create_playlist_notes(
                                 R"({"data": {"status": ""}, "failed": [], "succeed": [], "succeed_title": [],"failed_title": []})"_json);
                             auto index = 0;
                             for (const auto &r : (*results)) {
-                                if (r.count("errors")) {
-                                    jsn["failed"].push_back(r);
-                                    jsn["failed_title"].push_back(
-                                        notes.at(index).at("payload").at("subject"));
-                                } else {
-                                    jsn["succeed"].push_back(r);
-                                    jsn["succeed_title"].push_back(
-                                        r.at("data").at("attributes").at("subject"));
+                                try {
+                                    if (r.count("errors")) {
+                                        jsn["failed"].push_back(r);
+                                        jsn["failed_title"].push_back(
+                                            notes.at(index).at("payload").at("subject"));
+                                    } else {
+                                        jsn["succeed"].push_back(r);
+                                        jsn["succeed_title"].push_back(
+                                            r.at("data").at("attributes").at("subject"));
+                                    }
+                                } catch (const std::exception &err) {
+                                    spdlog::warn(
+                                        "Failed to parse response {} {} {} {}",
+                                        __PRETTY_FUNCTION__,
+                                        err.what(),
+                                        r.dump(2),
+                                        notes.at(index).at("payload").at("subject").dump(2));
                                 }
                                 index++;
                             }

@@ -410,7 +410,12 @@ class DNegMediaHook : public MediaHook {
                 get_showvar_or(context["SHOW"], "DN_COLOR_PIPELINE_VERSION", "1");
             r["pipeline_version"] = pipeline_version;
 
-            bool is_cms1_config = pipeline_version == "2";
+            bool is_cms1_config = false;
+            try {
+                is_cms1_config = std::stoi(pipeline_version) >= 2;
+            } catch (std::exception &) {
+                // pass
+            }
 
             // Detect override to active displays and views
             const std::string active_displays =
@@ -602,7 +607,8 @@ class DNegMediaHook : public MediaHook {
         std::smatch match;
 
         // Detect all OCIO versions available in the show's colsci folder
-        const fs::path colsci_dir{utility::forward_remap_file_path(fmt::format("/tools/{}/data/colsci", show))};
+        const fs::path colsci_dir{
+            utility::forward_remap_file_path(fmt::format("/tools/{}/data/colsci", show))};
         if (fs::is_directory(colsci_dir)) {
             for (auto const &dir_entry : fs::directory_iterator{colsci_dir}) {
                 if (dir_entry.path().extension() == ".ocio") {
@@ -622,7 +628,8 @@ class DNegMediaHook : public MediaHook {
             for (auto it = fs_versions.rbegin(); it != fs_versions.rend(); ++it) {
                 if (*it <= library_version) {
                     return (colsci_dir /
-                           fmt::format("config_ocio-v{}.{}.ocio", it->major, it->minor)).string();
+                            fmt::format("config_ocio-v{}.{}.ocio", it->major, it->minor))
+                        .string();
                 }
             }
         }

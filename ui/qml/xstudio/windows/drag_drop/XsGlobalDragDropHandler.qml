@@ -105,6 +105,7 @@ DropArea {
         }
         dragging = false
         externalDrag = false
+        drop.accept()
         
     }    
 }

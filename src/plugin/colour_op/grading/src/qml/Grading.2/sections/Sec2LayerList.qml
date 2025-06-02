@@ -55,6 +55,9 @@ Item{ id: listDiv
                                 currentPlayhead.logicalFrame = currentPlayhead.logicalFrame + (startFrameRole-currentPlayhead.mediaFrame)
                             }
                             attrs.grading_bookmark = uuidRole
+                        } else if(mouse.button == Qt.LeftButton){
+                            // deselect the grade
+                            attrs.grading_bookmark = helpers.makeQUuid()
                         }
                         else if(mouse.button == Qt.RightButton){
                             if(moreMenu.visible) moreMenu.visible = false

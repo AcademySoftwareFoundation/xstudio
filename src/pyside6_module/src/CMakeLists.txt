@@ -51,7 +51,10 @@ foreach(INCLUDE_DIR ${QT_INCLUDE_DIRS})
     list(APPEND INCLUDES "-I${INCLUDE_DIR}")
 endforeach()
 
-list(APPEND INCLUDES "-I/opt/rh/devtoolset-9/root/usr/lib/gcc/x86_64-redhat-linux/9/include")
+# hack alert. Adding this is the only way I can get the 'clang_parseTranslationUnit2' step
+# to complete without failing with this --- fatal error: 'stddef.h' file not found
+# Unlikely to work on systems other than Rock8.9!!!
+list(APPEND INCLUDES "-I/opt/rh/gcc-toolset-11/root/usr/lib/gcc/x86_64-redhat-linux/11/include")
 
 set(SHIBOKEN_OPTIONS --generator-set=shiboken --enable-parent-ctor-heuristic
     --enable-pyside-extensions --enable-return-value-heuristic --use-isnull-as-nb_nonzero

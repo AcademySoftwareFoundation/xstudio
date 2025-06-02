@@ -326,7 +326,7 @@ Viewport::Viewport(
     mirror_mode_->set_role_data(module::Attribute::ToolbarPosition, 8.0f);
 
     frame_rate_expr_    = add_string_attribute("Frame Rate", "Frame Rate", "--/--");
-    custom_cursor_name_ = add_string_attribute("Custom Cursor Name", "Custom Cursor Name", "");
+    custom_cursor_name_ = add_json_attribute("Custom Cursor Name", "Custom Cursor Name");
 
     // HUD needs custom QML code for instatiation into the toolbar as it's
     // not a simple switch or slider or multichoice
@@ -671,14 +671,14 @@ bool Viewport::set_geometry(
         -(y * 2.0f / window_height - 1.0f),
         (x + width) * 2.0f / window_width - 1.0f,
         -((y + height) * 2.0f / window_height - 1.0f),
-        x * 2.0f  / window_width - 1.0f,
+        x * 2.0f / window_width - 1.0f,
         -((y + height) * 2.0f / window_height - 1.0f)};
 
     // now we've got the quad we convert to a transform matrix to be used at
     // render time to plot the viewport correctly into its window within the
     // fuill glviewport (which corresponds to the QQuickWindow)
     Imath::M44f vp2c = matrix_from_square(render_rect.data());
-    //vp2c.scale(Imath::V3f(devicePixelRatio, devicePixelRatio, devicePixelRatio));
+    // vp2c.scale(Imath::V3f(devicePixelRatio, devicePixelRatio, devicePixelRatio));
 
     if (vp2c != viewport_to_canvas_ || width != state_.size_.x || height != state_.size_.y) {
         viewport_to_canvas_ = vp2c;
@@ -759,10 +759,14 @@ void Viewport::set_scale(const float scale) {
 }
 
 void Viewport::set_size(
-    const float w, const float h, const float window_width, const float window_height, const float pixelRatio) {
-    state_.window_size_ = Imath::V2f(window_width, window_height);
-    state_.size_        = Imath::V2f(w, h);
-    state_.devicePixelRatio_        = pixelRatio;
+    const float w,
+    const float h,
+    const float window_width,
+    const float window_height,
+    const float pixelRatio) {
+    state_.window_size_      = Imath::V2f(window_width, window_height);
+    state_.size_             = Imath::V2f(w, h);
+    state_.devicePixelRatio_ = pixelRatio;
     update_matrix();
 }
 
@@ -774,7 +778,9 @@ void Viewport::set_pan(const float x_pan, const float y_pan) {
 
 void Viewport::set_fit_mode(const FitMode md, const bool sync) {
 
-    if (state_.fit_mode_ != md && ((state_.fit_mode_ == FitMode::Free && md != FitMode::Free) || (state_.fit_mode_ != FitMode::Free && md == FitMode::Free))) {
+    if (state_.fit_mode_ != md &&
+        ((state_.fit_mode_ == FitMode::Free && md != FitMode::Free) ||
+         (state_.fit_mode_ != FitMode::Free && md == FitMode::Free))) {
         // We onlt store the previous fit if we're going from 'Free' to another
         // mode or vice-versa.
         previous_fit_zoom_state_.fit_mode_  = state_.fit_mode_;
@@ -941,9 +947,11 @@ void Viewport::calc_image_bounds_in_viewport_pixels() {
         const float y1 = (-b.y / b.w + 1.0f) / 2.0f;
 
         Imath::V2f bottomLeft(
-            std::min(x0, x1) * state_.size_.x / state_.devicePixelRatio_, std::min(y0, y1) * state_.size_.y / state_.devicePixelRatio_);
+            std::min(x0, x1) * state_.size_.x / state_.devicePixelRatio_,
+            std::min(y0, y1) * state_.size_.y / state_.devicePixelRatio_);
         Imath::V2f topRight(
-            std::max(x0, x1) * state_.size_.x / state_.devicePixelRatio_, std::max(y0, y1) * state_.size_.y / state_.devicePixelRatio_);
+            std::max(x0, x1) * state_.size_.x / state_.devicePixelRatio_,
+            std::max(y0, y1) * state_.size_.y / state_.devicePixelRatio_);
 
         image_bounds_in_viewport_pixels_.emplace_back(Imath::Box2f(bottomLeft, topRight));
     }
@@ -1003,13 +1011,13 @@ caf::message_handler Viewport::message_handler() {
                     const float window_height,
                     const float devicePixelRatio) {
                     if (set_geometry(
-                        x*devicePixelRatio, 
-                        y*devicePixelRatio, 
-                        width*devicePixelRatio, 
-                        height*devicePixelRatio, 
-                        window_width*devicePixelRatio, 
-                        window_height*devicePixelRatio,
-                        devicePixelRatio)) {
+                            x * devicePixelRatio,
+                            y * devicePixelRatio,
+                            width * devicePixelRatio,
+                            height * devicePixelRatio,
+                            window_width * devicePixelRatio,
+                            window_height * devicePixelRatio,
+                            devicePixelRatio)) {
                         event_callback_(Redraw);
                     }
                 },
@@ -1165,8 +1173,12 @@ caf::message_handler Viewport::message_handler() {
                     }
                 },
 
-                [=](ui::viewport::viewport_cursor_atom, const std::string &cursor_name) {
-                    custom_cursor_name_->set_value(cursor_name);
+                [=](ui::viewport::viewport_cursor_atom,
+                    const std::string &cursor_name,
+                    const int size,
+                    const int x_offset,
+                    const int y_offset) {
+                    custom_cursor(cursor_name, size, x_offset, y_offset);
                 },
 
                 [=](ui::viewport::viewport_visibility_atom) -> bool { return is_visible_; },
@@ -1212,7 +1224,6 @@ void Viewport::set_playhead(caf::actor playhead, const bool wait_for_refresh) {
     if (old_playhead && old_playhead == playhead) {
         return;
     } else if (old_playhead) {
-        anon_mail(module::disconnect_from_ui_atom_v).send(old_playhead);
         if (window_id_ != "snapshot_viewport") {
             anon_mail(
                 connect_to_viewport_toolbar_atom_v, name(), name() + "_toolbar", self(), false)
@@ -1366,18 +1377,18 @@ void Viewport::attribute_changed(const utility::Uuid &attr_uuid, const int role)
 
         if (zoom_mode_toggle_->value()) {
             pan_mode_toggle_->set_value(false);
-            custom_cursor_name_->set_value("://cursors/magnifier_cursor.svg");
+            custom_cursor("://cursors/magnifier_cursor.svg");
         } else if (!pan_mode_toggle_->value()) {
-            custom_cursor_name_->set_value("");
+            custom_cursor();
         }
 
     } else if (attr_uuid == pan_mode_toggle_->uuid() && role == module::Attribute::Value) {
 
         if (pan_mode_toggle_->value()) {
             zoom_mode_toggle_->set_value(false);
-            custom_cursor_name_->set_value("Qt.OpenHandCursor");
+            custom_cursor("Qt.OpenHandCursor");
         } else if (!zoom_mode_toggle_->value()) {
-            custom_cursor_name_->set_value("");
+            custom_cursor();
         }
 
     } else if (attr_uuid == filter_mode_preference_->uuid()) {
@@ -1490,7 +1501,9 @@ void Viewport::hotkey_pressed(
 }
 
 void Viewport::hotkey_released(
-    const utility::Uuid &hotkey_uuid, const std::string & /*context*/) {
+    const utility::Uuid &hotkey_uuid,
+    const std::string & /*context*/,
+    const bool /*due_to_focus_change*/) {
     if (hotkey_uuid == zoom_hotkey_) {
         zoom_mode_toggle_->set_role_data(module::Attribute::Activated, false);
         zoom_mode_toggle_->set_value(false);
@@ -2104,4 +2117,16 @@ void Viewport::pointer_select_media(const PointerEvent &pointer_event) {
             }
         }
     }
+}
+
+void Viewport::custom_cursor(
+    const std::string &cursor_name, const int size, const int x_offset, const int y_offset) {
+    nlohmann::json j;
+    j["name"] = cursor_name;
+    if (size) {
+        j["size"]     = size;
+        j["x_offset"] = x_offset;
+        j["y_offset"] = y_offset;
+    }
+    custom_cursor_name_->set_value(j);
 }

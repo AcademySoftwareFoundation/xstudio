@@ -16,7 +16,7 @@ XsGradientRectangle{
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.leftMargin: (currentCategory == "Tree")? panelPadding : 0
+        anchors.leftMargin: panelPadding
         spacing: panelPadding
 
         Rectangle{
@@ -93,11 +93,6 @@ XsGradientRectangle{
             m.set(i, "menus", "userDataRole")
             menuModel.invalidate()
         }
-        else if(currentCategory == "Recent") {
-            m.set(i, "recent", "userDataRole")
-            recentModel.invalidate()
-        }
-
     }
 
     XsPopupMenu {
@@ -151,6 +146,26 @@ XsGradientRectangle{
         menuModelName: moreMenu.menu_model_name
         onActivated: prefs.showOnlyFavourites = !prefs.showOnlyFavourites
         isChecked: prefs.showOnlyFavourites
+    }
+
+   XsMenuModelItem {
+        text: qsTr("Only Show Visible")
+        menuPath: ""
+        menuItemType: "toggle"
+        menuItemPosition: 0.6
+        menuModelName: moreMenu.menu_model_name
+        onActivated: prefs.showHiddenPresets = !prefs.showHiddenPresets
+        isChecked: !prefs.showHiddenPresets
+    }
+
+   XsMenuModelItem {
+        text: qsTr("Show Visibility Icons")
+        menuPath: ""
+        menuItemType: "toggle"
+        menuItemPosition: 0.7
+        menuModelName: moreMenu.menu_model_name
+        onActivated: prefs.showPresetVisibility = !prefs.showPresetVisibility
+        isChecked: prefs.showPresetVisibility
     }
 
     XsMenuModelItem {
@@ -271,20 +286,12 @@ XsGradientRectangle{
 
 
     XsMenuModelItem {
-        text: "Reload All System Presets"
+        text: "Reset All Presets"
         menuPath: ""
         menuItemPosition: 5
         menuModelName: moreMenu.menu_model_name
         onActivated: {
             // set all indexs to visible.
-            let hidden = ShotBrowserEngine.presetsModel.searchRecursiveList(
-                true, "hiddenRole",
-                ShotBrowserEngine.presetsModel.index(-1,-1),
-                0,-1
-            )
-            for(let i=0; i<hidden.length; i++)
-                ShotBrowserEngine.presetsModel.set(hidden[i], false, "hiddenRole")
-
             let changed = ShotBrowserEngine.presetsModel.searchRecursiveList(
                 true, "updateRole",
                 ShotBrowserEngine.presetsModel.index(-1,-1),

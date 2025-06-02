@@ -24,7 +24,8 @@ Rectangle{
             if(i != -1)
                 valueBox.currentIndex = i
             else {
-                valueBox.editText = valueRole
+               valueBox.editText = valueRole
+                // valueBox.displayText = valueRole
             }
         }
     }

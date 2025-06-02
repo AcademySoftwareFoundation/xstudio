@@ -1109,18 +1109,21 @@ Q_INVOKABLE bool BookmarkModel::insertRows(int row, int count, const QModelIndex
 }
 
 
-QFuture<QString> BookmarkModel::exportCSVFuture(const QUrl &path) {
+QFuture<QString> BookmarkModel::exportCSVFuture(
+    const QUrl &path, const bool with_annotations, const bool with_images) {
     return QtConcurrent::run([=]() {
         auto failed = std::string("CSV Export failed: ");
         if (bookmark_actor_) {
             try {
                 scoped_actor sys{system()};
+                auto format = session::ExportFormat::EF_CSV;
+                if (with_annotations)
+                    format = session::ExportFormat::EF_CSV_WITH_ANNOTATIONS;
+                if (with_images)
+                    format = session::ExportFormat::EF_CSV_WITH_IMAGES;
 
                 auto data = request_receive<std::pair<std::string, std::vector<std::byte>>>(
-                    *sys,
-                    bookmark_actor_,
-                    session::export_atom_v,
-                    session::ExportFormat::EF_CSV);
+                    *sys, bookmark_actor_, session::export_atom_v, format, UriFromQUrl(path));
                 // write data to path..
                 // this maybe a symlink in which case we should resolve it.
                 std::ofstream o(uri_to_posix_path(UriFromQUrl(path)));

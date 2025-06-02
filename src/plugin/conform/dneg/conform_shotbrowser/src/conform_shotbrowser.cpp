@@ -662,7 +662,7 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
 
                     // from check clip metadata (FEAT ANIM)
                     if (not is_valid and not found_project.empty()) {
-                        auto cm = i.prop();
+                        auto cm = i.prop(); // DNEG_MEDIA_STALK_DNUUID ?
                         if (cm.contains("media_stalk_dnuuid")) {
                             project = found_project;
 
@@ -1078,7 +1078,8 @@ template <typename T> class ShotbrowserConformActor : public caf::event_based_ac
                                                              .at(0)
                                                              .at("files")) {
                                                         if (file.at("name") == i and
-                                                            fs::exists(forward_remap_file_path(file.at("path")))) {
+                                                            fs::exists(forward_remap_file_path(
+                                                                file.at("path")))) {
                                                             otiopath = file.at("path");
                                                             break;
                                                         }

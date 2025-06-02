@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic
 import QtQuick.Dialogs
 
 import xStudio 1.0
@@ -8,16 +10,20 @@ import xstudio.qml.models 1.0
 import xstudio.qml.helpers 1.0
 import xstudio.qml.bookmarks 1.0
 
-Item{
+Item {
+
     id: drawDialog
 
     objectName: "XStudioPanel"
+    anchors.fill: parent
+    anchors.bottomMargin: horizontal ? 0 : XsStyleSheet.primaryButtonStdHeight
+    anchors.rightMargin: horizontal ? 90 : 0
+
+    // this var is REQUIRED to set the vertical size of the widget
+    property var dockWidgetSize: horizontal ? XsStyleSheet.primaryButtonStdHeight + 4 : 90
 
     property real buttonWidth: 0
     property real buttonHeight: 20
-    property real toolPropLoaderHeight: 0
-    property real defaultHeight: toolSelector.height + toolProperties.height + toolActionSection.height + framePadding*3
-    property real toolPropertiesWidthThreshold: 200
 
     property real colSpacing: buttonHeight
     property real itemSpacing: 1
@@ -29,7 +35,9 @@ Item{
     property color textValueColor: "white"
 
     property int maxDrawSize: 250
-    property bool isAnyToolSelected: currentTool !== "None"
+    property bool isAnyToolSelected: currentTool !== "None" && currentTool != "Colour Picker"
+
+    property bool horizontal: false
 
     /* This connects to the backend annotations tool object and exposes its
     ui data via model data */
@@ -86,6 +94,14 @@ Item{
         attributeTitle: "Text Background Opacity"
         model: annotations_model_data
     }
+    XsAttributeValue {
+        id: tool_types_choices
+        role: "combo_box_options"
+        attributeTitle: "Active Tool"
+        model: annotations_model_data
+    }
+
+    // Un-comment this when Laser is implemented in combo_box_options
 
     // make a local binding to the backend attribute
     property alias currentDrawPenSize: draw_pen_size.value
@@ -97,7 +113,8 @@ Item{
     property alias currentTool: active_tool.value
     property alias backgroundColor: text_background_colour.value
     property alias backgroundOpacity: text_background_opacity.value
-
+    property alias toolChoices: tool_types_choices.value
+    
     property var toolSizeAttrName: "Draw Pen Size"
 
     onCurrentToolChanged: {
@@ -150,169 +167,195 @@ Item{
     // value binding
 
     property ListModel currentColorPresetModel: drawColourPresetsModel
-
-
+    
     XsGradientRectangle{
         anchors.fill: parent
     }
 
+    Component {
+        id: colour_pick_props
+        XsColourPick {
+
+        }
+    }
+
+    Component {
+        id: tool_properties
+        XsToolProperties {
+            root: drawDialog
+        }
+    }
+
+    XsColourDialog {
+        id: colorDialog
+        title: "Please pick a colour"
+        property var lastColour
+        
+        linkColour: currentToolColour
+
+        onCurrentColourChanged: {
+            currentToolColour = currentColour
+        }
+        onAccepted: {
+            close()
+        }
+        onRejected: {
+            currentToolColour = lastColour
+            close()
+        }
+        onVisibleChanged: {
+            if (visible) {
+                currentColour = currentToolColour
+                lastColour = currentToolColour
+            }
+        }
+    }
+
+    property alias colorDialog: colorDialog
+
     // We wrap all the widgets in a top level Item that can forward keyboard
     // events back to the viewport for consistent
-    Item {
-        anchors.fill: parent
-        focus: true
-        // Keys.forwardTo: [sessionWidget] //#TODO - backend
+    GridLayout {
 
+        rows: horizontal ? 1 : -1
+        columns: horizontal ? -1 : 1
+
+        anchors.fill: parent
+        anchors.margins: 2
+        columnSpacing: 0
+        rowSpacing: 0
+    
         XsToolSelector {
             id: toolSelector
-            x: framePadding/2
-            width: parent.width - x*2
-            height: itemHeight*2 + framePadding*3
+            Layout.fillWidth: horizontal ? false : true
+            Layout.fillHeight: horizontal ? true : false
+            z: 1
         }
 
-        Loader { id: toolProperties
-            width: toolSelector.width
-            height: toolPropLoaderHeight
-            x: toolSelector.x
-            y: toolSelector.y + toolSelector.height + colSpacing
-
-            sourceComponent: XsToolProperties{
-                root: drawDialog
-            }
-
-            ColorDialog {
-                id: colorDialog
-                title: "Please pick a colour"
-                onAccepted: {
-                    currentToolColour = currentColor
-                    close()
-                }
-                onRejected: {
-                    close()
-                }
-                onVisibleChanged: {
-                    if (visible) {
-                        color = currentToolColour
-                    }
-                }
-            }
-            ColorDialog {
-                id: bgColorDialog
-                title: "Please pick a BG-Colour"
-                onAccepted: {
-                    backgroundColor = color
-                    close()
-                }
-                onRejected: {
-                    close()
-                }
-                onVisibleChanged: {
-                    if (visible) {
-                        color = backgroundColor
-                    }
-                }
-
-            }
-
-
-            ListModel{ id: eraseColorPresetModel
-                ListElement{
-                    preset: "white"
-                }
-            }
-            ListModel{ id: drawColourPresetsModel
-                ListElement{
-                    preset: "#ff0000" //- "red"
-                }
-                ListElement{
-                    preset: "#ffa000" //- "orange"
-                }
-                ListElement{
-                    preset: "#ffff00" //- "yellow"
-                }
-                ListElement{
-                    preset: "#28dc00" //- "green"
-                }
-                ListElement{
-                    preset: "#0050ff" //- "blue"
-                }
-                ListElement{
-                    preset: "#8c00ff" //- "violet"
-                }
-                // ListElement{
-                //     preset: "#ff64ff" //- "pink"
-                // }
-                ListElement{
-                    preset: "#ffffff" //- "white"
-                }
-                ListElement{
-                    preset: "#000000" //- "black"
-                }
-            }
-            ListModel{ id: textColourPresetsModel
-                ListElement{
-                    preset: "#ff0000" //- "red"
-                }
-                ListElement{
-                    preset: "#ffa000" //- "orange"
-                }
-                ListElement{
-                    preset: "#ffff00" //- "yellow"
-                }
-                ListElement{
-                    preset: "#28dc00" //- "green"
-                }
-                ListElement{
-                    preset: "#0050ff" //- "blue"
-                }
-                ListElement{
-                    preset: "#8c00ff" //- "violet"
-                }
-                ListElement{
-                    preset: "#ffffff" //- "white"
-                }
-                ListElement{
-                    preset: "#000000" //- "black"
-                }
-            }
-            ListModel{ id: shapesColourPresetsModel
-                ListElement{
-                    preset: "#ff0000" //- "red"
-                }
-                ListElement{
-                    preset: "#ffa000" //- "orange"
-                }
-                ListElement{
-                    preset: "#ffff00" //- "yellow"
-                }
-                ListElement{
-                    preset: "#28dc00" //- "green"
-                }
-                ListElement{
-                    preset: "#0050ff" //- "blue"
-                }
-                ListElement{
-                    preset: "#8c00ff" //- "violet"
-                }
-                ListElement{
-                    preset: "#ffffff" //- "white"
-                }
-                ListElement{
-                    preset: "#000000" //- "black"
-                }
-            }
-
+        Item {
+            Layout.preferredHeight: horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight
+            Layout.preferredWidth: horizontal ? XsStyleSheet.primaryButtonStdHeight : -1
         }
 
-        XsToolActions{ id: toolActionSection
-            x: framePadding
-            y: !isAnyToolSelected?
-                toolProperties.y :
-                toolProperties.y + toolProperties.height + colSpacing
-
-            width: parent.width - framePadding
+        Loader { 
+            id: loader
+            sourceComponent: currentTool === "Colour Picker" ? colour_pick_props : tool_properties
+            Layout.fillWidth: horizontal ? false : true
+            Layout.fillHeight: horizontal ? true : false
         }
 
+        Item {
+            Layout.preferredHeight: horizontal ? -1 : XsStyleSheet.primaryButtonStdHeight
+            Layout.preferredWidth: horizontal ? XsStyleSheet.primaryButtonStdHeight : -1
+        }
+
+        XsToolActions{ 
+            id: toolActionSection
+            Layout.fillWidth: horizontal ? false : true
+            Layout.fillHeight: horizontal ? true : false
+        }
+        
+        Item{
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        XsToolDisplay{ 
+            
+            id: toolDispOptions
+            Layout.fillWidth: horizontal ? false : true
+            Layout.fillHeight: horizontal ? true : false
+            
+        }
+
+    }
+
+    ListModel{ id: eraseColorPresetModel
+        ListElement{
+            preset: "white"
+        }
+    }
+
+    ListModel{ id: drawColourPresetsModel
+        ListElement{
+            preset: "#ff0000" //- "red"
+        }
+        ListElement{
+            preset: "#ffa000" //- "orange"
+        }
+        ListElement{
+            preset: "#ffff00" //- "yellow"
+        }
+        ListElement{
+            preset: "#28dc00" //- "green"
+        }
+        ListElement{
+            preset: "#0050ff" //- "blue"
+        }
+        ListElement{
+            preset: "#8c00ff" //- "violet"
+        }
+        // ListElement{
+        //     preset: "#ff64ff" //- "pink"
+        // }
+        ListElement{
+            preset: "#ffffff" //- "white"
+        }
+        ListElement{
+            preset: "#000000" //- "black"
+        }
+    }
+    ListModel{ id: textColourPresetsModel
+        ListElement{
+            preset: "#ff0000" //- "red"
+        }
+        ListElement{
+            preset: "#ffa000" //- "orange"
+        }
+        ListElement{
+            preset: "#ffff00" //- "yellow"
+        }
+        ListElement{
+            preset: "#28dc00" //- "green"
+        }
+        ListElement{
+            preset: "#0050ff" //- "blue"
+        }
+        ListElement{
+            preset: "#8c00ff" //- "violet"
+        }
+        ListElement{
+            preset: "#ffffff" //- "white"
+        }
+        ListElement{
+            preset: "#000000" //- "black"
+        }
+    }
+    ListModel{ id: shapesColourPresetsModel
+        ListElement{
+            preset: "#ff0000" //- "red"
+        }
+        ListElement{
+            preset: "#ffa000" //- "orange"
+        }
+        ListElement{
+            preset: "#ffff00" //- "yellow"
+        }
+        ListElement{
+            preset: "#28dc00" //- "green"
+        }
+        ListElement{
+            preset: "#0050ff" //- "blue"
+        }
+        ListElement{
+            preset: "#8c00ff" //- "violet"
+        }
+        ListElement{
+            preset: "#ffffff" //- "white"
+        }
+        ListElement{
+            preset: "#000000" //- "black"
+        }
     }
 
 }

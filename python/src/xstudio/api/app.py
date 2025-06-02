@@ -3,7 +3,7 @@ from xstudio.core import session_atom, join_broadcast_atom
 from xstudio.core import colour_pipeline_atom, get_actor_from_registry_atom
 from xstudio.core import viewport_playhead_atom, quickview_media_atom
 from xstudio.core import UuidActorVec, UuidActor, viewport_atom
-from xstudio.core import get_global_playhead_events_atom
+from xstudio.core import get_global_playhead_events_atom, set_clipboard_atom
 from xstudio.api.session import Session, Container
 from xstudio.api.session.playhead import Playhead
 from xstudio.api.module import ModuleBase
@@ -25,7 +25,7 @@ class Viewport(ModuleBase):
         gphev = connection.request_receive(
                 connection.remote(),
                 get_global_playhead_events_atom())[0]
-        
+
         remote = connection.request_receive(
                 gphev,
                 viewport_atom(),
@@ -41,8 +41,8 @@ class Viewport(ModuleBase):
     @property
     def playhead(self):
         """Access the Playhead object supplying images to the viewport
-        """        
-        return Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])            
+        """
+        return Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])
 
     @playhead.setter
     def set_playhead(self, playhead):
@@ -123,7 +123,7 @@ class App(Container):
         Args:
             name(str): The viewport name
             playhead(Playhead): The playhead to drive the viewport"""
-        
+
         viewport_remote = self.connection.request_receive(
                 self.global_playhead_events.remote,
                 viewport_atom(),
@@ -133,17 +133,28 @@ class App(Container):
         self.connection.send(viewport_remote, viewport_playhead_atom(), playhead.remote)
 
     def set_global_playhead(self, playhead):
-        """Set's the global playhead to the given playhead. This will result 
+        """Set's the global playhead to the given playhead. This will result
         in viewports showing frames coming from the given playhead
         Args:
             playhead(Playhead): The playhead to drive all viewports auto
             connecting to the global playhead"""
-        
+
         self.connection.send(
                 self.global_playhead_events.remote,
                 viewport_playhead_atom(),
                 playhead.remote
                 )
+
+    def set_clipboard(self, content):
+        """Set UI clipboard
+        Args:
+            content(str): content
+        """
+        self.connection.request_receive(
+            self.remote,
+            set_clipboard_atom(),
+            content
+        )[0]
 
     @property
     def global_playhead_events(self):

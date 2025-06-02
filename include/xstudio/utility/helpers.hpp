@@ -290,7 +290,7 @@ namespace utility {
 #ifdef _WIN32
         root = std::getenv("USERPROFILE");
 #else
-        root          = std::getenv("HOME");
+        root = std::getenv("HOME");
 #endif
         std::filesystem::path path;
         if (root) {
@@ -305,7 +305,7 @@ namespace utility {
 #ifdef _WIN32
         root = std::getenv("USERPROFILE");
 #else
-        root          = std::getenv("HOME");
+        root = std::getenv("HOME");
 #endif
         std::filesystem::path path;
         if (root) {
@@ -323,7 +323,7 @@ namespace utility {
 #ifdef _WIN32
         root = std::getenv("USERPROFILE");
 #else
-        root          = std::getenv("HOME");
+        root = std::getenv("HOME");
 #endif
         std::filesystem::path path;
         if (root) {

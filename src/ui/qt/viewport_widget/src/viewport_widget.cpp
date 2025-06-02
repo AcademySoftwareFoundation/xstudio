@@ -78,6 +78,8 @@ void ViewportGLWidget::resizeGL(int w, int h) {
 
 void ViewportGLWidget::paintGL() {
 
+    std::cerr << the_viewport_->name() << " ";
+
     if (live_viewport_) {
         // if we're NOT a live viewport (e.g. offscreen viewport for rendering
         // thumbnails/snapshots) then prepare_render_data has already been

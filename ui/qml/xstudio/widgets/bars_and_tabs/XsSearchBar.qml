@@ -28,6 +28,7 @@ TextField { id: widget
     color: text==""? textColorHint : focus || hovered? textColorEditing: textColorNormal
     selectedTextColor: textColorSelection
     selectionColor: selectionColorEditing
+    placeholderTextColor: textColorHint
 
     hoverEnabled: true
     selectByMouse: true

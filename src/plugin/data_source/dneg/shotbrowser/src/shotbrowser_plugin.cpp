@@ -397,12 +397,39 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
 
          [=](json_store::sync_atom, const bool) {
              pending_preference_update_ = false;
-             auto prefs                 = GlobalStoreHelper(system());
-             prefs.set_value(
-                 engine().user_presets().as_json().at("children"),
-                 "/plugin/data_source/shotbrowser/user_presets",
-                 false);
-             prefs.save("PLUGIN");
+
+             auto path = preference_path("shotbrowser_presets_v1.json");
+             try {
+                 // check dir exists..
+                 std::ofstream o(path + ".tmp", std::ofstream::out | std::ofstream::trunc);
+                 try {
+                     o.exceptions(std::ios_base::failbit | std::ifstream::badbit);
+
+                     o << std::setw(4) << engine().user_presets().as_json().at("children")
+                       << std::endl;
+                     o.close();
+
+                     fs::rename(path + ".tmp", path);
+
+                     // spdlog::debug("Saved {}", path);
+                 } catch (const std::exception &err) {
+                     if (o.is_open()) {
+                         o.close();
+                         fs::remove(path + ".tmp");
+                     }
+                     spdlog::warn(
+                         "Failed to save {} {} {}", __PRETTY_FUNCTION__, path, err.what());
+                 }
+             } catch (const std::exception &err) {
+                 spdlog::warn("Failed to save {} {} {}", __PRETTY_FUNCTION__, path, err.what());
+             }
+
+             // auto prefs                 = GlobalStoreHelper(system());
+             // prefs.set_value(
+             //     engine().user_presets().as_json().at("children"),
+             //     "/plugin/data_source/shotbrowser/user_presets",
+             //     false);
+             // prefs.save("PLUGIN");
          },
 
          [=](json_store::sync_atom) -> UuidVector {
@@ -1034,26 +1061,75 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
 
         // we ignore after initial setup..
         if (engine().user_presets().at("children").empty()) {
-            auto project_presets = preference_value<JsonStore>(
-                js, "/plugin/data_source/shotbrowser/project_presets");
+            // auto project_presets = preference_value<JsonStore>(
+            //     js, "/plugin/data_source/shotbrowser/project_presets");
             auto site_presets =
                 preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/site_presets");
-            auto user_presets =
-                preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/user_presets");
 
-            auto uorp =
-                preference_overridden_path(js, "/plugin/data_source/shotbrowser/user_presets");
-            if (ends_with(uorp, "application-v2.json")) {
+            auto preset_paths =
+                preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/preset_paths");
 
-                auto prefs = GlobalStoreHelper(system());
-                prefs.set_overridden_path(
-                    replace_once(uorp, "/application-v2.json", "/plugin-v2.json"),
-                    "/plugin/data_source/shotbrowser/user_presets",
-                    false);
-                prefs.save("PLUGIN");
+            auto paths = std::vector<caf::uri>();
+
+            for (const auto &path : preset_paths)
+                paths.emplace_back(posix_path_to_uri(expand_envvars(path)));
+
+            // iterrate and extend..
+            for (const auto &i : paths) {
+                auto path = fs::path(uri_to_posix_path(i));
+                if (fs::exists(path) and fs::is_directory(path)) {
+                    for (const auto &entry : fs::directory_iterator(path)) {
+                        if (fs::is_regular_file(entry.status()) and
+                            entry.path().extension() == ".json") {
+                            try {
+                                auto usp = JsonStore();
+                                std::ifstream i(entry.path().string());
+                                i >> usp;
+                                site_presets.insert(site_presets.end(), usp.begin(), usp.end());
+                            } catch (const std::exception &err) {
+                                spdlog::warn(
+                                    "Failed to Read {} {} {}",
+                                    __PRETTY_FUNCTION__,
+                                    entry.path().string(),
+                                    err.what());
+                            }
+                        }
+                    }
+                }
             }
 
-            engine().merge_presets(site_presets, project_presets);
+            auto user_presets = JsonStore();
+
+            if (auto path = preference_path("shotbrowser_presets_v1.json"); fs::exists(path)) {
+                try {
+                    std::ifstream i(path);
+                    i >> user_presets;
+                } catch (const std::exception &err) {
+                    spdlog::warn(
+                        "Failed to Read {} {} {}", __PRETTY_FUNCTION__, path, err.what());
+                }
+            } else {
+                user_presets = preference_value<JsonStore>(
+                    js, "/plugin/data_source/shotbrowser/user_presets");
+
+                auto uorp = preference_overridden_path(
+                    js, "/plugin/data_source/shotbrowser/user_presets");
+                if (ends_with(uorp, "application-v2.json")) {
+
+                    auto prefs = GlobalStoreHelper(system());
+                    prefs.set_overridden_path(
+                        replace_once(uorp, "/application-v2.json", "/plugin-v2.json"),
+                        "/plugin/data_source/shotbrowser/user_presets",
+                        false);
+                    prefs.save("PLUGIN");
+                }
+
+                // force save as we're using the new file now..
+                anon_mail(json_store::sync_atom_v, true)
+                    .delay(1s)
+                    .send(caf::actor_cast<caf::actor>(this));
+            }
+            // engine().merge_presets(site_presets, project_presets);
             engine().set_presets(user_presets, site_presets);
 
             // turn on undo redo

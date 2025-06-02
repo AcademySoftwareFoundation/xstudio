@@ -383,12 +383,18 @@ void xstudio::global_store::from_json(const nlohmann::json &j, GlobalStoreDef &g
     gsd.value_ = j.at("value");
     if (gsd.value_.is_null())
         gsd.value_ = j.at("default_value");
-    gsd.default_value_   = j.at("default_value");
-    gsd.maximum_value_   = j.at("maximum");
-    gsd.minimum_value_   = j.at("minimum");
+    gsd.default_value_ = j.at("default_value");
+    if (j.contains("maximum"))
+        gsd.maximum_value_ = j.at("maximum");
+    if (j.contains("minimum"))
+        gsd.minimum_value_ = j.at("minimum");
     gsd.datatype_        = j.value("datatype", "");
     gsd.description_     = j.value("description", "");
     gsd.overridden_path_ = j.value("overridden_path", "");
+    gsd.display_name_    = j.value("display_name", "");
+    gsd.category_        = j.value("category", "");
+    if (j.contains("options"))
+        gsd.options_ = j.at("options");
 }
 
 
@@ -416,7 +422,7 @@ utility::JsonStore GlobalStoreHelper::get_existing_or_create_new_preference(
     const bool broadcast_change,
     const std::string &context) {
 
-    // Preferences can be fully defined in a .json file that ships with the 
+    // Preferences can be fully defined in a .json file that ships with the
     // application. However, we've found this to be a burden when creating
     // Python plugins which need preference driven attributes but where we
     // don't want to be building .json files to install at the same time.
@@ -433,12 +439,12 @@ utility::JsonStore GlobalStoreHelper::get_existing_or_create_new_preference(
             v["overridden_value"] = default_;
         }
         if (!v.contains("path")) {
-            v["path"]             = path;
+            v["path"] = path;
         }
         if (!v.contains("context")) {
-            v["context"]          = std::vector<std::string>({"APPLICATION"});
+            v["context"] = std::vector<std::string>({"APPLICATION"});
         }
-        JsonStoreHelper::set(v, path, async, broadcast_change);        
+        JsonStoreHelper::set(v, path, async, broadcast_change);
         return v["value"];
 
     } catch (...) {
