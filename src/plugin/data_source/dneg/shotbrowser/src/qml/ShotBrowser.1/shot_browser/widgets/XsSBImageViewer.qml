@@ -86,7 +86,7 @@ MouseArea {
                     XsIcon{
                         anchors.fill: parent
                         source: "qrc:/icons/close.svg"
-                        imgOverlayColor: parent.containsMouse ? palette.highlight : XsStyleSheet.hintColor
+                        imgOverlayColor: parent.containsMouse ? palette.highlight : XsStyleSheet.primaryTextColor
                     }
                 }
 
@@ -96,11 +96,12 @@ MouseArea {
                     hoverEnabled: true
                     onClicked: index && playerbox.previous()
 
-                    XsIcon{
+                    XsIcon {
                         anchors.fill: parent
                         rotation: 180
                         source: "qrc:/icons/chevron_right.svg"
-                        imgOverlayColor: index ? (parent.containsMouse ? palette.highlight : XsStyleSheet.hintColor) : XsStyleSheet.widgetBgNormalColor
+                        imgOverlayColor: (parent.containsMouse && index ? palette.highlight : XsStyleSheet.primaryTextColor)
+                        opacity: index ? 1.0 : 0.5
                     }
                 }
 
@@ -114,7 +115,9 @@ MouseArea {
                     XsIcon{
                         anchors.fill: parent
                         source: "qrc:/icons/chevron_right.svg"
-                        imgOverlayColor: index < images.length-1 ? (parent.containsMouse ? palette.highlight : XsStyleSheet.hintColor) : XsStyleSheet.widgetBgNormalColor
+
+                        imgOverlayColor: (parent.containsMouse && index != images.length-1 ? palette.highlight : XsStyleSheet.primaryTextColor)
+                        opacity: index != images.length-1 ? 1.0 : 0.5
                     }
                 }
 

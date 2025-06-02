@@ -59,13 +59,18 @@ namespace media_reader {
         void set_has_alpha(const bool b) { has_alpha_ = b; }
 
         typedef std::function<PixelInfo(
-            const ImageBuffer &buf, const Imath::V2i &pixel_location)>
+            const ImageBuffer &buf,
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss)>
             PixelPickerFunc;
         void set_pixel_picker_func(PixelPickerFunc func) { pixel_picker_ = func; }
 
-        PixelInfo pixel_info(const Imath::V2i &pixel_location) const {
+        PixelInfo pixel_info(
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss =
+                std::vector<Imath::V2i>()) const {
             if (pixel_picker_)
-                return pixel_picker_(*this, pixel_location);
+                return pixel_picker_(*this, pixel_location, extra_pixel_locationss);
             return PixelInfo(pixel_location);
         }
 

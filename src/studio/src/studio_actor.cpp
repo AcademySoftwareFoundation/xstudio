@@ -57,6 +57,19 @@ caf::message_handler StudioActor::message_handler() {
             return true;
         },
 
+        [=](ui::set_clipboard_atom, const std::string &message) -> bool {
+            auto result = false;
+
+            if (auto studio_ui_actor =
+                    system().registry().template get<caf::actor>(studio_ui_registry);
+                studio_ui_actor) {
+                mail(ui::set_clipboard_atom_v, message).send(studio_ui_actor);
+                result = true;
+            }
+
+            return result;
+        },
+
         [=](ui::show_message_box_atom,
             const std::string &message_title,
             const std::string &message_body,

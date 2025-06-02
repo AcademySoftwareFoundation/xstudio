@@ -812,61 +812,58 @@ caf::typed_response_promise<bool> ViewportFrameQueueActor::set_playhead(
     // us via the broacast group
     auto do_join = [=]() mutable {
         mail(broadcast::join_broadcast_atom_v, self)
-        .request(playhead.actor(), infinite)
-        .then(
-            [=](const bool) mutable {
-                // Get the 'key' child playhead UUID
-                mail(playhead::key_child_playhead_atom_v)
-                    .request(playhead.actor(), infinite)
-                    .then(
-                        [=](utility::UuidVector curr_playhead_uuids) mutable {
-                            monitor_.dispose();
-                            playhead_ = playhead;
+            .request(playhead.actor(), infinite)
+            .then(
+                [=](const bool) mutable {
+                    // Get the 'key' child playhead UUID
+                    mail(playhead::key_child_playhead_atom_v)
+                        .request(playhead.actor(), infinite)
+                        .then(
+                            [=](utility::UuidVector curr_playhead_uuids) mutable {
+                                monitor_.dispose();
+                                playhead_ = playhead;
 
-                            monitor_ = monitor(
-                                playhead_.actor(),
-                                [this, addr = playhead_.actor().address()](const error &err) {
-                                    if (addr == playhead_.actor()) {
-                                        playhead_ = utility::UuidActor();
-                                        frames_to_draw_per_playhead_.clear();
-                                    }
-                                });
+                                monitor_ = monitor(
+                                    playhead_.actor(),
+                                    [this,
+                                     addr = playhead_.actor().address()](const error &err) {
+                                        if (addr == playhead_.actor()) {
+                                            playhead_ = utility::UuidActor();
+                                            frames_to_draw_per_playhead_.clear();
+                                        }
+                                    });
 
-                            // this message will make the playhead re-broadcaset the
-                            // media_source_atom event to it's 'broacast' group (of which we are
-                            // a member). This info from the playhead is received in a message
-                            // handler below and we send on the info about the media source to
-                            // our colour pipeline which needs to do some set-up.
-                            mail(playhead::media_source_atom_v, true, true)
-                                .send(playhead_.actor());
-                            mail(playhead::jump_atom_v).send(playhead_.actor());
-                            mail(playhead::velocity_atom_v)
-                                .request(playhead_.actor(), infinite)
-                                .then(
-                                    [=](float v) { playhead_velocity_ = v; },
-                                    [=](caf::error &err) {});
+                                // this message will make the playhead re-broadcaset the
+                                // media_source_atom event to it's 'broacast' group (of which we
+                                // are a member). This info from the playhead is received in a
+                                // message handler below and we send on the info about the media
+                                // source to our colour pipeline which needs to do some set-up.
+                                mail(playhead::media_source_atom_v, true, true)
+                                    .send(playhead_.actor());
+                                mail(playhead::jump_atom_v).send(playhead_.actor());
+                                mail(playhead::velocity_atom_v)
+                                    .request(playhead_.actor(), infinite)
+                                    .then(
+                                        [=](float v) { playhead_velocity_ = v; },
+                                        [=](caf::error &err) {});
 
-                            if (curr_playhead_uuids.empty())
-                                return;
-                            current_key_sub_playhead_id_ = curr_playhead_uuids.back();
-                            curr_playhead_uuids.pop_back();
-                            sub_playhead_ids_ = curr_playhead_uuids;
-                            rp.deliver(true);
-                        },
-                        [=](const error &err) mutable { rp.deliver(err); });
-            },
-            [=](const error &err) mutable { rp.deliver(err); });
+                                if (curr_playhead_uuids.empty())
+                                    return;
+                                current_key_sub_playhead_id_ = curr_playhead_uuids.back();
+                                curr_playhead_uuids.pop_back();
+                                sub_playhead_ids_ = curr_playhead_uuids;
+                                rp.deliver(true);
+                            },
+                            [=](const error &err) mutable { rp.deliver(err); });
+                },
+                [=](const error &err) mutable { rp.deliver(err); });
     };
 
     if (playhead_) {
         // it's crucial that we stop listening to the previous playhead!
-        mail(broadcast::leave_broadcast_atom_v, self).request(playhead_.actor(), infinite).then(
-            [=](bool) mutable {
-                do_join();
-            },
-            [=](caf::error &) mutable {
-                do_join();
-            });
+        mail(broadcast::leave_broadcast_atom_v, self)
+            .request(playhead_.actor(), infinite)
+            .then([=](bool) mutable { do_join(); }, [=](caf::error &) mutable { do_join(); });
     } else {
         do_join();
     }

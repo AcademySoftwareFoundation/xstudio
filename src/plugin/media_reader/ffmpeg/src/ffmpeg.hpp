@@ -37,8 +37,10 @@ namespace media_reader {
         }
 
       private:
-        static PixelInfo
-        ffmpeg_buffer_pixel_picker(const ImageBuffer &buf, const Imath::V2i &pixel_location);
+        static PixelInfo ffmpeg_buffer_pixel_picker(
+            const ImageBuffer &buf,
+            const Imath::V2i &pixel_location,
+            const std::vector<Imath::V2i> &extra_pixel_locationss);
 
         std::shared_ptr<ffmpeg::FFMpegDecoder> decoder;
         std::shared_ptr<ffmpeg::FFMpegDecoder> audio_decoder;

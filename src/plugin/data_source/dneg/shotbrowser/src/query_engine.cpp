@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include <openssl/md5.h>
+
 #include "definitions.hpp"
 #include "query_engine.hpp"
 #include "xstudio/atoms.hpp"
@@ -107,6 +109,34 @@ T QueryEngine::to_value(const nlohmann::json &jsn, const std::string &key, const
     return result;
 }
 
+std::string QueryEngine::checksum(const utility::JsonStore &data) {
+    auto dump = std::string();
+
+    if (data["type"] == "preset")
+        dump = data["children"].dump(2);
+    else
+        dump = data.dump(2);
+
+    std::array<unsigned char, MD5_DIGEST_LENGTH> hash;
+
+    MD5_CTX md5;
+    MD5_Init(&md5);
+    MD5_Update(&md5, dump.c_str(), dump.size());
+    MD5_Final(hash.data(), &md5);
+
+    std::stringstream ss;
+
+    for (unsigned char i : hash) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(i);
+    }
+
+    // spdlog::warn("{}", dump);
+    // spdlog::warn("{}", ss.str());
+
+    return ss.str();
+}
+
+
 void QueryEngine::initialise_presets() {
     auto user_tmp  = RootTemplate;
     user_tmp["id"] = Uuid::generate();
@@ -169,8 +199,16 @@ utility::JsonStore QueryEngine::validate_presets(
             result["update"] = false;
         }
 
+        if (not is_user and result["update"] == false and
+            result["flags"].end() ==
+                std::find(result["flags"].begin(), result["flags"].end(), "System Group")) {
+            if (not export_as_system)
+                spdlog::warn("Fix group flag {}", result["name"].get<std::string>());
+            result["flags"].push_back("System Group");
+        }
+
         auto userdata = data.value("userdata", std::string());
-        if (userdata != "recent" and userdata != "menus" and userdata != "tree" and
+        if (userdata != "menus" and userdata != "recent" and userdata != "tree" and
             not export_as_system)
             spdlog::warn(
                 "{} invalid group userdata {} {}",
@@ -187,7 +225,12 @@ utility::JsonStore QueryEngine::validate_presets(
                     validate_presets(result["children"][i], is_user, data, i, export_as_system);
         }
     } else if (type == "presets") {
-        result = data;
+        result = R"({"id": null,
+            "type": "presets",
+            "hidden": false,
+            "children": []})"_json;
+
+        result.update(data);
 
         if (ptype != "group" and not export_as_system) {
             spdlog::warn(
@@ -324,6 +367,166 @@ void QueryEngine::merge_presets(nlohmann::json &destination, const nlohmann::jso
         else
             spdlog::warn("{} Invalid group {}", __PRETTY_FUNCTION__, i.dump(2));
     }
+
+    // when a system group is removed we should purge any unmodified presets
+    // as long as they are not user presets.
+    // build lookup of valid system groups..
+
+    try {
+        std::set<utility::Uuid> group_ids;
+        for (const auto &i : source) {
+            if (i.value("type", "") == "group")
+                group_ids.insert(i.value("id", utility::Uuid()));
+        }
+
+        for (auto it = destination.begin(); it != destination.end();) {
+            if (it->value("type", "") == "group") {
+                if (not group_ids.count(it->value("id", utility::Uuid())) and
+                    it->contains("update") and it->at("update").is_boolean()) {
+                    // we either clean or remove..
+                    spdlog::warn("Retired System Group {}", it->at("name").get<std::string>());
+                    // prune presets.
+
+                    for (auto pt = it->at("children")[1]["children"].begin();
+                         pt != it->at("children")[1]["children"].end();) {
+                        if (pt->contains("update") and pt->at("update").is_boolean() and
+                            pt->at("update") == false) {
+                            spdlog::warn(
+                                "Remove Old System Preset {}",
+                                pt->at("name").get<std::string>());
+                            pt = it->at("children")[1]["children"].erase(pt);
+                        } else {
+                            spdlog::warn(
+                                "Preserve User Preset {}", pt->at("name").get<std::string>());
+                            // remove system update.
+                            if (pt->contains("update"))
+                                pt->erase("update");
+                            pt++;
+                        }
+                    }
+
+                    if (it->at("children")[1]["children"].empty()) {
+                        spdlog::warn(
+                            "Remove Old System Group {}", it->at("name").get<std::string>());
+                        it = destination.erase(it);
+                    } else {
+                        // is this a special group..
+                        // Versions -> Collections
+                        bool migrated = false;
+
+                        if (it->at("id").get<Uuid>() ==
+                            Uuid("4689c10f-eb27-4e16-8164-468cdd69142e")) {
+                            // find new location and move remaining children
+                            for (auto dit = destination.begin(); dit != destination.end();
+                                 dit++) {
+                                if (dit->at("id").get<Uuid>() ==
+                                    Uuid("41fd4135-7c36-4984-a05c-ef78e1a0f4c2")) {
+                                    spdlog::warn("Migrate User Presets To New Collections");
+                                    dit->at("children")[1]["children"].insert(
+                                        dit->at("children")[1]["children"].end(),
+                                        it->at("children")[1]["children"].begin(),
+                                        it->at("children")[1]["children"].end());
+                                    it       = destination.erase(it);
+                                    migrated = true;
+                                    break;
+                                }
+                            }
+
+                        } else if (
+                            it->at("id").get<Uuid>() ==
+                            Uuid("b85255fd-ad54-4829-bae1-4eac422fc5b5")) {
+                            // find new location and move remaining children
+                            // playlists -> playlists
+                            for (auto dit = destination.begin(); dit != destination.end();
+                                 dit++) {
+                                if (dit->at("id").get<Uuid>() ==
+                                    Uuid("e1ba359e-74b5-48b5-bba9-b3752d86b7d6")) {
+                                    spdlog::warn("Migrate User Presets To New Playlists");
+
+                                    dit->at("children")[1]["children"].insert(
+                                        dit->at("children")[1]["children"].end(),
+                                        it->at("children")[1]["children"].begin(),
+                                        it->at("children")[1]["children"].end());
+                                    it       = destination.erase(it);
+                                    migrated = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (not migrated) {
+                            spdlog::warn(
+                                "Migrate User System Group {}",
+                                it->at("name").get<std::string>());
+
+                            (*it)["name"] = "Migrated " + (*it)["name"].get<std::string>();
+
+                            // remove group system flag
+                            it->erase("update");
+                            if (auto sg = std::find(
+                                    (*it)["flags"].begin(),
+                                    (*it)["flags"].end(),
+                                    "System Group");
+                                sg != (*it)["flags"].end())
+                                (*it)["flags"].erase(sg);
+
+                            // migrate from recent, as it's gone..
+                            if (it->at("userdata") == "recent") {
+                                spdlog::warn(
+                                    "Migrate To Tree {}", it->at("name").get<std::string>());
+
+                                if (auto sg = std::find(
+                                        (*it)["flags"].begin(),
+                                        (*it)["flags"].end(),
+                                        "Ignore Tree Selection");
+                                    sg == (*it)["flags"].end())
+                                    (*it)["flags"].push_back("Ignore Tree Selection");
+                                if (auto sg = std::find(
+                                        (*it)["flags"].begin(),
+                                        (*it)["flags"].end(),
+                                        "Allow Project Query");
+                                    sg == (*it)["flags"].end())
+                                    (*it)["flags"].push_back("Allow Project Query");
+
+                                (*it)["userdata"] = "tree";
+                            }
+
+                            destination.push_back(*it);
+                            it = destination.erase(it);
+
+                            // it++;
+                        }
+                    }
+                } else {
+                    // migrate any recent to tree..
+                    if (it->at("userdata") == "recent") {
+                        spdlog::warn("Migrate To Tree {}", it->at("name").get<std::string>());
+                        if (auto sg = std::find(
+                                (*it)["flags"].begin(),
+                                (*it)["flags"].end(),
+                                "Ignore Tree Selection");
+                            sg == (*it)["flags"].end())
+                            (*it)["flags"].push_back("Ignore Tree Selection");
+                        if (auto sg = std::find(
+                                (*it)["flags"].begin(),
+                                (*it)["flags"].end(),
+                                "Allow Project Query");
+                            sg == (*it)["flags"].end())
+                            (*it)["flags"].push_back("Allow Project Query");
+
+                        (*it)["userdata"] = "tree";
+                    }
+
+                    it++;
+                }
+            } else {
+                spdlog::warn("{} Invalid group {}", __PRETTY_FUNCTION__, it->dump(2));
+                it++;
+            }
+        }
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
 }
 
 void QueryEngine::merge_group(nlohmann::json &destination, const nlohmann::json &source) {
@@ -338,13 +541,23 @@ void QueryEngine::merge_group(nlohmann::json &destination, const nlohmann::json 
 
                 // update group name / entity?
 
-                if (not i.value("update", false))
-                    i["flags"] = source.at("flags");
+                // if (not i.value("update", false))
+                i["flags"] = source.at("flags");
 
                 if (i.contains("update") and not i.at("update").is_null())
                     i["name"] = source.at("name");
 
+                // fix user preset becoming group preset
+                if (i.contains("update") and i.at("update").is_null())
+                    i["update"] = false;
+
+                if (i.at("children").at(0).contains("update") and
+                    i.at("children").at(0).at("update").is_null())
+                    i.at("children").at(0)["update"] = false;
+
                 // validate group overrides
+                // don't override globals yet
+
                 if (not i.at("children").at(0).value("update", false) and
                     preset_diff(i.at("children").at(0), source.at("children").at(0))) {
                     // spdlog::warn("overrides differ");
@@ -364,10 +577,14 @@ void QueryEngine::merge_group(nlohmann::json &destination, const nlohmann::json 
                             up.value("id", Uuid()) == preset_id) {
                             preset_exists = true;
 
+                            if (up.contains("update") and up.at("update").is_null())
+                                up["update"] = false;
+
                             // validate group preset
                             if (not up.value("update", false) and preset_diff(up, gp)) {
                                 // replace content.. as update flag not set by user change.
                                 up["name"]     = gp.at("name");
+                                up["update"]   = false;
                                 up["children"] = gp.at("children");
                             }
                         }
@@ -380,35 +597,35 @@ void QueryEngine::merge_group(nlohmann::json &destination, const nlohmann::json 
                 // do a reverse validation.
                 // if the user has a system preset that hasn't been modified and doesn't exist
                 // in this list.. but this will then break project presets..
-                auto tmp = R"([])"_json;
+                // auto tmp = R"([])"_json;
 
-                for (const auto &up : i["children"][1]["children"]) {
-                    // spdlog::warn("checking {}", up.at("name").get<std::string>());
-                    if (up.contains("update") and not up.at("update").is_null() and
-                        up.at("update") == false) {
-                        // is system preset, check it's in source.
-                        if (found_system_presets.count(up.value("id", Uuid())))
-                            tmp.push_back(up);
-                        else
-                            spdlog::debug(
-                                "Removing retired system preset {}",
-                                up.at("name").get<std::string>());
-                    } else {
-                        // orpahaned system presets should change to user presets.
-                        if (up.contains("update") and not up.at("update").is_null() and
-                            up.at("update") == true and
-                            not found_system_presets.count(up.value("id", Uuid()))) {
+                // for (const auto &up : i["children"][1]["children"]) {
+                //     // spdlog::warn("checking {}", up.at("name").get<std::string>());
+                //     if (up.contains("update") and not up.at("update").is_null() and
+                //         up.at("update") == false) {
+                //         // is system preset, check it's in source.
+                //         if (found_system_presets.count(up.value("id", Uuid())))
+                //             tmp.push_back(up);
+                //         else
+                //             spdlog::debug(
+                //                 "Removing retired system preset {}",
+                //                 up.at("name").get<std::string>());
+                //     } else {
+                //         // orpahaned system presets should change to user presets.
+                //         if (up.contains("update") and not up.at("update").is_null() and
+                //             up.at("update") == true and
+                //             not found_system_presets.count(up.value("id", Uuid()))) {
 
-                            auto tup      = up;
-                            tup["update"] = nullptr;
-                            tmp.push_back(tup);
-                        } else
-                            tmp.push_back(up);
-                    }
-                }
+                //             auto tup      = up;
+                //             tup["update"] = nullptr;
+                //             tmp.push_back(tup);
+                //         } else
+                //             tmp.push_back(up);
+                //     }
+                // }
 
 
-                i["children"][1]["children"] = tmp;
+                // i["children"][1]["children"] = tmp;
             }
         }
 
@@ -863,6 +1080,14 @@ utility::JsonStore QueryEngine::preprocess_terms(
                 } else {
                     // add normal term to map.
                     auto key = std::string(to_value(i, "negated", false) ? "Not " : "") + term;
+                    if (key == "Shot" or key == "Asset" or key == "Sequence" or
+                        key == "Episode")
+                        key = "ObjectType";
+                    else if (
+                        key == "Not Shot" or key == "Not Asset" or key == "Not Sequence" or
+                        key == "Not Episode")
+                        key = "Not ObjectType";
+
                     if (not dup_terms.count(key))
                         dup_terms[key] = std::vector<utility::JsonStore>();
 
@@ -1115,8 +1340,7 @@ void QueryEngine::add_playlist_term_to_filter(
                     .is(resolve_query_value(term, JsonStore(value), lookup).get<int>()));
     } else if (term == "Author") {
         qry->push_back(Number("created_by.HumanUser.id")
-                           .is(resolve_query_value(term, JsonStore(value), project_id, lookup)
-                                   .get<int>()));
+                           .is(resolve_query_value(term, JsonStore(value), lookup).get<int>()));
     } else if (term == "Id") {
         if (negated)
             qry->push_back(Number("id").is_not(std::stoi(value)));
@@ -1184,8 +1408,7 @@ void QueryEngine::add_version_term_to_filter(
         qry->push_back(RelationType("playlists").in({JsonStore(tmp)}));
     } else if (term == "Author") {
         qry->push_back(Number("created_by.HumanUser.id")
-                           .is(resolve_query_value(term, JsonStore(value), project_id, lookup)
-                                   .get<int>()));
+                           .is(resolve_query_value(term, JsonStore(value), lookup).get<int>()));
     } else if (term == "Older Version") {
         qry->push_back(Number("sg_dneg_version").less_than(std::stoi(value)));
     } else if (term == "Newer Version") {
@@ -1495,8 +1718,7 @@ void QueryEngine::add_note_term_to_filter(
             qry->push_back(Text("sg_note_type").is(value));
     } else if (term == "Author") {
         qry->push_back(Number("created_by.HumanUser.id")
-                           .is(resolve_query_value(term, JsonStore(value), project_id, lookup)
-                                   .get<int>()));
+                           .is(resolve_query_value(term, JsonStore(value), lookup).get<int>()));
     } else if (term == "Id") {
         if (negated)
             qry->push_back(Number("id").is_not(std::stoi(value)));
@@ -1504,7 +1726,7 @@ void QueryEngine::add_note_term_to_filter(
             qry->push_back(Number("id").is(std::stoi(value)));
     } else if (term == "Recipient") {
         auto tmp  = R"({"type": "HumanUser", "id":0})"_json;
-        tmp["id"] = resolve_query_value(term, JsonStore(value), project_id, lookup).get<int>();
+        tmp["id"] = resolve_query_value(term, JsonStore(value), lookup).get<int>();
         qry->push_back(RelationType("addressings_to").in({JsonStore(tmp)}));
     } else if (term == "Entity") {
         auto args = split(value, '-');

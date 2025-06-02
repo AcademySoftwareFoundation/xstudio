@@ -363,15 +363,28 @@ void OCIOEngine::extend_pixel_info(
 
     auto raw_info = pixel_info.raw_channels_info();
 
-    if (compute_hash(frame_id.params()) != last_pixel_probe_source_hash_) {
+    const auto hash = compute_hash(
+        frame_id.params(), display + view + (auto_adjust_source ? "auto_adjust" : ""));
+
+    if (hash != last_pixel_probe_source_hash_) {
+
+        auto colour_mgmt_params = frame_id.params();
+
+        // here we wipe the 'dynamic_cdl' entry - we don't want to use this
+        // mechanism here, it's only useful for making the GPU shader based
+        // colour management more efficient
+        auto p = colour_mgmt_params.find("dynamic_cdl");
+        if (p != colour_mgmt_params.end()) {
+            colour_mgmt_params.erase(p);
+        }
         DynamicCDLMap dynamic_cdls;
         auto display_proc =
-            make_display_processor(frame_id.params(), false, display, view, dynamic_cdls);
+            make_display_processor(colour_mgmt_params, false, display, view, dynamic_cdls);
         pixel_probe_to_display_proc_ = display_proc->getDefaultCPUProcessor();
         pixel_probe_to_lin_proc_ =
-            make_to_lin_processor(frame_id.params(), false, auto_adjust_source, view)
+            make_to_lin_processor(colour_mgmt_params, false, auto_adjust_source, view)
                 ->getDefaultCPUProcessor();
-        last_pixel_probe_source_hash_ = compute_hash(frame_id.params());
+        last_pixel_probe_source_hash_ = hash;
     }
 
     // Update Dynamic Properties on the CPUProcessor instance
@@ -413,7 +426,7 @@ void OCIOEngine::extend_pixel_info(
 
     {
         float RGB[3] = {
-            raw_info[0].pixel_value, raw_info[1].pixel_value, raw_info[2].pixel_value};
+            raw_info[0].channel_value, raw_info[1].channel_value, raw_info[2].channel_value};
 
         pixel_probe_to_lin_proc_->applyRGB(RGB);
 
@@ -430,9 +443,9 @@ void OCIOEngine::extend_pixel_info(
 
     {
         float RGB[3] = {
-            raw_info[0].pixel_value, raw_info[1].pixel_value, raw_info[2].pixel_value};
+            raw_info[0].channel_value, raw_info[1].channel_value, raw_info[2].channel_value};
 
-        pixel_probe_to_display_proc_->applyRGB(RGB);
+        pixel_probe_to_lin_proc_->applyRGB(RGB);
 
         // TODO: ColSci
         // Saturation is not managed by OCIO currently
@@ -444,12 +457,34 @@ void OCIOEngine::extend_pixel_info(
             RGB[2]           = LUMA + saturation * (RGB[2] - LUMA);
         }
 
+        pixel_probe_to_display_proc_->applyRGB(RGB);
+
         pixel_info.add_display_rgb_info("R", RGB[0]);
         pixel_info.add_display_rgb_info("G", RGB[1]);
         pixel_info.add_display_rgb_info("B", RGB[2]);
 
         pixel_info.set_display_colourspace_name(
             std::string("Display (") + view + std::string("|") + display + std::string(")"));
+
+        for (const auto &extra_pix : pixel_info.extra_pixel_raw_rgba_values()) {
+            // Transform from source colourspace to display, any 'extra' pixel
+            // rgb values stored in pixel_info
+            float RGB[3] = {extra_pix.x, extra_pix.y, extra_pix.z};
+            pixel_probe_to_lin_proc_->applyRGB(RGB);
+
+            // TODO: ColSci
+            // Saturation is not managed by OCIO currently
+            if (saturation != 1.0) {
+                const float W[3] = {0.2126f, 0.7152f, 0.0722f};
+                const float LUMA = RGB[0] * W[0] + RGB[1] * W[1] + RGB[2] * W[2];
+                RGB[0]           = LUMA + saturation * (RGB[0] - LUMA);
+                RGB[1]           = LUMA + saturation * (RGB[1] - LUMA);
+                RGB[2]           = LUMA + saturation * (RGB[2] - LUMA);
+            }
+
+            pixel_probe_to_display_proc_->applyRGB(RGB);
+            pixel_info.add_extra_pixel_display_rgba(Imath::V4f(RGB[0], RGB[1], RGB[2], 1.0f));
+        }
     }
 }
 
@@ -457,7 +492,7 @@ OCIO::ConstConfigRcPtr
 OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) const {
 
     const std::string config_name =
-        src_colour_mgmt_metadata.get_or("ocio_config", std::string(""));
+        src_colour_mgmt_metadata.get_or("ocio_config", default_config_);
     const std::string displays =
         src_colour_mgmt_metadata.get_or("active_displays", std::string(""));
     const std::string views  = src_colour_mgmt_metadata.get_or("active_views", std::string(""));
@@ -1254,9 +1289,13 @@ size_t OCIOEngine::compute_hash(
     return hash;
 }
 
-OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg) : caf::event_based_actor(cfg) {
+OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg)
+    : caf::event_based_actor(cfg), OCIOEngine() {
 
     behavior_.assign(
+        [=](global_ocio_controls_atom, const utility::JsonStore &settings) {
+            set_default_config(settings.value("default_config", ""));
+        },
         [=](colour_pipe_display_data_atom,
             const utility::JsonStore &media_metadata,
             const std::string &display,
@@ -1264,8 +1303,7 @@ OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg) : caf::event_based_acto
             const bool bypass) -> result<ColourOperationDataPtr> {
             // This message is sent from main OCIOColourPipeline
             try {
-                return m_engine_.linear_to_display_op_data(
-                    media_metadata, display, view, bypass);
+                return linear_to_display_op_data(media_metadata, display, view, bypass);
             } catch (std::exception &e) {
                 return caf::make_error(xstudio_error::error, e.what());
             }
@@ -1277,8 +1315,7 @@ OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg) : caf::event_based_acto
             const std::string &view) -> result<ColourOperationDataPtr> {
             // This message is sent from main OCIOColourPipeline
             try {
-                return m_engine_.linearise_op_data(
-                    media_metadata, bypass, auto_adjust_source_cs, view);
+                return linearise_op_data(media_metadata, bypass, auto_adjust_source_cs, view);
             } catch (std::exception &e) {
                 return caf::make_error(xstudio_error::error, e.what());
             }
@@ -1290,7 +1327,7 @@ OCIOEngineActor::OCIOEngineActor(caf::actor_config &cfg) : caf::event_based_acto
             const std::string &view) -> result<thumbnail::ThumbnailBufferPtr> {
             // This message is sent from main OCIOColourPipeline
             try {
-                return m_engine_.process_thumbnail(media_metadata, buf, display, view);
+                return process_thumbnail(media_metadata, buf, display, view);
             } catch (std::exception &e) {
                 return caf::make_error(xstudio_error::error, e.what());
             }

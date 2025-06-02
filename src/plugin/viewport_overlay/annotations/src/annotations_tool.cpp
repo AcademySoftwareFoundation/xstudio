@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <filesystem>
+#include <caf/actor_registry.hpp>
 
 #include "xstudio/plugin_manager/plugin_base.hpp"
 #include "xstudio/media_reader/image_buffer_set.hpp"
@@ -22,7 +23,6 @@ using namespace xstudio::ui::viewport;
 namespace fs = std::filesystem;
 
 namespace {
-
 
 bool find_annotation_by_uuid(
     const std::vector<AnnotationPtr> &annotations, const utility::Uuid &uuid) {
@@ -103,9 +103,9 @@ AnnotationsTool::AnnotationsTool(
     // file(s) and also, if the attribute is changed, the new value will be
     // written out to preference files.
 
-
-    active_tool_ = add_string_choice_attribute(
-        "Active Tool", "Active Tool", "None", utility::map_value_to_vec(tool_names_));
+    auto v = utility::map_value_to_vec(tool_names_);
+    v.pop_back(); // remove 'None' from the list of tools to show in the UI
+    active_tool_ = add_string_choice_attribute("Active Tool", "Active Tool", "None", v);
     active_tool_->expose_in_ui_attrs_group("annotations_tool_settings");
     active_tool_->expose_in_ui_attrs_group("annotations_tool_types");
 
@@ -116,6 +116,23 @@ AnnotationsTool::AnnotationsTool(
         "Display Mode", "Disp. Mode", "With Drawing Tools", {"Only When Paused", "Always"});
     display_mode_attribute_->expose_in_ui_attrs_group("annotations_tool_draw_mode");
     display_mode_attribute_->set_preference_path("/plugin/annotations/display_mode");
+
+    colour_picker_take_average_ =
+        add_boolean_attribute("Colour Pick Average", "Clr. Average", false);
+    colour_picker_take_show_magnifier_ =
+        add_boolean_attribute("Colour Pick Show Magnifier", "Show Mag", true);
+    colour_picker_hide_drawings_ =
+        add_boolean_attribute("Colour Pick Hide Drawings", "Hide Drawings", true);
+    colour_picker_take_average_->set_preference_path("/plugin/annotations/colour_pick_average");
+    colour_picker_take_show_magnifier_->set_preference_path(
+        "/plugin/annotations/colour_pick_show_mag");
+    colour_picker_hide_drawings_->set_preference_path(
+        "/plugin/annotations/colour_pick_hide_drawings");
+
+    colour_picker_take_average_->expose_in_ui_attrs_group("annotations_colour_picker_prefs");
+    colour_picker_take_show_magnifier_->expose_in_ui_attrs_group(
+        "annotations_colour_picker_prefs");
+    colour_picker_hide_drawings_->expose_in_ui_attrs_group("annotations_colour_picker_prefs");
 
     // this attr is used to implement the blinking cursor for caption edit mode
     text_cursor_blink_attr_ =
@@ -136,29 +153,6 @@ AnnotationsTool::AnnotationsTool(
     // here's the code for the 'reskin' UI (xSTUDIO v2) where we declare the
     // drawing tools panel creation code.
 
-    register_ui_panel_qml(
-        "Drawing Tools",
-        R"(
-            import AnnotationsTool 2.0
-            
-            import QtQuick
-            Rectangle {
-                anchors.fill: parent
-                XsDrawingTools {
-                    anchors.top: parent.top
-                    anchors.topMargin: 20
-                    anchors.bottom: parent.bottom
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 140
-                }
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: "#5C5C5C" }
-                    GradientStop { position: 1.0; color: "#474747" }
-                }
-            }
-        )",
-        7.0f);
-
     dockable_widget_attr_ = register_viewport_dockable_widget(
         "Annotate",
         "qrc:/icons/stylus_note.svg",   // icon for the button to activate the tool
@@ -169,7 +163,8 @@ AnnotationsTool::AnnotationsTool(
         R"(
             import AnnotationsTool 2.0
             import QtQuick
-            XsDrawingToolsLR {
+            XsDrawingTools {
+                horizontal: false
             }
             )",
         // qml code to create the top/bottom dockable widget (left empty here as we don't have
@@ -177,13 +172,14 @@ AnnotationsTool::AnnotationsTool(
         R"(
             import AnnotationsTool 2.0
             import QtQuick
-            XsDrawingToolsTB {
+            XsDrawingTools {
+                horizontal: true
             }
             )",
         toggle_active_hotkey_);
 }
 
-AnnotationsTool::~AnnotationsTool() {}
+AnnotationsTool::~AnnotationsTool() { colour_pipelines_.clear(); }
 
 caf::message_handler AnnotationsTool::message_handler_extensions() {
 
@@ -213,31 +209,57 @@ caf::message_handler AnnotationsTool::message_handler_extensions() {
 
 void AnnotationsTool::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
 
-    const std::string active_tool = active_tool_->value();
 
     if (attribute_uuid == active_tool_->uuid()) {
 
-        if (active_tool == "None") {
+        const std::string active_tool = active_tool_->value();
+        current_tool_                 = None;
+        for (const auto &p : tool_names_) {
+            if (p.second == active_tool) {
+                current_tool_ = Tool(p.first);
+            }
+        }
+
+        if (current_tool() != Dropper)
+            pixel_patch_.hide();
+
+        if (current_tool() == None) {
 
             release_mouse_focus();
             release_keyboard_focus();
             end_drawing();
             clear_caption_handle();
             set_viewport_cursor("");
+            pixel_patch_.hide();
 
         } else {
 
             grab_mouse_focus();
-            if (active_tool != "Text") {
+            if (current_tool() == Dropper) {
+
+                set_viewport_cursor("://cursors/point_scan.svg", 24, -1, -1);
+                end_drawing();
+                release_keyboard_focus();
+                clear_caption_handle();
+
+                pixel_patch_.update(
+                    std::vector<Imath::V4f>(),
+                    Imath::V2f(0.0f, 0.0f),
+                    false,
+                    colour_picker_hide_drawings_->value());
+
+            } else if (current_tool() != Text) {
                 set_viewport_cursor("Qt.CrossCursor");
                 end_drawing();
                 release_keyboard_focus();
                 clear_caption_handle();
+                pixel_patch_.hide();
             } else {
                 set_viewport_cursor("Qt.IBeamCursor");
+                pixel_patch_.hide();
             }
 
-            if (active_tool == "Laser") {
+            if (current_tool() == Laser) {
 
                 // switching INTO laser draw mode ... save any annotation to the
                 // bookmark if required
@@ -245,11 +267,13 @@ void AnnotationsTool::attribute_changed(const utility::Uuid &attribute_uuid, con
                 interaction_canvas_.clear(true);
                 clear_caption_handle();
                 current_bookmark_uuid_ = utility::Uuid();
-            } else if (last_tool_ == "Laser") {
+            } else if (last_tool_ == Laser) {
                 interaction_canvas_.clear(true);
             }
 
-            last_tool_ = active_tool;
+            if (current_tool() != Dropper) {
+                last_tool_ = current_tool();
+            }
         }
 
     } else if (
@@ -327,6 +351,12 @@ void AnnotationsTool::attribute_changed(const utility::Uuid &attribute_uuid, con
             interaction_canvas_.update_caption_background_opacity(
                 text_bgr_opacity_->value() / 100.0f);
         }
+    } else if (attribute_uuid == colour_picker_hide_drawings_->uuid()) {
+        pixel_patch_.update(
+            std::vector<Imath::V4f>(),
+            Imath::V2f(0.0f, 0.0f),
+            false,
+            colour_picker_hide_drawings_->value());
     }
 
 
@@ -377,45 +407,74 @@ void AnnotationsTool::register_hotkeys() {
         "also be removed.",
         false,
         "Drawing Tools");
+
+    colour_picker_hotkey_ = register_hotkey(
+        int('V'),
+        ui::NoModifier,
+        "Activate colour picker",
+        "While this hotkey his held down, the annotation tool switches to activate the colour "
+        "picker tool.",
+        false,
+        "Drawing Tools");
 }
 
 void AnnotationsTool::hotkey_pressed(
     const utility::Uuid &hotkey_uuid,
-    const std::string & /*context*/,
+    const std::string &context,
     const std::string & /*window*/) {
+
+
     if (hotkey_uuid == toggle_active_hotkey_) {
 
         // tool_is_active_->set_value(!tool_is_active_->value());
 
-    } else if (hotkey_uuid == undo_hotkey_ && active_tool_->value() != "None") {
+    } else if (hotkey_uuid == undo_hotkey_ && current_tool() != None) {
 
         undo();
         do_redraw();
 
-    } else if (hotkey_uuid == redo_hotkey_ && active_tool_->value() != "None") {
+    } else if (hotkey_uuid == redo_hotkey_ && current_tool() != None) {
 
         redo();
         do_redraw();
-    } else if (hotkey_uuid == clear_hotkey_ && active_tool_->value() != "None") {
+
+    } else if (hotkey_uuid == clear_hotkey_ && current_tool() != None) {
 
         clear_onscreen_annotations();
+
+    } else if (
+        hotkey_uuid == colour_picker_hotkey_ && current_tool() != None &&
+        current_tool() != Dropper) {
+
+        last_tool_ = current_tool();
+        active_tool_->set_value(tool_name(Dropper));
     }
 }
 
 void AnnotationsTool::hotkey_released(
-    const utility::Uuid &hotkey_uuid, const std::string & /*context*/) {}
+    const utility::Uuid &hotkey_uuid,
+    const std::string &context,
+    const bool due_to_focus_change) {
+
+    // if the user is holding down the colour_picker_hotkey_ and they move the mouse out of the
+    // viewport area, we get a hotkey_released callback but due_to_focus_change will be true.
+    if (hotkey_uuid == colour_picker_hotkey_ && current_tool() == Dropper &&
+        !due_to_focus_change) {
+
+        active_tool_->set_value(tool_name(last_tool_));
+    }
+}
 
 bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
 
-    if (active_tool_->value() == "None")
+    if (current_tool() == None)
         return false;
 
     bool redraw = true;
 
     const Imath::V2f pointer_pos = e.position_in_viewport_coord_sys();
 
-    if (active_tool_->value() == "Draw" || active_tool_->value() == "Erase" ||
-        is_laser_mode()) {
+    if (current_tool() == Draw || current_tool() == Erase || is_laser_mode()) {
         if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_editing(e.context(), pointer_pos);
@@ -427,8 +486,8 @@ bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
             end_drawing();
         }
     } else if (
-        active_tool_->value() == "Square" || active_tool_->value() == "Circle" ||
-        active_tool_->value() == "Arrow" || active_tool_->value() == "Line") {
+        current_tool() == Square || current_tool() == Circle || current_tool() == Arrow ||
+        current_tool() == Line) {
         if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_editing(e.context(), pointer_pos);
@@ -439,7 +498,7 @@ bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
         } else if (e.type() == ui::EventType::ButtonRelease) {
             end_drawing();
         }
-    } else if (active_tool_->value() == "Text") {
+    } else if (current_tool() == Text) {
         if (e.type() == ui::EventType::ButtonDown &&
             e.buttons() == ui::Signature::Button::Left) {
             start_editing(e.context(), pointer_pos);
@@ -455,6 +514,14 @@ bool AnnotationsTool::pointer_event(const ui::PointerEvent &e) {
             redraw = update_caption_hovered(
                 image_transformed_ptr_pos(pointer_pos), e.viewport_pixel_scale());
         }
+    } else if (current_tool() == Dropper) {
+
+        if (e.type() == ui::EventType::ButtonDown &&
+            e.buttons() == ui::Signature::Button::Left) {
+            cumulative_picked_colour_ = Imath::V4f(0.0f, 0.0f, 0.0f, 0.0f);
+        }
+        update_colour_picker_info(e);
+
     } else {
         redraw = false;
     }
@@ -476,7 +543,7 @@ Imath::V2f AnnotationsTool::image_transformed_ptr_pos(const Imath::V2f &p) const
 
 void AnnotationsTool::text_entered(const std::string &text, const std::string &context) {
 
-    if (active_tool_->value() == "Text") {
+    if (current_tool() == Text) {
         interaction_canvas_.update_caption_text(text);
         update_caption_handle();
         do_redraw();
@@ -486,7 +553,7 @@ void AnnotationsTool::text_entered(const std::string &text, const std::string &c
 void AnnotationsTool::key_pressed(
     const int key, const std::string &context, const bool auto_repeat) {
 
-    if (active_tool_->value() == "Text") {
+    if (current_tool() == Text) {
         if (key == 16777216) { // escape key
             end_drawing();
             release_keyboard_focus();
@@ -498,11 +565,10 @@ void AnnotationsTool::key_pressed(
 }
 
 utility::BlindDataObjectPtr AnnotationsTool::onscreen_render_data(
-    const media_reader::ImageBufPtr &image, 
+    const media_reader::ImageBufPtr &image,
     const std::string & /*viewport_name*/,
-    const utility::Uuid &/*playhead_uuid*/,
-    const bool is_hero_image) const 
-{
+    const utility::Uuid & /*playhead_uuid*/,
+    const bool is_hero_image) const {
 
     bool show_annotations =
         (display_mode_ == Always) || (display_mode_ == OnlyWhenPaused && !playhead_is_playing_);
@@ -512,10 +578,8 @@ utility::BlindDataObjectPtr AnnotationsTool::onscreen_render_data(
         handle_state_,
         current_bookmark_uuid_,
         image.frame_id().key(),
-        is_laser_mode()
-        );
+        is_laser_mode());
     return utility::BlindDataObjectPtr(data);
-
 }
 
 void AnnotationsTool::images_going_on_screen(
@@ -575,14 +639,13 @@ void AnnotationsTool::images_going_on_screen(
             // interaction canvas data
         }
     }
-
 }
 
 plugin::ViewportOverlayRendererPtr
 AnnotationsTool::make_overlay_renderer(const std::string &viewport_name) {
 
-    return plugin::ViewportOverlayRendererPtr(new AnnotationsRenderer(interaction_canvas_));
-
+    return plugin::ViewportOverlayRendererPtr(
+        new AnnotationsRenderer(interaction_canvas_, pixel_patch_, viewport_name));
 }
 
 AnnotationBasePtr AnnotationsTool::build_annotation(const utility::JsonStore &anno_data) {
@@ -590,12 +653,12 @@ AnnotationBasePtr AnnotationsTool::build_annotation(const utility::JsonStore &an
         static_cast<bookmark::AnnotationBase *>(new Annotation(anno_data)));
 }
 
-bool AnnotationsTool::is_laser_mode() const { return active_tool_->value() == "Laser"; }
+bool AnnotationsTool::is_laser_mode() const { return current_tool() == Laser; }
 
 void AnnotationsTool::viewport_dockable_widget_activated(std::string &widget_name) {
 
     if (widget_name == "Annotate") {
-        active_tool_->set_value(last_tool_);
+        active_tool_->set_value(tool_name(last_tool_));
     }
 }
 
@@ -608,24 +671,22 @@ void AnnotationsTool::viewport_dockable_widget_deactivated(std::string &widget_n
 
 void AnnotationsTool::turn_off_overlay_interaction() { active_tool_->set_value("None"); }
 
-void AnnotationsTool::start_editing(
-    const std::string &viewport_name, const Imath::V2f &pointer_position) {
+media_reader::ImageBufPtr AnnotationsTool::image_under_pointer(
+    const std::string &viewport_name,
+    const Imath::V2f &pointer_position,
+    Imath::V2i *pixel_position) {
 
-    // ensure playback is stopped
-    start_stop_playback(viewport_name, false);
-
-    // if the viewport is in grid mode, with multiple images laid out, which one
-    // was clicked in ?
-    auto current_edited_bookmark_id = current_bookmark_uuid_;
-    auto before                     = image_being_annotated_;
-    media_reader::ImageBufPtr new_image_to_annotate;
+    media_reader::ImageBufPtr result;
     auto p = viewport_current_images_.find(viewport_name);
     if (p != viewport_current_images_.end() && p->second) {
 
+        bool curr_im_is_onscreen = false;
+
         // first, check if pointer_position lands on one of the images in
         // the viewport
-        bool curr_im_is_onscreen                                      = false;
         const media_reader::ImageBufDisplaySetPtr &onscreen_image_set = p->second;
+        if (!onscreen_image_set->layout_data())
+            return result;
         const auto &im_idx = onscreen_image_set->layout_data()->image_draw_order_hint_;
         for (auto &idx : im_idx) {
             // loop over onscreen images. translate pointer position to image
@@ -641,8 +702,9 @@ void AnnotationsTool::start_editing(
                 float a = 1.0f / image_aspect(cim);
                 if (pt.x / pt.w >= -1.0f && pt.x / pt.w <= 1.0f && pt.y / pt.w >= -a &&
                     pt.y / pt.w <= a) {
-                    new_image_to_annotate = cim;
+                    result = cim;
                 }
+
                 // check if image_being_annotated_ (from last time we entered this
                 // method) is in the onscreen set
                 if (image_being_annotated_ == cim)
@@ -650,18 +712,38 @@ void AnnotationsTool::start_editing(
             }
         }
 
-        if (new_image_to_annotate) {
-            image_being_annotated_ = new_image_to_annotate;
-        } else if (!curr_im_is_onscreen) {
-            image_being_annotated_ = onscreen_image_set->hero_image();
-        } else {
-            // image_being_annotated_ is unchanged, as it belongs in the
-            // onscreen iamge set but we just haven't clicked inside any
-            // other images
+        if (!result && curr_im_is_onscreen) {
+            result = onscreen_image_set->hero_image();
+        } else if (!result) {
+            result = image_being_annotated_;
         }
-    } else {
-        image_being_annotated_ = media_reader::ImageBufPtr();
+
+        if (result && pixel_position) {
+            Imath::V4f pt(pointer_position.x, pointer_position.y, 0.0f, 1.0f);
+            pt *= result.layout_transform().inverse();
+            // pix pos in normalised coords (-1.0 = left edge, 1.0 = right edge)
+            Imath::V2f pix_pos(pt.x / pt.w, pt.y / pt.w);
+            pixel_position->x = (pix_pos.x + 1.0f) * 0.5f * result->image_size_in_pixels().x;
+            pixel_position->y = (pix_pos.y * image_aspect(result) + 1.0f) *
+                                float(result->image_size_in_pixels().y) * 0.5f;
+        }
     }
+
+    return result;
+}
+
+
+void AnnotationsTool::start_editing(
+    const std::string &viewport_name, const Imath::V2f &pointer_position) {
+
+    // ensure playback is stopped
+    start_stop_playback(viewport_name, false);
+
+    // if the viewport is in grid mode, with multiple images laid out, which one
+    // was clicked in ?
+    auto current_edited_bookmark_id = current_bookmark_uuid_;
+    auto before                     = image_being_annotated_;
+    image_being_annotated_          = image_under_pointer(viewport_name, pointer_position);
 
     if (image_being_annotated_ != before) {
         // image has changed since last time we modified an annotation ... we
@@ -734,7 +816,7 @@ void AnnotationsTool::start_editing(
             }
         }
 
-        if (active_tool_->value() != "Text")
+        if (current_tool() != Text)
             clear_caption_handle();
 
         // clone the whole annotation into our 'interaction_canvas_'
@@ -752,7 +834,7 @@ void AnnotationsTool::start_editing(
 
 void AnnotationsTool::start_stroke(const Imath::V2f &point) {
 
-    if (active_tool_->value() == "Erase") {
+    if (current_tool() == Erase) {
         interaction_canvas_.start_erase_stroke(
             erase_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE);
     } else {
@@ -775,28 +857,28 @@ void AnnotationsTool::start_shape(const Imath::V2f &p) {
 
     shape_anchor_ = p;
 
-    if (active_tool_->value() == "Square") {
+    if (current_tool() == Square) {
 
         interaction_canvas_.start_square(
             pen_colour_->value(),
             shapes_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_opacity_->value() / 100.0f);
 
-    } else if (active_tool_->value() == "Circle") {
+    } else if (current_tool() == Circle) {
 
         interaction_canvas_.start_circle(
             pen_colour_->value(),
             shapes_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_opacity_->value() / 100.0f);
 
-    } else if (active_tool_->value() == "Arrow") {
+    } else if (current_tool() == Arrow) {
 
         interaction_canvas_.start_arrow(
             pen_colour_->value(),
             shapes_pen_size_->value() / PEN_STROKE_THICKNESS_SCALE,
             pen_opacity_->value() / 100.0f);
 
-    } else if (active_tool_->value() == "Line") {
+    } else if (current_tool() == Line) {
 
         interaction_canvas_.start_line(
             pen_colour_->value(),
@@ -809,20 +891,20 @@ void AnnotationsTool::start_shape(const Imath::V2f &p) {
 
 void AnnotationsTool::update_shape(const Imath::V2f &pointer_pos) {
 
-    if (active_tool_->value() == "Square") {
+    if (current_tool() == Square) {
 
         interaction_canvas_.update_square(shape_anchor_, pointer_pos);
 
-    } else if (active_tool_->value() == "Circle") {
+    } else if (current_tool() == Circle) {
 
         interaction_canvas_.update_circle(
             shape_anchor_, (shape_anchor_ - pointer_pos).length());
 
-    } else if (active_tool_->value() == "Arrow") {
+    } else if (current_tool() == Arrow) {
 
         interaction_canvas_.update_arrow(shape_anchor_, pointer_pos);
 
-    } else if (active_tool_->value() == "Line") {
+    } else if (current_tool() == Line) {
 
         interaction_canvas_.update_line(shape_anchor_, pointer_pos);
     }
@@ -1053,6 +1135,183 @@ void AnnotationsTool::clear_edited_annotation() {
 }
 
 void AnnotationsTool::do_redraw() { redraw_viewport(); }
+
+void AnnotationsTool::update_colour_picker_info(const ui::PointerEvent &e) {
+
+    Imath::V2i pixel_position;
+    media_reader::ImageBufPtr image =
+        image_under_pointer(e.context(), e.position_in_viewport_coord_sys(), &pixel_position);
+
+    // interleaved vtx colour and position goes in here to draw our
+    // patch of pixels
+    std::vector<Imath::V4f> overlay_vertex_data;
+
+    if (!image) {
+
+        pixel_patch_.update(
+            overlay_vertex_data,
+            e.position_in_viewport_coord_sys(),
+            e.buttons() == ui::Signature::Button::Left,
+            colour_picker_hide_drawings_->value(),
+            e.context());
+
+        if (e.buttons() == ui::Signature::Button::Left) {
+            pen_colour_->set_value(utility::ColourTriplet(0.0f, 0.0f, 0.0f));
+        }
+        return;
+    }
+
+    auto colour_pipeline = get_colour_pipeline_actor(e.context());
+    if (!colour_pipeline)
+        return;
+
+    // half width of the patch of pixels that we'll sample. If show magnifier
+    // option is OFF then the patch is a single pixel
+    const int patch_w = colour_picker_take_show_magnifier_->value() ? 3 : 0;
+
+    // Here we make a list of pixel coordinates that we're interested in.
+    // We will grab a 7x7 patch.
+    std::vector<Imath::V2i> pixels;
+    for (int i = -patch_w; i <= patch_w; ++i) {
+        for (int j = -patch_w; j <= patch_w; ++j) {
+            pixels.emplace_back(pixel_position.x + j, pixel_position.y - i);
+        }
+    }
+
+    // The image buffer will create a PixelInfo struct with the raw RBG values
+    // for our patch here
+    auto pixel_info = image->pixel_info(pixel_position, pixels);
+
+    // Triangle verts needed to draw a square
+    static const std::vector<Imath::V4f> tri_vtxs = {
+        Imath::V4f(0.0f, 0.0f, 0.0f, 1.0f),
+        Imath::V4f(1.0f, 0.0f, 0.0f, 1.0f),
+        Imath::V4f(0.0f, 1.0f, 0.0f, 1.0f),
+        Imath::V4f(0.0f, 1.0f, 0.0f, 1.0f),
+        Imath::V4f(1.0f, 1.0f, 0.0f, 1.0f),
+        Imath::V4f(1.0f, 0.0f, 0.0f, 1.0f)};
+
+    // Line vertex colour and position needed to draw a square outline. Used
+    // to highlight the centre pixel in our patch (which is the colour we
+    // will grab) in our overlay
+    static const std::vector<Imath::V4f> centre_square = {
+        Imath::V4f(-0.5f, -0.5f, 0.0f, 1.0f),
+        Imath::V4f(0.5f, -0.5f, 0.0f, 1.0f),
+        Imath::V4f(0.5f, 0.5f, 0.0f, 1.0f),
+        Imath::V4f(-0.5f, 0.5f, 0.0f, 1.0f)};
+
+    caf::scoped_actor sys(system());
+    try {
+
+        // the colour pipeline will convert the raw RGB values to display
+        // (final screen) pixel values
+        const auto pix_info = utility::request_receive<media_reader::PixelInfo>(
+            *sys,
+            colour_pipeline,
+            colour_pipeline::pixel_info_atom_v,
+            pixel_info,
+            image.frame_id());
+
+        const int num_pixels = pix_info.extra_pixel_display_rgba_values().size();
+        int nc               = int(round(sqrt(num_pixels)));
+
+        // Get to the middle pixel in the patch to get the display space
+        // pixel colour to sample
+        const int middle_pixel = patch_w + patch_w * (patch_w + patch_w + 1);
+        Imath::V4f picked_pixel_colour(0.0f, 0.0f, 0.0f, 0.0f);
+        if (middle_pixel < pix_info.extra_pixel_display_rgba_values().size()) {
+            picked_pixel_colour = pix_info.extra_pixel_display_rgba_values()
+                                      [patch_w + patch_w * (patch_w + patch_w + 1)];
+        }
+
+        if (num_pixels > 1) {
+            overlay_vertex_data.reserve(num_pixels * 6 * 2);
+            for (int i = 0; i < num_pixels; ++i) {
+                const float col = (i % nc) - patch_w - 0.5f;
+                const float row = (i / nc) - patch_w - 0.5f;
+                for (int vv = 0; vv < 6; ++vv) {
+                    overlay_vertex_data.push_back(
+                        pix_info.extra_pixel_display_rgba_values()[i]);
+                    overlay_vertex_data.push_back(
+                        tri_vtxs[vv] + Imath::V4f(col, row, 0.0f, 0.0f));
+                }
+            }
+
+            float h = (picked_pixel_colour.x * 0.29f + picked_pixel_colour.y * 0.6f +
+                       picked_pixel_colour.z * 0.11f) < 0.5f
+                          ? 1.0f
+                          : 0.0f;
+            Imath::V4f highlight_colour(h, h, h, 1.0f);
+            for (auto &csv : centre_square) {
+                overlay_vertex_data.push_back(highlight_colour);
+                overlay_vertex_data.push_back(csv);
+            }
+        }
+
+        // thread safe call to update the data in our PixelPatch object used
+        // by the on-screen renderer.
+        pixel_patch_.update(
+            overlay_vertex_data,
+            e.position_in_viewport_coord_sys(),
+            e.buttons() == ui::Signature::Button::Left,
+            colour_picker_hide_drawings_->value(),
+            e.context());
+
+        if (e.buttons() == ui::Signature::Button::Left) {
+
+            if (colour_picker_take_average_->value()) {
+
+                cumulative_picked_colour_.x +=
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.x));
+                cumulative_picked_colour_.y +=
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.y));
+                cumulative_picked_colour_.z +=
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.z));
+                cumulative_picked_colour_.w += 1.0f;
+
+                pen_colour_->set_value(utility::ColourTriplet(
+                    cumulative_picked_colour_.x / cumulative_picked_colour_.w,
+                    cumulative_picked_colour_.y / cumulative_picked_colour_.w,
+                    cumulative_picked_colour_.z / cumulative_picked_colour_.w));
+
+            } else {
+
+                pen_colour_->set_value(utility::ColourTriplet(
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.x)),
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.y)),
+                    std::max(0.0f, std::min(1.0f, picked_pixel_colour.z))));
+            }
+        }
+
+    } catch (std::exception &e) {
+
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+}
+
+caf::actor AnnotationsTool::get_colour_pipeline_actor(const std::string &viewport_name) {
+
+    // get the actor object that runs colour management for the given (named) viewport
+    if (colour_pipelines_.find(viewport_name) != colour_pipelines_.end()) {
+        return colour_pipelines_[viewport_name];
+    }
+    auto colour_pipe_manager = system().registry().get<caf::actor>(colour_pipeline_registry);
+    caf::scoped_actor sys(system());
+    caf::actor r;
+    try {
+        r = utility::request_receive<caf::actor>(
+            *sys,
+            colour_pipe_manager,
+            xstudio::colour_pipeline::colour_pipeline_atom_v,
+            viewport_name);
+
+    } catch (std::exception &e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+    colour_pipelines_[viewport_name] = r;
+    return r;
+}
+
 
 extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {

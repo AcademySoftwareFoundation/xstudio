@@ -739,6 +739,8 @@ QFuture<QUrl> ShotBrowserEngine::getSequencePathFuture(
     return QtConcurrent::run([=]() {
         auto result = QUrl();
 
+        auto failed = std::vector<std::string>();
+
         try {
             scoped_actor sys{system()};
 
@@ -757,14 +759,25 @@ QFuture<QUrl> ShotBrowserEngine::getSequencePathFuture(
             for (const auto &i : preferred) {
                 auto p_name = StdFromQString(i);
                 for (const auto &file : jsn.at("data").at("versions_by_id").at(0).at("files")) {
-                    if (file.at("name") == p_name and fs::exists(forward_remap_file_path(file.at("path")))) {
-                        result = QUrlFromUri(posix_path_to_uri(file.at("path")));
-                        break;
+                    if (file.at("name") == p_name) {
+                        if (fs::exists(forward_remap_file_path(file.at("path")))) {
+                            result = QUrlFromUri(posix_path_to_uri(file.at("path")));
+                            break;
+                        } else {
+                            failed.emplace_back(fmt::format(
+                                "File not found {} {}",
+                                p_name,
+                                forward_remap_file_path(file.at("path"))));
+                        }
                     }
                 }
                 if (result != QUrl()) {
                     break;
                 }
+            }
+
+            if (result == QUrl() and not failed.empty()) {
+                throw std::runtime_error(join_as_string(failed, ","));
             }
 
         } catch (const std::exception &err) {

@@ -430,7 +430,7 @@ namespace ui {
             module::BooleanAttribute *hud_toggle_;
             module::StringChoiceAttribute *hud_elements_;
             module::StringAttribute *frame_rate_expr_;
-            module::StringAttribute *custom_cursor_name_;
+            module::JsonAttribute *custom_cursor_name_;
             module::BooleanAttribute *sync_to_main_viewport_;
 
             utility::Uuid zoom_hotkey_;
@@ -450,8 +450,15 @@ namespace ui {
                 const std::string &context,
                 const std::string &window) override;
             void hotkey_released(
-                const utility::Uuid &hotkey_uuid, const std::string &context) override;
+                const utility::Uuid &hotkey_uuid,
+                const std::string &context,
+                const bool /*due_to_focus_change*/) override;
             void update_attrs_from_preferences(const utility::JsonStore &) override;
+            void custom_cursor(
+                const std::string &cursor_name = std::string(),
+                const int size                 = 24,
+                const int x_offset             = -1,
+                const int y_offset             = -1);
 
             struct ViewportLayout {
 

@@ -37,7 +37,7 @@ if (APPLE)
 	# Note - for Apple we install into the vcpkg installation structure at build time.
 	# Our install commands will copy the entire python3.X folder into the app bundle
 	# when making the re-locatable .app structure
-	if (${CMAKE__BUILD_TYPE} STREQUAL "Debug")
+	if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 		set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib/${PYTHONVP}/site-packages/xstudio/core")
 	else()
 		set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/${PYTHONVP}/site-packages/xstudio/core")

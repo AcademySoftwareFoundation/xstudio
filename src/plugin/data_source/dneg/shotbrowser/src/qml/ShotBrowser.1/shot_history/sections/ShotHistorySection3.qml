@@ -12,17 +12,34 @@ Rectangle{
         anchors.fill: parent
         spacing: itemSpacing
 
-        ShotHistoryTextRow{ id: stepDiv
+        RowLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            text: pipelineStepRole
-            textColor: palette.text
-            textDiv.width: width
+            Layout.maximumHeight: XsStyleSheet.widgetStdHeight
+            Layout.preferredHeight: XsStyleSheet.widgetStdHeight
+
+            spacing: itemSpacing
+
+            ShotHistoryTextRow{ id: stepDiv
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                text: pipelineStepRole
+                textColor: palette.text
+                textDiv.width: width
+            }
+            ShotHistoryTextRow{ id: statusDiv
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                text: pipelineStatusFullRole
+                textDiv.width: width
+            }
         }
-        ShotHistoryTextRow{ id: statusDiv
+
+        ShotHistoryTextRow{ id: prodDiv
             Layout.fillWidth: true
-            Layout.minimumHeight: XsStyleSheet.widgetStdHeight
-            text: pipelineStatusFullRole
+            Layout.preferredHeight: XsStyleSheet.widgetStdHeight
+            Layout.maximumHeight: XsStyleSheet.widgetStdHeight
+            text: productionStatusFullRole
+            textColor: palette.text
             textDiv.width: width
         }
 

@@ -77,7 +77,7 @@ XsListView {
     Connections {
         target: presetsExpandedModel
         function onSelectionChanged(selected, deselected) {
-            // console.log("presetsExpandedModel onSelectionChanged")
+            // console.log("presetsExpandedModel onSelectionChanged", selected, deselected)
             // update tree model with expand
             // map to from.. ack..
             for(let i = 0; i<selected.length;i++) {
@@ -149,6 +149,24 @@ XsListView {
                 presetMenu.presetModelIndex.parent
             )
         }
+
+        XsMenuModelItem {
+            text: "Reset Presets"
+            menuItemPosition: 3.5
+            menuPath: ""
+            menuModelName: presetMenu.menu_model_name
+            enabled: presetMenu.presetModelIndex ? ShotBrowserEngine.presetsModel.get(presetMenu.presetModelIndex, "updateRole") : false
+            onActivated: {
+                let indexs = []
+                for(let i=0;i<presetsSelectionModel.selectedIndexes.length; i++)
+                    indexs.push(helpers.makePersistent(presetsSelectionModel.selectedIndexes[i]))
+
+                ShotBrowserEngine.presetsModel.resetPresets(
+                    indexs
+                )
+            }
+        }
+
         XsMenuModelItem {
             text: "Remove Presets"
             menuItemPosition: 4
@@ -170,6 +188,7 @@ XsListView {
                 }
             }
         }
+
 
         XsMenuModelItem {
             menuItemPosition: 5
@@ -271,12 +290,69 @@ XsListView {
             helpers.setMenuPathPosition("Behaviour", groupMenu.menu_model_name, 5.1)
         }
 
+
+        function getSelectedGroupsLocal() {
+            let indexes = []
+            for(let i=0;i<presetsSelectionModel.selectedIndexes.length; i++)
+                if(ShotBrowserEngine.presetsModel.get(presetsSelectionModel.selectedIndexes[i], "typeRole") == "group")
+                    indexes.push(helpers.makePersistent(groupMenu.filterModelIndex.model.mapFromSource(presetsSelectionModel.selectedIndexes[i])))
+
+            return indexes
+        }
+
+        function getSelectedGroups() {
+            let indexes = []
+            for(let i=0;i<presetsSelectionModel.selectedIndexes.length; i++)
+                if(ShotBrowserEngine.presetsModel.get(presetsSelectionModel.selectedIndexes[i], "typeRole") == "group")
+                    indexes.push(helpers.makePersistent(presetsSelectionModel.selectedIndexes[i]))
+
+            return indexes
+        }
+
         XsMenuModelItem {
-            text: "Duplicate Group"
+            text: "Duplicate Groups"
             menuItemPosition: 1
             menuPath: ""
             menuModelName: groupMenu.menu_model_name
-            onActivated: groupMenu.presetModelIndex.model.duplicate(groupMenu.presetModelIndex)
+            onActivated: {
+                let indexs = groupMenu.getSelectedGroups()
+                indexs.sort((a, b) =>  a.row - b.row)
+                let oldy = control.contentY
+                for(let i=0; i < indexs.length; i++) {
+                    groupMenu.presetModelIndex.model.duplicate(indexs[i])
+                }
+                control.contentY = oldy
+            }
+        }
+
+        XsMenuModelItem {
+            text: "Export As System Preset Group..."
+            menuPath: ""
+            menuItemPosition: 1.5
+            menuModelName: groupMenu.menu_model_name
+            onActivated: dialogHelpers.showFileDialog(
+                    function(fileUrl, undefined, func) {
+                        if(fileUrl)
+                            Future.promise(
+                                ShotBrowserEngine.presetsModel.exportAsSystemPresetsFuture(
+                                    fileUrl,
+                                    groupMenu.presetModelIndex
+                                )
+                            ).then(function(string) {
+                                    dialogHelpers.errorDialogFunc("Export As System Presets", "Export As System Presets complete.\n\n" + string)
+                                },
+                                function(err) {
+                                    dialogHelpers.errorDialogFunc("Export As System Presets", "Export As System Presets failed.\n\n" + err)
+                                }
+                            )
+                    },
+                    file_functions.defaultSessionFolder(),
+                    "Export Presets",
+                    "json",
+                    ["JSON (*.json)"],
+                    false,
+                    false
+                )
         }
 
         XsMenuModelItem {
@@ -298,17 +374,42 @@ XsListView {
             )
         }
         XsMenuModelItem {
-            text: "Remove Group"
+            text: "Remove Groups"
             menuItemPosition: 4
             menuPath: ""
             menuModelName: groupMenu.menu_model_name
             onActivated: {
-                let m = groupMenu.presetModelIndex.model
-                let sys = m.get(groupMenu.presetModelIndex, "updateRole")
-                if(sys != undefined) {
-                    m.set(groupMenu.presetModelIndex, true, "hiddenRole")
-                } else {
-                    ShotBrowserEngine.presetsModel.removeRows(groupMenu.presetModelIndex.row, 1, groupMenu.presetModelIndex.parent)
+                let gindex = groupMenu.getSelectedGroups()
+                gindex.sort((a, b) =>  a.row - b.row)
+
+                for(let g=0; g < gindex.length; g++) {
+                    let sys = ShotBrowserEngine.presetsModel.get(gindex[g], "updateRole")
+                    if(sys != undefined) {
+                        ShotBrowserEngine.presetsModel.set(gindex[g], true, "hiddenRole")
+                    } else {
+                        ShotBrowserEngine.presetsModel.removeRows(gindex[g].row, 1, gindex[g].parent)
+                    }
+                }
+            }
+        }
+
+        XsMenuModelItem {
+            text: "Reset Presets"
+            menuItemPosition: 4.5
+            menuPath: ""
+            menuModelName: groupMenu.menu_model_name
+            onActivated: {
+                let gindex = groupMenu.getSelectedGroups()
+                for(let g=0; g < gindex.length; g++) {
+
+                    let indexs = []
+                    let ind = ShotBrowserEngine.presetsModel.index(1, 0, gindex[g])
+                    for(let i=0;i<ShotBrowserEngine.presetsModel.rowCount(ind); i++)
+                        indexs.push(helpers.makePersistent(ShotBrowserEngine.presetsModel.index(i,0,ind)))
+
+                    ShotBrowserEngine.presetsModel.resetPresets(
+                        indexs
+                    )
                 }
             }
         }
@@ -367,43 +468,48 @@ XsListView {
         }
 
         XsMenuModelItem {
-            text: "Move Up"
+            text: "Move Groups Up"
             menuItemPosition: 8
             menuPath: ""
             menuModelName: groupMenu.menu_model_name
             enabled: groupMenu.filterModelIndex && groupMenu.filterModelIndex.row
             onActivated: {
-
-                // argh this is horridly complex..
-                // because we use a view, the previous item in the base model isn't
-                // the previous in the view..
-                let p = groupMenu.presetModelIndex.parent
-                let rpi = groupMenu.filterModelIndex.model.mapToSource(
-                	groupMenu.filterModelIndex.model.index(groupMenu.filterModelIndex.row-1,0,groupMenu.filterModelIndex.parent)
-                )
-
+                let indexs = groupMenu.getSelectedGroupsLocal()
+                indexs.sort((a, b) =>  a.row - b.row)
                 let oldy = control.contentY
-                ShotBrowserEngine.presetsModel.moveRows(p, groupMenu.presetModelIndex.row, 1, p, rpi.row)
+
+                for(let i=0; i < indexs.length; i++) {
+                    let mi = indexs[i].model.mapToSource(indexs[i])
+                    let p = mi.parent
+                    let rpi = indexs[i].model.mapToSource(
+                        indexs[i].model.index(indexs[i].row-1, 0, indexs[i].parent)
+                    )
+                    ShotBrowserEngine.presetsModel.moveRows(p, mi.row, 1, p, rpi.row)
+                }
                 control.contentY = oldy
-
-
             }
         }
 
         XsMenuModelItem {
-            text: "Move Down"
+            text: "Move Groups Down"
             menuItemPosition: 9
             menuPath: ""
             menuModelName: groupMenu.menu_model_name
 
             enabled: groupMenu.filterModelIndex ? groupMenu.filterModelIndex.row != groupMenu.filterModelIndex.model.rowCount(groupMenu.filterModelIndex.parent) - 1 : false
             onActivated: {
-                let p = groupMenu.presetModelIndex.parent
-                let rpi = groupMenu.filterModelIndex.model.mapToSource(
-                	groupMenu.filterModelIndex.model.index(groupMenu.filterModelIndex.row+1,0,groupMenu.filterModelIndex.parent)
-                )
+                let indexs = groupMenu.getSelectedGroupsLocal()
+                indexs.sort((a, b) =>  b.row - a.row)
+
                 let oldy = control.contentY
-                ShotBrowserEngine.presetsModel.moveRows(p, groupMenu.presetModelIndex.row, 1, p, rpi.row+1)
+                for(let i=0; i < indexs.length; i++) {
+                    let mi = indexs[i].model.mapToSource(indexs[i])
+                    let p = mi.parent
+                    let rpi = indexs[i].model.mapToSource(
+                        indexs[i].model.index(indexs[i].row+1, 0, indexs[i].parent)
+                    )
+                    ShotBrowserEngine.presetsModel.moveRows(p, mi.row, 1, p, rpi.row+1)
+                }
                 control.contentY = oldy
             }
         }

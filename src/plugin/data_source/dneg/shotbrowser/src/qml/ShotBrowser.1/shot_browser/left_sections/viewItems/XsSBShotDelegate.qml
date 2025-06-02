@@ -17,6 +17,7 @@ MouseArea {
     property bool showUnit: false
     property bool showStatus: false
     property bool showType: false
+    property bool showVisibility: false
 
     property var delegateModel: null
     property var selectionModel: null
@@ -119,6 +120,25 @@ MouseArea {
                     font.pixelSize: XsStyleSheet.fontSize*1.2
                     elide: Text.ElideRight
                     rightPadding: 8
+                }
+
+                XsSecondaryButton{ id: favBtn
+                    Layout.topMargin: 1
+                    Layout.bottomMargin: 1
+                    Layout.preferredHeight: parent.height
+                    Layout.preferredWidth: parent.height
+
+                    visible: showVisibility
+                    opacity: parentHiddenRole ? 0.4 : 0.7
+
+                    // showHoverOnActive: favouriteRole && !thisItem.hovered
+                    isColoured: hiddenRole// && thisItem.hovered
+                    imgSrc: hiddenRole ? "qrc:///icons/visibility_off.svg" : "qrc:///icons/visibility.svg"
+                    scale: 0.95
+                    onClicked: {
+                        hiddenRole = !hiddenRole
+                        updateHidden()
+                    }
                 }
             }
         }

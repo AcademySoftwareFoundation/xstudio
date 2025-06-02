@@ -168,7 +168,7 @@ Rectangle{
         XsLeftRightDockedTools {
             Layout.fillHeight: true
             dockedWidgetsModel: dock_widgets_model
-            Layout.preferredWidth: contentItem.childrenRect.width
+            Layout.preferredWidth: contentWidth
         }
 
 
@@ -204,7 +204,7 @@ Rectangle{
             Layout.fillHeight: true
             dockedWidgetsModel: dock_widgets_model
             placement: "right"
-            Layout.preferredWidth: contentItem.childrenRect.width
+            Layout.preferredWidth: contentWidth
         }
 
     }

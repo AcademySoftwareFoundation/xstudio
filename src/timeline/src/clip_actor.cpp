@@ -341,45 +341,6 @@ caf::message_handler ClipActor::message_handler() {
                     [=](const caf::error &err) mutable { rp.deliver(err); });
             return rp;
         },
-        // [=](duration_atom) -> FrameRateDuration { return base_.duration(); },
-
-        // [=](duration_atom, const FrameRateDuration &duration) -> bool {
-        //     base_.set_duration(duration);
-        //     update_edit_list();
-        //     return true;
-        // },
-
-        // [=](media::get_media_pointer_atom,
-        //     const int logical_frame) -> result<media::AVFrameID> {
-        //     if (base_.media_uuid().is_null())
-        //         return result<media::AVFrameID>(make_error(xstudio_error::error, "No
-        //         media"));
-
-        //     auto rp = make_response_promise<media::AVFrameID>();
-        //     deliver_media_pointer(logical_frame, rp);
-        //     return rp;
-        // },
-
-        // [=](media::get_media_type_atom) -> media::MediaType { return base_.media_type(); },
-
-        // [=](playlist::get_media_atom) -> UuidActor {
-        //     return UuidActor(base_.media_uuid(), caf::actor_cast<actor>(media_));
-        // },
-
-        // [=](start_time_atom) -> FrameRateDuration { return base_.start_time(); },
-
-        // [=](start_time_atom, const FrameRateDuration &start_time) -> bool {
-        //     base_.set_start_time(start_time);
-        //     update_edit_list();
-        //     return true;
-        // },
-
-        // [=](event_atom, name_atom, const std::string & /*name*/) {},
-        // events from media actor
-
-        // re-evaluate media reference.., needed for lazy loading
-        // [=](media_reference_atom atom,
-        //     const Uuid &uuid) -> caf::result<std::pair<Uuid, MediaReference>> {
 
         [=](playlist::reflag_container_atom) -> result<std::tuple<std::string, std::string>> {
             auto rp    = make_response_promise<std::tuple<std::string, std::string>>();
@@ -756,65 +717,6 @@ caf::message_handler ClipActor::message_handler() {
             return make_error(xstudio_error::error, "No media assigned.");
         },
 
-        // [=](media::get_media_pointer_atom, const media::MediaType media_type, const FrameRate
-        // &timepoint, const FrameRate &override_rate) -> result<std::shared_ptr<const
-        // media::AVFrameID>> {
-        //     if(media_) {
-        //         auto trimmed_start = base_.item().trimmed_start();
-        //         auto active_start = (base_.item().active_start() ? *
-        //         base_.item().active_start() : trimmed_start); auto available_start =
-        //         (base_.item().available_start() ? * base_.item().available_start() :
-        //         trimmed_start);
-
-        //         // spdlog::warn("trs {} avs {} act {}", trimmed_start.to_seconds(),
-        //         available_start.to_seconds(), active_start.to_seconds());
-
-        //         auto frd =
-        //         FrameRateDuration(FrameRate(timepoint.to_flicks()-available_start.to_flicks()),
-        //         override_rate); auto logical_frame = frd.frames(base_.item().rate());
-
-        //         if(media_type == media::MediaType::MT_IMAGE and
-        //         image_ptr_cache_.count(logical_frame)) {
-        //             return image_ptr_cache_[logical_frame];
-        //         } else if(media_type == media::MediaType::MT_AUDIO and
-        //         audio_ptr_cache_.count(logical_frame)) {
-        //             return audio_ptr_cache_[logical_frame];
-        //         } else {
-        //             auto rp = make_response_promise<std::shared_ptr<const
-        //             media::AVFrameID>>(); mail(media::get_media_pointer_atom_v, media_type,
-        //             logical_frame).request(caf::actor_cast<caf::actor>(media_), //
-        //             infinite).then(
-        //                 [=](const media::AVFrameID &mp) mutable {
-        //                     if(media_type == media::MediaType::MT_IMAGE) {
-        //                         image_ptr_cache_[logical_frame] =
-        //                         std::make_shared<media::AVFrameID>(std::move(mp));
-        //                         rp.deliver(image_ptr_cache_[logical_frame]);
-        //                     } else if(media_type == media::MediaType::MT_AUDIO) {
-        //                         audio_ptr_cache_[logical_frame] =
-        //                         std::make_shared<media::AVFrameID>(std::move(mp));
-        //                         rp.deliver(audio_ptr_cache_[logical_frame]);
-        //                     } else {
-        //                         rp.deliver(make_error(xstudio_error::error, "Unknown media
-        //                         type."));
-        //                     }
-        //                 },
-        //                 [=](error &err) mutable { rp.deliver(std::move(err)); }
-        //             );
-        //             return rp;
-        //         }
-        //     }
-
-        //     return make_error(xstudio_error::error, "No media assigned.");
-        // },
-
-
-        // [=](xstudio::media::current_media_source_atom atom) {
-        //     mail(atom).delegate(caf::actor_cast<caf::actor>(media_));
-        // },
-        // [=](xstudio::playlist::reflag_container_atom atom) {
-        //     mail(atom).delegate(caf::actor_cast<caf::actor>(media_));
-        // },
-
         [=](duplicate_atom) -> result<UuidActor> {
             JsonStore jsn;
             auto dup    = base_.duplicate();
@@ -858,32 +760,3 @@ void ClipActor::init() {
     print_on_create(this, base_.name());
     print_on_exit(this, base_.name());
 }
-
-// we die if our media dies.
-// set_down_handler([=](down_msg &msg) {
-//     if (msg.source == media_) {
-// just unset media.
-// anon_send(this, link_media_atom_v, UuidActor());
-
-// demonitor(caf::actor_cast<caf::actor>(media_));
-// send_exit(this, caf::exit_reason::user_shutdown);
-//         }
-//     });
-// }
-
-
-// void ClipActor::deliver_media_pointer(
-//     const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp) {
-//     // send request to media actor but offset the logical_frame.
-//     // also send no frame error if duration exceeds our duration.
-//     if (logical_frame >= base_.duration().frames())
-//         rp.deliver(make_error(xstudio_error::error, "No frames left"));
-//     else {
-//         int request_frame = logical_frame + base_.start_time().frames();
-//         mail(media::get_media_pointer_atom_v,
-//             media::MT_IMAGE, request_frame) .request(// actor_cast<actor>(media_),
-//             infinite).then(
-//                 [=](const media::AVFrameID &mptr) mutable { rp.deliver(mptr); },
-//                 [=](error &err) mutable { rp.deliver(std::move(err)); });
-//     }
-// }

@@ -59,7 +59,7 @@ CAF_PUSH_WARNINGS
 #include <QOpenGLWidget>
 CAF_POP_WARNINGS
 
-#include "xstudio/ui/qml/studio_ui.hpp"              //NOLINT
+#include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
 
 using namespace std;
 using namespace caf;
@@ -130,10 +130,10 @@ void my_handler(int s) {
     spdlog::warn("Caught signal {}", s);
     if (shutdown_xstudio) {
         spdlog::warn("Kill with fire.");
+        CafActorSystem::exit();
         stop_logger();
-        std::exit(EXIT_SUCCESS);
+        std::exit(s);
     }
-
     shutdown_xstudio = true;
 }
 
@@ -196,8 +196,7 @@ void execute_xstudio_ui(
     const float ui_scale_factor,
     const bool silence_qt_warnings,
     int argc,
-    char **argv
-    ) {
+    char **argv) {
 
     // apply global UI scaling preference here by setting the
     // QT_SCALE_FACTOR env var before creating the QApplication
@@ -236,7 +235,8 @@ void execute_xstudio_ui(
 
     QQmlApplicationEngine engine;
 
-    ui::qml::setup_xstudio_qml_emgine(static_cast<QQmlEngine *>(&engine), CafActorSystem::system());
+    ui::qml::setup_xstudio_qml_emgine(
+        static_cast<QQmlEngine *>(&engine), CafActorSystem::system());
 
     const QUrl url(QStringLiteral("qrc:/main.qml"));
 
@@ -254,21 +254,20 @@ void execute_xstudio_ui(
     engine.load(url);
     spdlog::info("XStudio UI launched.");
 
-    #ifdef _WIN32
+#ifdef _WIN32
     // Note: this is horrible thing is here to force a direct dependency on QOpenGLWidget
     // for xstudio.exe. We need it for Windows packaging.
-    // 'windeployqt.exe' otherwise does not recognise that Qt6OpenGLWidgets.dll is a 
+    // 'windeployqt.exe' otherwise does not recognise that Qt6OpenGLWidgets.dll is a
     // dependency of xstudio.exe and we get a runtime failure. I don't understand why
     // because studio_qml.dll is a direct dependency, viewport_widget.dll is a dependency
     // of that and Qt6OpenGLWidgets.dll is a dependency of viewport_widget.dll
-    QOpenGLWidget * dummy = new QOpenGLWidget();
+    QOpenGLWidget *dummy = new QOpenGLWidget();
     delete dummy;
 #endif
 
     app.exec();
 
     spdlog::get("xstudio")->sinks().pop_back();
-
 }
 
 
@@ -294,18 +293,20 @@ struct CLIArguments {
     args::Flag silence_qt_warnings = {
         parser,
         "silence-qt-warnings",
-        "Silences QT warnings normally printed into the terminal. Some QT warnings are not consequential. Use this flag in a wrapper script to suppress all QT warnings.",
+        "Silences QT warnings normally printed into the terminal. Some QT warnings are not "
+        "consequential. Use this flag in a wrapper script to suppress all QT warnings.",
         {"silence-qt-warnings"}};
 
     std::unordered_map<std::string, std::string> cmMapValues{
         {"none", "Off"},
         {"ab", "A/B"},
         {"string", "String"},
+        {"wipe", "Wipe"},
     };
 
     args::MapFlag<std::string, std::string> compare = {
         parser,
-        "none,ab,string",
+        "none,ab,string,wipe",
         "Put player into compare mode.",
         {'c', "compare"},
         cmMapValues};
@@ -347,13 +348,16 @@ struct CLIArguments {
             parser.ParseCLI(argc, argv);
         } catch (const args::Completion &e) {
             std::cerr << e.what();
+            CafActorSystem::exit();
             std::exit(EXIT_FAILURE);
         } catch (const args::Help &) {
             std::cerr << parser;
+            CafActorSystem::exit();
             std::exit(EXIT_FAILURE);
         } catch (const args::ParseError &e) {
             std::cerr << e.what() << std::endl;
             std::cerr << parser;
+            CafActorSystem::exit();
             std::exit(EXIT_FAILURE);
         }
     }
@@ -379,13 +383,13 @@ struct Launcher {
         scoped_actor self{system};
 
         //  uses commandline args.
-        actions["new_instance"]          = cli_args.new_session.Matched();
-        actions["headless"]              = cli_args.headless.Matched();
-        actions["debug"]                 = cli_args.debug.Matched();
-        actions["user_prefs_off"]        = cli_args.user_prefs_off.Matched();
-        actions["quick_view"]            = cli_args.quick_view.Matched();
-        actions["disable_vsync"]         = cli_args.disable_vsync.Matched();
-        actions["compare"]           = static_cast<std::string>(args::get(cli_args.compare));
+        actions["new_instance"]        = cli_args.new_session.Matched();
+        actions["headless"]            = cli_args.headless.Matched();
+        actions["debug"]               = cli_args.debug.Matched();
+        actions["user_prefs_off"]      = cli_args.user_prefs_off.Matched();
+        actions["quick_view"]          = cli_args.quick_view.Matched();
+        actions["disable_vsync"]       = cli_args.disable_vsync.Matched();
+        actions["compare"]             = static_cast<std::string>(args::get(cli_args.compare));
         actions["silence_qt_warnings"] = cli_args.silence_qt_warnings.Matched();
 
         // check for xstudio url..
@@ -402,12 +406,13 @@ struct Launcher {
                     if (uri)
                         actions["open_session_path"] = uri_to_posix_path(*uri);
                     else {
-                        spdlog::error("Open session failed, invalid URI {}", u->second);
-                        std::exit(EXIT_FAILURE);
+                        throw std::runtime_error(
+                            fmt::format("Open session failed, invalid URI {}", u->second)
+                                .c_str());
                     }
                 } else {
-                    spdlog::error("Open session failed, path= or uri= required");
-                    std::exit(EXIT_FAILURE);
+                    throw std::runtime_error(
+                        fmt::format("Open session failed, path= or uri= required"));
                 }
             } else if (uri_request == "add_media") {
                 auto p = uri_params.find("compare");
@@ -474,7 +479,8 @@ struct Launcher {
         if (not global_actor) {
 
             actions["new_instance"] = true;
-            global_actor = CafActorSystem::global_actor(true, "XStudio", static_cast<JsonStore>(prefs));
+            global_actor =
+                CafActorSystem::global_actor(true, "XStudio", static_cast<JsonStore>(prefs));
 
             // this isn't great, the api is already running at this point..
             // so we have to toggle it..
@@ -483,47 +489,39 @@ struct Launcher {
                     remote_session_name_atom_v,
                     static_cast<std::string>(actions["session_name"]))
                     .send(global_actor);
-                    
         }
 
         // check for session file ..
         if (actions["open_session"]) {
-            try {
+            spdlog::stopwatch sw2;
 
-                spdlog::stopwatch sw2;
+            JsonStore js =
+                utility::open_session(actions["open_session_path"].get<std::string>());
 
-                JsonStore js =
-                    utility::open_session(actions["open_session_path"].get<std::string>());
+            spdlog::info(
+                "File {} loaded in {:.3} seconds.",
+                actions["open_session_path"].get<std::string>(),
+                sw2);
 
+            if (actions["new_instance"]) {
+                spdlog::stopwatch sw;
+                auto new_session = self->spawn<session::SessionActor>(
+                    js,
+                    posix_path_to_uri(static_cast<std::string>(actions["open_session_path"])));
+
+                spdlog::info("Session loaded in {:.3} seconds.", sw);
+                request_receive<bool>(
+                    *self, global_actor, session::session_atom_v, new_session);
+            } else {
                 spdlog::info(
-                    "File {} loaded in {:.3} seconds.",
-                    actions["open_session_path"].get<std::string>(),
-                    sw2);
-
-                if (actions["new_instance"]) {
-                    spdlog::stopwatch sw;
-                    auto new_session = self->spawn<session::SessionActor>(
-                        js,
-                        posix_path_to_uri(
-                            static_cast<std::string>(actions["open_session_path"])));
-
-                    spdlog::info("Session loaded in {:.3} seconds.", sw);
-                    request_receive<bool>(
-                        *self, global_actor, session::session_atom_v, new_session);
-                } else {
-                    spdlog::info(
-                        "Open in remote session {}",
-                        static_cast<std::string>(actions["open_session_path"]));
-                    request_receive<bool>(
-                        *self,
-                        global_actor,
-                        session::session_request_atom_v,
-                        static_cast<std::string>(actions["open_session_path"]),
-                        js);
-                }
-            } catch (const std::exception &err) {
-                spdlog::error("{}", err.what());
-                std::exit(EXIT_FAILURE);
+                    "Open in remote session {}",
+                    static_cast<std::string>(actions["open_session_path"]));
+                request_receive<bool>(
+                    *self,
+                    global_actor,
+                    session::session_request_atom_v,
+                    static_cast<std::string>(actions["open_session_path"]),
+                    js);
             }
         }
 
@@ -597,12 +595,9 @@ struct Launcher {
 
         auto prefs = JsonStore();
         if (!global_store::load_preferences(
-            prefs,
-            !cli_args.user_prefs_off.Matched(),
-            pref_paths,
-            override_paths)) {
+                prefs, !cli_args.user_prefs_off.Matched(), pref_paths, override_paths)) {
             // xstudio will not work if application preferences could not be loaded
-            std::exit(EXIT_FAILURE);
+            throw std::runtime_error("Failed to load application preferences.");
         }
         return prefs;
     }
@@ -621,8 +616,7 @@ struct Launcher {
             if (not args.empty())
                 httplib::detail::parse_query_text(args, uri_params);
         } else {
-            spdlog::error("Invalid request {}.", request);
-            std::exit(EXIT_FAILURE);
+            throw std::runtime_error(fmt::format("Invalid request {}.", request).c_str());
         }
         return true;
     }
@@ -671,9 +665,8 @@ struct Launcher {
             auto sname        = static_cast<std::string>(actions["session_name"]);
             auto find_session = rsm.find(sname);
             if (not find_session) {
-                spdlog::error("Failed to find session {}", sname);
-                stop_logger();
-                std::exit(EXIT_FAILURE);
+                throw std::runtime_error(
+                    fmt::format("Failed to find session {}", sname).c_str());
             }
             targets.emplace_back(std::make_tuple(
                 sname, find_session->host(), find_session->port(), find_session->port()));
@@ -808,11 +801,22 @@ struct Launcher {
         for (const auto &i : uri_fl) {
             try {
                 // spdlog::warn("{}", to_string(i.first));
+
+                // use the stem of the filepath as the name for the media item.
+                // We do a further trim to the first . so that numbered paths
+                // like 'some_exr.####.exr' becomes 'some_exr'
+                const auto path    = fs::path(uri_to_posix_path(i.first));
+                auto filename_stem = path.stem().string();
+                const auto dotpos  = filename_stem.find(".");
+                if (dotpos && dotpos != std::string::npos) {
+                    filename_stem = std::string(filename_stem, 0, dotpos);
+                }
+
                 added_media.push_back(request_receive<UuidActor>(
                     *self,
                     playlist,
                     playlist::add_media_atom_v,
-                    uri_to_posix_path(i.first),
+                    filename_stem,
                     i.first,
                     i.second,
                     Uuid()));
@@ -924,26 +928,24 @@ struct Launcher {
                 }
             }
         } else {
-            spdlog::error("Failed to connect to middleman.");
-            stop_logger();
-            std::exit(EXIT_FAILURE);
+            throw std::runtime_error("Failed to connect to middleman.");
         }
 
         if (not args::get(cli_args.remote_host).empty()) {
-            spdlog::error(
-                "Failed to connect to session at {}:{}",
-                args::get(cli_args.remote_host),
-                args::get(cli_args.remote_port));
-            stop_logger();
-            std::exit(EXIT_FAILURE);
+
+            throw std::runtime_error(fmt::format(
+                                         "Failed to connect to session at {}:{}",
+                                         args::get(cli_args.remote_host),
+                                         args::get(cli_args.remote_port))
+                                         .c_str());
         }
 
         if (not static_cast<std::string>(actions["session_name"]).empty()) {
-            spdlog::error(
-                "Failed to connect to session  {}",
-                static_cast<std::string>(actions["session_name"]));
-            stop_logger();
-            std::exit(EXIT_FAILURE);
+
+            throw std::runtime_error(fmt::format(
+                                         "Failed to connect to session  {}",
+                                         static_cast<std::string>(actions["session_name"]))
+                                         .c_str());
         }
 
         return caf::actor();
@@ -954,7 +956,7 @@ int main(int argc, char **argv) {
 
     // this call sets up the CAF actor system
     CafActorSystem::instance();
-    
+
     try {
 
         // Launcher class handles CLI parsing and communication with already running
@@ -963,6 +965,7 @@ int main(int argc, char **argv) {
 
         // add to current session and exit
         if (not l.actions["new_instance"]) {
+            CafActorSystem::exit();
             stop_logger();
             std::exit(EXIT_SUCCESS);
         }
@@ -1005,8 +1008,7 @@ int main(int argc, char **argv) {
                 l.prefs.get("/ui/qml/global_ui_scale_factor").value("value", 1.0f),
                 l.actions["silence_qt_warnings"],
                 argc,
-                argv
-                );
+                argv);
 
             // save state.. BUT NOT WHEN user_prefs_off
             if (not l.actions.value("user_prefs_off", false)) {
@@ -1016,7 +1018,8 @@ int main(int argc, char **argv) {
                     try {
                         request_receive<bool>(
                             *self,
-                            CafActorSystem::system().registry().get<caf::actor>(global_store_registry),
+                            CafActorSystem::system().registry().get<caf::actor>(
+                                global_store_registry),
                             global_store::save_atom_v,
                             context);
                     } catch (const std::exception &err) {
@@ -1026,11 +1029,11 @@ int main(int argc, char **argv) {
             }
 
             l.global_actor = caf::actor();
-
         }
 
     } catch (const std::exception &err) {
         spdlog::critical("{} {}", __PRETTY_FUNCTION__, err.what());
+        CafActorSystem::exit();
         stop_logger();
         std::exit(EXIT_FAILURE);
     }
@@ -1038,5 +1041,4 @@ int main(int argc, char **argv) {
     CafActorSystem::exit();
     stop_logger();
     std::exit(EXIT_SUCCESS);
-
 }

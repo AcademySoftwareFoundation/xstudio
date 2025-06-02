@@ -27,10 +27,7 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
         [=](utility::get_event_group_atom, hotkey_event_atom) -> caf::actor {
             return hotkey_config_events_group_;
         },
-        [=](all_keys_up_atom, const std::string &context) {
-            held_keys_.clear();
-            held_keys_changed(context);
-        },
+        [=](all_keys_up_atom, const std::string &context) { all_keys_up(context); },
         [=](key_down_atom,
             int key,
             const std::string &context,
@@ -183,8 +180,10 @@ KeypressMonitor::KeypressMonitor(caf::actor_config &cfg) : caf::event_based_acto
             const utility::Uuid kotkey_uuid,
             const bool pressed,
             const std::string &context,
-            const std::string &window) {
-            mail(hotkey_event_atom_v, kotkey_uuid, pressed, context, window)
+            const std::string &window,
+            const bool due_to_focus_change) {
+            mail(
+                hotkey_event_atom_v, kotkey_uuid, pressed, context, window, due_to_focus_change)
                 .send(hotkey_config_events_group_);
         },
 
@@ -215,5 +214,14 @@ void KeypressMonitor::held_keys_changed(
             p.second.update_state(
                 held_keys_, context, window, auto_repeat, caf::actor_cast<caf::actor>(this));
         }
+    }
+}
+
+void KeypressMonitor::all_keys_up(const std::string &context) {
+
+    held_keys_.clear();
+    for (auto &p : active_hotkeys_) {
+        p.second.update_state(
+            held_keys_, context, "", false, caf::actor_cast<caf::actor>(this), true);
     }
 }

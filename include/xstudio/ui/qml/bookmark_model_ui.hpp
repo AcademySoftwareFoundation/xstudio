@@ -196,8 +196,12 @@ class BOOKMARK_QML_EXPORT BookmarkModel : public caf::mixin::actor_object<JSONTr
 
     [[nodiscard]] int length() const { return rowCount(); }
 
-    Q_INVOKABLE QFuture<QString> exportCSVFuture(const QUrl &path);
-    Q_INVOKABLE QString exportCSV(const QUrl &path) { return exportCSVFuture(path).result(); }
+    Q_INVOKABLE QFuture<QString> exportCSVFuture(
+        const QUrl &path, const bool with_annotations = true, const bool with_images = true);
+    Q_INVOKABLE QString exportCSV(
+        const QUrl &path, const bool with_annotations = true, const bool with_images = true) {
+        return exportCSVFuture(path, with_annotations, with_images).result();
+    }
 
     Q_INVOKABLE [[nodiscard]] QString
     getJSON(const QModelIndex &index, const QString &path) const {

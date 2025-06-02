@@ -37,8 +37,8 @@ class CafActorSystem {
         const std::string &name, const utility::JsonStore &prefs, const bool embedded_python);
 
     CafActorSystem();
-    caf::actor_system *the_system_;
-    caf_utility::caf_config *config_;
+    caf::actor_system *the_system_{nullptr};
+    caf_utility::caf_config *config_{nullptr};
     caf::actor global_actor_;
 };
 

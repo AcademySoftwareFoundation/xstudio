@@ -13,11 +13,14 @@ import "../widgets"
 RowLayout {
     width: parent.width
     height: XsStyleSheet.widgetStdHeight
+    property var readonly: false
 
     XsLabel {
         Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
-        Layout.preferredWidth: parent.width/2 //prefsLabelWidth
-        Layout.maximumWidth: parent.width/2
+        Layout.preferredWidth: prefsLabelWidth //prefsLabelWidth
+        Layout.maximumWidth: prefsLabelWidth
+        wrapMode: Text.NoWrap
+        elide: Text.ElideLeft
 
         text: displayNameRole ? displayNameRole : nameRole
         horizontalAlignment: Text.AlignRight
@@ -33,7 +36,8 @@ RowLayout {
         Layout.minimumWidth: prefsLabelWidth/2
         Layout.fillHeight: true
         clip: true
-        focus: true
+        focus: enabled
+        enabled: !readonly
         onActiveFocusChanged:{
             if(activeFocus) selectAll()
         }

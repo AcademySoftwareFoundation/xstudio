@@ -821,7 +821,7 @@ void Canvas::changed() {
 
     last_change_time_ = utility::clock::now();
     std::ostringstream oss;
-    oss << last_change_time_.time_since_epoch().count() << (void*)this;
+    oss << last_change_time_.time_since_epoch().count() << (void *)this;
     hash_ = std::hash<std::string>{}(oss.str());
 }
 

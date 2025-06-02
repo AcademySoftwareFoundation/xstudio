@@ -310,11 +310,9 @@ void OpenGLViewportRenderer::render(
                     viewport_to_image_space,
                     viewport_du_dx,
                     overlay_renderers);
-                
             }
         }
         glDisable(GL_SCISSOR_TEST);
-
     }
 
     // Some plugins want to draw on the whole viewport canvas (not over a particular

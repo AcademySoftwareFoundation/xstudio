@@ -608,12 +608,20 @@ caf::message_handler BookmarksActor::message_handler() {
             return rp;
         },
 
-        [=](session::export_atom, const session::ExportFormat ef)
-            -> result<std::pair<std::string, std::vector<std::byte>>> {
-            if (ef != session::ExportFormat::EF_CSV)
+        [=](session::export_atom,
+            const session::ExportFormat ef,
+            const caf::uri &path) -> result<std::pair<std::string, std::vector<std::byte>>> {
+            switch (ef) {
+            case session::ExportFormat::EF_CSV:
+            case session::ExportFormat::EF_CSV_WITH_ANNOTATIONS:
+            case session::ExportFormat::EF_CSV_WITH_IMAGES:
+                break;
+            default:
                 return make_error(xstudio_error::error, "Unsupported export format.");
+                break;
+            }
             auto rp = make_response_promise<std::pair<std::string, std::vector<std::byte>>>();
-            csv_export(rp);
+            csv_export(rp, ef, path);
             return rp;
         },
 
@@ -668,40 +676,154 @@ void BookmarksActor::init() {
     print_on_exit(this, base_);
 }
 
+void csv_exporter(
+    blocking_actor *self,
+    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+    const session::ExportFormat ef,
+    const caf::uri &path,
+    std::vector<BookmarkDetail> details) {
+
+    std::vector<std::vector<std::string>> data;
+
+    sort(details.begin(), details.end(), [](const auto &lhs, const auto &rhs) {
+        return (lhs.subject_ ? *(lhs.subject_) : "") < (rhs.subject_ ? *(rhs.subject_) : "");
+    });
+
+    data.emplace_back(std::vector<std::string>(
+        {"Subject",
+         "Notes",
+         "Start Frame",
+         "End Frame",
+         "Created",
+         "User Name",
+         "Note Type",
+         "Media Flag",
+         "Annotated",
+         "Image"}));
+
+    scoped_actor sys{self->system()};
+    fs::path fp       = uri_to_posix_path(path);
+    auto image_path   = fp.parent_path() / fp.stem();
+    auto render_image = ef == session::ExportFormat::EF_CSV_WITH_IMAGES;
+    auto render_annotation =
+        ef == session::ExportFormat::EF_CSV_WITH_ANNOTATIONS or render_image;
+
+    if (render_image or render_annotation) {
+        fs::create_directory(image_path);
+    }
+
+    auto image_count = 1;
+
+    for (const auto &i : details) {
+        std::string image = "";
+
+        auto has_annotation = i.has_annotation_ ? *(i.has_annotation_) : false;
+
+        if (render_image or render_annotation) {
+            auto image_file_path =
+                (image_path / fmt::format("image_{:04d}.jpg", image_count)).string();
+            auto image_name =
+                (fp.stem() / fmt::format("image_{:04d}.jpg", image_count)).string();
+
+            auto offscreen_renderer =
+                self->system().registry().template get<caf::actor>(offscreen_viewport_registry);
+            auto thumbnail_manager =
+                self->system().registry().template get<caf::actor>(thumbnail_manager_registry);
+
+            if ((render_image or render_annotation) and has_annotation) {
+                // render annotation
+                try {
+                    auto thumb = request_receive<thumbnail::ThumbnailBufferPtr>(
+                        *sys,
+                        offscreen_renderer,
+                        ui::viewport::render_viewport_to_image_atom_v,
+                        i.owner_->actor(),                     // media used to fetch image
+                        *(i.logical_start_frame_),             // media frame
+                        thumbnail::THUMBNAIL_FORMAT::TF_RGB24, // format
+                        2560,                                  // output width
+                        false, // 'auto scale' (where width is set by source image)
+                        true   // render annotations
+                    );
+
+                    auto jpeg_buf = request_receive<std::vector<std::byte>>(
+                        *sys,
+                        thumbnail_manager,
+                        media_reader::get_thumbnail_atom_v,
+                        thumb,
+                        100);
+
+                    std::ofstream o(image_file_path);
+                    o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                    o.write(reinterpret_cast<const char *>(jpeg_buf.data()), jpeg_buf.size());
+                    o.close();
+
+                    image = image_name;
+                    image_count++;
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            } else if (render_image) {
+                try {
+                    auto thumb = request_receive<thumbnail::ThumbnailBufferPtr>(
+                        *sys,
+                        offscreen_renderer,
+                        ui::viewport::render_viewport_to_image_atom_v,
+                        i.owner_->actor(),                     // media used to fetch image
+                        *(i.logical_start_frame_),             // media frame
+                        thumbnail::THUMBNAIL_FORMAT::TF_RGB24, // format
+                        2560,                                  // output width
+                        false, // 'auto scale' (where width is set by source image)
+                        false  // render annotations
+                    );
+
+                    auto jpeg_buf = request_receive<std::vector<std::byte>>(
+                        *sys,
+                        thumbnail_manager,
+                        media_reader::get_thumbnail_atom_v,
+                        thumb,
+                        100);
+
+                    std::ofstream o(image_file_path);
+                    o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                    o.write(reinterpret_cast<const char *>(jpeg_buf.data()), jpeg_buf.size());
+                    o.close();
+
+                    image = image_name;
+                    image_count++;
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+            }
+        }
+
+
+        data.emplace_back(std::vector<std::string>(
+            {i.subject_ ? *(i.subject_) : "",
+             i.note_ ? *(i.note_) : "",
+             i.start_timecode(),
+             i.end_timecode(),
+             i.created(),
+             i.author_ ? *(i.author_) : "",
+             i.category_ ? *(i.category_) : "",
+             i.media_flag_ ? *(i.media_flag_) : "",
+             has_annotation ? "true" : "false",
+             image}));
+    }
+
+    rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));
+}
+
+
 void BookmarksActor::csv_export(
-    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp) {
+    caf::typed_response_promise<std::pair<std::string, std::vector<std::byte>>> rp,
+    const session::ExportFormat ef,
+    const caf::uri &path) {
     // collect all bookmark details..
     mail(bookmark_detail_atom_v, UuidVector())
         .request(actor_cast<caf::actor>(this), infinite)
         .then(
-            [=](std::vector<BookmarkDetail> details) mutable {
-                std::vector<std::vector<std::string>> data;
-                data.emplace_back(std::vector<std::string>(
-                    {"Subject",
-                     "Notes",
-                     "Start Frame",
-                     "End Frame",
-                     "Created",
-                     "User Name",
-                     "Note Type",
-                     "Media Flag"}));
-                sort(details.begin(), details.end(), [](const auto &lhs, const auto &rhs) {
-                    return (lhs.subject_ ? *(lhs.subject_) : "") <
-                           (rhs.subject_ ? *(rhs.subject_) : "");
-                });
-                for (const auto &i : details) {
-                    data.emplace_back(std::vector<std::string>(
-                        {i.subject_ ? *(i.subject_) : "",
-                         i.note_ ? *(i.note_) : "",
-                         i.start_timecode(),
-                         i.end_timecode(),
-                         i.created(),
-                         i.author_ ? *(i.author_) : "",
-                         i.category_ ? *(i.category_) : "",
-                         i.media_flag_ ? *(i.media_flag_) : ""}));
-                }
-
-                rp.deliver(std::make_pair(utility::to_csv(data), std::vector<std::byte>()));
+            [=](const std::vector<BookmarkDetail> &details) mutable {
+                spawn(csv_exporter, rp, ef, path, details);
             },
             [=](error &err) mutable { rp.deliver(std::move(err)); });
 }

@@ -214,7 +214,11 @@ namespace plugin {
         valid cursor name. If you have an image resource declared in a qrc
         file this can also be used for fully custom cursor. To see an example
         string-search for 'magnifier_cursor' in the xstudio code base.*/
-        void set_viewport_cursor(const std::string cusor_name);
+        void set_viewport_cursor(
+            const std::string cusor_name,
+            const int size     = 24,
+            const int x_offset = -1,
+            const int y_offset = -1);
 
         /* Call this function to start listening to events related to the
         current global (active) playhead. This must be called if you want to

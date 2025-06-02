@@ -105,8 +105,10 @@ namespace playhead {
             const utility::Uuid &hotkey_uuid,
             const std::string &context,
             const std::string &window) override;
-        void
-        hotkey_released(const utility::Uuid &hotkey_uuid, const std::string &context) override;
+        void hotkey_released(
+            const utility::Uuid &hotkey_uuid,
+            const std::string &context,
+            const bool /*due_to_focus_change*/) override;
         bool timeline_mode() const { return pinned_source_mode_->value() && timeline_actor_; }
         bool contact_sheet_mode() const { return contact_sheet_mode_; }
         void connected_to_ui_changed() override;

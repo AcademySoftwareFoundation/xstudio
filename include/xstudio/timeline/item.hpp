@@ -299,6 +299,15 @@ namespace timeline {
                    prop_ == other.prop_ and name_ == other.name_;
         }
 
+        void resolve_and_request_clip_frames(
+            caf::actor &helper,
+            std::vector<bool> &filled_frames,
+            const utility::FrameRate ref_time,
+            const timebase::flicks frame_duration,
+            const media::MediaType mt,
+            const utility::UuidSet &focus,
+            bool only_if_focussed) const;
+
         [[nodiscard]] std::optional<ResolvedItem> resolve_time(
             const utility::FrameRate &time,
             const media::MediaType mt     = media::MediaType::MT_IMAGE,

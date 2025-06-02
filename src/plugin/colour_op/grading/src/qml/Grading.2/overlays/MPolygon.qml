@@ -141,7 +141,7 @@ Item {
 
         if (buttons != 1) {
             under_mouse_pt_index = pointUnderMouseIndex(mousePosition)
-        } else if (under_mouse_pt_index != -1 && !under_construction) {
+        } else if (under_mouse_pt_index != -1 && !under_construction && drag_start != undefined) {
             var delta = Qt.point(mousePosition.x-drag_start.x, mousePosition.y-drag_start.y)
             var vv = modelValue
             if (under_mouse_pt_index == vv.points.length || (modifiers & Qt.AltModifier)) {

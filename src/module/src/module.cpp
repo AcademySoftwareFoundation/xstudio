@@ -825,7 +825,8 @@ caf::message_handler Module::message_handler() {
              const utility::Uuid uuid,
              bool activated,
              const std::string &context,
-             const std::string &window) {
+             const std::string &window,
+             const bool due_to_focus_change) {
              anon_mail(
                  ui::keypress_monitor::hotkey_event_atom_v, uuid, activated, context, window)
                  .send(attribute_events_group_);
@@ -856,7 +857,7 @@ caf::message_handler Module::message_handler() {
                  }
 
              } else if (!activated)
-                 hotkey_released(uuid, context);
+                 hotkey_released(uuid, context, due_to_focus_change);
          },
 
          [=](deserialise_atom, const utility::JsonStore &json) { deserialise(json); },
@@ -998,7 +999,7 @@ caf::message_handler Module::message_handler() {
                          .send(attribute_events_group_);
                  }
              } catch (std::exception &e) {
-                 //std::cerr << "EE " << e.what() << "\n";
+                 // std::cerr << "EE " << e.what() << "\n";
              }
          },
 
@@ -2197,7 +2198,8 @@ void Module::connect_to_viewport(
                         auto p = connected_viewports_.find(caf::actor_cast<caf::actor>(addr));
                         if (p != connected_viewports_.end()) {
                             connected_viewports_.erase(p);
-                            if (connected_viewports_.empty()) connected_viewports_changed(connected_viewports_);
+                            if (connected_viewports_.empty())
+                                connected_viewports_changed(connected_viewports_);
                         }
                     });
             }

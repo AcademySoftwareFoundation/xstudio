@@ -106,13 +106,6 @@ class OpenGLViewportCompositeRenderer : public OpenGLViewportRenderer {
         const float viewport_du_dx,
         const utility::JsonStore &params);
 
-    void render_screen(
-        const media_reader::ImageBufPtr &image_to_be_drawn,
-        const bool first_im,
-        const Imath::M44f &window_to_viewport_matrix,
-        const Imath::M44f &viewport_to_image_space,
-        const float viewport_du_dx);
-
     OpenGLOffscreenRendererPtr offscreen_texture_target_A_;
     OpenGLOffscreenRendererPtr offscreen_texture_target_B_;
     std::unique_ptr<xstudio::ui::opengl::GLShaderProgram> shader_;
@@ -191,9 +184,6 @@ void OpenGLViewportCompositeRenderer::draw_image(
 
     glUseProgram(0);
 
-    // this set-up allows the image to be drawn 'under' overlays that are
-    // drawn first onto the black canvas - (e.g. annotations that can
-    // be drawn better this way)
     glDisable(GL_BLEND);
 }
 
@@ -224,6 +214,7 @@ void OpenGLViewportCompositeRenderer::render_difference(
         // the actual draw .. a quad that spans -1.0, 1.0 in x & y.
         glBindVertexArray(vao());
         glEnableVertexAttribArray(0);
+        glDisable(GL_BLEND);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glDisableVertexAttribArray(0);
         glBindVertexArray(0);
@@ -258,6 +249,7 @@ void OpenGLViewportCompositeRenderer::render_difference(
     shader_->set_shader_parameters(params);
 
     glEnable(GL_SCISSOR_TEST);
+    glDisable(GL_BLEND);
 
     glBindVertexArray(vao());
     glEnableVertexAttribArray(0);

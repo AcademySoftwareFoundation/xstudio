@@ -15,11 +15,6 @@ XsSplitView { id: viewDiv
     }
 
     QTreeModelToTableModel {
-        id: recentPresetsTreeModel
-        model: recentModel
-    }
-
-    QTreeModelToTableModel {
         id: menuPresetsTreeModel
         model: menuModel
     }
@@ -29,20 +24,23 @@ XsSplitView { id: viewDiv
             return null
         else {
             if(currentCategory == "Tree") return treePresetsTreeModel
-            else if(currentCategory == "Recent") return recentPresetsTreeModel
             else return menuPresetsTreeModel
         }
     }
 
-    spacing: currentCategory == "Tree"? panelPadding : 0
-    thumbWidth: currentCategory == "Tree"? panelPadding / 2 : 0
+    // spacing: currentCategory == "Tree"? panelPadding : 0
+    // thumbWidth: currentCategory == "Tree"? panelPadding / 2 : 0
+    spacing: panelPadding
+    thumbWidth: panelPadding / 2
 
     XsSBL2V1Tree{ id: treeView
         SplitView.minimumWidth: main_split.minimumTreeWidth
         SplitView.preferredWidth: prefs.treePanelWidth
         SplitView.fillHeight: true
+        enabled: currentCategory == "Tree"
+        opacity: currentCategory == "Tree" ? 1.0 : 0.2
 
-        visible: currentCategory == "Tree"
+        // visible: currentCategory == "Tree"
 
         onWidthChanged: {
             if(SplitView.view.resizing) {
@@ -56,6 +54,6 @@ XsSplitView { id: viewDiv
         SplitView.fillHeight: true
         SplitView.minimumWidth: 140
 
-        visible: currentCategory != "Tree" || sequenceTreeShowPresets
+        // visible: currentCategory != "Tree" || sequenceTreeShowPresets
     }
 }

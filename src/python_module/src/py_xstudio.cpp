@@ -85,6 +85,8 @@ PYBIND11_MODULE(__pybind_xstudio, m) {
     py::enum_<session::ExportFormat>(m, "ExportFormat")
         .value("EF_UNDEFINED", session::ExportFormat::EF_UNDEFINED)
         .value("EF_CSV", session::ExportFormat::EF_CSV)
+        .value("EF_CSV_WITH_ANNOTATIONS", session::ExportFormat::EF_CSV_WITH_ANNOTATIONS)
+        .value("EF_CSV_WITH_IMAGES", session::ExportFormat::EF_CSV_WITH_IMAGES)
         .value("EF_LAST", session::ExportFormat::EF_LAST)
         .export_values();
 

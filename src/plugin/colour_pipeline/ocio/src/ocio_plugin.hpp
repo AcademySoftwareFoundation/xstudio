@@ -79,7 +79,10 @@ class OCIOColourPipeline : public ColourPipeline {
         const std::string &context,
         const std::string &window) override;
 
-    void hotkey_released(const utility::Uuid &hotkey_uuid, const std::string &context) override;
+    void hotkey_released(
+        const utility::Uuid &hotkey_uuid,
+        const std::string &context,
+        const bool due_to_focus_change) override;
 
     bool pointer_event(const ui::PointerEvent &e) override;
 
@@ -175,6 +178,8 @@ class OCIOColourPipeline : public ColourPipeline {
 
     // Processing
     OCIOEngine m_engine_;
+
+    std::vector<caf::actor> workers_;
 };
 
 } // namespace xstudio::colour_pipeline::ocio

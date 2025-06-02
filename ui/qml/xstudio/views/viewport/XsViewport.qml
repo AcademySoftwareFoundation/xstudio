@@ -147,10 +147,12 @@ Viewport {
     }
 
     onCustom_cursorChanged: {
-        if (custom_cursor in cursor_name_dict) {
-            setOverrideCursor(cursor_name_dict[custom_cursor])
-        } else {
-            setOverrideCursor(custom_cursor, true)
+        if (typeof custom_cursor == "object") {
+            if (custom_cursor.name in cursor_name_dict) {
+                setOverrideCursor(cursor_name_dict[custom_cursor.name])
+            } else {
+                setOverrideCursor(custom_cursor.name, custom_cursor.size, custom_cursor.x_offset, custom_cursor.y_offset)
+            }
         }
     }
 

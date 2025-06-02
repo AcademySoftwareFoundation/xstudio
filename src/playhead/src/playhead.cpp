@@ -699,7 +699,9 @@ bool PlayheadBase::pointer_event(const ui::PointerEvent &e) {
         set_playing(false);
         user_is_frame_scrubbing_->set_value(true);
 
-    } else if (e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left) {
+    } else if (
+        e.type() == ui::EventType::Drag && e.buttons() == ui::Signature::Button::Left &&
+        drag_start_x_ != -1000.0f) {
 
         float delta_x     = e.x() - drag_start_x_;
         auto new_position = drag_start_playhead_position_;
@@ -721,6 +723,8 @@ bool PlayheadBase::pointer_event(const ui::PointerEvent &e) {
         used = true;
 
     } else if (e.type() == ui::EventType::ButtonRelease) {
+
+        drag_start_x_ = -1000.0f;
 
         const auto milliseconds_since_press =
             std::chrono::duration_cast<std::chrono::milliseconds>(

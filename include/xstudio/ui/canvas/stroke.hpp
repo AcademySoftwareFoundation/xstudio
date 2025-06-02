@@ -62,15 +62,11 @@ namespace ui {
 } // end namespace ui
 } // end namespace xstudio
 
-namespace std
-{
-    template <>
-    struct hash<xstudio::ui::canvas::Stroke>
-    {
-        std::size_t operator()(const xstudio::ui::canvas::Stroke &item) const
-        {
-            std::hash<std::string> hasher;
-            return hasher(item.hash());
-        }
-    };
-}
+namespace std {
+template <> struct hash<xstudio::ui::canvas::Stroke> {
+    std::size_t operator()(const xstudio::ui::canvas::Stroke &item) const {
+        std::hash<std::string> hasher;
+        return hasher(item.hash());
+    }
+};
+} // namespace std

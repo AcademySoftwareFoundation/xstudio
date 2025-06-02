@@ -35,43 +35,35 @@ RowLayout{
         Layout.minimumWidth: butWidth * 1.5
         Layout.maximumWidth: butWidth * 1.5
         Layout.fillHeight: true
-        imgSrc: "qrc:///shotbrowser_icons/nature.svg"
-        text: "Tree View"
-        isActive: currentCategory == "Tree" && sequenceTreeShowPresets
+        imgSrc: "qrc:///icons/movie.svg"
+        text: "Shot Tree View"
+        isActive: currentCategory == "Tree" &&!assetMode
         onClicked: {
             if(currentCategory != "Tree")
                 resultsBaseModel.setResultDataJSON([])
 
             currentCategory = "Tree"
-            sequenceTreeShowPresets = true
+            assetMode = false
         }
     }
-    // XsPrimaryButton{
-    //     Layout.minimumWidth: firstButton.width
-    //     Layout.maximumWidth: firstButton.width
-    //     Layout.fillHeight: true
-    //     imgSrc: "qrc:///shotbrowser_icons/tree_plus.svg"
-    //     text: "Tree Plus"
-    //     isActive: currentCategory == "Tree" && sequenceTreeShowPresets
-    //     onClicked: {
-    //         if(currentCategory != "Tree")
-    //             resultsBaseModel.setResultDataJSON([])
-    //         currentCategory = "Tree"
-    //         sequenceTreeShowPresets = true
-    //     }
-    // }
+
     XsPrimaryButton{
         Layout.minimumWidth: firstButton.width
         Layout.maximumWidth: firstButton.width
         Layout.fillHeight: true
-        imgSrc: "qrc:///shotbrowser_icons/globe.svg"
-        text: "Global View"
-        isActive: currentCategory == "Recent"
+
+        imgSrc: "qrc:///icons/deployed_cube.svg"
+        text: "Asset Tree View"
+        isActive: currentCategory == "Tree" &&assetMode
         onClicked: {
-            resultsBaseModel.setResultDataJSON([])
-            currentCategory = "Recent"
+            if(currentCategory != "Tree")
+                resultsBaseModel.setResultDataJSON([])
+
+            currentCategory = "Tree"
+            assetMode = true
         }
     }
+
     XsPrimaryButton{
         Layout.minimumWidth: firstButton.width
         Layout.maximumWidth: firstButton.width
@@ -106,7 +98,7 @@ RowLayout{
             }
         }
 
-        defaultText: "Set Project..."
+        placeholderText: "Set Project..."
 
         textRole: "nameRole"
         Layout.fillWidth: true

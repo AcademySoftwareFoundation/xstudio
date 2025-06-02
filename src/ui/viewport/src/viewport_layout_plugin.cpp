@@ -97,15 +97,13 @@ void ViewportLayoutPlugin::init() {
         [=](viewport_layout_atom,
             const std::string &layout_name,
             const utility::Uuid &attr_id) {
-
-            // used by python layout plugin so that an attribute can be 
+            // used by python layout plugin so that an attribute can be
             // made visible in the layou settings controls
             auto attr = get_attribute(attr_id);
             if (attr) {
                 add_layout_settings_attribute(attr, layout_name);
             }
-        }
-    };
+        }};
 
     make_behavior();
 
@@ -151,7 +149,6 @@ void ViewportLayoutPlugin::do_layout(
         std::vector<int>(1, image_set->hero_sub_playhead_index());
 
     layout_data.draw_hero_overlays_only_ = true;
-
 }
 
 void ViewportLayoutPlugin::__do_layout(
@@ -226,7 +223,8 @@ ViewportLayoutPlugin::python_layout_data_to_ours(const utility::JsonStore &pytho
         }
 
         if (python_data.contains("draw_hero_overlays_only")) {
-            result->draw_hero_overlays_only_ = python_data["draw_hero_overlays_only"].get<bool>();
+            result->draw_hero_overlays_only_ =
+                python_data["draw_hero_overlays_only"].get<bool>();
         } else {
             result->draw_hero_overlays_only_ = false;
         }

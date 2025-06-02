@@ -178,6 +178,7 @@
 	    <file>widgets/controls/attr_controls/XsIntegerAttrControl.qml</file>
 
 	    <file>widgets/dialogs/XsAttributesPanel.qml</file>
+	    <file>widgets/dialogs/XsColourDialog.qml</file>
 	    <file>widgets/dialogs/XsPopup.qml</file>
 	    <file>widgets/dialogs/XsSnapshotDialog.qml</file>
 	    <file>widgets/dialogs/XsStringRequestDialog.qml</file>
@@ -189,6 +190,7 @@
 	    <file>widgets/dialogs/preferences/delegates/XsColourPreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsCompareModePref.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsJsonPreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsFilePreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsPreferenceCategory.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsFloatPreference.qml</file>
 	    <file>widgets/dialogs/preferences/delegates/XsIntegerPreference.qml</file>
@@ -272,6 +274,12 @@
 
 	<qresource prefix="/cursors">
 		<file alias="magnifier_cursor.svg">assets/cursors/magnifier_cursor.svg</file>
+		<file alias="colour_picker_cursor.svg">assets/icons/dropper.svg</file>
+		<file alias="point_scan.svg">assets/icons/point_scan.svg</file>
+	</qresource>
+
+	<qresource prefix="/shaders">
+		<file alias="colourwheel.frag.qsb">widgets/dialogs/colourwheel.frag.qsb</file>
 	</qresource>
 
 	<qresource prefix="/icons">
@@ -308,6 +316,7 @@
 		<file alias="dock_left.svg">assets/icons/dock_left.svg</file>
 		<file alias="dock_right.svg">assets/icons/dock_right.svg</file>
 		<file alias="draft.svg">assets/icons/draft.svg</file>
+		<file alias="dropper.svg">assets/icons/dropper.svg</file>
 		<file alias="edit.svg">assets/icons/edit.svg</file>
 		<file alias="eject.svg">assets/icons/eject.svg</file>
 		<file alias="error.svg">assets/icons/error.svg</file>
@@ -322,6 +331,7 @@
 		<file alias="fit_select.svg">assets/icons/fit_select.svg</file>
 		<file alias="format_size.svg">assets/icons/format_size.svg</file>
 		<file alias="frame_inspect.svg">assets/icons/frame_inspect.svg</file>
+		<file alias="functions.svg">assets/icons/functions.svg</file>
 		<file alias="grid_view.svg">assets/icons/grid_view.svg</file>
 		<file alias="help.svg">assets/icons/help.svg</file>
 		<file alias="ink_pen.svg">assets/icons/ink_pen.svg</file>
@@ -351,9 +361,11 @@
 		<file alias="output.svg">assets/icons/output.svg</file>
 		<file alias="pan.svg">assets/icons/pan.svg</file>
 		<file alias="pause.svg">assets/icons/pause.svg</file>
+		<file alias="person.svg">assets/icons/person.svg</file>
 		<file alias="photo_camera.svg">assets/icons/photo_camera.svg</file>
 		<file alias="play_arrow.svg">assets/icons/play_arrow.svg</file>
 		<file alias="play_circle.svg">assets/icons/play_circle.svg</file>
+		<file alias="point_scan.svg">assets/icons/point_scan.svg</file>
 		<file alias="quick_reference_all.svg">assets/icons/quick_reference_all.svg</file>
 		<file alias="radio_button_checked.svg">assets/icons/radio_button_checked.svg</file>
 		<file alias="radio_button_unchecked.svg">assets/icons/radio_button_unchecked.svg</file>

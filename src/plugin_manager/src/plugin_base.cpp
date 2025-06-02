@@ -19,20 +19,20 @@ StandardPlugin::StandardPlugin(
 
     set_default_handler(
         [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
-
-            spdlog::warn("{} got unexpected message from {} {}",
+            spdlog::warn(
+                "{} got unexpected message from {} {}",
                 Module::name(),
                 to_string(current_sender()),
                 to_string(msg));
 
             if (current_sender()) {
-                mail(utility::name_atom_v).request(caf::actor_cast<caf::actor>(current_sender()), infinite).then(
-                    [=](std::string __name) {
-                        std::cerr << "Message came from " << __name << "\n";
-                    },
-                    [=](caf::error &err) {
-                        std::cerr << "Can't get name of sender.\n";
-                    });
+                mail(utility::name_atom_v)
+                    .request(caf::actor_cast<caf::actor>(current_sender()), infinite)
+                    .then(
+                        [=](std::string __name) {
+                            std::cerr << "Message came from " << __name << "\n";
+                        },
+                        [=](caf::error &err) { std::cerr << "Can't get name of sender.\n"; });
             }
             return message{};
         });
@@ -340,9 +340,11 @@ void StandardPlugin::start_stop_playback(const std::string viewport_name, bool p
     }
 }
 
-void StandardPlugin::set_viewport_cursor(const std::string cursor_name) {
-    anon_mail(ui::viewport::viewport_cursor_atom_v, cursor_name).send(playhead_events_actor_);
+void StandardPlugin::set_viewport_cursor(
+    const std::string cursor_name, const int size, const int x_offset, const int y_offset) {
 
+    anon_mail(ui::viewport::viewport_cursor_atom_v, cursor_name, size, x_offset, y_offset)
+        .send(playhead_events_actor_);
     // anon_mail(ui::viewport::viewport_cursor_atom_v,
     // cursor_name).send(playhead_events_actor_);
 }
@@ -659,7 +661,7 @@ void StandardPlugin::update_bookmark_annotation(
                                     //     bookmark::remove_bookmark_atom_v,
                                     //     bookmark_id);
 
-                                    mail(bookmark::remove_bookmark_atom_v, bookmark_id)
+                                    anon_mail(bookmark::remove_bookmark_atom_v, bookmark_id)
                                         .send(bookmark_manager_);
 
                                 } else {
