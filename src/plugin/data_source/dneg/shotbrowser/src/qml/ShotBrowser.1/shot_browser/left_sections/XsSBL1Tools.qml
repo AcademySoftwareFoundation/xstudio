@@ -159,6 +159,17 @@ RowLayout{
         visible: false
 
         closePolicy: filterBtn.hovered ? Popup.CloseOnEscape :  Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+
+        XsMenuModelItem {
+            menuItemType: "button"
+            text: "Reload Current Project"
+            menuItemPosition: 0.5
+            menuPath: ""
+            menuModelName: projectFilterPopup.menu_model_name
+            onActivated: ShotBrowserEngine.resetProject(projectId)
+        }
+
         XsMenuModelItem {
             menuItemType: "divider"
             text: "Hide Status"

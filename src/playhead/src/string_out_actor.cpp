@@ -82,6 +82,15 @@ StringOutActor::StringOutActor(caf::actor_config &cfg, const utility::UuidActorV
 
         [=](utility::event_atom, media::media_status_atom, const media::MediaStatus) {},
 
+        [=](json_store::update_atom,
+            const utility::JsonStore & /*change*/,
+            const std::string & /*path*/,
+            const utility::JsonStore &full) {
+        },
+
+        [=](json_store::update_atom, const utility::JsonStore &full) {
+        },
+
         [=](utility::event_atom,
             media::media_display_info_atom,
             const utility::JsonStore &,

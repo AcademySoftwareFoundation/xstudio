@@ -2825,8 +2825,9 @@ void PlayheadActor::hotkey_pressed(
     // If the context starts with 'viewport' the hotkey was hit while a viewport
     // had mouse focus. If that viewport is NOT attached to this playhead we
     // ignore the hotkey
-    if (context.find("viewport") == 0 &&
-        active_viewports_.find(context) == active_viewports_.end()) {
+    if (active_viewports_.empty() ||
+        (context.find("viewport") == 0 &&
+         active_viewports_.find(context) == active_viewports_.end())) {
         return;
     }
 

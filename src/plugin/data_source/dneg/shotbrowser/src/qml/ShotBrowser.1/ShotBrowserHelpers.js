@@ -762,14 +762,11 @@ function altSelectItem(selectionModel, index) {
 	// select all leafs.
 	let depth = selectionModel.model.depthAtRow(index.row)
 	let selection = []
-	for(let i = index.row+1; selectionModel.model.depthAtRow(i) > depth ;i++) {
-		let ind = selectionModel.model.index(i, 0, index.parent)
-		if(selectionModel.model.model.get(selectionModel.model.mapToModel(ind), "typeRole") == "Shot")
-			selection.push(ind)
-	}
-	selectionModel.select(index, ItemSelectionModel.Deselect)
+	for(let i = index.row+1; selectionModel.model.depthAtRow(i) > depth ;i++)
+		selection.push(selectionModel.model.index(i, 0, index.parent))
+
+	selectionModel.select(index, ItemSelectionModel.Toggle)
 	selectionModel.select(helpers.createItemSelection(selection), ItemSelectionModel.Toggle)
-	// selectionModel.select(index, ItemSelectionModel.Toggle)
 }
 
 function shiftSelectItem(selectionModel, index) {

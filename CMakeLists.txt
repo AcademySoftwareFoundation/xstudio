@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
-cmake_policy(VERSION 3.26)
+cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
+cmake_policy(VERSION 3.28)
 
 set(XSTUDIO_GLOBAL_VERSION "1.0.0" CACHE STRING "Version string")
 set(XSTUDIO_GLOBAL_NAME xStudio)
 
-set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
+# set(CMAKE_OSX_DEPLOYMENT_TARGET "14.5" CACHE STRING "Minimum OS X deployment version" FORCE)
 
 project(${XSTUDIO_GLOBAL_NAME} VERSION ${XSTUDIO_GLOBAL_VERSION} LANGUAGES CXX)
 
@@ -179,10 +179,10 @@ if (USE_VCPKG)
 
   # When building with VCPKG, we will use OTIO submodule
   set(OTIO_SUBMODULE true)
-  add_subdirectory("extern/otio")  
+  add_subdirectory("extern/otio")
 
   set(VCPKG_INTEGRATION ON)
-    
+
   # Install pip and sphinx
   find_package(Python COMPONENTS Interpreter Development)
 
@@ -197,7 +197,7 @@ if (USE_VCPKG)
     message(FATAL_ERROR "Failed to ensurepip.")
   else()
     execute_process(
-      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO importlib_metadata zipp
+      COMMAND "${Python_EXECUTABLE}" -m pip install setuptools sphinx breathe sphinx-rtd-theme OpenTimelineIO OpenTimelineIO-Plugins importlib_metadata zipp
       RESULT_VARIABLE PIP_RESULT
     )
     if(PIP_RESULT)
@@ -250,9 +250,10 @@ if(INSTALL_XSTUDIO)
   add_subdirectory(share/fonts)
 
   if(BUILD_DOCS)
+    message("BUILDING DOCS")
     add_subdirectory(docs)
   else()
-    if (APPLE)    
+    if (APPLE)
       install(DIRECTORY share/docs/ DESTINATION ${CMAKE_BINARY_DIR}/xSTUDIO.app/Contents/Resources/docs)
     else()
       install(DIRECTORY share/docs/ DESTINATION share/xstudio/docs)
@@ -283,7 +284,7 @@ if(INSTALL_XSTUDIO)
       NAMESPACE xstudio::
       EXPORT_LINK_INTERFACE_LIBRARIES
     )
-    
+
   endif()
 
 endif ()

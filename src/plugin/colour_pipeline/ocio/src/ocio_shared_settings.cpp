@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <filesystem>
+
 #include <caf/actor_registry.hpp>
 
 #include <OpenColorIO/OpenColorIO.h> //NOLINT
@@ -10,6 +12,8 @@
 
 using namespace xstudio::colour_pipeline;
 using namespace xstudio;
+
+namespace fs = std::filesystem;
 
 namespace OCIO = OCIO_NAMESPACE;
 
@@ -90,64 +94,82 @@ OCIOGlobalControls::OCIOGlobalControls(
     user_view_display_settings_attr_->set_preference_path(
         "/plugin/colour_pipeline/ocio/user_ocio_settings");
 
+    // Plugin global preferences
+
+    auto prefs = global_store::GlobalStoreHelper(system());
+
+    // For visibility, show the current OCIO environment variable in the preferences
+    auto ocio = utility::get_env("OCIO");
+    prefs.set(ocio ? *ocio : "OCIO env var is not set", "/plugin/colour_pipeline/ocio/ocio_env_var/value");
+
+    // Expose list of available configs builtin to OCIO or shipped with xStudio
+    utility::JsonStore config_options =
+        prefs.get("/plugin/colour_pipeline/ocio/default_ocio_config/options");
+
+    if (!config_options.is_array() || !config_options.size()) {
+        config_options = nlohmann::json::array();
+    }
+
+    // 1. Add configs shipped as part of xStudio install
+    const std::string ocio_configs_dir = utility::xstudio_resources_dir("ocio-configs");
+    for (auto const &dir_entry : fs::directory_iterator{ocio_configs_dir}) {
+        if (dir_entry.path().extension() == ".ocio") {
+            config_options.push_back(dir_entry.path().filename());
+            builting_config_name_to_ui_name_[dir_entry.path().filename().string()] = dir_entry.path().string();
+        }
+    }
+
+    // 2. Add OCIO builtin configs, note that this list is queried at runtime
+    // as it depends on the OCIO library version used to compile xStudio.
+
 #if OCIO_VERSION_HEX >= 0x02020100
     try {
-
-        // Here we set-up the preference for selecting the default OCIO
-        // built-in config. OCIO may expand these deafult built-ins in future
-        // versions, so we do this at runtime from the OCIO API here
         const auto &built_in_cfg_reg = OCIO::BuiltinConfigRegistry::Get();
-        auto prefs                   = global_store::GlobalStoreHelper(system());
-        auto default_config =
-            prefs.get("/plugin/colour_pipeline/ocio/default_builtin_ocio_config")
-                .get<global_store::GlobalStoreDef>();
-        std::string default_cfg_ui_name;
-        if (!default_config.options().is_array() || !default_config.options().size()) {
-            default_config.options_ = nlohmann::json::array();
-            for (size_t i = 0; i < built_in_cfg_reg.getNumBuiltinConfigs(); ++i) {
-                if (built_in_cfg_reg.isBuiltinConfigRecommended(i)) {
-                    if (built_in_cfg_reg.getBuiltinConfigName(i) ==
-                        built_in_cfg_reg.getDefaultBuiltinConfigName()) {
-                        default_cfg_ui_name = built_in_cfg_reg.getBuiltinConfigUIName(i);
-                    }
-                    default_config.options_.push_back(
-                        built_in_cfg_reg.getBuiltinConfigUIName(i));
-                    builting_config_name_to_ui_name_[built_in_cfg_reg.getBuiltinConfigUIName(
-                        i)] = built_in_cfg_reg.getBuiltinConfigName(i);
-                }
+        for (size_t i = 0; i < built_in_cfg_reg.getNumBuiltinConfigs(); ++i) {
+            const auto config_name = built_in_cfg_reg.getBuiltinConfigName(i);
+            const auto config_ui_name = built_in_cfg_reg.getBuiltinConfigUIName(i);
+
+            // Only expose the recommended configs and ignore legacy versions
+            if (built_in_cfg_reg.isBuiltinConfigRecommended(i)) {
+                // For now use a simple logic where the default is the first item
+                // of the choice list, this will pick our xstudio custom config.
+                // TODO: deprecated, switch to ResolveConfigPath("ocio://default") in OCIO 2.3
+                // if (config_name == built_in_cfg_reg.getDefaultBuiltinConfigName()) {
+                //     default_cfg_ui_name = config_ui_name;
+                // }
+                config_options.push_back(config_ui_name);
+                builting_config_name_to_ui_name_[config_ui_name] = config_name;
             }
         }
-        if (!default_config.value_.is_string() ||
-            default_config.value_.get<std::string>() == "" && !default_cfg_ui_name.empty()) {
-            default_config.value_         = default_cfg_ui_name;
-            default_config.default_value_ = default_cfg_ui_name;
-        }
-        prefs.set(default_config, "/plugin/colour_pipeline/ocio/default_builtin_ocio_config");
-
-        // push the OCIO env var to the prefs - this is just to give visibility to the user in
-        // the prefs panel
-        auto ocio_pref = prefs.get("/plugin/colour_pipeline/ocio/ocio_env_var")
-                             .get<global_store::GlobalStoreDef>();
-        auto ocio = utility::get_env("OCIO");
-        if (ocio) {
-            ocio_pref.value_ = *ocio;
-        } else {
-            ocio_pref.value_ = "OCIO env var is not set";
-        }
-        prefs.set(ocio_pref, "/plugin/colour_pipeline/ocio/ocio_env_var");
-
     } catch (std::exception &e) {
         spdlog::warn("Error loading built-in OCIO configs {}", e.what());
     }
 #endif
 
+    // 3. Custom option that allow the file browser option (always last)
+
+    config_options.push_back("Custom");
+    builting_config_name_to_ui_name_["Custom"] = "";
+
+    /*if (!default_config.value_.is_string() ||
+        default_config.value_.get<std::string>() == "" && !default_config.options_.empty()) {
+        default_config.value_         = default_config.options_[0];
+        default_config.default_value_ = default_config.options_[0];
+    }*/
+    prefs.set(config_options, "/plugin/colour_pipeline/ocio/default_ocio_config/options");
+
     // These attributes will track the respective preferences
-    user_ocio_config_ = add_string_attribute("User Ocio", "User Ocio", "");
-    user_ocio_config_->set_preference_path(
-        "/plugin/colour_pipeline/ocio/user_builtin_ocio_config");
-    default_ocio_config_ = add_string_attribute("Fallback Ocio", "Fallback Ocio", "");
+    default_ocio_config_ = add_string_attribute("Default OCIO", "Default OCIO", "");
     default_ocio_config_->set_preference_path(
-        "/plugin/colour_pipeline/ocio/default_builtin_ocio_config");
+        "/plugin/colour_pipeline/ocio/default_ocio_config");
+
+    prefs.set(default_config_enabled() ? "multichoice string" : "read only string", "/plugin/colour_pipeline/ocio/default_ocio_config/datatype");
+
+    custom_ocio_config_ = add_string_attribute("Custom OCIO", "Custom OCIO", "");
+    custom_ocio_config_->set_preference_path(
+        "/plugin/colour_pipeline/ocio/custom_ocio_config");
+
+    prefs.set(custom_config_enabled() ? "file path" : "read only file path", "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype");
 
     // we need to call this base class method before calling insert_menu_item
     make_behavior();
@@ -301,6 +323,16 @@ void OCIOGlobalControls::attribute_changed(
     if (!ui_initialized_)
         return;
 
+    if (attribute_uuid == default_ocio_config_->uuid()) {
+        auto prefs = global_store::GlobalStoreHelper(system());
+        // modify the data type
+        prefs.set(
+            custom_config_enabled() ? "file path" : "read only file path",
+            "/plugin/colour_pipeline/ocio/custom_ocio_config/datatype"
+            );
+
+    }
+
     if (attribute_uuid == global_view_->uuid()) {
         preferred_view_->set_role_data(module::Attribute::Enabled, !global_view_->value());
     }
@@ -308,59 +340,67 @@ void OCIOGlobalControls::attribute_changed(
     synchronize_attributes();
 }
 
-utility::JsonStore OCIOGlobalControls::settings_json() {
+bool OCIOGlobalControls::default_config_enabled() {
+    char *ocio_env_var = std::getenv("OCIO");
+    return !(ocio_env_var && *ocio_env_var);
+}
 
-    std::string default_cfg;
+bool OCIOGlobalControls::custom_config_enabled() {
+    return default_config_enabled() && default_ocio_config_->value() == "Custom";
+}
+
+std::string OCIOGlobalControls::default_ocio_config() {
+
+    // Logic to get the default OCIO config from user preferences
+    // 1. if OCIO env var is set, we always use that and ignore user prefs
+    // 2. else check if user OCIO config is set and if it is on-disk use it
+    // 3. else pick selected built-in fallback config from the list
 
     char *ocio_env_var = std::getenv("OCIO");
     if (ocio_env_var && ocio_env_var[0]) {
+        return ocio_env_var;
+    }
 
-        // if OCIO env var is set, we always use that and ignore user prefs
-        default_cfg = ocio_env_var;
+    std::string config_path = custom_ocio_config_->value();
+    if (custom_config_enabled() &&
+        !config_path.empty() &&
+        bad_configs_.find(config_path) == bad_configs_.end()) {
 
-    } else {
-
-        // check if user OCIO config is set and if it is on-disk
-        std::string path = user_ocio_config_->value();
-        if (!path.empty() && bad_configs_.find(path) == bad_configs_.end()) {
-
-            if (path.find("file") == 0) {
-                // looks like a uri - convert
-                auto uri = caf::make_uri(path);
-                if (uri) {
-                    path = utility::uri_to_posix_path(*uri);
-                }
-            }
-
-            if (fs::exists(path)) {
-                default_cfg = path;
-            } else {
-                spdlog::warn(
-                    "User OpenColorIO config \"{}\" is not a valid file path. {}",
-                    user_ocio_config_->value(),
-                    size_t(this));
-                bad_configs_.insert(user_ocio_config_->value());
+        if (config_path.find("file") == 0) {
+            // looks like a uri - convert
+            auto uri = caf::make_uri(config_path);
+            if (uri) {
+                config_path = utility::uri_to_posix_path(*uri);
             }
         }
 
-        if (default_cfg.empty()) {
-            // pick built-in fallback config
-            default_cfg = default_ocio_config_->value();
-            auto p      = builting_config_name_to_ui_name_.find(default_cfg);
-            if (p != builting_config_name_to_ui_name_.end()) {
-                default_cfg = p->second;
-            }
+        if (fs::exists(config_path)) {
+            return config_path;
+        } else {
+            spdlog::warn(
+                "User OpenColorIO config \"{}\" is not a valid file path. {}",
+                custom_ocio_config_->value(),
+                size_t(this));
+            bad_configs_.insert(custom_ocio_config_->value());
         }
     }
 
-    // spdlog::info("Default OpenColourIO Config: {}", default_cfg);
+    std::string builtin_config = default_ocio_config_->value();
+    if (!custom_config_enabled() && builting_config_name_to_ui_name_.count(builtin_config)) {
+        return builting_config_name_to_ui_name_.at(builtin_config);
+    }
+
+    return "";
+}
+
+utility::JsonStore OCIOGlobalControls::settings_json() {
 
     utility::JsonStore j;
     j["colour_bypass"]  = colour_bypass_->value();
     j["global_view"]    = global_view_->value();
     j["adjust_source"]  = adjust_source_->value();
     j["preferred_view"] = preferred_view_->value();
-    j["default_config"] = default_cfg;
+    j["default_config"] = default_ocio_config();
     return j;
 }
 

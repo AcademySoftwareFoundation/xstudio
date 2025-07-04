@@ -275,10 +275,9 @@ Item { id: modeBar
         rootIndex: layouts_model_root_index
         delegate:
             XsNavButton {
-                property real btnWidth: 20+textWidth
-
+                id: btn
                 text: layout_name
-                width: btnView.width>(btnWidth*btnView.model.count)? btnWidth : btnView.width/btnView.model.count
+                width: textWidth + 20
                 height: buttonHeight
                 font.bold: true
 
@@ -305,8 +304,6 @@ Item { id: modeBar
         spacing: 1
         width: parent.width - menuBtn.width - panelPadding*3
         height: buttonHeight
-        contentHeight: contentItem.childrenRect.height
-        contentWidth: contentItem.childrenRect.width
         snapMode: ListView.SnapToItem
         interactive: false
         layoutDirection: Qt.RightToLeft

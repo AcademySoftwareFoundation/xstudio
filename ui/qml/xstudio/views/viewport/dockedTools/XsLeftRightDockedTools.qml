@@ -81,51 +81,60 @@ Item {
         Repeater {
             model: docked_widgets
             Item {
-                id: container
+                id: toplevel
                 clip: true
                 Layout.fillHeight: true
-                property var widgetName: widget_name
-                property var dynamic_widget
-                onWidgetNameChanged: load_widget(0)
-
-                function load_widget(attempt) {
-
-                    var idx = dockables.searchRecursive(widgetName, "title")                
-                    if (!idx.valid && attempt < 10) {
-                        callbackTimer.setTimeout(function() { return function() {
-                            load_widget(attempt+1)
-                        }}(), 500);
-                        return
-                    } else if (!idx.valid) {
-                        console.log("Unable to create dockable widget: ", widgetName)
-                        return;
-                    }
-                    var source = dockables.get(idx, "left_right_dock_widget_qml_code")
-                    if (source != undefined && source != "") {
-                        dynamic_widget = Qt.createQmlObject(source, container)
-                    } else if (source == undefined) {
-                        console.log("Unable to make a", widgetName, "left/right dockable widget - plugin does not provide the widget")
-                    }
-
-                    widgetNameForMenu = widgetName
-                }
-                states: [
-                    State {
-                        name: "showing"
-                        when: showing
-                        PropertyChanges { target: container; implicitWidth: dynamic_widget ? dynamic_widget.dockWidgetSize : 0}
-                    },
-                    State {
-                        name: "hiding"
-                        when: !showing
-                        PropertyChanges { target: container; implicitWidth: 0}
-                    }
-                ]
 
                 transitions: Transition {
                     NumberAnimation { properties: "implicitWidth"; duration: 150 }
                 }
+                property var dynamic_widget
 
+                Item {
+                    id: container
+                    clip: true
+                    anchors.top: parent.top
+                    anchors.bottom: groupBtn.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    property var widgetName: widget_name
+                    onWidgetNameChanged: load_widget(0)
+
+                    function load_widget(attempt) {
+
+                        var idx = dockables.searchRecursive(widgetName, "title")                
+                        if (!idx.valid && attempt < 10) {
+                            callbackTimer.setTimeout(function() { return function() {
+                                load_widget(attempt+1)
+                            }}(), 500);
+                            return
+                        } else if (!idx.valid) {
+                            console.log("Unable to create dockable widget: ", widgetName)
+                            return;
+                        }
+                        var source = dockables.get(idx, "left_right_dock_widget_qml_code")
+                        if (source != undefined && source != "") {
+                            dynamic_widget = Qt.createQmlObject(source, container)
+                        } else if (source == undefined) {
+                            console.log("Unable to make a", widgetName, "left/right dockable widget - plugin does not provide the widget")
+                        }
+
+                        widgetNameForMenu = widgetName
+                    }
+                    states: [
+                        State {
+                            name: "showing"
+                            when: showing
+                            PropertyChanges { target: toplevel; implicitWidth: dynamic_widget ? dynamic_widget.dockWidgetSize : 0}
+                        },
+                        State {
+                            name: "hiding"
+                            when: !showing
+                            PropertyChanges { target: toplevel; implicitWidth: 0}
+                        }
+                    ]
+
+                }
                 XsButtonWithImageAndText{ id: groupBtn
                     iconText: "Position"
                     anchors.bottom: parent.bottom

@@ -86,6 +86,7 @@ XsNoteSection3            1.0 ../views/notes/sections/XsNoteSection3.qml
 XsSearchBar               1.0 ../widgets/bars_and_tabs/XsSearchBar.qml
 XsGradientRectangle       1.0 ../widgets/bars_and_tabs/XsGradientRectangle.qml
 
+XsInfoButton              1.0 ../widgets/buttons/XsInfoButton.qml
 XsNavButton               1.0 ../widgets/buttons/XsNavButton.qml
 XsPrimaryButton           1.0 ../widgets/buttons/XsPrimaryButton.qml
 XsSearchButton            1.0 ../widgets/buttons/XsSearchButton.qml
@@ -112,15 +113,16 @@ XsIntegerAttrControl      1.0 ../widgets/controls/attr_controls/XsIntegerAttrCon
 
 XsAttributesPanel         1.0 ../widgets/dialogs/XsAttributesPanel.qml
 XsColourDialog            1.0 ../widgets/dialogs/XsColourDialog.qml
+XsCompareModePref         1.0 ../widgets/dialogs/preferences/delegates/XsCompareModePref.qml
+XsHotkeysDialog           1.0 ../widgets/dialogs/hotkeys/XsHotkeysDialog.qml
+XsJsonPreference          1.0 ../widgets/dialogs/preferences/delegates/XsJsonPreference.qml
 XsPopup                   1.0 ../widgets/dialogs/XsPopup.qml
+XsPreferencesDialog       1.0 ../widgets/dialogs/preferences/XsPreferencesDialog.qml
+XsSequenceRequestDialog   1.0 ../widgets/dialogs/XsSequenceRequestDialog.qml
 XsSnapshotDialog          1.0 ../widgets/dialogs/XsSnapshotDialog.qml
 XsStringRequestDialog     1.0 ../widgets/dialogs/XsStringRequestDialog.qml
 XsTextEditDialog          1.0 ../widgets/dialogs/XsTextEditDialog.qml
 XsWindow                  1.0 ../widgets/dialogs/XsWindow.qml
-XsPreferencesDialog       1.0 ../widgets/dialogs/preferences/XsPreferencesDialog.qml
-XsCompareModePref         1.0 ../widgets/dialogs/preferences/delegates/XsCompareModePref.qml
-XsJsonPreference          1.0 ../widgets/dialogs/preferences/delegates/XsJsonPreference.qml
-XsHotkeysDialog           1.0 ../widgets/dialogs/hotkeys/XsHotkeysDialog.qml
 
 XsBusyIndicator           1.0 ../widgets/indicators/XsBusyIndicator.qml
 XsNotification            1.0 ../widgets/indicators/XsNotification.qml

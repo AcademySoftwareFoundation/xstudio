@@ -20,81 +20,6 @@ namespace fs = std::filesystem;
 
 namespace xstudio {
 namespace global_store {
-    // define our hardwired properties..
-    // which are loaded into the jsonstore..
-    class GlobalStoreDef {
-      public:
-        GlobalStoreDef() : path_(), value_(), default_value_(), datatype_(), description_() {}
-        GlobalStoreDef(
-            std::string path,
-            const nlohmann::json &value,
-            std::string datatype,
-            std::string description)
-            : path_(std::move(path)),
-              value_(value),
-              default_value_(value),
-              datatype_(std::move(datatype)),
-              description_(std::move(description)) {}
-        virtual ~GlobalStoreDef() = default;
-
-        std::string path_;
-        std::string display_name_;
-        std::string category_;
-        nlohmann::json value_;
-        nlohmann::json default_value_;
-        std::string datatype_;
-        std::string description_;
-        std::string overridden_path_;
-        nlohmann::json minimum_value_;
-        nlohmann::json maximum_value_;
-        nlohmann::json options_;
-
-        [[nodiscard]] std::string path() const { return path_; }
-        [[nodiscard]] std::string display_name() const { return display_name_; }
-        [[nodiscard]] std::string category() const { return category_; }
-        [[nodiscard]] std::string datatype() const { return datatype_; }
-        [[nodiscard]] std::string description() const { return description_; }
-        [[nodiscard]] std::string overridden_path() const { return overridden_path_; }
-        [[nodiscard]] nlohmann::json value() const {
-            return (value_.is_null() ? default_value_ : value_);
-        }
-        [[nodiscard]] nlohmann::json default_value() const { return default_value_; }
-        [[nodiscard]] nlohmann::json minimum_value() const { return minimum_value_; }
-        [[nodiscard]] nlohmann::json maximum_value() const { return maximum_value_; }
-        [[nodiscard]] nlohmann::json options() const { return options_; }
-
-        operator std::string() const { return path_; }
-        operator nlohmann::json() const {
-            return {
-                {"path", path_},
-                {"value", value_},
-                {"default_value", default_value_},
-                {"description", description_},
-                {"datatype", datatype_},
-                {"category", category_},
-                {"minimum", minimum_value_},
-                {"maximum", maximum_value_},
-                {"display_name", display_name_},
-                {"options", options_},
-                {"overridden_path", overridden_path_}};
-        }
-    };
-
-    void to_json(nlohmann::json &j, const GlobalStoreDef &gsd);
-    void from_json(const nlohmann::json &j, GlobalStoreDef &gsd);
-
-    static const std::vector<std::string> PreferenceContexts{
-        "NEW_SESSION", "APPLICATION", "QML_UI", "PLUGIN"};
-    static const GlobalStoreDef gsd_hello{"/hello", "goodbye", "string", "Says goodbye"};
-    // static const GlobalStoreDef gsd_beast{"/beast", 666, "Number of the beast"};
-    // static const GlobalStoreDef gsd_happy{"/happy", true, "Am I happy"};
-    // static const GlobalStoreDef gsd_nested_happy{"/nested/happy", true, "Am I happy"};
-    // static const GlobalStoreDef gsd_nested_sad{"/nested/sad", false, "Am I sad"};
-
-    static const std::vector<GlobalStoreDef> gsds{
-        gsd_hello,
-    };
-
     template <typename result_type>
     inline result_type preference_property(
         const utility::JsonStore &js, const std::string &path, const std::string &prop) {
@@ -197,7 +122,6 @@ namespace global_store {
         const std::set<std::string> &context = std::set<std::string>(),
         const bool only_changed              = false,
         const std::string &override_path     = "");
-    void set_global_store_def(utility::JsonStore &js, const GlobalStoreDef &gsd);
 
     // note: extra_prefs_paths allows us to add preference files (or folders) that
     // are loaded BEFORE the user's own preference files are loaded. The
@@ -236,6 +160,9 @@ namespace global_store {
         const utility::JsonStore &json = utility::JsonStore());
 
     bool check_preference_path();
+
+    static const std::vector<std::string> PreferenceContexts{
+        "NEW_SESSION", "APPLICATION", "QML_UI", "PLUGIN"};
 
     // attaches to global datastore actor.
     class GlobalStoreHelper : public json_store::JsonStoreHelper {
@@ -289,8 +216,8 @@ namespace global_store {
             const bool broacast_change = true,
             const std::string &context = "APPLICATION");
 
-        void set(const GlobalStoreDef &gsd, const bool async = true);
         bool save(const std::string &context);
+        [[nodiscard]] bool read_only() const;
     };
 } // namespace global_store
 } // namespace xstudio

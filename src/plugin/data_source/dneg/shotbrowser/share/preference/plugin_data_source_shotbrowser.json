@@ -97,6 +97,16 @@
                     }
                 },
                 "browser": {
+                    "hide_tree": {
+                        "context": [
+                            "PLUGIN"
+                        ],
+                        "datatype": "bool",
+                        "default_value": false,
+                        "description": "Hide tree panel.",
+                        "path": "/plugin/data_source/shotbrowser/browser/hide_tree",
+                        "value": false
+                    },
                     "location": {
                         "context": [
                             "PLUGIN"
@@ -289,10 +299,10 @@
                             "PLUGIN"
                         ],
                         "datatype": "string",
-                        "default_value": "shotgun.dneg.com",
+                        "default_value": "xstudio-shotgun.dneg.com",
                         "description": "Shotgun host.",
                         "path": "/plugin/data_source/shotbrowser/server/host",
-                        "value": "shotgun.dneg.com"
+                        "value": "xstudio-shotgun.dneg.com"
                     },
                     "port": {
                         "context": [
@@ -11393,7 +11403,7 @@
             "favourite": false,
             "hidden": false,
             "id": "46540248-cc0b-41e7-9e02-9d6eba4bfef6",
-            "name": "To Me",
+            "name": "Notes To Me",
             "type": "preset",
             "update": false,
             "userdata": ""
@@ -11413,7 +11423,7 @@
             "favourite": false,
             "hidden": false,
             "id": "fcd2e23c-3b4b-4306-9031-c2829b44106f",
-            "name": "From Me",
+            "name": "Notes From Me",
             "type": "preset",
             "update": false,
             "userdata": ""

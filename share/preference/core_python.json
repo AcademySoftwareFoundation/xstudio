@@ -30,7 +30,7 @@
 			"user_python_plugin_search_folders": {
 				"path": "/core/python/user_python_plugin_search_folders",
 				"default_value": [],
-				"description": "This preference must be a json array. Each element of the array must be a path to a filesystem folder. xSTUDIO will search these folders for xSTUDIO python plugins.",
+				"description": "This preference must be a json array. Each element of the array must be a path to a filesystem folder. xSTUDIO will search these folders for xSTUDIO python plugins. Re-start xstudio after modifying this preference for it to take effect.",
 				"value": [],
 				"datatype": "json",
 				"display_name": "Python Plugins Search Paths",

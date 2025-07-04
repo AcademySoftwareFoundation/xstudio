@@ -3,9 +3,9 @@
 		"basic_masking": {
 			"mask_aspect_ratio": {
 				"path": "/plugin/basic_masking/mask_aspect_ratio",
-				"default_value": 1.78,
+				"default_value": 2.40,
 				"description": "Mask aspect ratio",
-				"value": 1.78,
+				"value": 2.40,
 				"datatype": "double",
 				"context": ["APPLICATION"]
 			},

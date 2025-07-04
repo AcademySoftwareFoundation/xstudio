@@ -202,9 +202,9 @@ const auto OnDiskTermValues = R"([
         {"name": "lon"},
         {"name": "mtl"},
         {"name": "mum"},
-        {"name": "syd"},
-        {"name": "van"}
+        {"name": "syd"}
     ])"_json;
+// {"name": "van"}
 
 const auto ResultLimitTermValues = R"([
         {"name": "1"},

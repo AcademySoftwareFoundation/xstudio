@@ -251,13 +251,12 @@ Control { id: wheel
         implicitWidth: wheelSize
         implicitHeight: implicitWidth
         
-        XsImage { id: imgDiv
+        ShaderEffect { id: imgDiv
             width: parent.width
             height: parent.height
-            antialiasing: true
-            smooth: true
-            imgOverlayColor: "transparent"
-            source: "qrc:/grading_icons/wheel_256px.png"
+            fragmentShader: "qrc:/shaders/colourwheel.frag.qsb"
+            property real vvv: 1.0
+            property real rim: 0.1
         }
 
         // Cross in the center

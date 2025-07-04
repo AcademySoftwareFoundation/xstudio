@@ -36,7 +36,8 @@ namespace global {
         GlobalActor(
             caf::actor_config &cfg,
             const utility::JsonStore &prefs = utility::JsonStore(),
-            const bool embedded_python      = true);
+            const bool embedded_python      = true,
+            const bool read_only            = false);
         ~GlobalActor();
         const char *name() const override { return NAME.c_str(); }
         void on_exit() override;
@@ -51,7 +52,8 @@ namespace global {
             caf::actor a);
         void init(
             const utility::JsonStore &prefs = utility::JsonStore(),
-            const bool embedded_python      = true);
+            const bool embedded_python      = true,
+            const bool read_only            = false);
 
         void connect_api(const caf::actor &embedded_python);
         void disconnect_api(const caf::actor &embedded_python, const bool force = false);

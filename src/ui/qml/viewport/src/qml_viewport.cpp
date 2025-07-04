@@ -235,7 +235,7 @@ void QMLViewport::sync() {
             window()->size(),
             window()->effectiveDevicePixelRatio());
 
-        renderer_actor->prepareRenderData();
+        if (isVisible()) renderer_actor->prepareRenderData();
     }
 }
 
@@ -325,9 +325,26 @@ void QMLViewport::mouseDoubleClickEvent(QMouseEvent *event) {
 
 void QMLViewport::keyPressEvent(QKeyEvent *key_event) {
 
+    // On some platforms (MacOS) backspace and delete aren't
+    // ASCII but widestring encoded. Hack here to get around
+    // that until we do propoer wstring handling in the
+    // backend
+    std::string text = StdFromQString(key_event->text());
+    if (key_event->key() == Qt::Key_Backspace) {
+        std::array<char,2> v;
+        v[0] = 8;
+        v[1] = 0;
+        text = v.data();
+    } else if (key_event->key() == Qt::Key_Delete) {
+        std::array<char,2> v;
+        v[0] = 127;
+        v[1] = 0;
+        text = v.data();
+    }
+
     anon_mail(
         ui::keypress_monitor::text_entry_atom_v,
-        StdFromQString(key_event->text()),
+        text,
         renderer_actor ? renderer_actor->std_name() : "",
         StdFromQString(m_window->objectName()))
         .send(keypress_monitor_);

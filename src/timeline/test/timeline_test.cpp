@@ -76,9 +76,9 @@ TEST(TimelineTestFull, Test) {
     Stack s001("Stack-001");
     Stack s002("Nested Stack-002");
 
-    Track t001("Track-001");
-    Track t002("Nested Track-002");
-    Track t003("Nested Track-003");
+    Track t001("Track-001", FrameRate(timebase::k_flicks_24fps), media::MT_IMAGE);
+    Track t002("Nested Track-002", FrameRate(timebase::k_flicks_24fps), media::MT_IMAGE);
+    Track t003("Nested Track-003", FrameRate(timebase::k_flicks_24fps), media::MT_IMAGE);
 
     t003.item().set_active_range(FrameRange(
         FrameRateDuration(1, timebase::k_flicks_24fps),

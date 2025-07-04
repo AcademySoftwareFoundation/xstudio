@@ -75,14 +75,6 @@
 				"datatype": "string",
 				"context": ["QML_UI"]
 			},
-			"copy_source_path": {
-				"path": "/ui/qml/copy_source_path",
-				"default_value": "SourceName",
-				"description": "Copy specified source path to clipboard.",
-				"value": "main_proxy0",
-				"datatype": "string",
-				"context": ["QML_UI"]
-			},
 			"start_play_on_load": {
 				"path": "/ui/qml/start_play_on_load",
 				"default_value": true,

@@ -54,6 +54,12 @@ namespace colour_pipeline {
         inline static std::string NAME() { return "OCIO_GLOBAL_CONTROLS"; }
 
       private:
+        bool default_config_enabled();
+
+        bool custom_config_enabled();
+
+        std::string default_ocio_config();
+
         utility::JsonStore settings_json();
 
         void synchronize_attributes();
@@ -68,7 +74,7 @@ namespace colour_pipeline {
         module::BooleanAttribute *adjust_source_;
         module::StringChoiceAttribute *preferred_view_;
         module::Attribute *user_view_display_settings_attr_;
-        module::StringAttribute *user_ocio_config_;
+        module::StringAttribute *custom_ocio_config_;
         module::StringAttribute *default_ocio_config_;
 
         utility::JsonStore user_view_display_settings_;

@@ -55,9 +55,9 @@
 			},
 			"enable_hud": {
 				"path": "/ui/viewport/enable_hud",
-				"default_value": false,
+				"default_value": true,
 				"description": "Enables the HUD overlays",
-				"value": false,
+				"value": true,
 				"datatype": "bool",
 				"context": ["QML_UI"]
 			},

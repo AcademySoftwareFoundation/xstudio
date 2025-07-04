@@ -61,6 +61,7 @@ void AudioWaveformOverlayRenderer::render_image_overlay(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
+    const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame,
     const bool have_alpha_buffer) {
 
@@ -94,7 +95,7 @@ void AudioWaveformOverlayRenderer::render_image_overlay(
     utility::JsonStore shader_params;
     shader_params["to_canvas"]   = transform_window_to_viewport_space;
     shader_params["hscale"]      = 2.0f / float(n_samps);
-    shader_params["vscale"]      = data->vscale;
+    shader_params["vscale"]      = data->vscale*device_pixel_ratio;
     shader_params["line_colour"] = data->line_colour;
     shader_->set_shader_parameters(shader_params);
     shader_->use();

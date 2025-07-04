@@ -46,7 +46,7 @@ ShotBrowserResultModel::ShotBrowserResultModel(QObject *parent) : JSONTreeModel(
          "onSiteMtl",
          "onSiteMum",
          "onSiteSyd",
-         "onSiteVan",
+         // "onSiteVan",
          "pipelineStatusFullRole",
          "pipelineStatusRole",
          "pipelineStepRole",
@@ -317,10 +317,10 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                 result = QDateTime::fromString(
                     QStringFromStd(j.at("attributes").at("sg_submit_dailies_mtl")),
                     Qt::ISODate);
-            else if (not j.at("attributes").at("sg_submit_dailies_van").is_null())
-                result = QDateTime::fromString(
-                    QStringFromStd(j.at("attributes").at("sg_submit_dailies_van")),
-                    Qt::ISODate);
+            // else if (not j.at("attributes").at("sg_submit_dailies_van").is_null())
+            //     result = QDateTime::fromString(
+            //         QStringFromStd(j.at("attributes").at("sg_submit_dailies_van")),
+            //         Qt::ISODate);
             else if (not j.at("attributes").at("sg_submit_dailies_mum").is_null())
                 result = QDateTime::fromString(
                     QStringFromStd(j.at("attributes").at("sg_submit_dailies_mum")),
@@ -556,15 +556,15 @@ QVariant ShotBrowserResultModel::data(const QModelIndex &index, int role) const 
                 result = 0;
             }
             break;
-        case Roles::onSiteVan:
-            try {
-                result = j.at("attributes").at("sg_on_disk_van") == "Full"      ? 2
-                         : j.at("attributes").at("sg_on_disk_van") == "Partial" ? 1
-                                                                                : 0;
-            } catch (...) {
-                result = 0;
-            }
-            break;
+        // case Roles::onSiteVan:
+        //     try {
+        //         result = j.at("attributes").at("sg_on_disk_van") == "Full"      ? 2
+        //                  : j.at("attributes").at("sg_on_disk_van") == "Partial" ? 1
+        //                                                                         : 0;
+        //     } catch (...) {
+        //         result = 0;
+        //     }
+        //     break;
         case Roles::onSiteChn:
             try {
                 result = j.at("attributes").at("sg_on_disk_chn") == "Full"      ? 2
@@ -1022,13 +1022,13 @@ void ShotBrowserResultFilterModel::setFilterMum(const bool value) {
         invalidateFilter();
     }
 }
-void ShotBrowserResultFilterModel::setFilterVan(const bool value) {
-    if (value != filterVan_) {
-        filterVan_ = value;
-        emit filterVanChanged();
-        invalidateFilter();
-    }
-}
+// void ShotBrowserResultFilterModel::setFilterVan(const bool value) {
+//     if (value != filterVan_) {
+//         filterVan_ = value;
+//         emit filterVanChanged();
+//         invalidateFilter();
+//     }
+// }
 void ShotBrowserResultFilterModel::setFilterSyd(const bool value) {
     if (value != filterSyd_) {
         filterSyd_ = value;
@@ -1076,10 +1076,10 @@ bool ShotBrowserResultFilterModel::filterAcceptsRow(
                 filterMum_ and
                 not source_index.data(ShotBrowserResultModel::Roles::onSiteMum).toInt())
                 result = false;
-            else if (
-                filterVan_ and
-                not source_index.data(ShotBrowserResultModel::Roles::onSiteVan).toInt())
-                result = false;
+            // else if (
+            //     filterVan_ and
+            //     not source_index.data(ShotBrowserResultModel::Roles::onSiteVan).toInt())
+            //     result = false;
             else if (
                 filterSyd_ and
                 not source_index.data(ShotBrowserResultModel::Roles::onSiteSyd).toInt())

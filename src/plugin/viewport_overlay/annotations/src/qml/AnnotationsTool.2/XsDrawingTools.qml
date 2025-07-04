@@ -16,7 +16,6 @@ Item {
 
     objectName: "XStudioPanel"
     anchors.fill: parent
-    anchors.bottomMargin: horizontal ? 0 : XsStyleSheet.primaryButtonStdHeight
     anchors.rightMargin: horizontal ? 90 : 0
 
     // this var is REQUIRED to set the vertical size of the widget
@@ -187,7 +186,7 @@ Item {
     }
 
     XsColourDialog {
-        id: colorDialog
+        id: colourDialog
         title: "Please pick a colour"
         property var lastColour
         
@@ -211,7 +210,7 @@ Item {
         }
     }
 
-    property alias colorDialog: colorDialog
+    property alias colourDialog: colourDialog
 
     // We wrap all the widgets in a top level Item that can forward keyboard
     // events back to the viewport for consistent

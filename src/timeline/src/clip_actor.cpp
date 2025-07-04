@@ -13,10 +13,39 @@ using namespace xstudio::utility;
 using namespace xstudio::timeline;
 using namespace std::literals;
 
+namespace {
+// helper function that makes a set of std::pair<int,int>, condensing
+// contiguous numbers to their end points.
+// e.g. 1,2,3,8,9,10,20,30,31 -> (1,3), (8,9), (20,20), (30,31)
+struct RangeMaker {
+    inline static const int invalid_frame = -1234442;
+    int a                                 = {invalid_frame};
+    int b                                 = {invalid_frame};
+    void extend(int f) {
+        if (a == invalid_frame) {
+            a = f;
+            b = f;
+        } else if (f > (b + 1)) {
+            r.emplace_back(a, b);
+            a = f;
+            b = f;
+        } else {
+            b = f;
+        }
+    }
+    media::LogicalFrameRanges result() {
+        if (a != invalid_frame) {
+            r.emplace_back(a, b);
+        }
+        return r;
+    }
+    media::LogicalFrameRanges r;
+};
+} // namespace
+
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
-    base_.item().set_system(&system());
 
     init();
 }
@@ -24,7 +53,6 @@ ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn)
 ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
-    base_.item().set_system(&system());
 
     pitem = base_.item().clone();
     init();
@@ -32,7 +60,6 @@ ClipActor::ClipActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
 
 ClipActor::ClipActor(caf::actor_config &cfg, const Item &item)
     : caf::event_based_actor(cfg), base_(item, this) {
-    base_.item().set_system(&system());
     init();
 }
 
@@ -46,7 +73,6 @@ ClipActor::ClipActor(
     : caf::event_based_actor(cfg),
       // playlist_(caf::actor_cast<actor_addr>(playlist)),
       base_(name, uuid, this, media.uuid()) {
-    base_.item().set_system(&system());
 
     // already done in base clase ?
     // base_.item().set_name(name);
@@ -87,6 +113,7 @@ ClipActor::ClipActor(
                 auto mfr = FrameRange(
                     FrameRateDuration(tc_start, ref.duration().rate()), ref.duration());
                 base_.item().set_range(mfr, mfr);
+                base_.override_media_rate(ref.duration().rate());
 
                 auto m_actor =
                     system().registry().template get<caf::actor>(media_hook_registry);
@@ -249,6 +276,15 @@ caf::message_handler ClipActor::message_handler() {
             return mail(atom).delegate(caf::actor_cast<caf::actor>(this));
         },
 
+        [=](rate_atom,
+            const utility::FrameRate &new_rate,
+            const bool force_media_rate_to_match) -> bool {
+            base_.item().override_frame_rate(new_rate, force_media_rate_to_match);
+            if (force_media_rate_to_match)
+                base_.override_media_rate(new_rate);
+            return true;
+        },
+
         [=](item_prop_atom, const JsonStore &value) -> JsonStore {
             auto jsn = base_.item().set_prop(value);
             if (not jsn.is_null())
@@ -404,6 +440,8 @@ caf::message_handler ClipActor::message_handler() {
                                 auto jsn = base_.item().set_available_range(FrameRange(
                                     FrameRateDuration(tc_start, ref.second.duration().rate()),
                                     ref.second.duration()));
+
+                                base_.override_media_rate(ref.second.duration().rate());
 
                                 // spdlog::warn("after {} available_range start {} duration {}",
                                 //     base_.item().name(),
@@ -562,8 +600,8 @@ caf::message_handler ClipActor::message_handler() {
 
         [=](media::get_media_pointer_atom,
             const media::MediaType media_type,
-            const std::vector<FrameRate> &timepoints,
-            const FrameRate &override_rate) -> result<media::AVFrameIDs> {
+            const std::vector<timebase::flicks> timepoints,
+            const FrameRate override_rate) -> result<media::AVFrameIDs> {
             if (media_) {
 
 
@@ -590,116 +628,92 @@ caf::message_handler ClipActor::message_handler() {
                     (base_.item().available_start() ? *base_.item().available_start()
                                                     : trimmed_start);
 
-                // build a set of frame ranges for which we haven't already
-                // generated AvFrameIDs (and stored in our cache)
-                auto ranges = media::LogicalFrameRanges();
-                // for each range, we have an index into 'result'
-                static const int invalid_frame = std::numeric_limits<int>::lowest();
-                auto indexs                    = std::vector<int>();
-                auto range_not_in_cache = std::pair<int, int>(invalid_frame, invalid_frame);
-
                 // get a ref to the appropriate AvFrameID cache
                 auto &frame_ptr_cache = media_type == media::MediaType::MT_IMAGE
                                             ? image_ptr_cache_
                                             : audio_ptr_cache_;
 
-                auto index = 0;
+
+                // Note: a clip's frame rate may be different to the frame rate
+                // of the media wrapped by the clip. This is how retiming works
+                // so that media of different rates can be played in a timeline
+                // of fixed rate.
+                const auto reference_frame_rate =
+                    base_.media_rate() != timebase::k_flicks_zero_seconds ? base_.media_rate()
+                                                                          : base_.item().rate();
+
+                RangeMaker range_maker;
+
                 // loop over the timeline timepoints for which we've been asked
                 // for an AVFrameID
-                for (const auto timepoint : timepoints) {
+                for (size_t i = 0; i < timepoints.size(); ++i) {
 
                     // convert the timepoint into a logical frame
                     auto frd = FrameRateDuration(
-                        FrameRate(timepoint.to_flicks() - available_start.to_flicks()),
-                        override_rate);
-                    auto logical_frame = frd.frames(base_.item().rate());
+                        timepoints[i] - available_start.to_flicks(), override_rate);
+
+                    auto media_logical_frame = frd.frames(reference_frame_rate);
 
                     // have we cached an AVFrameID for this frame already?
-                    if (frame_ptr_cache.count(logical_frame)) {
-                        (*result)[index] = frame_ptr_cache[logical_frame];
-
-                        if (range_not_in_cache.first != invalid_frame) {
-                            // previous frame was NOT in cache - store the
-                            // range for which we need AvFrameIDs
-                            ranges.push_back(range_not_in_cache);
-                            range_not_in_cache.first  = invalid_frame;
-                            range_not_in_cache.second = invalid_frame;
-                        }
+                    if (!frame_ptr_cache.count(media_logical_frame)) {
+                        range_maker.extend(media_logical_frame);
                     } else {
-
-                        // extend the frame range for which we need to
-                        if (range_not_in_cache.first != invalid_frame) {
-                            if (logical_frame != range_not_in_cache.second + 1) {
-
-                                ranges.push_back(range_not_in_cache);
-                                range_not_in_cache.first  = invalid_frame;
-                                range_not_in_cache.second = invalid_frame;
-                            } else {
-                                range_not_in_cache.second = logical_frame;
-                            }
-                        }
-
-                        // start a new range to record frames where we don't
-                        // already have AvFrameIDs in the cache
-                        if (range_not_in_cache.first == invalid_frame) {
-                            range_not_in_cache.first  = logical_frame;
-                            range_not_in_cache.second = logical_frame;
-                            indexs.push_back(index);
-                        }
+                        (*result)[i] = frame_ptr_cache[media_logical_frame];
                     }
-
-                    index++;
                 }
 
-                if (range_not_in_cache.first != invalid_frame) {
-                    ranges.push_back(range_not_in_cache);
-                }
+                const auto frame_ranges = range_maker.result();
 
-                if (indexs.empty()) {
+                if (frame_ranges.empty()) {
                     // all our frames were in the cache
                     rp.deliver(*result);
                 } else {
                     mail(
                         media::get_media_pointers_atom_v,
                         media_type,
-                        ranges,
+                        frame_ranges,
                         FrameRate(),
                         base_.uuid())
                         .request(caf::actor_cast<caf::actor>(media_), infinite)
                         .then(
                             [=](const media::AVFrameIDs &mps) mutable {
-                                // spdlog::warn("const media::AVFrameIDs &mps {} {}",
-                                // base_.item().name(), mps.size());
+                                /*spdlog::warn("const media::AVFrameIDs &mps {} {}",
+                                     name(), mps.size());*/
+
+                                auto &frame_ptr_cache = media_type == media::MediaType::MT_IMAGE
+                                                            ? image_ptr_cache_
+                                                            : audio_ptr_cache_;
 
                                 auto mp = mps.begin();
-                                int ct  = 0;
-                                for (size_t i = 0; i < indexs.size(); i++) {
+                                for (const auto &rng : frame_ranges) {
 
-                                    auto ind = indexs[i];
-                                    auto rng = ranges[i];
+                                    for (auto ii = rng.first; ii <= rng.second; ii++) {
 
-                                    for (auto ii = rng.first; ii <= rng.second; ii++, ind++) {
-
-                                        // if we got our logic above correct this shouldn't
-                                        // happen as indexs and ranges match in length and
-                                        // mps size is the sum of ranges
+                                        // this should never happen, but just in case
                                         if (mp == mps.end())
                                             break;
 
                                         std::shared_ptr<const media::AVFrameID> foo = *mp;
-
-                                        if (media_type == media::MediaType::MT_IMAGE) {
-                                            image_ptr_cache_[ii] = foo;
-                                            (*result)[ind]       = foo; // image_ptr_cache_[ii];
-
-                                            // spdlog::warn("{}", (*mp)->key_);
-                                        } else if (media_type == media::MediaType::MT_AUDIO) {
-                                            audio_ptr_cache_[ii] = foo;
-                                            (*result)[ind]       = foo;
-                                        }
+                                        frame_ptr_cache[ii]                         = foo;
                                         mp++;
                                     }
                                 }
+
+                                for (size_t i = 0; i < timepoints.size(); ++i) {
+
+                                    // convert the timepoint into a logical frame
+                                    auto frd = FrameRateDuration(
+                                        timepoints[i] - available_start.to_flicks(),
+                                        override_rate);
+
+                                    auto media_logical_frame = frd.frames(reference_frame_rate);
+
+                                    // have we cached an AVFrameID for this frame already?
+                                    if (frame_ptr_cache.count(media_logical_frame)) {
+                                        (*result)[i] = frame_ptr_cache[media_logical_frame];
+                                    }
+                                }
+
                                 // spdlog::warn("deliver {}", result->size());
                                 rp.deliver(*result);
                             },

@@ -8,3 +8,5 @@ SET(LINK_DEPS
 )
 
 create_plugin_with_alias(media_hook_dneg xstudio::media_hook::dnhook ${XSTUDIO_GLOBAL_VERSION}  "${LINK_DEPS}")
+
+add_preference(plugin_dneg_media_hook.json ${CMAKE_CURRENT_SOURCE_DIR} media_hook_dneg)

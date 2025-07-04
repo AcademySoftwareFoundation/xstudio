@@ -11,15 +11,12 @@
 #include <tuple>
 #include <filesystem>
 
-#include <opentimelineio/timeline.h>
-
 #include "xstudio/atoms.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
 #include "xstudio/embedded_python/embedded_python_actor.hpp"
 #include "xstudio/global_store/global_store.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/logging.hpp"
-#include "xstudio/embedded_python/python_thread_locker.hpp"
 
 using namespace xstudio;
 using namespace xstudio::utility;
@@ -32,13 +29,64 @@ using namespace pybind11::literals;
 namespace fs = std::filesystem;
 namespace py = pybind11;
 
-namespace otio = opentimelineio::OPENTIMELINEIO_VERSION;
-
 #ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC visibility push(hidden)
 #else
 #pragma warning(push, hidden)
 #endif
+
+namespace {
+/* This actor prints python output to the shell until something else (like
+the Python interpreter UI) starts up */
+class PythonOutputToShellActor : public caf::event_based_actor {
+  public:
+    PythonOutputToShellActor(caf::actor_config &cfg, caf::actor py_event_group)
+        : caf::event_based_actor(cfg), py_event_group_(py_event_group) {
+
+        utility::join_broadcast(this, py_event_group_);
+
+        behavior_.assign(
+            [=](utility::event_atom, utility::last_changed_atom, const time_point &) {},
+            [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+            [=](utility::event_atom,
+                json_store::sync_atom,
+                const Uuid &uuid,
+                const JsonStore &event) {},
+
+            [=](utility::event_atom,
+                embedded_python::python_output_atom,
+                const utility::Uuid &uuid,
+                const std::tuple<std::string, std::string> &output) {
+
+                // if we mail an event group with a bool it will send bnack the
+                // number of subscribers it has
+                mail(true).request(
+                    py_event_group_, infinite).then(
+                        [=](int num_subscribers) {
+                            if (num_subscribers > 1) {
+                                // someone else is listenining to python output (probably)
+                                // the Python interpreter UI. We can close
+                                send_exit(this, caf::exit_reason::user_shutdown);
+                            } else {
+                                // print to logs
+                                spdlog::info("Python Output:\n\n{}{}\n", std::get<0>(output), std::get<1>(output));
+                            }
+                        },
+                        [=](caf::error & err) {});
+            },
+
+            [=](utility::event_atom, utility::change_atom) {},
+
+            [=](utility::event_atom, utility::name_atom, const std::string &) {});
+    }
+
+    caf::behavior behavior_;
+    caf::actor py_event_group_;
+
+    caf::behavior make_behavior() override { return behavior_; }
+};
+
+}
 
 class PyStdErrOutStreamRedirect {
   public:
@@ -184,6 +232,7 @@ void EmbeddedPythonActor::main_loop() {
 
     base_.setup();
 
+    auto py_output_to_shell = spawn<PythonOutputToShellActor>(event_group_);
 
     // data_.insert_rows(
     //     0, 1,
@@ -193,225 +242,205 @@ void EmbeddedPythonActor::main_loop() {
     //     }])"_json
     // );
 
-    receive_while(running)(
-        base_.make_set_name_handler(event_group_, this),
-        base_.make_get_name_handler(),
-        base_.make_last_changed_getter(),
-        base_.make_last_changed_setter(event_group_, this),
-        base_.make_last_changed_event_handler(event_group_, this),
-        base_.make_get_uuid_handler(),
-        base_.make_get_type_handler(),
-        make_get_event_group_handler(event_group_),
-        base_.make_get_detail_handler(this, event_group_),
-        [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+    {
+        
+        py::gil_scoped_release release;
 
-        [=](connect_atom, caf::actor actor) -> bool {
-            // spdlog::warn("connect actor 1");
-            bool result = false;
-            try {
-                PyStdErrOutStreamRedirect out;
+        receive_while(running)(
+            base_.make_set_name_handler(event_group_, this),
+            base_.make_get_name_handler(),
+            base_.make_last_changed_getter(),
+            base_.make_last_changed_setter(event_group_, this),
+            base_.make_last_changed_event_handler(event_group_, this),
+            base_.make_get_uuid_handler(),
+            base_.make_get_type_handler(),
+            make_get_event_group_handler(event_group_),
+            base_.make_get_detail_handler(this, event_group_),
+            [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+
+            [=](connect_atom, caf::actor actor) -> bool {
+                py::gil_scoped_acquire gil;
+
+                // spdlog::warn("connect actor 1");
+                bool result = false;
                 try {
-                    if (actor) {
-                        // spdlog::warn("connect actor 2");
-                        result = base_.connect(actor);
-                    } else {
-                        base_.disconnect();
-                    }
-                } catch (py::error_already_set &e) {
-                    e.restore();
-                    py_print(e.what());
-                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                }
-                send_output(this, event_group_, out);
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-            }
-
-            return result;
-        },
-
-        [=](connect_atom, const int port) -> bool {
-            bool result = false;
-            try {
-                PyStdErrOutStreamRedirect out{};
-                try {
-                    base_.setup();
-                    if (port) {
-                        result = base_.connect(port);
-                    } else {
-                        base_.disconnect();
-                    }
-                } catch (py::error_already_set &e) {
-                    e.restore();
-                    py_print(e.what());
-                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                }
-                send_output(this, event_group_, out);
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-            }
-
-            CAF_SET_LOGGER_SYS(&system());
-
-            return result;
-        },
-
-        [=](session::export_atom) -> result<std::vector<std::string>> {
-            // get otio supported export formats.
-            auto result = std::vector<std::string>({"otio"});
-
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-
-            std::string error;
-
-            try {
-                PyStdErrOutStreamRedirect out{};
-                try {
-                    // Import the OTIO Python module.
-                    auto p_module =
-                        PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
-                    auto p_suffixes_with_defined_adapters = PyObjectRef(
-                        PyObject_GetAttrString(p_module, "suffixes_with_defined_adapters"));
-                    auto p_suffixes_with_defined_adapters_args = PyObjectRef(PyTuple_New(2));
-
-                    PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 0, Py_False);
-                    PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 1, Py_True);
-
-                    auto p_suffixes = PyObjectRef(PyObject_CallObject(
-                        p_suffixes_with_defined_adapters,
-                        p_suffixes_with_defined_adapters_args));
-
-                    PyObject *repr = PyObject_Repr(p_suffixes);
-                    if (repr) {
-                        PyObject *str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
-                        if (str) {
-                            const char *bytes = PyBytes_AS_STRING(str);
-
-                            for (const auto &i :
-                                 resplit(std::string(bytes), std::regex{"\\{'|'\\}|',\\s'"})) {
-                                if (not i.empty())
-                                    result.push_back(i);
-                            }
-                            // something like .. {'otiod', 'edl', 'mb', 'ma', 'kdenlive',
-                            // 'otio', 'otioz', 'ale', 'm3u8', 'xml', 'aaf', 'fcpxml', 'svg',
-                            // 'xges', 'rv'}
-
-                            Py_XDECREF(str);
+                    PyStdErrOutStreamRedirect out;
+                    try {
+                        if (actor) {
+                            // spdlog::warn("connect actor 2");
+                            result = base_.connect(actor);
+                        } else {
+                            base_.disconnect();
                         }
-                        Py_XDECREF(repr);
+                    } catch (py::error_already_set &e) {
+                        e.restore();
+                        py_print(e.what());
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
+                    send_output(this, event_group_, out);
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+
+                return result;
+            },
+
+            [=](connect_atom, const int port) -> bool {
+                py::gil_scoped_acquire gil;
+
+                bool result = false;
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    try {
+                        base_.setup();
+                        if (port) {
+                            result = base_.connect(port);
+                        } else {
+                            base_.disconnect();
+                        }
+                    } catch (py::error_already_set &e) {
+                        e.restore();
+                        py_print(e.what());
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
+                    send_output(this, event_group_, out);
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                }
+
+                CAF_SET_LOGGER_SYS(&system());
+
+                return result;
+            },
+
+            [=](session::export_atom) -> result<std::vector<std::string>> {
+
+                // get otio supported export formats.
+                auto result = std::vector<std::string>({"otio"});
+
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+                py::gil_scoped_acquire gil;
+
+                std::string error;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    try {
+                        // Import the OTIO Python module.
+                        auto p_module =
+                            PyObjectRef(PyImport_ImportModule("opentimelineio.adapters"));
+                        auto p_suffixes_with_defined_adapters = PyObjectRef(
+                            PyObject_GetAttrString(p_module, "suffixes_with_defined_adapters"));
+                        auto p_suffixes_with_defined_adapters_args = PyObjectRef(PyTuple_New(2));
+
+                        PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 0, Py_False);
+                        PyTuple_SetItem(p_suffixes_with_defined_adapters_args, 1, Py_True);
+
+                        auto p_suffixes = PyObjectRef(PyObject_CallObject(
+                            p_suffixes_with_defined_adapters,
+                            p_suffixes_with_defined_adapters_args));
+
+                        PyObject *repr = PyObject_Repr(p_suffixes);
+                        if (repr) {
+                            PyObject *str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
+                            if (str) {
+                                const char *bytes = PyBytes_AS_STRING(str);
+
+                                for (const auto &i :
+                                    resplit(std::string(bytes), std::regex{"\\{'|'\\}|',\\s'"})) {
+                                    if (not i.empty())
+                                        result.push_back(i);
+                                }
+                                // something like .. {'otiod', 'edl', 'mb', 'ma', 'kdenlive',
+                                // 'otio', 'otioz', 'ale', 'm3u8', 'xml', 'aaf', 'fcpxml', 'svg',
+                                // 'xges', 'rv'}
+
+                                Py_XDECREF(str);
+                            }
+                            Py_XDECREF(repr);
+                        }
+
+                        std::sort(result.begin(), result.end());
+                        return result;
+                    } catch (py::error_already_set &err) {
+                        err.restore();
+                        error = err.what();
+                        py_print(error);
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        error = err.what();
+                    }
+                    // send_output(this, event_group_, out, uuid);
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    py_print(error);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    error = err.what();
+                }
+
+                return make_error(xstudio_error::error, error);
+            },
+
+            // downgrade_manifest = otio.versioning.fetch_map("OTIO_CORE", "0.15.0")
+            // otio.adapters.write_to_file(
+            //     sc,
+            //     "/path/to/file.otio",
+            //     target_schema_versions=downgrade_manifest
+            // )
+            [=](session::export_atom,
+                const std::string &otio_str,
+                const caf::uri &upath,
+                const std::string &type,
+                const std::string &target_schema) -> result<bool> {
+
+                // get otio supported export formats.
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+                py::gil_scoped_acquire gil;
+                std::string error;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    // Import the OTIO Python module.
+                    auto path = uri_to_posix_path(upath);
+
+                    py::object read_from_string =
+                        py::module_::import("opentimelineio.adapters").attr("read_from_string");
+                    py::object write_to_file =
+                        py::module_::import("opentimelineio.adapters").attr("write_to_file");
+
+                    py::object p_timeline = read_from_string(otio_str);
+
+                    if (target_schema.empty()) {
+                        write_to_file(p_timeline, path);
+                    } else {
+                        py::object fetchmap =
+                            py::module_::import("opentimelineio.versioning").attr("fetch_map");
+                        py::object vmap = fetchmap("OTIO_CORE", target_schema);
+                        py::object result =
+                            write_to_file(p_timeline, path, "target_schema_versions"_a = vmap);
                     }
 
-                    std::sort(result.begin(), result.end());
-                    return result;
-                } catch (py::error_already_set &err) {
-                    err.restore();
-                    error = err.what();
-                    py_print(error);
-                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-                } catch (const std::exception &err) {
-                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                    error = err.what();
-                }
-                // send_output(this, event_group_, out, uuid);
-            } catch (py::error_already_set &err) {
-                err.restore();
-                error = err.what();
-                py_print(error);
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                error = err.what();
-            }
-
-            return make_error(xstudio_error::error, error);
-        },
-
-        // downgrade_manifest = otio.versioning.fetch_map("OTIO_CORE", "0.15.0")
-        // otio.adapters.write_to_file(
-        //     sc,
-        //     "/path/to/file.otio",
-        //     target_schema_versions=downgrade_manifest
-        // )
-        [=](session::export_atom,
-            const std::string &otio_str,
-            const caf::uri &upath,
-            const std::string &type,
-            const std::string &target_schema) -> result<bool> {
-            // get otio supported export formats.
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-
-            std::string error;
-
-            try {
-                PyStdErrOutStreamRedirect out{};
-                otio::ErrorStatus error_status;
-                // Import the OTIO Python module.
-                auto path = uri_to_posix_path(upath);
-
-                py::object read_from_string =
-                    py::module_::import("opentimelineio.adapters").attr("read_from_string");
-                py::object write_to_file =
-                    py::module_::import("opentimelineio.adapters").attr("write_to_file");
-
-                py::object p_timeline = read_from_string(otio_str);
-
-                if (target_schema.empty()) {
-                    write_to_file(p_timeline, path);
-                } else {
-                    py::object fetchmap =
-                        py::module_::import("opentimelineio.versioning").attr("fetch_map");
-                    py::object vmap = fetchmap("OTIO_CORE", target_schema);
-                    py::object result =
-                        write_to_file(p_timeline, path, "target_schema_versions"_a = vmap);
-                }
-
-                return true;
-            } catch (py::error_already_set &err) {
-                err.restore();
-                error = err.what();
-                py_print(error);
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                error = err.what();
-            }
-
-            return make_error(xstudio_error::error, error);
-        },
-
-        // import otio file return as otio xml string.
-        // if already native format should be quick..
-        [=](session::import_atom, const caf::uri &path) -> result<std::string> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-
-            std::string error;
-
-            try {
-                PyStdErrOutStreamRedirect out{};
-                try {
-                    otio::ErrorStatus error_status;
-
-                    const std::string file_name_normalized = uri_to_posix_path(path);
-                    py::object read_from_file =
-                        py::module_::import("opentimelineio.adapters").attr("read_from_file");
-                    py::object p_timeline = read_from_file(file_name_normalized);
-                    py::str jsn           = p_timeline.attr("to_json_string")();
-                    return jsn;
+                    return true;
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
@@ -422,57 +451,107 @@ void EmbeddedPythonActor::main_loop() {
                     error = err.what();
                 }
 
-                // send_output(this, event_group_, out, uuid);
-            } catch (py::error_already_set &err) {
-                err.restore();
-                error = err.what();
-                py_print(error);
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                error = err.what();
-            }
+                return make_error(xstudio_error::error, error);
+            },
 
-            return make_error(xstudio_error::error, error);
-        },
+            // import otio file return as otio xml string.
+            // if already native format should be quick..
+            [=](session::import_atom, const caf::uri &path) -> result<std::string> {
 
-        [=](python_create_session_atom, const bool interactive) -> result<utility::Uuid> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
 
-            std::string error;
+                py::gil_scoped_acquire gil;
 
-            try {
-                PyStdErrOutStreamRedirect out{};
-                auto session_uuid = base_.create_session(interactive);
-                send_output(this, event_group_, out, session_uuid);
-                return session_uuid;
-            } catch (py::error_already_set &err) {
-                err.restore();
-                error = err.what();
-                py_print(error);
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-                return make_error(xstudio_error::error, err.what());
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
-            return make_error(xstudio_error::error, "Unknown error");
-        },
+                std::string error;
 
-        [=](python_eval_atom,
-            const std::string &pystring,
-            const utility::Uuid &uuid) -> result<JsonStore> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-
-            std::string error;
-
-            try {
-                PyStdErrOutStreamRedirect out{};
                 try {
-                    auto r = base_.eval(pystring);
+                    PyStdErrOutStreamRedirect out{};
+                    try {
+                        const std::string file_name_normalized = uri_to_posix_path(path);
+                        py::object read_from_file =
+                            py::module_::import("opentimelineio.adapters").attr("read_from_file");
+                        py::object p_timeline = read_from_file(file_name_normalized);
+                        py::str jsn           = p_timeline.attr("to_json_string")();
+                        return jsn;
+                    } catch (py::error_already_set &err) {
+                        err.restore();
+                        error = err.what();
+                        py_print(error);
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        error = err.what();
+                    }
+
+                    // send_output(this, event_group_, out, uuid);
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    py_print(error);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                } catch (const std::exception &err) {
+                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    error = err.what();
+                }
+
+                return make_error(xstudio_error::error, error);
+            },
+
+            [=](python_create_session_atom, const bool interactive) -> result<utility::Uuid> {
+
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+                py::gil_scoped_acquire gil;
+
+                std::string error;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    auto session_uuid = base_.create_session(interactive);
+                    send_output(this, event_group_, out, session_uuid);
+                    return session_uuid;
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    py_print(error);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                    return make_error(xstudio_error::error, err.what());
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+                return make_error(xstudio_error::error, "Unknown error");
+            },
+
+            [=](python_eval_atom,
+                const std::string &pystring,
+                const utility::Uuid &uuid) -> result<JsonStore> {
+
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+                py::gil_scoped_acquire gil;
+
+                std::string error;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    try {
+                        auto r = base_.eval(pystring);
+                        send_output(this, event_group_, out, uuid);
+                        return JsonStore(r);
+                    } catch (py::error_already_set &err) {
+                        err.restore();
+                        error = err.what();
+                        py_print(error);
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                        error = err.what();
+                    }
+
                     send_output(this, event_group_, out, uuid);
-                    return JsonStore(r);
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
@@ -482,47 +561,49 @@ void EmbeddedPythonActor::main_loop() {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                     error = err.what();
                 }
+                return make_error(xstudio_error::error, error);
+            },
 
-                send_output(this, event_group_, out, uuid);
-            } catch (py::error_already_set &err) {
-                err.restore();
-                error = err.what();
-                py_print(error);
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-                error = err.what();
-            }
-            return make_error(xstudio_error::error, error);
-        },
+            [=](python_eval_atom,
+                const std::string &pystring,
+                const JsonStore &locals) -> result<JsonStore> {
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
 
-        [=](python_eval_atom,
-            const std::string &pystring,
-            const JsonStore &locals) -> result<JsonStore> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
+                py::gil_scoped_acquire gil;
 
-            try {
-                return JsonStore(base_.eval(pystring, locals));
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-                return make_error(xstudio_error::error, e.what());
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
-            return make_error(xstudio_error::error, "Unknown error");
-        },
-
-        [=](python_eval_file_atom, const caf::uri &pyfile, const utility::Uuid &uuid) {
-            if (not base_.enabled())
-                return;
-
-            try {
-                PyStdErrOutStreamRedirect out{};
                 try {
-                    base_.eval_file(uri_to_posix_path(pyfile));
+                    return JsonStore(base_.eval(pystring, locals));
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    return make_error(xstudio_error::error, e.what());
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+                return make_error(xstudio_error::error, "Unknown error");
+            },
+
+            [=](python_eval_file_atom, const caf::uri &pyfile, const utility::Uuid &uuid) {
+                if (not base_.enabled())
+                    return;
+
+                py::gil_scoped_acquire gil;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    try {
+                        base_.eval_file(uri_to_posix_path(pyfile));
+                    } catch (py::error_already_set &e) {
+                        e.restore();
+                        py_print(e.what());
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
+
+                    send_output(this, event_group_, out, uuid);
                 } catch (py::error_already_set &e) {
                     e.restore();
                     py_print(e.what());
@@ -530,61 +611,68 @@ void EmbeddedPythonActor::main_loop() {
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 }
+            },
 
-                send_output(this, event_group_, out, uuid);
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-            }
-        },
+            [=](python_eval_locals_atom, const std::string &pystring) -> result<JsonStore> {
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+                py::gil_scoped_acquire gil;
 
-        [=](python_eval_locals_atom, const std::string &pystring) -> result<JsonStore> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-
-            try {
-                return JsonStore(base_.eval_locals(pystring));
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-                return make_error(xstudio_error::error, e.what());
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
-
-            return make_error(xstudio_error::error, "Unknown error");
-        },
-
-        [=](python_eval_locals_atom,
-            const std::string &pystring,
-            const JsonStore &locals) -> result<JsonStore> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-            try {
-                return JsonStore(base_.eval_locals(pystring, locals));
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-                return make_error(xstudio_error::error, e.what());
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
-
-            return make_error(xstudio_error::error, "Unknown error");
-        },
-
-        [=](python_exec_atom, const std::string &pystring, const utility::Uuid &uuid) {
-            if (not base_.enabled())
-                return;
-            try {
-                PyStdErrOutStreamRedirect out{};
                 try {
-                    base_.exec(pystring);
+                    return JsonStore(base_.eval_locals(pystring));
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    return make_error(xstudio_error::error, e.what());
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+
+                return make_error(xstudio_error::error, "Unknown error");
+            },
+
+            [=](python_eval_locals_atom,
+                const std::string &pystring,
+                const JsonStore &locals) -> result<JsonStore> {
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+
+                py::gil_scoped_acquire gil;
+
+                try {
+                    return JsonStore(base_.eval_locals(pystring, locals));
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    return make_error(xstudio_error::error, e.what());
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+
+                return make_error(xstudio_error::error, "Unknown error");
+            },
+
+            [=](python_exec_atom, const std::string &pystring, const utility::Uuid &uuid) {
+                if (not base_.enabled())
+                    return;
+
+                py::gil_scoped_acquire gil;
+
+                try {
+                    PyStdErrOutStreamRedirect out{};
+                    try {
+                        base_.exec(pystring);
+                    } catch (py::error_already_set &e) {
+                        e.restore();
+                        py_print(e.what());
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
+
+                    send_output(this, event_group_, out, uuid);
                 } catch (py::error_already_set &e) {
                     e.restore();
                     py_print(e.what());
@@ -592,88 +680,56 @@ void EmbeddedPythonActor::main_loop() {
                 } catch (const std::exception &err) {
                     spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
                 }
+            },
 
-                send_output(this, event_group_, out, uuid);
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-            } catch (const std::exception &err) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
-            }
-        },
+            [=](python_remove_session_atom, const utility::Uuid &uuid) -> result<bool> {
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+                py::gil_scoped_acquire gil;
 
-        [=](python_remove_session_atom, const utility::Uuid &uuid) -> result<bool> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-
-            try {
-                return base_.remove_session(uuid);
-            } catch (py::error_already_set &e) {
-                e.restore();
-                py_print(e.what());
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
-                return make_error(xstudio_error::error, e.what());
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
-
-            return make_error(xstudio_error::error, "Unknown error");
-        },
-
-        [=](python_session_input_atom,
-            const utility::Uuid &uuid,
-            const std::string &input) -> result<bool> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-
-            std::string error;
-
-            try {
-                PyStdErrOutStreamRedirect out{};
                 try {
-                    auto result = base_.input_session(uuid, input);
-                    send_output(this, event_group_, out, uuid);
-                    return result;
-                } catch (py::error_already_set &err) {
-                    err.restore();
-                    error = err.what();
-                    py_print(error);
-                    // get console back to input mode..
-                    auto result = base_.input_session(uuid, "");
-                    send_output(this, event_group_, out, uuid);
-                    return result;
-                    // spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-                    // return make_error(xstudio_error::error, err.what());
+                    return base_.remove_session(uuid);
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", e.what());
+                    return make_error(xstudio_error::error, e.what());
                 } catch (const std::exception &err) {
                     return make_error(xstudio_error::error, err.what());
                 }
-                send_output(this, event_group_, out, uuid);
-            } catch (py::error_already_set &err) {
-                err.restore();
-                error = err.what();
-                py_print(error);
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-                return make_error(xstudio_error::error, err.what());
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
-            return make_error(xstudio_error::error, "Unknown error");
-        },
 
-        [=](python_session_interrupt_atom, const utility::Uuid &uuid) -> result<bool> {
-            if (not base_.enabled())
-                return make_error(xstudio_error::error, "EmbeddedPython disabled");
-            std::string error;
+                return make_error(xstudio_error::error, "Unknown error");
+            },
 
-            try {
+            [=](python_session_input_atom,
+                const utility::Uuid &uuid,
+                const std::string &input) -> result<bool> {
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+                py::gil_scoped_acquire gil;
 
-                PyStdErrOutStreamRedirect out{};
+                std::string error;
 
                 try {
-                    auto result = base_.input_ctrl_c_session(uuid);
+                    PyStdErrOutStreamRedirect out{};
+                    try {
+                        auto result = base_.input_session(uuid, input);
+                        send_output(this, event_group_, out, uuid);
+                        return result;
+                    } catch (py::error_already_set &err) {
+                        err.restore();
+                        error = err.what();
+                        py_print(error);
+                        // get console back to input mode..
+                        auto result = base_.input_session(uuid, "");
+                        send_output(this, event_group_, out, uuid);
+                        return result;
+                        // spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                        // return make_error(xstudio_error::error, err.what());
+                    } catch (const std::exception &err) {
+                        return make_error(xstudio_error::error, err.what());
+                    }
                     send_output(this, event_group_, out, uuid);
-                    return result;
                 } catch (py::error_already_set &err) {
                     err.restore();
                     error = err.what();
@@ -683,115 +739,121 @@ void EmbeddedPythonActor::main_loop() {
                 } catch (const std::exception &err) {
                     return make_error(xstudio_error::error, err.what());
                 }
-                send_output(this, event_group_, out, uuid);
-            } catch (py::error_already_set &err) {
-                err.restore();
-                error = err.what();
-                py_print(error);
-                spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
-                return make_error(xstudio_error::error, err.what());
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
+                return make_error(xstudio_error::error, "Unknown error");
+            },
 
-            return make_error(xstudio_error::error, "Unknown error");
-        },
+            [=](python_session_interrupt_atom, const utility::Uuid &uuid) -> result<bool> {
+                if (not base_.enabled())
+                    return make_error(xstudio_error::error, "EmbeddedPython disabled");
+                py::gil_scoped_acquire gil;
 
-        [=](utility::serialise_atom) -> result<JsonStore> {
-            JsonStore jsn;
-            jsn["base"] = base_.serialise();
-            return result<JsonStore>(jsn);
-        },
+                std::string error;
 
-        [=](utility::event_atom,
-            json_store::sync_atom,
-            const Uuid &uuid,
-            const JsonStore &event) {
-            if (uuid == data_uuid_)
-                data_.process_event(event, true, false, false);
-        },
+                try {
 
-        [=](json_store::sync_atom) -> UuidVector { return UuidVector({data_uuid_}); },
+                    PyStdErrOutStreamRedirect out{};
 
-        [=](media::rescan_atom) { refresh_snippets(snippet_paths_); },
+                    try {
+                        auto result = base_.input_ctrl_c_session(uuid);
+                        send_output(this, event_group_, out, uuid);
+                        return result;
+                    } catch (py::error_already_set &err) {
+                        err.restore();
+                        error = err.what();
+                        py_print(error);
+                        spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                        return make_error(xstudio_error::error, err.what());
+                    } catch (const std::exception &err) {
+                        return make_error(xstudio_error::error, err.what());
+                    }
+                    send_output(this, event_group_, out, uuid);
+                } catch (py::error_already_set &err) {
+                    err.restore();
+                    error = err.what();
+                    py_print(error);
+                    spdlog::warn("{} {} {}", __PRETTY_FUNCTION__, "Python error", error);
+                    return make_error(xstudio_error::error, err.what());
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
 
-        [=](save_atom, const caf::uri &path, const std::string &content) -> result<bool> {
-            auto result = true;
-            try {
-                std::ofstream myfile;
-                myfile.open(uri_to_posix_path(path));
-                myfile << content << std::endl;
-                myfile.close();
-                refresh_snippets(snippet_paths_);
-                result = true;
-            } catch (const std::exception &err) {
-                return make_error(xstudio_error::error, err.what());
-            }
-            return result;
-        },
+                return make_error(xstudio_error::error, "Unknown error");
+            },
 
-        [=](json_store::sync_atom, const Uuid &uuid) -> JsonStore {
-            if (uuid == data_uuid_)
-                return data_.as_json();
+            [=](utility::serialise_atom) -> result<JsonStore> {
+                JsonStore jsn;
+                jsn["base"] = base_.serialise();
+                return result<JsonStore>(jsn);
+            },
 
-            return JsonStore();
-        },
+            [=](utility::event_atom,
+                json_store::sync_atom,
+                const Uuid &uuid,
+                const JsonStore &event) {
+                if (uuid == data_uuid_)
+                    data_.process_event(event, true, false, false);
+            },
 
-        [=](json_store::update_atom,
-            const JsonStore & /*change*/,
-            const std::string & /*path*/,
-            const JsonStore &full) {
-            return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
-        },
+            [=](json_store::sync_atom) -> UuidVector { return UuidVector({data_uuid_}); },
 
-        [=](json_store::update_atom, const JsonStore &j) mutable {
-            try {
-                update_preferences(j);
-            } catch (...) {
-            }
-        },
-        [=](bool) {},
+            [=](media::rescan_atom) { refresh_snippets(snippet_paths_); },
 
-        [=](embedded_python::python_exec_atom,
-            const utility::Uuid &plugin_uuid,
-            const std::string method_name,
-            const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
-            return make_error(xstudio_error::error, "Python Callbacks Not Implemented Yet");
-        },
+            [=](save_atom, const caf::uri &path, const std::string &content) -> result<bool> {
+                auto result = true;
+                try {
+                    std::ofstream myfile;
+                    myfile.open(uri_to_posix_path(path));
+                    myfile << content << std::endl;
+                    myfile.close();
+                    refresh_snippets(snippet_paths_);
+                    result = true;
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+                return result;
+            },
 
-        [=](embedded_python::python_eval_atom, utility::BlindDataObjectPtr lock) {
-            // another thread wants to run some python (see py_context.cpp) ...
-            // the EmbeddedPythonActor normally holds the GIL while it's
-            // waiting for messages to process here.
+            [=](json_store::sync_atom, const Uuid &uuid) -> JsonStore {
+                if (uuid == data_uuid_)
+                    return data_.as_json();
 
-            // We will release the GIL now....
-            py::gil_scoped_release release;
+                return JsonStore();
+            },
 
-            // Now we try and acquire a lock on the mutex ... this was already
-            // locked by the other thread that wants to run pyton. This other
-            // thread will unlock the mutex when it has acquired the GIL,
-            // finished executing it's python, and then released the GIL at
-            // which point here we can continue
-            PythonThreadLocker *py_locker = const_cast<PythonThreadLocker *>(
-                dynamic_cast<const PythonThreadLocker *>(lock.get()));
+            [=](json_store::update_atom,
+                const JsonStore & /*change*/,
+                const std::string & /*path*/,
+                const JsonStore &full) {
+                return mail(json_store::update_atom_v, full).delegate(actor_cast<caf::actor>(this));
+            },
 
-            // This thread will hang here until the other thread has finished
-            // its stuff
-            std::lock_guard l(py_locker->mutex_);
+            [=](json_store::update_atom, const JsonStore &j) mutable {
+                try {
+                    update_preferences(j);
+                } catch (...) {
+                }
+            },
+            [=](bool) {},
 
-            // Note: a much nicer solution would be that when this loop is idle
-            // the GIL is released. Don't know how to do that one yet.
-        },
+            [=](embedded_python::python_exec_atom,
+                const utility::Uuid &plugin_uuid,
+                const std::string method_name,
+                const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
+                return make_error(xstudio_error::error, "Python Callbacks Not Implemented Yet");
+            },
 
-        [&](exit_msg &em) {
-            if (em.reason) {
-                if (base_.enabled())
-                    base_.disconnect();
-                fail_state(std::move(em.reason));
-                running = false;
-                system().registry().erase(embedded_python_registry);
-            }
-        });
+            [&](exit_msg &em) {
+                if (em.reason) {
+                    if (base_.enabled()) {
+                        py::gil_scoped_acquire gil;
+                        base_.disconnect();
+                    }
+                    fail_state(std::move(em.reason));
+                    running = false;
+                    system().registry().erase(embedded_python_registry);
+                }
+            });
+    }
 
     base_.finalize();
 }

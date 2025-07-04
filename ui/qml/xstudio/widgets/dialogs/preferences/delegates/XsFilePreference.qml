@@ -11,8 +11,10 @@ import xStudio 1.0
 import "../widgets"
 
 RowLayout {
+    
     width: parent.width
     height: XsStyleSheet.widgetStdHeight
+    property var readonly: datatypeRole == "read only file path"
 
     XsLabel {
         Layout.alignment: Qt.AlignVCenter|Qt.AlignRight
@@ -35,6 +37,7 @@ RowLayout {
         Layout.fillHeight: true
         clip: true
         bgColor: palette.base
+        enabled: !readonly
         onTextChanged: {
             if (text != valueRole) {
                 valueRole = text
@@ -56,7 +59,7 @@ RowLayout {
     }
 
 
-    function setOCIOConfigPath(path) {
+    function setFilePath(path) {
 
         if (path == false) return; // load was cancelled
         valueRole = path
@@ -65,17 +68,18 @@ RowLayout {
     XsPrimaryButton {
         Layout.fillHeight: true
         text: "Browse ..."
+        enabled: !readonly
         onClicked: {
             dialogHelpers.showFileDialog(
-                setOCIOConfigPath,
+                setFilePath,
                 "",
-                "Select OpenColorIO Config File",
+                "Select a File",
                 "config",
                 optionsRole != undefined ? optionsRole : ["All files (*)"],
                 true,
                 false)
         }
-        toolTip: "Browse filesystem for an OpenColorIO config file."
+        toolTip: "Browse filesystem."
     }
 
     XsPreferenceInfoButton {

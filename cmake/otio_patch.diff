@@ -1,0 +1,14 @@
+Submodule extern/otio/OpenTimelineIO contains modified content
+diff --git a/extern/otio/OpenTimelineIO/CMakeLists.txt b/extern/otio/OpenTimelineIO/CMakeLists.txt
+index 825ad9d..7598b5e 100644
+--- a/extern/otio/OpenTimelineIO/CMakeLists.txt
++++ b/extern/otio/OpenTimelineIO/CMakeLists.txt
+@@ -245,7 +245,7 @@ else()
+ endif()
+ 
+ # set up the internally hosted dependencies
+-add_subdirectory(src/deps)
++# add_subdirectory(src/deps)
+ 
+ set (OTIO_IMATH_TARGETS
+     # For OpenEXR/Imath 3.x:

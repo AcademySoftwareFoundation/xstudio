@@ -400,9 +400,9 @@ Rectangle {
 
         if(insertion_parent != null) {
             if(sync)
-                return theSessionData.insertRowsSync(insertion_row, 1, type, name, insertion_parent)
+                return theSessionData.insertRowsSync(insertion_row, 1, type, "", name, insertion_parent)
             else
-                return theSessionData.insertRowsAsync(insertion_row, 1, type, name, insertion_parent)
+                return theSessionData.insertRowsAsync(insertion_row, 1, type, "", name, insertion_parent)
         }
 
         return undefined

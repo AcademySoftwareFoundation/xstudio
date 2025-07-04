@@ -138,7 +138,7 @@ GridLayout {
             anchors.fill: parent
             onClicked: {
                     parent.isPressed = false
-                    colorDialog.show()
+                    colourDialog.show()
             }
             onPressed: {
                     parent.isPressed = true

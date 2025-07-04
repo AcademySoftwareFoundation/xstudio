@@ -119,9 +119,10 @@ XsPopupMenu {
                 menuItemPosition: (index*0.01)+80
                 menuModelName: timelineMenu.menu_model_name
                 onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                panelContext: timelineMenu.panelContext
             }}
         }
-    }
+    } 
 
     XsMenuModelItem {
         menuItemType: "divider"

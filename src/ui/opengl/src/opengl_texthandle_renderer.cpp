@@ -181,7 +181,8 @@ void OpenGLTextHandleRenderer::render_handles(
     const HandleState &handle_state,
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
-    float viewport_du_dx) {
+    const float viewport_du_dx,
+    const float device_pixel_ratio) {
 
     if (!shader_)
         init_gl();
@@ -218,7 +219,7 @@ void OpenGLTextHandleRenderer::render_handles(
         glLineWidth(2.0f);
         glDrawArrays(GL_LINE_LOOP, 0, 4);
 
-        const auto handle_size = handle_state.handle_size * viewport_du_dx;
+        const auto handle_size = handle_state.handle_size * viewport_du_dx * device_pixel_ratio;
 
         // Draw the three
         static const auto hndls = std::vector<HandleHoverState>(

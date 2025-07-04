@@ -28,7 +28,7 @@ Item{
         }
 
         XsSBL3Actions{
-            visible: currentCategory=="Tree"
+            visible: currentCategory == "Tree"
             Layout.fillWidth: true
             Layout.preferredWidth: parent.width
             Layout.preferredHeight: (XsStyleSheet.widgetStdHeight*2 + buttonSpacing*3)

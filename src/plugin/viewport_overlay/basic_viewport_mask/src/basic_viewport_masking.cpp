@@ -96,6 +96,7 @@ void BasicMaskRenderer::render_image_overlay(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
+    const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame,
     const bool have_alpha_buffer) {
 
@@ -133,10 +134,10 @@ void BasicMaskRenderer::render_image_overlay(
 
     // to make the label a costant size, regardless of the viewport transformation,
     // we scale the font plotting size with 'viewport_du_dx'
-    auto font_scale = data->label_size_ * 1920.0f * viewport_du_dpixel;
+    auto font_scale = data->label_size_ * 1920.0f * viewport_du_dpixel * device_pixel_ratio;
 
     auto mask_safety    = data->mask_shader_params_["mask_safety"].get<float>();
-    auto line_thickness = data->mask_shader_params_["line_thickness"].get<float>();
+    auto line_thickness = data->mask_shader_params_["line_thickness"].get<float>() * device_pixel_ratio;
     auto ma             = mask_safety + aspect + line_thickness;
 
     if (text_ != data->mask_caption_ || font_scale != font_scale_ || ma != ma_) {

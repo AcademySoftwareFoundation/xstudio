@@ -172,7 +172,10 @@ CafActorSystem::CafActorSystem() {
 }
 
 caf::actor CafActorSystem::__global_actor(
-    const std::string &name, const utility::JsonStore &prefs, const bool embedded_python) {
+    const std::string &name,
+    const utility::JsonStore &prefs,
+    const bool embedded_python,
+    const bool read_only) {
     // here we create a new global actor or return the existing one if it has
     // already been created
     if (!global_actor_) {
@@ -182,9 +185,10 @@ caf::actor CafActorSystem::__global_actor(
             if (!global_store::load_preferences(basic_prefs)) {
                 return caf::actor();
             }
-            global_actor_ = self->spawn<global::GlobalActor>(basic_prefs, embedded_python);
+            global_actor_ =
+                self->spawn<global::GlobalActor>(basic_prefs, embedded_python, read_only);
         } else {
-            global_actor_ = self->spawn<global::GlobalActor>(prefs, embedded_python);
+            global_actor_ = self->spawn<global::GlobalActor>(prefs, embedded_python, read_only);
         }
 
         // at this stage we ensure that a 'studio' actor (that manages sessions)
@@ -209,7 +213,7 @@ CafActorSystem::~CafActorSystem() {
 
     // Uncomment to help debug case where shutdown is not clean and
     // actors are not exiting
-#ifdef NO_OP
+#ifdef _WIN32
 // TO DO - Windows build not exiting cleanly. Need to fix.
     while (the_system_->registry().running()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));

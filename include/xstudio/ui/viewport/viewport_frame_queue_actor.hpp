@@ -88,13 +88,13 @@ namespace ui {
             timebase::flicks compute_video_refresh() const;
 
             utility::time_point
-            next_video_refresh(const timebase::flicks &video_refresh_period) const;
+            next_video_refresh(const timebase::flicks &video_refresh_period);
 
             timebase::flicks predicted_playhead_position_at_next_video_refresh();
 
             timebase::flicks predicted_playhead_position(const utility::time_point &when);
 
-            double average_video_refresh_period() const;
+            std::chrono::microseconds average_video_refresh_period() const;
 
             caf::typed_response_promise<bool>
             set_playhead(utility::UuidActor playhead, const bool prefetch_inital_image);
@@ -120,6 +120,7 @@ namespace ui {
             utility::time_point last_playhead_set_tp_;
             std::set<utility::Uuid> deleted_playheads_;
             utility::UuidVector sub_playhead_ids_;
+            utility::time_point last_predicted_video_refresh_;
 
             playhead::AssemblyMode playhead_mode_;
             caf::actor viewport_layout_manager_;

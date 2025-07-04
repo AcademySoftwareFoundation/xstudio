@@ -82,7 +82,8 @@ void OpenGLCaptionRenderer::render_captions(
     const HandleState &handle_state,
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
-    float viewport_du_dx) {
+    const float viewport_du_dx,
+    const float device_pixel_ratio) {
 
     if (!texthandle_renderer_) {
         init_gl();
@@ -120,7 +121,8 @@ void OpenGLCaptionRenderer::render_captions(
         handle_state,
         transform_window_to_viewport_space,
         transform_viewport_to_image_space,
-        viewport_du_dx);
+        viewport_du_dx,
+        device_pixel_ratio);
 }
 
 void OpenGLCaptionRenderer::render_background(

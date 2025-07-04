@@ -4,9 +4,9 @@
 			"ocio": {
 				"preferred_view": {
 					"path": "/plugin/colour_pipeline/ocio/preferred_view",
-					"default_value": "Default",
+					"default_value": "Automatic",
 					"description": "User preferred ocio view.",
-					"value": "Default",
+					"value": "Automatic",
 					"datatype": "string",
 					"context": ["APPLICATION"]
 				},
@@ -26,37 +26,40 @@
 					"datatype": "bool",
 					"context": ["APPLICATION"]
 				},
-				"default_builtin_ocio_config": {
-					"path": "/plugin/colour_pipeline/ocio/default_builtin_ocio_config",
+				"default_ocio_config": {
+					"path": "/plugin/colour_pipeline/ocio/default_ocio_config",
 					"default_value": "",
-					"description": "Select which of the built-in OpenColorIO configs xSTUDIO should use if no user config is set. Note that this will NOT override colour management rules driven by pipeline integration plugins, if you have any installed, or the OpenColorIO Environment Variable if it is set.",
+					"description": "Select the OpenColorIO config xSTUDIO should use. Note that this will NOT override colour management rules driven by pipeline integration plugins, if you have any installed, or the OpenColorIO Environment Variable if it is set.",
 					"value": "",
 					"options": [],
 					"datatype": "multichoice string",
 					"context": ["APPLICATION"],
 					"category": "Colour Management",
-					"display_name": "Fallback Built-In OpenColorIO Config"
+					"display_name": "Default OpenColorIO Config",
+					"display_order": 2
 				},
-				"user_builtin_ocio_config": {
-					"path": "/plugin/colour_pipeline/ocio/user_builtin_ocio_config",
+				"custom_ocio_config": {
+					"path": "/plugin/colour_pipeline/ocio/custom_ocio_config",
 					"default_value": "",
-					"description": "Set an OpenColorIO config file to drive colour management here. This config will NOT override colour management rules driven by pipeline integration plugins, if you have any installed, or the OpenColorIO Environment Variable if it is set. If this is not set the fallback built-in OpenColorIO config will be used.",
+					"description": "Select the OpenColorIO config path, used if the default OCIO config setting is set to Custom",
 					"value": "",
 					"datatype": "file path",
 					"options": ["OCIO (*.ocio)", "All files (*)"],
 					"context": ["APPLICATION"],
 					"category": "Colour Management",
-					"display_name": "OpenColorIO Config File"
+					"display_name": "Custom OpenColorIO Config",
+					"display_order": 3
 				},
 				"ocio_env_var": {
 					"path": "/plugin/colour_pipeline/ocio/ocio_env_var",
 					"default_value": "",
-					"description": "This field shows you the OCIO environment variable. If it is set it should point to an ocio config file on disk and it will serve as the default unless your \"OpenColorIO Config File\" is set or if you have pipeline integration plugins installed.",
+					"description": "This field shows you the OCIO environment variable. If set, it should point to an ocio config file on disk or a builtin config using the ocio:// syntax. Unless you have pipeline integration plugins installed, it will take precedence over the settings below.",
 					"value": "",
 					"datatype": "read only string",
 					"context": ["APPLICATION"],
 					"category": "Colour Management",
-					"display_name": "OpenColorIO Environment Variable"
+					"display_name": "OpenColorIO Environment Variable",
+					"display_order": 1
 				}	
 			}
 		}

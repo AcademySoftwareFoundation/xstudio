@@ -880,8 +880,8 @@ void SessionModel::receivedData(
                             actorFromString(system(), j.at("actor_owner").get<std::string>());
 
                         if (not timeline_lookup_.count(owner)) {
-                            timeline_lookup_.emplace(
-                                std::make_pair(owner, timeline::Item(result, &system())));
+                            timeline_lookup_.emplace(std::make_pair(
+                                owner, timeline::Item(utility::JsonStore(result))));
 
                             timeline_lookup_[owner].bind_item_post_event_func(
                                 [this](const utility::JsonStore &event, timeline::Item &item) {

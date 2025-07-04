@@ -333,6 +333,7 @@ namespace ui {
                 Imath::M44f projection_matrix;
                 Imath::M44f window_to_viewport_matrix;
                 Imath::V2i window_size;
+                float device_pixel_ratio;
                 ViewportRendererPtr renderer;
                 std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> overlay_renderers;
             };

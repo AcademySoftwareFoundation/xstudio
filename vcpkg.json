@@ -48,7 +48,7 @@
       ]
     }
   ],
-    "builtin-baseline": "dafef74af53669ef1cc9015f55e0ce809ead62aa",
+    "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086",
   "overrides": [
     {
       "name": "opencolorio",
@@ -59,20 +59,12 @@
       "version": "1.0.2#0"
     },
     {
-      "name": "fmt",
-      "version": "8.0.1"
-    },
-    {
       "name": "ffmpeg",
-      "version": "5.1.2#6"
+      "version": "7.1.1#2"
     },
     {
       "name": "freetype",
       "version": "2.10.1-6#0"
-    },
-    {
-      "name": "python3",
-      "version": "3.10.7#7"
     },
     {
       "name": "boost-modular-build-helper",

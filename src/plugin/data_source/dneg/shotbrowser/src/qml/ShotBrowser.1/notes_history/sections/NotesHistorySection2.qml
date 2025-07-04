@@ -10,7 +10,13 @@ import ShotBrowser 1.0
 Rectangle{
     color: "transparent"
 
-    property bool isHovered: notesDiv.isHovered || toolTipMArea.containsMouse
+    property bool isHovered: notesEdit.hovered
+    property int textHeightDiff: 0
+
+    Component.onCompleted: {
+        textHeightDiff = notesEdit.implicitHeight+(panelPadding*2) - notesEdit.height
+    }
+
 
     ColumnLayout {
         anchors.fill: parent
@@ -34,50 +40,20 @@ Rectangle{
             Layout.fillHeight: true
             color: XsStyleSheet.widgetBgNormalColor
 
-            property bool isHovered: notesEdit.hovered || scrollView.hovered
-
-            ScrollView{ id: scrollView
+            TextArea{ id: notesEdit
                 anchors.fill: parent
-                hoverEnabled: contentHeight > height || contentWidth > width
-                focusPolicy: Qt.ClickFocus
                 enabled: false
+                readOnly: true
 
-                TextArea{ id: notesEdit
-                    enabled: false
-                    readOnly: true
+                font.pixelSize: XsStyleSheet.fontSize
+                font.family: XsStyleSheet.fontFamily
+                font.hintingPreference: Font.PreferNoHinting
 
-                    text: contentRole
-                    padding: panelPadding
-                    wrapMode: TextEdit.Wrap
-
-                    XsToolTip{
-                        id: toolTip
-                        text: parent.lineCount>15 ? parent.getFormattedText(0, parent.text.length) : parent.text
-                        scaling: 0.8
-                        visible: toolTipMArea.containsMouse && (scrollView.contentHeight > scrollView.height || scrollView.contentWidth > scrollView.width) //parent.lineCount>7
-                        maxWidth: parent.width<200? parent.width+40 : parent.width
-                    }
-
-                }
+                text: contentRole
+                padding: panelPadding
+                wrapMode: TextEdit.Wrap
             }
-            MouseArea {
-                id: toolTipMArea
-                z: 20
-                anchors.fill: scrollView
-                hoverEnabled: true
-                acceptedButtons: Qt.NoButton
-            }
-            XsIcon{
-                width: XsStyleSheet.secondaryButtonStdWidth
-                height: XsStyleSheet.secondaryButtonStdWidth
-                anchors.right: parent.right
-                anchors.rightMargin: 2
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 7
-                imgOverlayColor: toolTipMArea.containsMouse? palette.highlight : XsStyleSheet.secondaryTextColor
-                source: "qrc:///shotbrowser_icons/arrow_right.svg"
-                visible: scrollView.contentWidth > scrollView.width
-            }
+
             XsIcon{
                 width: XsStyleSheet.secondaryButtonStdWidth
                 height: XsStyleSheet.secondaryButtonStdWidth
@@ -85,14 +61,12 @@ Rectangle{
                 anchors.rightMargin: 7
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 2
-                imgOverlayColor: toolTipMArea.containsMouse? palette.highlight : XsStyleSheet.secondaryTextColor
+                imgOverlayColor: palette.highlight
                 source: "qrc:///shotbrowser_icons/arrow_right.svg"
-                visible: scrollView.contentHeight > scrollView.height
+                visible: notesEdit.implicitHeight > notesEdit.height
                 rotation: 90
             }
-
         }
     }
-
 }
 

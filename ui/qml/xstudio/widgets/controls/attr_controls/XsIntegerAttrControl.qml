@@ -45,8 +45,8 @@ RowLayout {
             text: root.text
             fromValue: integer_min
             toValue: integer_max
-            width: 100
-            height: 50
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
     }
 }

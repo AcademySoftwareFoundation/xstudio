@@ -386,6 +386,27 @@ uint get_image_data_4bytes_packed(int byte_address) {
     return c;
 }
 
+vec2 unpackHalf2x16(uint vv) {
+
+    uint a = vv & uint(0xFFFF);
+    uint a_frac = a & uint(0x03FF);
+    uint a_exp = (a >> 10) & uint(0x1F);
+    uint signbit = a >> 15;
+    float pwr = a_exp == 0 ? -14.0 : -15.0 + float(a_exp);
+    float b = pow(2.0, pwr)*((a_exp == 0 ? 0.0 : 1.0) + float(a_frac)/1024.0);
+    b = signbit == 1 ? -b : b;
+
+    a = vv >> 16;
+    a_frac = a & uint(0x3FF);
+    a_exp = (a >> 10) & uint(0x1F);
+    signbit = a >> 15;
+    pwr = a_exp == 0 ? -14.0 : -15.0 + float(a_exp);
+    float c = pow(2.0, pwr)*((a_exp == 0 ? 0.0 : 1.0) + float(a_frac)/1024.0);
+    c = signbit == 1 ? -c : c;
+
+    return vec2(b, c);
+}
+
 // This function returns 2 floats of image data packed
 // in a vec2 at the given byte address into the raw image
 // buffer as created by the image reader

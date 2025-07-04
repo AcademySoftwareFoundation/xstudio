@@ -901,6 +901,25 @@ caf::message_handler PlaylistActor::message_handler() {
 
         [=](create_timeline_atom,
             const std::string &name,
+            const utility::FrameRate &rate,
+            const utility::Uuid &uuid_before,
+            const bool into,
+            const bool with_tracks) -> result<utility::UuidUuidActor> {
+            // try insert as requested, but add to end if it fails.
+            auto rp    = make_response_promise<utility::UuidUuidActor>();
+            auto actor = spawn<timeline::TimelineActor>(
+                name,
+                (rate == timebase::k_flicks_zero_seconds ? base_.media_rate() : rate),
+                utility::Uuid::generate(),
+                actor_cast<caf::actor>(this),
+                with_tracks);
+            // anon_mail(playhead::playhead_rate_atom_v, base_.playhead_rate()).send(actor);
+            create_container(actor, rp, uuid_before, into);
+            return rp;
+        },
+
+        [=](create_timeline_atom,
+            const std::string &name,
             const utility::Uuid &uuid_before,
             const bool into,
             const bool with_tracks) -> result<utility::UuidUuidActor> {

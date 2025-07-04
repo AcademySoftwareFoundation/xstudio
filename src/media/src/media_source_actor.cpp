@@ -173,10 +173,24 @@ void MediaSourceActor::update_media_detail() {
         auto gmra = system().registry().template get<caf::actor>(media_reader_registry);
         if (!gmra)
             throw std::runtime_error("No global media reader.");
+
+        // pick middle frame to fetch detail from (e.g. EXR parts which are
+        // 'streams' in xSTUDIO) - this is less likely to mismatch the rest
+        // of the sequence than first frame which can be a slate frame made
+        // by a different tool.
         int frame;
-        auto _uri = base_.media_reference().uri(0, frame);
+        auto _uri =
+            base_.media_reference().uri(base_.media_reference().frame_count() / 2, frame);
+
+        if (!_uri) {
+            // ok, middle frame didn't work lets try the first frame
+            // after all as a fallback
+            _uri = base_.media_reference().uri(0, frame);
+        }
+
         if (not _uri)
             throw std::runtime_error("Invalid frame index");
+
         mail(get_media_detail_atom_v, *_uri, actor_cast<actor_addr>(this))
             .request(gmra, infinite)
             .then(
@@ -236,10 +250,24 @@ void MediaSourceActor::acquire_detail(
         try {
             auto gmra = system().registry().template get<caf::actor>(media_reader_registry);
             if (gmra) {
+
+                // pick middle frame to fetch detail from (e.g. EXR parts which are
+                // 'streams' in xSTUDIO) - this is less likely to mismatch the rest
+                // of the sequence than first frame which can be a slate frame made
+                // by a different tool.
                 int frame;
-                auto _uri = base_.media_reference().uri(0, frame);
+                auto _uri = base_.media_reference().uri(
+                    base_.media_reference().frame_count() / 2, frame);
+
+                if (!_uri) {
+                    // ok, middle frame didn't work lets try the first frame
+                    // after all as a fallback
+                    _uri = base_.media_reference().uri(0, frame);
+                }
+
                 if (not _uri)
                     throw std::runtime_error("Invalid frame index");
+
                 mail(get_media_detail_atom_v, *_uri, actor_cast<actor_addr>(this))
                     .request(gmra, infinite)
                     .then(
@@ -964,16 +992,32 @@ caf::message_handler MediaSourceActor::message_handler() {
             try {
 
                 if (not base_.media_reference().container()) {
+
+                    // In the case of retrieving media metadata for a frame
+                    // based source (i.e. EXRs, jpegs) we want to pick a frame
+                    // from the middle of the sequence. The reason is that this
+                    // is more likely to have EXR channel/part data that matches
+                    // most of the other frames. We frequently see an EXR sequence
+                    // where the first frame is a slate frame made by a separate
+                    // tool to the rest of the sequence
                     int file_frame;
-                    auto first_uri = base_.media_reference().uri(0, file_frame);
+                    auto test_frame_uri = base_.media_reference().uri(
+                        base_.media_reference().frame_count() / 2, file_frame);
+
+                    if (!test_frame_uri) {
+                        // ok, middle frame didn't work lets try the first frame
+                        // after all as a fallback
+                        test_frame_uri = base_.media_reference().uri(
+                            base_.media_reference().frame_count() / 2, file_frame);
+                    }
                     // #pragma message "Currently only reading metadata on first frame for image
                     // sequences"
 
                     // If we read metadata for every frame the whole app grinds when inspecting
                     // big or multiple sequences
-                    if (first_uri) {
+                    if (test_frame_uri) {
 
-                        mail(get_metadata_atom_v, *first_uri, file_frame)
+                        mail(get_metadata_atom_v, *test_frame_uri, file_frame)
                             .request(m_actor, infinite)
                             .then(
                                 [=](const std::pair<JsonStore, int> &meta) mutable {

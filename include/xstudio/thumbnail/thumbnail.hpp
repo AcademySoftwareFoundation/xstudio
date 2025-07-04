@@ -29,7 +29,7 @@ namespace thumbnail {
             : std::string(fmt::format("{}/{}", o, size)) {}
         ThumbnailKey(
             const media::AVFrameID &mptr, const size_t hash = 0, const size_t size = 256)
-            : std::string(fmt::format("{}/{}/{}", mptr.key(), std::to_string(hash), size)) {}
+            : std::string(fmt::format("{}/{}/{}", to_string(mptr.key()), std::to_string(hash), size)) {}
 
         using std::string::empty;
         using std::string::substr;

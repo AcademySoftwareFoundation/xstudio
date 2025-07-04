@@ -3,12 +3,13 @@
 
 #include "xstudio/timeline/item.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/global/xstudio_actor_system.hpp"
 
 using namespace xstudio;
 using namespace xstudio::timeline;
 using namespace xstudio::utility;
 
-Item::Item(const JsonStore &jsn, caf::actor_system *system) : Items(), the_system_(system) {
+Item::Item(const JsonStore &jsn) : Items() {
     uuid_addr_.first = jsn.at("uuid");
     item_type_       = jsn.at("type");
     enabled_         = jsn.at("enabled");
@@ -38,7 +39,7 @@ Item::Item(const JsonStore &jsn, caf::actor_system *system) : Items(), the_syste
         markers_.emplace_back(Marker(JsonStore(i)));
 
     for (const auto &i : jsn.at("children")) {
-        emplace_back(Item(JsonStore(i), the_system_));
+        emplace_back(Item(JsonStore(i)));
     }
 }
 
@@ -58,23 +59,19 @@ bool Item::transparent() const {
 
 std::string Item::actor_addr_to_string(const caf::actor_addr &addr) const {
     std::string str;
-    if (the_system_) {
-        binary_serializer::container_type buf;
-        binary_serializer bs{system(), buf};
-        auto e = bs.apply(addr);
-        if (e)
-            str = make_hex_string(std::begin(buf), std::end(buf));
-    }
+    binary_serializer::container_type buf;
+    binary_serializer bs{ActorSystemSingleton::actor_system_ref(), buf};
+    auto e = bs.apply(addr);
+    if (e)
+        str = make_hex_string(std::begin(buf), std::end(buf));
     return str;
 }
 
 caf::actor_addr Item::string_to_actor_addr(const std::string &str) const {
     caf::actor_addr addr;
-    if (the_system_) {
-        caf::binary_serializer::container_type buf = hex_to_bytes(str);
-        caf::binary_deserializer bd{system(), buf};
-        auto e = bd.apply(addr);
-    }
+    caf::binary_serializer::container_type buf = hex_to_bytes(str);
+    caf::binary_deserializer bd{ActorSystemSingleton::actor_system_ref(), buf};
+    auto e = bd.apply(addr);
     return addr;
 }
 
@@ -403,8 +400,8 @@ Item::find_all_items(const ItemType item_type, const ItemType track_type) {
 void Item::resolve_and_request_clip_frames(
     caf::actor &helper,
     std::vector<bool> &filled_frames,
-    const FrameRate ref_time,
-    const timebase::flicks frame_duration,
+    const timebase::flicks ref_time,
+    const utility::FrameRate timeline_frame_rate,
     const media::MediaType mt,
     const UuidSet &focus,
     bool only_if_focussed) const {
@@ -444,7 +441,13 @@ void Item::resolve_and_request_clip_frames(
         // pass to stack
         if (not empty()) {
             front().resolve_and_request_clip_frames(
-                helper, filled_frames, ref_time, frame_duration, mt, focus, only_if_focussed);
+                helper,
+                filled_frames,
+                ref_time,
+                timeline_frame_rate,
+                mt,
+                focus,
+                only_if_focussed);
         }
         break;
 
@@ -461,7 +464,7 @@ void Item::resolve_and_request_clip_frames(
                 helper,
                 filled_frames,
                 ref_time + trimmed_start(),
-                frame_duration,
+                timeline_frame_rate,
                 mt,
                 focus,
                 only_if_focussed);
@@ -476,7 +479,7 @@ void Item::resolve_and_request_clip_frames(
         auto ts = ref_time;
         for (const auto &it : *this) {
             it.resolve_and_request_clip_frames(
-                helper, filled_frames, ts, frame_duration, mt, focus, only_if_focussed);
+                helper, filled_frames, ts, timeline_frame_rate, mt, focus, only_if_focussed);
             ts += it.trimmed_duration();
         }
     } break;
@@ -486,16 +489,16 @@ void Item::resolve_and_request_clip_frames(
         if (!only_if_focussed or focus.count(uuid())) {
 
             // the frame range of the clip in the timeline
-            int64_t timeline_in_frame  = ref_time.count() / frame_duration.count();
+            int64_t timeline_in_frame  = ref_time.count() / timeline_frame_rate.count();
             int64_t timeline_out_frame = std::min(
-                int64_t((ref_time + trimmed_duration()).count() / frame_duration.count()),
+                int64_t((ref_time + trimmed_duration()).count() / timeline_frame_rate.count()),
                 int64_t(filled_frames.size()));
 
             // (clip local) timestamp of the first clip frame
-            auto clip_local_frame_time = trimmed_start();
+            auto clip_local_frame_time = trimmed_start().to_flicks();
 
             // vector of timestamps in clip time space for which we want FrameIDs
-            std::vector<FrameRate> clip_timepoints;
+            std::vector<timebase::flicks> clip_timepoints;
 
             auto frame_timeline_pos = ref_time;
             auto subrange_ref       = ref_time;
@@ -534,8 +537,8 @@ void Item::resolve_and_request_clip_frames(
                         .send(helper);
                     clip_timepoints.clear();
                 }
-                clip_local_frame_time += frame_duration;
-                frame_timeline_pos += frame_duration;
+                clip_local_frame_time += timeline_frame_rate;
+                frame_timeline_pos += timeline_frame_rate;
             }
 
             if (!clip_timepoints.empty()) {
@@ -1006,6 +1009,53 @@ JsonStore Item::set_range(const FrameRange &avail, const FrameRange &active) {
     return JsonStore();
 }
 
+void Item::override_frame_rate(
+    const utility::FrameRate &new_rate, const bool force_media_rate_to_match) {
+
+    if (force_media_rate_to_match) {
+
+        // the duration (in FRAMES) is not affected. The media in the clip is effectively sped
+        // up or slowed down to match the 'new_rate' So if you have media that is 30Fps, 5
+        // seconds long it starts off with 150 frames. Let's say the clip frame rate (new_rate)
+        // is 60fps. The clip will now be 2.5 seconds long, and it will be 60Fps and 150 frames
+        // in duration. During playback, frame 1 will be played then frame 2 then frame 3 with
+        // no repetition or dropped frames
+        available_range_ = utility::FrameRange(
+            new_rate.to_flicks() * (available_range_.start().to_flicks().count() /
+                                    available_range_.rate().to_flicks().count()),
+            new_rate.to_flicks() * (available_range_.duration().to_flicks().count() /
+                                    available_range_.rate().to_flicks().count()),
+            new_rate);
+        active_range_ = utility::FrameRange(
+            new_rate.to_flicks() * (active_range_.start().to_flicks().count() /
+                                    active_range_.rate().to_flicks().count()),
+            new_rate.to_flicks() * (active_range_.duration().to_flicks().count() /
+                                    active_range_.rate().to_flicks().count()),
+            new_rate);
+
+
+    } else {
+
+        // the duration (in SECONDS) is not affected. The media in the clip is effectively
+        // retimed with a 'nearest frame'. So if you have media that is 30Fps, 5 seconds long it
+        // starts off with 150 frames. Let's say the clip frame rate (new_rate) is 60fps. The
+        // clip will still be 5 seconds long, but it will be 60Fps and 300 frames in duration.
+        // During playback, frame 1 of the underlying media will be repeated twice, then frame 2
+        // will be repeated twice and so-on
+        available_range_ = utility::FrameRange(
+            new_rate.to_flicks() *
+                (available_range_.start().to_flicks().count() / new_rate.to_flicks().count()),
+            new_rate.to_flicks() * (available_range_.duration().to_flicks().count() /
+                                    new_rate.to_flicks().count()),
+            new_rate);
+        active_range_ = utility::FrameRange(
+            new_rate.to_flicks() *
+                (active_range_.start().to_flicks().count() / new_rate.to_flicks().count()),
+            new_rate.to_flicks() *
+                (active_range_.duration().to_flicks().count() / new_rate.to_flicks().count()),
+            new_rate);
+    }
+}
 
 void Item::set_active_range_direct(const FrameRange &value) {
     has_active_range_ = true;
@@ -1070,7 +1120,6 @@ JsonStore Item::set_available_range(const FrameRange &value) {
 
 Items::iterator Item::insert_direct(Items::iterator position, const Item &val) {
     auto it = Items::insert(position, val);
-    it->set_system(the_system_);
     if (recursive_bind_post_ and item_post_event_callback_)
         it->bind_item_post_event_func(item_post_event_callback_, recursive_bind_post_);
     if (recursive_bind_pre_ and item_pre_event_callback_)
@@ -1085,9 +1134,9 @@ JsonStore Item::insert(Items::iterator position, const Item &value, const JsonSt
     jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
     jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
 
-    jsn[0]["undo"]["action"]    = ItemAction::IA_REMOVE;
-    jsn[0]["undo"]["index"]     = index;
-    jsn[0]["undo"]["item_uuid"] = value.uuid();
+    jsn[0]["undo"]["action"] = ItemAction::IA_REMOVE;
+    jsn[0]["undo"]["index"]  = index;
+    jsn[0]["undo"]["uuid"]   = value.uuid();
 
     jsn[0]["redo"]["action"] = ItemAction::IA_INSERT;
     jsn[0]["redo"]["index"]  = index;
@@ -1111,7 +1160,7 @@ JsonStore Item::erase(Items::iterator position, const JsonStore &blind) {
     auto index = std::distance(begin(), position);
 
     jsn[0]["undo"]["event_id"] = jsn[0]["redo"]["event_id"] = Uuid::generate();
-    jsn[0]["undo"]["uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
+    jsn[0]["undo"]["item_uuid"] = jsn[0]["redo"]["uuid"] = uuid_addr_.first;
 
     jsn[0]["undo"]["action"] = ItemAction::IA_INSERT;
     jsn[0]["undo"]["index"]  = index;
@@ -1128,7 +1177,6 @@ JsonStore Item::erase(Items::iterator position, const JsonStore &blind) {
     jsn[1]["undo"]["uuid"] = jsn[1]["redo"]["uuid"] = uuid_addr_.first;
 
     erase_direct(position);
-
     return jsn;
 }
 
@@ -1194,7 +1242,7 @@ std::set<Uuid> Item::update(const JsonStore &event) {
     auto result = std::set<Uuid>();
     for (const auto &i : event)
         if (process_event(i.at("redo")))
-            result.insert(i.at("redo").at("event_id").get<utility::Uuid>());
+            result.insert(i.at("redo").at("event_id"));
     return result;
 }
 
@@ -1210,7 +1258,7 @@ void Item::redo(const JsonStore &event) {
 }
 
 bool Item::process_event(const JsonStore &event) {
-    // spdlog::warn("{} {}", name(), event.dump(2));
+
 
     if (Uuid(event.at("uuid")) == uuid_addr_.first) {
         if (item_pre_event_callback_)
@@ -1255,8 +1303,7 @@ bool Item::process_event(const JsonStore &event) {
         case IA_INSERT: {
             auto index = event.at("index").get<size_t>();
             if (index >= 0 and index <= size()) {
-                insert_direct(
-                    std::next(begin(), index), Item(JsonStore(event.at("item")), the_system_));
+                insert_direct(std::next(begin(), index), Item(JsonStore(event.at("item"))));
             } else {
                 spdlog::error(
                     "IA_INSERT - INVALID INDEX uuid {} name {} type {} index {} track size {} "
@@ -1430,10 +1477,10 @@ int Item::frame_at_index(const int item_index, const int item_frame) const {
 }
 
 std::optional<int> Item::frame_at_item_frame(
-    const Uuid &item_uuid, const int item_local_frame, const bool skip_disabled) const {
+    const Uuid &uuid, const int item_local_frame, const bool skip_disabled) const {
     std::vector<int> result;
-    auto item          = find_item(children(), item_uuid);
-    auto item_top_left = top_left(item_uuid);
+    auto item          = find_item(children(), uuid);
+    auto item_top_left = top_left(uuid);
     if (item_top_left && item && (!skip_disabled || (*item)->enabled())) {
         int f = item_local_frame - (*item)->trimmed_frame_start().frames();
         if (f >= 0 && f <= (*item)->trimmed_frame_duration().frames()) {
@@ -1679,8 +1726,8 @@ class BuildFrameIDsHelper : public caf::event_based_actor {
 
         behavior_.assign([=](media::get_media_pointer_atom,
                              caf::actor clip_actor,
-                             const std::vector<FrameRate> &clip_timepoints,
-                             const FrameRate clip_timeline_position) {
+                             const std::vector<timebase::flicks> &clip_timepoints,
+                             const timebase::flicks clip_timeline_position) {
             if (clip_timepoints.empty() ||
                 result_->lower_bound(clip_timeline_position) == result_->end())
                 return;
@@ -1727,7 +1774,7 @@ class BuildFrameIDsHelper : public caf::event_based_actor {
 caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     const media::MediaType media_type,
     const TimeSourceMode tsm,
-    const FrameRate &override_rate,
+    const FrameRate & /*override_rate*/,
     const UuidSet &focus_list) {
 
     // This crucial function bakes a timeline into a 'FrameTimeMap' which is
@@ -1745,21 +1792,19 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     }
 
     // First, get our frame range
-    const int start_frame = available_range()->frame_start().frames(override_rate);
-    const int end_frame =
-        start_frame + available_range()->frame_duration().frames(override_rate);
+    const int start_frame = available_range()->frame_start().frames(rate());
+    const int end_frame   = start_frame + available_range()->frame_duration().frames(rate());
 
-    const timebase::flicks delta = rate().to_flicks();
-    timebase::flicks timepoint   = start_frame * delta;
+    timebase::flicks timepoint = start_frame * rate();
 
     // first step - we make a map of all frames in the timeline, and fill
     // with blank frames.
     media::FrameTimeMap *result = new media::FrameTimeMap;
     auto blank_frame            = media::make_blank_frame(media_type);
-    timepoint                   = start_frame * delta;
+    timepoint                   = start_frame * rate();
     for (auto i = start_frame; i < end_frame; i++) {
         result->emplace(std::make_pair(FrameRate(timepoint), blank_frame));
-        timepoint += delta;
+        timepoint += rate();
     }
 
     // make a vector that tells us which frames in the frame time map have been
@@ -1786,8 +1831,8 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
         resolve_and_request_clip_frames(
             helper,
             resolved_frames,
-            FrameRate(start_frame * delta),
-            delta,
+            start_frame * rate(),
+            rate(),
             media_type,
             focus_list,
             true // only print frames into map for focussed items
@@ -1797,8 +1842,8 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     resolve_and_request_clip_frames(
         helper,
         resolved_frames,
-        FrameRate(start_frame * delta),
-        delta,
+        start_frame * rate(),
+        rate(),
         media_type,
         focus_list,
         false // print frames into map whether focussed or not

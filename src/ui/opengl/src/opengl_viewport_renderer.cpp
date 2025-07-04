@@ -238,7 +238,15 @@ void OpenGLViewportRenderer::render(
     const Imath::M44f &window_to_viewport_matrix,
     const Imath::M44f &viewport_to_image_space,
     const Imath::V2i &window_size,
+    const float device_pixel_ratio,
     const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
+
+
+    int skip_rows, skip_pixels, row_length, alignment;
+    glGetIntegerv(GL_UNPACK_ROW_LENGTH, &row_length);
+    glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &skip_pixels);
+    glGetIntegerv(GL_UNPACK_SKIP_ROWS, &skip_rows);
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
 
     init();
 
@@ -300,6 +308,7 @@ void OpenGLViewportRenderer::render(
                 window_to_viewport_matrix,
                 viewport_to_image_space,
                 viewport_du_dx,
+                device_pixel_ratio,
                 overlay_renderers);
         } else {
             for (const auto &idx : images->layout_data()->image_draw_order_hint_) {
@@ -309,6 +318,7 @@ void OpenGLViewportRenderer::render(
                     window_to_viewport_matrix,
                     viewport_to_image_space,
                     viewport_du_dx,
+                    device_pixel_ratio,
                     overlay_renderers);
             }
         }
@@ -321,7 +331,7 @@ void OpenGLViewportRenderer::render(
         if (orf.second->preferred_render_pass() ==
             plugin::ViewportOverlayRenderer::BeforeImage) {
             orf.second->render_viewport_overlay(
-                window_to_viewport_matrix, viewport_to_image_space, abs(viewport_du_dx), false);
+                window_to_viewport_matrix, viewport_to_image_space, abs(viewport_du_dx), device_pixel_ratio, false);
         }
     }
 
@@ -329,6 +339,9 @@ void OpenGLViewportRenderer::render(
     grab_framebuffer_to_disk();
 #endif
 
+    // Note: GL_UNPACK_ALIGNMENT defaults to a value of 4. If we modify it in our
+    // render code abive and don't restore it here it results in drawing glitches in QML.
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
     // The use of this is questionable - I'm not sure how it plays with the QML
     // rendering engine. The idea is that we are guaranteeing the image has
@@ -393,6 +406,7 @@ void OpenGLViewportRenderer::__draw_per_image_overlays(
     const Imath::M44f &window_to_viewport_matrix,
     const Imath::M44f &viewport_to_image_space,
     const float viewport_du_dx,
+    const float device_pixel_ratio,
     const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr> &overlay_renderers) {
 
 
@@ -415,6 +429,7 @@ void OpenGLViewportRenderer::__draw_per_image_overlays(
                 window_to_viewport_matrix,
                 to_image_matrix,
                 abs(viewport_du_dx),
+                device_pixel_ratio,
                 target_image,
                 false);
         }

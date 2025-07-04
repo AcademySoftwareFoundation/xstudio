@@ -83,7 +83,7 @@ APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
                 return global_;
             else
                 for (const auto &i : authentication_keys_)
-                    if (key == i)
+                    if (key == i.get<std::string>())
                         return global_;
 
             return make_error(xstudio_error::error, "Authentication failed.");
@@ -96,7 +96,7 @@ APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
                 return global_;
             else
                 for (const auto &i : authentication_passwords_)
-                    if (user == i.at("user") and pass == i.at("password"))
+                    if (user == i.at("user").get<std::string>() and pass == i.at("password").get<std::string>())
                         return global_;
 
             return make_error(xstudio_error::error, "Authentication failed.");
@@ -127,9 +127,12 @@ APIActor::APIActor(caf::actor_config &cfg, const caf::actor &global)
 }
 
 GlobalActor::GlobalActor(
-    caf::actor_config &cfg, const utility::JsonStore &prefs, const bool embedded_python)
+    caf::actor_config &cfg,
+    const utility::JsonStore &prefs,
+    const bool embedded_python,
+    const bool read_only)
     : caf::event_based_actor(cfg), rsm_(remote_session_path()) {
-    init(prefs, embedded_python);
+    init(prefs, embedded_python, read_only);
 }
 
 GlobalActor::~GlobalActor() {}
@@ -139,7 +142,13 @@ int GlobalActor::publish_port(
     int port = -1;
     if (system().has_middleman()) {
         for (auto i = minimum; i <= maximum; i++) {
+#ifdef _WIN32
+            // note: the re-use flag here must be false on Windows, otherwise multiple xstudio
+            // sessions somehow use the same port where i==minimum.
+            auto acquired_port = system().middleman().publish(a, i, bind_address.c_str(), false);
+#else
             auto acquired_port = system().middleman().publish(a, i, bind_address.c_str(), true);
+#endif
             if (acquired_port) {
                 port = *acquired_port;
                 break;
@@ -150,7 +159,8 @@ int GlobalActor::publish_port(
     return port;
 }
 
-void GlobalActor::init(const utility::JsonStore &prefs, const bool embedded_python) {
+void GlobalActor::init(
+    const utility::JsonStore &prefs, const bool embedded_python, const bool read_only) {
     // launch global actors..
     // preferences first..
     // this will need more configuration
@@ -165,9 +175,10 @@ void GlobalActor::init(const utility::JsonStore &prefs, const bool embedded_pyth
         gsa_ = spawn<global_store::GlobalStoreActor>(
             "GlobalStore",
             global_store::global_store_builder(
-                std::vector<std::string>{xstudio_resources_dir("preference")}));
+                std::vector<std::string>{xstudio_resources_dir("preference")}),
+            read_only);
     } else {
-        gsa_ = spawn<global_store::GlobalStoreActor>("GlobalStore", prefs);
+        gsa_ = spawn<global_store::GlobalStoreActor>("GlobalStore", prefs, read_only);
     }
 
     auto phev            = spawn<playhead::PlayheadGlobalEventsActor>();

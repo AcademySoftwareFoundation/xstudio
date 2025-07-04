@@ -42,9 +42,18 @@ namespace timeline {
             return item_.set_prop(jsn);
         }
 
+        void override_media_rate(const utility::FrameRate &media_rate) {
+            overridden_media_rate_ = media_rate;
+        }
+
+        [[nodiscard]] const utility::FrameRate &media_rate() const {
+            return overridden_media_rate_;
+        }
+
       private:
         Item item_;
         utility::Uuid media_uuid_;
+        utility::FrameRate overridden_media_rate_;
     };
 } // namespace timeline
 } // namespace xstudio

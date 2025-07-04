@@ -36,11 +36,6 @@ XsPopupMenu {
         path: "/core/session/session_link_prefix"
     }
 
-    XsPreference {
-        id: copyMediaSourceName
-        path: "/ui/qml/copy_source_path"
-    }
-
     Component.onCompleted: {
         // make sure the 'Add' sub-menu appears in the correct place
         helpers.setMenuPathPosition("Select", "media_list_menu_", 10)
@@ -186,14 +181,14 @@ XsPopupMenu {
         menuItemPosition: 4
         menuModelName: btnMenu.menu_model_name
         onActivated: {
-            dialogHelpers.textInputDialog(
-                function(name, button) {
+            dialogHelpers.sequenceInputDialog(
+                function(name, fps, button) {
                     if(button == "Add Media") {
-                        addToNewSequence(name)
+                        addToNewSequence(name, fps)
                     }
                 },
                 "Add To New Sequence",
-                "Enter New Sequence Name",
+                "New Sequence",
                 theSessionData.getNextName("Sequence {}"),
                 ["Cancel", "Add Media"])
         }
@@ -303,23 +298,6 @@ XsPopupMenu {
 
         onActivated: {
             let result = mediaSelectionModel.getSelectedMediaUrl("pathShakeRole")
-            for(let i =0;i<result.length;i++) {
-                result[i] = helpers.pathFromURL(result[i])
-            }
-
-            clipboard.text = result.join("\n")
-        }
-        panelContext: btnMenu.panelContext
-    }
-
-    XsMenuModelItem {
-        menuPath: "Copy To Clipboard"
-        text: "Selected File Paths ("+copyMediaSourceName.value+")"
-        menuItemPosition: 2.5
-        menuModelName: btnMenu.menu_model_name
-
-        onActivated: {
-            let result = mediaSelectionModel.getSelectedMediaUrl("pathShakeRole", copyMediaSourceName.value)
             for(let i =0;i<result.length;i++) {
                 result[i] = helpers.pathFromURL(result[i])
             }
@@ -597,6 +575,7 @@ XsPopupMenu {
                 menuItemPosition: (index*0.01)+16
                 menuModelName: btnMenu.menu_model_name
                 onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                panelContext: btnMenu.panelContext
             }}
         }
     }

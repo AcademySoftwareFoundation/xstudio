@@ -26,17 +26,17 @@ Rectangle {
             anchors.fill: parent
             hoverEnabled: true
             onClicked: {
-                colorDialog.color = value
-                colorDialog.open()
+                colourDialog.currentColour = value
+                colourDialog.open()
             }
         }
 
     }
 
-    ColorDialog {
-        id: colorDialog
+    XsColourDialog {
+        id: colourDialog
         title: "Choose a colour"
-        onAccepted: value = colorDialog.selectedColor
-    } 
+        onAccepted: value = colourDialog.currentColour
+    }
 
 }

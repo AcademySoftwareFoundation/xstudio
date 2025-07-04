@@ -350,7 +350,15 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             } else {
                 result = spawn<plugin::StandardPlugin>(name, json); // base_plugins_[name];
             }
+
+            // When plugin manager exits, we want python plugin backend to exit too
             link_to(result);
+
+            monitor(result, [this, result](const error &err) {
+                // python plugin has exited before us. unlink.
+                unlink_from(result);
+            });
+
             return result;
         },
 

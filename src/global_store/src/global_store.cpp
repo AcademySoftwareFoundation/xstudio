@@ -29,9 +29,17 @@ GlobalStoreHelper::GlobalStoreHelper(caf::actor_system &sys, const std::string &
     store_actor_ = caf::actor_cast<caf::actor_addr>(gs_actor);
 }
 
-void GlobalStoreHelper::set(const GlobalStoreDef &gsd, const bool async) {
-    JsonStoreHelper::set(
-        static_cast<utility::JsonStore>(gsd), static_cast<std::string>(gsd), async);
+bool GlobalStoreHelper::read_only() const {
+    bool result = false;
+
+    try {
+        result = request_receive<bool>(
+            *system_, caf::actor_cast<caf::actor>(store_actor_), read_only_atom_v);
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
 }
 
 bool GlobalStoreHelper::save(const std::string &context) {
@@ -60,11 +68,6 @@ utility::JsonStore xstudio::global_store::global_store_builder(
         merged.merge(merge_json_from_path(path));
 
     return merged;
-}
-
-void xstudio::global_store::set_global_store_def(
-    utility::JsonStore &js, const GlobalStoreDef &gsd) {
-    js.set(static_cast<utility::JsonStore>(gsd), static_cast<std::string>(gsd));
 }
 
 bool xstudio::global_store::load_preferences(
@@ -356,7 +359,8 @@ utility::JsonStore xstudio::global_store::get_preference_values(
             bool is_overridden = false;
             try {
                 is_overridden = json.get(i + "/overridden_value") != json.get(i + "/value");
-            } catch (...) {
+            } catch (std::exception &e) {
+                std::cerr << "WWWW " << e.what() << "\n";
             }
 
             std::string tmp_path;
@@ -375,28 +379,6 @@ utility::JsonStore xstudio::global_store::get_preference_values(
 
     return js;
 }
-
-void xstudio::global_store::to_json(nlohmann::json &j, const GlobalStoreDef &gsd) { j = gsd; }
-
-void xstudio::global_store::from_json(const nlohmann::json &j, GlobalStoreDef &gsd) {
-    j.at("path").get_to(gsd.path_);
-    gsd.value_ = j.at("value");
-    if (gsd.value_.is_null())
-        gsd.value_ = j.at("default_value");
-    gsd.default_value_ = j.at("default_value");
-    if (j.contains("maximum"))
-        gsd.maximum_value_ = j.at("maximum");
-    if (j.contains("minimum"))
-        gsd.minimum_value_ = j.at("minimum");
-    gsd.datatype_        = j.value("datatype", "");
-    gsd.description_     = j.value("description", "");
-    gsd.overridden_path_ = j.value("overridden_path", "");
-    gsd.display_name_    = j.value("display_name", "");
-    gsd.category_        = j.value("category", "");
-    if (j.contains("options"))
-        gsd.options_ = j.at("options");
-}
-
 
 GlobalStore::GlobalStore(const JsonStore &jsn)
     : Container(static_cast<utility::JsonStore>(jsn["container"])),

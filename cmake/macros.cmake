@@ -99,7 +99,6 @@ macro(default_options_local name)
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
 	    SYSTEM PUBLIC
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
-	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 	)
 	if (APPLE)
 		set_target_properties(${name}
@@ -125,7 +124,6 @@ macro(default_options name)
 	target_include_directories(${name} INTERFACE
   		$<BUILD_INTERFACE:${ROOT_DIR}/include>
   		$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
-    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
   		$<INSTALL_INTERFACE:include>
 		$<INSTALL_INTERFACE:extern/include>
 		)
@@ -147,7 +145,6 @@ macro(default_options_static name)
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
 	    SYSTEM PUBLIC
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
-	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 	)
 	set_target_properties(${name}
 	    PROPERTIES
@@ -170,7 +167,6 @@ macro(default_plugin_options name)
 	        ${CMAKE_CURRENT_SOURCE_DIR}/src
 	    SYSTEM PUBLIC
 	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
-	    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 	)
 
 	if (APPLE)
@@ -256,7 +252,6 @@ if (BUILD_TESTING)
 		        ${CMAKE_CURRENT_SOURCE_DIR}/src
 		    SYSTEM PUBLIC
 		    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/include>
-		    	$<BUILD_INTERFACE:${ROOT_DIR}/extern/otio/OpenTimelineIO/src>
 		)
 	endmacro()
 endif (BUILD_TESTING)
@@ -477,6 +472,7 @@ macro(add_resource name path target resource_type)
 	else()
 
     	add_custom_command(TARGET ${target} POST_BUILD
+                   BYPRODUCTS ${CMAKE_BINARY_DIR}/bin/${resource_type}/${name}
                    COMMAND ${CMAKE_COMMAND} -E copy ${path}/${name}
                                                     ${CMAKE_BINARY_DIR}/bin/${resource_type}/${name})
 

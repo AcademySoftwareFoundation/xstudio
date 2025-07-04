@@ -27,6 +27,7 @@ add_library(
 	py_utility.cpp
 	py_xstudio.cpp
 )
+
 add_library(xstudio::python_module ALIAS ${PROJECT_NAME})
 
 default_options_local(${PROJECT_NAME})
@@ -37,11 +38,7 @@ if (APPLE)
 	# Note - for Apple we install into the vcpkg installation structure at build time.
 	# Our install commands will copy the entire python3.X folder into the app bundle
 	# when making the re-locatable .app structure
-	if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-		set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib/${PYTHONVP}/site-packages/xstudio/core")
-	else()
-		set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/${PYTHONVP}/site-packages/xstudio/core")
-	endif()
+	set(OUTPUT_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/${PYTHONVP}/site-packages/xstudio/core")
 else()
 	set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/python/lib/${PYTHONVP}/site-packages/xstudio/core")
 endif()
@@ -58,6 +55,13 @@ target_link_libraries(
 		CAF::core
 		CAF::io
 )
+
+if (APPLE)
+	# No idea how/why PYTHON_MODULE_EXTENSION is set to what it is, but on
+	# MacOS lately it will be .cpython-39-darwin.so and this means the
+	# module will not import!
+	set(PYTHON_MODULE_EXTENSION ".so")
+endif()
 
 if(INSTALL_XSTUDIO)
 	set_target_properties(
@@ -81,5 +85,5 @@ else()
 endif(INSTALL_XSTUDIO)
 
 if(WIN32)
-install(TARGETS ${PROJECT_NAME} DESTINATION python/xstudio/core)
+install(TARGETS ${PROJECT_NAME} DESTINATION bin/python3/Lib/site-packages/xstudio/core)
 endif()

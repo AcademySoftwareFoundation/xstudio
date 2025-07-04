@@ -535,6 +535,9 @@ OCIOEngine::get_ocio_config(const utility::JsonStore &src_colour_mgmt_metadata) 
 
     auto econfig = config->createEditableCopy();
     econfig->setName(concat.c_str());
+    // Workaround OCIO < 2.3.1 bug
+    // See https://github.com/AcademySoftwareFoundation/OpenColorIO/issues/1885
+    econfig->setDefaultViewTransformName(config->getDefaultViewTransformName());
     if (!displays.empty())
         econfig->setActiveDisplays(displays.c_str());
     if (!views.empty())
@@ -1020,9 +1023,18 @@ void OCIOEngine::setup_textures(
         unsigned height                          = 0;
         OCIO::GpuShaderDesc::TextureType channel = OCIO::GpuShaderDesc::TEXTURE_RGB_CHANNEL;
         OCIO::Interpolation interpolation        = OCIO::INTERP_LINEAR;
+        bool is2DTexture                         = false;
 
+#if OCIO_VERSION_HEX >= 0x02030000
+        OCIO::GpuShaderDesc::TextureDimensions dimensions = OCIO::GpuShaderDesc::TEXTURE_1D;
+        shader_desc->getTexture(
+            idx, textureName, samplerName, width, height, channel, dimensions, interpolation);
+        is2DTexture = dimensions == OCIO::GpuShaderDesc::TEXTURE_2D;
+#else
         shader_desc->getTexture(
             idx, textureName, samplerName, width, height, channel, interpolation);
+        is2DTexture = height > 1;
+#endif
 
         if (!textureName || !*textureName || !samplerName || !*samplerName || width == 0) {
             throw std::runtime_error(
@@ -1043,7 +1055,7 @@ void OCIOEngine::setup_textures(
         auto xs_interp   = interpolation == OCIO::INTERP_LINEAR ? LUTDescriptor::LINEAR
                                                                 : LUTDescriptor::NEAREST;
         auto xs_lut      = std::make_shared<ColourLUT>(
-            height > 1
+            is2DTexture
                      ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
                      : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
             samplerName);
@@ -1100,11 +1112,23 @@ std::string OCIOEngine::preferred_view(
     const std::string default_display = ocio_config->getDefaultDisplay();
     const std::string default_view    = ocio_config->getDefaultView(default_display.c_str());
 
-    std::string _preferred_view;
+    std::string _preferred_view = default_view;
     if (user_preferred_view == "Default") {
         _preferred_view = default_view;
     } else if (user_preferred_view == "Automatic") {
-        _preferred_view = src_colour_mgmt_metadata.get_or("automatic_view", default_view);
+        // Metadata from the media hook
+        if (src_colour_mgmt_metadata.get_or("automatic_view", std::string("")) != "") {
+            _preferred_view = src_colour_mgmt_metadata.get_or("automatic_view", default_view);
+        }
+        // Viewing Rules from OCIO v2 config
+        else if (ocio_config->getViewingRules()->getNumEntries() > 0) {
+            const std::string filepath = src_colour_mgmt_metadata.get_or("path", std::string(""));
+            const std::string auto_input_cs = ocio_config->getColorSpaceFromFilepath(filepath.c_str());
+            const int num_cs = ocio_config->getNumViews(default_display.c_str(), auto_input_cs.c_str());
+            if (num_cs > 0) {
+                _preferred_view = ocio_config->getView(default_display.c_str(), auto_input_cs.c_str(), 0);
+            }
+        }
     } else {
         _preferred_view = user_preferred_view;
     }

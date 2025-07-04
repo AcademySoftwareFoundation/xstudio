@@ -18,7 +18,6 @@ CAF_POP_WARNINGS
 
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/utility/uuid.hpp"
-#include "xstudio/embedded_python/python_thread_locker.hpp"
 
 namespace caf::python {
 
@@ -65,9 +64,6 @@ class py_context : public py_config {
     std::string host() { return host_; }
     uint16_t port() { return port_; }
 
-    void pause_main_python_thread();
-    void unpause_main_python_thread();
-
 
   public:
     std::string host_;
@@ -95,9 +91,6 @@ class py_context : public py_config {
     actor embedded_python_actor_;
     py::function my_func;
     std::thread my_thread;
-
-    xstudio::embedded_python::PythonThreadLocker *thread_pauser_;
-    xstudio::utility::BlindDataObjectPtr thread_pauser_ptr_;
 
     std::map<xstudio::utility::Uuid, caf::actor> message_callback_handler_actors_;
     std::map<xstudio::utility::Uuid, py::function> message_callback_funcs_;

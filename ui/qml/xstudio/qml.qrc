@@ -153,6 +153,7 @@
 	    <file>widgets/bars_and_tabs/XsSearchBar.qml</file>
 	    <file>widgets/bars_and_tabs/XsGradientRectangle.qml</file>
 
+	    <file>widgets/buttons/XsInfoButton.qml</file>
 	    <file>widgets/buttons/XsNavButton.qml</file>
 	    <file>widgets/buttons/XsPrimaryButton.qml</file>
 	    <file>widgets/buttons/XsSearchButton.qml</file>
@@ -177,27 +178,28 @@
 
 	    <file>widgets/controls/attr_controls/XsIntegerAttrControl.qml</file>
 
+	    <file>widgets/dialogs/hotkeys/delegates/XsHotkeyDetails.qml</file>
+	    <file>widgets/dialogs/hotkeys/XsHotkeysDialog.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsColourPreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsCompareModePref.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsFilePreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsFloatPreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsIntegerPreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsJsonPreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsPreferenceCategory.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsStringMultichoicePreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsStringPreference.qml</file>
+	    <file>widgets/dialogs/preferences/delegates/XsTogglePreference.qml</file>
+	    <file>widgets/dialogs/preferences/widgets/XsPreferenceInfoButton.qml</file>
+	    <file>widgets/dialogs/preferences/XsPreferencesDialog.qml</file>
 	    <file>widgets/dialogs/XsAttributesPanel.qml</file>
 	    <file>widgets/dialogs/XsColourDialog.qml</file>
 	    <file>widgets/dialogs/XsPopup.qml</file>
+	    <file>widgets/dialogs/XsSequenceRequestDialog.qml</file>
 	    <file>widgets/dialogs/XsSnapshotDialog.qml</file>
 	    <file>widgets/dialogs/XsStringRequestDialog.qml</file>
 	    <file>widgets/dialogs/XsTextEditDialog.qml</file>
 	    <file>widgets/dialogs/XsWindow.qml</file>
-	    <file>widgets/dialogs/hotkeys/XsHotkeysDialog.qml</file>
-	    <file>widgets/dialogs/hotkeys/delegates/XsHotkeyDetails.qml</file>
-	    <file>widgets/dialogs/preferences/XsPreferencesDialog.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsColourPreference.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsCompareModePref.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsJsonPreference.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsFilePreference.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsPreferenceCategory.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsFloatPreference.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsIntegerPreference.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsStringPreference.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsStringMultichoicePreference.qml</file>
-	    <file>widgets/dialogs/preferences/delegates/XsTogglePreference.qml</file>
-	    <file>widgets/dialogs/preferences/widgets/XsPreferenceInfoButton.qml</file>
 
 	    <file>widgets/indicators/XsBusyIndicator.qml</file>
 	    <file>widgets/indicators/XsProgressBar.qml</file>

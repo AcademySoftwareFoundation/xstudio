@@ -68,7 +68,7 @@ Rectangle{
                             else if(index==2) onSiteMtl
                             else if(index==3) onSiteMum
                             else if(index==4) onSiteSyd
-                            else if(index==5) onSiteVan
+                            // else if(index==5) onSiteVan
                             else false
                         }
 
@@ -115,7 +115,7 @@ Rectangle{
                     ListElement{siteName:"mtl"; siteColour:"#979700"}
                     ListElement{siteName:"mum"; siteColour:"#ef9526"}
                     ListElement{siteName:"syd"; siteColour:"#008a46"}
-                    ListElement{siteName:"van"; siteColour:"#7a1a39"}
+                    // ListElement{siteName:"van"; siteColour:"#7a1a39"}
                 }
 
             }

@@ -9,10 +9,11 @@ import ShotBrowser 1.0
 
 XsListView{ id: listDiv
     spacing: XsStyleSheet.panelPadding
-
-    property int rightSpacing: listDiv.height < listDiv.contentHeight ? 16 : 0
+    property int rightSpacing: listDiv.height < listDiv.contentHeight ? 12 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
     property bool isPlaylist: resultsBaseModel.entity == "Playlists"
+
+    readonly property int noteCellHeight: (XsStyleSheet.widgetStdHeight * 8) + 5
 
     ScrollBar.vertical: XsScrollBar {
         visible: listDiv.height < listDiv.contentHeight
@@ -20,7 +21,6 @@ XsListView{ id: listDiv
         anchors.top: listDiv.top
         anchors.right: listDiv.right
         anchors.bottom: listDiv.bottom
-        x: -5
     }
 
     XsLabel {
@@ -90,7 +90,8 @@ XsListView{ id: listDiv
 
                 NotesHistoryListDelegate{
                     width: listDiv.width - rightSpacing
-                    height: XsStyleSheet.widgetStdHeight*8
+                    height: noteCellHeight + (isHovered ? Math.max(textHeightDiff, 0) : 0)
+
                     delegateModel: chooserModel
                     popupMenu: noteResultPopup
                     onShowImages: (images) => listDiv.viewImages(images)

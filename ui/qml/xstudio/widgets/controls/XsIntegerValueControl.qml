@@ -95,15 +95,12 @@ Control
         }
 
 
-    Rectangle{id: midPoint; width:0; height:1; color:"transparent"; x:parent.width/1.5 } //anchors.centerIn: parent}
-    Item{
-        width: valueDiv.visible?
-            parent.width>itemsWidth? itemsWidth : parent.width
-            : textDiv.width
-        height: textDiv.height
+    RowLayout {
+
         anchors.centerIn: parent
         clip: true
         opacity: enabled ? 1.0 : 0.33
+        spacing: 0
 
         property real itemsWidth: textDiv.textWidth + valueDiv.textWidth
 
@@ -112,23 +109,11 @@ Control
                 showValueWhenShortened? "" : widget.shortText
                 : widget.text
             color: textColor
-            horizontalAlignment: Text.AlignRight
-            anchors.verticalCenter: parent.verticalCenter
             clip: true
             font.pixelSize: XsStyleSheet.fontSize
             font.family: XsStyleSheet.fontFamily
         }
 
-        Rectangle{
-            visible: !isBgGradientVisible
-            width: valueDiv.width
-            height: valueDiv.height
-            color: palette.base
-
-            anchors.verticalCenter: valueDiv.verticalCenter
-            anchors.left: valueDiv.left
-            anchors.leftMargin: 2.8
-        }
         XsTextField{ id: valueDiv
             visible: text
             text: "" + value
@@ -150,12 +135,6 @@ Control
             inputMethodHints: Qt.ImhDigitsOnly
             // // validator: IntValidator {bottom: 0; top: 100;}
             selectByMouse: false
-            width: textWidth
-
-            horizontalAlignment: Text.AlignHCenter
-            anchors.left: textDiv.right
-            // topPadding: (widget.height-height)/2
-            anchors.verticalCenter: parent.verticalCenter
 
             font.pixelSize: XsStyleSheet.fontSize
             font.family: XsStyleSheet.fontFamily

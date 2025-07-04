@@ -479,8 +479,8 @@ struct Launcher {
         if (not global_actor) {
 
             actions["new_instance"] = true;
-            global_actor =
-                CafActorSystem::global_actor(true, "XStudio", static_cast<JsonStore>(prefs));
+            global_actor            = CafActorSystem::global_actor(
+                true, actions["user_prefs_off"], "XStudio", static_cast<JsonStore>(prefs));
 
             // this isn't great, the api is already running at this point..
             // so we have to toggle it..
@@ -1014,17 +1014,14 @@ int main(int argc, char **argv) {
             if (not l.actions.value("user_prefs_off", false)) {
 
                 scoped_actor self{CafActorSystem::system()};
-                for (const auto &context : global_store::PreferenceContexts) {
-                    try {
-                        request_receive<bool>(
-                            *self,
-                            CafActorSystem::system().registry().get<caf::actor>(
-                                global_store_registry),
-                            global_store::save_atom_v,
-                            context);
-                    } catch (const std::exception &err) {
-                        spdlog::warn("Failed to save prefs {}", err.what());
-                    }
+                try {
+                    request_receive<bool>(
+                        *self,
+                        CafActorSystem::system().registry().get<caf::actor>(
+                            global_store_registry),
+                        global_store::save_atom_v);
+                } catch (const std::exception &err) {
+                    spdlog::warn("Failed to save prefs {}", err.what());
                 }
             }
 

@@ -300,6 +300,7 @@ XsPopupMenu {
         menuItemPosition: 32.5
         menuPath: ""
         menuModelName: timelineMenu.menu_model_name
+        panelContext: timelineMenu.panelContext
     }
 
     Repeater {
@@ -311,6 +312,7 @@ XsPopupMenu {
                 menuItemPosition: (index*0.01)+32.5
                 menuModelName: timelineMenu.menu_model_name
                 onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                panelContext: timelineMenu.panelContext
             }}
         }
     }

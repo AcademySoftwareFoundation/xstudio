@@ -63,10 +63,11 @@ class GlobalStoreIOActor : public caf::event_based_actor {
 
 
 GlobalStoreActor::GlobalStoreActor(
-    caf::actor_config &cfg, const JsonStore &jsn, std::string reg_value)
+    caf::actor_config &cfg, const JsonStore &jsn, const bool read_only, std::string reg_value)
     : caf::event_based_actor(cfg),
       reg_value_(std::move(reg_value)),
-      base_(static_cast<JsonStore>(jsn["base"])) {
+      base_(static_cast<JsonStore>(jsn["base"])),
+      read_only_(read_only) {
     init();
 }
 
@@ -74,22 +75,13 @@ GlobalStoreActor::GlobalStoreActor(
     caf::actor_config &cfg,
     const std::string &name,
     const JsonStore &jsn,
+    const bool read_only,
     std::string reg_value)
-    : caf::event_based_actor(cfg), reg_value_(std::move(reg_value)), base_(name) {
+    : caf::event_based_actor(cfg),
+      reg_value_(std::move(reg_value)),
+      base_(name),
+      read_only_(read_only) {
     base_.preferences_ = jsn;
-    init();
-}
-
-GlobalStoreActor::GlobalStoreActor(
-    caf::actor_config &cfg,
-    const std::string &name,
-    const std::vector<GlobalStoreDef> &defs,
-    std::string reg_value)
-    : caf::event_based_actor(cfg), reg_value_(std::move(reg_value)), base_(name) {
-    for (const auto &i : defs) {
-        base_.preferences_[nlohmann::json::json_pointer(i.path_)] = i;
-    }
-
     init();
 }
 
@@ -109,25 +101,15 @@ caf::message_handler GlobalStoreActor::message_handler() {
 
         [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {},
 
+        [=](read_only_atom) -> bool { return read_only_; },
+
         [=](do_autosave_atom) {
             if (base_.autosave_)
                 anon_mail(do_autosave_atom_v)
                     .delay(std::chrono::seconds(base_.autosave_interval_))
                     .send(actor_cast<caf::actor>(this), weak_ref);
 
-            for (const auto &context : PreferenceContexts)
-                mail(save_atom_v, context)
-                    .request(actor_cast<caf::actor>(this), infinite)
-                    .then(
-                        [=](const bool result) mutable {
-                            if (result)
-                                spdlog::debug("Autosaved {}", context);
-                            else
-                                spdlog::warn("Autosave failed {}", context);
-                        },
-                        [=](const error &err) {
-                            spdlog::warn("Autosave failed {} {}.", context, to_string(err));
-                        });
+            anon_mail(save_atom_v).send(this);
         },
 
         [=](get_json_atom atom) { return mail(atom).delegate(jsonactor_); },
@@ -165,35 +147,63 @@ caf::message_handler GlobalStoreActor::message_handler() {
             }
         },
 
+        [=](save_atom) -> caf::result<bool> {
+            auto rp     = make_response_promise<bool>();
+            auto result = std::make_shared<bool>(true);
+            auto count  = std::make_shared<size_t>(PreferenceContexts.size());
+
+            for (const auto &context : PreferenceContexts)
+                mail(save_atom_v, context)
+                    .request(actor_cast<caf::actor>(this), infinite)
+                    .then(
+                        [=](const bool success) mutable {
+                            if (not success)
+                                (*result) = false;
+                            (*count)--;
+                            if (not(*count))
+                                rp.deliver(*result);
+                        },
+                        [=](const error &err) mutable {
+                            (*result) = false;
+                            (*count)--;
+                            if (not(*count))
+                                rp.deliver(*result);
+                        });
+
+            return rp;
+        },
+
         [=](save_atom, const std::string &context) -> caf::result<bool> {
             // collect items for context
             // make sure we're uptodate with jsonstore..
-            caf::scoped_actor sys(system());
+            auto rp                = make_response_promise<bool>();
             const std::string path = preference_path_context(context);
 
             if (not path.empty()) {
-                if (not check_preference_path())
-                    return caf::result<bool>(make_error(
+                if (not check_preference_path()) {
+                    rp.deliver(make_error(
                         xstudio_error::error, fmt::format("Failed to save {}", context)));
+                } else {
+                    caf::scoped_actor sys(system());
+                    // update our copy
+                    base_.preferences_.set(request_receive<JsonStore>(
+                        *sys, jsonactor_, json_store::get_json_atom_v));
 
-                // update our copy
-                base_.preferences_.set(
-                    request_receive<JsonStore>(*sys, jsonactor_, json_store::get_json_atom_v));
+                    // get things to store..
+                    JsonStore prefs = get_preference_values(
+                        base_.preferences_, std::set<std::string>{context}, true, path);
 
-                // get things to store..
-                JsonStore prefs = get_preference_values(
-                    base_.preferences_, std::set<std::string>{context}, true, path);
-
-                auto rp = make_response_promise<bool>();
-                rp.delegate(ioactor_, save_atom_v, prefs, path);
-                return rp;
-
+                    if (not read_only_)
+                        rp.delegate(ioactor_, save_atom_v, prefs, path);
+                    else
+                        rp.deliver(true);
+                }
             } else {
-                return caf::result<bool>(make_error(
+                rp.deliver(make_error(
                     xstudio_error::error, fmt::format("Invalid context {}", context)));
             }
 
-            return caf::result<bool>(true);
+            return rp;
         },
 
         [=](utility::serialise_atom, const std::string &context) -> JsonStore {
@@ -265,6 +275,11 @@ void GlobalStoreActor::init() {
 
     ioactor_ = spawn<GlobalStoreIOActor>();
     link_to(ioactor_);
+
+    if (base_.autosave_)
+        anon_mail(do_autosave_atom_v)
+            .delay(std::chrono::seconds(base_.autosave_interval_))
+            .send(actor_cast<caf::actor>(this), weak_ref);
 
     system().registry().put(reg_value_, this);
 }

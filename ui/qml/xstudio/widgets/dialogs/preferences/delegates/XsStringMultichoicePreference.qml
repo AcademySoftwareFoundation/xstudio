@@ -14,6 +14,7 @@ RowLayout {
 
     width: parent.width
     height: XsStyleSheet.widgetStdHeight
+    property var readonly: datatypeRole == "read only multichoice string"
 
     property var value__: valueRole
     onValue__Changed: {
@@ -45,6 +46,7 @@ RowLayout {
         Layout.minimumWidth: 50
         Layout.fillHeight: true
         model: optionsRole
+        enabled: !readonly
         property bool settingFromBackend: false
 
         onCurrentIndexChanged: {

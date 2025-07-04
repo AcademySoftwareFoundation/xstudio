@@ -13,8 +13,9 @@ XsListView{
     anchors.fill: parent
     spacing: panelPadding
 
-    property int rightSpacing: list.height < list.contentHeight ? 16 : 0
+    property int rightSpacing: list.height < list.contentHeight ? 12 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
+    readonly property int cellHeight: (XsStyleSheet.widgetStdHeight * 8) + 5
 
     ScrollBar.vertical: XsScrollBar {
         visible: list.height < list.contentHeight
@@ -22,7 +23,6 @@ XsListView{
         anchors.top: list.top
         anchors.right: list.right
         anchors.bottom: list.bottom
-        x: -5
     }
 
 
@@ -66,7 +66,7 @@ XsListView{
         model: dataModel
         delegate: NotesHistoryListDelegate{
             width: list.width - rightSpacing
-            height: XsStyleSheet.widgetStdHeight * 8
+            height: cellHeight + (isHovered ? Math.max(textHeightDiff, 0) : 0)
 
             delegateModel: chooserModel
             popupMenu: resultPopup

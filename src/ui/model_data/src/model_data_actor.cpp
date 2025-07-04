@@ -1123,7 +1123,7 @@ void GlobalUIModelData::insert_into_menu_model(
 
             for (auto p = menu_model_data->begin(); p != menu_model_data->end(); p++) {
                 if ((*p).data().is_object() &&
-                    (*p).data().value("uuid", std::string()) == menu_data["uuid"]) {
+                    (*p).data().value("uuid", std::string()) == menu_data["uuid"].get<std::string>()) {
                     already_defined = true;
                     menu_model_data = &(*p);
                     break;

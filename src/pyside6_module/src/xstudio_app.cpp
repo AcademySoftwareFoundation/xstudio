@@ -18,7 +18,7 @@ XstudioPyApp::XstudioPyApp(QWidget *parent) : QObject(parent) {
     CafActorSystem::instance();
 
     // this call sets up all the xstudio core components
-    CafActorSystem::global_actor(false);
+    CafActorSystem::global_actor(false, false);
 }
 
 XstudioPyApp::~XstudioPyApp() { CafActorSystem::exit(); }

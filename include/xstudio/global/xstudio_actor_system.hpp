@@ -25,16 +25,20 @@ class CafActorSystem {
     static caf::actor_system &system() { return instance()->__system(); }
     static caf::actor global_actor(
         const bool embedded_python,
+        const bool read_only            = false,
         const std::string &name         = "XStudio",
         const utility::JsonStore &prefs = utility::JsonStore()) {
-        return instance()->__global_actor(name, prefs, embedded_python);
+        return instance()->__global_actor(name, prefs, embedded_python, read_only);
     }
     ~CafActorSystem();
 
   private:
     caf::actor_system &__system() { return *the_system_; }
     caf::actor __global_actor(
-        const std::string &name, const utility::JsonStore &prefs, const bool embedded_python);
+        const std::string &name,
+        const utility::JsonStore &prefs,
+        const bool embedded_python,
+        const bool read_only);
 
     CafActorSystem();
     caf::actor_system *the_system_{nullptr};

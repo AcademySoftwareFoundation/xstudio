@@ -458,6 +458,7 @@ QModelIndexList SessionModel::insertRows(
     int row,
     int count,
     const QString &qtype,
+    const QString &qrate,
     const QString &qname,
     const QModelIndex &parent,
     const bool sync) {
@@ -594,9 +595,21 @@ QModelIndexList SessionModel::insertRows(
                         //     count);
 
                         for (auto i = 0; i < count; i++) {
-                            anon_mail(
-                                playlist::create_timeline_atom_v, name, before, false, true)
-                                .send(actor);
+                            spdlog::warn("{}", StdFromQString(qrate));
+                            if (qrate == "")
+                                anon_mail(
+                                    playlist::create_timeline_atom_v, name, before, false, true)
+                                    .send(actor);
+                            else {
+                                anon_mail(
+                                    playlist::create_timeline_atom_v,
+                                    name,
+                                    FrameRate(StdFromQString(qrate)),
+                                    before,
+                                    false,
+                                    true)
+                                    .send(actor);
+                            }
                             result.push_back(index(row + i, 0, parent));
                         }
                     }

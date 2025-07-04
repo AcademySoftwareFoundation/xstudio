@@ -97,6 +97,7 @@ Item {
                 insert_row,
                 1,
                 "Playlist",
+                "",
                 name,
                 index(0,0)
             )[0]
@@ -109,12 +110,12 @@ Item {
             return idx
         }
 
-        function createPlaylistChild(name, type, playlistIndex, insert_before) {
+        function createPlaylistChild(name, type, rate, playlistIndex, insert_before) {
             // note row 2 of Playlist in tree is the list of subsets, contactsheets etc
 
             var newidx = sessionData.insertRowsSync(
                 insert_before==undefined ? sessionData.rowCount(sessionData.index(2, 0, playlistIndex)) : insert_before,
-                1, type, name,
+                1, type, rate, name,
                 sessionData.index(2,0, playlistIndex)
             )
 
@@ -130,19 +131,20 @@ Item {
             return newidx[0];
         }
 
-        function createSubItem(name, type) {
+        function createSubItem(name, type, rate="") {
             if (currentMediaContainerIndex.valid) {
 
                 var selectedType = sessionData.get(currentMediaContainerIndex, "typeRole")
                 var result
                 if (selectedType== "Playlist") {
                     // A playlist is selected. Add as a child.
-                    result = createPlaylistChild(name, type, currentMediaContainerIndex)
+                    result = createPlaylistChild(name, type, rate, currentMediaContainerIndex)
                 } else if (["Subset", "Timeline", "ContactSheet"].includes(type)) {
                     // Subset or similar is selected. Insert after
                     result = createPlaylistChild(
                         name,
                         type,
+                        rate,
                         currentMediaContainerIndex.parent.parent,
                         currentMediaContainerIndex.row+1
                         )
@@ -152,7 +154,7 @@ Item {
                     var p = currentMediaContainerIndex
                     while (p.valid) {
                         if (p.model.get(p, "typeRole") == "Playlist") {
-                            result = createPlaylistChild(name, type, p)
+                            result = createPlaylistChild(name, type, rate, p)
                             break
                         }
                         p = p.parent
@@ -171,7 +173,7 @@ Item {
             // need a delay to allow the playlist node in the model to be
             // filled out by the backend
             callbackTimer.setTimeout(function(name, type, p) { return function() {
-                createPlaylistChild(name, type, p)
+                createPlaylistChild(name, type, rate, p)
                 }}( name, type, p ), 200);
         }
 
@@ -179,13 +181,13 @@ Item {
             if (currentMediaContainerIndex.valid) {
                 sessionData.insertRowsSync(
                     currentMediaContainerIndex.row+1,
-                    1, "ContainerDivider", name,
+                    1, "ContainerDivider", "", name,
                     currentMediaContainerIndex.parent
                     )
             } else {
                 sessionData.insertRowsSync(
                     0,
-                    1, "ContainerDivider", name,
+                    1, "ContainerDivider", "", name,
                     playlistsRootIdx
                     )
             }

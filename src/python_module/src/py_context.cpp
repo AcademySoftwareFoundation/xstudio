@@ -69,8 +69,6 @@ py_context::py_context(int argc, char **argv)
       self_(system_),
       remote_() {
 
-    thread_pauser_ = new xstudio::embedded_python::PythonThreadLocker();
-    thread_pauser_ptr_.reset(thread_pauser_);
 }
 
 py_context::~py_context() {
@@ -171,19 +169,7 @@ caf::actor py_context::py_remote_spawn(const py::args &xs) {
 
 void py_context::erase_func(py::function &callback_func) {
 
-    // lock the mutex that will pause the main thread until we have finished
-    // what we're doing here
-    std::lock_guard l(thread_pauser_->mutex_);
-
     try {
-
-
-        if (embedded_python_actor_) {
-            // send a message to main python thread to release the GIL and wait
-            // until it can unlock our mutex
-            self_->mail(xstudio::embedded_python::python_eval_atom_v, thread_pauser_ptr_)
-                .send(embedded_python_actor_);
-        }
 
         // acquire the GIL!
         py::gil_scoped_acquire gil;
@@ -200,24 +186,12 @@ void py_context::erase_func(py::function &callback_func) {
 void py_context::execute_event_callback(
     const caf::message &msg, const xstudio::utility::Uuid &callback_id) {
 
-    // lock the mutex that will pause the main thread until we have finished
-    // what we're doing here
-    std::lock_guard l(thread_pauser_->mutex_);
-
     auto p = message_callback_funcs_.find(callback_id);
     if (p == message_callback_funcs_.end())
         return;
     auto &callback_func = p->second;
 
     try {
-
-
-        if (embedded_python_actor_) {
-            // send a message to main python thread to release the GIL and wait
-            // until it can unlock our mutex
-            self_->mail(xstudio::embedded_python::python_eval_atom_v, thread_pauser_ptr_)
-                .send(embedded_python_actor_);
-        }
 
         // acquire the GIL!
         py::gil_scoped_acquire gil;

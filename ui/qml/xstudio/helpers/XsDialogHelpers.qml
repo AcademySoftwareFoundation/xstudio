@@ -33,12 +33,14 @@ Item {
         if (callback) loader.item.response.connect(callback)
         loader.item.visible = true
         loader.item.show()
+        loader.item.requestActivate()
     }
 
     property var dialogVisible: loader.item ? loader.item.visible != undefined ? loader.item.visible : false : false
 
     onDialogVisibleChanged: {
-        if (!visible) appWindow.grabFocus()
+        if (!visible)
+            appWindow.grabFocus()
     }
 
     property var fileDialogVisible: file_dlg_loader.item ? file_dlg_loader.item.visible != undefined ? file_dlg_loader.item.visible : false : false
@@ -322,6 +324,18 @@ Item {
         }
     }
 
+    Component {
+        id: sequenceInput
+
+        XsSequenceRequestDialog {
+            onVisibleChanged: {
+                if (!visible) {
+                    loader.sourceComponent = undefined
+                }
+            }
+        }
+    }
+
     function textInputDialog(
         callback,
         title,
@@ -335,6 +349,21 @@ Item {
         loader.item.initialText = initialText
         loader.item.choices = choices
         loader.item.area = false
+        showDialog(callback)
+    }
+
+    function sequenceInputDialog(
+        callback,
+        title,
+        body,
+        initialText,
+        choices)
+    {
+        loader.sourceComponent = sequenceInput
+        loader.item.title = title
+        loader.item.body = body
+        loader.item.initialText = initialText
+        loader.item.choices = choices
         showDialog(callback)
     }
 
@@ -373,3 +402,4 @@ Item {
     }
 
 }
+

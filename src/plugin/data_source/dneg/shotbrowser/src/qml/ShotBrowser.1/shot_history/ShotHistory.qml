@@ -58,7 +58,7 @@ Item{
 
     onOnScreenLogicalFrameChanged: {
         if(visible) {
-            if(currentPlayhead.playing && !pauseOnPlaying.value) {
+            if((currentPlayhead.playing || currentPlayhead.scrubbingFrames) && !pauseOnPlaying.value) {
                 // no op
             } else if(updateTimer.running) {
                 updateTimer.restart()
@@ -270,7 +270,10 @@ Item{
 
             ShotHistoryListDiv{
                 anchors.fill: parent
-                anchors.margins: 4
+                anchors.leftMargin: 2
+                anchors.topMargin: 2
+                anchors.rightMargin: rightSpacing ? 0 : 2
+                anchors.bottomMargin: 2
             }
         }
 

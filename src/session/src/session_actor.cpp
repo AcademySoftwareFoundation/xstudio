@@ -462,13 +462,10 @@ UuidActorVector LoadUrisActor::load_uris(const bool single_playlist, const bool 
         for (const auto &i : uris_) {
             fs::path p(uri_to_posix_path(i));
             if (fs::is_directory(p)) {
-#ifdef _WIN32
-                mail(add_playlist_atom_v, std::string(p.filename().string()))
+                // if p ends with a "/" then 'filename' is empty.
+                const std::string fname = p.filename().string().empty() ? p.parent_path().filename().string() : p.filename().string();
+                mail(add_playlist_atom_v, fname)
                     .request(session_, infinite)
-#else
-                mail(add_playlist_atom_v, std::string(p.filename()))
-                    .request(session_, infinite)
-#endif
                     .then(
                         [=](UuidUuidActor playlist) {
                             if (make_subsets) {

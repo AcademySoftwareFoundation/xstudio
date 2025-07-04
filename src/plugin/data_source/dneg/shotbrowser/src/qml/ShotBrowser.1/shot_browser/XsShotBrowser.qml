@@ -548,7 +548,7 @@ Item{
         resultsFilteredModel.filterLon = (onDisk == "lon")
         resultsFilteredModel.filterMtl = (onDisk == "mtl")
         resultsFilteredModel.filterMum = (onDisk == "mum")
-        resultsFilteredModel.filterVan = (onDisk == "van")
+        // resultsFilteredModel.filterVan = (onDisk == "van")
         resultsFilteredModel.filterSyd = (onDisk == "syd")
     }
 

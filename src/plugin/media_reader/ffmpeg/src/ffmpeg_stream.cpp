@@ -554,13 +554,22 @@ FFMpegStream::FFMpegStream(
         AVC_CHECK_THROW(
             avcodec_parameters_to_context(codec_context_, avc_stream_->codecpar),
             "avcodec_parameters_to_context");
+            
         if (avc_stream_->codecpar->codec_tag == MKTAG('t', 'm', 'c', 'd')) {
             stream_type_ = TIMECODE_STREAM;
+            is_drop_frame_timecode_ = false;
+
+#if LIBAVFORMAT_VERSION_MAJOR > 59
+            // TODO: Work out how to get timecode drop frame out of avcodec!! 
+            // for current version of ffmpeg. Nothing in ffmpeg 'documentation' 
+            // as far as I can tell.
+#else
             if (codec_context_->flags2 & AV_CODEC_FLAG2_DROP_FRAME_TIMECODE) {
                 is_drop_frame_timecode_ = true;
             } else {
                 is_drop_frame_timecode_ = false;
             }
+#endif            
         }
 
     } else if (codec_type_ == AVMEDIA_TYPE_VIDEO && codec_) {
@@ -692,6 +701,54 @@ size_t FFMpegStream::resample_audio(
     AVFrame *frame, AudioBufPtr &audio_buffer, int offset_into_output_buffer) {
 
     // N.B. this method is based loosely on the audio resampling in ffplay.c in ffmpeg source
+#if LIBAVFORMAT_VERSION_MAJOR > 59
+
+    const int wanted_nb_samples = frame->nb_samples * target_sample_rate_ / frame->sample_rate;
+
+    if (!audio_resampler_ctx_ || frame->format != src_audio_fmt_ ||
+        frame->sample_rate != src_audio_sample_rate_ ||
+        frame->ch_layout.nb_channels != 2) {
+
+        swr_free(&audio_resampler_ctx_);
+        audio_resampler_ctx_ = NULL;
+
+        auto dest_layout = AVChannelLayout(AV_CHANNEL_LAYOUT_STEREO);
+
+        int ret = swr_alloc_set_opts2(&audio_resampler_ctx_,         // we're allocating a new context
+            &dest_layout, // out_ch_layout
+            target_sample_format_,    // out_sample_fmt
+            target_sample_rate_,                // out_sample_rate
+            &(frame->ch_layout), // in_ch_layout
+            (AVSampleFormat)frame->format,   // in_sample_fmt
+            frame->sample_rate,                // in_sample_rate
+            0,                    // log_offset
+            NULL);                // log_ctx
+
+        if (!audio_resampler_ctx_ || swr_init(audio_resampler_ctx_) < 0) {
+            std::array<char, 4096> errbuf;
+
+            // naughty naughty.. don't use sprintf when you can't guarantee len..
+            // this is open to overflow..
+            // this is safe..
+            snprintf(
+                errbuf.data(),
+                errbuf.size(),
+                "Cannot create sample rate converter for conversion of %d"
+                " Hz %s %d channels to %d Hz %s %d channels!\n",
+                frame->sample_rate,
+                av_get_sample_fmt_name((AVSampleFormat)frame->format),
+                frame->ch_layout.nb_channels,
+                target_sample_rate_,
+                av_get_sample_fmt_name(target_sample_format_),
+                target_audio_channels_);
+            throw media_corrupt_error(errbuf.data());
+        }
+
+        src_audio_fmt_            = (AVSampleFormat)frame->format;
+        src_audio_sample_rate_    = frame->sample_rate;
+    }
+#else
+
     const int64_t target_channel_layout = av_get_default_channel_layout(2);
 
     av_samples_get_buffer_size(
@@ -745,6 +802,8 @@ size_t FFMpegStream::resample_audio(
         src_audio_sample_rate_    = frame->sample_rate;
         src_audio_channel_layout_ = dec_channel_layout;
     }
+
+#endif
 
     const auto in       = (const uint8_t **)frame->extended_data;
     int out_count       = wanted_nb_samples + 256;

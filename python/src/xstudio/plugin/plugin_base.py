@@ -148,6 +148,9 @@ class PluginBase(ModuleBase):
             qml item (e.g. text entered by the user). On the qml side the 
             item can trigger the callback by calling xstudio_callback(JSON)
             function somewhere in the qml signal handlers etc.
+        Returns:
+            item_id(uuid): The id of the attribute that injects the item into 
+            the UI. Use this with 'delete_qml_item' to destroy the item.
         """
 
         attr_name = "QML item {}".format(hash(qml_item))
@@ -171,6 +174,14 @@ class PluginBase(ModuleBase):
             self.qml_item_attrs[attr.uuid] = (attr, callback_fn)
         # 'attr_enabled' controls the visibility of the widget
         attr.set_role_data("attr_enabled", True) 
+        return attr.uuid
+
+    def delete_qml_item(self, item_uuid):
+        """Destroy / Clean up a QML item created with 'create_qml_item'.
+        Args:
+            item_uuid(uuid): The id of the item created by 'create_qml_item'
+        """
+        self.remove_attribute(item_uuid)        
 
     def attribute_changed(
         self,

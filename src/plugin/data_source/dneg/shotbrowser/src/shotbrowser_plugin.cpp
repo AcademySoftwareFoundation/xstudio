@@ -398,38 +398,37 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
          [=](json_store::sync_atom, const bool) {
              pending_preference_update_ = false;
 
-             auto path = preference_path("shotbrowser_presets_v1.json");
-             try {
-                 // check dir exists..
-                 std::ofstream o(path + ".tmp", std::ofstream::out | std::ofstream::trunc);
+             auto path  = preference_path("shotbrowser_presets_v1.json");
+             auto prefs = GlobalStoreHelper(system());
+             if (not prefs.read_only()) {
                  try {
-                     o.exceptions(std::ios_base::failbit | std::ifstream::badbit);
+                     // check dir exists..
+                     std::ofstream o(path + ".tmp", std::ofstream::out | std::ofstream::trunc);
+                     try {
+                         o.exceptions(std::ios_base::failbit | std::ifstream::badbit);
 
-                     o << std::setw(4) << engine().user_presets().as_json().at("children")
-                       << std::endl;
-                     o.close();
-
-                     fs::rename(path + ".tmp", path);
-
-                     // spdlog::debug("Saved {}", path);
-                 } catch (const std::exception &err) {
-                     if (o.is_open()) {
+                         o << std::setw(4) << engine().user_presets().as_json().at("children")
+                           << std::endl;
                          o.close();
-                         fs::remove(path + ".tmp");
+
+                         fs::rename(path + ".tmp", path);
+                         spdlog::debug("Presets Saved {} {}", __PRETTY_FUNCTION__, path);
+
+
+                         // spdlog::debug("Saved {}", path);
+                     } catch (const std::exception &err) {
+                         if (o.is_open()) {
+                             o.close();
+                             fs::remove(path + ".tmp");
+                         }
+                         spdlog::warn(
+                             "Failed to save {} {} {}", __PRETTY_FUNCTION__, path, err.what());
                      }
+                 } catch (const std::exception &err) {
                      spdlog::warn(
                          "Failed to save {} {} {}", __PRETTY_FUNCTION__, path, err.what());
                  }
-             } catch (const std::exception &err) {
-                 spdlog::warn("Failed to save {} {} {}", __PRETTY_FUNCTION__, path, err.what());
              }
-
-             // auto prefs                 = GlobalStoreHelper(system());
-             // prefs.set_value(
-             //     engine().user_presets().as_json().at("children"),
-             //     "/plugin/data_source/shotbrowser/user_presets",
-             //     false);
-             // prefs.save("PLUGIN");
          },
 
          [=](json_store::sync_atom) -> UuidVector {
@@ -724,6 +723,21 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
              auto rp = make_response_promise<JsonStore>();
              get_action(rp, js);
              return rp;
+         },
+
+         [=](utility::clear_atom, const int project_id) {
+             const auto types = std::vector<std::string>(
+                 {"user", "shot",     "sequence_shot", "sequence", "episode",  "playlist",
+                  "tree", "unit",     "asset",         "group",    "stage",    "User",
+                  "Shot", "Sequence", "ShotSequence",  "Episode",  "Playlist", "Tree",
+                  "Unit", "Asset",    "Group",         "Stage"});
+
+             for (const auto &i : types)
+                 engine().cache().erase(QueryEngine::cache_name(i, project_id));
+         },
+
+         [=](utility::clear_atom, const std::string &type, const int project_id) {
+             engine().cache().erase(QueryEngine::cache_name(type, project_id));
          },
 
          [=](history::history_atom) -> UuidActor { return UuidActor(history_uuid_, history_); },

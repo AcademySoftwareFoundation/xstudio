@@ -454,10 +454,18 @@ GradingColourOperator::setup_ocio_textures(OCIO::ConstGpuShaderDescRcPtr &shader
         unsigned height                          = 0;
         OCIO::GpuShaderDesc::TextureType channel = OCIO::GpuShaderDesc::TEXTURE_RGB_CHANNEL;
         OCIO::Interpolation interpolation        = OCIO::INTERP_LINEAR;
+        bool is2DTexture                         = false;
 
+#if OCIO_VERSION_HEX >= 0x02030000
+        OCIO::GpuShaderDesc::TextureDimensions dimensions = OCIO::GpuShaderDesc::TEXTURE_1D;
+        shader->getTexture(
+            idx, textureName, samplerName, width, height, channel, dimensions, interpolation);
+        is2DTexture = dimensions == OCIO::GpuShaderDesc::TEXTURE_2D;
+#else
         shader->getTexture(
             idx, textureName, samplerName, width, height, channel, interpolation);
-
+        is2DTexture = height > 1;
+#endif
         if (!textureName || !*textureName || !samplerName || !*samplerName || width == 0) {
             throw std::runtime_error(
                 "OCIO::ShaderDesc::getTexture - The texture data is corrupted");
@@ -477,7 +485,7 @@ GradingColourOperator::setup_ocio_textures(OCIO::ConstGpuShaderDescRcPtr &shader
         auto xs_interp   = interpolation == OCIO::INTERP_LINEAR ? LUTDescriptor::LINEAR
                                                                 : LUTDescriptor::NEAREST;
         auto xs_lut      = std::make_shared<ColourLUT>(
-            height > 1
+            is2DTexture
                      ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
                      : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
             samplerName);

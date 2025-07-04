@@ -35,6 +35,11 @@ Clip::Clip(const utility::JsonStore &jsn)
     } else {
         media_uuid_ = item_.prop().at("media_uuid");
     }
+
+    if (jsn.count("overriden_media_rate")) {
+
+        overridden_media_rate_ = jsn.at("overriden_media_rate");
+    }
 }
 
 Clip::Clip(const Item &item, const caf::actor &actor)
@@ -51,8 +56,9 @@ Clip Clip::duplicate() const {
     auto dup_item      = item_;
     dup_item.set_uuid(dup_container.uuid());
 
-    jsn["container"] = dup_container.serialise();
-    jsn["item"]      = dup_item.serialise();
+    jsn["container"]            = dup_container.serialise();
+    jsn["item"]                 = dup_item.serialise();
+    jsn["overriden_media_rate"] = overridden_media_rate_;
 
     return Clip(jsn);
 }
@@ -60,8 +66,9 @@ Clip Clip::duplicate() const {
 utility::JsonStore Clip::serialise() const {
     utility::JsonStore jsn;
 
-    jsn["container"] = Container::serialise();
-    jsn["item"]      = item_.serialise();
+    jsn["container"]            = Container::serialise();
+    jsn["item"]                 = item_.serialise();
+    jsn["overriden_media_rate"] = overridden_media_rate_;
 
     return jsn;
 }

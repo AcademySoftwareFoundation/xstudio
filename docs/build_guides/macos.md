@@ -18,11 +18,12 @@ Some of xSTUDIO's dependencies require 'homebrew', the MacOS open source softwar
 
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-We require 3 packages to be installed to proceed. Run these commands in a terminal:
+We require 4 packages to be installed to proceed. Run these commands in a terminal:
 
     brew install pkg-config
     brew install nasm
     brew install autoconf
+    brew install autoconf-archive
 
 ### Download and install Qt 6.5.3 SDK
 

@@ -587,7 +587,7 @@ void Viewport::set_pointer_event_viewport_coords(PointerEvent &pointer_event) {
 
     Imath::V4f p = state_.pointer_position_;
 
-    pointer_event.set_pos_in_coord_sys(p.x, p.y, (d_zero - delta).x);
+    pointer_event.set_pos_in_coord_sys(p.x, p.y, (d_zero - delta).x*state_.devicePixelRatio_);
 }
 
 bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
@@ -1881,7 +1881,10 @@ void Viewport::set_screen_infos(
     // Instead the ViewportFrameQueueActor will do a live statistical measurement
     // of the refresh period.
 
-    /*screen_refresh_period_ = timebase::to_flicks(1.0 / refresh_rate);*/
+#ifdef __apple__    
+    // On modern Apple hardware the refresh rate is accurate.
+    screen_refresh_period_ = timebase::to_flicks(1.0 / refresh_rate);
+#endif
 }
 
 void Viewport::quickview_media(
@@ -1980,6 +1983,7 @@ void Viewport::render() const {
             render_data_->window_to_viewport_matrix,
             render_data_->projection_matrix,
             render_data_->window_size,
+            render_data_->device_pixel_ratio,
             render_data_->overlay_renderers);
     }
 }
@@ -2004,6 +2008,7 @@ void Viewport::render(const media_reader::ImageBufPtr &image_buf) {
     rdata->overlay_renderers         = viewport_overlay_renderers_;
     rdata->renderer                  = active_renderer_;
     rdata->window_size               = state_.window_size_;
+    rdata->device_pixel_ratio        = state_.devicePixelRatio_;
     render_data_.reset(rdata);
 
     render();
@@ -2020,6 +2025,7 @@ void Viewport::prepare_render_data(
     rdata->overlay_renderers         = viewport_overlay_renderers_;
     rdata->renderer                  = active_renderer_;
     rdata->window_size               = state_.window_size_;
+    rdata->device_pixel_ratio        = state_.devicePixelRatio_;
     render_data_.reset(rdata);
 }
 

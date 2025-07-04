@@ -42,6 +42,7 @@ namespace ui {
                 const Imath::M44f &window_to_viewport_matrix,
                 const Imath::M44f &viewport_to_image_matrix,
                 const Imath::V2i &window_size,
+                const float device_pixel_ratio,
                 const std::map<utility::Uuid, plugin::ViewportOverlayRendererPtr>
                     &overlay_renderers) = 0;
 

@@ -195,7 +195,7 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Hide Misc"
+                text: "Misc"
                 menuItemType: "divider"
                 menuPath: ""
                 menuItemPosition: 0.5
@@ -203,7 +203,7 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Empty"
+                text: "Hide Empty"
                 menuItemType: "toggle"
                 menuPath: ""
                 menuItemPosition: 0.9
@@ -213,7 +213,7 @@ Item{
             }
 
             XsMenuModelItem {
-                text: "Not Visible"
+                text: "Only Show Visible"
                 menuItemType: "toggle"
                 menuPath: ""
                 menuItemPosition: 0.95
@@ -393,7 +393,7 @@ Item{
                 spacing: 1
 
                 ScrollBar.vertical: XsScrollBar{visible: sequenceTreeView.height < sequenceTreeView.contentHeight}
-                property int rightSpacing: sequenceTreeView.height < sequenceTreeView.contentHeight ? 10 : 0
+                property int rightSpacing: sequenceTreeView.height < sequenceTreeView.contentHeight ? 12 : 0
                 Behavior on rightSpacing {NumberAnimation {duration: 150}}
 
                 model: sequenceTreeModel
