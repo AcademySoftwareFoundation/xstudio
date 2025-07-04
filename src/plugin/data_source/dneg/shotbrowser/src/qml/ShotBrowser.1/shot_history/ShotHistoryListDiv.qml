@@ -8,7 +8,7 @@ import ShotBrowser 1.0
 
 XsListView { id: list
     spacing: panelPadding
-    property int rightSpacing: list.height < list.contentHeight ? 16 : 0
+    property int rightSpacing: list.height < list.contentHeight ? 12 : 0
     Behavior on rightSpacing {NumberAnimation {duration: 150}}
 
     ScrollBar.vertical: XsScrollBar {
@@ -17,7 +17,6 @@ XsListView { id: list
         anchors.top: list.top
         anchors.right: list.right
         anchors.bottom: list.bottom
-        x: -5
     }
 
     XsSBMediaPlayer {

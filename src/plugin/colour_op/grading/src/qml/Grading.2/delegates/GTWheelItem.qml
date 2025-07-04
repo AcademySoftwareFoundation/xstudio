@@ -129,7 +129,7 @@ Item { id: wheelItem
                 Layout.minimumWidth: 45
                 Layout.preferredWidth: 45
                 Layout.maximumWidth: 45
-                Layout.preferredHeight: parent.height
+                Layout.fillHeight: true
                 spacing: 1
 
                 Item{

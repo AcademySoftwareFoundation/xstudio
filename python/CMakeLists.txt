@@ -40,7 +40,7 @@ else()
     add_custom_command(OUTPUT ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api
                     COMMAND ${Python_EXECUTABLE}
                     ARGS setup.py install --old-and-unmanageable --prefix=${OUTPUT}
-                    DEPENDS ${DEPS})
+                    DEPENDS __pybind_xstudio ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
 
     add_custom_target(python_module ALL DEPENDS __pybind_xstudio ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio/api)
     
@@ -49,8 +49,15 @@ endif()
 
 if(NOT APPLE)
     if(INSTALL_PYTHON_MODULE)
-        install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
-            DESTINATION lib/python/)
+        
+        if (WIN32)
+        install(DIRECTORY ${OUTPUT}/Lib/site-packages/xstudio
+            DESTINATION bin/python3/Lib/site-packages)
+        else()
+            install(DIRECTORY ${OUTPUT}/lib/${PYTHONVP}/site-packages/xstudio
+                DESTINATION lib/python/)
+        endif()
+
         install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-control
             DESTINATION bin)
         install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/src/xstudio-inject

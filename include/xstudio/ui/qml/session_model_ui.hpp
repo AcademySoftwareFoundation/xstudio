@@ -350,18 +350,20 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         int row,
         int count,
         const QString &type,
+        const QString &rate,
         const QString &name,
         const QModelIndex &parent = QModelIndex()) {
-        return insertRows(row, count, type, name, parent, false);
+        return insertRows(row, count, type, rate, name, parent, false);
     }
 
     Q_INVOKABLE QModelIndexList insertRowsSync(
         int row,
         int count,
         const QString &type,
+        const QString &rate,
         const QString &name,
         const QModelIndex &parent = QModelIndex()) {
-        return insertRows(row, count, type, name, parent, true);
+        return insertRows(row, count, type, rate, name, parent, true);
     }
 
     static nlohmann::json sessionTreeToJson(
@@ -563,6 +565,7 @@ class SESSION_QML_EXPORT SessionModel : public caf::mixin::actor_object<JSONTree
         int row,
         int count,
         const QString &type,
+        const QString &rate,
         const QString &name,
         const QModelIndex &parent = QModelIndex(),
         const bool sync           = true);

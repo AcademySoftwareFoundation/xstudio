@@ -41,10 +41,8 @@ Rectangle{
 
         Item{ id: thumbnailDiv
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            // Layout.preferredHeight: itemHeight
-            // Layout.rowSpan: 2
-            // Layout.columnSpan: 2
+            // Layout.fillHeight: true
+            Layout.preferredHeight: width / (16/9)
 
             property bool failed: thumbRole == undefined
 
@@ -201,6 +199,10 @@ Rectangle{
             Layout.preferredHeight: XsStyleSheet.widgetStdHeight/1.5
             titleText: "To :"
             valueText: addressingRole ? addressingRole.join("\n") : ""
+        }
+        Item{
+            Layout.fillHeight: true
+            Layout.fillWidth: true
         }
     }
 }

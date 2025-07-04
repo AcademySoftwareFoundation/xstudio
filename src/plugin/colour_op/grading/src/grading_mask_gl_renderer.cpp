@@ -176,6 +176,7 @@ void GradingMaskRenderer::render_layer(
                 to_canvas,
                 Imath::M44f(),
                 2.0f / mask_resolution.x, // See A1
+                1.0,
                 have_alpha_buffer,
                 image_aspect_ratio);
 

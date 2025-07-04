@@ -9,6 +9,8 @@ import xStudio 1.0
 Item {
 	id: control
 
+	clip: true
+
 	property bool isHovered: false
 	property bool isSelected: false
 	property string itemFlag: ""

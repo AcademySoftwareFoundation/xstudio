@@ -456,6 +456,26 @@ namespace ui {
                 .toVariantMap();
         }
 
+        inline QStringList rates() {
+            const static auto rates = QStringList(
+                {"23.976",
+                 "24.0",
+                 "25.0",
+                 "29.97",
+                 "30.0",
+                 "48.0",
+                 "50.0",
+                 "59.94",
+                 "60.0",
+                 "90.0",
+                 "100.0",
+                 "119.88",
+                 "120.0"});
+
+            return rates;
+        }
+
+
         nlohmann::json qvariant_to_json(const QVariant &var);
 
         QVariant json_to_qvariant(const nlohmann::json &var);
@@ -506,6 +526,12 @@ namespace ui {
                 for (const auto &i : urls)
                     uris.push_back(i.toString());
 
+#ifdef __apple__                    
+                uris.push_front("-R");
+                return startDetachedProcess("open", uris);
+#elif defined(_WIN32)
+                return false;
+#else
                 auto arguments = QStringList(
                     {"--session",
                      "--print-reply",
@@ -517,6 +543,7 @@ namespace ui {
                      "string:"});
 
                 return startDetachedProcess("dbus-send", arguments);
+#endif                
             }
 
             Q_INVOKABLE void setOverrideCursor(const QString &name = "") {
@@ -585,6 +612,7 @@ namespace ui {
                 return QPersistentModelIndex(index);
             }
 
+            Q_INVOKABLE [[nodiscard]] QStringList mediaRates() const { return rates(); }
 
             Q_INVOKABLE [[nodiscard]] QPersistentModelIndex
             makePersistent(const QModelIndex &index) const {

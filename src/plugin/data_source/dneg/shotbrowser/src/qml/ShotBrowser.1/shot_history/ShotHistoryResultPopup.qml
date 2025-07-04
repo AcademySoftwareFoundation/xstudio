@@ -167,13 +167,13 @@ XsPopupMenu {
         menuModelName: rightClickMenu.menu_model_name
         onActivated: ShotBrowserHelpers.transfer("syd", popupSelectionModel.selectedIndexes)
     }
-    XsMenuModelItem {
-        text: "To Vancouver"
-        menuItemPosition: 6
-        menuPath: "Transfer Selected"
-        menuModelName: rightClickMenu.menu_model_name
-        onActivated: ShotBrowserHelpers.transfer("van", popupSelectionModel.selectedIndexes)
-    }
+    // XsMenuModelItem {
+    //     text: "To Vancouver"
+    //     menuItemPosition: 6
+    //     menuPath: "Transfer Selected"
+    //     menuModelName: rightClickMenu.menu_model_name
+    //     onActivated: ShotBrowserHelpers.transfer("van", popupSelectionModel.selectedIndexes)
+    // }
     XsMenuModelItem {
         menuItemType: "divider"
         menuItemPosition: 7

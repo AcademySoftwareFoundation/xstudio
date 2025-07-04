@@ -61,7 +61,7 @@ XsDragDropHandler {
             if (isSelected) {
                 canReceiveDrag = false
             } else {
-                // if the selected playlists/subsets aren't SIBLINGS of 
+                // if the selected playlists/subsets aren't SIBLINGS of
                 // this item then this item cannot be a valid target
                 // for playlists reordering
                 for (var i in sessionSelectionModel.selectedIndexes) {
@@ -72,7 +72,7 @@ XsDragDropHandler {
                     }
                 }
                 canReceiveDrag = true
-    
+
             }
         }
     }
@@ -116,8 +116,8 @@ XsDragDropHandler {
                 theSessionData.fetchMoreWait(tindex)
                 let sindex = theSessionData.index(0, 0, tindex)
 
-                let newvindex = theSessionData.insertRowsSync(0, 1, "Video Track", "Dropped", sindex)[0];
-                let newaindex = theSessionData.insertRowsSync(theSessionData.rowCount(sindex), 1 ,"Audio Track", "Dropped", sindex)[0];
+                let newvindex = theSessionData.insertRowsSync(0, 1, "Video Track", "", "Dropped", sindex)[0];
+                let newaindex = theSessionData.insertRowsSync(theSessionData.rowCount(sindex), 1 ,"Audio Track", "", "Dropped", sindex)[0];
 
                 for(let i = 0; i < new_indexes.length;i++) {
                     theSessionData.insertTimelineClip(i, newvindex, new_indexes[i], "")

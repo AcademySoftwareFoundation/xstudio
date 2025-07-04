@@ -49,10 +49,10 @@ nlohmann::json ShotBrowserSequenceModel::sortByNameAndType(const nlohmann::json 
         std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) -> bool {
             try {
                 if (a.at("type") == b.at("type")) {
-                    if (a.at("subtype") == b.at("subtype"))
-                        return a.at("name") < b.at("name");
-                    else
-                        return a.at("subtype") < b.at("subtype");
+                    // if (a.at("subtype") == b.at("subtype"))
+                    return a.at("name") < b.at("name");
+                    // else
+                    //     return a.at("subtype") < b.at("subtype");
                 }
                 return a.at("type") < b.at("type");
             } catch (const std::exception &err) {

@@ -72,6 +72,7 @@ void AnnotationsRenderer::render_image_overlay(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
     const float viewport_du_dpixel,
+    const float device_pixel_ratio,
     const xstudio::media_reader::ImageBufPtr &frame,
     const bool have_alpha_buffer) {
 
@@ -121,6 +122,7 @@ void AnnotationsRenderer::render_image_overlay(
                 transform_window_to_viewport_space,
                 transform_viewport_to_image_space,
                 viewport_du_dpixel,
+                device_pixel_ratio,
                 have_alpha_buffer,
                 1.f);
         }
@@ -134,6 +136,7 @@ void AnnotationsRenderer::render_image_overlay(
             transform_window_to_viewport_space,
             transform_viewport_to_image_space,
             viewport_du_dpixel,
+            device_pixel_ratio,
             have_alpha_buffer,
             1.f);
     }
@@ -149,6 +152,7 @@ void AnnotationsRenderer::render_viewport_overlay(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_normalised_coords,
     const float viewport_du_dpixel,
+    const float device_pixel_ratio,
     const bool have_alpha_buffer) {
 
     if (laser_drawing_mode_) {
@@ -158,6 +162,7 @@ void AnnotationsRenderer::render_viewport_overlay(
             transform_window_to_viewport_space,
             transform_viewport_to_normalised_coords,
             viewport_du_dpixel,
+            device_pixel_ratio,
             have_alpha_buffer,
             1.f);
     }

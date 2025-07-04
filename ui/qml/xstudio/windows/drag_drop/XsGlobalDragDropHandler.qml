@@ -93,6 +93,7 @@ DropArea {
                 uris = uris + String(item) +"\n"
             })
             dragFinished(Qt.point(drop.x, drop.y), "External URIS", uris)
+            drop.accept()
         } else {
 
             // prepare drop data
@@ -101,11 +102,11 @@ DropArea {
                 data[drop.keys[i]] = drop.getDataAsString(drop.keys[i])
             }
             dragFinished(Qt.point(drop.x, drop.y), "External JSON", data)
+            drop.accept()
 
         }
         dragging = false
         externalDrag = false
-        drop.accept()
         
     }    
 }

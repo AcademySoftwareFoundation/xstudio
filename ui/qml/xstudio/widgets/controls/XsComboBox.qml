@@ -155,7 +155,9 @@ ComboBox { id: widget
     XsPopup{
         id: popupOptions
         width: widget.width
-        implicitHeight: contentItem.implicitHeight + (topPadding + bottomPadding)
+        height: Math.min(contentItem.implicitHeight, widget.Window.height - topMargin - bottomMargin)
+
+        // implicitHeight: contentItem.implicitHeight + (topPadding + bottomPadding)
         padding: 1
         y: widget.height
 
@@ -219,7 +221,7 @@ ComboBox { id: widget
                 visible: widget.highlightedIndex === index && tt.truncated
                 x: 0 //#TODO: flex/pointer
             }
-    
+
         }
 
         highlighted: widget.highlightedIndex === index

@@ -1140,8 +1140,6 @@ TimelineActor::TimelineActor(
         }
     }
 
-    base_.item().set_system(&system());
-
     base_.item().bind_item_pre_event_func(
         [this](const JsonStore &event, Item &item) { item_pre_event_callback(event, item); },
         true);
@@ -1164,7 +1162,6 @@ TimelineActor::TimelineActor(
       playlist_(playlist ? caf::actor_cast<caf::actor_addr>(playlist) : caf::actor_addr()) {
 
     // create default stack
-
     auto stack_item = Item(IT_STACK, "Stack", rate);
 
     if (with_tracks) {
@@ -1178,7 +1175,6 @@ TimelineActor::TimelineActor(
 
     auto stack = spawn<StackActor>(stack_item, stack_item);
 
-    base_.item().set_system(&system());
     base_.item().set_name(name);
 
     add_item(UuidActor(stack_item.uuid(), stack));
@@ -2373,6 +2369,10 @@ caf::message_handler TimelineActor::message_handler() {
             return mail(atom).delegate(caf::actor_cast<caf::actor>(this));
         },
 
+        [=](rate_atom,
+            const utility::FrameRate &new_rate,
+            const bool force_media_rate_to_match) -> bool { return true; },
+
         [=](duplicate_atom) -> result<UuidActor> {
             auto rp = make_response_promise<UuidActor>();
 
@@ -3033,56 +3033,68 @@ void TimelineActor::sort_by_media_display_info(
 
 void TimelineActor::insert_items(
     caf::typed_response_promise<JsonStore> rp, const int index, const UuidActorVector &uav) {
-    // validate items can be inserted.
-    fan_out_request<policy::select_all>(vector_to_caf_actor_vector(uav), infinite, item_atom_v)
-        .then(
-            [=](std::vector<Item> items) mutable {
-                // items are valid for insertion ?
-                for (const auto &i : items) {
-                    if (not base_.item().valid_child(i))
-                        return rp.deliver(
-                            make_error(xstudio_error::error, "Invalid child type"));
-                }
 
-                // take ownership
-                for (const auto &ua : uav)
-                    add_item(ua);
-
-                // find insertion point..
-                auto it = std::next(base_.item().begin(), index);
-
-                // insert items..
-                // our list will be out of order..
-                auto changes = JsonStore(R"([])"_json);
-                for (const auto &ua : uav) {
-                    // find item..
-                    auto found = false;
+    // this is called after setting the rate
+    auto do_insertion = [=]() mutable {
+        // validate items can be inserted.
+        fan_out_request<policy::select_all>(
+            vector_to_caf_actor_vector(uav), infinite, item_atom_v)
+            .then(
+                [=](std::vector<Item> items) mutable {
+                    // items are valid for insertion ?
                     for (const auto &i : items) {
-                        if (ua.uuid() == i.uuid()) {
-                            auto tmp = base_.item().insert(it, i);
-                            changes.insert(changes.end(), tmp.begin(), tmp.end());
-                            found = true;
-                            break;
+                        if (not base_.item().valid_child(i))
+                            return rp.deliver(
+                                make_error(xstudio_error::error, "Invalid child type"));
+                    }
+
+                    // take ownership
+                    for (const auto &ua : uav)
+                        add_item(ua);
+
+                    // find insertion point..
+                    auto it = std::next(base_.item().begin(), index);
+
+                    // insert items..
+                    // our list will be out of order..
+                    auto changes = JsonStore(R"([])"_json);
+                    for (const auto &ua : uav) {
+                        // find item..
+                        auto found = false;
+                        for (const auto &i : items) {
+                            if (ua.uuid() == i.uuid()) {
+                                auto tmp = base_.item().insert(it, i);
+                                changes.insert(changes.end(), tmp.begin(), tmp.end());
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (not found) {
+                            spdlog::error("item not found for insertion");
                         }
                     }
 
-                    if (not found) {
-                        spdlog::error("item not found for insertion");
-                    }
-                }
+                    // add changes to stack
+                    auto more = base_.item().refresh();
 
-                // add changes to stack
-                auto more = base_.item().refresh();
+                    if (not more.is_null())
+                        changes.insert(changes.begin(), more.begin(), more.end());
 
-                if (not more.is_null())
-                    changes.insert(changes.begin(), more.begin(), more.end());
+                    mail(event_atom_v, item_atom_v, changes, false).send(base_.event_group());
+                    anon_mail(history::log_atom_v, __sysclock_now(), changes).send(history_);
+                    mail(event_atom_v, change_atom_v).send(this);
 
-                mail(event_atom_v, item_atom_v, changes, false).send(base_.event_group());
-                anon_mail(history::log_atom_v, __sysclock_now(), changes).send(history_);
-                mail(event_atom_v, change_atom_v).send(this);
+                    rp.deliver(changes);
+                },
+                [=](const caf::error &err) mutable { rp.deliver(err); });
+    };
 
-                rp.deliver(changes);
-            },
+    // before adding clips, we must force their frame rate to match ours.
+    fan_out_request<policy::select_all>(
+        vector_to_caf_actor_vector(uav), infinite, rate_atom_v, base_.rate(), false)
+        .then(
+            [=](std::vector<bool> r) mutable { do_insertion(); },
             [=](const caf::error &err) mutable { rp.deliver(err); });
 }
 
@@ -3201,7 +3213,7 @@ void TimelineActor::bake(caf::typed_response_promise<UuidActor> rp, const UuidSe
     }
 
     // collapse into sequence of clips and gaps.
-    auto track = Track("Flattened Tracks", mtype);
+    auto track = Track("Flattened Tracks", rate, mtype);
 
     for (const auto &i : items) {
         if (track.children().empty() or                                  // empty track
@@ -3536,6 +3548,19 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
         for (const auto &marker : stack.markers()) {
             ostack->markers().push_back(to_marker(marker));
         }
+
+        // stack already created, so we can't set source range ?
+
+        // if (stack.available_range()) {
+        //     ostack->set_available_range(otio::TimeRange(
+        //         otio::RationalTime::from_frames(
+        //             stack.available_frame_start()->frames(),
+        //             stack.rate().to_fps()),
+        //         otio::RationalTime::from_frames(
+        //             stack.available_frame_duration()->frames(),
+        //             stack.rate().to_fps())));
+        // }
+
 
         if (meta = base_.item().front().prop(); not meta.is_object())
             meta = R"({})"_json;

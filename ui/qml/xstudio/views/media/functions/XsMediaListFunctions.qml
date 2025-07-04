@@ -187,8 +187,8 @@ Item {
         }
     }
 
-    function addToNewSequence(name) {
-        let sub = theSessionData.createPlaylistChild(name, "Timeline", theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
+    function addToNewSequence(name, rate) {
+        let sub = theSessionData.createPlaylistChild(name, "Timeline", rate, theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
 
         // get reference to timelineitem
         let tindex = theSessionData.index(2, 0, sub)
@@ -211,12 +211,12 @@ Item {
     }
 
     function addToNewSubset(name) {
-        let sub = theSessionData.createPlaylistChild(name, "Subset", theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
+        let sub = theSessionData.createPlaylistChild(name, "Subset", "", theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
         theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, sub)
     }
 
     function addToNewContactSheet(name) {
-        let sub = theSessionData.createPlaylistChild(name, "ContactSheet", theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
+        let sub = theSessionData.createPlaylistChild(name, "ContactSheet", "", theSessionData.getPlaylistIndex(mediaSelectionModel.selectedIndexes[0]))
         theSessionData.copyRows(mediaSelectionModel.selectedIndexes, 0, sub)
     }
 

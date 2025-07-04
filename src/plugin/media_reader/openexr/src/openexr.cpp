@@ -230,10 +230,17 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         }
     }
 
-    if (part_idx == -1 && mptr.stream_id() == "Main") {
-        // Older version of exr reader only provided a stream called "Main".
-        // For backwards compatibility map this to the first stream from the
-        // first 'part' (which is what you got with the old reader)
+    if (part_idx == -1) {
+        // When an EXR sequence is added to an xSTUDIO session, xSTUDIO opens
+        // the middle frame in the sequence and inspects it to see what parts
+        // and channels there are in that file. A MediaStream is then created
+        // for each part or layer in that EXR.
+        // It is possible that other EXRs in the sequence have different parts
+        // or layers, however. What do we do then? All we can do is just pick
+        // the first part to load as a dumb fallback.
+        // It's not reasonable to expect xSTUDIO to be able to predict how to
+        // load an EXR sequence where the parts/layers in the files are not
+        // consistent
         const Imf::Header &part_header = input.header(0);
         std::vector<std::string> stream_ids;
         stream_ids_from_exr_part(part_header, stream_ids);
@@ -246,9 +253,12 @@ ImageBufPtr OpenEXRMediaReader::image(const media::AVFrameID &mptr) {
         pix_type =
             pick_exr_channels_from_stream_id(part_header, stream_ids[0], exr_channels_to_load);
         part_idx = 0;
-    } else if (part_idx == -1) {
+    }
+
+    if (exr_channels_to_load.empty()) {
         std::stringstream ss;
-        ss << "Failed to pick exr channels for file \"" << path << "\"\n";
+        ss << "The parts, channels or layers in file \"" << path
+           << "\" are inconsistent with other EXR files in the sequence.\n";
         throw std::runtime_error(ss.str().c_str());
     }
 

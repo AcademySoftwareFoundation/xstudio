@@ -126,6 +126,8 @@ Item {
 
             if (construction_polygon.item.mousePressed(position, buttons, modifiers)) return
 
+            if (!mask_shapes_visible) return;
+
             for (var i = 0; i < repeater.count; ++i) {
                 if (repeater.itemAt(i).item.mousePressed(position, buttons, modifiers)) {
                     return

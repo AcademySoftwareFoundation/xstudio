@@ -17,11 +17,6 @@ add_library(${PROJECT_NAME} SHARED ${SOURCES})
 add_library(xstudio::embedded_python ALIAS ${PROJECT_NAME})
 default_options(${PROJECT_NAME})
 
-if(NOT ${OTIO_SUBMODULE})
-	find_package(OpenTime REQUIRED)
-	find_package(OpenTimelineIO REQUIRED)
-endif()
-
 if(UNIX)
 	target_compile_options(${PROJECT_NAME}
 		PRIVATE -fvisibility=hidden
@@ -37,8 +32,6 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::global_store
 		xstudio::media
 		Python::Python
-		OTIO::opentime
-		OTIO::opentimelineio
 )
 	
 
@@ -47,8 +40,6 @@ set_python_to_proper_build_type()
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS_NO_SHARED true)
 
 if(WIN32)
-# this looks awkward!
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../../../vcpkg_installed/x64-windows/tools/python3/DLLs/ DESTINATION python)
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../../../vcpkg_installed/x64-windows/tools/python3/Lib/ DESTINATION python)
-install(FILES python310._pth DESTINATION bin)
+# Install the entire python install from vcpkg to the bin/python3 folder
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../../../vcpkg_installed/x64-windows/tools/python3 DESTINATION bin)
 endif()

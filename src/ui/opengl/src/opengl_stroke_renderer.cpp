@@ -152,11 +152,14 @@ void OpenGLStrokeRenderer::render_strokes(
         init_gl();
 
     std::vector<Imath::V2f> line_start_end_per_vertex;
+    std::vector<int> n_vtx_per_stroke;
+
     for (const auto &stroke : strokes) {
         const Imath::V2f *v0 = stroke.points.data();
         const Imath::V2f *v1 = v0;
-        v1++;
-        const int n_segments = (stroke.points.size() - 1);
+        if (stroke.points.size() > 1) v1++;
+        const int n_segments = std::max(size_t(1), (stroke.points.size() - 1));
+        n_vtx_per_stroke.push_back(n_segments*6);
 
         for (int i = 0; i < n_segments; ++i) {
             line_start_end_per_vertex.push_back(*v0);
@@ -224,10 +227,12 @@ void OpenGLStrokeRenderer::render_strokes(
     // Later when we draw visible strokes the depth test will cause the
     // 'erase' to work.
     glDepthFunc(GL_GREATER);
+    auto p_n_vtx_per_stroke = n_vtx_per_stroke.begin();
     for (const auto &stroke : strokes) {
         depth += 0.001;
         if (stroke.type != StrokeType_Erase) {
-            offset += (stroke.points.size() - 1) * 6;
+            offset += *p_n_vtx_per_stroke;
+            p_n_vtx_per_stroke++;
             ;
             continue;
         }
@@ -238,19 +243,21 @@ void OpenGLStrokeRenderer::render_strokes(
         shader_params2["do_soft_edge"]  = false;
         shader_->set_shader_parameters(shader_params2);
 
-        glDrawArrays(GL_TRIANGLES, offset, (stroke.points.size() - 1) * 6);
-        offset += (stroke.points.size() - 1) * 6;
+        glDrawArrays(GL_TRIANGLES, offset, *p_n_vtx_per_stroke);
+        offset += *p_n_vtx_per_stroke;
+        p_n_vtx_per_stroke++;
     }
 
     offset = 0;
     depth  = 0.0f;
+    p_n_vtx_per_stroke = n_vtx_per_stroke.begin();
     for (const auto &stroke : strokes) {
 
         depth += 0.001;
         if (stroke.type == StrokeType_Erase) {
             // now we skip erase strokes
-            offset += (stroke.points.size() - 1) * 6;
-            ;
+            offset += *p_n_vtx_per_stroke;
+            p_n_vtx_per_stroke++;
             continue;
         }
 
@@ -304,7 +311,7 @@ void OpenGLStrokeRenderer::render_strokes(
         // The vertex shader computes the 4 vertices for each quad directly from
         // the stroke points and thickness
 
-        glDrawArrays(GL_TRIANGLES, offset, (stroke.points.size() - 1) * 6);
+        glDrawArrays(GL_TRIANGLES, offset, *p_n_vtx_per_stroke);
 
         /* ---- Second pass, draw soft edged stroke underneath ---- */
 
@@ -323,7 +330,8 @@ void OpenGLStrokeRenderer::render_strokes(
         shader_->set_shader_parameters(shader_params3);
         glDrawArrays(GL_TRIANGLES, offset, (stroke.points.size() - 1) * 6);
 
-        offset += (stroke.points.size() - 1) * 6;
+        offset += *p_n_vtx_per_stroke;
+        *p_n_vtx_per_stroke++;
     }
 
     glBlendEquation(GL_FUNC_ADD);

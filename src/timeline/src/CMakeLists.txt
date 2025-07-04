@@ -3,6 +3,8 @@ find_package(fmt REQUIRED)
 if(NOT ${OTIO_SUBMODULE})
 	find_package(OpenTime REQUIRED)
 	find_package(OpenTimelineIO REQUIRED)
+else()
+	include_directories(${CMAKE_SOURCE_DIR}/extern/otio/OpenTimelineIO/src)
 endif()
 
 SET(LINK_DEPS
@@ -27,4 +29,3 @@ SET(STATIC_LINK_DEPS
 )
 
 create_component_static(timeline ${XSTUDIO_GLOBAL_VERSION} "${LINK_DEPS}" "${STATIC_LINK_DEPS}")
-

@@ -145,22 +145,41 @@ bool GlobalStoreModel::updateProperty(
     auto index =
         searchRecursive(QVariant::fromValue(QStringFromStd(path)), QString("pathRole"));
 
+    static const auto fields = std::map<std::string, int>(
+        {{"default_value", Roles::defaultValueRole},
+            {"value", Roles::valueRole},
+            {"overridden_path", Roles::overriddenPathRole},
+            {"overridden_value", Roles::overriddenValueRole},
+            {"description", Roles::descriptionRole},
+            {"context", Roles::contextRole},
+            {"path", Roles::pathRole},
+            {"datatype", Roles::datatypeRole}});
+
     try {
         // single term update
         //  should handle more that value...
-        if (not index.isValid() and ends_with(path, "/value")) {
+        if (not index.isValid()) {
             index = searchRecursive(
                 QVariant::fromValue(QStringFromStd(path.substr(0, path.find_last_of('/')))),
                 QString("pathRole"));
             if (index.isValid()) {
+                std::string key = path.substr(path.find_last_of('/')+1);
                 nlohmann::json &j = indexToData(index);
-                if (j["value"] != change) {
-                    // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
-                    QVector<int> roles({Roles::valueRole});
-                    j["value"] = change;
-                    result     = true;
-                    emit dataChanged(index, index, roles);
+                if (j.contains(key) && fields.count(key)) {
+                    if (j[key] != change) {
+                        // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
+                        QVector<int> roles({fields.find(key)->second});
+                        j[key] = change;
+                        result     = true;
+                        emit dataChanged(index, index, roles);
+                    }
+                } else {
+                    spdlog::warn(
+                        "{} Unmatched update {} {}", __PRETTY_FUNCTION__, path, change.dump(2));
                 }
+            } else {
+                spdlog::warn(
+                    "{} Unmatched update {} {}", __PRETTY_FUNCTION__, path, change.dump(2));
             }
         } else if (index.isValid()) {
             nlohmann::json &j = indexToData(index);
@@ -169,16 +188,6 @@ bool GlobalStoreModel::updateProperty(
                 QVector<int> roles({});
                 result = true;
                 // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
-
-                auto fields = std::map<std::string, int>(
-                    {{"default_value", Roles::defaultValueRole},
-                     {"value", Roles::valueRole},
-                     {"overridden_path", Roles::overriddenPathRole},
-                     {"overridden_value", Roles::overriddenValueRole},
-                     {"description", Roles::descriptionRole},
-                     {"context", Roles::contextRole},
-                     {"path", Roles::pathRole},
-                     {"datatype", Roles::datatypeRole}});
 
                 for (const auto &i : fields) {
                     if (j.count(i.first) and j.at(i.first) != change.at(i.first)) {
@@ -447,22 +456,44 @@ bool PublicPreferencesModel::updateProperty(
     auto index =
         searchRecursive(QVariant::fromValue(QStringFromStd(path)), QString("pathRole"));
 
+    static const auto fields = std::map<std::string, int>(
+        {{"default_value", Roles::defaultValueRole},
+            {"value", Roles::valueRole},
+            {"overridden_path", Roles::overriddenPathRole},
+            {"overridden_value", Roles::overriddenValueRole},
+            {"description", Roles::descriptionRole},
+            {"context", Roles::contextRole},
+            {"path", Roles::pathRole},
+            {"datatype", Roles::datatypeRole},
+            {"options", Roles::optionsRole},
+            {"display_name", Roles::displayNameRole},
+            {"category", Roles::categoryRole}});
+
     try {
         // single term update
         //  should handle more that value...
-        if (not index.isValid() and ends_with(path, "/value")) {
+        if (not index.isValid()) {
             index = searchRecursive(
                 QVariant::fromValue(QStringFromStd(path.substr(0, path.find_last_of('/')))),
                 QString("pathRole"));
             if (index.isValid()) {
+                std::string key = path.substr(path.find_last_of('/')+1);
                 nlohmann::json &j = indexToData(index);
-                if (j["value"] != change) {
-                    // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
-                    QVector<int> roles({Roles::valueRole});
-                    j["value"] = change;
-                    result     = true;
-                    emit dataChanged(index, index, roles);
+                if (j.contains(key) && fields.count(key)) {
+                    if (j[key] != change) {
+                        // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
+                        QVector<int> roles({fields.find(key)->second});
+                        j[key] = change;
+                        result     = true;
+                        emit dataChanged(index, index, roles);
+                    }
+                } else {
+                    spdlog::warn(
+                        "{} Unmatched update {} {}", __PRETTY_FUNCTION__, path, change.dump(2));
                 }
+            } else {
+                spdlog::warn(
+                    "{} Unmatched update {} {}", __PRETTY_FUNCTION__, path, change.dump(2));
             }
         } else if (index.isValid()) {
             nlohmann::json &j = indexToData(index);
@@ -472,21 +503,9 @@ bool PublicPreferencesModel::updateProperty(
                 result = true;
                 // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
 
-                static const auto fields = std::map<std::string, int>(
-                    {{"default_value", Roles::defaultValueRole},
-                     {"value", Roles::valueRole},
-                     {"overridden_path", Roles::overriddenPathRole},
-                     {"overridden_value", Roles::overriddenValueRole},
-                     {"description", Roles::descriptionRole},
-                     {"context", Roles::contextRole},
-                     {"path", Roles::pathRole},
-                     {"datatype", Roles::datatypeRole},
-                     {"options", Roles::optionsRole},
-                     {"display_name", Roles::displayNameRole},
-                     {"category", Roles::categoryRole}});
 
                 for (const auto &i : fields) {
-                    if (j.count(i.first) and j.at(i.first) != change.at(i.first)) {
+                    if (j.count(i.first) and change.count(i.first) and j.at(i.first) != change.at(i.first)) {
                         j[i.first] = change.at(i.first);
                         roles.push_back(i.second);
                     }
@@ -538,8 +557,6 @@ void PublicPreferencesModel::storeToTree(const nlohmann::json &src, nlohmann::js
         return children.back();
     };
 
-    auto result = R"([])"_json;
-
     for (const auto &[k, v] : src.items()) {
         if (v.count("category") && v["category"].is_string()) {
 
@@ -547,9 +564,27 @@ void PublicPreferencesModel::storeToTree(const nlohmann::json &src, nlohmann::js
             nlohmann::json &category_group = find_or_make_child(tree, category);
             category_group["children"].push_back(v);
 
+            // sort the items using 'display_order' if it is set
+            nlohmann::json &category_children = category_group["children"];
+            std::sort(
+                category_children.begin(),
+                category_children.end(),
+                [](const auto &a, const auto &b) -> bool {
+                    if (a.contains("display_order") && b.contains("display_order")) {
+                        return a["display_order"] < b["display_order"];
+                    } else if (a.contains("display_order")) {
+                        return true;
+                    }
+                    return false;
+                });
+
         } else if (v.is_object()) {
             storeToTree(v, tree);
         }
+    }
+
+    nlohmann::json &children = tree["children"];
+    for (auto &c : children) {
     }
 }
 

@@ -20,7 +20,7 @@ Button {
     property color textColorNormal: palette.text
     property var textElide: textDiv.elide
     property alias textDiv: textDiv
-    property real textWidth: textDiv.textWidth
+    property real textWidth: textMetrics.width
 
     font.pixelSize: XsStyleSheet.fontSize
     font.family: XsStyleSheet.fontFamily
@@ -60,6 +60,12 @@ Button {
                 visible: widget.hovered && parent.truncated
             }
         }
+    }
+
+    TextMetrics {
+        id: textMetrics
+        font: widget.font
+        text: isShort? widget.shortTerm : widget.text
     }
 
     background:

@@ -70,7 +70,8 @@ XsWindow {
                     anchors.bottom: parent.bottom
                     width: height
                     fragmentShader: "qrc:/shaders/colourwheel.frag.qsb"
-                    property var vvv: slider.value/100.0
+                    property real vvv: slider.value/100.0
+                    property real rim: 1.0
 
                     MouseArea {
                         id: wheelMa

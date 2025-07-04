@@ -56,7 +56,17 @@ XsListView {
             }
         }
         DelegateChoice {
+            roleValue: "read only multichoice string"
+            XsStringMultichoicePreference {
+            }
+        }
+        DelegateChoice {
             roleValue: "file path"
+            XsFilePreference {
+            }
+        }
+        DelegateChoice {
+            roleValue: "read only file path"
             XsFilePreference {
             }
         }
@@ -65,8 +75,7 @@ XsListView {
             XsStringPreference {
                 readonly: true
             }
-        }
-        
+        }        
         DelegateChoice {
             roleValue: "colour"
             XsColourPreference {

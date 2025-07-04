@@ -149,6 +149,8 @@ namespace playhead {
         int read_ahead_frames_            = {0};
         int precache_start_frame_         = {std::numeric_limits<int>::lowest()};
         int64_t frame_offset_             = {0};
+        int64_t num_retimed_frames_       = {0};
+        int64_t num_source_frames_        = {0};
         timebase::flicks forced_duration_ = timebase::k_flicks_zero_seconds;
         utility::FrameRate default_rate_  = utility::FrameRate(timebase::k_flicks_24fps);
         const bool source_is_timeline_;

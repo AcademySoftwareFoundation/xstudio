@@ -48,7 +48,7 @@ Rectangle{ id: frame
     required property int onSiteMtl
     required property int onSiteMum
     required property int onSiteSyd
-    required property int onSiteVan
+    // required property int onSiteVan
     required property int index
 
     required property int noteCountRole

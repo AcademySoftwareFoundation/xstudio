@@ -85,6 +85,9 @@ namespace ui {
             QString liveLinkMetadata() const { return live_link_metadata_string_; }
             void setLiveLinkMetadata(QString &data);
 
+
+            Q_INVOKABLE void resetProject(const int project_id);
+
             Q_INVOKABLE QString getProjectFromMetadata() const;
             Q_INVOKABLE QVariant getEntityFromMetadata() const;
             // Q_INVOKABLE QString getAssetFromMetadata() const;

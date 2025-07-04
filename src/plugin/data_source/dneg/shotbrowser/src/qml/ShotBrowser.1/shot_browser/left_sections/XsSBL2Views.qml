@@ -9,6 +9,8 @@ import xstudio.qml.helpers 1.0
 
 
 XsSplitView { id: viewDiv
+
+
     QTreeModelToTableModel {
         id: treePresetsTreeModel
         model: treeModel
@@ -42,11 +44,17 @@ XsSplitView { id: viewDiv
 
         // visible: currentCategory == "Tree"
 
+        XsPreference {
+              id: hideTree
+              path: "/plugin/data_source/shotbrowser/browser/hide_tree"
+        }
+
         onWidthChanged: {
             if(SplitView.view.resizing) {
                 prefs.treePanelWidth = width
             }
         }
+        visible: !hideTree.value
     }
 
     XsSBL2V2Presets{ id: presetsView

@@ -226,6 +226,7 @@ XsPopupMenu {
                 menuItemPosition: (index*0.01)+8
                 menuModelName: contextMenu.menu_model_name
                 onActivated: embeddedPython.pyEvalFile(scriptPathRole)
+                panelContext: contextMenu.panelContext
             }}
         }
     }

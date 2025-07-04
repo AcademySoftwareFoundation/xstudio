@@ -53,8 +53,8 @@ void EmbeddedPython::setup() {
             const int res = dladdr((void *)(&Py_IsInitialized), &info);
             if (res) {
                 auto p = fs::path(info.dli_fname);
-                std::string python_home = p;
-                if (python_home.find("Contents/Frameworks") != std::string::npos) {
+                std::string python_home;
+                if (p.string().find("Contents/Frameworks") != std::string::npos) {
                     // String match will happen On MacOS install, here python
                     // installation is in Frameworks colder in the app bundle
                     python_home = p.parent_path();
@@ -78,6 +78,20 @@ void EmbeddedPython::setup() {
                 wstr = converter.from_bytes(xstudio_python_path.data());
                 PyConfig_SetString(&config, &config.pythonpath_env, wstr.data());
             }
+#else
+            // Win32 python home setup. Not 100% sure about this, I can't find any docs on how
+            // python should be packaged with an application that embeds python.
+            auto p =  fs::path(fs::path(utility::xstudio_root()).parent_path().parent_path().string() + "\\bin\\python3");
+            PyConfig_SetBytesString(&config, &config.home, p.string().data());
+            /*std::string xstudio_python_path;
+            auto pythonpath_env = get_env("PYTHONPATH");
+            if (pythonpath_env) {
+                xstudio_python_path = *pythonpath_env + ";";
+            }
+            xstudio_python_path += fs::path(utility::xstudio_resources_dir("plugin-python")).string();
+            PyConfig_SetBytesString(&config, &config.pythonpath_env, xstudio_python_path.data());*/
+
+
 #endif
 
             py::initialize_interpreter(&config);
@@ -86,6 +100,7 @@ void EmbeddedPython::setup() {
 
         if (Py_IsInitialized() and not setup_) {
             exec(R"(
+import site
 import sys
 import xstudio
 from xstudio.connection import Connection

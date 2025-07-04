@@ -242,6 +242,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, media_display_info_atom);
 
     ADD_ATOM(xstudio::global_store, autosave_atom);
+    ADD_ATOM(xstudio::global_store, read_only_atom);
     ADD_ATOM(xstudio::global_store, do_autosave_atom);
     ADD_ATOM(xstudio::global_store, save_atom);
     ADD_ATOM(xstudio::utility, change_atom);

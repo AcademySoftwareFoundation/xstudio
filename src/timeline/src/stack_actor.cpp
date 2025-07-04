@@ -88,7 +88,6 @@ StackActor::StackActor(caf::actor_config &cfg, const JsonStore &jsn)
             spdlog::error("{}", e.what());
         }
     }
-    base_.item().set_system(&system());
     base_.item().bind_item_post_event_func(
         [this](const JsonStore &event, Item &item) { item_event_callback(event, item); });
 
@@ -107,7 +106,6 @@ StackActor::StackActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem
             spdlog::error("{}", e.what());
         }
     }
-    base_.item().set_system(&system());
     base_.item().bind_item_post_event_func(
         [this](const JsonStore &event, Item &item) { item_event_callback(event, item); });
     pitem = base_.item().clone();
@@ -119,7 +117,6 @@ StackActor::StackActor(
     caf::actor_config &cfg, const std::string &name, const FrameRate &rate, const Uuid &uuid)
     : caf::event_based_actor(cfg), base_(name, rate, uuid, this) {
 
-    base_.item().set_system(&system());
     base_.item().set_name(name);
     base_.item().bind_item_post_event_func(
         [this](const JsonStore &event, Item &item) { item_event_callback(event, item); });
@@ -128,7 +125,6 @@ StackActor::StackActor(
 
 StackActor::StackActor(caf::actor_config &cfg, const Item &item)
     : caf::event_based_actor(cfg), base_(item, this) {
-    base_.item().set_system(&system());
     deserialise();
     init();
 }
@@ -271,6 +267,10 @@ caf::message_handler StackActor::message_handler() {
         [=](rate_atom atom, const media::MediaType media_type) {
             return mail(atom).delegate(caf::actor_cast<caf::actor>(this));
         },
+
+        [=](rate_atom,
+            const utility::FrameRate &new_rate,
+            const bool force_media_rate_to_match) -> bool { return true; },
 
         [=](item_marker_atom) -> std::vector<Marker> {
             std::vector<Marker> result(
@@ -718,53 +718,65 @@ void StackActor::add_item(const UuidActor &ua) {
 
 void StackActor::insert_items(
     caf::typed_response_promise<JsonStore> rp, const int index, const UuidActorVector &uav) {
-    // validate items can be inserted.
-    fan_out_request<policy::select_all>(vector_to_caf_actor_vector(uav), infinite, item_atom_v)
-        .then(
-            [=](std::vector<Item> items) mutable {
-                // items are valid for insertion ?
-                for (const auto &i : items) {
-                    if (not base_.item().valid_child(i))
-                        return rp.deliver(
-                            make_error(xstudio_error::error, "Invalid child type"));
-                }
 
-                // take ownership
-                for (const auto &ua : uav)
-                    add_item(ua);
-
-                // find insertion point..
-                auto it = std::next(base_.item().begin(), index);
-
-                // insert items..
-                // our list will be out of order..
-                auto changes = JsonStore(R"([])"_json);
-                for (auto uit = uav.rbegin(); uit != uav.rend(); ++uit) {
-                    // find item..
-                    auto found = false;
+    // this is called after setting the rate
+    auto do_insertion = [=]() mutable {
+        // validate items can be inserted.
+        fan_out_request<policy::select_all>(
+            vector_to_caf_actor_vector(uav), infinite, item_atom_v)
+            .then(
+                [=](std::vector<Item> items) mutable {
+                    // items are valid for insertion ?
                     for (const auto &i : items) {
-                        if (uit->uuid() == i.uuid()) {
-                            auto tmp = base_.item().insert(it, i);
-                            it       = std::next(base_.item().begin(), index);
-                            changes.insert(changes.end(), tmp.begin(), tmp.end());
-                            found = true;
-                            break;
+                        if (not base_.item().valid_child(i))
+                            return rp.deliver(
+                                make_error(xstudio_error::error, "Invalid child type"));
+                    }
+
+                    // take ownership
+                    for (const auto &ua : uav)
+                        add_item(ua);
+
+                    // find insertion point..
+                    auto it = std::next(base_.item().begin(), index);
+
+                    // insert items..
+                    // our list will be out of order..
+                    auto changes = JsonStore(R"([])"_json);
+                    for (auto uit = uav.rbegin(); uit != uav.rend(); ++uit) {
+                        // find item..
+                        auto found = false;
+                        for (const auto &i : items) {
+                            if (uit->uuid() == i.uuid()) {
+                                auto tmp = base_.item().insert(it, i);
+                                it       = std::next(base_.item().begin(), index);
+                                changes.insert(changes.end(), tmp.begin(), tmp.end());
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (not found) {
+                            spdlog::error("item not found for insertion");
                         }
                     }
 
-                    if (not found) {
-                        spdlog::error("item not found for insertion");
-                    }
-                }
+                    // add changes to stack
+                    auto more = base_.item().refresh();
+                    if (not more.is_null())
+                        changes.insert(changes.end(), more.begin(), more.end());
 
-                // add changes to stack
-                auto more = base_.item().refresh();
-                if (not more.is_null())
-                    changes.insert(changes.end(), more.begin(), more.end());
+                    mail(event_atom_v, item_atom_v, changes, false).send(base_.event_group());
+                    rp.deliver(changes);
+                },
+                [=](const caf::error &err) mutable { rp.deliver(err); });
+    };
 
-                mail(event_atom_v, item_atom_v, changes, false).send(base_.event_group());
-                rp.deliver(changes);
-            },
+    // before adding clips, we must force their frame rate to match ours.
+    fan_out_request<policy::select_all>(
+        vector_to_caf_actor_vector(uav), infinite, rate_atom_v, base_.item().rate(), false)
+        .then(
+            [=](std::vector<bool> r) mutable { do_insertion(); },
             [=](const caf::error &err) mutable { rp.deliver(err); });
 }
 

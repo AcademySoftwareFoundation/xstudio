@@ -531,36 +531,42 @@ void IvyMediaWorker::add_media_source(
 
     // get info on file...
     FrameList frame_list;
-    auto uri = parse_cli_posix_path(jsn.at("path"), frame_list, false);
+    try {
 
-    auto name = jsn.at("name").get<std::string>();
+        auto uri = parse_cli_posix_path(jsn.at("path"), frame_list, false);
 
-    if (jsn.at("version").at("kind").at("name") == "Audio") {
-        auto label = std::string();
-        auto type  = std::string();
-        for (const auto &nt : jsn.at("version").at("name_tags")) {
-            if (nt.at("name") == "label") {
-                label = nt.at("value");
-                name  = label;
-            } else if (nt.at("name") == "type") {
-                type = nt.at("value");
-                name = type;
+        auto name = jsn.at("name").get<std::string>();
+
+        if (jsn.at("version").at("kind").at("name") == "Audio") {
+            auto label = std::string();
+            auto type  = std::string();
+            for (const auto &nt : jsn.at("version").at("name_tags")) {
+                if (nt.at("name") == "label") {
+                    label = nt.at("value");
+                    name  = label;
+                } else if (nt.at("name") == "type") {
+                    type = nt.at("value");
+                    name = type;
+                }
+            }
+
+            if (not label.empty() and not type.empty()) {
+                name = label + "-" + type;
             }
         }
 
-        if (not label.empty() and not type.empty()) {
-            name = label + "-" + type;
-        }
+        const auto source_uuid = Uuid::generate();
+        auto source            = frame_list.empty()
+                                     ? spawn<media::MediaSourceActor>(name, uri, media_rate, source_uuid)
+                                     : spawn<media::MediaSourceActor>(
+                                name, uri, frame_list, media_rate, source_uuid);
+        anon_mail(json_store::set_json_atom_v, jsn, IvyMetadataPath + "/file").send(source);
+
+        rp.deliver(UuidActor(source_uuid, source));
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+        rp.deliver(make_error(xstudio_error::error, err.what()));
     }
-
-    const auto source_uuid = Uuid::generate();
-    auto source =
-        frame_list.empty()
-            ? spawn<media::MediaSourceActor>(name, uri, media_rate, source_uuid)
-            : spawn<media::MediaSourceActor>(name, uri, frame_list, media_rate, source_uuid);
-    anon_mail(json_store::set_json_atom_v, jsn, IvyMetadataPath + "/file").send(source);
-
-    rp.deliver(UuidActor(source_uuid, source));
 }
 
 void IvyMediaWorker::add_media(
@@ -581,8 +587,14 @@ void IvyMediaWorker::add_media(
 
         // need to filter unsupported leafs..
         FrameList frame_list;
-        auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
-        if (not is_file_supported(uri)) {
+        try {
+            auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
+            if (not is_file_supported(uri)) {
+                (*count)--;
+                continue;
+            }
+        } catch (const std::exception &err) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
             (*count)--;
             continue;
         }
@@ -947,9 +959,13 @@ void IvyDataSourceActor<T>::ivy_load_version_sources(
 
                     // need to filter unsupported leafs..
                     FrameList frame_list;
-                    auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
-                    if (is_file_supported(uri))
-                        files.push_back(i);
+                    try {
+                        auto uri = parse_cli_posix_path(i.at("path"), frame_list, false);
+                        if (is_file_supported(uri))
+                            files.push_back(i);
+                    } catch (const std::exception &err) {
+                        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                    }
                     // spdlog::warn("{}", i.at("name"));
                 }
 
@@ -1212,9 +1228,9 @@ void IvyDataSourceActor<T>::handle_drop(
                     // name, and path are also available
                     auto uri = caf::make_uri(std::string(fmt::format(
                         "ivy://load?show={}&type={}&ids={}",
-                        entry.at("show"),
-                        entry.at("type"),
-                        entry.at("id"))));
+                        entry.at("show").dump(),
+                        entry.at("type").dump(),
+                        entry.at("id").dump())));
 
                     if (uri)
                         uris.push_back(*uri);
@@ -1544,10 +1560,15 @@ void IvyDataSourceActor<T>::ivy_load_audio_sources(
 
                                 // need to filter unsupported leafs..
                                 FrameList frame_list;
-                                auto uri =
-                                    parse_cli_posix_path(i.at("path"), frame_list, false);
-                                if (is_file_supported(uri))
-                                    files.push_back(i);
+
+                                try {
+                                    auto uri =
+                                        parse_cli_posix_path(i.at("path"), frame_list, false);
+                                    if (is_file_supported(uri))
+                                        files.push_back(i);
+                                } catch (const std::exception &err) {
+                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+                                }
                             }
                         }
 

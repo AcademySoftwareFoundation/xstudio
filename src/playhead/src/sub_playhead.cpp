@@ -141,10 +141,32 @@ void SubPlayhead::init() {
 
         [=](actual_playback_rate_atom) -> result<utility::FrameRate> {
             auto rp = make_response_promise<utility::FrameRate>();
-            mail(media::get_media_pointer_atom_v)
+            mail(source_atom_v)
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
-                    [=](const media::AVFrameID &id) mutable { rp.deliver(id.rate()); },
+                    [=](caf::actor) mutable {
+                        if (num_retimed_frames_ < 2) {
+                            rp.deliver(make_error(xstudio_error::error, "No Frames"));
+                            return;
+                        }
+
+                        // to get the instantaneous frame rate, we use the delta
+                        // between the current frame and the next frame
+                        auto frame = retimed_frames_.lower_bound(position_flicks_);
+                        if (frame == retimed_frames_.end())
+                            frame--;
+                        auto next_frame = frame;
+                        next_frame++;
+                        if (next_frame != retimed_frames_.end()) {
+                            rp.deliver(utility::FrameRate(next_frame->first - frame->first));
+                        } else if (frame != retimed_frames_.begin()) {
+                            auto prev_frame = frame;
+                            prev_frame--;
+                            rp.deliver(utility::FrameRate(frame->first - prev_frame->first));
+                        } else {
+                            rp.deliver(frame->second->rate());
+                        }
+                    },
                     [=](const caf::error &err) mutable { rp.deliver(err); });
             return rp;
         },
@@ -216,7 +238,7 @@ void SubPlayhead::init() {
         [=](duration_flicks_atom atom,
             bool /*before retiming, extension*/) -> result<timebase::flicks> {
             if (up_to_date_) {
-                if (full_timeline_frames_.size() < 2) {
+                if (num_source_frames_ < 2) {
                     return timebase::flicks(0);
                 }
                 return full_timeline_frames_.rbegin()->first;
@@ -228,7 +250,7 @@ void SubPlayhead::init() {
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
-                        if (full_timeline_frames_.size() < 2) {
+                        if (num_source_frames_ < 2) {
                             rp.deliver(timebase::flicks(0));
                         } else {
                             rp.deliver(full_timeline_frames_.rbegin()->first);
@@ -243,7 +265,7 @@ void SubPlayhead::init() {
 
         [=](duration_flicks_atom atom) -> result<timebase::flicks> {
             if (up_to_date_) {
-                if (retimed_frames_.size() < 2) {
+                if (num_retimed_frames_ < 2) {
                     return timebase::flicks(0);
                 }
                 return retimed_frames_.rbegin()->first;
@@ -255,7 +277,7 @@ void SubPlayhead::init() {
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
-                        if (retimed_frames_.size() < 2) {
+                        if (num_retimed_frames_ < 2) {
                             rp.deliver(timebase::flicks(0));
                         } else {
                             rp.deliver(retimed_frames_.rbegin()->first);
@@ -270,7 +292,7 @@ void SubPlayhead::init() {
 
         [=](duration_frames_atom atom) -> result<size_t> {
             if (up_to_date_) {
-                return retimed_frames_.size() ? retimed_frames_.size() - 1 : 0;
+                return size_t(num_retimed_frames_ ? num_retimed_frames_ - 1 : 0);
             }
             // not up to date, we need to get the timeline frames list from
             // the source
@@ -279,7 +301,7 @@ void SubPlayhead::init() {
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
-                        rp.deliver(retimed_frames_.size() ? retimed_frames_.size() - 1 : 0);
+                        rp.deliver(size_t(num_retimed_frames_ ? num_retimed_frames_ - 1 : 0));
                     },
                     [=](const error &err) mutable { rp.deliver(err); });
             return rp;
@@ -354,7 +376,7 @@ void SubPlayhead::init() {
         [=](logical_frame_to_flicks_atom,
             int logical_frame,
             const bool clamp_to_range) -> result<timebase::flicks> {
-            if (retimed_frames_.size() < 2) {
+            if (num_retimed_frames_ < 2) {
                 return make_error(xstudio_error::error, "No Frames");
             }
 
@@ -447,7 +469,7 @@ void SubPlayhead::init() {
 
         [=](first_frame_media_pointer_atom) -> result<media::AVFrameID> {
             if (up_to_date_) {
-                if (full_timeline_frames_.size()) {
+                if (!full_timeline_frames_.empty()) {
                     if (!full_timeline_frames_.begin()->second) {
                         return make_error(xstudio_error::error, "Empty frame");
                     }
@@ -463,7 +485,7 @@ void SubPlayhead::init() {
                 .request(caf::actor_cast<caf::actor>(this), infinite)
                 .then(
                     [=](caf::actor) mutable {
-                        if (full_timeline_frames_.size()) {
+                        if (!full_timeline_frames_.empty()) {
                             if (!full_timeline_frames_.begin()->second) {
                                 rp.deliver(make_error(xstudio_error::error, "Empty frame"));
                             } else {
@@ -478,7 +500,7 @@ void SubPlayhead::init() {
         },
 
         [=](last_frame_media_pointer_atom) -> result<media::AVFrameID> {
-            if (retimed_frames_.size() > 1) {
+            if (num_retimed_frames_ > 1) {
                 // remember the last entry in retimed_frames_ is
                 // a dummy frame marking the end of the last frame
                 auto p = retimed_frames_.rbegin();
@@ -494,7 +516,7 @@ void SubPlayhead::init() {
         [=](media::get_media_pointer_atom) -> result<media::AVFrameID> {
             if (up_to_date_) {
                 auto frame = retimed_frames_.lower_bound(position_flicks_);
-                if (retimed_frames_.size() && frame != retimed_frames_.end()) {
+                if (num_retimed_frames_ && frame != retimed_frames_.end()) {
                     if (frame->second) {
                         return *(frame->second);
                     } else {
@@ -512,7 +534,7 @@ void SubPlayhead::init() {
                 .then(
                     [=](caf::actor) mutable {
                         auto frame = retimed_frames_.lower_bound(position_flicks_);
-                        if (retimed_frames_.size() && frame != retimed_frames_.end()) {
+                        if (num_retimed_frames_ && frame != retimed_frames_.end()) {
                             rp.deliver(*(frame->second));
                         } else {
                             rp.deliver(make_error(xstudio_error::error, "No Frame"));
@@ -674,7 +696,7 @@ void SubPlayhead::init() {
 
         [=](media_cache::keys_atom) -> media::AVFrameIDs {
             media::AVFrameIDs result;
-            result.reserve(retimed_frames_.size());
+            result.reserve(num_retimed_frames_);
             for (const auto &pp : retimed_frames_) {
                 result.push_back(pp.second);
             }
@@ -1274,7 +1296,7 @@ std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
     media::AVFrameIDsAndTimePoints &result, const int max_num_frames) {
 
     std::vector<timebase::flicks> tps;
-    if (retimed_frames_.size() < 2) {
+    if (num_retimed_frames_ < 2) {
         return tps;
     }
 
@@ -1307,7 +1329,7 @@ std::vector<timebase::flicks> SubPlayhead::get_lookahead_frame_pointers(
         tt += std::chrono::duration_cast<std::chrono::microseconds>(
             frame_duration / playback_velocity_);
 
-        bool repeat_frame = result.size() && result.back().second == frame->second;
+        bool repeat_frame = !result.empty() && result.back().second == frame->second;
 
         if (frame->second && !frame->second->source_uuid().is_null() && !repeat_frame) {
             // we don't send pre-read requests for 'blank' frames where
@@ -1673,7 +1695,7 @@ std::shared_ptr<const media::AVFrameID> SubPlayhead::get_frame(
     //     {0ms, media::AVFrameID(first frame)},
     //     {40ms, media::AVFrameID(null frame)}
     // }
-    if (retimed_frames_.size() < 2) {
+    if (num_retimed_frames_ < 2) {
         // and give the others values something valid ???
         frame_period = timebase::k_flicks_zero_seconds;
         timeline_pts = timebase::k_flicks_zero_seconds;
@@ -1703,7 +1725,7 @@ void SubPlayhead::get_position_after_step_by_frames(
     int step_frames,
     const bool loop) {
 
-    if (retimed_frames_.size() < 2) {
+    if (num_retimed_frames_ < 2) {
         rp.deliver(make_error(xstudio_error::error, "No Frames"));
         return;
     }
@@ -1744,7 +1766,7 @@ timebase::flicks SubPlayhead::get_next_or_previous_clip_start_position(
 
     auto result = ref_position;
 
-    if (retimed_frames_.size() < 2) {
+    if (num_retimed_frames_ < 2) {
         return result;
     }
 
@@ -1788,10 +1810,10 @@ void SubPlayhead::update_retiming() {
     // full_timeline_frames_, or conversely we trim frames off the start or
     // end.
 
-
+    num_source_frames_  = full_timeline_frames_.size();
     auto retimed_frames = full_timeline_frames_;
 
-    if (!retimed_frames.size()) {
+    if (retimed_frames.empty()) {
         // provide a single blank frame, which can then be extended in the loop
         // below to fill the forced duration.
         retimed_frames[timebase::flicks(0)] =
@@ -1834,7 +1856,7 @@ void SubPlayhead::update_retiming() {
 
     // now we need to rebase retimed_frames so that first frame is at t=0
     retimed_frames_.clear();
-    if (retimed_frames.size()) {
+    if (!retimed_frames.empty()) {
         auto t0 = retimed_frames.begin()->first;
         for (auto &p : retimed_frames) {
             retimed_frames_[p.first - t0] = p.second;
@@ -1874,7 +1896,7 @@ void SubPlayhead::update_retiming() {
     }
 
 
-    if (retimed_frames_.size() && retimed_frames_.rbegin()->second) {
+    if (!retimed_frames_.empty() && retimed_frames_.rbegin()->second) {
         // the logic here is crucial ... retimed_frames_ is used to
         // evaluate the full duration of what's being played. We need to drop
         // in an empty frame at the end, with a timestamp that matches the
@@ -1891,6 +1913,8 @@ void SubPlayhead::update_retiming() {
                                     : retimed_frames_.rbegin()->second->rate();
         retimed_frames_[last_frame_timepoint].reset();
     }
+
+    num_retimed_frames_ = retimed_frames_.size();
 
     store_media_frame_ranges();
 
@@ -1931,7 +1955,7 @@ void SubPlayhead::store_media_frame_ranges() {
 
 void SubPlayhead::set_in_and_out_frames() {
 
-    if (retimed_frames_.size() < 2) {
+    if (num_retimed_frames_ < 2) {
         out_frame_   = retimed_frames_.begin();
         in_frame_    = retimed_frames_.begin();
         last_frame_  = retimed_frames_.begin();

@@ -60,7 +60,7 @@ namespace timeline {
               name_(std::move(name)),
               uuid_addr_(utility::UuidActorAddr(utility::Uuid::generate(), caf::actor_addr())) {
             has_available_range_ = true;
-            active_range_        = utility::FrameRange(utility::FrameRateDuration(0, rate));
+            available_range_     = utility::FrameRange(utility::FrameRateDuration(0, rate));
         }
 
         Item(
@@ -97,7 +97,7 @@ namespace timeline {
                 available_range_     = std::move(*available_range);
             }
         }
-        Item(const utility::JsonStore &jsn, caf::actor_system *system = nullptr);
+        Item(const utility::JsonStore &jsn);
 
 
         // Item(const Item& a);
@@ -249,8 +249,6 @@ namespace timeline {
             return set_markers(Markers(value.begin(), value.end()));
         }
 
-        void set_system(caf::actor_system *value) { the_system_ = value; }
-
         utility::JsonStore set_actor_addr(const caf::actor_addr &value);
         utility::JsonStore set_actor_addr(const caf::actor &value) {
             return set_actor_addr(caf::actor_cast<caf::actor_addr>(value));
@@ -260,6 +258,9 @@ namespace timeline {
         utility::JsonStore set_available_range(const utility::FrameRange &value);
         utility::JsonStore
         set_range(const utility::FrameRange &avail, const utility::FrameRange &active);
+
+        void override_frame_rate(
+            const utility::FrameRate &new_rate, const bool force_media_rate_to_match);
 
         utility::JsonStore insert(
             Items::iterator position,
@@ -302,8 +303,8 @@ namespace timeline {
         void resolve_and_request_clip_frames(
             caf::actor &helper,
             std::vector<bool> &filled_frames,
-            const utility::FrameRate ref_time,
-            const timebase::flicks frame_duration,
+            const timebase::flicks ref_time,
+            const utility::FrameRate timeline_frame_rate,
             const media::MediaType mt,
             const utility::UuidSet &focus,
             bool only_if_focussed) const;
@@ -366,8 +367,6 @@ namespace timeline {
         [[nodiscard]] std::string actor_addr_to_string(const caf::actor_addr &addr) const;
         [[nodiscard]] caf::actor_addr string_to_actor_addr(const std::string &addr) const;
 
-        [[nodiscard]] caf::actor_system &system() const { return *the_system_; }
-
       private:
         friend class BuildFrameIDsHelper;
 
@@ -385,7 +384,6 @@ namespace timeline {
         Markers markers_;
 
         // not sure if this is safe..
-        caf::actor_system *the_system_{nullptr};
         ItemEventFunc item_pre_event_callback_{nullptr};
         ItemEventFunc item_post_event_callback_{nullptr};
         bool recursive_bind_pre_{false};

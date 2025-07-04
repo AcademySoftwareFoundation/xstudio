@@ -140,6 +140,10 @@ void ShotBrowserEngine::createUserCache(const int project_id) {
 void ShotBrowserEngine::createSequenceModels(const int project_id) {
     if (not sequences_tree_map_.count(project_id)) {
         sequences_tree_map_[project_id] = new ShotBrowserSequenceModel(this);
+        // getSequencesFuture(project_id);
+        // getTreeFuture(project_id);
+    }
+    if (not query_engine_.get_cache(query_engine_.cache_name("ShotSequenceList", project_id))) {
         getSequencesFuture(project_id);
         getTreeFuture(project_id);
     }
@@ -148,6 +152,8 @@ void ShotBrowserEngine::createSequenceModels(const int project_id) {
 void ShotBrowserEngine::createAssetModels(const int project_id) {
     if (not asset_tree_map_.count(project_id)) {
         asset_tree_map_[project_id] = new ShotBrowserSequenceModel(this);
+    }
+    if (not query_engine_.get_cache(query_engine_.cache_name("Asset", project_id))) {
         getAssetFuture(project_id);
     }
 }
@@ -786,6 +792,48 @@ QFuture<QUrl> ShotBrowserEngine::getSequencePathFuture(
 
         return result;
     });
+}
+
+
+void ShotBrowserEngine::resetProject(const int project_id) {
+    try {
+        scoped_actor sys{system()};
+        anon_mail(utility::clear_atom_v, project_id).send(backend_);
+
+        // reset caches..
+        const auto types = std::vector<std::string>(
+            {"user",
+             "shot",
+             "sequence_shot",
+             "sequence",
+             "episode",
+             "playlist",
+             "tree",
+             "unit",
+             "asset",
+             "group",
+             "stage",
+             "User",
+             "Shot",
+             "Sequence",
+             "Episode",
+             "Playlist",
+             "ShotSequenceList",
+             "Tree",
+             "Unit",
+             "Asset",
+             "Group",
+             "Stage"});
+
+        for (const auto &i : types)
+            query_engine_.cache().erase(QueryEngine::cache_name(i, project_id));
+
+        cacheProject(project_id);
+
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
 }
 
 

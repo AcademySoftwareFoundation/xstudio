@@ -61,10 +61,10 @@ XsPopupMenu {
         menuItemPosition: 3
         menuModelName: plusMenu.menu_model_name
         onActivated: {
-            dialogHelpers.textInputDialog(
+            dialogHelpers.sequenceInputDialog(
                 plusMenu.addTimeline,
                 "Add Sequence",
-                "Enter a name for the new sequence.",
+                "New Sequence",
                 theSessionData.getNextName("Sequence {}"),
                 ["Cancel", "Add"])
         }
@@ -134,9 +134,9 @@ XsPopupMenu {
         }
     }
 
-    function addTimeline(new_name, button) {
+    function addTimeline(new_name, fps, button) {
         if (button == "Add") {
-            addToNewSequence(new_name)
+            addToNewSequence(new_name, fps)
         }
     }
 }

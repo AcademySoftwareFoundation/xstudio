@@ -82,7 +82,7 @@ class ShotBrowserResultModel : public JSONTreeModel {
         onSiteMtl,
         onSiteMum,
         onSiteSyd,
-        onSiteVan,
+        // onSiteVan,
         pipelineStatusFullRole,
         pipelineStatusRole,
         pipelineStepRole,
@@ -207,7 +207,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     Q_PROPERTY(bool filterLon READ filterLon WRITE setFilterLon NOTIFY filterLonChanged)
     Q_PROPERTY(bool filterMtl READ filterMtl WRITE setFilterMtl NOTIFY filterMtlChanged)
     Q_PROPERTY(bool filterMum READ filterMum WRITE setFilterMum NOTIFY filterMumChanged)
-    Q_PROPERTY(bool filterVan READ filterVan WRITE setFilterVan NOTIFY filterVanChanged)
+    // Q_PROPERTY(bool filterVan READ filterVan WRITE setFilterVan NOTIFY filterVanChanged)
     Q_PROPERTY(bool filterSyd READ filterSyd WRITE setFilterSyd NOTIFY filterSydChanged)
 
     Q_PROPERTY(QString filterPipeStep READ filterPipeStep WRITE setFilterPipeStep NOTIFY
@@ -258,7 +258,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     [[nodiscard]] bool filterLon() const { return filterLon_; }
     [[nodiscard]] bool filterMtl() const { return filterMtl_; }
     [[nodiscard]] bool filterMum() const { return filterMum_; }
-    [[nodiscard]] bool filterVan() const { return filterVan_; }
+    // [[nodiscard]] bool filterVan() const { return filterVan_; }
     [[nodiscard]] bool filterSyd() const { return filterSyd_; }
 
     [[nodiscard]] QString filterPipeStep() const { return filterPipeStep_; }
@@ -275,7 +275,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     void setFilterLon(const bool value);
     void setFilterMtl(const bool value);
     void setFilterMum(const bool value);
-    void setFilterVan(const bool value);
+    // void setFilterVan(const bool value);
     void setFilterSyd(const bool value);
 
     void setFilterPipeStep(const QString &value);
@@ -289,7 +289,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     void filterLonChanged();
     void filterMtlChanged();
     void filterMumChanged();
-    void filterVanChanged();
+    // void filterVanChanged();
     void filterSydChanged();
 
     void filterPipeStepChanged();
@@ -310,7 +310,7 @@ class ShotBrowserResultFilterModel : public QSortFilterProxyModel {
     bool filterLon_{false};
     bool filterMtl_{false};
     bool filterMum_{false};
-    bool filterVan_{false};
+    // bool filterVan_{false};
     bool filterSyd_{false};
 
     QString filterPipeStep_{};

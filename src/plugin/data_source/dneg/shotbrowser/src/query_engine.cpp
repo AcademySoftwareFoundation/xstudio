@@ -1578,7 +1578,7 @@ void QueryEngine::add_version_term_to_filter(
                 DateTime("sg_submit_dailies").is_not_null(),
                 DateTime("sg_submit_dailies_chn").is_not_null(),
                 DateTime("sg_submit_dailies_mtl").is_not_null(),
-                DateTime("sg_submit_dailies_van").is_not_null(),
+                // DateTime("sg_submit_dailies_van").is_not_null(),
                 DateTime("sg_submit_dailies_mum").is_not_null()));
         } else if (value == "Any") {
             qry->push_back(FilterBy().Or(
@@ -1586,7 +1586,7 @@ void QueryEngine::add_version_term_to_filter(
                 DateTime("sg_submit_dailies").is_not_null(),
                 DateTime("sg_submit_dailies_chn").is_not_null(),
                 DateTime("sg_submit_dailies_mtl").is_not_null(),
-                DateTime("sg_submit_dailies_van").is_not_null(),
+                // DateTime("sg_submit_dailies_van").is_not_null(),
                 DateTime("sg_submit_dailies_mum").is_not_null()));
         }
     } else if (term == "Sent To Client") {
@@ -1604,14 +1604,14 @@ void QueryEngine::add_version_term_to_filter(
                 DateTime("sg_submit_dailies").is_null(),
                 DateTime("sg_submit_dailies_chn").is_null(),
                 DateTime("sg_submit_dailies_mtl").is_null(),
-                DateTime("sg_submit_dailies_van").is_null(),
+                // DateTime("sg_submit_dailies_van").is_null(),
                 DateTime("sg_submit_dailies_mum").is_null()));
         else if (value == "True")
             qry->push_back(FilterBy().Or(
                 DateTime("sg_submit_dailies").is_not_null(),
                 DateTime("sg_submit_dailies_chn").is_not_null(),
                 DateTime("sg_submit_dailies_mtl").is_not_null(),
-                DateTime("sg_submit_dailies_van").is_not_null(),
+                // DateTime("sg_submit_dailies_van").is_not_null(),
                 DateTime("sg_submit_dailies_mum").is_not_null()));
         else
             throw XStudioError("Invalid query term " + term + " " + value);

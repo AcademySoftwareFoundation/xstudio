@@ -9,6 +9,7 @@ layout(std140, binding = 0) uniform buf {
     mat4 qt_Matrix;
     float qt_Opacity;
     float vvv;
+    float rim;
 };
 
 vec3 hsv_to_rgb(vec3 c) {
@@ -24,5 +25,5 @@ void main() {
     highp float h = atan(coord.x, coord.y);
 
     vec3 rgb = hsv_to_rgb( vec3((h + M_PI) / M_PI_2, r/1.01f, vvv) );
-    fragColor = vec4(rgb, 1.0)*smoothstep(1.01,1.0,r);
+    fragColor = vec4(rgb, 1.0)*smoothstep(1.01,1.0,r)*(0.5+0.5*smoothstep(1.0-rim,1.01-rim,r));
 }

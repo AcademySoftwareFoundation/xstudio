@@ -1,90 +1,53 @@
-
-
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <title>Python Scripting Introduction &mdash; xStudio 0.10.0 documentation</title>
-  
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Python Scripting Introduction &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
 
   
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
-  
-  
-
-  
-  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
-  
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/language_data.js"></script>
-    
-    <script type="text/javascript" src="../../_static/js/theme.js"></script>
-
-    
-
-  
-  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=8d563738"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Colour Management" href="colour_management.html" />
     <link rel="prev" title="Appendix" href="index.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="../../index.html" class="icon icon-home"> xStudio
           
-
-          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
           </a>
-
-          
-            
-            
               <div class="version">
-                0.10.0
+                1.0.0
               </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
@@ -111,84 +74,44 @@
 <li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
 </ul>
 
-            
-          
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../index.html">xStudio</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="../../index.html">Docs</a> &raquo;</li>
-        
-          <li><a href="../index.html">xSTUDIO User Guide</a> &raquo;</li>
-        
-          <li><a href="index.html">Appendix</a> &raquo;</li>
-        
-      <li>Python Scripting Introduction</li>
-    
-    
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Appendix</a></li>
+      <li class="breadcrumb-item active">Python Scripting Introduction</li>
       <li class="wy-breadcrumbs-aside">
-        
-            
             <a href="../../_sources/user_docs/appendix/python_scripting.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
-  <div class="section" id="python-scripting-introduction">
-<h1>Python Scripting Introduction<a class="headerlink" href="#python-scripting-introduction" title="Permalink to this headline">¶</a></h1>
+             
+  <section id="python-scripting-introduction">
+<h1>Python Scripting Introduction<a class="headerlink" href="#python-scripting-introduction" title="Link to this heading"></a></h1>
 <p>xSTUDIO has a python API allowing you to control playback, load media, explore playlists, explore media and more via python scripting. A feature of this API is that behind the scenes all interactions between the Python interpreter and the xSTUDIO application are achieved via a network socket. This means that you can execute python code to control xSTUDIO either in the embedded python interpreter in xSTUDIO or in a completely different process so that your python execution will not block xSTUDIO and vice versa.</p>
-<div class="section" id="the-communications-port">
-<h2>The Communications Port<a class="headerlink" href="#the-communications-port" title="Permalink to this headline">¶</a></h2>
+<section id="the-communications-port">
+<h2>The Communications Port<a class="headerlink" href="#the-communications-port" title="Link to this heading"></a></h2>
 <p>xSTUDIO opens a port on startup for remote control which is subsequently used by the Python API and also for ‘pushing’ media to a running session through the command line. The range of port numbers that xSTUDIO will try to open can be specified as a command line option or in the preferences files. When creating a Connection object in Python, you can specify the port number of the xSTUDIO session that you want to connect with. For studios that are interested in managing mulitple instances of xSTUDIO to support a workflow this can be exploited with appopriate wrapper scripts and python integration code</p>
 <p>Launch xSTUDIO with a specific port:</p>
-<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">xstudio</span> <span class="o">-</span><span class="n">n</span> <span class="o">--</span><span class="n">port</span><span class="o">=</span><span class="mi">45501</span>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">xstudio</span><span class="w"> </span><span class="o">-</span><span class="n">n</span><span class="w"> </span><span class="o">--</span><span class="n">port</span><span class="o">=</span><span class="mi">45501</span>
 </pre></div>
 </div>
 <div class="literal-block-wrapper docutils container" id="id1">
-<div class="code-block-caption"><span class="caption-text">Connect to the session</span><a class="headerlink" href="#id1" title="Permalink to this code">¶</a></div>
+<div class="code-block-caption"><span class="caption-text">Connect to the session</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
 <span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
 
@@ -197,37 +120,37 @@
 </pre></div>
 </div>
 </div>
-</div>
-<div class="section" id="python-snippets">
-<h2>Python ‘Snippets’<a class="headerlink" href="#python-snippets" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="python-snippets">
+<h2>Python ‘Snippets’<a class="headerlink" href="#python-snippets" title="Link to this heading"></a></h2>
 <p>Some simple python scripts are included with the xSTUDIO source code. These can be executed from the ‘Panels/Snippets’ menu in the xSTUDIO UI. For developers interested in writing integration tools in python, these snippets can be a useful starting point to get familiar with the API. In the source tree, look in this folder: <strong>python/src/xstudio/demo</strong></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>API classes and methods include docstrings - query them using <strong>help()</strong> and <strong>dir()</strong>.</p>
 </div>
-</div>
-<div class="section" id="python-plugins">
-<h2>Python Plugins<a class="headerlink" href="#python-plugins" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="python-plugins">
+<h2>Python Plugins<a class="headerlink" href="#python-plugins" title="Link to this heading"></a></h2>
 <p>xSTUDIO now provides a Python plugin API. The features of this API are still being expanded (Q2 2023) but it is ready to be used for some purposes. For example, it’s possible to create Viewport overlay graphics, add menu items to some of xSTUDIO’s menus that execute callback methods in your plugin. You can create attributes on your python plugin class instance that can be exposed in the QML UI layer to, for example, add buttons to the toolbar or launch fully customised QML interfaces.</p>
 <p>To learn more about the plugin API we reccommend that you look at the examples available in the xSTUDIO source repository. These can be found in the <strong>src/demos/python_plugins</strong> subfolder. Note that the dnSetLoopRange is dependent on metadata that is specific to DNEG’s pipeline but it is nevertheless commented for 3rd party users to refer to.</p>
 <p>To ‘install’ Python plugins you simply need to copy your plugins to an appropriate location and set the ‘XSTUDIO_PYTHON_PLUGIN_PATH’ environment variable to point to this location before running the xstudio binary. Typically at a studio sys-admins would advise on this and set-up appropriate wrapper scripts for xSTUDIO that ensure your environment variables are set. However, it’s also very straightforward for an individual user. The env var should be a colon separated list of file system paths that include the python-importable module folder of your plugin(s).</p>
 <p>For example, let’s say you have downloaded the xSTUDIO source repo to the a folder here /home/$USER/Dev/:</p>
 <div class="literal-block-wrapper docutils container" id="id2">
-<div class="code-block-caption"><span class="caption-text">Install the demo plugins and launch xSTUDIO to test them</span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo mkdir -p /usr/local/lib/xstudio/python-plugins
-cp -r /home/<span class="nv">$USER</span>/Dev/xstudio/src/demos/python_plugins/* /usr/local/lib/xstudio/python-plugins/
-<span class="nb">export</span> <span class="nv">XSTUDIO_PYTHON_PLUGIN_PATH</span><span class="o">=</span>/usr/local/lib/xstudio/python-plugins
+<div class="code-block-caption"><span class="caption-text">Install the demo plugins and launch xSTUDIO to test them</span><a class="headerlink" href="#id2" title="Link to this code"></a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/usr/local/lib/xstudio/python-plugins
+cp<span class="w"> </span>-r<span class="w"> </span>/home/<span class="nv">$USER</span>/Dev/xstudio/src/demos/python_plugins/*<span class="w"> </span>/usr/local/lib/xstudio/python-plugins/
+<span class="nb">export</span><span class="w"> </span><span class="nv">XSTUDIO_PYTHON_PLUGIN_PATH</span><span class="o">=</span>/usr/local/lib/xstudio/python-plugins
 xstudio
 </pre></div>
 </div>
 </div>
-</div>
-<div class="section" id="python-scripting-examples">
-<h2>Python Scripting Examples<a class="headerlink" href="#python-scripting-examples" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="python-scripting-examples">
+<h2>Python Scripting Examples<a class="headerlink" href="#python-scripting-examples" title="Link to this heading"></a></h2>
 <p>Aside from python ‘plugins’, which are essentially scripts that instance a custom plugin class to handle callbacks and manage certain typical communication with the core app, you also can do many things through straightforward scripts.</p>
 <p><strong>Here’s a really basic example that prints out all the media paths in your session.</strong></p>
 <div class="literal-block-wrapper docutils container" id="id3">
-<div class="code-block-caption"><span class="caption-text">Print all media paths from current xSTUDIO session</span><a class="headerlink" href="#id3" title="Permalink to this code">¶</a></div>
+<div class="code-block-caption"><span class="caption-text">Print all media paths from current xSTUDIO session</span><a class="headerlink" href="#id3" title="Link to this code"></a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
 <span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
 
@@ -247,7 +170,7 @@ xstudio
 </div>
 <p><strong>The following example shows how you can start building a playlist, modify media play rate and start playback:</strong></p>
 <div class="literal-block-wrapper docutils container" id="id4">
-<div class="code-block-caption"><span class="caption-text">Adding and playing media basics</span><a class="headerlink" href="#id4" title="Permalink to this code">¶</a></div>
+<div class="code-block-caption"><span class="caption-text">Adding and playing media basics</span><a class="headerlink" href="#id4" title="Link to this code"></a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xstudio.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
 <span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">MediaType</span><span class="p">,</span> <span class="n">FrameRate</span>
 
@@ -326,56 +249,38 @@ xstudio
 </pre></div>
 </div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
-           
           </div>
-          <footer>
-  
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="colour_management.html" class="btn btn-neutral float-right" title="Colour Management" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="index.html" class="btn btn-neutral float-left" title="Appendix" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Appendix" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="colour_management.html" class="btn btn-neutral float-right" title="Colour Management" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &copy; Copyright 2020, DNeg
-
-    </p>
+    <p>&#169; Copyright 2020, DNeg.</p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
-
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

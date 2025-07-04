@@ -635,7 +635,8 @@ class DNegMediaHook : public MediaHook {
         }
 
         // Return the default version otherwise
-        return fmt::format("/tools/{}/data/colsci/config.ocio", show);
+        return get_showvar_or(
+            show, "OCIO", fmt::format("/tools/{}/data/colsci/config.ocio", show));
     }
 
     std::string detect_display(

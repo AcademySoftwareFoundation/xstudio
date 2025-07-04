@@ -822,6 +822,7 @@ QModelIndexList SessionModel::duplicateTimelineClips(
             new_row,
             1,
             QStringFromStd(track_type),
+            QStringFromStd(""),
             QStringFromStd(track_name),
             i.first.parent())[0];
 
@@ -843,6 +844,7 @@ QModelIndexList SessionModel::duplicateTimelineClips(
                     target_row,
                     1,
                     QStringFromStd("Gap"),
+                    QStringFromStd(""),
                     QStringFromStd("Gap"),
                     new_track_index)[0];
 
@@ -1055,7 +1057,7 @@ void SessionModel::item_event_callback(const utility::JsonStore &event, timeline
             {
                 auto tree = indexToTree(index);
                 if (tree) {
-                    auto new_item = timeline::Item(event.at("item"), &system());
+                    auto new_item = timeline::Item(utility::JsonStore(event.at("item")));
                     auto new_node = timelineItemToJson(new_item, system(), true);
 
                     auto replaced = false;
@@ -3138,6 +3140,7 @@ void SessionModel::endTimelineItemDrag(
                                             : rowCount(i.parent().parent()),
                                         1,
                                         type_role,
+                                        QString(""),
                                         type_role,
                                         i.parent().parent())[0];
                                 }
@@ -3157,6 +3160,7 @@ void SessionModel::endTimelineItemDrag(
                                             : rowCount(i.parent().parent()),
                                         1,
                                         type_role,
+                                        QString(""),
                                         type_role,
                                         i.parent().parent())[0];
                                 }

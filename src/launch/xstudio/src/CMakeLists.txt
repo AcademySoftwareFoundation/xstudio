@@ -24,11 +24,6 @@ if(WIN32)
     set_source_files_properties(xstudio.cpp PROPERTIES COMPILE_FLAGS "/bigobj")
 endif()
 
-if(NOT ${OTIO_SUBMODULE})
-	find_package(OpenTime REQUIRED)
-	find_package(OpenTimelineIO REQUIRED)
-endif()
-
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)

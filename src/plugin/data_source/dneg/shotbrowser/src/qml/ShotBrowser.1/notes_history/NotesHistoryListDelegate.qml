@@ -46,6 +46,8 @@ Item{ id: thisItem
     required property var createdDateRole
     required property int index
 
+    property alias textHeightDiff: sec2.textHeightDiff
+
     signal showImages(items: var)
 
     Connections {

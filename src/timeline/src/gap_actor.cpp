@@ -13,7 +13,6 @@ using namespace xstudio::timeline;
 GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
-    base_.item().set_system(&system());
 
     init();
 }
@@ -21,7 +20,6 @@ GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn)
 GapActor::GapActor(caf::actor_config &cfg, const JsonStore &jsn, Item &pitem)
     : caf::event_based_actor(cfg), base_(static_cast<JsonStore>(jsn.at("base"))) {
     base_.item().set_actor_addr(this);
-    base_.item().set_system(&system());
 
     pitem = base_.item().clone();
     init();
@@ -34,14 +32,12 @@ GapActor::GapActor(
     const Uuid &uuid)
     : caf::event_based_actor(cfg), base_(name, duration, uuid, this) {
 
-    base_.item().set_system(&system());
     base_.item().set_name(name);
     init();
 }
 
 GapActor::GapActor(caf::actor_config &cfg, const Item &item)
     : caf::event_based_actor(cfg), base_(item, this) {
-    base_.item().set_system(&system());
     init();
 }
 
@@ -130,6 +126,10 @@ caf::message_handler GapActor::message_handler() {
         [=](rate_atom atom, const media::MediaType media_type) {
             return mail(atom).delegate(caf::actor_cast<caf::actor>(this));
         },
+
+        [=](rate_atom,
+            const utility::FrameRate &new_rate,
+            const bool force_media_rate_to_match) -> bool { return true; },
 
         [=](item_prop_atom) -> JsonStore { return base_.item().prop(); },
 

@@ -713,9 +713,9 @@ media_reader::ImageBufPtr AnnotationsTool::image_under_pointer(
         }
 
         if (!result && curr_im_is_onscreen) {
-            result = onscreen_image_set->hero_image();
-        } else if (!result) {
             result = image_being_annotated_;
+        } else if (!result) {
+            result = onscreen_image_set->hero_image();
         }
 
         if (result && pixel_position) {

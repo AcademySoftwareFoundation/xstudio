@@ -73,8 +73,8 @@ class DefaultMediaHook : public MediaHook {
         utility::JsonStore r(R"({})"_json);
         // using the builtin ACES config grom OCIO, assigning the colourspace
         // to be Raw
-        r["ocio_config"]      = "cg-config-v1.0.0_aces-v1.3_ocio-v2.1";
-        r["input_colorspace"] = "Raw";
+        // r["ocio_config"]      = "cg-config-v1.0.0_aces-v1.3_ocio-v2.1";
+        // r["input_colorspace"] = "Raw";
         return r;
     }
 };

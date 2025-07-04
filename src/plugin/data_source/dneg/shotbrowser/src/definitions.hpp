@@ -156,8 +156,8 @@ const auto locationsJSON = R"([
         {"name": "lon", "id": 1},
         {"name": "mtl", "id": 52},
         {"name": "mum", "id": 3},
-        {"name": "syd", "id": 99},
-        {"name": "van", "id": 2}])"_json;
+        {"name": "syd", "id": 99}])"_json;
+// {"name": "van", "id": 2}])"_json;
 
 const auto VersionFields = std::vector<std::string>(
     {"id",
@@ -191,7 +191,7 @@ const auto VersionFields = std::vector<std::string>(
      "sg_on_disk_mtl",
      "sg_on_disk_mum",
      "sg_on_disk_syd",
-     "sg_on_disk_van",
+     // "sg_on_disk_van",
      "sg_path_to_frames",
      "sg_path_to_movie",
      "sg_pipe_tag_3",
@@ -203,7 +203,7 @@ const auto VersionFields = std::vector<std::string>(
      "sg_submit_dailies_chn",
      "sg_submit_dailies_mtl",
      "sg_submit_dailies_mum",
-     "sg_submit_dailies_van",
+     // "sg_submit_dailies_van",
      "sg_transfix_map",
      "sg_twig_name",
      "sg_twig_type",

@@ -350,6 +350,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_complex_types, FIRST_CUSTOM_ID + 200)
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::string>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::tuple<std::string, caf::uri, xstudio::utility::FrameList>>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>))
+    CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<timebase::flicks>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::bookmark::BookmarkDetail>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::colour_pipeline::ColourOperationDataPtr>))
     CAF_ADD_TYPE_ID(xstudio_complex_types, (std::vector<xstudio::colour_pipeline::ColourPipelineDataPtr>))
@@ -487,6 +488,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_framework_atoms, FIRST_CUSTOM_ID + (200 * 2))
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::utility, notification_atom)
 
     CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global, authenticate_atom)
+
+    CAF_ADD_ATOM(xstudio_framework_atoms, xstudio::global_store, read_only_atom)
 
 CAF_END_TYPE_ID_BLOCK(xstudio_framework_atoms)
 

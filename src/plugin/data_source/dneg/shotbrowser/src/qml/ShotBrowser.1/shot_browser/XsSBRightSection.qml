@@ -19,7 +19,10 @@ ColumnLayout {
 
         XsSBR2Views{
             anchors.fill: parent
-            anchors.margins: 4
+            anchors.leftMargin: 2
+            anchors.topMargin: 2
+            anchors.rightMargin: rightSpacing ? 0 : 2
+            anchors.bottomMargin: 2
         }
     }
 

@@ -200,3 +200,20 @@ class Playhead(ModuleBase):
             playhead_rate(core.FrameRate): Rate for new playheads.
         """
         return self.connection.request_receive(self.remote, playhead_rate_atom())[0]
+
+    @property
+    def compare_mode(self):
+        """Get the current compare mode for the playhead. e.g. "Grid" or "A/B"
+
+        Returns:
+            compare_mode(str): The compare mode.
+        """
+        return self.attrs_by_name_["Compare"].value()
+
+    @compare_mode.setter
+    def compare_mode(self, compare_mode):
+        """Set the compare mode for the playhead. e.g. "Grid", "A/B", "Off" etc.
+
+        Args:
+            compare_mode(str): The compare mode."""
+        self.attrs_by_name_["Compare"].set_value(compare_mode)

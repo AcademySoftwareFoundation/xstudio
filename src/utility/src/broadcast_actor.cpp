@@ -97,6 +97,9 @@ void BroadcastActor::init() {
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},
+        [=](bool) -> int {
+            return int(subscribers_.size());
+        },
         [=](leave_broadcast_atom) -> bool {
             auto subscriber = caf::actor_cast<caf::actor_addr>(current_sender());
             if (subscriber && subscribers_.count(subscriber)) {

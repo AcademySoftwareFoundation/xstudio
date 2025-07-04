@@ -15,6 +15,7 @@ from xstudio.core import RemoteSessionManager, remote_session_path
 import uuid
 import time
 import os
+import traceback
 from pathlib import Path
 from threading import Thread
 
@@ -585,8 +586,6 @@ class Connection(object):
             # search path mechanisms
             return
 
-        print("Scanning folder {} for python plugins.".format(path))
-
         for p in Path(path).iterdir():
             if p.is_dir():
                 self.load_plugin_from_path(path, p.name)
@@ -597,8 +596,8 @@ class Connection(object):
         Args:
             path (Path): Path to a directory on filesystem
         """
-
         try:
+
             import importlib.util
             import sys
 
@@ -608,9 +607,10 @@ class Connection(object):
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[plugin_name] = module
                 spec.loader.exec_module(module)
-                self.plugins[path + plugin_name] = module.create_plugin_instance(self)
+                self.plugins[str(path) + plugin_name] = module.create_plugin_instance(self)
             else:
-                print ("Error loading plugin \"{0}\" from \"{0}\" - not python importable.".format(
-                    path))
+                print ("Error loading plugin \"{0}\" from \"{1}\" - not python importable.".format(
+                    plugin_name, path))
         except Exception as e:
-            print (str(e))
+            print ("Failed to load plugin {0} from location {1} with error {2}".format(plugin_name, path, e))
+            print (traceback.format_exc())

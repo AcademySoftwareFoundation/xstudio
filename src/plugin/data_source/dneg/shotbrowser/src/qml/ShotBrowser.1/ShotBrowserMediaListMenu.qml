@@ -136,13 +136,13 @@ Item {
         menuModelName: "media_list_menu_"
         onActivated: ShotBrowserHelpers.transferMedia("syd", menuContext.mediaSelection)
     }
-    XsMenuModelItem {
-        text: "To Vancouver"
-        menuItemPosition: 6
-        menuPath: "Transfer"
-        menuModelName: "media_list_menu_"
-        onActivated: ShotBrowserHelpers.transferMedia("van", menuContext.mediaSelection)
-    }
+    // XsMenuModelItem {
+    //     text: "To Vancouver"
+    //     menuItemPosition: 6
+    //     menuPath: "Transfer"
+    //     menuModelName: "media_list_menu_"
+    //     onActivated: ShotBrowserHelpers.transferMedia("van", menuContext.mediaSelection)
+    // }
 
     XsMenuModelItem {
         menuItemType: "divider"

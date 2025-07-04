@@ -11,3 +11,4 @@ docs/conf.py
 python/src/xstudio/version.py
 .vs/
 .DS_Store
+/build/

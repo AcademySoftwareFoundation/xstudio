@@ -30,6 +30,9 @@ MouseArea {
     property color itemColorActive: palette.highlight
     property color itemColorNormal: XsStyleSheet.widgetBgNormalColor //palette.base
 
+//    property bool allowProjectQuery: groupFlagRole.includes("Allow Project Query")
+    property bool ignoreTree: groupFlagRole.includes("Ignore Tree Selection")
+
     hoverEnabled: true
 
     property bool itemDragging: isDragging && isSelected
@@ -261,6 +264,15 @@ MouseArea {
                 }
             }
 
+            XsIcon {
+                opacity: 0.2
+                Layout.topMargin: 1
+                Layout.bottomMargin: 1
+                Layout.preferredWidth: height
+                Layout.fillHeight: true
+                source: ignoreTree ? "qrc:///shotbrowser_icons/globe.svg" : "qrc:///shotbrowser_icons/account_tree.svg"
+                scale: 0.95
+            }
 
             XsText{ id: groupNameDiv
                 Layout.fillWidth: true

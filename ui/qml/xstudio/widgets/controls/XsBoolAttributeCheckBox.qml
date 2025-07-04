@@ -39,7 +39,7 @@ Rectangle {
             width: iconsize // 2
             height: iconsize // 2
             anchors.centerIn: parent
-            imgOverlayColor: textColor
+            imgOverlayColor: palette.text//textColor
         }
 
     }

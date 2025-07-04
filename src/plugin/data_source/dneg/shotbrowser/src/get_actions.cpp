@@ -771,7 +771,7 @@ void ShotBrowser::prepare_playlist_notes(
                                 if (has_anno) {
                                     auto title            = std::string(fmt::format(
                                         "{}_{}.jpg",
-                                        jsn["shot"],
+                                        jsn["shot"].dump(),
                                         detail.start_timecode_tc().total_frames()));
                                     auto item             = nlohmann::json();
                                     item["title"]         = title;

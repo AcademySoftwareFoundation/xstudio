@@ -377,9 +377,10 @@ namespace utility {
         const std::string sp = p.string();
 #ifdef _WIN32
         std::string sanitized;
-
         try {
-            sanitized = fmt::format(sp, 0);
+
+            int zro = 0;
+            sanitized = fmt::vformat(sp, fmt::make_format_args(zro));
 
         } catch (...) {
             // If we are here, the path likely doesn't have a format string.
