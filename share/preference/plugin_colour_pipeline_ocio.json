@@ -28,9 +28,9 @@
 				},
 				"default_ocio_config": {
 					"path": "/plugin/colour_pipeline/ocio/default_ocio_config",
-					"default_value": "",
+					"default_value": "xstudio-config-v2.1.0_aces-v1.3_ocio-v2.1.ocio",
 					"description": "Select the OpenColorIO config xSTUDIO should use. Note that this will NOT override colour management rules driven by pipeline integration plugins, if you have any installed, or the OpenColorIO Environment Variable if it is set.",
-					"value": "",
+					"value": "xstudio-config-v2.1.0_aces-v1.3_ocio-v2.1.ocio",
 					"options": [],
 					"datatype": "multichoice string",
 					"context": ["APPLICATION"],
