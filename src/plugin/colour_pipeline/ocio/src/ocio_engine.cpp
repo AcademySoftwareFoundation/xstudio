@@ -6,6 +6,7 @@
 #include "xstudio/thumbnail/thumbnail.hpp"
 
 #include "shaders.hpp"
+#include "ocio_shader.hpp"
 
 using namespace xstudio::colour_pipeline;
 using namespace xstudio::colour_pipeline::ocio;
@@ -15,190 +16,9 @@ using namespace xstudio;
 namespace {
 const static utility::Uuid PLUGIN_UUID{"b39d1e3d-58f8-475f-82c1-081a048df705"};
 
-OCIO::GradingPrimary grading_primary_from_cdl(const OCIO::ConstCDLTransformRcPtr &cdl) {
-    OCIO::GradingPrimary gp(OCIO::GRADING_LIN);
-
-    std::array<double, 3> slope;
-    std::array<double, 3> offset;
-    std::array<double, 3> power;
-    double sat;
-
-    cdl->getSlope(slope.data());
-    cdl->getOffset(offset.data());
-    cdl->getPower(power.data());
-    sat = cdl->getSat();
-
-    // TODO: ColSci
-    // GradingPrimary with only saturation is currently considered identity
-    // Temporary workaround until OCIO fix the issue by adding a clamp to
-    // an arbitrary low value.
-    if (slope == decltype(slope){1.0, 1.0, 1.0} && offset == decltype(offset){0.0, 0.0, 0.0} &&
-        power == decltype(power){1.0, 1.0, 1.0} && sat != 1.0) {
-        gp.m_clampBlack = -1e6;
-    }
-
-    for (int i = 0; i < 3; ++i) {
-        offset[i] = offset[i] / slope[i];
-        slope[i]  = std::log2(slope[i]);
-    }
-
-    gp.m_offset     = OCIO::GradingRGBM(offset[0], offset[1], offset[2], 0.0);
-    gp.m_exposure   = OCIO::GradingRGBM(slope[0], slope[1], slope[2], 0.0);
-    gp.m_contrast   = OCIO::GradingRGBM(power[0], power[1], power[2], 1.0);
-    gp.m_saturation = sat;
-    gp.m_pivot      = std::log2(1.0 / 0.18);
-
-    return gp;
-}
-
-OCIO::TransformRcPtr to_dynamic_transform(
-    const OCIO::ConstTransformRcPtr &transform,
-    OCIOEngine::DynamicCDLMap &dynamic_cdls,
-    int &dynamic_cdls_start_idx) {
-    if (transform->getTransformType() == OCIO::TRANSFORM_TYPE_GROUP) {
-        auto group     = OCIO::DynamicPtrCast<const OCIO::GroupTransform>(transform);
-        auto new_group = OCIO::GroupTransform::Create();
-
-        int num_transforms = group->getNumTransforms();
-        for (int i = 0; i < num_transforms; ++i) {
-            auto dyn_transform = to_dynamic_transform(
-                group->getTransform(i), dynamic_cdls, dynamic_cdls_start_idx);
-            new_group->appendTransform(dyn_transform);
-        }
-        return OCIO::DynamicPtrCast<OCIO::Transform>(new_group);
-    } else if (transform->getTransformType() == OCIO::TRANSFORM_TYPE_FILE) {
-        auto file = OCIO::DynamicPtrCast<const OCIO::FileTransform>(transform);
-
-        for (const auto &[name, dynamic_cdl] : dynamic_cdls) {
-            if (std::string(file->getSrc()) == dynamic_cdl.file_name) {
-                if (dynamic_cdl.id == -1) {
-                    dynamic_cdls[name].id = dynamic_cdls_start_idx++;
-                }
-                int cdl_id = dynamic_cdls[name].id;
-
-                OCIO::GradingPrimary cdl_gp(OCIO::GRADING_LIN);
-                cdl_gp.m_offset = OCIO::GradingRGBM(cdl_id, cdl_id, cdl_id, 0.0);
-
-                auto gp = OCIO::GradingPrimaryTransform::Create(OCIO::GRADING_LIN);
-                gp->setValue(cdl_gp);
-
-                return OCIO::DynamicPtrCast<OCIO::Transform>(gp);
-            }
-        }
-    }
-
-    return transform->createEditableCopy();
-}
-
-OCIO::ConfigRcPtr to_dynamic_config(
-    const OCIO::ConstConfigRcPtr &config, OCIOEngine::DynamicCDLMap &dynamic_cdls) {
-
-    // Need at least v2 for GradingPrimaryTransform
-    auto dynamic_config = config->createEditableCopy();
-    if (dynamic_config->getMajorVersion() < 2) {
-        dynamic_config->setMajorVersion(2);
-        dynamic_config->setMinorVersion(0);
-    }
-
-    // Turn every dynamic CDL FileTransform into GradingPrimary
-
-    int dynamic_cdls_start_idx = 4096;
-
-    // Grab all transforms from the ColorSpaces.
-    OCIO::SearchReferenceSpaceType cs_type = OCIO::SEARCH_REFERENCE_SPACE_ALL;
-    OCIO::ColorSpaceVisibility cs_vis      = OCIO::COLORSPACE_ALL;
-    for (int i = 0; i < dynamic_config->getNumColorSpaces(cs_type, cs_vis); ++i) {
-
-        const auto cs_name = dynamic_config->getColorSpaceNameByIndex(cs_type, cs_vis, i);
-        auto cs            = dynamic_config->getColorSpace(cs_name);
-        auto cs_edit       = cs->createEditableCopy();
-
-        auto to_ref = cs->getTransform(OCIO::COLORSPACE_DIR_TO_REFERENCE);
-        if (to_ref) {
-            auto new_tr = to_dynamic_transform(to_ref, dynamic_cdls, dynamic_cdls_start_idx);
-            cs_edit->setTransform(new_tr, OCIO::COLORSPACE_DIR_TO_REFERENCE);
-        }
-
-        auto from_ref = cs->getTransform(OCIO::COLORSPACE_DIR_FROM_REFERENCE);
-        if (from_ref) {
-            auto new_tr = to_dynamic_transform(from_ref, dynamic_cdls, dynamic_cdls_start_idx);
-            cs_edit->setTransform(new_tr, OCIO::COLORSPACE_DIR_FROM_REFERENCE);
-        }
-
-        dynamic_config->addColorSpace(cs_edit);
-    }
-
-    // Grab all transforms from the Looks.
-    for (int i = 0; i < dynamic_config->getNumLooks(); ++i) {
-
-        auto look      = dynamic_config->getLook(dynamic_config->getLookNameByIndex(i));
-        auto look_edit = look->createEditableCopy();
-
-        auto fwd_tr = look->getTransform();
-        if (fwd_tr) {
-            auto new_tr = to_dynamic_transform(fwd_tr, dynamic_cdls, dynamic_cdls_start_idx);
-            look_edit->setTransform(new_tr);
-        }
-
-        auto inv_tr = look->getInverseTransform();
-        if (inv_tr) {
-            auto new_tr = to_dynamic_transform(inv_tr, dynamic_cdls, dynamic_cdls_start_idx);
-            look_edit->setInverseTransform(new_tr);
-        }
-
-        dynamic_config->addLook(look_edit);
-    }
-
-    // Grab all transforms from the view transforms.
-    for (int i = 0; i < dynamic_config->getNumViewTransforms(); ++i) {
-
-        const auto vt_name = dynamic_config->getViewTransformNameByIndex(i);
-        auto vt            = dynamic_config->getViewTransform(vt_name);
-        auto vt_edit       = vt->createEditableCopy();
-
-        auto to_ref = vt->getTransform(OCIO::VIEWTRANSFORM_DIR_TO_REFERENCE);
-        if (to_ref) {
-            auto new_tr = to_dynamic_transform(to_ref, dynamic_cdls, dynamic_cdls_start_idx);
-            vt_edit->setTransform(new_tr, OCIO::VIEWTRANSFORM_DIR_TO_REFERENCE);
-        }
-
-        auto from_ref = vt->getTransform(OCIO::VIEWTRANSFORM_DIR_FROM_REFERENCE);
-        if (from_ref) {
-            auto new_tr = to_dynamic_transform(from_ref, dynamic_cdls, dynamic_cdls_start_idx);
-            vt_edit->setTransform(new_tr, OCIO::VIEWTRANSFORM_DIR_FROM_REFERENCE);
-        }
-
-        dynamic_config->addViewTransform(vt_edit);
-    }
-
-    // Grab all transforms from the named transforms.
-    for (int i = 0; i < dynamic_config->getNumNamedTransforms(); ++i) {
-
-        const auto nt_name = dynamic_config->getNamedTransformNameByIndex(i);
-        auto nt            = dynamic_config->getNamedTransform(nt_name);
-        auto nt_edit       = nt->createEditableCopy();
-
-        auto fwd_tr = nt->getTransform(OCIO::TRANSFORM_DIR_FORWARD);
-        if (fwd_tr) {
-            auto new_tr = to_dynamic_transform(fwd_tr, dynamic_cdls, dynamic_cdls_start_idx);
-            nt_edit->setTransform(new_tr, OCIO::TRANSFORM_DIR_FORWARD);
-        }
-
-        auto inv_tr = nt->getTransform(OCIO::TRANSFORM_DIR_INVERSE);
-        if (inv_tr) {
-            auto new_tr = to_dynamic_transform(inv_tr, dynamic_cdls, dynamic_cdls_start_idx);
-            nt_edit->setTransform(new_tr, OCIO::TRANSFORM_DIR_INVERSE);
-        }
-
-        dynamic_config->addNamedTransform(nt_edit);
-    }
-
-    return dynamic_config;
-}
 
 struct ShaderDescriptor {
-    OCIO::ConstGpuShaderDescRcPtr shader_desc;
-    OCIOEngine::DynamicCDLMap dynamic_cdls;
+    ShaderBuilder shader_builder;
     std::mutex mutex;
 };
 typedef std::shared_ptr<ShaderDescriptor> ShaderDescriptorPtr;
@@ -208,35 +28,38 @@ typedef std::shared_ptr<ShaderDescriptor> ShaderDescriptorPtr;
 ColourOperationDataPtr OCIOEngine::linearise_op_data(
     const utility::JsonStore &src_colour_mgmt_metadata,
     const bool bypass,
-    const bool auto_adjust_source_cs,
+    const bool auto_adjust_source,
     const std::string &view) {
 
-    using xstudio::utility::replace_once;
+    auto data = std::make_shared<ColourOperationData>("OCIO Linearise OP");
 
-    auto result = std::make_shared<ColourOperationData>("OCIO Linearise OP");
+    OCIO::ConstConfigRcPtr config = get_ocio_config(src_colour_mgmt_metadata);
+    OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
+    OCIO::TransformRcPtr transform = source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
 
-    // Construct OCIO processor, shader and extract texture(s)
-    auto to_lin_proc =
-        make_to_lin_processor(src_colour_mgmt_metadata, bypass, auto_adjust_source_cs, view);
-    auto to_lin_shader = make_shader(to_lin_proc, "OCIOLinearise", "to_linear_");
-    setup_textures(to_lin_shader, result);
+    auto shader_builder = ShaderBuilder()
+        .setConfig(config)
+        .setContext(context)
+        .setTransform(transform)
+        .setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0)
+        .setFunctionName("OCIOLinearise")
+        .setResourcePrefix("to_linear_");
 
-    std::string to_lin_shader_src = replace_once(
-        ShaderTemplates::OCIO_linearise, "//OCIOLinearise", to_lin_shader->getShaderText());
+    std::string shader_text =
+        xstudio::utility::replace_once(
+            ShaderTemplates::OCIO_linearise,
+            "//OCIOLinearise",
+            shader_builder.getShaderText()
+        );
 
-    result->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
-        utility::Uuid::generate(), to_lin_shader_src);
+    shader_builder.setupTextures(data);
 
-    // Store GPUShaderDesc objects for later use during uniform binding / update.
-    // Note that we need updated MediaParams object, which may include primary grading
-    // data, when we update the shader uniforms at draw time. Hence we add the MediaParams
-    // as part of the user_data_ blind data object.
-    auto desc          = std::make_shared<ShaderDescriptor>();
-    desc->shader_desc  = to_lin_shader;
-    result->user_data_ = desc;
-    result->set_cache_id(to_string(PLUGIN_UUID) + to_lin_proc->getCacheID());
+    data->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
+        utility::Uuid::generate(), shader_text);
 
-    return result;
+    data->set_cache_id(to_string(PLUGIN_UUID) + shader_builder.getCacheString());
+
+    return data;
 }
 
 ColourOperationDataPtr OCIOEngine::linear_to_display_op_data(
@@ -245,44 +68,65 @@ ColourOperationDataPtr OCIOEngine::linear_to_display_op_data(
     const std::string &view,
     const bool bypass) {
 
-    using xstudio::utility::replace_once;
-
     auto data = std::make_shared<ColourOperationData>(ColourOperationData("OCIO Display OP"));
 
-    // Construct OCIO processor, shader and extract texture(s)
-    DynamicCDLMap dynamic_cdls;
+    OCIO::ConstConfigRcPtr config = get_ocio_config(src_colour_mgmt_metadata);
+    OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
+    OCIO::TransformRcPtr transform = display_transform(src_colour_mgmt_metadata, display, view, bypass);
 
-    auto display_proc = make_display_processor(
-        src_colour_mgmt_metadata, false, display, view, dynamic_cdls, bypass);
-    auto display_shader = make_shader(display_proc, "OCIODisplay", "to_display");
-    setup_textures(display_shader, data);
+    // CDLs will be turned into uniform baked transforms in the generated shader.
+    DynamicCDLMap cdls;
+    if (src_colour_mgmt_metadata.contains("dynamic_cdl")) {
+        if (src_colour_mgmt_metadata["dynamic_cdl"].is_object()) {
+            for (auto &item : src_colour_mgmt_metadata["dynamic_cdl"].items()) {
+                    const std::string xstudio_name = fmt::format("xstudio_cdl_{}", item.key());
+                    cdls[xstudio_name].look_name = item.key();
+                    cdls[xstudio_name].file_name = item.value();
+            }
+        } else {
+            spdlog::warn(
+                "OCIOEngine: 'dynamic_cdl' should be a dictionary, got {} instead",
+                src_colour_mgmt_metadata["dynamic_cdl"].dump(2));
+        }
+    }
 
-    std::string shader_text = display_shader->getShaderText();
-    shader_text             = patch_dynamic_cdls(shader_text, dynamic_cdls);
+    // CDL dynamic patching can use different methods.
+    const std::string dynamic_cdl_mode = src_colour_mgmt_metadata.get_or(
+        "dynamic_cdl_mode", std::string("config"));
+    ShaderBuilder::DynamicCDLMode cdl_mode = dynamic_cdl_mode == "config" ?
+        ShaderBuilder::DynamicCDLMode::Config : ShaderBuilder::DynamicCDLMode::Processor;
 
-    std::string display_shader_src =
-        replace_once(ShaderTemplates::OCIO_display, "//OCIODisplay", shader_text);
+    auto shader_builder = ShaderBuilder()
+        .setConfig(config)
+        .setContext(context)
+        .setDynamicCDLs(cdls)
+        .setDynamicCDLMode(cdl_mode)
+        .setTransform(transform)
+        .setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0)
+        .setFunctionName("OCIODisplay")
+        .setResourcePrefix("to_display_");
+
+    std::string shader_text =
+        xstudio::utility::replace_once(
+            ShaderTemplates::OCIO_display,
+            "//OCIODisplay",
+            shader_builder.getShaderText()
+        );
+
+    shader_builder.setupTextures(data);
 
     data->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
-        utility::Uuid::generate(), display_shader_src);
+        utility::Uuid::generate(), shader_text);
 
-    // Store GPUShaderDesc objects for later use during uniform binding / update.
-    // Note that we need updated MediaParams object, which may include primary grading
-    // data, when we update the shader uniforms at draw time. Hence we add the MediaParams
-    // as part of the user_data_ blind data object.
-
-    auto desc          = std::make_shared<ShaderDescriptor>();
-    desc->shader_desc  = display_shader;
-    desc->dynamic_cdls = dynamic_cdls;
+    // Store ShaderBuilder for later use during uniform binding / update.
+    auto desc = std::make_shared<ShaderDescriptor>();
+    desc->shader_builder = shader_builder;
     data->user_data_   = desc;
 
-    std::stringstream ss;
-    ss << to_string(PLUGIN_UUID);
-    ss << display_proc->getCacheID();
-    for (const auto &[name, dynamic_cdl] : dynamic_cdls) {
-        ss << dynamic_cdl.grading_primary;
-    }
-    data->set_cache_id(ss.str());
+    // Cache ID needs to contain the shot specific grades as the shader
+    // will be identical otherwise and individual shots won't get proper
+    // grades applied.
+    data->set_cache_id(to_string(PLUGIN_UUID) + shader_builder.getCacheString());
 
     return data;
 }
@@ -302,11 +146,17 @@ thumbnail::ThumbnailBufferPtr OCIOEngine::process_thumbnail(
 
     const auto &ocio_config = get_ocio_config(src_colour_mgmt_metadata);
 
-    auto to_lin_group = make_to_lin_processor(src_colour_mgmt_metadata, false, false, view)
+    std::string _display = display;
+    std::string _view = view;
+    if (display.empty() or view.empty()) {
+        _display = ocio_config->getDefaultDisplay();
+        _view    = ocio_config->getDefaultView(_display.c_str());
+    }
+
+    auto to_lin_group = make_to_lin_processor(src_colour_mgmt_metadata, view, false, false)
                             ->createGroupTransform();
-    DynamicCDLMap dynamic_cdls;
     auto to_display_group =
-        make_display_processor(src_colour_mgmt_metadata, true, display, view, dynamic_cdls)
+        make_display_processor(src_colour_mgmt_metadata, _display, _view, false)
             ->createGroupTransform();
 
     OCIO::GroupTransformRcPtr concat_group = OCIO::GroupTransform::Create();
@@ -370,19 +220,11 @@ void OCIOEngine::extend_pixel_info(
 
         auto colour_mgmt_params = frame_id.params();
 
-        // here we wipe the 'dynamic_cdl' entry - we don't want to use this
-        // mechanism here, it's only useful for making the GPU shader based
-        // colour management more efficient
-        auto p = colour_mgmt_params.find("dynamic_cdl");
-        if (p != colour_mgmt_params.end()) {
-            colour_mgmt_params.erase(p);
-        }
-        DynamicCDLMap dynamic_cdls;
         auto display_proc =
-            make_display_processor(colour_mgmt_params, false, display, view, dynamic_cdls);
+            make_display_processor(colour_mgmt_params, display, view, false);
         pixel_probe_to_display_proc_ = display_proc->getDefaultCPUProcessor();
         pixel_probe_to_lin_proc_ =
-            make_to_lin_processor(colour_mgmt_params, false, auto_adjust_source, view)
+            make_to_lin_processor(colour_mgmt_params, view, auto_adjust_source, false)
                 ->getDefaultCPUProcessor();
         last_pixel_probe_source_hash_ = hash;
     }
@@ -605,10 +447,14 @@ OCIOEngine::default_display(const utility::JsonStore &src_colour_mgmt_metadata) 
 OCIO::TransformRcPtr OCIOEngine::source_transform(
     const utility::JsonStore &src_colour_mgmt_metadata,
     const bool auto_adjust_source,
-    const std::string &view_for_auto_adjust) const {
+    const std::string &auto_adjust_view,
+    const bool bypass) const {
 
-    const std::string working_cs = working_space(src_colour_mgmt_metadata);
-    auto config                  = get_ocio_config(src_colour_mgmt_metadata);
+    auto config = get_ocio_config(src_colour_mgmt_metadata);
+
+    if (bypass) {
+        return identity_transform();
+    }
 
     // get the user source colourspace override, if it has been set
     std::string override_input_cs =
@@ -618,10 +464,11 @@ OCIO::TransformRcPtr OCIOEngine::source_transform(
         // When 'auto adjust source' global setting is on, the source colourspace
         // is overriden by our own logic
         override_input_cs =
-            input_space_for_view(src_colour_mgmt_metadata, view_for_auto_adjust);
+            input_space_for_view(src_colour_mgmt_metadata, auto_adjust_view);
     }
 
     const std::string filepath = src_colour_mgmt_metadata.get_or("path", std::string(""));
+    const std::string working_cs = working_space(src_colour_mgmt_metadata);
     const std::string display =
         src_colour_mgmt_metadata.get_or("input_display", std::string(""));
     const std::string view = src_colour_mgmt_metadata.get_or("input_view", std::string(""));
@@ -647,7 +494,11 @@ OCIO::TransformRcPtr OCIOEngine::source_transform(
         csc->setDst(working_cs.c_str());
         return csc;
     } else if (!display.empty() and !view.empty()) {
-        return display_transform(working_cs, display, view, OCIO::TRANSFORM_DIR_INVERSE);
+        OCIO::DisplayViewTransformRcPtr dt = OCIO::DisplayViewTransform::Create();
+        dt->setSrc(working_cs.c_str());
+        dt->setDisplay(display.c_str());
+        dt->setView(view.c_str());
+        return dt;
     } else {
         std::string auto_input_cs;
 
@@ -669,87 +520,52 @@ OCIO::TransformRcPtr OCIOEngine::source_transform(
     }
 }
 
-OCIO::ConstConfigRcPtr OCIOEngine::display_transform(
-    const utility::JsonStore &src_colour_mgmt_metadata,
-    OCIO::ContextRcPtr context,
-    OCIO::GroupTransformRcPtr group,
-    std::string display,
-    std::string view,
-    DynamicCDLMap &dynamic_cdls) const {
-
-    auto ocio_config = get_ocio_config(src_colour_mgmt_metadata);
-
-    // Determines which OCIO display / view to use
-
-    if (display.empty() or view.empty()) {
-        display = ocio_config->getDefaultDisplay();
-        view    = ocio_config->getDefaultView(display.c_str());
-    }
-
-    // Turns per shot CDLs into dynamic transform
-    // This happen in two steps:
-    // - First, we create a new config where every FileTransform used that
-    //   points to identified CDLs sources (``dynamic_cdl`` plugin param)
-    //   are replaced by GradingPrimary Transform.
-    // - Then after processor and shader generation, manual patch of the
-    //   GLSL to turn GradingPrimary transforms into dynamic transforms
-    //   using uniforms.
-    // While it is not strictly needed to use GradingPrimaryTransform as
-    // a placehodler for the dynamic CDL code, it prevents OCIO optimizer
-    // from merging with neighbors transforms and might make the migration
-    // easier when/if OCIO implements support for multiple dynamic
-    // GradingPrimary transforms within a processor.
-
-    if (src_colour_mgmt_metadata.contains("dynamic_cdl")) {
-        if (src_colour_mgmt_metadata["dynamic_cdl"].is_object()) {
-            for (auto &item : src_colour_mgmt_metadata["dynamic_cdl"].items()) {
-                try {
-                    // Make sure the file is a CDL
-                    auto file_path =
-                        context->resolveFileLocation(std::string(item.value()).c_str());
-                    OCIO::CDLTransform::CreateFromFile(file_path, "" /* cccid */);
-
-                    const std::string xstudio_name = fmt::format("xstudio_cdl_{}", item.key());
-                    dynamic_cdls[xstudio_name].look_name     = item.key();
-                    dynamic_cdls[xstudio_name].file_name     = item.value();
-                    dynamic_cdls[xstudio_name].resolved_path = file_path;
-                } catch (const OCIO::Exception &e) {
-                }
-            }
-        } else {
-            spdlog::warn(
-                "OCIOEngine: 'dynamic_cdl' should be a dictionary, got {} instead",
-                src_colour_mgmt_metadata["dynamic_cdl"].dump(2));
-        }
-    }
-
-    if (!dynamic_cdls.empty()) {
-        ocio_config = make_dynamic_display_processor(
-            src_colour_mgmt_metadata, ocio_config, group, display, view, dynamic_cdls);
-    } else {
-        group->appendTransform(display_transform(
-            working_space(src_colour_mgmt_metadata),
-            display,
-            view,
-            OCIO::TRANSFORM_DIR_FORWARD));
-    }
-
-    return ocio_config;
-}
-
 OCIO::TransformRcPtr OCIOEngine::display_transform(
-    const std::string &source,
+    const utility::JsonStore &src_colour_mgmt_metadata,
     const std::string &display,
     const std::string &view,
-    OCIO::TransformDirection direction) const {
+    const bool bypass) const {
 
-    OCIO::DisplayViewTransformRcPtr dt = OCIO::DisplayViewTransform::Create();
-    dt->setSrc(source.c_str());
-    dt->setDisplay(display.c_str());
-    dt->setView(view.c_str());
-    dt->setDirection(direction);
+    const auto &ocio_config = get_ocio_config(src_colour_mgmt_metadata);
 
-    return dt;
+    OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
+
+    // We always include exposure / gamma transforms to generate similar processors
+    // for both viewport and thumbnails / pixel probe, hoping for better caching.
+
+    auto exp = OCIO::ExposureContrastTransform::Create();
+    exp->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
+    exp->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
+    exp->makeExposureDynamic();
+    exp->setExposure(0.0);
+    group->appendTransform(exp);
+
+    if (!bypass) {
+        std::string _display = display;
+        std::string _view = view;
+        if (display.empty() or view.empty()) {
+            _display = ocio_config->getDefaultDisplay();
+            _view    = ocio_config->getDefaultView(_display.c_str());
+        }
+
+        OCIO::DisplayViewTransformRcPtr dt = OCIO::DisplayViewTransform::Create();
+        dt->setSrc(working_space(src_colour_mgmt_metadata));
+        dt->setDisplay(_display.c_str());
+        dt->setView(_view.c_str());
+        dt->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
+        group->appendTransform(dt);
+    }
+
+    auto gam = OCIO::ExposureContrastTransform::Create();
+    gam->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
+    gam->setDirection(OCIO::TRANSFORM_DIR_INVERSE);
+    gam->makeGammaDynamic();
+    // default gamma pivot in OCIO is 0.18, avoid divide by zero too
+    gam->setPivot(1.0f);
+    gam->setGamma(1.0f);
+    group->appendTransform(gam);
+
+    return group;
 }
 
 OCIO::TransformRcPtr OCIOEngine::identity_transform() const {
@@ -781,24 +597,18 @@ OCIO::ContextRcPtr OCIOEngine::setup_ocio_context(const utility::JsonStore &meta
 
 OCIO::ConstProcessorRcPtr OCIOEngine::make_to_lin_processor(
     const utility::JsonStore &src_colour_mgmt_metadata,
-    const bool bypass,
+    const std::string &view,
     const bool auto_adjust_source,
-    const std::string &view) const {
+    const bool bypass) const {
 
     const auto &ocio_config = get_ocio_config(src_colour_mgmt_metadata);
 
     try {
 
-        if (bypass) {
-            return ocio_config->getProcessor(identity_transform());
-        }
-
-        OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
-        group->appendTransform(
-            source_transform(src_colour_mgmt_metadata, auto_adjust_source, view));
-
+        OCIO::TransformRcPtr transform = source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, bypass);
         OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
-        return ocio_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
+        auto proc = ocio_config->getProcessor(context, transform, OCIO::TRANSFORM_DIR_FORWARD);
+        return proc;
 
     } catch (const std::exception &e) {
         spdlog::warn("OCIOEngine: Failed to construct OCIO lin processor: {}", e.what());
@@ -809,264 +619,23 @@ OCIO::ConstProcessorRcPtr OCIOEngine::make_to_lin_processor(
 
 OCIO::ConstProcessorRcPtr OCIOEngine::make_display_processor(
     const utility::JsonStore &src_colour_mgmt_metadata,
-    bool is_thumbnail,
     const std::string &display,
     const std::string &view,
-    DynamicCDLMap &dynamic_cdls,
     const bool bypass) const {
 
     auto ocio_config = get_ocio_config(src_colour_mgmt_metadata);
 
     try {
 
+        OCIO::TransformRcPtr transform = display_transform(src_colour_mgmt_metadata, display, view, bypass);
         OCIO::ContextRcPtr context = setup_ocio_context(src_colour_mgmt_metadata);
-
-        OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
-
-        {
-            auto ect = OCIO::ExposureContrastTransform::Create();
-            ect->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
-            ect->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
-            ect->makeExposureDynamic();
-            ect->setExposure(1.0);
-            group->appendTransform(ect);
-        }
-
-        if (!bypass) {
-            // To support dynamic CDLs we currently have to edit the OCIO
-            // config in place, hence the need to return the new config
-            // here to later query the processor from it.
-
-            ocio_config = display_transform(
-                src_colour_mgmt_metadata, context, group, display, view, dynamic_cdls);
-        }
-
-        {
-            auto ect = OCIO::ExposureContrastTransform::Create();
-            ect->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
-            ect->setDirection(OCIO::TRANSFORM_DIR_INVERSE);
-            ect->makeGammaDynamic();
-            // default gamma pivot in OCIO is 0.18, avoid divide by zero too
-            ect->setPivot(1.0f);
-            ect->setGamma(1.0f);
-            group->appendTransform(ect);
-        }
-
-        return ocio_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
+        auto proc = ocio_config->getProcessor(context, transform, OCIO::TRANSFORM_DIR_FORWARD);
+        return proc;
 
     } catch (const std::exception &e) {
         spdlog::warn("OCIOEngine: Failed to construct OCIO processor: {}", e.what());
         spdlog::warn("OCIOEngine: Defaulting to no-op processor");
         return ocio_config->getProcessor(identity_transform());
-    }
-}
-
-OCIO::ConstConfigRcPtr OCIOEngine::make_dynamic_display_processor(
-    const utility::JsonStore &src_colour_mgmt_metadata,
-    const OCIO::ConstConfigRcPtr &config,
-    const OCIO::GroupTransformRcPtr &group,
-    const std::string &display,
-    const std::string &view,
-    DynamicCDLMap &dynamic_cdls) const {
-
-    auto dynamic_config = to_dynamic_config(config, dynamic_cdls);
-
-
-    group->appendTransform(display_transform(
-        working_space(src_colour_mgmt_metadata), display, view, OCIO::TRANSFORM_DIR_FORWARD));
-
-    return dynamic_config;
-}
-
-OCIO::ConstGpuShaderDescRcPtr OCIOEngine::make_shader(
-    OCIO::ConstProcessorRcPtr &processor,
-    const char *function_name,
-    const char *resource_prefix) const {
-
-    OCIO::GpuShaderDescRcPtr shader_desc = OCIO::GpuShaderDesc::CreateShaderDesc();
-    shader_desc->setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0);
-    shader_desc->setFunctionName(function_name);
-    shader_desc->setResourcePrefix(resource_prefix);
-    auto gpu_proc = processor->getDefaultGPUProcessor();
-    gpu_proc->extractGpuShaderInfo(shader_desc);
-    return shader_desc;
-}
-
-std::string OCIOEngine::patch_dynamic_cdls(
-    const std::string &shader_text, DynamicCDLMap &dynamic_cdls) const {
-
-    std::vector<std::string> new_shader_lines;
-
-    auto lines = utility::split(shader_text, '\n');
-    for (int i = 0; i < lines.size(); ++i) {
-        if (utility::starts_with(lines[i], "  // Add GradingPrimary")) {
-            for (auto &[name, dynamic_cdl] : dynamic_cdls) {
-                if (lines[i + 3].find(std::to_string(dynamic_cdl.id)) != std::string::npos) {
-
-                    std::string new_code =
-                        R"(  // Add GradingPrimary 'linear' forward processing for __name__
-  
-  {
-    if (!__name___localBypass)
-    {
-      outColor.rgb += __name___offset;
-      outColor.rgb *= __name___exposure;
-      if ( __name___contrast != vec3(1., 1., 1.) )
-      {
-        outColor.rgb = pow( abs(outColor.rgb / __name___pivot), __name___contrast ) * sign(outColor.rgb) * __name___pivot;
-      }
-      vec3 lumaWgts = vec3(0.212599993, 0.715200007, 0.0722000003);
-      float luma = dot( outColor.rgb, lumaWgts );
-      outColor.rgb = luma + __name___saturation * (outColor.rgb - luma);
-      outColor.rgb = clamp( outColor.rgb, __name___clampBlack, __name___clampWhite );
-    }
-  }
-)";
-                    new_code            = utility::replace_all(new_code, "__name__", name);
-                    auto new_code_lines = utility::split(new_code, '\n');
-                    new_shader_lines.insert(
-                        new_shader_lines.end(), new_code_lines.begin(), new_code_lines.end());
-
-                    std::string new_declarations =
-                        R"(
-uniform vec3 __name___offset;
-uniform vec3 __name___exposure;
-uniform vec3 __name___contrast;
-uniform float __name___pivot;
-uniform float __name___clampBlack;
-uniform float __name___clampWhite;
-uniform float __name___saturation;
-uniform bool __name___localBypass;)";
-
-                    new_declarations = utility::replace_all(new_declarations, "__name__", name);
-                    new_code_lines   = utility::split(new_declarations, '\n');
-                    new_shader_lines.insert(
-                        new_shader_lines.begin(), new_code_lines.begin(), new_code_lines.end());
-
-                    auto cdl_transform = OCIO::CDLTransform::CreateFromFile(
-                        dynamic_cdl.resolved_path.c_str(), "");
-                    auto gp = grading_primary_from_cdl(cdl_transform);
-                    dynamic_cdls[name].grading_primary = gp;
-                    dynamic_cdls[name].in_use          = true;
-
-                    // Find the offset to the closing scope and skip lines
-                    int offset_to_end = 0;
-                    bool offset_found = false;
-                    while (!offset_found) {
-                        if (lines[i + offset_to_end] == std::string("  }")) {
-                            offset_found = true;
-                        } else {
-                            offset_to_end++;
-                        }
-                    }
-                    i = i + offset_to_end;
-
-                    break;
-                }
-            }
-        } else {
-            new_shader_lines.push_back(lines[i]);
-        }
-    }
-
-    auto shader = utility::join_as_string(new_shader_lines, "\n");
-
-    return shader;
-}
-
-void OCIOEngine::setup_textures(
-    OCIO::ConstGpuShaderDescRcPtr &shader_desc, ColourOperationDataPtr op_data) const {
-
-    // Process 3D LUTs
-    const unsigned max_texture_3D = shader_desc->getNum3DTextures();
-    for (unsigned idx = 0; idx < max_texture_3D; ++idx) {
-        const char *textureName           = nullptr;
-        const char *samplerName           = nullptr;
-        unsigned edgelen                  = 0;
-        OCIO::Interpolation interpolation = OCIO::INTERP_LINEAR;
-
-        shader_desc->get3DTexture(idx, textureName, samplerName, edgelen, interpolation);
-        if (!textureName || !*textureName || !samplerName || !*samplerName || edgelen == 0) {
-            throw std::runtime_error(
-                "OCIO::ShaderDesc::get3DTexture - The texture data is corrupted");
-        }
-
-        const float *ocio_lut_data = nullptr;
-        shader_desc->get3DTextureValues(idx, ocio_lut_data);
-        if (!ocio_lut_data) {
-            throw std::runtime_error(
-                "OCIO::ShaderDesc::get3DTextureValues - The texture values are missing");
-        }
-
-        auto xs_dtype    = LUTDescriptor::FLOAT32;
-        auto xs_channels = LUTDescriptor::RGB;
-        auto xs_interp   = interpolation == OCIO::INTERP_LINEAR ? LUTDescriptor::LINEAR
-                                                                : LUTDescriptor::NEAREST;
-        auto xs_lut      = std::make_shared<ColourLUT>(
-            LUTDescriptor::Create3DLUT(edgelen, xs_dtype, xs_channels, xs_interp), samplerName);
-
-        const int channels          = 3;
-        const std::size_t data_size = edgelen * edgelen * edgelen * channels * sizeof(float);
-        auto *xs_lut_data           = (float *)xs_lut->writeable_data();
-        std::memcpy(xs_lut_data, ocio_lut_data, data_size);
-
-        xs_lut->update_content_hash();
-        op_data->luts_.push_back(xs_lut);
-    }
-
-    // Process 1D LUTs
-    const unsigned max_texture_2D = shader_desc->getNumTextures();
-    for (unsigned idx = 0; idx < max_texture_2D; ++idx) {
-        const char *textureName                  = nullptr;
-        const char *samplerName                  = nullptr;
-        unsigned width                           = 0;
-        unsigned height                          = 0;
-        OCIO::GpuShaderDesc::TextureType channel = OCIO::GpuShaderDesc::TEXTURE_RGB_CHANNEL;
-        OCIO::Interpolation interpolation        = OCIO::INTERP_LINEAR;
-        bool is2DTexture                         = false;
-
-#if OCIO_VERSION_HEX >= 0x02030000
-        OCIO::GpuShaderDesc::TextureDimensions dimensions = OCIO::GpuShaderDesc::TEXTURE_1D;
-        shader_desc->getTexture(
-            idx, textureName, samplerName, width, height, channel, dimensions, interpolation);
-        is2DTexture = dimensions == OCIO::GpuShaderDesc::TEXTURE_2D;
-#else
-        shader_desc->getTexture(
-            idx, textureName, samplerName, width, height, channel, interpolation);
-        is2DTexture = height > 1;
-#endif
-
-        if (!textureName || !*textureName || !samplerName || !*samplerName || width == 0) {
-            throw std::runtime_error(
-                "OCIO::ShaderDesc::getTexture - The texture data is corrupted");
-        }
-
-        const float *ocio_lut_data = nullptr;
-        shader_desc->getTextureValues(idx, ocio_lut_data);
-        if (!ocio_lut_data) {
-            throw std::runtime_error(
-                "OCIO::ShaderDesc::getTextureValues - The texture values are missing");
-        }
-
-        auto xs_dtype    = LUTDescriptor::FLOAT32;
-        auto xs_channels = channel == OCIO::GpuShaderCreator::TEXTURE_RED_CHANNEL
-                               ? LUTDescriptor::RED
-                               : LUTDescriptor::RGB;
-        auto xs_interp   = interpolation == OCIO::INTERP_LINEAR ? LUTDescriptor::LINEAR
-                                                                : LUTDescriptor::NEAREST;
-        auto xs_lut      = std::make_shared<ColourLUT>(
-            is2DTexture
-                     ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
-                     : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
-            samplerName);
-
-        const int channels = channel == OCIO::GpuShaderCreator::TEXTURE_RED_CHANNEL ? 1 : 3;
-        const std::size_t data_size = width * height * channels * sizeof(float);
-        auto *xs_lut_data           = (float *)xs_lut->writeable_data();
-        std::memcpy(xs_lut_data, ocio_lut_data, data_size);
-
-        xs_lut->update_content_hash();
-        op_data->luts_.push_back(xs_lut);
     }
 }
 
@@ -1078,7 +647,7 @@ std::string OCIOEngine::detect_source_colourspace(
     // Extract the input colorspace as detected by the plugin and update the UI
     std::string detected_cs;
     OCIO::TransformRcPtr transform =
-        source_transform(src_colour_mgmt_metadata, auto_adjust_source, view);
+        source_transform(src_colour_mgmt_metadata, auto_adjust_source, view, false);
     if (transform->getTransformType() == OCIO::TRANSFORM_TYPE_COLORSPACE) {
         OCIO::ColorSpaceTransformRcPtr csc =
             std::static_pointer_cast<OCIO::ColorSpaceTransform>(transform);
@@ -1188,7 +757,7 @@ void OCIOEngine::update_shader_uniforms(
     if (user_data.has_value() && user_data.type() == typeid(ShaderDescriptorPtr)) {
         try {
             auto shader = std::any_cast<ShaderDescriptorPtr>(user_data);
-            if (shader && shader->shader_desc) {
+            if (shader) {
                 // ColourOperationDataPtr is shared among MediaSource using the same OCIO
                 // shader. Hence ShaderDesc objects holding OCIO DynamicProperty are shared too.
                 // DynamicProperty are used to hold the uniforms representing the transform,
@@ -1197,112 +766,11 @@ void OCIOEngine::update_shader_uniforms(
                 // ShaderDesc's DynamicProperty resulting in queried uniforms not reflecting
                 // values for the current shot.
                 std::scoped_lock lock(shader->mutex);
-                update_dynamic_parameters(shader->shader_desc, exposure, gamma);
-                update_ocio_uniforms(shader->shader_desc, uniforms);
-                update_xstudio_uniforms(shader->dynamic_cdls, uniforms);
+                shader->shader_builder.updateUniforms(uniforms, exposure, gamma);
             }
         } catch (const std::exception &e) {
             spdlog::warn("OCIOColourPipeline: Failed to update shader uniforms: {}", e.what());
         }
-    }
-}
-
-void OCIOEngine::update_ocio_uniforms(
-    OCIO::ConstGpuShaderDescRcPtr &shader, utility::JsonStore &uniforms) const {
-
-    const unsigned max_uniforms = shader->getNumUniforms();
-
-    for (unsigned idx = 0; idx < max_uniforms; ++idx) {
-        OCIO::GpuShaderDesc::UniformData uniform_data;
-        const char *name = shader->getUniform(idx, uniform_data);
-
-        switch (uniform_data.m_type) {
-        case OCIO::UNIFORM_DOUBLE: {
-            uniforms[name] = uniform_data.m_getDouble();
-            break;
-        }
-        case OCIO::UNIFORM_BOOL: {
-            uniforms[name] = uniform_data.m_getBool();
-            break;
-        }
-        case OCIO::UNIFORM_FLOAT3: {
-            uniforms[name] = {
-                "vec3",
-                1,
-                uniform_data.m_getFloat3()[0],
-                uniform_data.m_getFloat3()[1],
-                uniform_data.m_getFloat3()[2]};
-            break;
-        }
-        // Note, the below has not been tested and might require adjustments.
-        // This can show up if we start using more advanced dynamic grading.
-        // case OCIO::UNIFORM_VECTOR_FLOAT:{
-        //     std::vector<float> vector_float;
-        //     for (int i = 0; i < uniform_data.m_vectorFloat.m_getSize(); i++){
-        //         vector_float.push_back(uniform_data.m_vectorFloat.m_getVector()[i]);
-        //     }
-        //     pipe_data.shader_parameters_[name] = vector_float;
-        //     break;
-        // }
-        // case OCIO::UNIFORM_VECTOR_INT:{
-        //     std::vector<int> vector_int;
-        //     for (int i = 0; i < uniform_data.m_vectorInt.m_getSize(); i++){
-        //         vector_int.push_back(uniform_data.m_vectorInt.m_getVector()[i]);
-        //     }
-        //     pipe_data.shader_parameters_[name] = vector_int;
-        //     break;
-        // }
-        default:
-            spdlog::warn("OCIOEngine: Unknown uniform type for dynamic property");
-            break;
-        }
-    }
-}
-
-void OCIOEngine::update_xstudio_uniforms(
-    const DynamicCDLMap &dynamic_cdls, utility::JsonStore &uniforms) const {
-
-    for (auto &[name, dynamic_cdl] : dynamic_cdls) {
-        if (dynamic_cdl.in_use) {
-            auto gp = dynamic_cdl.grading_primary;
-
-            uniforms[name + "_offset"] = {
-                "vec3", 1, gp.m_offset.m_red, gp.m_offset.m_green, gp.m_offset.m_blue};
-            uniforms[name + "_exposure"] = {
-                "vec3",
-                1,
-                powf(2.f, gp.m_exposure.m_red),
-                powf(2.f, gp.m_exposure.m_green),
-                powf(2.f, gp.m_exposure.m_blue)};
-            uniforms[name + "_contrast"] = {
-                "vec3", 1, gp.m_contrast.m_red, gp.m_contrast.m_green, gp.m_contrast.m_blue};
-            uniforms[name + "_pivot"]       = 0.18 * std::pow(2., gp.m_pivot);
-            uniforms[name + "_clampBlack"]  = gp.m_clampBlack;
-            uniforms[name + "_clampWhite"]  = gp.m_clampWhite;
-            uniforms[name + "_saturation"]  = gp.m_saturation;
-            uniforms[name + "_localBypass"] = false;
-        }
-    }
-}
-
-void OCIOEngine::update_dynamic_parameters(
-    OCIO::ConstGpuShaderDescRcPtr &shader, const float exposure, const float gamma) const {
-
-    // Exposure property
-    if (shader->hasDynamicProperty(OCIO::DYNAMIC_PROPERTY_EXPOSURE)) {
-        OCIO::DynamicPropertyRcPtr property =
-            shader->getDynamicProperty(OCIO::DYNAMIC_PROPERTY_EXPOSURE);
-        OCIO::DynamicPropertyDoubleRcPtr exposure_prop =
-            OCIO::DynamicPropertyValue::AsDouble(property);
-        exposure_prop->setValue(exposure);
-    }
-    // Gamma property
-    if (shader->hasDynamicProperty(OCIO::DYNAMIC_PROPERTY_GAMMA)) {
-        OCIO::DynamicPropertyRcPtr property =
-            shader->getDynamicProperty(OCIO::DYNAMIC_PROPERTY_GAMMA);
-        OCIO::DynamicPropertyDoubleRcPtr gamma_prop =
-            OCIO::DynamicPropertyValue::AsDouble(property);
-        gamma_prop->setValue(gamma);
     }
 }
 

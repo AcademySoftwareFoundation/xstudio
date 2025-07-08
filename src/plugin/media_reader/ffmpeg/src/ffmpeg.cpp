@@ -617,11 +617,11 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
         const Imath::V3i yuv_offsets   = buf.shader_params().value("yuv_offsets", Imath::V3i());
         const float norm_coeff         = buf.shader_params().value("norm_coeff", 1.0f);
 
-        auto get_image_data_4bytes = [&](const int address) -> std::array<float, 4> {
+        auto get_image_data_4bytes = [&](const int address) -> std::array<uint8_t, 4> {
             if (address < 0 || address >= (int)buf.size())
-                return std::array<float, 4>({0.0f, 0.0f, 0.0f, 0.0f});
-            std::array<float, 4> r;
-            memcpy(r.data(), (buf.buffer() + address), 4 * sizeof(float));
+                return std::array<uint8_t, 4>({0, 0, 0, 0});
+            std::array<uint8_t, 4> r;
+            memcpy(r.data(), buf.buffer() + address, 4 * sizeof(uint8_t));
             return r;
         };
 
@@ -657,7 +657,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             Imath::V4f r = bgr ? Imath::V4f(bytes4[2], bytes4[1], bytes4[0], 0.0f)
                                : Imath::V4f(bytes4[0], bytes4[1], bytes4[2], 0.0f);
             r *= norm_coeff;
-            r.z = 1.0f;
+            r.w = 1.0f;
             return r;
         };
 
@@ -748,7 +748,7 @@ PixelInfo FFMpegMediaReader::ffmpeg_buffer_pixel_picker(
             r.add_code_value_info("B", rgba.z);
 
             rgba *= norm_coeff;
-            rgba.w = 0.0f;
+            rgba.w = 1.0f;
             return rgba;
         };
 

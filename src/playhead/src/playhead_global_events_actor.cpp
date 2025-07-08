@@ -251,10 +251,10 @@ void PlayheadGlobalEventsActor::init() {
             }
             return result;
         },
-        [=](ui::viewport::viewport_atom, const std::string viewport_name, caf::actor viewport) {
+        [=](ui::viewport::viewport_atom, const std::string viewport_name, const std::string window_id, caf::actor viewport) {
             monitor_it(viewport);
             // viewports register themselves by sending us this message
-            viewports_[viewport_name] = ViewportAndPlayhead({viewport, caf::actor()});
+            viewports_[viewport_name] = ViewportAndPlayhead({viewport, caf::actor(), window_id});
             mail(utility::event_atom_v, ui::viewport::viewport_atom_v, viewport_name, viewport)
                 .send(event_group_);
         },
@@ -293,26 +293,44 @@ void PlayheadGlobalEventsActor::init() {
                 }
             }
         },
-        [=](ui::viewport::active_viewport_atom) -> caf::actor {
+        [=](ui::viewport::active_viewport_atom) -> result<caf::actor> {
             // find a viewport that lives in the xstudio_main_window
             // and is visible
-            caf::scoped_actor sys(system());
-            try {
-
-                for (const auto &p : viewports_) {
-                    auto window_name = utility::request_receive<std::string>(
-                        *sys, p.second.viewport, utility::name_atom_v, true);
-                    if (window_name == "xstudio_main_window") {
-                        if (utility::request_receive<bool>(
-                                *sys,
-                                p.second.viewport,
-                                ui::viewport::viewport_visibility_atom_v)) {
-                            return p.second.viewport;
-                        }
-                    }
+            auto rp = make_response_promise<caf::actor>();
+            auto ct = std::make_shared<int>(0);
+            for (const auto &p : viewports_) {
+                if (p.second.window_id == "xstudio_main_window") {
+                    (*ct)++;
+                    auto vp = p.second.viewport;
+                    mail(ui::viewport::viewport_visibility_atom_v).request(vp, infinite).then(
+                        [=](bool visible) mutable {
+                            if (visible && rp.pending()) {
+                                rp.deliver(vp);
+                            }
+                            (*ct)--;
+                            if (!(*ct) && rp.pending()) {
+                                rp.deliver(caf::actor());
+                            }
+                        },
+                        [=](caf::error &err) mutable {
+                            (*ct)--;
+                            if (!(*ct) && rp.pending()) {
+                                rp.deliver(caf::actor());
+                            }
+                        });
                 }
-            } catch (std::exception &e) {
-                spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+            }
+            if (!(*ct)) rp.deliver(caf::actor());
+            return rp;
+        },
+        [=](ui::viewport::active_viewport_atom, bool) -> caf::actor {
+            // find ANY viewport that lives in the xstudio_main_window. This
+            // is used when a new viewport is created - it asks an already
+            // exsiting viewport for its fit mode/zoom/pan
+            for (const auto &p : viewports_) {
+                if (p.second.window_id == "xstudio_main_window") {
+                    return p.second.viewport;
+                }
             }
             return caf::actor();
         });

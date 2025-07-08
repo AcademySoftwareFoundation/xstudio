@@ -4,6 +4,10 @@
 xSTUDIO User Guide
 ###################
 
+.. warning::
+    IMPORANT: These docs are out of date and refer to the v0.X release series of xSTUDIO.
+    Updated documentation for v1.X is work-in-progress and will be available August 2025.
+
 .. image:: ./images/xstudio-logo.png
    :scale: 80 %
    :align: center

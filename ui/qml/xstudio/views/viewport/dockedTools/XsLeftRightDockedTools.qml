@@ -90,6 +90,21 @@ Item {
                 }
                 property var dynamic_widget
 
+                property var flomp: showing
+
+                states: [
+                    State {
+                        name: "showing"
+                        when: showing
+                        PropertyChanges { target: toplevel; implicitWidth: dynamic_widget ? dynamic_widget.dockWidgetSize : 0}
+                    },
+                    State {
+                        name: "hiding"
+                        when: !showing
+                        PropertyChanges { target: toplevel; implicitWidth: 0}
+                    }
+                ]
+
                 Item {
                     id: container
                     clip: true
@@ -121,20 +136,9 @@ Item {
 
                         widgetNameForMenu = widgetName
                     }
-                    states: [
-                        State {
-                            name: "showing"
-                            when: showing
-                            PropertyChanges { target: toplevel; implicitWidth: dynamic_widget ? dynamic_widget.dockWidgetSize : 0}
-                        },
-                        State {
-                            name: "hiding"
-                            when: !showing
-                            PropertyChanges { target: toplevel; implicitWidth: 0}
-                        }
-                    ]
 
                 }
+
                 XsButtonWithImageAndText{ id: groupBtn
                     iconText: "Position"
                     anchors.bottom: parent.bottom
