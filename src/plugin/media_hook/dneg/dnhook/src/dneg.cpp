@@ -406,13 +406,15 @@ class DNegMediaHook : public MediaHook {
             r["ocio_config"] = ocio_config;
 #endif
             // Detect the pipeline version of config
-            const std::string pipeline_version =
+            const std::string pipeline_version_str =
                 get_showvar_or(context["SHOW"], "DN_COLOR_PIPELINE_VERSION", "1");
-            r["pipeline_version"] = pipeline_version;
+            r["pipeline_version"] = pipeline_version_str;
 
+            int pipeline_version = 1;
             bool is_cms1_config = false;
             try {
-                is_cms1_config = std::stoi(pipeline_version) >= 2;
+                pipeline_version = std::stoi(pipeline_version_str);
+                is_cms1_config = pipeline_version >= 2;
             } catch (std::exception &) {
                 // pass
             }
@@ -570,6 +572,7 @@ class DNegMediaHook : public MediaHook {
             dynamic_cdl["neutral"] = is_cms1_config ? "$GRD_NEUTRAL" : "GRD_neutral";
             dynamic_cdl["alt"]     = is_cms1_config ? "$GRD_ALT" : "GRD_alt";
             r["dynamic_cdl"]       = dynamic_cdl;
+            r["dynamic_cdl_mode"]  = pipeline_version <= 2 ? "config" : "processor";
 
             // Enable DNEG display detection rules
             r["viewing_rules"] = true;

@@ -21,10 +21,14 @@ GridLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             color: modelData
+            border.color: ma.containsMouse ? palette.highlight : "transparent"
 
             MouseArea{
 
+                id: ma
                 anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
 
                 onClicked: {
                     currentToolColour = color

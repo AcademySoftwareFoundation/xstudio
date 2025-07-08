@@ -492,10 +492,11 @@ bool PublicPreferencesModel::updateProperty(
                         "{} Unmatched update {} {}", __PRETTY_FUNCTION__, path, change.dump(2));
                 }
             } else {
-                spdlog::warn(
-                    "{} Unmatched update {} {}", __PRETTY_FUNCTION__, path, change.dump(2));
+                // something changed in preferences that isn't in our 'public' preferences
+                // model (i.e. that shows up in the xSTUDIO Preferences Manager)                
             }
-        } else if (index.isValid()) {
+        } else {
+            
             nlohmann::json &j = indexToData(index);
             // compare to current preset.
             if (change != j) {
@@ -513,10 +514,8 @@ bool PublicPreferencesModel::updateProperty(
 
                 emit dataChanged(index, index, roles);
             }
-        } else {
-            spdlog::warn(
-                "{} Unmatched update {} {}", __PRETTY_FUNCTION__, path, change.dump(2));
         }
+
     } catch (const std::exception &err) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }

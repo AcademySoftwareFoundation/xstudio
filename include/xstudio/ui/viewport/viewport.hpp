@@ -322,11 +322,7 @@ namespace ui {
                 float devicePixelRatio_ = 1.0f;
             } state_, interact_start_state_;
 
-            struct FitModeStat {
-                FitMode fit_mode_     = {Height};
-                Imath::V3f translate_ = {0.0f, 0.0f, 0.0f};
-                float scale_          = {0.0f};
-            } previous_fit_zoom_state_;
+            FitMode previous_fit_mode_     = {Height};
 
             struct RenderData {
                 media_reader::ImageBufDisplaySetPtr images;
@@ -346,7 +342,7 @@ namespace ui {
             Imath::M44f viewport_to_canvas_;
 
             float devicePixelRatio_     = {1.0};
-            bool broadcast_fit_details_ = {true};
+            bool broadcast_fit_details_ = {false};
 
             Imath::V4f normalised_pointer_position() const;
 

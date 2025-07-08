@@ -45,6 +45,7 @@ namespace playhead {
         struct ViewportAndPlayhead {
             caf::actor viewport;
             caf::actor playhead;
+            std::string window_id;
         };
         std::map<std::string, ViewportAndPlayhead> viewports_;
         std::map<caf::actor_addr, caf::disposable> monitor_;

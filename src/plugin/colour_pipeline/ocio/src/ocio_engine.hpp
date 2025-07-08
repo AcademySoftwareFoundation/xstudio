@@ -13,16 +13,6 @@ namespace xstudio::colour_pipeline::ocio {
 by xstudio for colour management. */
 class OCIOEngine {
   public:
-    struct DynamicCDL {
-        int id{-1};
-        bool in_use{false};
-        std::string look_name;
-        std::string file_name;
-        std::string resolved_path;
-        OCIO::GradingPrimary grading_primary{OCIO::GRADING_LIN};
-    };
-    using DynamicCDLMap = std::map<std::string, DynamicCDL>;
-
     OCIOEngine() = default;
 
     /* Extend the PixelInfo object with information about colour space transform
@@ -131,21 +121,14 @@ class OCIOEngine {
     OCIO::TransformRcPtr source_transform(
         const utility::JsonStore &src_colour_mgmt_metadata,
         const bool auto_adjust_source,
-        const std::string &view) const;
-
-    OCIO::ConstConfigRcPtr display_transform(
-        const utility::JsonStore &src_colour_mgmt_metadata,
-        OCIO::ContextRcPtr context,
-        OCIO::GroupTransformRcPtr group,
-        std::string display,
-        std::string view,
-        DynamicCDLMap &dynamic_cdls) const;
+        const std::string &view,
+        const bool bypass) const;
 
     OCIO::TransformRcPtr display_transform(
-        const std::string &source,
+        const utility::JsonStore &src_colour_mgmt_metadata,
         const std::string &display,
         const std::string &view,
-        OCIO::TransformDirection direction) const;
+        const bool bypass) const;
 
     OCIO::TransformRcPtr identity_transform() const;
 
@@ -159,48 +142,15 @@ class OCIOEngine {
 
     OCIO::ConstProcessorRcPtr make_to_lin_processor(
         const utility::JsonStore &src_colour_mgmt_metadata,
-        const bool bypass,
+        const std::string &view,
         const bool auto_adjust_source,
-        const std::string &view) const;
+        const bool bypass) const;
 
     OCIO::ConstProcessorRcPtr make_display_processor(
         const utility::JsonStore &src_colour_mgmt_metadata,
-        bool is_thumbnail,
         const std::string &view,
         const std::string &display,
-        DynamicCDLMap &dynamic_cdls,
         const bool bypass = false) const;
-
-    OCIO::ConstConfigRcPtr make_dynamic_display_processor(
-        const utility::JsonStore &src_colour_mgmt_metadata,
-        const OCIO::ConstConfigRcPtr &config,
-        const OCIO::GroupTransformRcPtr &group,
-        const std::string &display,
-        const std::string &view,
-        DynamicCDLMap &dynamic_cdls) const;
-
-    OCIO::ConstGpuShaderDescRcPtr make_shader(
-        OCIO::ConstProcessorRcPtr &processor,
-        const char *function_name,
-        const char *resource_prefix) const;
-
-    std::string
-    patch_dynamic_cdls(const std::string &shader_text, DynamicCDLMap &dynamic_cdls) const;
-
-    void setup_textures(
-        OCIO::ConstGpuShaderDescRcPtr &shader_desc, ColourOperationDataPtr op_data) const;
-
-    // OCIO dynamic properties
-    void update_dynamic_parameters(
-        OCIO::ConstGpuShaderDescRcPtr &shader, const float exposure, const float gamma) const;
-
-    void update_ocio_uniforms(
-        OCIO::ConstGpuShaderDescRcPtr &shader, utility::JsonStore &uniforms) const;
-
-    void update_xstudio_uniforms(
-        const DynamicCDLMap &dynamic_cdls, utility::JsonStore &uniforms) const;
-
-    std::vector<std::string> parse_all_colourspaces(OCIO::ConstConfigRcPtr ocio_config) const;
 
   private:
     mutable std::map<std::string, OCIO::ConstConfigRcPtr> ocio_config_cache_;

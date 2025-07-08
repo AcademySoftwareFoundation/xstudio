@@ -360,12 +360,31 @@ Viewport::Viewport(
         utility::request_receive<bool>(
             *sys, group, broadcast::join_broadcast_atom_v, parent_actor_);
 
+        if (window_id_ == "xstudio_popout_window" || window_id_ == "xstudio_main_window") {
+
+            // is there an active viewport? If so, we want to sync our zoom/pan to the
+            // active viewport
+            auto current_viewport =
+                request_receive<caf::actor>(*sys, global_playhead_events_group_, active_viewport_atom_v, true);
+
+            if (current_viewport) {
+                // this message 
+                anon_mail(viewport_atom_v, parent_actor_).send(current_viewport);
+            } else {
+                set_fit_mode(FitMode::Best, false);
+            }
+                         
+        } else {
+            set_fit_mode(FitMode::Best, false);
+        }
+
         // register with the global playhead events actor so other parts of the
         // application can talk directly to us
-        anon_mail(viewport_atom_v, name(), parent_actor_).send(global_playhead_events_group_);
+        anon_mail(viewport_atom_v, name(), window_id_, parent_actor_).send(global_playhead_events_group_);
+
     }
 
-    set_fit_mode(FitMode::Best, false);
+    
     // force update our internal filter mode enum
     attribute_changed(
         filter_mode_preference_->get_role_data<utility::Uuid>(module::Attribute::UuidRole),
@@ -407,6 +426,9 @@ Viewport::Viewport(
     if (playhead_uuid_.is_null()) {
         set_compare_mode("Off");
     }
+
+    broadcast_fit_details_ = true;
+
 }
 
 Viewport::~Viewport() {
@@ -634,10 +656,8 @@ bool Viewport::process_pointer_event(PointerEvent &pointer_event) {
             if (state_.translate_.x != 0.0f || state_.translate_.y != 0.0f ||
                 state_.scale_ != 1.0f) {
                 if (state_.fit_mode_ != Free) {
-                    previous_fit_zoom_state_.fit_mode_  = state_.fit_mode_;
-                    previous_fit_zoom_state_.translate_ = old_translate;
-                    previous_fit_zoom_state_.scale_     = old_scale;
-                    state_.fit_mode_                    = Free;
+                    previous_fit_mode_   = state_.fit_mode_;
+                    state_.fit_mode_ = Free;
                     fit_mode_->set_value("Off");
                 }
             }
@@ -778,17 +798,9 @@ void Viewport::set_pan(const float x_pan, const float y_pan) {
 
 void Viewport::set_fit_mode(const FitMode md, const bool sync) {
 
-    if (state_.fit_mode_ != md &&
-        ((state_.fit_mode_ == FitMode::Free && md != FitMode::Free) ||
-         (state_.fit_mode_ != FitMode::Free && md == FitMode::Free))) {
-        // We onlt store the previous fit if we're going from 'Free' to another
-        // mode or vice-versa.
-        previous_fit_zoom_state_.fit_mode_  = state_.fit_mode_;
-        previous_fit_zoom_state_.translate_ = state_.translate_;
-        previous_fit_zoom_state_.scale_     = state_.scale_;
-    }
-
     if (md != Free) {
+
+        previous_fit_mode_  = state_.fit_mode_;
 
         // With active fit mode translate is held at 0.0,0.0 and scale
         // is held at 1.0 .. the additional matrix to apply the fit mode
@@ -824,27 +836,8 @@ void Viewport::set_mirror_mode(const MirrorMode md) {
 
 void Viewport::revert_fit_zoom_to_previous(const bool synced) {
 
-    if (previous_fit_zoom_state_.scale_ == 0.0f)
-        return; // previous state not set
-    std::swap(state_.fit_mode_, previous_fit_zoom_state_.fit_mode_);
-    std::swap(state_.translate_, previous_fit_zoom_state_.translate_);
-    std::swap(state_.scale_, previous_fit_zoom_state_.scale_);
+    set_fit_mode(previous_fit_mode_, true);
 
-    if (state_.fit_mode_ == FitMode::One2One)
-        fit_mode_->set_value("1:1");
-    else if (state_.fit_mode_ == FitMode::Best)
-        fit_mode_->set_value("Best");
-    else if (state_.fit_mode_ == FitMode::Width)
-        fit_mode_->set_value("Width");
-    else if (state_.fit_mode_ == FitMode::Height)
-        fit_mode_->set_value("Height");
-    else if (state_.fit_mode_ == FitMode::Fill)
-        fit_mode_->set_value("Fill");
-    else if (state_.fit_mode_ == FitMode::Free)
-        fit_mode_->set_value("Off", false);
-
-    update_matrix();
-    event_callback(Redraw);
 }
 
 void Viewport::switch_mirror_mode() {
@@ -1034,6 +1027,7 @@ caf::message_handler Viewport::message_handler() {
                     const Imath::V2f pan,
                     const std::string &viewport_name,
                     const std::string &window_id) {
+
                     if (viewport_name == name())
                         return;
 
@@ -1066,6 +1060,19 @@ caf::message_handler Viewport::message_handler() {
 
                         event_callback(Redraw);
                     }
+                },
+
+                [=](viewport_atom, caf::actor other_viewport) {
+                    // another (new) viewport wants to sync to our pan/zoom/fit mode
+                    anon_mail(
+                        fit_mode_atom_v,
+                        state_.fit_mode_,
+                        state_.mirror_mode_,
+                        state_.scale_,
+                        pan(),
+                        name(),
+                        window_id_)
+                        .send(other_viewport);
                 },
 
                 [=](colour_pipeline::colour_pipeline_atom) -> caf::actor {
