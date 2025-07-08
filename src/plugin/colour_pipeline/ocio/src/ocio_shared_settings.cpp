@@ -63,7 +63,7 @@ OCIOGlobalControls::OCIOGlobalControls(
     global_view_->set_role_data(
         module::Attribute::UIDataModels, nlohmann::json{"colour_pipe_attributes"});
     global_view_->set_role_data(module::Attribute::ToolTip, ui_text_.GLOBAL_VIEW_TOOLTIP);
-    global_view_->set_preference_path("/plugin/colour_pipeline/global_view");
+    global_view_->set_preference_path("/plugin/colour_pipeline/ocio/global_view_mode");
 
     // Preferred view
 
