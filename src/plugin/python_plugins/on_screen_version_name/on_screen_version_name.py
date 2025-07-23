@@ -108,7 +108,7 @@ class OnScreenVersionName(HUDPlugin):
         self.connect_to_ui()
 
         # listen for crucial events about the on-screen media changing etc.
-        self.subscribe_to_playhead_events(self.playhead_event_handler)
+        self.subscribe_to_global_playhead_events(self.playhead_event_handler)
 
     def on_screen_source_changed(self, media_source):
 

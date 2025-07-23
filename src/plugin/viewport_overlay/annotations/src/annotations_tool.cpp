@@ -177,6 +177,7 @@ AnnotationsTool::AnnotationsTool(
             }
             )",
         toggle_active_hotkey_);
+
 }
 
 AnnotationsTool::~AnnotationsTool() { colour_pipelines_.clear(); }
@@ -204,7 +205,24 @@ caf::message_handler AnnotationsTool::message_handler_extensions() {
                 fade_looping_ = false;
             }
             do_redraw();
-        });
+        }
+#ifdef ANNO_SYNC_EXTENSIONS
+        ,
+        [=](utility::event_atom, ui::viewport::annotation_atom, const std::string &data) {
+            // note Annotation::fade_all_strokes() returns false when all strokes have vanished
+            try {
+                incoming_paint_event(utility::JsonStore(nlohmann::json::parse(data)));
+            } catch (std::exception &e) {
+                spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+                std::cerr << data  << "\n";
+            }
+        },
+        [=](utility::event_atom, ui::viewport::annotation_atom, const utility::JsonStore &data) {
+            // note Annotation::fade_all_strokes() returns false when all strokes have vanished
+            incoming_paint_event(data);
+        }
+#endif
+    );
 }
 
 void AnnotationsTool::attribute_changed(const utility::Uuid &attribute_uuid, const int role) {
@@ -845,12 +863,20 @@ void AnnotationsTool::start_stroke(const Imath::V2f &point) {
             pen_opacity_->value() / 100.0);
     }
 
+#ifdef ANNO_SYNC_EXTENSIONS
+    paint_start_event(point);
+#endif
     update_stroke(point);
+
 }
 
 void AnnotationsTool::update_stroke(const Imath::V2f &point) {
 
     interaction_canvas_.update_stroke(point);
+#ifdef ANNO_SYNC_EXTENSIONS
+    paint_point_event(point);
+#endif
+
 }
 
 void AnnotationsTool::start_shape(const Imath::V2f &p) {
@@ -1039,6 +1065,10 @@ void AnnotationsTool::clear_caption_handle() {
 void AnnotationsTool::end_drawing() {
 
     interaction_canvas_.end_draw();
+
+#ifdef ANNO_SYNC_EXTENSIONS
+    paint_end_event();
+#endif
 
     if (is_laser_mode()) {
         // start up the laser fade timer loop - see the event handler

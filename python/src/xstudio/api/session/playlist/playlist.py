@@ -338,13 +338,14 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
         return import_timeline_from_file(self, path, name, before)
 
 
-    def create_timeline(self, name="Timeline", before=Uuid(), into=False):
+    def create_timeline(self, name="Timeline", before=Uuid(), into=False, with_tracks=True):
         """Create new timeline.
 
         Kwargs:
             name(str): Name of new timeline
             before(Uuid): Insert before this item.
             into(bool): Insert into this container (not used).
+            with_tracks(bool): Add default tracks.
 
         Returns:
             timeline(Uuid,Timeline): Returns container Uuid and Timeline.
@@ -352,7 +353,7 @@ class Playlist(Container, NotificationHandler, JsonStoreHandler):
         if not isinstance(before, Uuid):
             before = before.uuid
 
-        result = self.connection.request_receive(self.remote, create_timeline_atom(), name, before, into)[0]
+        result = self.connection.request_receive(self.remote, create_timeline_atom(), name, before, into, with_tracks)[0]
 
         return (result[0], Timeline(self.connection, result[1].actor, result[1].uuid))
 

@@ -2095,7 +2095,7 @@ Attribute *Module::add_attribute(
 
     } else if (value.is_number_integer()) {
 
-        throw std::runtime_error("Integer type attribute not supported.");
+        attr = static_cast<Attribute *>(add_integer_attribute(title, title, value.get<int>()));
 
     } else if (value.is_number_float()) {
 
@@ -2303,6 +2303,7 @@ void Module::register_ui_panel_qml(
         data["button_position"]   = viewport_popout_button_position;
         data["window_is_visible"] = false;
         data["hotkey_uuid"]       = toggle_hotkey_id;
+        data["module_uuid"]       = Module::uuid();
 
         try {
 

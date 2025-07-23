@@ -543,7 +543,7 @@ MenusModelData::MenusModelData(QObject *parent) : UIModelData(parent) {
 ViewsModelData::ViewsModelData(QObject *parent) : UIModelData(parent) {
 
     setRoleNames(std::vector<std::string>{
-        "view_name", "position", "view_qml_source", "singleton_qml_source"});
+        "view_name", "position", "view_qml_source", "singleton_qml_source", "module_uuid"});
     setModelDataName("view widgets");
 
     // make the rows in the model order by the 'button_position' role
@@ -593,7 +593,8 @@ PopoutWindowsData::PopoutWindowsData(QObject *parent) : UIModelData(parent) {
         "button_position",
         "window_is_visible",
         "user_data",
-        "hotkey_uuid"});
+        "hotkey_uuid",
+        "module_uuid"});
 
     setModelDataName("popout windows");
 

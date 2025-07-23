@@ -108,6 +108,7 @@ XsColourChooser           1.0 ../widgets/controls/XsColourChooser.qml
 XsFloatAttributeSlider    1.0 ../widgets/controls/XsFloatAttributeSlider.qml
 XsIntAttributeSlider      1.0 ../widgets/controls/XsIntAttributeSlider.qml
 XsBoolAttributeCheckBox   1.0 ../widgets/controls/XsBoolAttributeCheckBox.qml
+XsStringAttributeControl  1.0 ../widgets/controls/XsStringAttributeControl.qml
 
 XsIntegerAttrControl      1.0 ../widgets/controls/attr_controls/XsIntegerAttrControl.qml
 

@@ -42,7 +42,7 @@ void AnnotationSerialiser::register_serialiser(
     const unsigned char maj_ver,
     const unsigned char minor_ver,
     std::shared_ptr<AnnotationSerialiser> sptr) {
-    int fver = maj_ver << 8 + minor_ver;
+    int fver = (maj_ver << 8) + minor_ver;
     assert(sptr);
     if (serialisers.find(fver) != serialisers.end()) {
         throw std::runtime_error("Attempt to register Annotation Serialiser with a used "

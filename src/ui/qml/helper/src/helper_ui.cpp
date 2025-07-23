@@ -455,8 +455,6 @@ void Helpers::inhibitScreenSaver(const bool inhibit) const {
 QVariant Helpers::python_callback(
     QString method_name, QUuid python_plugin_uuid, const QVariant args) const {
 
-    spdlog::warn("{} Not Implemented Yet!", __PRETTY_FUNCTION__);
-    /*QString method_name, QUuid python_plugin_uuid, const QVariant args) const {
     try {
 
         utility::JsonStore packed_args(xstudio::ui::qml::qvariant_to_json(args));
@@ -477,7 +475,7 @@ QVariant Helpers::python_callback(
 
     } catch (std::exception &e) {
         spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
-    }*/
+    }
 
     return QVariant();
 }

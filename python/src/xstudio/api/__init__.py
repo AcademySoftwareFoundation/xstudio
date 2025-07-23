@@ -225,7 +225,7 @@ class API(CommonAPI):
 
     @property
     def plugin_manager(self):
-        """Global thumbnail object.
+        """Global plugin manager actor.
 
         Returns:
             PluginManager(object): If connected, `None` otherwise

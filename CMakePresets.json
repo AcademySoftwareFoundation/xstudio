@@ -7,7 +7,7 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/../vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "Qt6_DIR": "C:/Qt6/6.5.3/msvc2019_64/lib/cmake/Qt6",
+        "Qt6_DIR": "/Users/tedwaine/Qt6/6.5.3/macos/lib/cmake/Qt6",
         "CMAKE_INSTALL_PREFIX": "xstudio_install",
         "X_VCPKG_APPLOCAL_DEPS_INSTALL": "ON",
         "BUILD_DOCS": "OFF",

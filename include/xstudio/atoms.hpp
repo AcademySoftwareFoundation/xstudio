@@ -558,6 +558,8 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_plugin_atoms,  FIRST_CUSTOM_ID + (200 * 3))
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::conform, conform_tasks_atom)
     CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::media_hook, get_clip_hook_atom)
 
+    CAF_ADD_ATOM(xstudio_plugin_atoms, xstudio::plugin, plugin_events_group_atom)    
+
 CAF_END_TYPE_ID_BLOCK(xstudio_plugin_atoms)
 
 
@@ -861,6 +863,9 @@ CAF_BEGIN_TYPE_ID_BLOCK(xstudio_ui_atoms,  FIRST_CUSTOM_ID + (200 * 6))
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, turn_off_overlay_interaction_atom)
 
     CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui, set_clipboard_atom)
+
+    CAF_ADD_ATOM(xstudio_ui_atoms, xstudio::ui::viewport, annotation_atom)
+
 
 CAF_END_TYPE_ID_BLOCK(xstudio_ui_atoms)
 

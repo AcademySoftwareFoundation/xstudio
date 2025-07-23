@@ -839,7 +839,40 @@ void EmbeddedPythonActor::main_loop() {
                 const utility::Uuid &plugin_uuid,
                 const std::string method_name,
                 const utility::JsonStore &packed_args) -> result<utility::JsonStore> {
-                return make_error(xstudio_error::error, "Python Callbacks Not Implemented Yet");
+
+                py::gil_scoped_acquire gil;
+
+                try {
+                    auto g = py::globals();
+                    if (g.contains(py::str("XSTUDIO"))) {
+                        py::object xstudio_link = g["XSTUDIO"];
+                        py::object plugin = xstudio_link.attr("get_plugin_instance")(plugin_uuid);
+                        py::tuple args;
+                        if (packed_args.is_array()) {
+                            py::object json_py_module = py::module_::import("json");
+                            py::object args_list = json_py_module.attr("loads")(packed_args.dump());
+                            args = py::tuple(py::len(args_list));
+                            int j = 0;
+                            for (auto i = args_list.begin(); i != args_list.end(); ++i) {
+                                (*i).inc_ref();
+                                PyTuple_SetItem(args.ptr(), static_cast<int>(j++), (*i).ptr());
+                            }
+                        }
+                        py::object result = plugin.attr(method_name.c_str())(*args);
+                        return result.cast<utility::JsonStore>();
+                    } else { 
+                        throw std::runtime_error("Couln't import XSTUDIO module.");
+                    }
+
+                } catch (py::error_already_set &e) {
+                    e.restore();
+                    py_print(e.what());
+                    return make_error(xstudio_error::error, e.what());
+
+                } catch (const std::exception &err) {
+                    return make_error(xstudio_error::error, err.what());
+                }
+                
             },
 
             [&](exit_msg &em) {

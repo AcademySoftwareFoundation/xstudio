@@ -2161,17 +2161,14 @@ void SubPlayhead::fetch_bookmark_annotations(
                                     .request(bookmark.actor(), infinite)
                                     .then(
                                         [=](bookmark::BookmarkAndAnnotationPtr data) mutable {
+
                                             for (const auto &p : bookmark_ranges) {
                                                 if (data->detail_.uuid_ == std::get<0>(p)) {
-                                                    // set the frame ranges. Note this
-                                                    // const_cast is safe because this shared
-                                                    // ptr has not been shared with anyone yet.
-                                                    auto d = const_cast<
-                                                        bookmark::BookmarkAndAnnotation *>(
-                                                        data.get());
+                                                    // set the frame ranges.
+                                                    auto d = new bookmark::BookmarkAndAnnotation(*data);
                                                     d->start_frame_ = std::get<2>(p);
                                                     d->end_frame_   = std::get<3>(p);
-                                                    result->emplace_back(data);
+                                                    result->emplace_back(d);
                                                 }
                                             }
 

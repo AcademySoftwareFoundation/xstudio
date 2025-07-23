@@ -56,13 +56,6 @@ target_link_libraries(
 		CAF::io
 )
 
-if (APPLE)
-	# No idea how/why PYTHON_MODULE_EXTENSION is set to what it is, but on
-	# MacOS lately it will be .cpython-39-darwin.so and this means the
-	# module will not import!
-	set(PYTHON_MODULE_EXTENSION ".so")
-endif()
-
 if(INSTALL_XSTUDIO)
 	set_target_properties(
 		${PROJECT_NAME}
