@@ -206,6 +206,10 @@ namespace plugin {
 
         void remove_bookmark(const utility::Uuid &bookmark_id);
 
+        /* Get the (unique) name of the current, active viewport in xSTUDIO's
+        main UI window. */
+        std::string active_viewport_name() const;
+
         /* set playback state for playhead attached to the named viewport */
         void start_stop_playback(const std::string viewport_name, bool play);
 
@@ -228,6 +232,10 @@ namespace plugin {
         on_playhead_playing_changed callbacks. */
         void listen_to_playhead_events(const bool listen = true);
 
+        /* Access the plugin events group to broadcast events to other entities
+        that may want to interact with the plugin*/
+        caf::actor & plugin_events_group() { return plugin_events_; }
+
       private:
         // re-implement to receive callback when the on-screen media changes. To
         void on_screen_media_changed(caf::actor media) override;
@@ -247,6 +255,7 @@ namespace plugin {
         caf::actor_addr playhead_media_events_group_;
         caf::actor bookmark_manager_;
         caf::actor playhead_events_actor_;
+        caf::actor plugin_events_;
         bool joined_playhead_events_ = {false};
         std::map<std::string, utility::Uuid> last_source_uuid_;
 

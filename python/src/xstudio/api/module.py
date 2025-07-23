@@ -332,10 +332,10 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
         """
         pass
 
-    def subscribe_to_playhead_events(self, playhead_event_callback):
+    def subscribe_to_global_playhead_events(self, playhead_event_callback):
         """Set the callback function for receiving events specific to
-        the playhead and subscrive to the playheads events broadcast
-        group.
+        changes in the active playhead, such as which playhead is driving
+        which viewport and what viewports are active
 
         Args:
             playhead_event_callback(Callable): Call back function
@@ -350,9 +350,9 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             )
 
     def subscribe_to_event_group(self, event_source, callback_method):
-        """Set the callback function for receiving events specific to
-        the playhead and subscrive to the playheads events broadcast
-        group.
+        """Set-up a subscription to the event group of some other actor 
+        component of xSTUDIO. Events broadcast by the event source will be
+        passed you the provided callback method
 
         Args:
             event_source(ActorConnection): The actor whose event group
@@ -360,8 +360,11 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
             callback_method(Callable): The function which will be called
             with event. Must take a single argument (a tuple of the event
             data)
+        
+        Returns:
+            uuid (callback id): A uuid for the subscription. Pass to
+            unsubscribe_from_event_group to cancel an event subscription
         """
-
         event_group = self.connection.request_receive(
             event_source.remote,
             get_event_group_atom())[0]
@@ -369,9 +372,16 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
         if not event_group:
             raise Exception("Actor has no event group.")
 
-        self.connection.link.add_message_callback(
+        return self.connection.link.add_message_callback(
             event_group, callback_method
             )
+
+    def unsubscribe_from_event_group(self, uuid):
+        """Unsubscribe from an event group.
+        Args:
+            uuid(Uuid): The id of the subscription
+        """
+        self.connection.link.remove_message_callback(uuid)
 
     def menu_item_activated(self, menu_item_data, user_data):
         pass
@@ -565,9 +575,16 @@ class ModuleBase(ActorConnection, metaclass=ModuleMeta):
                 module_remove_menu_item_atom(),
                 menu_uuid)
 
+    def cleanup(self):
+        """Called on python connection shutdown. Reimplement
+        to enact any necessary cleanup like closing/joining threads
+        """
+        pass
+
     def message_handler(self, message_content):
 
         try:
+
             atom = message_content[0] if len(message_content) else None
 
             # message handler for attribute change

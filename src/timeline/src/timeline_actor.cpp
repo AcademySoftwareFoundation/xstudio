@@ -36,16 +36,7 @@ using namespace xstudio::timeline;
 namespace {
 
 auto __sysclock_now() {
-#ifdef _MSC_VER
-    /*auto tp = sysclock::now();
-    return
-    std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()).count();*/
     return sysclock::now();
-#elif defined(__linux__)
-    return sysclock::now();
-#elif defined(__apple__)
-    return utility::clock::now();
-#endif
 }
 
 const static auto COLOUR_JPOINTER  = nlohmann::json::json_pointer("/xstudio/colour");
@@ -543,7 +534,7 @@ void process_item(
             }
 
             // active_path maybe relative..
-            if (not active_path.empty() and not caf::make_uri(active_path)) {
+            if (not active_path.empty() and not caf::make_uri(active_path) and active_path.find("http") != 0) {
                 // not uri....
                 // assume relative ?
                 auto tmp       = uri_to_posix_path(path);
@@ -3458,8 +3449,13 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
                                     *sys, msua.actor(), name_atom_v);
 
                                 if (mr.container()) {
-                                    auto extref = new otio::ExternalReference(
-                                        "file://" + uri_to_posix_path(mr.uri()));
+
+                                    auto p = to_string(mr.uri());
+                                    if (p.find("http") == std::string::npos) {
+                                        p = "file://" + uri_to_posix_path(mr.uri());
+                                    }
+                                    auto extref = new otio::ExternalReference(p);
+
                                     if (citem.available_range()) {
                                         extref->set_available_range(otio::TimeRange(
                                             otio::RationalTime::from_frames(
@@ -3474,6 +3470,7 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
                                     extref->set_name(name);
                                     clip->set_media_reference(extref);
                                 } else {
+
                                     auto path = uri_to_posix_path(mr.uri());
                                     const static std::regex path_re(
                                         R"(^(.+?\/)([^/]+\.)\{:(\d+)d\}(\..+?)$)");
@@ -3580,7 +3577,7 @@ void TimelineActor::export_otio_as_string(caf::typed_response_promise<std::strin
                 ostack->append_child(to_composition(track));
         }
 
-        const auto result = otimeline->to_json_string(&err);
+        const auto result = otimeline->to_json_string(&err, nullptr, 0);
 
         if (not otio::is_error(err))
             rp.deliver(result);

@@ -121,7 +121,7 @@ namespace ui {
                 float softness,
                 float opacity);
             void start_erase_stroke(float thickness);
-            void update_stroke(const Imath::V2f &pt);
+            void update_stroke(const Imath::V2f &pt, const float size = -1.0f);
             // Delete the strokes when reaching 0 opacity.
             bool fade_all_strokes(float opacity);
 

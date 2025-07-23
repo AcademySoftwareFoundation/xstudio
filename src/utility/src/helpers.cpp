@@ -310,8 +310,8 @@ static std::mutex mmmm;
 
 std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
     if (uri.path().data()) {
-        // spdlog::warn("{} {}",uri.path().data(), uri_decode(uri.path().data()));
         std::string path = uri_decode(uri.path().data());
+        //spdlog::warn("{} {}",uri.path().data(), path);
 #ifdef __linux__
         if (not path.empty() and path[0] != '/' and not uri.authority().empty()) {
             path = "/" + path;
@@ -337,6 +337,9 @@ std::string xstudio::utility::forward_remap_file_path(const std::string path) {
     auto _path = path;
     for (const auto &remap_regex : s_forward_remap_regex) {
         _path = std::regex_replace(_path, remap_regex.first, remap_regex.second);
+        /*if (_path != path) {
+            std::cerr << "Path remap " << _path << " " << path << "\n";
+        }*/
     }
     return _path;
 }
@@ -468,6 +471,7 @@ xstudio::utility::uri_framelist_as_sequence(const caf::uri &uri, const FrameList
 
 caf::uri xstudio::utility::parse_cli_posix_path(
     const std::string &path, FrameList &frame_list, const bool scan) {
+
     caf::uri uri;
     std::cmatch m;
     const std::regex xstudio_movie_spec(R"(^(.*)=([-0-9x,]+)$)", std::regex::optimize);
@@ -488,7 +492,11 @@ caf::uri xstudio::utility::parse_cli_posix_path(
     const std::string abspath = fs::absolute(path);
 #endif
 
-    if (std::regex_match(abspath.c_str(), m, xstudio_prefix_spec)) {
+
+    if (path.find("http") == 0 && caf::make_uri(path)) {
+        frame_list.clear();
+        uri = *caf::make_uri(path);
+    } else if (std::regex_match(abspath.c_str(), m, xstudio_prefix_spec)) {
         uri        = posix_path_to_uri(m[1].str() + m[3].str());
         frame_list = FrameList(m[2].str());
     } else if (std::regex_match(abspath.c_str(), m, xstudio_prefix_shake)) {

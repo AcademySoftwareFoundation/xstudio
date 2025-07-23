@@ -301,6 +301,7 @@ namespace timeline {
         }
 
         void resolve_and_request_clip_frames(
+            const timebase::flicks timeline_start,
             caf::actor &helper,
             std::vector<bool> &filled_frames,
             const timebase::flicks ref_time,

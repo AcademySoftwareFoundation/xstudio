@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from xstudio.core import detail_atom, path_atom, add_path_atom, update_atom, enable_atom, get_resident_atom
+from xstudio.core import spawn_plugin_atom
 from xstudio.api.auxiliary import ActorConnection
 
 class PluginManager(ActorConnection):
@@ -82,3 +83,15 @@ class PluginManager(ActorConnection):
             plugins(list[[uuid,actor]]): Resident plugins.
         """
         return self.connection.request_receive(self.remote, get_resident_atom())[0]
+
+    def get_plugin_instance(self, plugin_uuid):
+        """Get a plugin instance. If plugin is 'resident' the singleton instance
+        will be returned. Otherwise a new spawn instance will be returned.
+
+        Args:
+            plugin_uuid(Uuid): Plugin id
+
+        Returns:
+            plugin(actor): The plugin
+        """
+        return self.connection.request_receive(self.remote, spawn_plugin_atom(), plugin_uuid)[0]

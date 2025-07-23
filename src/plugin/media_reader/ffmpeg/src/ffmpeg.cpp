@@ -325,6 +325,11 @@ std::string uri_decode(const std::string &eString) {
 
 std::string uri_convert(const caf::uri &uri) {
 
+    const auto uri_string = to_string(uri);
+    if (uri_string.find("http") == 0) {
+        return utility::forward_remap_file_path(uri_string);
+    }
+
     // Note, turning off non-file uri support for now
     return utility::uri_to_posix_path(uri);
 

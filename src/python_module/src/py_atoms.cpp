@@ -31,6 +31,7 @@ using namespace xstudio::media_reader;
 using namespace xstudio::module;
 using namespace xstudio::playhead;
 using namespace xstudio::playlist;
+using namespace xstudio::plugin;
 using namespace xstudio::plugin_manager;
 using namespace xstudio::session;
 using namespace xstudio::shotgun_client;
@@ -378,6 +379,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::viewport, viewport_atom);
     ADD_ATOM(xstudio::ui::viewport, hud_settings_atom);
     ADD_ATOM(xstudio::ui::viewport, viewport_layout_atom);
+    ADD_ATOM(xstudio::ui::viewport, annotation_atom);
 
     ADD_ATOM(xstudio::ui, show_message_box_atom);
 
@@ -385,6 +387,10 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::keypress_monitor, hotkey_event_atom);
 
     ADD_ATOM(xstudio::ui::model_data, menu_node_activated_atom);
+    ADD_ATOM(xstudio::ui::model_data, insert_rows_atom);
+    
     ADD_ATOM(xstudio::ui, set_clipboard_atom);
+
+    ADD_ATOM(xstudio::plugin, plugin_events_group_atom);
 }
 } // namespace caf::python

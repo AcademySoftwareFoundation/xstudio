@@ -147,5 +147,22 @@ XsWindow {
 
     }
 
+    // If we have a python plugin that provides a 'panel' interface, this function will 
+    // allow us to call back to a method on the python plugin class with the given
+    // name from QML. Up to 10 arguments may be passed back
+    function python_callback(python_func_name, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10) {
+
+        var v = [_1, _2, _3, _4, _5, _6, _7, _8, _9, _10]
+        while (v.length) {
+            if (v[v.length-1] == null || v[v.length-1] == undefined) {
+                v.pop()
+            } else {
+                break;
+            }
+        }
+        return helpers.python_callback(python_func_name, module_uuid, v)
+
+    }
+
 }
 

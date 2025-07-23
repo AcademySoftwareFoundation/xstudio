@@ -71,11 +71,14 @@ void Canvas::start_erase_stroke(float thickness) {
     changed();
 }
 
-void Canvas::update_stroke(const Imath::V2f &pt) {
+void Canvas::update_stroke(const Imath::V2f &pt, const float size) {
 
     std::unique_lock l(mutex_);
     if (has_current_item_nolock<Stroke>()) {
         current_item<Stroke>().add_point(pt);
+        if (size != -1.0f) {
+            current_item<Stroke>().thickness = size;
+        }
     }
     changed();
 }

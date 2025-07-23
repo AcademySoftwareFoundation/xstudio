@@ -5,6 +5,7 @@ from xstudio.core import JsonStore, Uuid, AttributeRole
 from xstudio.api.auxiliary.helpers import get_event_group
 from xstudio.core import spawn_plugin_base_atom, viewport_playhead_atom
 from xstudio.core import get_global_playhead_events_atom, show_message_box_atom
+from xstudio.core import plugin_events_group_atom, get_event_group_atom
 import sys
 import os
 import traceback
@@ -21,9 +22,10 @@ class PluginBase(ModuleBase):
     def __init__(
             self,
             connection,
-            name,
+            name="GenericPlugin",
             base_class_name="StandardPlugin",
-            qml_folder=""
+            qml_folder="",
+            actor=None
             ):
         """Create python plugin base class.
 
@@ -31,16 +33,15 @@ class PluginBase(ModuleBase):
             name(str): Name of pytho plugin
             base_class_name(str): Name of underlying C++ plugin class. This
         """
-        a = connection.request_receive(
-            connection.api.plugin_manager.remote,
-            spawn_plugin_base_atom(),
-            name,
-            JsonStore(),
-            base_class_name)
+        if not actor:
+            actor = connection.request_receive(
+                connection.api.plugin_manager.remote,
+                spawn_plugin_base_atom(),
+                name,
+                JsonStore(),
+                base_class_name)[0]
 
-        remote = a[0]
-
-        ModuleBase.__init__(self, connection, remote)
+        ModuleBase.__init__(self, connection, actor)
 
         self.name = name
         self.qml_folder = qml_folder
@@ -50,6 +51,7 @@ class PluginBase(ModuleBase):
             )
         )
         self.qml_item_attrs = {}
+        self.playhead_subscriptions = []
 
         self.user_attr_handler_ = None
 
@@ -198,3 +200,169 @@ class PluginBase(ModuleBase):
             # now reset the callback data so if the callback is called again with
             # the same data as before we still get an 'attribute_changed' signal
             attribute.set_role_data("callback_data", {})
+
+    def get_plugin(
+        self,
+        plugin_name
+        ):
+        """Get an/the instance of the named xSTUDIO plugin. If the plugin is 
+        'resident' then the singleton instance of the plugin will be returned,
+        otherwise a new spawning of the plugin will be returned.
+
+        This can be useful to get to another plugin (e.g. "AnnotationsPlugin")
+        to query its attributes, set its attributes and do other interactions
+        with it. See api.plugin_manager for more ways to query plugins.
+
+        Args:
+            plugin_name(str): The name of the plugin.
+
+        Returns:
+            plugin(PluginBase/actor): Returns a PluginBase actor wrapper if the
+            plugin itself is derived from the StandardPlugin base class.
+            Otherwise an actor handle is returned
+        """
+
+        for plugin_detail in self.connection.api.plugin_manager.plugin_detail:
+            if plugin_detail.name() == plugin_name:
+                plugin_actor = self.connection.api.plugin_manager.get_plugin_instance(plugin_detail.uuid())
+                return PluginBase(connection=self.connection, actor=plugin_actor)
+        
+        raise RuntimeError("No plugin found with name \"{}\"".format(plugin_name))
+
+    def subscribe_to_playhead_events(self, playhead, callback_method, auto_cancel=True):
+        """Set-up a subscription to the events of an xstudio playhead. Can
+        automatically cancel previous subscription(s)
+
+        Args:
+            plugin(actor): The playhead that we want to watch
+            callback_method(Callable): The function which will be called
+            with playhead events. Must take a single argument (a tuple of the event
+            data)
+        
+        Returns:
+            uuid (callback id): A uuid for the subscription. Pass to
+            unsubscribe_from_event_group to cancel an event subscription
+        """
+        event_group = self.connection.request_receive(
+            playhead,
+            get_event_group_atom())[0]
+
+        if not event_group:
+            raise Exception("Actor has no event group.")
+
+        if auto_cancel and self.playhead_subscriptions:
+            for sub in self.playhead_subscriptions:
+                self.unsubscribe_from_event_group(sub)
+            self.playhead_subscriptions = []
+
+        subscription_id = self.connection.link.add_message_callback(
+            event_group, callback_method
+            )
+
+        self.playhead_subscriptions.append(subscription_id)
+
+        return subscription_id
+
+    def subscribe_to_plugin_events(self, plugin, callback_method):
+        """Set-up a subscription to the events of an xstudio plugin.
+
+        Args:
+            plugin(PluginBase): The plugin whose event group (plugin events)
+            we want to join.
+            callback_method(Callable): The function which will be called
+            with event. Must take a single argument (a tuple of the event
+            data)
+        
+        Returns:
+            uuid (callback id): A uuid for the subscription. Pass to
+            unsubscribe_from_event_group to cancel an event subscription
+        """
+        event_group = self.connection.request_receive(
+            plugin.remote,
+            plugin_events_group_atom())[0]
+
+        if not event_group:
+            raise Exception("Actor has no event group.")
+
+        return self.connection.link.add_message_callback(
+            event_group, callback_method
+            )
+
+    def register_ui_panel_qml(self,
+        panel_name,
+        qml_code,
+        position_in_menu,
+        viewport_popout_button_icon="",
+        viewport_popout_button_position=-1.0,
+        toggle_hotkey_id=Uuid()):
+        """Register a GUI interface as a panel and/or a floating window with a
+        button in the viewport button shelf.
+
+        Args:
+            panel_name(str): The name of the panel (as displayed in the panels menu list)
+            qml_code(str): The qml code for the contents of the panel
+            position_in_menu(float): Where the panel entry appears in the panel menu
+            viewport_popout_button_icon(str): QML resource string for the icon, if a viewport shelf button is desired
+            viewport_popout_button_position(float): Position of button in shelf
+            toggle_hotkey_id(Uuid): Optional uuid for a hotkey that shows/hides the floating panel
+        Returns:
+            None
+        """
+
+        from xstudio.core import get_actor_from_registry_atom, insert_rows_atom
+        import json
+
+        if self.qml_folder:
+            uri = pathlib.Path(
+                "{0}/{1}".format(
+                    self.plugin_path,
+                    self.qml_folder)).as_uri()
+            qml_code =\
+                "import \"{0}\"\n{1}".format(
+                    uri,
+                    qml_code
+                )
+
+        data = {}
+        data["view_name"] = panel_name
+        data["view_qml_source"] = qml_code
+        data["position"]  = position_in_menu
+
+        central_models_data_actor = self.connection.request_receive(
+            self.connection.remote(),
+            get_actor_from_registry_atom(),
+            "GLOBALUIMODELDATA")[0]
+
+        j = JsonStore()
+        j.parse_string(json.dumps(data))
+
+        self.connection.send(
+            central_models_data_actor,
+            insert_rows_atom(),
+            "view widgets",
+            "",
+            0,
+            1,
+            j)
+
+        if viewport_popout_button_icon and viewport_popout_button_position != -1.0:
+
+            data = {}
+            data["view_name"]         = panel_name
+            data["icon_path"]         = viewport_popout_button_icon
+            data["view_qml_source"]   = qml_code
+            data["button_position"]   = viewport_popout_button_position
+            data["window_is_visible"] = False
+            data["hotkey_uuid"]       = str(toggle_hotkey_id)
+            data["module_uuid"]       = str(self.uuid)
+
+            j.parse_string(json.dumps(data))
+
+            self.connection.send(
+                central_models_data_actor,
+                insert_rows_atom(),
+                "popout windows",
+                "",
+                0,
+                1,
+                j)

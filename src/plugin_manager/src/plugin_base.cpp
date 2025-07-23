@@ -17,6 +17,9 @@ StandardPlugin::StandardPlugin(
 
     join_studio_events();
 
+    plugin_events_ = spawn<broadcast::BroadcastActor>(this);
+    link_to(plugin_events_);
+
     set_default_handler(
         [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
             spdlog::warn(
@@ -38,6 +41,10 @@ StandardPlugin::StandardPlugin(
         });
 
     message_handler_ = {
+
+        [=](plugin::plugin_events_group_atom) -> caf::actor {
+            return plugin_events_;
+        },
 
         [=](utility::event_atom, session::session_atom, caf::actor session) {
             session_changed(session);
@@ -149,7 +156,12 @@ StandardPlugin::StandardPlugin(
         }};
 }
 
-void StandardPlugin::on_exit() { playhead_events_actor_ = caf::actor(); }
+void StandardPlugin::on_exit() { 
+
+    parent_actor_exiting();
+    playhead_events_actor_ = caf::actor(); 
+
+}
 
 void StandardPlugin::on_screen_media_changed(caf::actor media) {
 
@@ -321,6 +333,29 @@ void StandardPlugin::listen_to_playhead_events(const bool listen) {
     }
 }
 
+std::string StandardPlugin::active_viewport_name() const {
+
+    caf::scoped_actor sys(system());
+    try {
+
+        caf::actor vp = utility::request_receive<caf::actor>(
+            *sys,
+            playhead_events_actor_,
+            ui::viewport::active_viewport_atom_v);
+
+        if (!vp) return std::string();
+
+        return utility::request_receive<std::string>(
+            *sys,
+            vp,
+            utility::name_atom_v);
+
+    } catch (std::exception & e) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
+    return std::string();
+
+}
 
 void StandardPlugin::start_stop_playback(const std::string viewport_name, bool play) {
 

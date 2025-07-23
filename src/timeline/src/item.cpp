@@ -398,6 +398,7 @@ Item::find_all_items(const ItemType item_type, const ItemType track_type) {
 }
 
 void Item::resolve_and_request_clip_frames(
+    const timebase::flicks timeline_start,
     caf::actor &helper,
     std::vector<bool> &filled_frames,
     const timebase::flicks ref_time,
@@ -441,6 +442,7 @@ void Item::resolve_and_request_clip_frames(
         // pass to stack
         if (not empty()) {
             front().resolve_and_request_clip_frames(
+                timeline_start,
                 helper,
                 filled_frames,
                 ref_time,
@@ -461,6 +463,7 @@ void Item::resolve_and_request_clip_frames(
             if (it.transparent() or it.item_type() != track_type)
                 continue;
             it.resolve_and_request_clip_frames(
+                timeline_start,
                 helper,
                 filled_frames,
                 ref_time + trimmed_start(),
@@ -479,7 +482,7 @@ void Item::resolve_and_request_clip_frames(
         auto ts = ref_time;
         for (const auto &it : *this) {
             it.resolve_and_request_clip_frames(
-                helper, filled_frames, ts, timeline_frame_rate, mt, focus, only_if_focussed);
+                timeline_start, helper, filled_frames, ts, timeline_frame_rate, mt, focus, only_if_focussed);
             ts += it.trimmed_duration();
         }
     } break;
@@ -489,13 +492,23 @@ void Item::resolve_and_request_clip_frames(
         if (!only_if_focussed or focus.count(uuid())) {
 
             // the frame range of the clip in the timeline
-            int64_t timeline_in_frame  = ref_time.count() / timeline_frame_rate.count();
+            int64_t timeline_in_frame  = (ref_time - timeline_start).count() / timeline_frame_rate.count();
             int64_t timeline_out_frame = std::min(
-                int64_t((ref_time + trimmed_duration()).count() / timeline_frame_rate.count()),
+                int64_t((ref_time - timeline_start + trimmed_duration()).count() / timeline_frame_rate.count()),
                 int64_t(filled_frames.size()));
 
             // (clip local) timestamp of the first clip frame
             auto clip_local_frame_time = trimmed_start().to_flicks();
+
+            /*spdlog::warn("IT_CLIP {} {} {} {} {} {} {}", 
+                name(),
+                timeline_in_frame,
+                timeline_out_frame,
+                timebase::to_seconds(timeline_frame_rate),
+                timebase::to_seconds(trimmed_duration()),
+                timebase::to_seconds(ref_time),
+                int64_t(filled_frames.size())
+            );*/
 
             // vector of timestamps in clip time space for which we want FrameIDs
             std::vector<timebase::flicks> clip_timepoints;
@@ -1829,6 +1842,7 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
         // lower down in the stack). We do this by resolving frames for focussed
         // items first
         resolve_and_request_clip_frames(
+            available_range()->start().to_flicks(),
             helper,
             resolved_frames,
             start_frame * rate(),
@@ -1840,6 +1854,7 @@ caf::typed_response_promise<media::FrameTimeMapPtr> Item::get_all_frame_IDs(
     }
 
     resolve_and_request_clip_frames(
+        available_range()->start().to_flicks(),
         helper,
         resolved_frames,
         start_frame * rate(),

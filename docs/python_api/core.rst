@@ -101,12 +101,6 @@ Uuid
    :members:
    :undoc-members:
 
-UuidVec
-=======
-.. autoclass:: xstudio.core.__pybind_xstudio.UuidVec
-   :members:
-   :undoc-members:
-
 absolute_receive_timeout
 ========================
 .. autoclass:: xstudio.core.__pybind_xstudio.absolute_receive_timeout

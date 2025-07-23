@@ -502,6 +502,8 @@ class Connection(object):
 
     def disconnect(self):
         """Disconnect from xstudio"""
+        for plugin_name in self.plugins:
+            self.plugins[plugin_name].cleanup()
         self.app_type = None
         self.app_version = None
         self._api = None
@@ -581,6 +583,7 @@ class Connection(object):
         Args:
             path (str): Path to a directory on filesystem
         """
+
         if not os.path.isdir(path):
             # silently ignore invalid paths, this is accepted behaviour for
             # search path mechanisms
@@ -614,3 +617,12 @@ class Connection(object):
         except Exception as e:
             print ("Failed to load plugin {0} from location {1} with error {2}".format(plugin_name, path, e))
             print (traceback.format_exc())
+
+    def get_plugin_instance(self, plugin_uuid):
+        """Used internally to enable callbacks between QML UI code and
+        backend python plugins"""
+
+        for pn in self.plugins:
+            if self.plugins[pn].uuid == plugin_uuid:
+                return self.plugins[pn]
+        raise Exception("Plugin with uuid {} was not found".format(plugin_uuid))

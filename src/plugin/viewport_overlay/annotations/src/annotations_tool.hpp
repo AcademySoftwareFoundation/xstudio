@@ -103,7 +103,15 @@ namespace ui {
             caf::actor get_colour_pipeline_actor(const std::string &viewport_name);
             void update_colour_picker_info(const ui::PointerEvent &e);
 
+#ifdef ANNO_SYNC_EXTENSIONS
+            void paint_start_event(const Imath::V2f &point);
+            void paint_point_event(const Imath::V2f &point);
+            void paint_end_event();
+            void incoming_paint_event(const utility::JsonStore &event_data);
+#endif
+
           private:
+
             enum Tool { Draw, Laser, Square, Circle, Arrow, Line, Text, Erase, Dropper, None };
             enum DisplayMode { OnlyWhenPaused, Always };
 
@@ -160,6 +168,7 @@ namespace ui {
             utility::Uuid redo_hotkey_;
             utility::Uuid clear_hotkey_;
             utility::Uuid colour_picker_hotkey_;
+            utility::Uuid paint_stroke_id_;
 
             // Annotations
             utility::Uuid current_bookmark_uuid_;
@@ -193,6 +202,7 @@ namespace ui {
             std::map<std::string, media_reader::ImageBufDisplaySetPtr> viewport_current_images_;
             media_reader::ImageBufPtr image_being_annotated_;
             std::map<std::string, caf::actor> colour_pipelines_;
+
         };
 
     } // namespace viewport

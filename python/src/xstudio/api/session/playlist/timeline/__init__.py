@@ -2,6 +2,7 @@
 from xstudio.core import UuidActor, Uuid, actor, item_atom, MediaType, ItemType, enable_atom, item_flag_atom
 from xstudio.core import active_range_atom, available_range_atom, undo_atom, redo_atom, history_atom, add_media_atom, item_name_atom
 from xstudio.core import URI, selection_actor_atom, item_selection_atom, item_type_atom, get_media_atom, save_atom, export_atom
+from xstudio.core import get_playlist_atom
 from xstudio.core import import_atom, erase_item_atom, get_playhead_atom, FrameRate, FrameRateDuration
 from xstudio.api.session.container import Container
 from xstudio.api.intrinsic import History
@@ -383,6 +384,14 @@ class Timeline(Item, NotificationHandler, JsonStoreHandler):
             otio_body,
             clear)[0]
 
+    def to_otio_string(self):
+        """Express the entire timeline as OTIO data
+
+        Returns:
+            otio(str): The OTIO data
+        """
+        return self.connection.request_receive(self.remote, export_atom())[0]
+
     def export_otio(self, path, schema=""):
         """Export timeline via OpenTimelineIO. File path extension infers the
         format of the exported file.
@@ -452,6 +461,18 @@ class Timeline(Item, NotificationHandler, JsonStoreHandler):
         """
         result =  self.connection.request_receive(self.remote, selection_actor_atom())[0]
         return PlayheadSelection(self.connection, result)
+
+    @property
+    def parent_playlist(self):
+        """Get the parent playlist of the timeline
+
+        Returns:
+            source(PlayheadList): Currently playing this.
+        """
+        from xstudio.api.session.playlist import Playlist
+        result =  self.connection.request_receive(self.remote, get_playlist_atom())[0]
+        return Playlist(self.connection, result)
+
 
     # @property
     # def audio_tracks(self):

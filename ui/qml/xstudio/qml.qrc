@@ -175,6 +175,7 @@
 	    <file>widgets/controls/XsFloatAttributeSlider.qml</file>
 	    <file>widgets/controls/XsIntAttributeSlider.qml</file>
 	    <file>widgets/controls/XsBoolAttributeCheckBox.qml</file>
+	    <file>widgets/controls/XsStringAttributeControl.qml</file>
 
 	    <file>widgets/controls/attr_controls/XsIntegerAttrControl.qml</file>
 

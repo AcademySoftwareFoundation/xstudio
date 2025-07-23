@@ -180,6 +180,10 @@ caf::message_handler SubsetActor::message_handler() {
             return caf::actor_cast<caf::actor>(playlist_);
         },
 
+        [=](session::get_playlist_atom) -> caf::actor {
+            return caf::actor_cast<caf::actor>(playlist_);
+        },
+
         // set source (playlist), triggers relinking
         [=](playhead::source_atom, caf::actor playlist, const UuidUuidMap &swap) -> bool {
             for (const auto &i : actors_) {

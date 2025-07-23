@@ -9,6 +9,8 @@ XsViewerToolbarButtonBase {
 
     showBorder: mouseArea.containsMouse
 
+    valueText: value ? "On" : "Off"
+
     MouseArea{
 
         id: mouseArea
