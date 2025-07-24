@@ -331,10 +331,23 @@ ApplicationWindow {
         }
     }
 
+    XsPreference {
+        id: stopPlaybackOnMinimise
+        path: "/ui/qml/stop_playing_when_not_visible"
+    }
+
     // pause playback on minimise
     onVisibilityChanged: (visibility)=> {
-        if(visibility == 3) { // QWindow::Minimized
-            sessionData.current_playhead.playing = false
+        if(visibility == 3) {
+            if (stopPlaybackOnMinimise.value) {
+                sessionData.current_playhead.playing = false
+            }
+            // we must still disable screensaver inhibition if xstudio goes 
+            // offscreen otherwise security lock-out on user inactivity won't 
+            // happen while xstudio continues to play in the background
+            helpers.inhibitScreenSaver(false)
+        } else if (sessionData.current_playhead.playing) {
+            helpers.inhibitScreenSaver()
         }
     }
 

@@ -126,6 +126,16 @@
 				"context": ["QML_UI"],
 				"category": "Playback"
 			},
+			"stop_playing_when_not_visible": {
+				"path": "/ui/qml/stop_playing_when_not_visible",
+				"default_value": true,
+				"description": "When xSTUDIO goes offscreen (either minimised or desktop changes) playback will automatically stop if this option is selected.",
+				"value": true,
+				"datatype": "bool",
+				"context": ["QML_UI"],
+				"category": "Playback",
+				"display_name": "Stop Playback when xSTUDIO is Hidden"
+			},
 			"view_top_toolbar": {
 				"path": "/ui/qml/view_top_toolbar",
 				"default_value": true,

@@ -4,81 +4,12 @@ from xstudio.core import colour_pipeline_atom, get_actor_from_registry_atom
 from xstudio.core import viewport_playhead_atom, quickview_media_atom
 from xstudio.core import UuidActorVec, UuidActor, viewport_atom
 from xstudio.core import get_global_playhead_events_atom, set_clipboard_atom
+from xstudio.core import active_viewport_atom, name_atom
 from xstudio.api.session import Session, Container
 from xstudio.api.session.playhead import Playhead
 from xstudio.api.module import ModuleBase
 from xstudio.api.auxiliary import ActorConnection
-
-class Viewport(ModuleBase):
-    """Viewport object, represents a viewport in the UI or offscreen."""
-
-    def __init__(self, connection, viewport_name):
-        """Create Viewport object.
-
-        Args:
-            connection(Connection): Connection object
-            viewport_name(str): Name of viewport
-
-        Kwargs:
-            uuid(Uuid): Uuid of remote actor.
-        """
-        gphev = connection.request_receive(
-                connection.remote(),
-                get_global_playhead_events_atom())[0]
-
-        remote = connection.request_receive(
-                gphev,
-                viewport_atom(),
-                viewport_name
-                )[0]
-
-        ModuleBase.__init__(
-            self,
-            connection,
-            remote
-            )
-
-    @property
-    def playhead(self):
-        """Access the Playhead object supplying images to the viewport
-        """
-        return Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])
-
-    @playhead.setter
-    def set_playhead(self, playhead):
-        """Set the playhead that is delivering frames to the viewport, i.e.
-        the active playhead.
-
-        Args:
-            playhead(Playhead): The playhead."""
-
-        self.connection.request_receive(self.remote, viewport_playhead_atom(), playhead.remote)
-
-    def quickview(self, media_items, compare_mode="Off", position=(100,100), size=(1280,720)):
-        """Connect this playhead to the viewport.
-
-        Args:
-            media_items(list(Media)): A list of Media objects to be shown in quickview
-                                windows
-            compare_mode(str): Remote actor object
-            position(tuple(int,int)): X/Y Position of new window (default=(100,100))
-            size(tuple(int,int)): X/Y Size of new window (default=(1280,720))
-
-        """
-
-        media_actors = UuidActorVec()
-        for m in media_items:
-            media_actors.push_back(UuidActor(m.uuid, m.remote))
-
-        self.connection.request_receive(
-            self.remote,
-            quickview_media_atom(),
-            media_actors,
-            compare_mode,
-            position[0],
-            position[1],
-            size[0],
-            size[1])
+from xstudio.api.intrinsic import Viewport
 
 class App(Container):
     """App access. """
@@ -117,6 +48,40 @@ class App(Container):
         Returns:
             viewport(ModuleBase): Viewport module."""
         return Viewport(self.connection, name)
+
+    def viewport_names(self):
+        """Get a list of the names of viewport instances that exist in the
+        application. The viewport name can be used to access the viewport 
+        via the 'viewport' method on this App object.
+        
+        Returns:
+            list(str): A list of viewport names"""
+        gphev = self.connection.request_receive(
+                self.connection.remote(),
+                get_global_playhead_events_atom())[0]
+
+        viewports = self.connection.request_receive(
+                gphev,
+                viewport_atom()
+                )[0]
+
+        result = []
+        for vp in viewports:
+            result.append(
+                self.connection.request_receive(
+                    vp,
+                    name_atom()
+                    )[0]
+                )
+        return result
+
+    @property
+    def active_viewport(self):
+        """Access the current (active & visible) viewport in the xSTUDIO UI.
+        
+        Returns:
+            viewport(Viewport): Viewport module."""
+        return Viewport(self.connection, active_viewport=True)
 
     def set_viewport_playhead(self, viewport_name, playhead):
         """Set's the named viewport to be driven by the given playhead

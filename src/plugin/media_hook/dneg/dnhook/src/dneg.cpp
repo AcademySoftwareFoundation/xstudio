@@ -368,7 +368,7 @@ class DNegMediaHook : public MediaHook {
             R"([\/]+jobs\/([^\/]+)\/EDITORIAL\/CUTS\/edit_ref\/([^\/]+))");
 
         static const std::regex show_shot_regex(
-            R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|jobs|J\:)\/([^\/]+)\/([^\/]+))");
+            R"([\/]+(hosts\/\w+fs\w+\/user_data[1-9]{0,1}|hosts\/playback\w+\/user_data|jobs|J\:)\/([^\/]+)\/([^\/]+))");
 
         static const std::regex show_shot_alternative_regex(
             R"(.+-([^-]+)-([^-]+)\.dneg\.webm$)");

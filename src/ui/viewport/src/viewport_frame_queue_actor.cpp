@@ -839,7 +839,7 @@ timebase::flicks ViewportFrameQueueActor::compute_video_refresh() const {
 std::chrono::microseconds ViewportFrameQueueActor::average_video_refresh_period() const {
 
     if (video_refresh_data_.refresh_history_.size() < 64) {
-        return std::chrono::microseconds(10000000 / 60);
+        return std::chrono::microseconds(1000000 / 60);
     }
 
     // Here, take the delta time between subsequent video refresh messages

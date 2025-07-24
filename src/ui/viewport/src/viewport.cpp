@@ -800,7 +800,7 @@ void Viewport::set_fit_mode(const FitMode md, const bool sync) {
 
     if (md != Free) {
 
-        previous_fit_mode_  = state_.fit_mode_;
+        previous_fit_mode_ = md;
 
         // With active fit mode translate is held at 0.0,0.0 and scale
         // is held at 1.0 .. the additional matrix to apply the fit mode
