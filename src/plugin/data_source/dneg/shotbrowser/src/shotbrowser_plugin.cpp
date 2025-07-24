@@ -398,9 +398,9 @@ caf::message_handler ShotBrowser::message_handler_extensions() {
          [=](json_store::sync_atom, const bool) {
              pending_preference_update_ = false;
 
-             auto path  = preference_path("shotbrowser_presets_v1.json");
              auto prefs = GlobalStoreHelper(system());
              if (not prefs.read_only()) {
+                 auto path  = preference_path("shotbrowser_presets_v1.json");
                  try {
                      // check dir exists..
                      std::ofstream o(path + ".tmp", std::ofstream::out | std::ofstream::trunc);
@@ -1074,11 +1074,11 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
         set_timeout(timeout);
 
         // we ignore after initial setup..
-        if (engine().user_presets().at("children").empty()) {
+        if (engine().system_presets().at("children").empty()) {
             // auto project_presets = preference_value<JsonStore>(
             //     js, "/plugin/data_source/shotbrowser/project_presets");
-            auto site_presets =
-                preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/site_presets");
+            auto site_presets = JsonStore(R"([])"_json);
+                // preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/site_presets");
 
             auto preset_paths =
                 preference_value<JsonStore>(js, "/plugin/data_source/shotbrowser/preset_paths");
@@ -1088,6 +1088,8 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
             for (const auto &path : preset_paths)
                 paths.emplace_back(posix_path_to_uri(expand_envvars(path)));
 
+            auto preset_files = std::map<std::string, std::string>();
+
             // iterrate and extend..
             for (const auto &i : paths) {
                 auto path = fs::path(uri_to_posix_path(i));
@@ -1095,54 +1097,62 @@ void ShotBrowser::update_preferences(const JsonStore &js) {
                     for (const auto &entry : fs::directory_iterator(path)) {
                         if (fs::is_regular_file(entry.status()) and
                             entry.path().extension() == ".json") {
-                            try {
-                                auto usp = JsonStore();
-                                std::ifstream i(entry.path().string());
-                                i >> usp;
-                                site_presets.insert(site_presets.end(), usp.begin(), usp.end());
-                            } catch (const std::exception &err) {
-                                spdlog::warn(
-                                    "Failed to Read {} {} {}",
-                                    __PRETTY_FUNCTION__,
-                                    entry.path().string(),
-                                    err.what());
-                            }
+                            preset_files[entry.path().filename().string() + entry.path().string()] = entry.path().string();
                         }
                     }
                 }
             }
 
-            auto user_presets = JsonStore();
-
-            if (auto path = preference_path("shotbrowser_presets_v1.json"); fs::exists(path)) {
+            for(const auto &i: preset_files) {
                 try {
-                    std::ifstream i(path);
-                    i >> user_presets;
+                    auto usp = JsonStore();
+                    std::ifstream ifs(i.second);
+                    ifs >> usp;
+                    site_presets.insert(site_presets.end(), usp.begin(), usp.end());
                 } catch (const std::exception &err) {
                     spdlog::warn(
-                        "Failed to Read {} {} {}", __PRETTY_FUNCTION__, path, err.what());
+                        "Failed to Read {} {} {}",
+                        __PRETTY_FUNCTION__,
+                        i.second,
+                        err.what());
                 }
-            } else {
-                user_presets = preference_value<JsonStore>(
-                    js, "/plugin/data_source/shotbrowser/user_presets");
-
-                auto uorp = preference_overridden_path(
-                    js, "/plugin/data_source/shotbrowser/user_presets");
-                if (ends_with(uorp, "application-v2.json")) {
-
-                    auto prefs = GlobalStoreHelper(system());
-                    prefs.set_overridden_path(
-                        replace_once(uorp, "/application-v2.json", "/plugin-v2.json"),
-                        "/plugin/data_source/shotbrowser/user_presets",
-                        false);
-                    prefs.save("PLUGIN");
-                }
-
-                // force save as we're using the new file now..
-                anon_mail(json_store::sync_atom_v, true)
-                    .delay(1s)
-                    .send(caf::actor_cast<caf::actor>(this));
             }
+
+
+            auto user_presets = JsonStore();
+            auto prefs = GlobalStoreHelper(system());
+            if (not prefs.read_only()) {
+                if (auto path = preference_path("shotbrowser_presets_v1.json"); fs::exists(path)) {
+                    try {
+                        std::ifstream i(path);
+                        i >> user_presets;
+                    } catch (const std::exception &err) {
+                        spdlog::warn(
+                            "Failed to Read {} {} {}", __PRETTY_FUNCTION__, path, err.what());
+                    }
+                } else {
+                    user_presets = preference_value<JsonStore>(
+                        js, "/plugin/data_source/shotbrowser/user_presets");
+
+                    auto uorp = preference_overridden_path(
+                        js, "/plugin/data_source/shotbrowser/user_presets");
+                    if (ends_with(uorp, "application-v2.json")) {
+
+                        auto prefs = GlobalStoreHelper(system());
+                        prefs.set_overridden_path(
+                            replace_once(uorp, "/application-v2.json", "/plugin-v2.json"),
+                            "/plugin/data_source/shotbrowser/user_presets",
+                            false);
+                        prefs.save("PLUGIN");
+                    }
+
+                    // force save as we're using the new file now..
+                    anon_mail(json_store::sync_atom_v, true)
+                        .delay(1s)
+                        .send(caf::actor_cast<caf::actor>(this));
+                }
+            }
+
             // engine().merge_presets(site_presets, project_presets);
             engine().set_presets(user_presets, site_presets);
 

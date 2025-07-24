@@ -18,6 +18,7 @@ Table of Contents
     self
     user_docs/index
     api/index
+    build_guides/index
 
 Indices and tables
 ==================

@@ -42,5 +42,6 @@ void py_config::add_types() {
     add_cpp<std::vector<std::string>>("VectorString", "std::vector<std::string>", nullptr);
     add_cpp<std::vector<xstudio::utility::Uuid>>(
         "VectorUuid", "std::vector<xstudio::utility::Uuid>", nullptr);
+    add_cpp<std::vector<actor>>("VectorActor", "std::vector<caf::actor>", nullptr);
 }
 } // namespace caf::python

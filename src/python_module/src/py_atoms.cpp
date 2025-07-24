@@ -380,6 +380,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::ui::viewport, hud_settings_atom);
     ADD_ATOM(xstudio::ui::viewport, viewport_layout_atom);
     ADD_ATOM(xstudio::ui::viewport, annotation_atom);
+    ADD_ATOM(xstudio::ui::viewport, active_viewport_atom);
 
     ADD_ATOM(xstudio::ui, show_message_box_atom);
 

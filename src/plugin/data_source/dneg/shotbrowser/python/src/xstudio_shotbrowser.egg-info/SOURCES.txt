@@ -1,9 +1,4 @@
 setup.py
-/user_data/.tmp/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser/__init__.py
-/user_data/.tmp/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser.egg-info/PKG-INFO
-/user_data/.tmp/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser.egg-info/SOURCES.txt
-/user_data/.tmp/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser.egg-info/dependency_links.txt
-/user_data/.tmp/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser.egg-info/top_level.txt
 /user_data/ted/dev/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser/__init__.py
 /user_data/ted/dev/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser.egg-info/PKG-INFO
 /user_data/ted/dev/xstudio/src/plugin/data_source/dneg/shotbrowser/python/src/xstudio_shotbrowser.egg-info/SOURCES.txt

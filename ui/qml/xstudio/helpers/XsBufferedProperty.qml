@@ -2,20 +2,14 @@
 import QtQuick
 
 Item {
+
 	property bool enableBuffering: false
 	property var source: null
 	property var value: null
 
 	property int delay: 0
 
-	property var updateTimer: Timer {
-        interval: delay
-        running: false
-        repeat: false
-        onTriggered: {
-            value = source 
-        } 
-    }
+	property var updateTimer
 
     onEnableBufferingChanged: {
     	if(!delay && !enableBuffering)

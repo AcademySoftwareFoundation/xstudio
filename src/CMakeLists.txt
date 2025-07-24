@@ -72,6 +72,8 @@ if (BUILD_MINIMAL_DEMO)
 endif ()
 
 if (BUILD_PYSIDE_WIDGETS)
+
+	cmake_policy(SET CMP0148 OLD) # shiboken uses deprecated FindPythonInterp
 	find_package(Shiboken6 QUIET)
 	find_package(PySide6 QUIET)
 
