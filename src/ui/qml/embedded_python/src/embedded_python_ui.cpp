@@ -37,7 +37,7 @@ void EmbeddedPythonUI::set_backend(caf::actor backend) {
         try {
             request_receive<bool>(
                 *sys, backend_events_, broadcast::leave_broadcast_atom_v, as_actor());
-        } catch (const std::exception &e) {
+        } catch ([[maybe_unused]] const std::exception &e) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
         backend_events_ = caf::actor();
@@ -63,7 +63,8 @@ void EmbeddedPythonUI::set_backend(caf::actor backend) {
         JsonStore j;
         prefs.get_group(j);
 
-        auto paths = global_store::preference_value<JsonStore>(j, "/core/python/snippets/path");
+        auto paths = global_store::preference_value<JsonStore>(
+            j, "/ui/qml/reskin_windows_and_panels_model");
         // process app/user..
 
         JsonStore snippets;
@@ -119,11 +120,12 @@ bool EmbeddedPythonUI::sendInput(const QString &str) {
         try {
             waiting_ = true;
             emit waitingChanged();
+            std::string input_string = StdFromQString(str);
             sys->anon_send(
                 backend_,
                 embedded_python::python_session_input_atom_v,
                 event_uuid_,
-                StdFromQString(str));
+                input_string);
             return true;
         } catch (const std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
@@ -222,6 +224,7 @@ void EmbeddedPythonUI::init(actor_system &system_) {
                 if (uuid == event_uuid_) {
                     auto out = std::get<0>(output);
                     auto err = std::get<1>(output);
+                    std::cerr << out << err;
                     if (not out.empty()) {
                         emit stdoutEvent(QStringFromStd(out));
                     }
@@ -242,7 +245,7 @@ void EmbeddedPythonUI::init(actor_system &system_) {
 
 void EmbeddedPythonUI::addSnippet(SnippetUI *snippet) {
     //  check for existing menu.
-    auto menu_name      = snippet->menuName();
+    auto menu_name      = snippet->menuModelName();
     SnippetMenuUI *menu = nullptr;
 
     for (auto &i : snippet_menus_) {

@@ -35,7 +35,7 @@ Rectangle {
     id: app_window
     visible: true
     color: "#00000000"
-    objectName: "appWidnow"
+    objectName: "appWindow"
     // override default palette
 
     property var preFullScreenVis: [app_window.x, app_window.y, app_window.width, app_window.height]
@@ -258,11 +258,16 @@ Rectangle {
             )
         }
 
-        function add_note(item, detail=null) {
-            var uuid = session.bookmarks.addBookmark(item)
-            if(detail !== null) {
-                detail.uuid = uuid
-                session.bookmarks.updateBookmark(detail)
+        function add_note(owner_uuid=null) {
+            let uuid = null
+            if(bookmarkModel.insertRows(bookmarkModel.rowCount(), 1)) {
+                // set owner..
+                let ind = bookmarkModel.index(bookmarkModel.rowCount()-1, 0)
+                uuid = bookmarkModel.get(ind,"uuidRole")
+
+                if(owner_uuid) {
+                    bookmarkModel.set(ind, owner_uuid, "ownerRole")
+                }
             }
             return uuid;
         }
@@ -287,14 +292,6 @@ Rectangle {
             dlg.open()
         }
 
-        function add_media_to_new_contact_sheet(source=parent) {
-            var media = selectedSource ? selectedSource.selectionFilter.selectedMediaUuids : onScreenSource.selectionFilter.selectedMediaUuids
-            var dlg = XsUtils.openDialog("qrc:/dialogs/XsNewContactSheetDialog.qml", source)
-
-            dlg.okay_text = "Add Media"
-            dlg.created.connect(function(uuid) {session.copyMedia(uuid.asQuuid, media)})
-            dlg.open()
-        }
     }
 
     property alias session: session

@@ -153,13 +153,28 @@ void register_streamdetail_class(py::module &m, const std::string &name) {
         .def("name", [](const media::StreamDetail &x) { return x.name_; })
         .def("key_format", [](const media::StreamDetail &x) { return x.key_format_; })
         .def("duration", [](const media::StreamDetail &x) { return x.duration_; })
+        .def(
+            "resolution",
+            [](const media::StreamDetail &x) {
+                return std::vector<int>({x.resolution_.x, x.resolution_.y});
+            })
+        .def("pixel_aspect", [](const media::StreamDetail &x) { return x.pixel_aspect_; })
         .def("media_type", [](const media::StreamDetail &x) { return x.media_type_; });
 }
 
 
 void register_timecode_class(py::module &m, const std::string &name) {
     auto str_impl = [](const utility::Timecode &x) { return to_string(x); };
-    py::class_<utility::Timecode>(m, name.c_str()).def(py::init<>()).def("__str__", str_impl);
+    py::class_<utility::Timecode>(m, name.c_str())
+        .def(py::init<>())
+        .def("__str__", str_impl)
+        .def("hours", [](const utility::Timecode &x) { return x.hours(); })
+        .def("minutes", [](const utility::Timecode &x) { return x.minutes(); })
+        .def("seconds", [](const utility::Timecode &x) { return x.seconds(); })
+        .def("frames", [](const utility::Timecode &x) { return x.frames(); })
+        .def("framerate", [](const utility::Timecode &x) { return x.framerate(); })
+        .def("dropframe", [](const utility::Timecode &x) { return x.dropframe(); })
+        .def("total_frames", [](const utility::Timecode &x) { return x.total_frames(); });
 }
 
 void register_mediareference_class(py::module &m, const std::string &name) {
@@ -185,7 +200,13 @@ void register_mediareference_class(py::module &m, const std::string &name) {
         .def("uri_from_frame", &utility::MediaReference::uri_from_frame)
         .def("timecode", &utility::MediaReference::timecode)
         .def("offset", &utility::MediaReference::offset)
-        .def("set_offset", &utility::MediaReference::set_offset);
+        .def("set_offset", &utility::MediaReference::set_offset)
+        .def("frame", [](const utility::MediaReference &x, int i) {
+            auto f = x.frame(i);
+            if (f)
+                return *f;
+            throw pybind11::value_error("Out of range");
+        });
 }
 
 void register_bookmark_detail_class(py::module &m, const std::string &name) {
@@ -196,6 +217,7 @@ void register_bookmark_detail_class(py::module &m, const std::string &name) {
         .def_readonly("uuid", &bookmark::BookmarkDetail::uuid_)
         .def_readwrite("enabled", &bookmark::BookmarkDetail::enabled_)
         .def_readwrite("has_focus", &bookmark::BookmarkDetail::has_focus_)
+        .def_readwrite("visible", &bookmark::BookmarkDetail::visible_)
         .def_readwrite("start", &bookmark::BookmarkDetail::start_)
         .def_readwrite("duration", &bookmark::BookmarkDetail::duration_)
         .def_readwrite("author", &bookmark::BookmarkDetail::author_)
@@ -388,6 +410,9 @@ void register_item_class(py::module &m, const std::string &name) {
         .def("transparent", &timeline::Item::transparent)
 
         .def("rate", &timeline::Item::rate)
+        .def("name", &timeline::Item::name)
+        .def("flag", &timeline::Item::flag)
+        .def("prop", &timeline::Item::prop)
 
         .def("active_range", &timeline::Item::active_range)
         .def("active_duration", &timeline::Item::active_duration)
@@ -405,7 +430,8 @@ void register_item_class(py::module &m, const std::string &name) {
             "resolve_time",
             &timeline::Item::resolve_time,
             py::arg("time")       = utility::FrameRate(),
-            py::arg("media_type") = media::MediaType::MT_IMAGE)
+            py::arg("media_type") = media::MediaType::MT_IMAGE,
+            py::arg("focus")      = utility::UuidSet())
 
         .def("children", py::overload_cast<>(&timeline::Item::children), "Get children")
         .def("__len__", [](timeline::Item &v) { return v.size(); });

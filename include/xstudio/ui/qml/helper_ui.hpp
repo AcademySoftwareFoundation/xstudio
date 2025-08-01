@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+
 #include <caf/all.hpp>
 #include <functional>
 #include <semver.hpp>
 
 #include "xstudio/ui/qml/actor_object.hpp"
+#include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/string_helpers.hpp"
 #include "xstudio/utility/json_store.hpp"
 #include "xstudio/utility/uuid.hpp"
+
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/helper_qml_export.h"
 
 CAF_PUSH_WARNINGS
 #include <QCursor>
@@ -23,6 +28,7 @@ CAF_PUSH_WARNINGS
 #include <QQuickItem>
 #include <QQmlPropertyMap>
 #include <QString>
+#include <QItemSelection>
 #include <QUrl>
 #include <QUuid>
 #include <QModelIndex>
@@ -40,7 +46,42 @@ namespace ui {
         QVariant mapFromValue(const nlohmann::json &value);
         nlohmann::json mapFromValue(const QVariant &value);
 
-        class ModelProperty : public QObject {
+        class HELPER_QML_EXPORT ModelRowCount : public QObject {
+            Q_OBJECT
+
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+            Q_PROPERTY(int count READ count NOTIFY countChanged)
+
+          public:
+            explicit ModelRowCount(QObject *parent = nullptr) : QObject(parent) {}
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] int count() const { return count_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+
+          signals:
+            void indexChanged();
+            void countChanged();
+
+          private slots:
+            void inserted(const QModelIndex &parent, int first, int last);
+            void moved(
+                const QModelIndex &sourceParent,
+                int sourceStart,
+                int sourceEnd,
+                const QModelIndex &destinationParent,
+                int destinationRow);
+            void removed(const QModelIndex &parent, int first, int last);
+
+          private:
+            void setCount(const int count);
+
+            QPersistentModelIndex index_;
+            int count_{0};
+        };
+
+        class HELPER_QML_EXPORT ModelProperty : public QObject {
             Q_OBJECT
 
             Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
@@ -74,7 +115,7 @@ namespace ui {
 
           private:
             bool updateValue();
-            int getRoleId(const QString &role) const;
+            [[nodiscard]] int getRoleId(const QString &role) const;
 
             QPersistentModelIndex index_;
             QString role_;
@@ -82,7 +123,46 @@ namespace ui {
             QVariant value_;
         };
 
-        class ModelPropertyMap : public QObject {
+        class HELPER_QML_EXPORT ModelPropertyTree : public JSONTreeModel {
+            Q_OBJECT
+
+            Q_PROPERTY(QModelIndex index READ index WRITE setIndex NOTIFY indexChanged)
+            Q_PROPERTY(int roleId READ roleId NOTIFY roleIdChanged)
+            Q_PROPERTY(QString role READ role WRITE setRole NOTIFY roleChanged)
+
+          public:
+            explicit ModelPropertyTree(QObject *parent = nullptr) : JSONTreeModel(parent) {}
+
+            [[nodiscard]] QModelIndex index() const { return index_; }
+            [[nodiscard]] int roleId() const { return role_id_; }
+            [[nodiscard]] QString role() const { return role_; }
+
+            Q_INVOKABLE void setIndex(const QModelIndex &index);
+            Q_INVOKABLE void setRole(const QString &role);
+
+          signals:
+            void roleIdChanged();
+            void roleChanged();
+            void indexChanged();
+
+          private slots:
+            void myDataChanged(
+                const QModelIndex &topLeft,
+                const QModelIndex &bottomRight,
+                const QVector<int> &roles = QVector<int>());
+
+          private:
+            bool updateValue();
+            [[nodiscard]] int getRoleId(const QString &role) const;
+
+            QPersistentModelIndex index_;
+            QString role_;
+            int role_id_{-1};
+            QVariant value_;
+        };
+
+
+        class HELPER_QML_EXPORT ModelPropertyMap : public QObject {
             Q_OBJECT
 
             Q_PROPERTY(QQmlPropertyMap *values READ values NOTIFY valuesChanged)
@@ -95,6 +175,7 @@ namespace ui {
             [[nodiscard]] QQmlPropertyMap *values() const { return values_; }
 
             Q_INVOKABLE void setIndex(const QModelIndex &index);
+            Q_INVOKABLE void dump();
 
           signals:
             void indexChanged();
@@ -110,14 +191,13 @@ namespace ui {
           protected:
             virtual void valueChanged(const QString &key, const QVariant &value);
             virtual void updateValues(const QVector<int> &roles = {});
-            int getRoleId(const QString &role) const;
-
+            [[nodiscard]] int getRoleId(const QString &role) const;
 
             QPersistentModelIndex index_;
             QQmlPropertyMap *values_{nullptr};
         };
 
-        class ModelNestedPropertyMap : public ModelPropertyMap {
+        class HELPER_QML_EXPORT ModelNestedPropertyMap : public ModelPropertyMap {
             Q_OBJECT
 
           public:
@@ -126,13 +206,14 @@ namespace ui {
 
 
           protected:
-            virtual void updateValues(const QVector<int> &roles = {}) override;
-            virtual void valueChanged(const QString &key, const QVariant &value) override;
+            void updateValues(const QVector<int> &roles = {}) override;
+            void valueChanged(const QString &key, const QVariant &value) override;
 
-            QString data_role_ = {"valueRole"};
+            QString data_role_    = {"valueRole"};
+            QString default_role_ = {"defaultValueRole"};
         };
 
-        class CafSystemObject : public QObject {
+        class HELPER_QML_EXPORT CafSystemObject : public QObject {
 
             Q_OBJECT
 
@@ -149,12 +230,14 @@ namespace ui {
             std::reference_wrapper<caf::actor_system> system_ref_;
         };
 
-        class QMLActor : public caf::mixin::actor_object<QObject> {
+        class HELPER_QML_EXPORT QMLActor : public caf::mixin::actor_object<QObject> {
             Q_OBJECT
 
           public:
             using super = caf::mixin::actor_object<QObject>;
-            explicit QMLActor(QObject *parent = nullptr) : super(parent) {}
+            explicit QMLActor(QObject *parent = nullptr);
+
+            virtual ~QMLActor();
             virtual void init(caf::actor_system &system) { super::init(system); }
 
           public:
@@ -220,9 +303,15 @@ namespace ui {
 
         QVariant json_to_qvariant(const nlohmann::json &var);
 
+        QString actorToQString(actor_system &sys, const caf::actor &actor);
+        caf::actor actorFromQString(actor_system &sys, const QString &addr);
+
+        std::string actorToString(actor_system &sys, const caf::actor &actor);
+        caf::actor actorFromString(actor_system &sys, const std::string &addr);
+
         QString getThumbnailURL(
             actor_system &sys,
-            caf::actor actor,
+            const caf::actor &actor,
             const int frame          = 0,
             const bool cache_to_disk = false);
 
@@ -235,7 +324,7 @@ namespace ui {
             return jsn;
         }
 
-        class Helpers : public QObject {
+        class HELPER_QML_EXPORT Helpers : public QObject {
             Q_OBJECT
 
           public:
@@ -243,20 +332,59 @@ namespace ui {
                 : QObject(parent), engine_(engine) {}
             ~Helpers() override = default;
 
-            Q_INVOKABLE bool openURL(const QUrl &url) { return QDesktopServices::openUrl(url); }
-            Q_INVOKABLE QString ShowURIS(const QList<QUrl> &urls) {
+            Q_INVOKABLE [[nodiscard]] bool openURL(const QUrl &url) const {
+                return QDesktopServices::openUrl(url);
+            }
+            Q_INVOKABLE [[nodiscard]] QString ShowURIS(const QList<QUrl> &urls) const {
                 std::vector<caf::uri> uris;
                 for (const auto &i : urls)
                     uris.emplace_back(UriFromQUrl(i));
                 return QStringFromStd(utility::filemanager_show_uris(uris));
             }
 
-            Q_INVOKABLE QString getUserName() {
+            Q_INVOKABLE [[nodiscard]] QString getUserName() const {
                 return QStringFromStd(utility::get_user_name());
             }
-            Q_INVOKABLE QString validMediaExtensions() {
+
+            Q_INVOKABLE [[nodiscard]] QString pathFromURL(const QUrl &url) const {
+                return url.path().replace("//", "/");
+            }
+
+            Q_INVOKABLE [[nodiscard]] QPersistentModelIndex
+            makePersistent(const QModelIndex &index) const {
+                return QPersistentModelIndex(index);
+            }
+
+
+            Q_INVOKABLE [[nodiscard]] QString fileFromURL(const QUrl &url) const {
+                static const std::regex as_hash_pad(R"(\{:0(\d+)d\})");
+                auto tmp = utility::uri_to_posix_path(UriFromQUrl(url));
+                tmp      = tmp.substr(tmp.find_last_of("/") + 1);
+                // convert padding spec to #'s
+                // {:04d}
+                try {
+                    tmp = fmt::format(std::regex_replace(tmp, as_hash_pad, R"({:#<$1})"), "");
+                } catch (...) {
+                    tmp = std::regex_replace(tmp, as_hash_pad, "#");
+                }
+
+                return QStringFromStd(tmp);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QString validMediaExtensions() const {
                 std::string result;
                 for (const auto &i : utility::supported_extensions) {
+                    if (not result.empty())
+                        result += " ";
+                    result +=
+                        std::string("*") + i + " " + std::string("*") + utility::to_lower(i);
+                }
+                return QStringFromStd(result);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QString validTimelineExtensions() const {
+                std::string result;
+                for (const auto &i : utility::supported_timeline_extensions) {
                     if (not result.empty())
                         result += " ";
                     result +=
@@ -269,7 +397,7 @@ namespace ui {
             &name); Q_INVOKABLE QQuickItem* findItemByName(const QString& name) { return
             findItemByName(engine_->rootObjects(), name);
             }*/
-            Q_INVOKABLE [[nodiscard]] QString
+            Q_INVOKABLE [[nodiscard]] [[nodiscard]] QString
             getEnv(const QString &key, const QString &fallback = "") const {
                 QString result = fallback;
                 auto value     = utility::get_env(StdFromQString(key));
@@ -278,7 +406,7 @@ namespace ui {
                 return result;
             }
 
-            Q_INVOKABLE bool startDetachedProcess(
+            Q_INVOKABLE [[nodiscard]] bool startDetachedProcess(
                 const QString &program,
                 const QStringList &arguments,
                 const QString &workingDirectory = QString(),
@@ -294,11 +422,64 @@ namespace ui {
                 return uuid.toString(QUuid::WithoutBraces);
             }
 
+            Q_INVOKABLE [[nodiscard]] QItemSelection createItemSelection() const {
+                return QItemSelection();
+            }
+            Q_INVOKABLE [[nodiscard]] QItemSelection
+            createItemSelection(const QModelIndex &tl, const QModelIndex &br) const {
+                return QItemSelection(tl, br);
+            }
+            Q_INVOKABLE [[nodiscard]] QItemSelection
+            createItemSelection(const QModelIndexList &l) const {
+                auto s = QItemSelection();
+                for (const auto &i : l)
+                    s.select(i, i);
+                return s;
+            }
+            Q_INVOKABLE [[nodiscard]] bool itemSelectionContains(
+                const QItemSelection &selection, const QModelIndex &item) const {
+                return selection.contains(item);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            saturate(const QColor &color, const double factor = 1.5) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                s = std::max(0.0, std::min(1.0, s * factor));
+                return QColor::fromHslF(h, s, l, a);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            luminate(const QColor &color, const double factor = 1.5) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                l = std::max(0.0, std::min(1.0, l * factor));
+                return QColor::fromHslF(h, s, l, a);
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor
+            alphate(const QColor &color, const double alpha) const {
+                auto result = color;
+                result.setAlphaF(std::max(0.0, std::min(1.0, alpha)));
+                return result;
+            }
+
+            Q_INVOKABLE [[nodiscard]] QColor saturateLuminate(
+                const QColor &color,
+                const double sfactor = 1.0,
+                const double lfactor = 1.0) const {
+                double h, s, l, a;
+                color.getHslF(&h, &s, &l, &a);
+                s = std::max(0.0, std::min(1.0, s * sfactor));
+                l = std::max(0.0, std::min(1.0, l * lfactor));
+                return QColor::fromHslF(h, s, l, a);
+            }
+
           private:
             QQmlEngine *engine_;
         };
 
-        class CursorPosProvider : public QObject {
+        class HELPER_QML_EXPORT CursorPosProvider : public QObject {
             Q_OBJECT
 
           public:
@@ -308,7 +489,7 @@ namespace ui {
             Q_INVOKABLE QPointF cursorPos() { return QCursor::pos(); }
         };
 
-        class QMLUuid : public QObject {
+        class HELPER_QML_EXPORT QMLUuid : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString asString READ asString WRITE setFromString NOTIFY changed)
             Q_PROPERTY(QUuid asQuuid READ asQuuid WRITE setFromQuuid NOTIFY changed)
@@ -350,7 +531,7 @@ namespace ui {
             utility::Uuid uuid_;
         };
 
-        class SemVer : public QObject {
+        class HELPER_QML_EXPORT SemVer : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString version READ version WRITE setVersion NOTIFY versionChanged)
             Q_PROPERTY(uint major READ major WRITE setMajor NOTIFY versionChanged)
@@ -396,7 +577,7 @@ namespace ui {
             semver::version version_;
         };
 
-        class ClipboardProxy : public QObject {
+        class HELPER_QML_EXPORT ClipboardProxy : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString text READ dataText WRITE setDataText NOTIFY dataChanged)
             Q_PROPERTY(QString selectionText READ selectionText WRITE setSelectionText NOTIFY
@@ -419,7 +600,7 @@ namespace ui {
             void selectionChanged();
         };
 
-        class Plugin : public QObject {
+        class HELPER_QML_EXPORT Plugin : public QObject {
             Q_OBJECT
             Q_PROPERTY(QString qmlName READ qmlName NOTIFY qmlNameChanged)
             Q_PROPERTY(

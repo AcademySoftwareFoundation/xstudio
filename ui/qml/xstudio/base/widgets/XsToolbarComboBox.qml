@@ -37,7 +37,7 @@ XsToolbarItem  {
                 mycheckable: true
             	actiongroup: myActionGroup
             	mychecked: mytext === control.value_
-	            enabled: combo_box_options_enabled ? combo_box_options_enabled[index] : true
+	            enabled: combo_box_options_enabled ? combo_box_options_enabled.length == combo_box_options.length ? combo_box_options_enabled[index] : true : true
                 onTriggered: { value = mytext }
             }
             onObjectAdded: {

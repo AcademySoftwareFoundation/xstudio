@@ -3,7 +3,7 @@ TEMPLATE = lib
 CONFIG += plugin
 
 isEmpty(SHARED): SHARED = "false"
-isEmpty(PLUGIN): PLUGIN = "false" #Install as a QML PLugin
+isEmpty(PLUGIN): PLUGIN = "true" #Install as a QML PLugin
 
 DEFAULT_INSTALL_ROOT = $$[QT_INSTALL_LIBS]
 

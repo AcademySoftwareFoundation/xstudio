@@ -11,6 +11,7 @@
 #include "blank.hpp"
 #include "xstudio/media_reader/media_reader.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/ui/opengl/shader_program_base.hpp"
 
 namespace fs = std::filesystem;
 
@@ -40,7 +41,7 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 )"};
 
 static ui::viewport::GPUShaderPtr
-    blank_shader(new ui::viewport::GPUShader(myshader_uuid, myshader));
+    blank_shader(new ui::opengl::OpenGLShader(myshader_uuid, myshader));
 
 } // namespace
 

@@ -24,6 +24,16 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
 
     manager_.emplace_front_path(xstudio_root("/plugin"));
+
+    // use env var 'XSTUDIO_PLUGIN_PATH' to extend the folders searched for
+    // xstudio plugins
+    char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
+    if (plugin_path) {
+        for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+            manager_.emplace_front_path(p);
+        }
+    }
+
     manager_.load_plugins();
 
     try {
@@ -46,6 +56,39 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             delegate(actor_cast<caf::actor>(this), json_store::update_atom_v, full);
         },
 
+        // helper for dealing with URI's
+        [=](data_source::use_data_atom,
+            const caf::uri &uri,
+            const FrameRate &media_rate) -> result<UuidActorVector> {
+            // send to resident enabled datasource plugins
+            auto actors = std::vector<caf::actor>();
+
+            for (const auto &i : manager_.factories()) {
+                if (i.second.factory()->type() & PluginFlags::PF_DATA_SOURCE and
+                    resident_.count(i.first))
+                    actors.push_back(resident_[i.first]);
+            }
+
+            if (actors.empty())
+                return UuidActorVector();
+
+            auto rp = make_response_promise<UuidActorVector>();
+
+            fan_out_request<policy::select_all>(
+                actors, infinite, data_source::use_data_atom_v, uri, media_rate)
+                .then(
+                    [=](const std::vector<UuidActorVector> results) mutable {
+                        for (const auto &i : results) {
+                            if (not i.empty())
+                                return rp.deliver(i);
+                        }
+                        rp.deliver(UuidActorVector());
+                    },
+                    [=](error &err) mutable { rp.deliver(std::move(err)); });
+
+            return rp;
+        },
+
         // helper for dealing with Media sources back population's
         [=](data_source::use_data_atom,
             const caf::actor &media,
@@ -54,7 +97,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             auto actors = std::vector<caf::actor>();
 
             for (const auto &i : manager_.factories()) {
-                if (i.second.factory()->type() == PluginType::PT_DATA_SOURCE and
+                if (i.second.factory()->type() & PluginFlags::PF_DATA_SOURCE and
                     resident_.count(i.first))
                     actors.push_back(resident_[i.first]);
             }
@@ -82,12 +125,13 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         // helper for dealing with URI's
         [=](data_source::use_data_atom,
             const JsonStore &jsn,
+            const FrameRate &media_rate,
             const bool drop) -> result<UuidActorVector> {
             // send to resident enabled datasource plugins
             auto actors = std::vector<caf::actor>();
 
             for (const auto &i : manager_.factories()) {
-                if (i.second.factory()->type() == PluginType::PT_DATA_SOURCE and
+                if (i.second.factory()->type() & PluginFlags::PF_DATA_SOURCE and
                     resident_.count(i.first))
                     actors.push_back(resident_[i.first]);
             }
@@ -98,7 +142,7 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             auto rp = make_response_promise<UuidActorVector>();
 
             fan_out_request<policy::select_all>(
-                actors, infinite, data_source::use_data_atom_v, jsn, true)
+                actors, infinite, data_source::use_data_atom_v, jsn, media_rate, true)
                 .then(
                     [=](const std::vector<UuidActorVector> results) mutable {
                         for (const auto &i : results) {
@@ -116,11 +160,16 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         [=](data_source::use_data_atom,
             const caf::uri &uri,
             const caf::actor &session,
-            const caf::actor &playlist) -> result<UuidActorVector> {
+            const caf::actor &playlist,
+            const FrameRate &media_rate) -> result<UuidActorVector> {
             auto rp = make_response_promise<UuidActorVector>();
 
             request(
-                caf::actor_cast<caf::actor>(this), infinite, data_source::use_data_atom_v, uri)
+                caf::actor_cast<caf::actor>(this),
+                infinite,
+                data_source::use_data_atom_v,
+                uri,
+                media_rate)
                 .then(
                     [=](const UuidActorVector &results) mutable {
                         // uri can contain playlist or media currently.
@@ -160,37 +209,6 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
             return rp;
         },
 
-        // helper for dealing with URI's
-        [=](data_source::use_data_atom, const caf::uri &uri) -> result<UuidActorVector> {
-            // send to resident enabled datasource plugins
-            auto actors = std::vector<caf::actor>();
-
-            for (const auto &i : manager_.factories()) {
-                if (i.second.factory()->type() == PluginType::PT_DATA_SOURCE and
-                    resident_.count(i.first))
-                    actors.push_back(resident_[i.first]);
-            }
-
-            if (actors.empty())
-                return UuidActorVector();
-
-            auto rp = make_response_promise<UuidActorVector>();
-
-            fan_out_request<policy::select_all>(
-                actors, infinite, data_source::use_data_atom_v, uri)
-                .then(
-                    [=](const std::vector<UuidActorVector> results) mutable {
-                        for (const auto &i : results) {
-                            if (not i.empty())
-                                return rp.deliver(i);
-                        }
-                        rp.deliver(UuidActorVector());
-                    },
-                    [=](error &err) mutable { rp.deliver(std::move(err)); });
-
-            return rp;
-        },
-
         [=](json_store::update_atom, const JsonStore &js) {
             try {
                 // this will trash manually enabled/disabled plugins.
@@ -203,9 +221,8 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
         [=](utility::detail_atom, const PluginType type) -> std::vector<PluginDetail> {
             std::vector<PluginDetail> details;
-
             for (const auto &i : manager_.factories()) {
-                if (i.second.factory()->type() == type)
+                if (i.second.factory()->type() & type)
                     details.emplace_back(PluginDetail(i.second));
             }
 
@@ -251,14 +268,23 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
         [=](spawn_plugin_atom,
             const utility::Uuid &uuid,
-            const utility::JsonStore &json) -> result<caf::actor> {
+            const utility::JsonStore &json,
+            bool make_resident) -> result<caf::actor> {
+            if (resident_.count(uuid)) {
+                return resident_[uuid];
+            }
+
             if (not manager_.factories().count(uuid))
                 return make_error(xstudio_error::error, "Invalid uuid");
+
+            if (make_resident) {
+                enable_resident(uuid, true, json);
+                return resident_[uuid];
+            }
 
             auto spawned = caf::actor();
             try {
                 spawned = manager_.spawn(*scoped_actor(system()), uuid, json);
-
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
             }
@@ -267,14 +293,17 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
 
         [=](spawn_plugin_atom,
             const utility::Uuid &uuid,
-            const utility::JsonStore &json,
-            const bool singleton) -> result<caf::actor> {
+            const utility::JsonStore &json) -> result<caf::actor> {
+            if (resident_.count(uuid)) {
+                return resident_[uuid];
+            }
+
             if (not manager_.factories().count(uuid))
                 return make_error(xstudio_error::error, "Invalid uuid");
 
             auto spawned = caf::actor();
             try {
-                spawned = manager_.spawn(*scoped_actor(system()), uuid, json, singleton);
+                spawned = manager_.spawn(*scoped_actor(system()), uuid, json);
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
             }
@@ -284,8 +313,11 @@ PluginManagerActor::PluginManagerActor(caf::actor_config &cfg) : caf::event_base
         [=](spawn_plugin_base_atom,
             const std::string name,
             const utility::JsonStore &json) -> result<caf::actor> {
-            base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
-            return base_plugins_[name];
+            /*if (base_plugins_.find(name) == base_plugins_.end()) {
+                base_plugins_[name] = spawn<plugin::StandardPlugin>(name, json);
+                link_to(base_plugins_[name]);
+            }*/
+            return spawn<plugin::StandardPlugin>(name, json); // base_plugins_[name];
         },
 
         [=](spawn_plugin_base_atom, const std::string name) -> result<caf::actor> {

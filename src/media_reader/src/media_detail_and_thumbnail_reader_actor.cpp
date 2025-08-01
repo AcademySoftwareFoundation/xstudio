@@ -41,7 +41,10 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
         auto pm = system().registry().get<caf::actor>(plugin_manager_registry);
         scoped_actor sys{system()};
         auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys, pm, utility::detail_atom_v, plugin_manager::PluginType::PT_MEDIA_READER);
+            *sys,
+            pm,
+            utility::detail_atom_v,
+            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_MEDIA_READER));
 
         auto prefs = GlobalStoreHelper(system());
         JsonStore js;
@@ -57,8 +60,6 @@ MediaDetailAndThumbnailReaderActor::MediaDetailAndThumbnailReaderActor(
             }
         }
     }
-
-    colour_pipe_manager_ = system().registry().get<caf::actor>(colour_pipeline_registry);
 
     behavior_.assign(
         [=](xstudio::broadcast::broadcast_down_atom, const caf::actor_addr &) {},

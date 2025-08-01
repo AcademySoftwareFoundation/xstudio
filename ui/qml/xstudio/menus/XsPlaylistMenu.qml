@@ -14,58 +14,69 @@ XsMenu {
         title: "New"
         XsMenuItem {
             mytext: qsTr("&Playlist")
-            shortcut: "Shift+P"
-            onTriggered: XsUtils.openDialog("qrc:/dialogs/XsNewPlaylistDialog.qml", playlist_panel).open()
+            shortcut: "Ctrl+Shift+P"
+            onTriggered: sessionFunction.newPlaylist(
+                app_window.sessionModel.index(0, 0), null
+            )
         }
 
         XsMenuItem {mytext: qsTr("Session &Divider")
-            shortcut: "Shift+D"
-            onTriggered: XsUtils.openDialog("qrc:/dialogs/XsNewSessionDividerDialog.qml", playlist_panel).open()
+            shortcut: "Ctrl+Shift+D"
+            onTriggered: sessionFunction.newDivider(
+                app_window.sessionModel.index(0, 0), null, playlist_panel
+            )
         }
 
         XsMenuItem {mytext: qsTr("Session Dated &Divider")
             shortcut: "Alt+D"
-            onTriggered: {
-                let d = XsUtils.openDialog("qrc:/dialogs/XsNewSessionDividerDialog.qml",playlist_panel)
-                d.dated = true
-                d.open()
-            }
+            onTriggered: sessionFunction.newDivider(
+                app_window.sessionModel.index(0, 0), XsUtils.yyyymmdd("-"), playlist_panel
+            )
         }
 
         XsMenuItem {mytext: qsTr("&Subset")
-            shortcut: "Shift+S"
-            onTriggered: XsUtils.openDialog("qrc:/dialogs/XsNewSubsetDialog.qml", playlist_panel).open()
+            shortcut: "Ctrl+Shift+S"
+            onTriggered: {
+                let ind = app_window.sessionFunction.firstSelected("Playlist")
+                if(ind != null)  {
+                    sessionFunction.newSubset(
+                        ind.model.index(2,0,ind), null, playlist_panel
+                    )
+                }
+            }
         }
 
         XsMenuItem {mytext: qsTr("&Timeline")
-            shortcut: "Shift+T"
-            onTriggered: XsUtils.openDialog("qrc:/dialogs/XsNewTimelineDialog.qml", playlist_panel).open()
+            shortcut: "Ctrl+Shift+T"
             enabled: false
         }
 
         XsMenuItem {mytext: qsTr("&Contact Sheet")
-            shortcut: "Shift+C"
+            shortcut: "Ctrl+Shift+C"
             enabled: false
-            onTriggered: XsUtils.openDialog("qrc:/dialogs/XsNewContactSheetDialog.qml", playlist_panel).open()
         }
+
         XsMenuItem {mytext: qsTr("D&ivider")
-            shortcut: "Shift+i"
-            onTriggered: XsUtils.openDialog("qrc:/dialogs/XsNewPlaylistDividerDialog.qml", playlist_panel).open()
+            shortcut: "Ctrl+Shift+I"
+            onTriggered: {
+                let ind = app_window.sessionFunction.firstSelected("Playlist")
+                if(ind != null)  {
+                    sessionFunction.newDivider(
+                        ind.model.index(2,0,ind), null, playlist_panel
+                    )
+                }
+            }
         }
     }
+
     XsMenuItem {
         mytext: qsTr("Combine Selected Playlists")
-        onTriggered: {
-            app_window.session.mergePlaylists(XsUtils.getSelectedCuuids(app_window.session))
-        }
+        onTriggered: sessionFunction.mergeSelected()
     }
 
 
     XsMenuItem {mytext: qsTr("Export Selected Playlists...")
-        onTriggered: {
-            var dialog = XsUtils.openDialog("qrc:/dialogs/XsSaveSelectedSessionDialog.qml")
-            dialog.open()
-        }
+        onTriggered: app_window.sessionFunction.saveSelectedSessionDialog()
     }
 
     XsMenuItem {mytext: qsTr("Remove Duplicate Media")
@@ -74,25 +85,12 @@ XsMenu {
 
     XsFlagMenu {
         showChecked: false
-        onFlagSet: app_window.session.flag_selected_items(hex, text)
+        onFlagSet: app_window.sessionFunction.flagSelected(hex)
     }
 
-    XsButtonDialog {
-        id: removePlaylists
-        // parent: sessionWidget.playlist_panel
-        text: "Remove Selected Playlists"
-        width: 300
-        buttonModel: ["Cancel", "Remove"]
-        onSelected: {
-            if(button_index == 1) {
-                app_window.session.remove_selected_items()
-            }
-        }
-    }
-
-    XsMenuItem {
-        mytext: qsTr("Remove Selected Playlists")
-        onTriggered: removePlaylists.open()
+     XsMenuItem {
+        mytext: qsTr("Remove Selected")
+        onTriggered: app_window.sessionFunction.removeSelected()
     }
 
     XsMenuSeparator {
@@ -109,7 +107,7 @@ XsMenu {
     }
 
     Instantiator {
-        model: session.dataSources
+        model: studio.dataSources
         XsPluginMenu {
             qmlMenuString: modelData.qmlMenuString
             qmlName: modelData.qmlName

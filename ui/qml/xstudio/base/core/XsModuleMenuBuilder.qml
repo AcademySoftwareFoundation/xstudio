@@ -15,6 +15,7 @@ Item {
 
     property var ct: parent_menu.count
     onCtChanged: set_insert_index()
+    property var empty: module_menu_shim.empty
 
     onInsert_afterChanged: set_insert_index()
     onParent_menuChanged: set_insert_index()
@@ -39,8 +40,15 @@ Item {
 
         model: module_menu_shim
 
-        delegate: XsModuleMenuItem {}
-        onObjectAdded: parent_menu.addItem(object)
+        delegate: XsModuleMenuItem {
+        }
+        onObjectAdded: {
+            if (insert_after_index != -1) {                
+                parent_menu.insertItem(insert_after_index, object)
+            } else {
+                parent_menu.addItem(object)
+            }
+        }
         onObjectRemoved: parent_menu.removeItem(object)
 
     }

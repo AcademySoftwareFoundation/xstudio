@@ -21,21 +21,22 @@ namespace subset {
         inline static const std::string NAME = "SubsetActor";
         void init();
 
-        void add_media(
-            const utility::UuidActor &ua,
-            const utility::Uuid &uuid_before,
-            caf::typed_response_promise<utility::UuidActor> rp);
+        caf::behavior make_behavior() override { return behavior_; }
 
         void deliver_media_pointer(
             const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp);
 
+        void sort_alphabetically();
+
+        void add_media(
+            const utility::UuidActor &ua,
+            const utility::Uuid &uuid_before,
+            caf::typed_response_promise<utility::UuidActor> rp);
         void add_media(
             caf::actor actor,
             const utility::Uuid &uuid,
             const utility::Uuid &before_uuid = utility::Uuid());
         bool remove_media(caf::actor actor, const utility::Uuid &uuid);
-        caf::behavior make_behavior() override { return behavior_; }
-        void sort_alphabetically();
 
       private:
         caf::behavior behavior_;
@@ -43,6 +44,7 @@ namespace subset {
         caf::actor event_group_, change_event_group_;
         Subset base_;
         utility::UuidActorMap actors_;
+        utility::UuidActor playhead_;
     };
 } // namespace subset
 } // namespace xstudio

@@ -258,13 +258,14 @@ std::string::const_iterator AlphaBitmapFont::viewport_position_to_cursor(
 
     if (line < 0)
         return text.end(); // viewport_position is beyond y min of the text bounding box
-    if (line > wrap_points.size())
+    if (line > (int)wrap_points.size())
         return text.end(); // viewport_position is beyond y max of the text bounding box
 
     // which character in the text corresponds to the start of the line that was clicked in?
     std::string::const_iterator c =
         line && wrap_points.size() ? wrap_points[line - 1] : text.begin();
-    auto line_end = line < wrap_points.size() ? wrap_points.begin() + line : wrap_points.end();
+    auto line_end =
+        line < (int)wrap_points.size() ? wrap_points.begin() + line : wrap_points.end();
 
     while (c != text.end()) {
 
@@ -708,6 +709,39 @@ void VectorFont::glyph_shape_decomposition_complete() {
     } else {
         character_under_construction_.negative_shapes_.push_back(index_details);
     }
+}
+
+std::map<std::string, std::shared_ptr<SDFBitmapFont>> SDFBitmapFont::available_fonts() {
+
+    static std::map<std::string, std::shared_ptr<SDFBitmapFont>> res;
+
+    if (res.empty()) {
+        for (const auto &f : Fonts::available_fonts()) {
+            try {
+                res[f.first] = std::make_shared<SDFBitmapFont>(f.second, 96);
+            } catch (std::exception &e) {
+                spdlog::warn("Failed to load font: {}.", e.what());
+            }
+        }
+    }
+
+    return res;
+}
+
+std::shared_ptr<SDFBitmapFont> SDFBitmapFont::font_by_name(const std::string &name) {
+
+    for (auto &[fontName, fontPtr] : available_fonts()) {
+        if (name == fontName) {
+            return fontPtr;
+        }
+    }
+
+    const auto &fonts = SDFBitmapFont::available_fonts();
+    if (!fonts.empty()) {
+        return fonts.begin()->second;
+    }
+
+    return std::shared_ptr<SDFBitmapFont>();
 }
 
 void SDFBitmapFont::generate_atlas(const std::string &font_path, const int glyph_pixel_size) {

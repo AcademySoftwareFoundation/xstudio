@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/module_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -21,7 +24,7 @@ namespace ui {
 
         class ModuleAttrsToQMLShim;
 
-        class ModuleMenusModel : public QAbstractListModel {
+        class MODULE_QML_EXPORT ModuleMenusModel : public QAbstractListModel {
 
             Q_OBJECT
 
@@ -35,7 +38,8 @@ namespace ui {
                 Enabled,
                 IsDivider,
                 Uuid,
-                AttrType
+                AttrType,
+                HotkeyUuid
             };
 
             inline static const std::map<int, std::string> role_names = {
@@ -47,13 +51,15 @@ namespace ui {
                 {Enabled, "xs_module_menu_item_enabled"},
                 {IsDivider, "xs_module_menu_item_is_divider"},
                 {Uuid, "xs_module_menu_item_uuid"},
-                {AttrType, "xs_module_menu_item_attr_type"}};
+                {AttrType, "xs_module_menu_item_attr_type"},
+                {HotkeyUuid, "xs_module_menu_hotkey_uuid"}};
 
             Q_PROPERTY(int num_submenus READ num_submenus NOTIFY num_submenusChanged)
             Q_PROPERTY(QString root_menu_name READ rootMenuName WRITE setRootMenuName NOTIFY
                            rootMenuNameChanged)
             Q_PROPERTY(QString title READ title NOTIFY titleChanged)
             Q_PROPERTY(QStringList submenu_names READ submenu_names NOTIFY submenu_namesChanged)
+            Q_PROPERTY(bool empty READ empty NOTIFY emptyChanged)
 
             ModuleMenusModel(QObject *parent = nullptr);
 
@@ -84,6 +90,8 @@ namespace ui {
 
             [[nodiscard]] int num_submenus() const { return submenu_names_.size(); }
 
+            [[nodiscard]] bool empty() const { return attributes_data_.empty(); }
+
           signals:
 
             void setAttributeFromFrontEnd(const QUuid, const int, const QVariant);
@@ -91,6 +99,7 @@ namespace ui {
             void num_submenusChanged();
             void titleChanged();
             void submenu_namesChanged();
+            void emptyChanged();
 
           public slots:
 

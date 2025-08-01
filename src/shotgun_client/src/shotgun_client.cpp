@@ -11,12 +11,19 @@ httplib::Headers ShotgunClient::get_headers() const {
         {{"Accept", content_type_hash()}, {"Accept-Encoding", "gzip, deflate"}});
 }
 
-httplib::Headers ShotgunClient::get_auth_headers() const {
-    return httplib::Headers(
-        {{"Accept", content_type_hash()},
-         {"Accept-Encoding", "gzip, deflate"},
-         {"Authorization", token_type_ + " " + access_token_}});
+httplib::Headers ShotgunClient::get_auth_headers(const std::string &content_type) const {
+    auto content_type_ = content_type;
+    if (content_type_.empty())
+        content_type_ = content_type_hash();
+
+    return httplib::Headers({
+        {"Accept", content_type_},
+        {"Accept-Encoding", "gzip, deflate"},
+        {"Authorization", token_type_ + " " + access_token_}
+        // {"Cookie", "_session_id=1bccf067d17eda48a77a34ca6f55f669"}
+    });
 }
+
 
 httplib::Params ShotgunClient::get_auth_request_params(const std::string &auth_token) const {
     switch (authentication_method_) {

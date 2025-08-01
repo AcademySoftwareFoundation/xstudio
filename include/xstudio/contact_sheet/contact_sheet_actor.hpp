@@ -21,8 +21,6 @@ namespace contact_sheet {
       private:
         inline static const std::string NAME = "ContactSheetActor";
         void init();
-        void deliver_media_pointer(
-            const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp);
 
         void add_media(
             caf::actor actor,
@@ -37,6 +35,7 @@ namespace contact_sheet {
         caf::actor_addr playlist_;
         ContactSheet base_;
         utility::UuidActorMap actors_;
+        utility::UuidActor playhead_;
     };
 } // namespace contact_sheet
 } // namespace xstudio

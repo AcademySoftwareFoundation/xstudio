@@ -6,15 +6,11 @@ import QtQuick.Controls 2.5
 import xStudio 1.0
 
 Rectangle {
-    
+
     color: XsStyle.mainBackground
     height: XsStyle.viewerTitleBarHeight*opacity
     implicitHeight: XsStyle.viewerTitleBarHeight*opacity
 
-    property var source: session.onScreenSource
-    property var playhead: source ? source.playhead : undefined
-    property var currentMedia: playhead ? playhead.media.mediaSource : null
-    property var filename: currentMedia ? currentMedia.fileName : ""
     property alias mediaToolsTray: mediaToolsTray
     visible: opacity != 0.0
 
@@ -41,12 +37,12 @@ Rectangle {
         Text {
 
             id: label
-            text: filename
+            text: app_window.mediaImageSource.fileName
             color: XsStyle.controlColor
             verticalAlignment: Qt.AlignVCenter
             horizontalAlignment: Qt.AlignLeft
             anchors.fill: parent
-        
+
             font {
                 pixelSize: XsStyle.mediaInfoBarFontSize+6
                 family: XsStyle.controlTitleFontFamily

@@ -49,6 +49,22 @@
 				"datatype": "json",
 				"context": ["APPLICATION"]
 			},
+			"text_bgr_colour": {
+				"path": "/plugin/annotations/text_bgr_colour",
+				"default_value": ["colour", 1, 0.0, 0.0, 0.0],
+				"description": "colour of text background",
+				"value": ["colour", 1, 0.0, 0.0, 0.0],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},
+			"text_bgr_opacity": {
+				"path": "/plugin/annotations/text_bgr_opacity",
+				"default_value": 0,
+				"description": "opacity of text background",
+				"value": 0,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
 			"display_mode": {
 				"path": "/plugin/annotations/display_mode",
 				"default_value": "Only When Paused",

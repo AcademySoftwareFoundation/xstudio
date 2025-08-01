@@ -61,7 +61,7 @@ QVariant ModuleMenusModel::data(const QModelIndex &index, int role) const {
             rt = attributes_data_[index.row()][role];
         } else {
         }
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
     return rt;
 }
@@ -94,6 +94,9 @@ QString pathAtDepth(const QString &path, const int depth) {
 
 bool ModuleMenusModel::is_attr_in_this_menu(const ConstAttributePtr &attr) {
 
+    if (menu_path_.isEmpty())
+        return false;
+    auto bf = submenu_names_;
     try {
         bool changed = false;
 
@@ -140,6 +143,8 @@ bool ModuleMenusModel::is_attr_in_this_menu(const ConstAttributePtr &attr) {
 }
 
 void ModuleMenusModel::add_attributes_from_backend(const module::AttributeSet &attrs) {
+
+    const bool e = empty();
     try {
         if (not attrs.empty()) {
 
@@ -174,9 +179,13 @@ void ModuleMenusModel::add_attributes_from_backend(const module::AttributeSet &a
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+    if (empty() != e)
+        emit emptyChanged();
 }
 
 void ModuleMenusModel::add_multi_choice_menu_item(const ConstAttributePtr &attr) {
+
+    const bool e = empty();
 
     try {
 
@@ -186,10 +195,14 @@ void ModuleMenusModel::add_multi_choice_menu_item(const ConstAttributePtr &attr)
 
         std::vector<bool> enabled(string_choices.size(), true);
         if (attr->has_role_data(Attribute::StringChoicesEnabled)) {
-            auto string_choices_enabled_data =
-                attr->get_role_data<std::vector<bool>>(Attribute::StringChoicesEnabled);
-            if (string_choices_enabled_data.size() == enabled.size()) {
-                enabled = string_choices_enabled_data;
+            try {
+                auto string_choices_enabled_data =
+                    attr->get_role_data<std::vector<bool>>(Attribute::StringChoicesEnabled);
+                if (string_choices_enabled_data.size() == enabled.size()) {
+                    enabled = string_choices_enabled_data;
+                }
+            } catch (...) {
+                // if the enabled vector is empty it won't cast to vect<bool>
             }
         }
 
@@ -230,12 +243,16 @@ void ModuleMenusModel::add_multi_choice_menu_item(const ConstAttributePtr &attr)
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+
+    if (empty() != e)
+        emit emptyChanged();
 }
 
 void ModuleMenusModel::update_multi_choice_menu_item(
     const utility::Uuid &attr_uuid, const utility::JsonStore &string_choice_data) {
 
     const QUuid quuid = QUuidFromUuid(attr_uuid);
+    const bool e      = empty();
 
     if (not already_have_attr_in_this_menu(quuid))
         return;
@@ -286,10 +303,14 @@ void ModuleMenusModel::update_multi_choice_menu_item(
 
         endInsertRows();
     }
+
+    if (empty() != e)
+        emit emptyChanged();
 }
 
 void ModuleMenusModel::add_checkable_menu_item(const ConstAttributePtr &attr) {
 
+    const bool e = empty();
     try {
 
         QString title = QStringFromStd(attr->get_role_data<std::string>(Attribute::Title));
@@ -311,10 +332,13 @@ void ModuleMenusModel::add_checkable_menu_item(const ConstAttributePtr &attr) {
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+    if (empty() != e)
+        emit emptyChanged();
 }
 
 void ModuleMenusModel::add_menu_action_item(const ConstAttributePtr &attr) {
 
+    const bool e = empty();
     try {
 
         QString title = QStringFromStd(attr->get_role_data<std::string>(Attribute::Title));
@@ -328,6 +352,10 @@ void ModuleMenusModel::add_menu_action_item(const ConstAttributePtr &attr) {
         roles_data[XsMenuRoles::Uuid]        = attr_uuid;
         roles_data[XsMenuRoles::Value]       = QVariant(false);
         roles_data[XsMenuRoles::AttrType]    = "Action";
+        if (attr->has_role_data(Attribute::HotkeyUuid)) {
+            roles_data[XsMenuRoles::HotkeyUuid] =
+                QUuid(attr->get_role_data<std::string>(Attribute::HotkeyUuid).c_str());
+        }
         attributes_data_.push_back(roles_data);
 
         endInsertRows();
@@ -335,10 +363,14 @@ void ModuleMenusModel::add_menu_action_item(const ConstAttributePtr &attr) {
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+    if (empty() != e)
+        emit emptyChanged();
 }
 
 void ModuleMenusModel::remove_attribute(const utility::Uuid &attr_uuid) {
 
+    auto bf           = submenu_names_;
+    const bool e      = empty();
     const QUuid quuid = QUuidFromUuid(attr_uuid);
     int idx           = 0;
     auto attr         = attributes_data_.begin();
@@ -378,6 +410,8 @@ void ModuleMenusModel::remove_attribute(const utility::Uuid &attr_uuid) {
     if (changed) {
         emit submenu_namesChanged();
     }
+    if (empty() != e)
+        emit emptyChanged();
 }
 
 bool ModuleMenusModel::setData(const QModelIndex &index, const QVariant &value, int role) {
@@ -409,6 +443,8 @@ bool ModuleMenusModel::setData(const QModelIndex &index, const QVariant &value, 
 void ModuleMenusModel::update_full_attribute_from_backend(
     const module::ConstAttributePtr &attr) {
 
+    const bool e = empty();
+
     try {
         const QUuid attr_uuid(QUuidFromUuid(attr->uuid()));
         int row = 0;
@@ -434,6 +470,8 @@ void ModuleMenusModel::update_full_attribute_from_backend(
     } catch (std::exception &e) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
     }
+    if (empty() != e)
+        emit emptyChanged();
 }
 
 void ModuleMenusModel::update_attribute_from_backend(
@@ -502,7 +540,7 @@ void ModuleMenusModel::update_attribute_from_backend(
             }
         }
 
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
 }
 

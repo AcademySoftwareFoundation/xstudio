@@ -10,10 +10,9 @@ XsMediaInfoBar              1.0 ../bars/XsMediaInfoBar.qml
 XsMediaListPanelHeader      1.0 ../bars/XsMediaListPanelHeader.qml
 XsMenuBar                   1.0 ../bars/XsMenuBar.qml
 XsSessionControls           1.0 ../bars/XsSessionControls.qml
-XsSessionPanelHeader        1.0 ../bars/XsSessionPanelHeader.qml
+XsSessionPanelHeader        1.0 ../panels/playlist/XsSessionPanelHeader.qml
 XsShortcuts                 1.0 ../bars/XsShortcuts.qml
 XsStatusBar                 1.0 ../bars/XsStatusBar.qml
-XsTimelinePanelHeader       1.0 ../bars/XsTimelinePanelHeader.qml
 XsToolBar                   1.0 ../bars/XsToolBar.qml
 XsViewerTabBar              1.0 ../bars/XsViewerTabBar.qml
 XsViewportTitleBar          1.0 ../bars/XsViewportTitleBar.qml
@@ -33,21 +32,25 @@ XsStringRequestDialog       1.0 ../base/dialogs/XsStringRequestDialog.qml
 XsWindow                    1.0 ../base/dialogs/XsWindow.qml
 
 XsBoolAttrCheckBox          1.0 ../base/widgets/XsBoolAttrCheckBox.qml
+XsBorder          			1.0 ../base/widgets/XsBorder.qml
 XsBusyIndicator             1.0 ../base/widgets/XsBusyIndicator.qml
 XsButton                    1.0 ../base/widgets/XsButton.qml
-XsButtonOld                 1.1 ../base/widgets/XsButton.qml
 XsButton                    1.1 ../base/widgets/XsButtonNew.qml
+XsButtonOld                 1.1 ../base/widgets/XsButton.qml
 XsCheckbox                  1.0 ../base/widgets/XsCheckbox.qml
 XsCheckboxOld               1.1 ../base/widgets/XsCheckbox.qml
 XsCheckbox                  1.1 ../base/widgets/XsCheckBoxNew.qml
 XsCheckBoxWithComboBox      1.1 ../base/widgets/XsCheckBoxWithComboBox.qml
+XsCheckBoxWithMultiComboBox 1.1 ../base/widgets/XsCheckBoxWithMultiComboBox.qml
 XsCheckBoxWithTextField     1.1 ../base/widgets/XsCheckBoxWithTextField.qml
-XsCloseableTab              1.0 ../base/widgets/XsCloseableTab.qml
 XsCollapsibleLabel          1.0 ../base/widgets/XsCollapsibleLabel.qml
 XsColoredImage              1.0 ../base/widgets/XsColoredImage.qml
+XsColourChooser             1.0 ../base/widgets/XsColourChooser.qml
 XsComboBox                  1.1 ../base/widgets/XsComboBoxNew.qml
+XsComboBoxMultiSelect       1.1 ../base/widgets/XsComboBoxMultiSelect.qml
 XsComboBoxWithText          1.1 ../base/widgets/XsComboBoxWithText.qml
 XsDecoratorWidget           1.0 ../base/widgets/XsDecoratorWidget.qml
+XsElideLabel  		        1.0 ../base/widgets/XsElideLabel.qml
 XsExpandButton              1.0 ../base/widgets/XsExpandButton.qml
 XsFloatAttrSlider           1.0 ../base/widgets/XsFloatAttrSlider.qml
 XsFrame                     1.1 ../base/widgets/XsFrame.qml
@@ -55,6 +58,7 @@ XsFramedButton              1.0 ../base/widgets/XsFramedButton.qml
 XsHotkeyView                1.0 ../base/widgets/XsHotkeyView.qml
 XsHSlider                   1.0 ../base/widgets/XsHSlider.qml
 XsHSpacer                   1.0 ../base/widgets/XsHSpacer.qml
+XsIntAttrSlider             1.0 ../base/widgets/XsIntAttrSlider.qml
 XsIntSlider                 1.0 ../base/widgets/XsIntSlider.qml
 XsIntSliderPopupSimple      1.0 ../base/widgets/XsIntSliderPopupSimple.qml
 XsLabel                     1.0 ../base/widgets/XsLabel.qml
@@ -70,8 +74,6 @@ XsPopup                     1.0 ../base/widgets/XsPopup.qml
 XsPopupInfoBox              1.0 ../base/widgets/XsPopupInfoBox.qml
 XsRoundButton               1.0 ../base/widgets/XsRoundButton.qml
 XsScrollBar                 1.1 ../base/widgets/XsScrollBar.qml
-XsSessionBarDivider         1.0 ../base/widgets/XsSessionBarDivider.qml
-XsSessionBarWidget          1.0 ../base/widgets/XsSessionBarWidget.qml
 XsSimpleMenuItem            1.0 ../base/widgets/XsSimpleMenuItem.qml
 XsSplitView          		1.0 ../base/widgets/XsSplitView.qml
 XsStringChoiceAttrComboBox  1.0 ../base/widgets/XsStringChoiceAttrComboBox.qml
@@ -85,6 +87,8 @@ XsTextEdit                  1.0 ../base/widgets/XsTextEdit.qml
 XsTextField                 1.1 ../base/widgets/XsTextFieldNew.qml
 XsTextHoverable             1.1 ../base/widgets/XsTextHoverable.qml
 XsTextInput                 1.0 ../base/widgets/XsTextInput.qml
+XsTickWidget                1.0 ../base/widgets/XsTickWidget.qml
+XsTimelineCursor			1.0 ../base/widgets/XsTimelineCursor.qml
 XsTimelineSlider            1.0 ../base/widgets/XsTimelineSlider.qml
 XsToolbarComboBox           1.0 ../base/widgets/XsToolbarComboBox.qml
 XsToolbarFloatScrubber      1.0 ../base/widgets/XsToolbarFloatScrubber.qml
@@ -99,11 +103,8 @@ XsTreeStructureDelegate     1.0 ../base/widgets/XsTreeStructureDelegate.qml
 XsTreeView                  1.0 ../base/widgets/XsTreeView.qml
 
 XsGlobalPreferences         1.0 ../core/XsGlobalPreferences.qml
-XsSessionChooser            1.0 ../core/XsSessionChooser.qml
 
 XsAboutDialog               1.0 ../dialogs/XsAboutDialog.qml
-XsAddMediaDialog            1.0 ../dialogs/XsAddMediaDialog.qml
-XsBookmarkDialog            1.0 ../dialogs/XsBookmarkDialog.qml
 XsColourCorrectionDialog    1.0 ../dialogs/XsColourCorrectionDialog.qml
 XsDrawingDialog             1.0 ../dialogs/XsDrawingDialog.qml
 XsErrorMessage              1.0 ../dialogs/XsErrorMessage.qml
@@ -112,12 +113,8 @@ XsFeedbackDialog            1.0 ../dialogs/XsFeedbackDialog.qml
 XsFunctionalFeaturesDialog  1.0 ../dialogs/XsFunctionalFeaturesDialog.qml
 XsImportSessionDialog       1.0 ../dialogs/XsImportSessionDialog.qml
 XsLogDialog                 1.0 ../dialogs/XsLogDialog.qml
-XsNewContactSheetDialog     1.0 ../dialogs/XsNewContactSheetDialog.qml
-XsNewPlaylistDialog         1.0 ../dialogs/XsNewPlaylistDialog.qml
-XsNewPlaylistDividerDialog  1.0 ../dialogs/XsNewPlaylistDividerDialog.qml
-XsNewSessionDividerDialog   1.0 ../dialogs/XsNewSessionDividerDialog.qml
-XsNewSubsetDialog           1.0 ../dialogs/XsNewSubsetDialog.qml
-XsNewTimelineDialog         1.0 ../dialogs/XsNewTimelineDialog.qml
+XsMediaMoveCopyDialog       1.0 ../dialogs/XsMediaMoveCopyDialog.qml
+XsNewSnapshotDialog         1.0 ../dialogs/XsNewSnapshotDialog.qml
 XsNotesDialog               1.0 ../dialogs/XsNotesDialog.qml
 XsOpenSessionDialog         1.0 ../dialogs/XsOpenSessionDialog.qml
 XsSaveBeforeDialog          1.0 ../dialogs/XsSaveBeforeDialog.qml
@@ -127,7 +124,6 @@ XsSessionRequestDialog      1.0 ../dialogs/XsSessionRequestDialog.qml
 XsSettingsDialog            1.0 ../dialogs/XsSettingsDialog.qml
 XsSnapshotDialog            1.0 ../dialogs/XsSnapshotDialog.qml
 XsTransformDialog           1.0 ../dialogs/XsTransformDialog.qml
-XsSetMediaRateDialog        1.0 ../dialogs/XsSetMediaRateDialog.qml
 
 XsClosedownAnimation        1.0 ../effects/XsClosedownAnimation.qml
 
@@ -147,6 +143,8 @@ XsPlaybackMenu              1.0 ../menus/XsPlaybackMenu.qml
 XsPlaylistMenu              1.0 ../menus/XsPlaylistMenu.qml
 XsPublishMenu               1.0 ../menus/XsPublishMenu.qml
 XsRepeatMenu                1.0 ../menus/XsRepeatMenu.qml
+XsSnapshotMenu              1.0 ../menus/XsSnapshotMenu.qml
+XsSnapshotDirectoryMenu     1.0 ../menus/XsSnapshotDirectoryMenu.qml
 XsTimelineMenu              1.0 ../menus/XsTimelineMenu.qml
 XsViewerContextMenu         1.0 ../menus/XsViewerContextMenu.qml
 XsViewerLayoutsMenu         1.0 ../menus/XsViewerLayoutsMenu.qml
@@ -158,12 +156,33 @@ XsErrorFrameOverlay         1.0 ../overlays/XsErrorFrameOverlay.qml
 XsOutOfRangeOverlay         1.0 ../overlays/XsOutOfRangeOverlay.qml
 XsViewportBlankCard         1.0 ../overlays/XsViewportBlankCard.qml
 
-XsPlaylistsPanel            1.0 ../panels/XsPlaylistsPanel.qml
-XsTimelinePanel             1.0 ../panels/XsTimelinePanel.qml
+XsSessionBarDivider         1.0 ../panels/playlist/XsSessionBarDivider.qml
+XsSessionBarWidget          1.0 ../panels/playlist/XsSessionBarWidget.qml
+XsPlaylistsPanelNew         1.0 ../panels/playlist/XsPlaylistsPanelNew.qml
+
+XsDelegateChoicePlaylist    1.0 ../panels/playlist/delegates/XsDelegateChoicePlaylist.qml
+XsDelegateChoiceDivider     1.0 ../panels/playlist/delegates/XsDelegateChoiceDivider.qml
+XsDelegateChoiceSubset      1.0 ../panels/playlist/delegates/XsDelegateChoiceSubset.qml
+XsDelegateChoiceTimeline    1.0 ../panels/playlist/delegates/XsDelegateChoiceTimeline.qml
+
+XsDelegateClip      		1.0 ../panels/timeline/delegates/XsDelegateClip.qml
+XsDelegateGap      			1.0 ../panels/timeline/delegates/XsDelegateGap.qml
+XsDelegateStack      		1.0 ../panels/timeline/delegates/XsDelegateStack.qml
+XsDelegateAudioTrack      	1.0 ../panels/timeline/delegates/XsDelegateAudioTrack.qml
+XsDelegateVideoTrack      	1.0 ../panels/timeline/delegates/XsDelegateVideoTrack.qml
+XsClipItem					1.0 ../panels/timeline/widgets/XsClipItem.qml
+XsDragLeft					1.0 ../panels/timeline/widgets/XsDragLeft.qml
+XsMoveClip					1.0 ../panels/timeline/widgets/XsMoveClip.qml
+XsDragRight					1.0 ../panels/timeline/widgets/XsDragRight.qml
+XsDragBoth					1.0 ../panels/timeline/widgets/XsDragBoth.qml
+XsGapItem					1.0 ../panels/timeline/widgets/XsGapItem.qml
+XsTrackHeader				1.0 ../panels/timeline/widgets/XsTrackHeader.qml
+XsTimelinePanel             1.0 ../panels/timeline/XsTimelinePanel.qml
+XsTimelinePanelHeader       1.0 ../panels/timeline/XsTimelinePanelHeader.qml
+
+XsDelegateMedia      		1.0 ../panels/media_list/delegates/XsDelegateMedia.qml
 XsMediaPaneListHeader       1.0 ../panels/media_list/XsMediaPaneListHeader.qml
-XsMediaPaneListView         1.0 ../panels/media_list/XsMediaPaneListView.qml
-XsMediaViewItemContainer    1.0 ../panels/media_list/XsMediaViewItemContainer.qml
-XsMediaViewListItem         1.0 ../panels/media_list/XsMediaViewListItem.qml
+XsMediaPanelListView        1.0 ../panels/media_list/XsMediaPanelListView.qml
 Xs2PaneLayout               1.0 ../panels/panel_layouts/Xs2PaneLayout.qml
 Xs3PaneLayout               1.0 ../panels/panel_layouts/Xs3PaneLayout.qml
 Xs4PaneLayout               1.0 ../panels/panel_layouts/Xs4PaneLayout.qml
@@ -175,6 +194,8 @@ XsVerticalPaneDivider       1.0 ../panels/panel_layouts/XsVerticalPaneDivider.qm
 
 XsPlayerTabs                1.0 ../player/XsPlayerTabs.qml
 XsPlayerWidget              1.0 ../player/XsPlayerWidget.qml
+XsLightPlayerWidget         1.0 ../player/XsLightPlayerWidget.qml
+XsLightPlayerWindow         1.0 ../player/XsLightPlayerWindow.qml
 XsPlayerWindow              1.0 ../player/XsPlayerWindow.qml
 XsPopoutViewerWidget        1.0 ../player/XsPopoutViewerWidget.qml
 XsSessionWidget             1.0 ../player/XsSessionWidget.qml
@@ -186,17 +207,13 @@ XsPaneVisibilityTray        1.0 ../trays/XsPaneVisibilityTray.qml
 XsTransportTray             1.0 ../trays/XsTransportTray.qml
 
 XsForwardWidget             1.0 ../widgets/XsForwardWidget.qml
+XsHudToolbarButton          1.0 ../widgets/XsHudToolbarButton.qml
 XsLoopWidget                1.0 ../widgets/XsLoopWidget.qml
 XsMediaInfoBarItem          1.0 ../widgets/XsMediaInfoBarItem.qml
 XsMediaInfoBarOffset        1.0 ../widgets/XsMediaInfoBarOffset.qml
-XsMediaInfoBarAutoAlign      1.0 ../widgets/XsMediaInfoBarAutoAlign.qml
-XsPlaylistContactSheetWidget 1.0 ../widgets/XsPlaylistContactSheetWidget.qml
-XsPlaylistDividerWidget     1.0 ../widgets/XsPlaylistDividerWidget.qml
-XsPlaylistGroupWidget       1.0 ../widgets/XsPlaylistGroupWidget.qml
-XsPlaylistSubGroupWidget    1.0 ../widgets/XsPlaylistSubGroupWidget.qml
-XsPlaylistSubsetWidget      1.0 ../widgets/XsPlaylistSubsetWidget.qml
-XsPlaylistTimelineWidget    1.0 ../widgets/XsPlaylistTimelineWidget.qml
-XsPlaylistWidget            1.0 ../widgets/XsPlaylistWidget.qml
+XsMediaInfoBarAutoAlign     1.0 ../widgets/XsMediaInfoBarAutoAlign.qml
+XsSourceToolbarButton       1.0 ../widgets/XsSourceToolbarButton.qml
+
 XsPluginMenu                1.0 ../widgets/XsPluginMenu.qml
 XsPluginWidget              1.0 ../widgets/XsPluginWidget.qml
 XsPythonWidget              1.0 ../widgets/XsPythonWidget.qml

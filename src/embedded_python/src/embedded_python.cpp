@@ -15,7 +15,7 @@ using namespace xstudio::utility;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-EmbeddedPython *EmbeddedPython::s_instance_ = nullptr;
+// EmbeddedPython *EmbeddedPython::s_instance_ = nullptr;
 
 EmbeddedPython::EmbeddedPython(const std::string &name, EmbeddedPythonActor *parent)
     : Container(name, "EmbeddedPython"), parent_(parent) {
@@ -34,7 +34,6 @@ void EmbeddedPython::setup() {
             py::initialize_interpreter();
             inited_ = true;
         }
-
         if (Py_IsInitialized() and not setup_) {
             exec(R"(
 import xstudio
@@ -73,6 +72,7 @@ EmbeddedPython::~EmbeddedPython() { finalize(); }
 
 void EmbeddedPython::disconnect() {
 
+    message_handler_callbacks_.clear();
     try {
         exec(R"(
 if 'XSTUDIO' in globals():
@@ -233,19 +233,35 @@ bool EmbeddedPython::input_ctrl_c_session(const utility::Uuid &session_uuid) {
 void EmbeddedPython::add_message_callback(const py::tuple &cb_particulars) {
 
     try {
-        if (cb_particulars.size() != 3) {
-            throw std::runtime_error("Set message callback expecting tuple of size 3 "
-                                     "(remote_actor, callack_func, py_plugin_name).");
+
+        if (cb_particulars.size() == 2) {
+
+            auto i            = cb_particulars.begin();
+            auto remote_actor = (*i).cast<caf::actor>();
+            i++;
+            auto callback_func = (*i).cast<py::function>();
+            auto addr          = caf::actor_cast<caf::actor_addr>(remote_actor);
+
+            message_handler_callbacks_[addr].push_back(callback_func);
+            parent_->join_broadcast(remote_actor);
+
+        } else {
+
+            if (cb_particulars.size() != 3) {
+                throw std::runtime_error("Set message callback expecting tuple of size 3 "
+                                         "(remote_actor, callack_func, py_plugin_name).");
+            }
+            auto i            = cb_particulars.begin();
+            auto remote_actor = (*i).cast<caf::actor>();
+            i++;
+            auto callback_func = (*i).cast<py::function>();
+            i++;
+            auto plugin_name = (*i).cast<std::string>();
+            auto addr        = caf::actor_cast<caf::actor_addr>(remote_actor);
+
+            message_handler_callbacks_[addr].push_back(callback_func);
+            parent_->join_broadcast(remote_actor, plugin_name);
         }
-        auto i            = cb_particulars.begin();
-        auto remote_actor = (*i).cast<caf::actor>();
-        i++;
-        auto callback_func = (*i).cast<py::function>();
-        i++;
-        auto plugin_name = (*i).cast<std::string>();
-        auto addr        = caf::actor_cast<caf::actor_addr>(remote_actor);
-        message_handler_callbacks_[addr].push_back(callback_func);
-        parent_->join_broadcast(remote_actor, plugin_name);
 
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());

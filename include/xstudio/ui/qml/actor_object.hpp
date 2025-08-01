@@ -34,11 +34,13 @@ CAF_PUSH_WARNINGS
 #include <QDebug>
 CAF_POP_WARNINGS
 
+#include "xstudio/atoms.hpp"
 #include "xstudio/utility/logging.hpp"
 
 namespace caf::mixin {
 
-template <typename Base, int EventId = static_cast<int>(QEvent::User + 31337)>
+// QEvent::User == 1000
+template <typename Base, int EventId = static_cast<int>(FIRST_CUSTOM_ID)>
 class actor_object : public Base {
   public:
     /// A shared lockable.
@@ -52,7 +54,13 @@ class actor_object : public Base {
         }
     };
 
-    template <typename... Ts> actor_object(Ts &&...xs) : Base(std::forward<Ts>(xs)...) {
+    // TODO: Ahead This is a bad hack for windows to make it compile currently, possible
+    // solution is to pass
+    //  JsonTreeModel as a reference or a pointer.
+    template <
+        typename... Ts,
+        std::enable_if_t<(std::is_move_constructible_v<Ts> && ...), int> = 0>
+    actor_object(Ts &&...xs) : Base(std::forward<Ts>(xs)...) {
         // nop
     }
 
@@ -123,7 +131,7 @@ class actor_object : public Base {
         return actor_cast<actor>(companion_);
     }
 
-    actor_companion *self() {
+    [[nodiscard]] actor_companion *self() const {
         using bptr = abstract_actor *;  // base pointer
         using dptr = actor_companion *; // derived pointer
         return companion_ ? static_cast<dptr>(actor_cast<bptr>(companion_)) : nullptr;

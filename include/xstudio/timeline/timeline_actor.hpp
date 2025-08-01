@@ -31,21 +31,61 @@ namespace timeline {
         void init();
 
         caf::behavior make_behavior() override { return behavior_; }
-        // void deliver_media_pointer(
-        //     const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp);
+
+        void deliver_media_pointer(
+            const int logical_frame,
+            const media::MediaType media_type,
+            caf::typed_response_promise<media::AVFrameID> rp);
+
         void add_item(const utility::UuidActor &ua);
+
+        void add_media(
+            const utility::UuidActor &ua,
+            const utility::Uuid &uuid_before,
+            caf::typed_response_promise<utility::UuidActor> rp);
+        void add_media(
+            caf::actor actor,
+            const utility::Uuid &uuid,
+            const utility::Uuid &before_uuid = utility::Uuid());
+        bool remove_media(caf::actor actor, const utility::Uuid &uuid);
+
+        void insert_items(
+            const int index,
+            const utility::UuidActorVector &uav,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void remove_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<
+                std::pair<utility::JsonStore, std::vector<timeline::Item>>> rp);
+
+        void erase_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void sort_alphabetically();
+
         void on_exit() override;
+
         caf::actor
         deserialise(const utility::JsonStore &value, const bool replace_item = false);
+
         void item_event_callback(const utility::JsonStore &event, Item &item);
 
       private:
         caf::behavior behavior_;
         Timeline base_;
         caf::actor event_group_;
-        std::map<utility::Uuid, caf::actor> actors_;
+
+        utility::UuidActorMap actors_;
+        utility::UuidActorMap media_actors_;
+
         caf::actor_addr playlist_;
         bool content_changed_{false};
+        utility::UuidActor playhead_;
+        caf::actor history_;
         // bool update_edit_list_;
         // utility::EditList edit_list_;
     };

@@ -26,14 +26,17 @@ Item
     property alias channel: channel
     property alias exposure: exposure
     property alias velocity: velocity
+    property alias note_category: note_category
+    property alias note_depth: note_depth
+    property alias note_colour: note_colour
     property alias compare: compare
     property alias source: source
     property alias view: view
     property alias display: display
-    property alias volume: volume
-    property alias mute: mute
     property alias python_history: python_history
     property alias recent_history: recent_history
+    property alias session_compression: session_compression
+    property alias quickview_all_incoming_media: quickview_all_incoming_media
     property alias session_link_prefix: session_link_prefix
     property alias click_to_toggle_play: click_to_toggle_play
  	// property alias panel_geoms: panel_geoms
@@ -46,8 +49,34 @@ Item
     property alias new_media_rate: new_media_rate
     property alias viewport_scrub_sensitivity: viewport_scrub_sensitivity
     property alias default_playhead_compare_mode: default_playhead_compare_mode
+    property alias default_media_folder: default_media_folder
+    property alias snapshot_paths: snapshot_paths
 
     property color accent_color: '#bb7700'
+
+    XsModelProperty {
+        id: note_category
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_category", "pathRole")
+    }
+
+    XsModelProperty {
+        id: snapshot_paths
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/snapshot/paths", "pathRole")
+    }
+
+    XsModelProperty {
+        id: note_depth
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_depth", "pathRole")
+    }
+
+    XsModelProperty {
+        id: note_colour
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/bookmark/note_colour", "pathRole")
+    }
 
     XsModelProperty {
         id: velocity
@@ -80,21 +109,21 @@ Item
     }
 
     XsModelProperty {
+        id: session_compression
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/compression", "pathRole")
+    }
+
+    XsModelProperty {
+        id: quickview_all_incoming_media
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/core/session/quickview_all_incoming_media", "pathRole")
+    }
+
+    XsModelProperty {
         id: xplayer_window
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/ui/qml/xplayer_window", "pathRole")
-    }
-
-    XsModelProperty {
-        id: volume
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/volume", "pathRole")
-    }
-
-    XsModelProperty {
-        id: mute
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/audio_mute", "pathRole")
     }
 
     XsModelProperty {
@@ -284,6 +313,12 @@ Item
         id: default_playhead_compare_mode
         role: "valueRole"
         index: app_window.globalStoreModel.search_recursive("/ui/qml/default_playhead_compare_mode", "pathRole")
+    }
+
+    XsModelProperty {
+        id: default_media_folder
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/default_media_folder", "pathRole")
     }
 
     Gradient {

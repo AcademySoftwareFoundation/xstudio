@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/utility/helpers.hpp"
+#include "xstudio/utility/caf_helpers.hpp"
+#include "xstudio/utility/helpers.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/media/media.hpp"
 
@@ -12,6 +14,10 @@ using namespace xstudio::ui::qml;
 #include <QJSValue>
 #include <QMimeData>
 #include <QItemSelectionRange>
+
+QMLActor::QMLActor(QObject *parent) : super(parent) {}
+
+QMLActor::~QMLActor() {}
 
 CafSystemObject::CafSystemObject(QObject *parent, caf::actor_system &sys)
     : QObject(parent), system_ref_(sys) {
@@ -32,8 +38,27 @@ caf::actor_system &CafSystemObject::get_actor_system() {
 }
 
 
+std::string xstudio::ui::qml::actorToString(actor_system &sys, const caf::actor &actor) {
+    return xstudio::utility::actor_to_string(sys, actor);
+}
+
+caf::actor xstudio::ui::qml::actorFromString(actor_system &sys, const std::string &str_addr) {
+    return xstudio::utility::actor_from_string(sys, str_addr);
+}
+
+
+QString xstudio::ui::qml::actorToQString(actor_system &sys, const caf::actor &actor) {
+    return QStringFromStd(actorToString(sys, actor));
+}
+
+caf::actor xstudio::ui::qml::actorFromQString(actor_system &sys, const QString &addr_str) {
+    std::string addr = StdFromQString(addr_str);
+    return actorFromString(sys, addr);
+}
+
+
 QString xstudio::ui::qml::getThumbnailURL(
-    actor_system &system, caf::actor actor, const int frame, const bool cache_to_disk) {
+    actor_system &system, const caf::actor &actor, const int frame, const bool cache_to_disk) {
     //  we introduce a random component to allow reaquiring of thumb.
     // this is for the default thumb which maybe generated before the media source is fully
     // loaded.
@@ -55,16 +80,21 @@ QString xstudio::ui::qml::getThumbnailURL(
             auto colour_pipe_manager =
                 system.registry().get<caf::actor>(colour_pipeline_registry);
             auto colour_pipe = utility::request_receive<caf::actor>(
-                *sys, colour_pipe_manager, colour_pipeline::get_colour_pipeline_atom_v);
+                *sys,
+                colour_pipe_manager,
+                colour_pipeline::get_thumbnail_colour_pipeline_atom_v);
 
             auto mp = utility::request_receive<media::AVFrameID>(
-                *sys, actor, media::get_media_pointer_atom_v, frame);
+                *sys, actor, media::get_media_pointer_atom_v, media::MT_IMAGE, frame);
+
+            auto mhash = utility::request_receive<std::pair<std::string, uintmax_t>>(
+                *sys, actor, media::checksum_atom_v);
 
             auto display_transform_hash = utility::request_receive<std::string>(
                 *sys, colour_pipe, colour_pipeline::display_colour_transform_hash_atom_v, mp);
-            hash = std::hash<std::string>{}(
-                static_cast<const std::string &>(display_transform_hash));
-        } catch (const std::exception &err) {
+            hash = std::hash<std::string>{}(static_cast<const std::string &>(
+                display_transform_hash + mhash.first + std::to_string(mhash.second)));
+        } catch ([[maybe_unused]] const std::exception &err) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
         }
 
@@ -77,7 +107,7 @@ QString xstudio::ui::qml::getThumbnailURL(
             (cache_to_disk ? "1" : "0"),
             hash));
         thumburl      = QStringFromStd(thumbstr);
-    } catch (const std::exception &err) {
+    } catch ([[maybe_unused]] const std::exception &err) {
         // spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
     }
 

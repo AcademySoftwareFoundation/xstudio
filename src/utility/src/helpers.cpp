@@ -1,25 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
-#define __USE_POSIX
+#include "xstudio/utility/helpers.hpp"
 
+#ifdef __linux__
+#define __USE_POSIX
+#include <unistd.h>
+#include <sys/param.h>
+#include <pwd.h>
+#include <sys/types.h>
+#endif
 #include <filesystem>
 #include <limits>
 #include <regex>
 #include <set>
-#include <unistd.h>
 #include <climits>
-#include <sys/types.h>
-#include <sys/param.h>
-#include <pwd.h>
 
 #include <fmt/format.h>
 
-#include <reproc++/drain.hpp>
-#include <reproc++/reproc.hpp>
+// #include <reproc++/drain.hpp>
+// #include <reproc++/reproc.hpp>
 
 #include "xstudio/utility/frame_list.hpp"
-#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/sequence.hpp"
 #include "xstudio/utility/string_helpers.hpp"
+
+#ifndef MAXHOSTNAMELEN
+#define MAXHOSTNAMELEN 256
+#endif
 
 using namespace xstudio::utility;
 using namespace caf;
@@ -34,7 +40,77 @@ namespace fs = std::filesystem;
 // 	  return err;
 // 	}
 // }
+
+static std::shared_ptr<ActorSystemSingleton> s_actor_system_singleton;
+
+caf::actor_system &ActorSystemSingleton::actor_system_ref() {
+    assert(s_actor_system_singleton);
+    return s_actor_system_singleton->get_system();
+}
+
+caf::actor_system &ActorSystemSingleton::actor_system_ref(caf::actor_system &sys) {
+
+    // Note that this function is called when instancing the xstudio python module and
+    // allows it to grab a reference to the application actor system (if there is one -
+    // which will be the case if we're in the embedded interpreter in xstudio). If the
+    // python module is instanced outside of an xstudio application, there will be no
+    // existing application actor system so essentially 'sys' is returned. In that case
+    // 'sys' will be a reference to an actor system that is local to the python module
+    // itself.
+
+    if (!s_actor_system_singleton) {
+        // no instance of ActorSystemSingleton exists yet, so create one and
+        // grab a rederence to 'sys'
+        s_actor_system_singleton.reset(new ActorSystemSingleton(sys));
+    } else {
+        // in this case, 'sys' is ignored/unused and we return the ref to previously
+        // created actor_system. We do this to ensure that the python module, when
+        // running in the embedded interpreter in the xstudio application, will spawn
+        // actors within the application system.
+    }
+    return s_actor_system_singleton->get_system();
+}
+
+std::string xstudio::utility::actor_to_string(caf::actor_system &sys, const caf::actor &actor) {
+    std::string result;
+
+    try {
+        caf::binary_serializer::container_type buf;
+        caf::binary_serializer bs{sys, buf};
+
+        auto e = bs.apply(caf::actor_cast<caf::actor_addr>(actor));
+        if (not e)
+            throw std::runtime_error(to_string(bs.get_error()));
+
+        result = utility::make_hex_string(std::begin(buf), std::end(buf));
+    } catch (const std::exception &err) {
+        spdlog::debug("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    return result;
+}
+
+caf::actor
+xstudio::utility::actor_from_string(caf::actor_system &sys, const std::string &str_addr) {
+    caf::actor actor;
+
+    caf::binary_serializer::container_type buf = utility::hex_to_bytes(str_addr);
+    caf::binary_deserializer bd{sys, buf};
+
+    caf::actor_addr addr;
+    auto e = bd.apply(addr);
+
+    if (not e) {
+        spdlog::debug("{} {}", __PRETTY_FUNCTION__, to_string(bd.get_error()));
+    } else {
+        actor = caf::actor_cast<caf::actor>(addr);
+    }
+
+    return actor;
+}
+
 void xstudio::utility::join_broadcast(caf::event_based_actor *source, caf::actor actor) {
+
     source->request(actor, caf::infinite, broadcast::join_broadcast_atom_v)
         .then(
             [=](const bool) mutable {},
@@ -103,8 +179,28 @@ void xstudio::utility::leave_event_group(caf::event_based_actor *source, caf::ac
 }
 
 
+void xstudio::utility::print_on_exit(const caf::actor &hdl, const Container &cont) {
+    hdl->attach_functor([=](const caf::error &reason) {
+        spdlog::debug(
+            "{} {} {} exited: {}",
+            cont.type(),
+            cont.name(),
+            to_string(cont.uuid()),
+            to_string(reason));
+    });
+}
+
+void xstudio::utility::print_on_exit(
+    const caf::actor &hdl, const std::string &name, const Uuid &uuid) {
+
+    hdl->attach_functor([=](const caf::error &reason) {
+        spdlog::debug(
+            "{} {} exited: {}", name, uuid.is_null() ? "" : to_string(uuid), to_string(reason));
+    });
+}
+
 std::string xstudio::utility::exec(const std::vector<std::string> &cmd, int &exit_code) {
-    reproc::process process;
+    /*reproc::process process;
     std::error_code ec = process.start(cmd);
 
     if (ec == std::errc::no_such_file_or_directory) {
@@ -131,7 +227,108 @@ std::string xstudio::utility::exec(const std::vector<std::string> &cmd, int &exi
         return ec.message();
     }
 
-    return output;
+    return output;*/
+    return std::string();
+}
+
+std::string xstudio::utility::uri_to_posix_path(const caf::uri &uri) {
+    if (uri.path().data()) {
+        // spdlog::warn("{} {}",uri.path().data(), uri_decode(uri.path().data()));
+        std::string path = uri_decode(uri.path().data());
+#ifdef __linux__
+        if (not path.empty() and path[0] != '/' and not uri.authority().empty()) {
+            path = "/" + path;
+        }
+#endif
+#ifdef _WIN32
+
+        std::size_t pos = path.find("/");
+        if (pos == 0) {
+            // Remove the leading /
+            path.erase(0, 1);
+        }
+        /*
+        // Remove the leading '[protocol]:' part
+        std::size_t pos = path.find(":");
+        if (pos != std::string::npos) {
+            path.erase(0, pos + 1); // +1 to erase the colon
+        }
+        */
+#endif
+        return path;
+    }
+    return "";
+}
+
+std::string xstudio::utility::uri_encode(const std::string &s) {
+    std::string result;
+    result.reserve(s.size());
+    auto params = false;
+    std::array<char, 4> hex;
+
+    for (size_t i = 0; s[i]; i++) {
+        switch (s[i]) {
+        case ' ':
+            result += "%20";
+            break;
+        case '+':
+            result += "%2B";
+            break;
+        case '\r':
+            result += "%0D";
+            break;
+        case '\n':
+            result += "%0A";
+            break;
+        case '\'':
+            result += "%27";
+            break;
+        case ',':
+            result += "%2C";
+            break;
+        // case ':': result += "%3A"; break; // ok? probably...
+        case ';':
+            result += "%3B";
+            break;
+        default:
+            auto c = static_cast<uint8_t>(s[i]);
+            if (c == '?')
+                params = true;
+
+            if (not params and c == '&') {
+                result += "%26";
+            } else if (c >= 0x80) {
+                result += '%';
+                auto len = snprintf(hex.data(), hex.size() - 1, "%02X", c);
+                assert(len == 2);
+                result.append(hex.data(), static_cast<size_t>(len));
+            } else {
+                result += s[i];
+            }
+            break;
+        }
+    }
+
+    return result;
+}
+
+
+//  DIRTY REPLACE (does caf support this?)
+std::string xstudio::utility::uri_decode(const std::string &eString) {
+    std::string ret;
+    char ch;
+    unsigned int i, j;
+    for (i = 0; i < eString.length(); i++) {
+        if (int(eString[i]) == 37) {
+            sscanf(eString.substr(i + 1, 2).c_str(), "%x", &j);
+            ch = static_cast<char>(j);
+            ret += ch;
+            i = i + 2;
+        } else {
+            ret += eString[i];
+        }
+    }
+    return (ret);
 }
 
 
@@ -186,7 +383,14 @@ caf::uri xstudio::utility::parse_cli_posix_path(
     const std::regex xstudio_prefix_shake(
         R"(^(.+\.)([-0-9x,]+)([#@]+)(\..+)$)", std::regex::optimize);
 
+#ifdef _WIN32
+    std::string abspath = path;
+    if (abspath[0] == '\\') {
+        abspath.erase(abspath.begin());
+    }
+#else
     const std::string abspath = fs::absolute(path);
+#endif
 
     if (std::regex_match(abspath.c_str(), m, xstudio_prefix_spec)) {
         uri        = posix_path_to_uri(m[1].str() + m[3].str());
@@ -251,9 +455,15 @@ caf::uri xstudio::utility::posix_path_to_uri(const std::string &path, const bool
     if (abspath) {
         auto pwd = get_env("PWD");
         if (pwd and not pwd->empty())
+#ifdef _WIN32
+            p = (fs::path(*pwd) / path).lexically_normal().string();
+        else
+            p = (std::filesystem::current_path() / path).lexically_normal().string();
+#else
             p = fs::path(fs::path(*pwd) / path).lexically_normal();
         else
             p = fs::path(std::filesystem::current_path() / path).lexically_normal();
+#endif
     }
 
     // spdlog::warn("posix_path_to_uri: {} -> {}", path, p);
@@ -282,14 +492,23 @@ xstudio::utility::scan_posix_path(const std::string &path, const int depth) {
             try {
                 std::vector<std::string> files;
                 for (const auto &entry : fs::directory_iterator(path)) {
-                    if (not entry.path().filename().empty() and
-                        std::string(entry.path().filename())[0] == '.')
+                    if (!entry.path().filename().empty() &&
+                        entry.path().filename().string()[0] == '.')
                         continue;
                     if (fs::is_directory(entry) && (depth > 0 || depth < 0)) {
+#ifdef _WIN32
+                        auto more = scan_posix_path(entry.path().string(), depth - 1);
+#else
                         auto more = scan_posix_path(entry.path(), depth - 1);
+#endif
                         items.insert(items.end(), more.begin(), more.end());
                     } else if (fs::is_regular_file(entry))
+#ifdef _WIN32
+                        files.push_back(
+                            std::regex_replace(entry.path().string(), std::regex("[\]"), "/"));
+#else
                         files.push_back(entry.path());
+#endif
                 }
                 auto file_items = uri_from_file_list(files);
                 items.insert(items.end(), file_items.begin(), file_items.end());
@@ -336,12 +555,20 @@ std::string xstudio::utility::filemanager_show_uris(const std::vector<caf::uri> 
 
 std::string xstudio::utility::get_host_name() {
     std::array<char, MAXHOSTNAMELEN> hostname{0};
-    gethostname(hostname.data(), hostname.size());
+    gethostname(hostname.data(), (int)hostname.size());
     return hostname.data();
 }
 
 std::string xstudio::utility::get_user_name() {
     std::string result;
+
+#ifdef _WIN32
+    TCHAR username[MAX_PATH];
+    DWORD size = MAX_PATH;
+    if (GetUserName(username, &size)) {
+        result = std::string(username);
+    }
+#else
     long strsize = sysconf(_SC_GETPW_R_SIZE_MAX);
     std::vector<char> buf;
 
@@ -357,6 +584,7 @@ std::string xstudio::utility::get_user_name() {
                 result = pw->pw_name;
         }
     }
+#endif
 
     return result;
 }
@@ -364,6 +592,17 @@ std::string xstudio::utility::get_user_name() {
 
 std::string xstudio::utility::expand_envvars(
     const std::string &src, const std::map<std::string, std::string> &additional) {
+
+#ifdef _WIN32
+#else
+    // some prefs have ${USERPROFILE} which is MS Windows only, on UNIX we want
+    // ${HOME}
+    if (src.find("${USERPROFILE}") != std::string::npos) {
+        std::string unix_home = utility::replace_once(src, "${USERPROFILE}", "${HOME}");
+        return expand_envvars(unix_home, additional);
+    }
+#endif
+
     // use regex to capture envs and replace.
     std::regex words_regex(R"(\$\{[^\}]+\})");
     auto env_begin = std::sregex_iterator(src.begin(), src.end(), words_regex);
@@ -402,6 +641,14 @@ std::string xstudio::utility::expand_envvars(
 
 std::string xstudio::utility::get_login_name() {
     std::string result;
+
+#ifdef _WIN32
+    TCHAR username[MAX_PATH];
+    DWORD size = MAX_PATH;
+    if (GetUserName(username, &size)) {
+        result = std::string(username);
+    }
+#else
     long strsize = sysconf(_SC_GETPW_R_SIZE_MAX);
     std::vector<char> buf;
 
@@ -414,6 +661,7 @@ std::string xstudio::utility::get_login_name() {
             result = pw->pw_name;
         }
     }
+#endif
 
     return result;
 }

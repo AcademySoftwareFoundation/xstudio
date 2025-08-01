@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/module_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -14,23 +17,24 @@ CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/helper_ui.hpp"
 #include "xstudio/ui/qml/module_menu_ui.hpp"
+#include "xstudio/ui/qml/json_tree_model_ui.hpp"
 #include "xstudio/module/module.hpp"
 
 namespace xstudio {
 namespace ui {
     namespace qml {
 
-        class ModuleAttrsDirect : public QQmlPropertyMap {
+        class MODULE_QML_EXPORT ModuleAttrsDirect : public QQmlPropertyMap {
 
             Q_OBJECT
 
           public:
-            Q_PROPERTY(QString attributesGroupName READ attributesGroupName WRITE
-                           setAttributesGroupName NOTIFY attributesGroupNameChanged)
+            Q_PROPERTY(QStringList attributesGroupNames READ attributesGroupNames WRITE
+                           setattributesGroupNames NOTIFY attributesGroupNamesChanged)
             Q_PROPERTY(QString roleName READ roleName WRITE setRoleName NOTIFY roleNameChanged)
 
             ModuleAttrsDirect(QObject *parent = nullptr);
-            ~ModuleAttrsDirect() override = default;
+            virtual ~ModuleAttrsDirect();
 
             void add_attributes_from_backend(
                 const module::AttributeSet &attrs, const bool check_group = false);
@@ -44,16 +48,16 @@ namespace ui {
 
           public slots:
 
-            [[nodiscard]] QString attributesGroupName() const { return attrs_group_name_; }
+            [[nodiscard]] QStringList attributesGroupNames() const { return attrs_group_name_; }
             [[nodiscard]] QString roleName() const { return role_name_; }
 
-            void setAttributesGroupName(QString group_name);
+            void setattributesGroupNames(QStringList group_name);
             void setRoleName(QString group_name);
 
           signals:
 
             void setAttributeFromFrontEnd(const QUuid, const int, const QVariant);
-            void attributesGroupNameChanged(QString group_name);
+            void attributesGroupNamesChanged(QStringList group_name);
             void attrAdded(QString attr_name);
             void roleNameChanged();
 
@@ -64,42 +68,42 @@ namespace ui {
             QMap<QString, QUuid> attr_uuids_by_name_;
             QMap<QUuid, QString> attr_names_by_uuid_;
             QMap<QUuid, QVariant> attr_values_by_uuid_;
-            QString attrs_group_name_;
+            QStringList attrs_group_name_;
             QString role_name_;
         };
 
 
-        class OrderedModuleAttrsModel : public QSortFilterProxyModel {
+        class MODULE_QML_EXPORT OrderedModuleAttrsModel : public QSortFilterProxyModel {
             Q_OBJECT
 
-            Q_PROPERTY(QString attributesGroupName READ attributesGroupName WRITE
-                           setAttributesGroupName NOTIFY attributesGroupNameChanged)
+            Q_PROPERTY(QStringList attributesGroupNames READ attributesGroupNames WRITE
+                           setattributesGroupNames NOTIFY attributesGroupNamesChanged)
 
           public:
             OrderedModuleAttrsModel(QObject *parent = nullptr);
             // ~OrderedModuleAttrsModel() override = default;
 
           signals:
-            void attributesGroupNameChanged(QString group_name);
+            void attributesGroupNamesChanged(QStringList group_name);
 
           public slots:
-            [[nodiscard]] QString attributesGroupName() const;
-            void setAttributesGroupName(const QString &group_name);
+            [[nodiscard]] QStringList attributesGroupNames() const;
+            void setattributesGroupNames(const QStringList &group_name);
         };
 
 
-        class ModuleAttrsModel : public QAbstractListModel {
+        class MODULE_QML_EXPORT ModuleAttrsModel : public QAbstractListModel {
 
             Q_OBJECT
 
           public:
             Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
 
-            Q_PROPERTY(QString attributesGroupName READ attributesGroupName WRITE
-                           setAttributesGroupName NOTIFY attributesGroupNameChanged)
+            Q_PROPERTY(QStringList attributesGroupNames READ attributesGroupNames WRITE
+                           setattributesGroupNames NOTIFY attributesGroupNamesChanged)
 
             ModuleAttrsModel(QObject *parent = nullptr);
-            ~ModuleAttrsModel() override = default;
+            virtual ~ModuleAttrsModel();
 
             [[nodiscard]] int rowCount() { return rowCount(QModelIndex()); }
 
@@ -131,19 +135,20 @@ namespace ui {
 
             void setAttributeFromFrontEnd(const QUuid, const int, const QVariant);
             void rowCountChanged();
-            void attributesGroupNameChanged(QString group_name);
+            void doFullupdateFromBackend(QStringList group_name);
+            void attributesGroupNamesChanged(QStringList group_name);
 
           public slots:
 
-            [[nodiscard]] QString attributesGroupName() const { return attrs_group_name_; }
+            [[nodiscard]] QStringList attributesGroupNames() const { return attrs_group_name_; }
 
-            void setAttributesGroupName(QString group_name);
+            void setattributesGroupNames(QStringList group_name);
 
           private:
             bool have_attr(const QUuid &uuid);
 
             std::vector<QMap<int, QVariant>> attributes_data_;
-            QString attrs_group_name_;
+            QStringList attrs_group_name_;
         };
 
         class ModuleAttrsToQMLShim : public QMLActor {
@@ -170,8 +175,9 @@ namespace ui {
 
             void setAttributeFromFrontEnd(
                 const QUuid property_uuid, const int role, const QVariant role_value);
-            void setAttributesGroupName(QString group_name);
+            void setattributesGroupNames(QStringList group_name);
             void setRootMenuName(QString root_menu_name);
+            void doFullupdateFromBackend(QStringList group_name);
 
           private:
             ModuleAttrsModel *model_          = {nullptr};
@@ -180,7 +186,7 @@ namespace ui {
             utility::Uuid uuid_;
             caf::actor attrs_events_actor_;
             caf::actor attrs_events_actor_group_;
-            QString attrs_group_name_;
+            QStringList attrs_group_name_;
         };
 
     } // namespace qml

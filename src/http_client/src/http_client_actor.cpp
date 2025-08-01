@@ -271,11 +271,18 @@ HTTPWorker::HTTPWorker(
                 cli.set_connection_timeout(connection_timeout, 0);
                 cli.set_read_timeout(read_timeout, 0);
                 cli.set_write_timeout(write_timeout, 0);
+
                 auto res = [&]() -> httplib::Result {
                     if (content_type.empty())
                         return cli.Put(path.c_str(), headers, params);
-                    return cli.Put(path.c_str(), headers, body, content_type.c_str());
+
+                    if (params.empty())
+                        return cli.Put(path.c_str(), headers, body, content_type.c_str());
+
+                    auto param_path = httplib::append_query_params(path, params);
+                    return cli.Put(param_path.c_str(), headers, body, content_type.c_str());
                 }();
+
 
                 if (res.error() != httplib::Error::Success)
                     return make_error(hce::rest_error, get_error_string(res.error()));
@@ -581,6 +588,17 @@ void HTTPClientActor::init() {
                 content_type);
         },
 
+        [=](http_put_atom atom,
+            const std::string &scheme_host_port,
+            const std::string &path,
+            const httplib::Headers &headers,
+            const std::string &body,
+            const httplib::Params &params,
+            const std::string &content_type) {
+            return delegate(
+                pool, atom, scheme_host_port, path, headers, params, body, content_type);
+        },
+
         [=](http_put_simple_atom atom,
             const std::string &scheme_host_port,
             const std::string &path) {
@@ -626,5 +644,16 @@ void HTTPClientActor::init() {
                 httplib::Params(),
                 body,
                 content_type);
+        },
+
+        [=](http_put_simple_atom atom,
+            const std::string &scheme_host_port,
+            const std::string &path,
+            const httplib::Headers &headers,
+            const std::string &body,
+            const httplib::Params &params,
+            const std::string &content_type) {
+            return delegate(
+                pool, atom, scheme_host_port, path, headers, params, body, content_type);
         });
 }

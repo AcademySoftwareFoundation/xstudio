@@ -66,7 +66,22 @@ class py_context : public py_config {
 
     void call_func();
 
-    actor_system system_;
+    // Caf is fussy about how systems are created and passed around. The
+    // python module might be running in an embedded python interpreter
+    // in the xstudio application in which case we want to use the caf
+    // system that already exists as part of the application. If this
+    // python module is being run external to an xstudio application,
+    // we need a local system. We create a local system anyway, but only
+    // use it if there isn't already an application level. See
+    // ActorSystemSingleton class for more.
+    actor_system py_local_system_;
+
+    // we use this reference, which either references py_local_system_
+    // or another (application provided system) that was started before
+    // the python module is instanced.
+    actor_system &system_;
+
+
     scoped_actor self_;
     actor remote_;
     py::function my_func;

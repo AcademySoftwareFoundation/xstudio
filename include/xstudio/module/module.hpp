@@ -20,7 +20,7 @@ namespace module {
 
       protected:
       public:
-        Module(const std::string name);
+        Module(const std::string name, const utility::Uuid &uuid = utility::Uuid::generate());
 
         virtual ~Module();
 
@@ -52,6 +52,11 @@ namespace module {
                   // enabled
         );
 
+        JsonAttribute *add_json_attribute(
+            const std::string &title,
+            const std::string &abbr_title = "",
+            const nlohmann::json &value   = {});
+
         BooleanAttribute *add_boolean_attribute(
             const std::string &title, const std::string &abbr_title, const bool value);
 
@@ -81,8 +86,8 @@ namespace module {
             const utility::JsonStore &value,
             const utility::JsonStore &role_data);
 
-        [[nodiscard]] virtual AttributeSet
-        full_module(const std::string &attr_group = "") const;
+        [[nodiscard]] virtual AttributeSet full_module(
+            const std::vector<std::string> &attr_groups = std::vector<std::string>()) const;
 
         [[nodiscard]] virtual AttributeSet menu_attrs(const std::string &root_menu_name) const;
 
@@ -97,11 +102,40 @@ namespace module {
 
         [[nodiscard]] const std::string &name() const { return name_; }
 
+        [[nodiscard]] const utility::Uuid &uuid() const { return module_uuid_; }
+
         virtual void deserialise(const nlohmann::json &json);
 
         void set_parent_actor_addr(caf::actor_addr addr);
 
         void delete_attribute(const utility::Uuid &attribute_uuid);
+
+        /* You can call this function with the actor that is attached to another module.
+        Then any local attributes registered with the 'link_attribute' will be
+        synced with the other module - changes that happen on the Module will be
+        reflected on the other Module and vice-versa. The mechanism relies on
+        the Title role data of the attributes to determine which attrs should
+        be synced together, so your paired Modules must have attrs with the
+        same Title data. More than one attr with the same title will cause issues.*/
+        void link_to_module(
+            caf::actor other_module,
+            bool link_all_attrs,
+            const bool both_ways,
+            const bool initial_push_sync);
+
+        void unlink_module(caf::actor other_module);
+
+        /* If this Module instance is linked to another Module instance, only
+        attributes that have been registered with this function will be synced
+        up between this module and the linked module(s). */
+        void link_attribute(const utility::Uuid &uuid) { linked_attrs_.insert(uuid); }
+
+        void unlink_attribte(const utility::Uuid &uuid) {
+            auto p = linked_attrs_.find(uuid);
+            if (p != linked_attrs_.end()) {
+                linked_attrs_.erase(p);
+            }
+        }
 
         virtual caf::message_handler message_handler();
 
@@ -153,6 +187,8 @@ namespace module {
         // re-implement to receive callback when the on-screen media changes. To
         virtual void on_screen_media_changed(caf::actor media) {}
 
+        // re-implement to receive callback when the on-screen media changes.
+        virtual void on_screen_media_changed(caf::actor media, caf::actor media_source) {}
 
         // re-implement to receive callbacks when bookmarks in the current playhead
         // have changed
@@ -160,8 +196,49 @@ namespace module {
             const std::vector<std::tuple<utility::Uuid, std::string, int, int>>
                 &bookmark_frame_ranges) {}
 
+        // re-implement to execute custom code when your module connects to a viewport.
+        // For example, exposing certain attributes in a particular named group
+        // of attributes for the UI layer (see Playhead.cpp)
+        virtual void connect_to_viewport(
+            const std::string &viewport_name,
+            const std::string &viewport_toolbar_name,
+            bool connect);
+
       protected:
+        /* Call this method with your StringChoiceAttribute to expose it in
+        one of xSTUDIO's UI menus. The menu_path argument dictates which parent
+        menu and submenu(s) within the parent menu it will be placed - each
+        level of menu should be separated with a pipe character. For example, to
+        put a multi choice in the viewport context menu that lists the choices
+        under display, top_level_menu will be 'Viewport0Popup' and menu_path
+        would be Display. To put the choices under the 'Colour' menu under an
+        OCIO sub-menu, top_level_menu="Colour", menu_path="OCIO|Display".
+
+        Valid values for top_level_menu:
+            (File, Edit, Playlists, Media, Timeline, Playback,
+            Viewer, Layout, Panels, Publish, Colour, Help,
+            MediaListPopup, Viewport{X}PopUp )
+        */
+        void add_multichoice_attr_to_menu(
+            StringChoiceAttribute *attr,
+            const std::string top_level_menu,
+            const std::string menu_path,
+            const std::string before = std::string{});
+
+        void add_boolean_attr_to_menu(
+            BooleanAttribute *attr,
+            const std::string top_level_menu,
+            const std::string before = std::string{});
+
+        void make_attribute_visible_in_viewport_toolbar(
+            Attribute *attr, const bool make_visible = true);
+
+        void expose_attribute_in_model_data(
+            Attribute *attr, const std::string &model_name, const bool expose = true);
+
         void redraw_viewport();
+
+        virtual utility::JsonStore public_state_data();
 
         // re-implement this function and use it to add custom hotkeys
         virtual void register_hotkeys() {}
@@ -171,6 +248,8 @@ namespace module {
 
         Attribute *get_attribute(const utility::Uuid &attr_uuid);
 
+        Attribute *get_attribute(const std::string &attr_title);
+
         caf::actor_addr parent_actor_addr_;
 
         void connect_to_ui();
@@ -179,11 +258,21 @@ namespace module {
         void release_mouse_focus();
         void grab_keyboard_focus();
         void release_keyboard_focus();
+        void listen_to_playhead_events(const bool listen = true);
 
         [[nodiscard]] bool connected_to_ui() const { return connected_to_ui_; }
         virtual void connected_to_ui_changed() {}
 
+        void disable_linking() { linking_disabled_ = true; }
+        void enable_linking() { linking_disabled_ = false; }
+
+        std::vector<AttributePtr> attributes_;
+
       private:
+        void notify_attribute_destroyed(Attribute *);
+        void attribute_changed(const utility::Uuid &attr_uuid, const int role_id, bool notify);
+        void add_attribute(Attribute *attr);
+
         caf::actor global_module_events_actor_;
         caf::actor keypress_monitor_actor_;
         caf::actor keyboard_and_mouse_group_;
@@ -191,11 +280,16 @@ namespace module {
         caf::actor module_events_group_;
         caf::actor attribute_events_group_;
 
+        caf::actor_addr attr_sync_source_adress_;
+        std::set<caf::actor_addr> partially_linked_modules_;
+        std::set<caf::actor_addr> fully_linked_modules_;
+        std::set<utility::Uuid> linked_attrs_;
+        std::set<utility::Uuid> attrs_in_toolbar_;
+        std::set<std::string> connected_viewports_;
 
-        std::vector<AttributePtr> attributes_;
-        void notify_attribute_destroyed(Attribute *);
-        bool connected_to_ui_      = {false};
-        utility::Uuid module_uuid_ = {utility::Uuid::generate()};
+        bool connected_to_ui_  = {false};
+        bool linking_disabled_ = {false};
+        utility::Uuid module_uuid_;
         std::string name_;
         std::set<utility::Uuid> attrs_waiting_to_update_prefs_;
 

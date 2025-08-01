@@ -35,6 +35,8 @@ Rectangle{ id: leftDiv
 
     property var boolModel: null
     property var resultLimitModel: null
+    property var reviewLocationModel: null
+    property var referenceTagModel: null
     property var orderByModel: null
     property var primaryLocationModel: null
     property var lookbackModel: null
@@ -125,6 +127,8 @@ Rectangle{ id: leftDiv
 "Preferred Audio",
 "Preferred Visual",
 "Production Status",
+"Reference Tag",
+"Reference Tags",
 "Result Limit",
 "Sent To Client",
 "Sent To Dailies",
@@ -156,6 +160,8 @@ Rectangle{ id: leftDiv
 "Preferred Audio",
 "Preferred Visual",
 "Production Status",
+"Reference Tag",
+"Reference Tags",
 "Result Limit",
 "Sent To Client",
 "Sent To Dailies",
@@ -180,6 +186,7 @@ Rectangle{ id: leftDiv
 "Playlist Type",
 "Preferred Audio",
 "Preferred Visual",
+"Review Location",
 "Result Limit",
 "Shot Status",
 "Site",
@@ -204,6 +211,8 @@ Rectangle{ id: leftDiv
 "Preferred Audio",
 "Preferred Visual",
 "Production Status",
+"Reference Tag",
+"Reference Tags",
 "Result Limit",
 "Sent To Client",
 "Sent To Dailies",
@@ -223,7 +232,9 @@ Rectangle{ id: leftDiv
 "Filter",
 "Flag Media",
 "Lookback",
+"Newer Version",
 "Note Type",
+"Older Version",
 "Order By",
 "Pipeline Step",
 "Playlist",
@@ -351,6 +362,7 @@ Rectangle{ id: leftDiv
     }
 
     function executeQueryReal() {
+        // console.log("executeQueryReal")
         if(currentCategory) {
             let query = buildQuery()
             if(query !== null) {
@@ -388,7 +400,7 @@ Rectangle{ id: leftDiv
         searchPresetsView.currentIndex = -1
     }
 
-    function updateVersionHistory(shot, twigname, pstep, twigtype) {
+    function updateVersionHistory(shot_seq, is_shot, twigname, pstep, twigtype) {
         let mymodel = searchTreePresetsViewModel
         let preset_id = mymodel.search(menuHistory)
 
@@ -410,9 +422,9 @@ Rectangle{ id: leftDiv
                         },
                         {
                             "enabled": true,
-                            "term": "Shot",
+                            "term": is_shot ? "Shot" : "Sequence",
                             "dynamic": true,
-                            "value": shot
+                            "value": shot_seq
                         },
                         {
                             "enabled": (twigtype !== undefined && twigtype !== ""),
@@ -450,9 +462,18 @@ Rectangle{ id: leftDiv
         } else {
             // update shot,,,
             // will break if user fiddles...
-            let pindex = mymodel.index(preset_id,0)
-            mymodel.set(0, shot, "argRole", pindex);
-            mymodel.set(1, pstep ? pstep :"", "argRole", pindex);
+            let pindex = mymodel.index(preset_id, 0)
+            mymodel.set(0, pstep ? pstep :"", "argRole", pindex);
+
+            let term = mymodel.get(1, pindex, "termRole")
+            if(term == "Shot" && !is_shot) {
+                mymodel.set(1, "Sequence", "termRole", pindex);
+            } else if(term == "Sequence" && is_shot) {
+                mymodel.set(1, "Shot", "termRole", pindex);
+            }
+
+            mymodel.set(1, shot_seq, "argRole", pindex);
+
             mymodel.set(2, twigtype ? twigtype :"", "argRole", pindex);
             mymodel.set(3, "^"+twigname+"$", "argRole", pindex);
         }
@@ -465,13 +486,13 @@ Rectangle{ id: leftDiv
 
         treeTab.selectItem(
             sequenceTreeModel.search_recursive(
-                shot,
+                shot_seq,
                 "nameRole"
             )
         )
     }
 
-    function updatePreset(type, name, id, mode) {
+    function createOrUpdate(term_type, term_value, mode) {
         let preset_id = -1;
 
         if(mode == "Versions" ) {
@@ -481,11 +502,15 @@ Rectangle{ id: leftDiv
         }
 
         if(preset_id != -1) {
-            setPreset(type, name, id, preset_id)
-            if(searchTreePresetsViewModel.activePreset == preset_id) {
-                searchTreePresetsViewModel.activePreset = -1
-            }
+
+            // update preset..
+            setShotSequenceTermPreset(term_type, term_value, preset_id)
+            // if(searchTreePresetsViewModel.activePreset == preset_id) {
+            //     searchTreePresetsViewModel.activePreset = -1
+            // }
+
         } else {
+            // create missing preset..
             if(mode == "Versions" ) {
                 searchTreePresetsViewModel.insert(
                     searchTreePresetsViewModel.rowCount(),
@@ -496,9 +521,9 @@ Rectangle{ id: leftDiv
                         "queries": [
                             {
                                 "enabled": true,
-                                "term": type == "Shot" ? "Shot" : "Sequence",
+                                "term": term_type == "Shot" ? "Shot" : "Sequence",
                                 "dynamic": true,
-                                "value": name
+                                "value": term_value
                             },
                             {
                                 "enabled": true,
@@ -553,9 +578,9 @@ Rectangle{ id: leftDiv
                         "queries": [
                             {
                                 "enabled": true,
-                                "term": type == "Shot" ? "Shot" : "Sequence",
+                                "term": term_type == "Shot" ? "Shot" : "Sequence",
                                 "dynamic": true,
-                                "value": name
+                                "value": term_value
                             }
                         ]
                     }
@@ -567,39 +592,54 @@ Rectangle{ id: leftDiv
         searchTreePresetsViewModel.activePreset = preset_id
         treeTab.selectItem(
             sequenceTreeModel.search_recursive(
-                name,
+                term_value,
                 "nameRole"
             )
         )
     }
 
-    function setPreset(type, name, id, row) {
-        let index = searchTreePresetsViewModel.index(row, 0)
-        let term = searchTreePresetsViewModel.get(0, index, "termRole")
-        let live = searchTreePresetsViewModel.get(0, index, "liveLinkRole")
+    function setShotSequenceTermPreset(term_type, term_value, row) {
+        let result = false
 
-        if(!["Shot","Sequence"].includes(term))
-            return
+        for(let i =0; i< searchTreePresetsViewModel.rowCount(); i++) {
+            let index = searchTreePresetsViewModel.index(i, 0)
 
-        if(live == undefined)
-            live = false
+            if(index.valid) {
+                let term = searchTreePresetsViewModel.get(0, index, "termRole")
+                let live = searchTreePresetsViewModel.get(0, index, "liveLinkRole")
 
-        if(term != type && !live) {
-            searchTreePresetsViewModel.set(0, type, "termRole", index);
-            searchTreePresetsViewModel.set(0, name, "argRole", index);
-            searchTreePresetsViewModel.set(0, false, "enabledRole", index);
-            searchTreePresetsViewModel.set(0, true, "enabledRole", index);
-        } else {
-            searchTreePresetsViewModel.set(0, name, "argRole", index);
+                if(["Shot","Sequence"].includes(term)) {
+                    if(live == undefined)
+                        live = false
+
+                    if(term != term_type ) { //&& !live
+                        searchTreePresetsViewModel.set(0, term_type, "termRole", index);
+                        searchTreePresetsViewModel.set(0, term_value, "argRole", index);
+                        if(i == row) {
+                            searchTreePresetsViewModel.set(0, false, "enabledRole", index);
+                            searchTreePresetsViewModel.set(0, true, "enabledRole", index);
+                        }
+                    } else {
+                        searchTreePresetsViewModel.set(0, term_value, "argRole", index);
+                    }
+
+                    if(i == row)
+                        result = true
+                } else {
+                    //  could be history..
+                    if(term == "Pipeline Step") {
+                        // test for matching shot..
+                        let value = searchTreePresetsViewModel.get(1, index, "argRole")
+                        if(value == term_value &&  i == row)
+                            result = true
+                    }
+                }
+            } else {
+                console.log("INVALID INDEX", searchTreePresetsViewModel)
+            }
         }
 
-        // when changing preset make sure twig is set as well..
-        let title = searchTreePresetsViewModel.get(index, "nameRole")
-        if(title != menuHistory) {
-            let twig_row = searchTreePresetsViewModel.search(menuHistory)
-            if(twig_row != -1)
-                setPreset(type, name, id, twig_row)
-        }
+        return result
     }
 
     function selectSearchedIndex(clickedIndex){
@@ -812,6 +852,15 @@ Rectangle{ id: leftDiv
                         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
                         margins: 0
                         padding: 0
+
+
+                        // we need to somehow update these...
+                        Connections {
+                            target: preFilterListView.queryModel
+                            function onJsonChanged() {
+                                preFilterListView.queryRootIndex = filterViewModel.index(0,0)
+                            }
+                        }
 
                         onAboutToShow: {
                             preFilterListView.queryModel = filterViewModel
@@ -1151,12 +1200,19 @@ Rectangle{ id: leftDiv
 
                 Connections {
                     target: searchTreePresetsViewModel
-                    function onActiveSeqShotChanged() {
+                    function onActiveShotChanged() {
                         if(treeMode) {
-                            let index = sequenceTreeModel.search_recursive(searchTreePresetsViewModel.activeSeqShot, "nameRole")
-                            treeTab.selectItem(index)
+                            let index = sequenceTreeModel.search_recursive(searchTreePresetsViewModel.activeShot, "nameRole")
+                            if(index.valid)
+                                treeTab.selectItem(index)
                         }
                     }
+                    // function onActiveSeqChanged() {
+                    //     if(treeMode) {
+                    //         let index = sequenceTreeModel.search_recursive(searchTreePresetsViewModel.activeSeq, "nameRole")
+                    //         treeTab.selectItem(index)
+                    //     }
+                    // }
                 }
 
                 LeftTreeView{id: treeTab
@@ -1166,25 +1222,18 @@ Rectangle{ id: leftDiv
 
                     onClicked: {
                         if(searchTreePresetsViewModel.activePreset == -1) {
-                            updatePreset(type, name, id, currentCategoryClass)
+                            createOrUpdate(type, name, currentCategoryClass)
+                            setShotSequenceTermPreset(type, name, -1)
                         } else {
-                            let index = searchTreePresetsViewModel.index(searchTreePresetsViewModel.activePreset,0)
-                            let title = searchTreePresetsViewModel.get(index, "nameRole")
-                            let arg = searchTreePresetsViewModel.get(0, index, "argRole")
-                            let term = searchTreePresetsViewModel.get(0, index, "termRole")
-
-                            if(!["Shot","Sequence"].includes(term)) {
-                                updatePreset(type, name, id, currentCategoryClass)
-                            } else if(arg != name) {
-                                updatePreset(type, name, id, currentCategoryClass)
-                            } else {
-                                setPreset(type, name, id, searchTreePresetsViewModel.activePreset)
+                            if(!setShotSequenceTermPreset(type, name, searchTreePresetsViewModel.activePreset)) {
+                                createOrUpdate(type, name, currentCategoryClass)
                             }
                         }
                     }
 
                     onDoubleClicked: {
-                        updatePreset(type, name, id, currentCategoryClass)
+                        createOrUpdate(type, name, currentCategoryClass)
+                        setShotSequenceTermPreset(type, name, -1)
                     }
                 }
                 LeftPresetView{id: presetsMiniDiv

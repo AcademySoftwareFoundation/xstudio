@@ -5,12 +5,16 @@
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#ifdef __linux__
 #include <execinfo.h>
+#endif
 #include <functional>
 #include <iostream>
 #include <regex>
 #include <thread>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 
 
 #ifndef CPPHTTPLIB_OPENSSL_SUPPORT
@@ -57,33 +61,25 @@ CAF_PUSH_WARNINGS
 #include <QQuickView>
 CAF_POP_WARNINGS
 
-#include "xstudio/ui/qml/module_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/module_menu_ui.hpp"        //NOLINT
-#include "xstudio/ui/qml/contact_sheet_ui.hpp"      //NOLINT
-#include "xstudio/ui/qml/embedded_python_ui.hpp"    //NOLINT
-#include "xstudio/ui/qml/helper_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/media_ui.hpp"              //NOLINT
-#include "xstudio/ui/qml/event_ui.hpp"              //NOLINT
-#include "xstudio/ui/qml/log_ui.hpp"                //NOLINT
-#include "xstudio/ui/qml/playlist_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/bookmark_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/session_ui.hpp"            //NOLINT
-#include "xstudio/ui/qml/studio_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/subset_ui.hpp"             //NOLINT
-#include "xstudio/ui/qml/global_store_model_ui.hpp" //NOLINT
-#include "xstudio/ui/qml/timeline_ui.hpp"           //NOLINT
-#include "xstudio/ui/qml/thumbnail_ui.hpp"
-#include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
-#include "xstudio/ui/qml/shotgun_provider_ui.hpp"
-#include "xstudio/ui/qml/hotkey_ui.hpp"    //NOLINT
-#include "xstudio/ui/qml/qml_viewport.hpp" //NOLINT
 #include "xstudio/ui/mouse.hpp"
-
-#include "QuickFuture"
-
-Q_DECLARE_METATYPE(QList<QUuid>)
-Q_DECLARE_METATYPE(QFuture<QUuid>)
-Q_DECLARE_METATYPE(QFuture<QList<QUuid>>)
+#include "xstudio/ui/qml/bookmark_model_ui.hpp"     //NOLINT
+#include "xstudio/ui/qml/embedded_python_ui.hpp"    //NOLINT
+#include "xstudio/ui/qml/event_ui.hpp"              //NOLINT
+#include "xstudio/ui/qml/global_store_model_ui.hpp" //NOLINT
+#include "xstudio/ui/qml/helper_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/hotkey_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/log_ui.hpp"                //NOLINT
+#include "xstudio/ui/qml/model_data_ui.hpp"         //NOLINT
+#include "xstudio/ui/qml/module_data_ui.hpp"        //NOLINT
+#include "xstudio/ui/qml/module_menu_ui.hpp"        //NOLINT
+#include "xstudio/ui/qml/module_ui.hpp"             //NOLINT
+#include "xstudio/ui/qml/qml_viewport.hpp"          //NOLINT
+#include "xstudio/ui/qml/session_model_ui.hpp"      //NOLINT
+#include "xstudio/ui/qml/snapshot_model_ui.hpp"     //NOLINT
+#include "xstudio/ui/qml/shotgun_provider_ui.hpp"
+#include "xstudio/ui/qml/studio_ui.hpp" //NOLINT
+#include "xstudio/ui/qml/thumbnail_provider_ui.hpp"
+#include "xstudio/ui/qt/offscreen_viewport.hpp" //NOLINT
 
 using namespace std;
 using namespace caf;
@@ -99,6 +95,81 @@ using namespace xstudio;
 
 bool shutdown_xstudio = false;
 
+struct ExitTimeoutKiller {
+
+    void start() {
+#ifdef _WIN32
+        spdlog::debug("ExitTimeoutKiller start ignored");
+    }
+#else
+
+
+        // lock the mutex ...
+        clean_actor_system_exit.lock();
+
+        // .. and start a thread to watch the mutex
+        exit_timeout = std::thread([&]() {
+            // wait for stop() to be called - 10s
+            if (!clean_actor_system_exit.try_lock_for(std::chrono::seconds(10))) {
+                // stop() wasn't called! Probably failed to exit actor_system,
+                // see main() function. Kill process.
+                spdlog::critical("xSTUDIO has not exited cleanly: killing process now");
+                kill(0, SIGKILL);
+            } else {
+                clean_actor_system_exit.unlock();
+            }
+        });
+    }
+#endif
+
+    void stop() {
+#ifdef _WIN32
+        spdlog::debug("ExitTimeoutKiller stop ignored");
+    }
+#else
+        // unlock the  mutex so exit_timeout won't time-out
+        clean_actor_system_exit.unlock();
+        if (exit_timeout.joinable())
+            exit_timeout.join();
+    }
+
+    std::timed_mutex clean_actor_system_exit;
+    std::thread exit_timeout;
+#endif
+
+} exit_timeout_killer;
+
+#ifdef _WIN32
+#include <DbgHelp.h>
+
+void handler(int sig) {
+    void *stack[10];
+    HANDLE process = GetCurrentProcess();
+    SymInitialize(process, nullptr, TRUE);
+
+    // Capture the call stack
+    WORD frames = CaptureStackBackTrace(0, 10, stack, nullptr);
+
+    // Print out the frames to stderr
+    fprintf(stderr, "Error: signal %d:\n", sig);
+    for (int i = 0; i < frames; ++i) {
+        DWORD64 address = reinterpret_cast<DWORD64>(stack[i]);
+        char symbolBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+        SYMBOL_INFO *symbol  = reinterpret_cast<SYMBOL_INFO *>(symbolBuffer);
+        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+        symbol->MaxNameLen   = MAX_SYM_NAME;
+
+        if (SymFromAddr(process, address, nullptr, symbol)) {
+            fprintf(stderr, "%d: %s\n", i, symbol->Name);
+        } else {
+            fprintf(stderr, "%d: [Unknown Symbol]\n", i);
+        }
+    }
+
+    SymCleanup(process);
+    exit(1);
+}
+#else
 void handler(int sig) {
     void *array[10];
     size_t size;
@@ -109,8 +180,10 @@ void handler(int sig) {
     // print out all the frames to stderr
     fprintf(stderr, "Error: signal %d:\n", sig);
     backtrace_symbols_fd(array, size, STDERR_FILENO);
+
     exit(1);
 }
+#endif
 
 void my_handler(int s) {
     spdlog::warn("Caught signal {}", s);
@@ -142,8 +215,13 @@ struct CLIArguments {
 
     args::PositionalList<std::string> media_paths = {parser, "PATH", "Path to media"};
 
-    args::Flag headless = {parser, "headless", "Headless mode, no UI", {'e', "headless"}};
-    args::Flag player   = {parser, "player", "Player mode, minimal UI", {'p', "player"}};
+    args::Flag headless   = {parser, "headless", "Headless mode, no UI", {'e', "headless"}};
+    args::Flag player     = {parser, "player", "Player mode, minimal UI", {'p', "player"}};
+    args::Flag quick_view = {
+        parser,
+        "quick-view",
+        "Open a quick-view for each supplied media item",
+        {'l', "quick-view"}};
 
     std::unordered_map<std::string, std::string> cmMapValues{
         {"none", "Off"},
@@ -182,6 +260,8 @@ struct CLIArguments {
         misc, "PATH", "Write session log to file", {"log-file"}};
     args::Flag disable_vsync = {
         misc, "disable-vsync", "Disable sync to video refresh", {"disable-vsync"}};
+    args::Flag reskin = {
+        misc, "reskin", "Launch with the new user interface (under construction)", {"reskin"}};
     args::Flag share_opengl_contexts = {
         misc,
         "share-gl-context",
@@ -211,8 +291,11 @@ struct Launcher {
     Launcher(int argc, char **argv, actor_system &a_system) : system(a_system) {
 
         cli_args.parse_args(argc, argv);
+#ifdef _WIN32
+        _putenv_s("QML_IMPORT_TRACE", "0");
+#else
         setenv("QML_IMPORT_TRACE", "0", true);
-
+#endif
         signal(SIGSEGV, handler);
         start_logger(
             cli_args.debug.Matched() ? spdlog::level::debug : spdlog::level::info,
@@ -225,7 +308,9 @@ struct Launcher {
         actions["headless"]              = cli_args.headless.Matched();
         actions["debug"]                 = cli_args.debug.Matched();
         actions["player"]                = cli_args.player.Matched();
+        actions["quick_view"]            = cli_args.quick_view.Matched();
         actions["disable_vsync"]         = cli_args.disable_vsync.Matched();
+        actions["reskin"]                = cli_args.reskin.Matched();
         actions["share_opengl_contexts"] = cli_args.share_opengl_contexts.Matched();
         actions["compare"] = static_cast<std::string>(args::get(cli_args.compare));
 
@@ -277,7 +362,7 @@ struct Launcher {
                 actions["set_play_rate"] = static_cast<double>(args::get(cli_args.play_rate));
 
             if (args::get(cli_args.media_paths).size() == 1 and
-                ends_with(args::get(cli_args.media_paths)[0], ".xst")) {
+                is_session(args::get(cli_args.media_paths)[0])) {
                 actions["open_session"]      = true;
                 actions["open_session_path"] = args::get(cli_args.media_paths)[0];
             } else {
@@ -326,6 +411,9 @@ struct Launcher {
             // self->anon_send(gsa, json_store::set_json_atom_v, static_cast<JsonStore>(prefs));
 
             request_receive<caf::actor>(*self, global_actor, create_studio_atom_v, "XStudio");
+
+            // this isn't great, the api is already running at this point..
+            // so we have to toggle it..
             if (not actions["session_name"].empty())
                 self->anon_send(
                     global_actor,
@@ -336,15 +424,17 @@ struct Launcher {
         // check for session file ..
         if (actions["open_session"]) {
             try {
-                JsonStore js;
-                std::ifstream i(actions["open_session_path"]);
-                i >> js;
+                JsonStore js =
+                    utility::open_session(actions["open_session_path"].get<std::string>());
 
                 if (actions["new_instance"]) {
+                    spdlog::stopwatch sw;
                     auto new_session = self->spawn<session::SessionActor>(
                         js,
                         posix_path_to_uri(
                             static_cast<std::string>(actions["open_session_path"])));
+
+                    spdlog::info("Session loaded in {:.3} seconds.", sw);
                     request_receive<bool>(
                         *self, global_actor, session::session_atom_v, new_session);
                 } else {
@@ -391,7 +481,8 @@ struct Launcher {
 
             caf::actor playlist;
 
-            // Try default..
+            // If playlist name is "Untitled Playlist" (in other words no playlist
+            // was named to add media to) then try and get the current playlist
             if (p.key() == "Untitled Playlist" and not actions["new_instance"]) {
                 try {
                     playlist = request_receive<caf::actor>(
@@ -422,7 +513,9 @@ struct Launcher {
                 playlist,
                 p.value(),
                 not actions["new_instance"],
-                actions["compare"]);
+                actions["compare"],
+                actions["quick_view"]);
+
             media_sent = true;
         }
 
@@ -451,6 +544,17 @@ struct Launcher {
                 "Failed to load application preferences {}", xstudio_root("/preference"));
             std::exit(EXIT_FAILURE);
         }
+
+        // prefs files *might* be located in a 'preference' subfolder under XSTUDIO_PLUGIN_PATH
+        // folders
+        char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
+        if (plugin_path) {
+            for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+                if (fs::is_directory(p + "/preferences"))
+                    preference_load_defaults(prefs, p + "/preferences");
+            }
+        }
+
         preference_load_overrides(prefs, pref_paths);
         return prefs;
     }
@@ -480,6 +584,7 @@ struct Launcher {
     {
         "headless": false,
         "new_instance": false,
+        "quick_view": false,
         "session_name": "",
         "open_session": false,
         "debug": false,
@@ -549,19 +654,35 @@ struct Launcher {
         caf::actor playlist,
         const std::vector<std::string> &media,
         const bool remote,
-        const std::string compare_mode) {
+        const std::string compare_mode,
+        const bool open_quick_view) {
 
         std::vector<std::pair<caf::uri, FrameList>> uri_fl;
         std::vector<std::string> files;
+
+        auto media_rate =
+            request_receive<FrameRate>(*self, session, session::media_rate_atom_v);
+        UuidActorVector added_media;
 
         for (const auto &p : media) {
             if (utility::check_plugin_uri_request(p)) {
                 // send to plugin manager..
                 auto uri = caf::make_uri(p);
-                if (uri)
-                    self->anon_send(
-                        plugin_manager, data_source::use_data_atom_v, *uri, session, playlist);
-                else {
+                if (uri) {
+                    try {
+                        added_media = request_receive<UuidActorVector>(
+                            *self,
+                            plugin_manager,
+                            data_source::use_data_atom_v,
+                            *uri,
+                            session,
+                            playlist,
+                            media_rate);
+                    } catch (const std::exception &e) {
+                        spdlog::error("Failed to load media '{}'", e.what());
+                    }
+
+                } else {
                     spdlog::warn("Invalid URI {}", p);
                 }
             } else {
@@ -577,7 +698,7 @@ struct Launcher {
                             files.push_back(p);
                             continue;
                         }
-                    } catch (const std::exception &err) {
+                    } catch ([[maybe_unused]] const std::exception &err) {
                     }
 
                     // add to scan list..
@@ -596,28 +717,15 @@ struct Launcher {
             uri_fl.insert(uri_fl.end(), file_items.begin(), file_items.end());
         }
 
-        if (not compare_mode.empty()) {
+        if (not open_quick_view && not compare_mode.empty()) {
 
             // To set compare mode, we must have a playhead (which is where
             // compare mode setting is held)
 
-            // playlist can have multiple playheads ... but actually we never
-            // use this! (see PlaylistUI::createPlayhead()). The actual live
-            // playlist playhead should be the first in this list.
-            caf::actor playhead;
-            auto playheads = request_receive<UuidActorVector>(
-                *self, playlist, playlist::get_playheads_atom_v);
-            if (!playheads.empty()) {
-                playhead = playheads[0].actor();
-            } else {
-                // Playlist doesn't have a playhead, which can happen as xstudio
-                // starts up. The playhead would get constructed as part of the
-                // ui setup (see PlalistUI::set_backend()). We can just create
-                // it now instead
-                playhead = request_receive<UuidActor>(
-                               *self, playlist, playlist::create_playhead_atom_v)
-                               .actor();
-            }
+            // get the playlist's playhead
+            caf::actor playhead =
+                request_receive<UuidActor>(*self, playlist, playlist::get_playhead_atom_v)
+                    .actor();
 
             // set the playhead to the given compare mode. The compare mode
             // attribute is called 'Compare' - we can set it using this handy
@@ -630,24 +738,17 @@ struct Launcher {
                 true);
         }
 
-        UuidActorVector added_media;
         for (const auto &i : uri_fl) {
             try {
-                if (i.second.empty())
-                    added_media.push_back(request_receive<UuidActor>(
-                        *self,
-                        playlist,
-                        playlist::add_media_atom_v,
-                        uri_to_posix_path(i.first),
-                        i.first));
-                else
-                    added_media.push_back(request_receive<UuidActor>(
-                        *self,
-                        playlist,
-                        playlist::add_media_atom_v,
-                        uri_to_posix_path(i.first),
-                        i.first,
-                        i.second));
+                added_media.push_back(request_receive<UuidActor>(
+                    *self,
+                    playlist,
+                    playlist::add_media_atom_v,
+                    uri_to_posix_path(i.first),
+                    i.first,
+                    i.second,
+                    Uuid()));
+
                 if (remote)
                     spdlog::info("{} sent to running session.", uri_to_posix_path(i.first));
 
@@ -658,7 +759,7 @@ struct Launcher {
 
         // get the actor that is responsible for selecting items from the playlist
         // for viewing
-        if (not compare_mode.empty()) {
+        if (not open_quick_view && not compare_mode.empty()) {
             auto playhead_selection_actor =
                 request_receive<caf::actor>(*self, playlist, playlist::selection_actor_atom_v);
 
@@ -674,9 +775,20 @@ struct Launcher {
             }
         }
 
-        // finally, to ensure what we've added appears on screen we need to
+        // to ensure what we've added appears on screen we need to
         // make the playlist the 'current' one - i.e. the one being viewer
         anon_send(session, session::current_playlist_atom_v, playlist);
+
+
+        // even if 'open_quick_view' is false, we send a message to the session
+        // because auto-opening of quickview can be controlled via a preference
+
+        anon_send(
+            session,
+            ui::open_quickview_window_atom_v,
+            added_media,
+            compare_mode,
+            open_quick_view);
     }
 
     caf::actor try_reuse_session() {
@@ -761,8 +873,17 @@ int main(int argc, char **argv) {
         "Track");
 
     {
+
         try {
-            actor_system system{config};
+
+            // create the actor system
+            actor_system system(config);
+
+            // store a reference to the actor system, so we can access it
+            // via static method anywhere else we need to (mainly, the python
+            // module instanced in the embedded python interpreter)
+            utility::ActorSystemSingleton::actor_system_ref(system);
+
             scoped_actor self{system};
             Launcher l(argc, argv, system);
 
@@ -774,13 +895,14 @@ int main(int argc, char **argv) {
 
             if (l.actions["headless"]) {
                 system.await_actors_before_shutdown(true);
-                struct sigaction sigIntHandler;
+                // TODO: Ahead Fix
+                // struct sigaction sigIntHandler;
 
-                sigIntHandler.sa_handler = my_handler;
-                sigemptyset(&sigIntHandler.sa_mask);
-                sigIntHandler.sa_flags = 0;
+                // sigIntHandler.sa_handler = my_handler;
+                // sigemptyset(&sigIntHandler.sa_mask);
+                // sigIntHandler.sa_flags = 0;
 
-                sigaction(SIGINT, &sigIntHandler, nullptr);
+                // sigaction(SIGINT, &sigIntHandler, nullptr);
 
                 while (not shutdown_xstudio) {
                     // we should be able to shutdown via a API call..
@@ -800,7 +922,7 @@ int main(int argc, char **argv) {
             } else {
                 system.await_actors_before_shutdown(true);
 
-                // QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+                QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
                 // QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
                 // QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
                 // QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
@@ -832,27 +954,21 @@ int main(int argc, char **argv) {
                     "xstudio.qml.cursor_pos_provider", 1, 0, "CursorPosProvider");
                 qmlRegisterType<HotkeyUI>("xstudio.qml.viewport", 1, 0, "XsHotkey");
                 qmlRegisterType<HotkeysUI>("xstudio.qml.viewport", 1, 0, "XsHotkeysInfo");
+                qmlRegisterType<HotkeyReferenceUI>(
+                    "xstudio.qml.viewport", 1, 0, "XsHotkeyReference");
+
                 qmlRegisterType<QMLViewport>("xstudio.qml.viewport", 1, 0, "Viewport");
-                qmlRegisterType<PlaylistUI>("xstudio.qml.playlist", 1, 0, "Playlist");
-                qmlRegisterType<MediaUI>("xstudio.qml.media", 1, 0, "Media");
-                qmlRegisterType<ThumbNail>("xstudio.qml.media", 1, 0, "XsThumbNail");
-                qmlRegisterType<MediaSourceUI>("xstudio.qml.media_source", 1, 0, "MediaSource");
-                qmlRegisterType<MediaStreamUI>("xstudio.qml.media_stream", 1, 0, "MediaStream");
-                qmlRegisterType<BookmarksUI>("xstudio.qml.bookmarks", 1, 0, "Bookmarks");
-                qmlRegisterType<BookmarkDetailUI>(
-                    "xstudio.qml.bookmarks", 1, 0, "BookmarkDetail");
+
+                qmlRegisterType<BookmarkCategoryModel>(
+                    "xstudio.qml.bookmarks", 1, 0, "XsBookmarkCategories");
+                qmlRegisterType<BookmarkModel>(
+                    "xstudio.qml.bookmarks", 1, 0, "XsBookmarkModel");
+                qmlRegisterType<BookmarkFilterModel>(
+                    "xstudio.qml.bookmarks", 1, 0, "XsBookmarkFilterModel");
+
                 qmlRegisterType<EmbeddedPythonUI>(
                     "xstudio.qml.embedded_python", 1, 0, "EmbeddedPython");
 
-                qmlRegisterType<SessionUI>("xstudio.qml.session", 1, 0, "Session");
-                qmlRegisterType<ContainerGroupUI>(
-                    "xstudio.qml.session", 1, 0, "ContainerGroupUI");
-                qmlRegisterType<ContainerDividerUI>(
-                    "xstudio.qml.session", 1, 0, "ContainerDividerUI");
-                qmlRegisterType<SubsetUI>("xstudio.qml.subset", 1, 0, "SubsetUI");
-                qmlRegisterType<ContactSheetUI>(
-                    "xstudio.qml.contact_sheet", 1, 0, "ContactSheetUI");
-                qmlRegisterType<TimelineUI>("xstudio.qml.timeline", 1, 0, "TimelineUI");
                 qmlRegisterType<QMLUuid>("xstudio.qml.uuid", 1, 0, "QMLUuid");
                 qmlRegisterType<ClipboardProxy>("xstudio.qml.clipboard", 1, 0, "Clipboard");
 
@@ -868,36 +984,42 @@ int main(int argc, char **argv) {
                 qmlRegisterType<GlobalStoreModel>(
                     "xstudio.qml.global_store_model", 1, 0, "XsGlobalStoreModel");
                 qmlRegisterType<ModelProperty>("xstudio.qml.helpers", 1, 0, "XsModelProperty");
+                qmlRegisterType<ModelRowCount>("xstudio.qml.helpers", 1, 0, "XsModelRowCount");
                 qmlRegisterType<ModelPropertyMap>(
                     "xstudio.qml.helpers", 1, 0, "XsModelPropertyMap");
                 qmlRegisterType<ModelNestedPropertyMap>(
                     "xstudio.qml.helpers", 1, 0, "XsModelNestedPropertyMap");
+                qmlRegisterType<ModelPropertyTree>(
+                    "xstudio.qml.helpers", 1, 0, "XsModelPropertyTree");
 
-                qRegisterMetaType<MediaUI *>("MediaUI*");
-                // qRegisterMetaType<BookmarkDetailUI*>("BookmarkDetailUI*");
-                qRegisterMetaType<const BookmarkDetailUI *>("const BookmarkDetailUI*");
+                qmlRegisterType<SessionModel>("xstudio.qml.session", 1, 0, "XsSessionModel");
+
+                qmlRegisterType<SnapshotModel>("xstudio.qml.models", 1, 0, "XsSnapshotModel");
+
+                qmlRegisterType<MenusModelData>("xstudio.qml.models", 1, 0, "XsMenusModel");
+                qmlRegisterType<ModulesModelData>("xstudio.qml.models", 1, 0, "XsModuleData");
+                qmlRegisterType<ReskinPanelsModel>(
+                    "xstudio.qml.models", 1, 0, "XsReskinPanelsLayoutModel");
+                qmlRegisterType<MediaListColumnsModel>(
+                    "xstudio.qml.models", 1, 0, "XsMediaListColumnsModel");
+
+                qmlRegisterType<ViewsModelData>("xstudio.qml.models", 1, 0, "XsViewsModel");
+
+                qmlRegisterType<MenuModelItem>("xstudio.qml.models", 1, 0, "XsMenuModelItem");
+
                 qRegisterMetaType<QQmlPropertyMap *>("QQmlPropertyMap*");
-
-                QuickFuture::registerType<QUuid>();
-                QuickFuture::registerType<QList<QUuid>>();
-
-                // QuickFuture::registerType<CustomType>([](CustomType value) -> QVariant {
-                //      // Optional converter function.
-                //      QVariantMap res;
-                //      res["field"] = value.field;
-                //      // ....
-                //      return res;
-                // });
-                // QuickFuture::init();
 
                 // Add a CafSystemObject to the application - this is QObject that simply
                 // holds a reference to the actor system so that we can access the system
                 // in Qt main loop
                 new CafSystemObject(&app, system);
 
-                const QUrl url(QStringLiteral("qrc:/main.qml"));
+                const QUrl url(
+                    l.actions["reskin"] ? QStringLiteral("qrc:/main_reskin.qml")
+                                        : QStringLiteral("qrc:/main.qml"));
+
                 QQmlApplicationEngine engine;
-                engine.addImageProvider(QLatin1String("thumbnail"), new AsyncThumbnailProvider);
+                engine.addImageProvider(QLatin1String("thumbnail"), new ThumbnailProvider);
                 engine.addImageProvider(QLatin1String("shotgun"), new ShotgunProvider);
                 engine.rootContext()->setContextProperty(
                     "applicationDirPath", QGuiApplication::applicationDirPath());
@@ -907,9 +1029,6 @@ int main(int argc, char **argv) {
 
                 auto studio = new StudioUI(system, &app);
                 engine.rootContext()->setContextProperty("studio", studio);
-
-                // qmlRegisterType<StudioUI()>("xstudio.qml.studio", 1, 0, "Studio");
-
 
                 auto logger      = new LogModel(&engine);
                 auto proxylogger = new LogFilterModel(&engine);
@@ -929,6 +1048,14 @@ int main(int argc, char **argv) {
                 engine.addImportPath(QStringFromStd(xstudio_root("/plugin/qml")));
                 engine.addPluginPath(QStringFromStd(xstudio_root("/plugin/qml")));
 
+                char *plugin_path = std::getenv("XSTUDIO_PLUGIN_PATH");
+                if (plugin_path) {
+                    for (const auto &p : xstudio::utility::split(plugin_path, ':')) {
+                        engine.addPluginPath(QStringFromStd(p + "/qml"));
+                        engine.addImportPath(QStringFromStd(p + "/qml"));
+                    }
+                }
+
                 QObject::connect(
                     &engine,
                     &QQmlApplicationEngine::objectCreated,
@@ -942,6 +1069,7 @@ int main(int argc, char **argv) {
 
                 engine.load(url);
                 spdlog::info("XStudio UI launched.");
+
                 app.exec();
                 // fingers crossed...
                 // need to stop monitoring or we'll be sending events to a dead QtObject
@@ -966,11 +1094,21 @@ int main(int argc, char **argv) {
                 self->send_exit(l.global_actor, caf::exit_reason::user_shutdown);
                 std::this_thread::sleep_for(1s);
             }
+
+            // in the case where ther are actors that are still 'alive'
+            // we do not exit this scope as actor_system will block in
+            // its destructor (due to await_actors_before_shutdown(true)).
+            // The exit_timeout_killer will kill the process after some
+            // delay so we don't have zombie xstudio instances running.
+            exit_timeout_killer.start();
+
         } catch (const std::exception &err) {
             spdlog::critical("{} {}", __PRETTY_FUNCTION__, err.what());
             stop_logger();
             std::exit(EXIT_FAILURE);
         }
+
+        exit_timeout_killer.stop();
     }
     stop_logger();
 

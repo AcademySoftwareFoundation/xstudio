@@ -10,20 +10,20 @@ import xstudio.qml.module 1.0
 XsDialogModal {
     id: dlg
     property string message: ""
-    title: "Shotgun Authentication" + (message ? " - "+message:"")
+    title: "ShotGrid Authentication" + (message ? " - "+message:"")
 
     width: 300
     height: 200
 
     XsModuleAttributes {
         id: attrs_options
-        attributesGroupName: "shotgun_datasource_preference"
+        attributesGroupNames: "shotgun_datasource_preference"
         roleName: "combo_box_options"
     }
 
     XsModuleAttributes {
         id: attrs_values
-        attributesGroupName: "shotgun_datasource_preference"
+        attributesGroupNames: "shotgun_datasource_preference"
     }
 
     ColumnLayout {

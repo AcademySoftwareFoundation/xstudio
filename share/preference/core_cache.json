@@ -15,7 +15,7 @@
 				"path": "/core/image_cache/max_size",
 				"default_value": 1024,
 				"description": "Maximum total size of cache in megabytes.",
-				"value": 1024,
+				"value": 20480,
 				"datatype": "int",
 				"context": ["APPLICATION","SESSION"]
 			}
@@ -35,7 +35,7 @@
 				"path": "/core/audio_cache/max_size",
 				"default_value": 512,
 				"description": "Maximum total size of cache in megabytes.",
-				"value": 512,
+				"value": 2048,
 				"datatype": "int",
 				"context": ["APPLICATION"]
 			}

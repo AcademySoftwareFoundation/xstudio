@@ -1,13 +1,16 @@
 SET(LINK_DEPS
 	xstudio::json_store
-	stdc++fs
 	caf::core
 )
 
 SET(STATIC_LINK_DEPS
 	xstudio::json_store_static
-	stdc++fs
 	caf::core
 )
+
+if(UNIX AND NOT APPLE)
+    list(APPEND LINK_DEPS stdc++fs)
+    list(APPEND STATIC_LINK_DEPS stdc++fs)
+endif()
 
 create_component_static(global_store 0.1.0 "${LINK_DEPS}" "${STATIC_LINK_DEPS}")

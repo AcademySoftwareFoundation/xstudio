@@ -3,6 +3,9 @@
 
 #include <iostream>
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/log_qml_export.h"
+
 #include "spdlog/common.h"
 #include "spdlog/details/log_msg.h"
 #include "spdlog/details/synchronous_factory.h"
@@ -26,7 +29,7 @@ namespace ui {
         };
 
 
-        class LogModel : public QAbstractListModel {
+        class LOG_QML_EXPORT LogModel : public QAbstractListModel {
             Q_OBJECT
             Q_PROPERTY(QStringList logLevels READ logLevels NOTIFY logLevelsChanged)
 
@@ -70,7 +73,7 @@ namespace ui {
         //  err = SPDLOG_LEVEL_ERROR, critical = SPDLOG_LEVEL_CRITICAL, off =
         //  SPDLOG_LEVEL_OFF
 
-        class LogFilterModel : public QSortFilterProxyModel {
+        class LOG_QML_EXPORT LogFilterModel : public QSortFilterProxyModel {
             Q_OBJECT
             Q_PROPERTY(int logLevel READ logLevel WRITE setLogLevel NOTIFY logLevelChanged)
             Q_PROPERTY(QString logLevelString READ logLevelString NOTIFY logLevelStringChanged)

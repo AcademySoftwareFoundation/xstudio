@@ -78,7 +78,8 @@ FFProbeMediaMetadata::fill_standard_fields(const nlohmann::json &metadata) {
 
             std::cmatch m;
             const std::regex bitdepth("(f?)([0-9]+)(le|be)");
-            if (std::regex_search(h["pix_fmt"].get<std::string>().c_str(), m, bitdepth)) {
+            auto pix_fmt = h["pix_fmt"].get<std::string>();
+            if (std::regex_search(pix_fmt.c_str(), m, bitdepth)) {
                 if (m[1].str() == "f") {
                     fields.bit_depth_ = m[2].str() + " bit float";
                 } else {
@@ -93,8 +94,9 @@ FFProbeMediaMetadata::fill_standard_fields(const nlohmann::json &metadata) {
 
             std::cmatch m;
             const std::regex aspect("([0-9]+)\\:([0-9]+)");
-            if (std::regex_search(
-                    h["sample_aspect_ratio"].get<std::string>().c_str(), m, aspect)) {
+
+            auto aspect_ratio = h["sample_aspect_ratio"].get<std::string>();
+            if (std::regex_search(aspect_ratio.c_str(), m, aspect)) {
                 try {
                     double num           = std::stod(m[1].str());
                     double den           = std::stod(m[2].str());

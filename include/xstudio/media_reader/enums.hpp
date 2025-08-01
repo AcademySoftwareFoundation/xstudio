@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#undef NO_ERROR
 
 namespace xstudio {
 namespace media_reader {

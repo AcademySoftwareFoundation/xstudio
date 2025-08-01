@@ -1,0 +1,16 @@
+{
+	"core": {
+		"conform":{
+			"max_worker_count": {
+				"path": "/core/conform/max_worker_count",
+				"default_value": 10,
+				"description": "Maximum number conform workers.",
+				"value": 6,
+				"minimum": 1,
+				"maximum": 100,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}

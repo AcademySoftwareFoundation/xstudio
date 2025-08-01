@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
 // #include <caf/all.hpp>
 // #include <caf/config.hpp>
@@ -35,6 +37,8 @@ using namespace xstudio::sync;
 using namespace xstudio::tag;
 using namespace xstudio::thumbnail;
 using namespace xstudio::timeline;
+using namespace xstudio::ui;
+using namespace xstudio::ui::keypress_monitor;
 using namespace xstudio::ui::qml;
 using namespace xstudio::ui::viewport;
 using namespace xstudio::utility;
@@ -64,12 +68,21 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::timeline, active_range_atom);
     ADD_ATOM(xstudio::timeline, available_range_atom);
     ADD_ATOM(xstudio::timeline, duration_atom);
-    // ADD_ATOM(xstudio::timeline, start_time_atom);
-    ADD_ATOM(xstudio::timeline, item_atom);
-    ADD_ATOM(xstudio::timeline, insert_item_atom);
-    ADD_ATOM(xstudio::timeline, remove_item_atom);
-    ADD_ATOM(xstudio::timeline, move_item_atom);
+    ADD_ATOM(xstudio::timeline, erase_item_at_frame_atom);
     ADD_ATOM(xstudio::timeline, erase_item_atom);
+    ADD_ATOM(xstudio::timeline, insert_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, insert_item_atom);
+    ADD_ATOM(xstudio::timeline, item_atom);
+    ADD_ATOM(xstudio::timeline, item_name_atom);
+    ADD_ATOM(xstudio::timeline, item_flag_atom);
+    ADD_ATOM(xstudio::timeline, focus_atom);
+    ADD_ATOM(xstudio::timeline, move_item_atom);
+    ADD_ATOM(xstudio::timeline, move_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, remove_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, remove_item_atom);
+    ADD_ATOM(xstudio::timeline, split_item_atom);
+    ADD_ATOM(xstudio::timeline, split_item_at_frame_atom);
+    ADD_ATOM(xstudio::timeline, trimmed_range_atom);
 
     ADD_ATOM(xstudio::thumbnail, cache_path_atom);
     ADD_ATOM(xstudio::thumbnail, cache_stats_atom);
@@ -101,7 +114,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::playlist, get_media_atom);
     ADD_ATOM(xstudio::playlist, get_media_uuid_atom);
     ADD_ATOM(xstudio::playlist, get_next_media_atom);
-    ADD_ATOM(xstudio::playlist, get_playheads_atom);
+    ADD_ATOM(xstudio::playlist, get_playhead_atom);
     ADD_ATOM(xstudio::playlist, insert_container_atom);
     ADD_ATOM(xstudio::playlist, loading_media_atom);
     ADD_ATOM(xstudio::playlist, media_content_changed_atom);
@@ -154,7 +167,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media_cache, retrieve_atom);
     ADD_ATOM(xstudio::media_cache, size_atom);
     ADD_ATOM(xstudio::media_cache, store_atom);
-    ADD_ATOM(xstudio::colour_pipeline, get_colour_pipeline_atom);
+    ADD_ATOM(xstudio::colour_pipeline, colour_pipeline_atom);
     ADD_ATOM(xstudio::colour_pipeline, get_colour_pipe_data_atom);
     ADD_ATOM(xstudio::colour_pipeline, get_colour_pipe_params_atom);
 
@@ -178,6 +191,8 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::module, remove_attrs_from_ui_atom);
     ADD_ATOM(xstudio::module, grab_all_keyboard_input_atom);
     ADD_ATOM(xstudio::module, grab_all_mouse_input_atom);
+    ADD_ATOM(xstudio::module, attribute_uuids_atom);
+    ADD_ATOM(xstudio::module, remove_attribute_atom);
 
     ADD_ATOM(xstudio::global, exit_atom);
     ADD_ATOM(xstudio::global, api_exit_atom);
@@ -187,6 +202,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::global, get_application_mode_atom);
     ADD_ATOM(xstudio::global, get_global_audio_cache_atom);
     ADD_ATOM(xstudio::global, get_global_image_cache_atom);
+    ADD_ATOM(xstudio::global, get_global_playhead_events_atom);
     ADD_ATOM(xstudio::global, get_global_store_atom);
     ADD_ATOM(xstudio::global, get_global_thumbnail_atom);
     ADD_ATOM(xstudio::global, get_plugin_manager_atom);
@@ -195,13 +211,15 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::global, get_scanner_atom);
     ADD_ATOM(xstudio::global, remote_session_name_atom);
     ADD_ATOM(xstudio::global, status_atom);
+    ADD_ATOM(xstudio::global, get_actor_from_registry_atom);
+
     ADD_ATOM(xstudio::media, acquire_media_detail_atom);
     ADD_ATOM(xstudio::media, add_media_source_atom);
     ADD_ATOM(xstudio::media, add_media_stream_atom);
     ADD_ATOM(xstudio::media, current_media_source_atom);
     ADD_ATOM(xstudio::media, current_media_stream_atom);
     ADD_ATOM(xstudio::media, get_edit_list_atom);
-    ADD_ATOM(xstudio::media, get_media_details_atom);
+    ADD_ATOM(xstudio::media, get_media_details_atom); // DEPRECATED
     ADD_ATOM(xstudio::media, get_media_pointer_atom);
     ADD_ATOM(xstudio::media, get_media_pointers_atom);
     ADD_ATOM(xstudio::media, get_media_source_atom);
@@ -211,6 +229,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::media, media_status_atom);
     ADD_ATOM(xstudio::media, get_stream_detail_atom);
     ADD_ATOM(xstudio::media, invalidate_cache_atom);
+    ADD_ATOM(xstudio::media, rescan_atom);
     ADD_ATOM(xstudio::media, media_reference_atom);
     ADD_ATOM(xstudio::media, source_offset_frames_atom);
     ADD_ATOM(xstudio::global_store, autosave_atom);
@@ -245,7 +264,6 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::playhead, actual_playback_rate_atom);
     ADD_ATOM(xstudio::playhead, buffer_atom);
     ADD_ATOM(xstudio::playhead, child_playheads_deleted_atom);
-    ADD_ATOM(xstudio::playhead, colour_pipeline_atom);
     ADD_ATOM(xstudio::playhead, compare_mode_atom);
     ADD_ATOM(xstudio::playhead, duration_flicks_atom);
     ADD_ATOM(xstudio::playhead, duration_frames_atom);
@@ -290,6 +308,7 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::playhead, fps_event_group_atom);
     ADD_ATOM(xstudio::playhead, viewport_events_group_atom);
     ADD_ATOM(xstudio::playhead, monitored_atom);
+    ADD_ATOM(xstudio::playhead, media_logical_frame_atom);
     // ADD_ATOM(xstudio::audio, push_samples_atom);
     // ADD_ATOM(xstudio::http_client, http_get_atom);
     // ADD_ATOM(xstudio::http_client, http_get_simple_atom);
@@ -351,5 +370,10 @@ void py_config::add_atoms() {
     ADD_ATOM(xstudio::history, history_atom);
 
     ADD_ATOM(xstudio::ui::viewport, viewport_playhead_atom);
+    ADD_ATOM(xstudio::ui::viewport, quickview_media_atom);
+    ADD_ATOM(xstudio::ui, show_message_box_atom);
+
+    ADD_ATOM(xstudio::ui::keypress_monitor, register_hotkey_atom);
+    ADD_ATOM(xstudio::ui::keypress_monitor, hotkey_event_atom);
 }
 } // namespace caf::python

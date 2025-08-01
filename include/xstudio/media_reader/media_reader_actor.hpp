@@ -35,6 +35,8 @@ namespace media_reader {
         inline static const std::string NAME = "GlobalMediaReaderActor";
 
         void prune_readers();
+        bool prune_reader(const std::string &key);
+
         std::optional<caf::actor>
         check_cached_reader(const std::string &key, const bool preserve = true);
         caf::actor add_reader(

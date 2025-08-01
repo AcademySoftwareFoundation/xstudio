@@ -19,19 +19,20 @@ using namespace xstudio::ui::qml;
 
 namespace {
 
-bool attr_is_in_group(const module::ConstAttributePtr &attr, const std::string group_name) {
+bool attr_is_in_group(
+    const module::ConstAttributePtr &attr, const QStringList &group_names_in) {
 
     bool match = false;
     try {
         auto group_names =
             attr->get_role_data<std::vector<std::string>>(Attribute::Role::Groups);
         for (auto g : group_names) {
-            if (g == group_name) {
+            if (group_names_in.contains(QStringFromStd(g))) {
                 match = true;
                 break;
             }
         }
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
 
     return match;
@@ -54,6 +55,8 @@ ModuleAttrsDirect::ModuleAttrsDirect(QObject *parent)
     emit roleNameChanged();
 }
 
+ModuleAttrsDirect::~ModuleAttrsDirect() {}
+
 void ModuleAttrsDirect::add_attributes_from_backend(
     const module::AttributeSet &attrs, bool check_group) {
     try {
@@ -61,7 +64,7 @@ void ModuleAttrsDirect::add_attributes_from_backend(
         for (const auto &attr : attrs) {
             try {
                 if (check_group &&
-                    (!attr_is_in_group(attr, StdFromQString(attrs_group_name_)) ||
+                    (!attr_is_in_group(attr, attrs_group_name_) ||
                      (role_id != Attribute::Role::Value and !attr->has_role_data(role_id))))
                     continue;
 
@@ -103,7 +106,7 @@ void ModuleAttrsDirect::setRoleName(QString role_name) {
         // re-use this signal to get the backend to re-broadcast attributes
         // back to this class so we can update our properties to reflect the
         // data role
-        emit attributesGroupNameChanged(attrs_group_name_);
+        emit attributesGroupNamesChanged(attrs_group_name_);
     }
 }
 
@@ -167,11 +170,11 @@ QVariant ModuleAttrsDirect::updateValue(const QString &key, const QVariant &inpu
     return attr_values_by_uuid_[uuid];
 }
 
-void ModuleAttrsDirect::setAttributesGroupName(QString group_name) {
+void ModuleAttrsDirect::setattributesGroupNames(QStringList group_name) {
 
     if (attrs_group_name_ != group_name) {
         attrs_group_name_ = group_name;
-        emit attributesGroupNameChanged(attrs_group_name_);
+        emit attributesGroupNamesChanged(attrs_group_name_);
     }
 }
 
@@ -183,24 +186,26 @@ OrderedModuleAttrsModel::OrderedModuleAttrsModel(QObject *parent)
     sort(0, Qt::AscendingOrder);
 }
 
-QString OrderedModuleAttrsModel::attributesGroupName() const {
+QStringList OrderedModuleAttrsModel::attributesGroupNames() const {
     auto mam = dynamic_cast<ModuleAttrsModel *>(sourceModel());
     if (mam)
-        return mam->attributesGroupName();
-    return QString();
+        return mam->attributesGroupNames();
+    return QStringList();
 }
 
-void OrderedModuleAttrsModel::setAttributesGroupName(const QString &group_name) {
+void OrderedModuleAttrsModel::setattributesGroupNames(const QStringList &group_name) {
     auto mam = dynamic_cast<ModuleAttrsModel *>(sourceModel());
     if (mam) {
-        mam->setAttributesGroupName(group_name);
-        emit attributesGroupNameChanged(group_name);
+        mam->setattributesGroupNames(group_name);
+        emit attributesGroupNamesChanged(group_name);
     }
 }
 
 ModuleAttrsModel::ModuleAttrsModel(QObject *parent) : QAbstractListModel(parent) {
     new ModuleAttrsToQMLShim(this);
 }
+
+ModuleAttrsModel::~ModuleAttrsModel() {}
 
 QHash<int, QByteArray> ModuleAttrsModel::roleNames() const {
     QHash<int, QByteArray> roles;
@@ -252,7 +257,7 @@ void ModuleAttrsModel::add_attributes_from_backend(
         for (const auto &attr : attrs) {
 
             if (not have_attr(QUuidFromUuid(attr->uuid()))) {
-                if (check_group && !attr_is_in_group(attr, StdFromQString(attrs_group_name_)))
+                if (check_group && !attr_is_in_group(attr, attrs_group_name_))
                     continue;
                 new_attrs.push_back(attr);
             } else {
@@ -260,29 +265,31 @@ void ModuleAttrsModel::add_attributes_from_backend(
             }
         }
 
-        beginInsertRows(
-            QModelIndex(),
-            attributes_data_.size(),
-            static_cast<int>(attributes_data_.size() + new_attrs.size()) - 1);
+        if (!new_attrs.empty()) {
+            beginInsertRows(
+                QModelIndex(),
+                attributes_data_.size(),
+                static_cast<int>(attributes_data_.size() + new_attrs.size()) - 1);
 
-        for (const auto &attr : new_attrs) {
+            for (const auto &attr : new_attrs) {
 
-            QMap<int, QVariant> attr_qt_data;
-            const nlohmann::json json = attr->as_json();
+                QMap<int, QVariant> attr_qt_data;
+                const nlohmann::json json = attr->as_json();
 
-            for (auto p = json.begin(); p != json.end(); ++p) {
-                const int role = Attribute::role_index(p.key());
-                if (role == Attribute::UuidRole) {
-                    attr_qt_data[role] = QUuidFromUuid(p.value().get<utility::Uuid>());
-                } else {
-                    attr_qt_data[role] = json_to_qvariant(p.value());
+                for (auto p = json.begin(); p != json.end(); ++p) {
+                    const int role = Attribute::role_index(p.key());
+                    if (role == Attribute::UuidRole) {
+                        attr_qt_data[role] = QUuidFromUuid(p.value().get<utility::Uuid>());
+                    } else {
+                        attr_qt_data[role] = json_to_qvariant(p.value());
+                    }
                 }
+                attributes_data_.push_back(attr_qt_data);
             }
-            attributes_data_.push_back(attr_qt_data);
-        }
 
-        endInsertRows();
-        emit rowCountChanged();
+            endInsertRows();
+            emit rowCountChanged();
+        }
     }
 }
 
@@ -345,8 +352,43 @@ void ModuleAttrsModel::update_attribute_from_backend(
     const utility::Uuid &attr_uuid, const int role, const utility::JsonStore &role_value) {
 
     try {
+
         const QUuid quuid = QUuidFromUuid(attr_uuid);
-        int row           = 0;
+
+        // special case ... if an attribute has been added to a 'group' (so is dynamically
+        // added to the Model), or if an attribute is removed from a 'group' (so is dynamiucally
+        // removed from the Model) then we need to trigger a full update
+        if (role == Attribute::Groups) {
+
+            bool attr_is_in_this_model = false;
+            for (auto &p : attributes_data_) {
+
+                if (p.contains(Attribute::UuidRole) &&
+                    p[Attribute::UuidRole].toUuid() == quuid) {
+                    attr_is_in_this_model = true;
+                    break;
+                }
+            }
+
+            bool attr_should_be_in_this_model = false;
+            if (role_value.is_array()) {
+                for (const auto &o : role_value) {
+                    QString attr_group_name = QStringFromStd(o.get<std::string>());
+                    if (attrs_group_name_.contains(attr_group_name)) {
+                        attr_should_be_in_this_model = true;
+                        break;
+                    }
+                }
+            }
+
+            if (attr_is_in_this_model && !attr_should_be_in_this_model) {
+                remove_attribute(attr_uuid);
+            } else if (!attr_is_in_this_model && attr_should_be_in_this_model) {
+                emit doFullupdateFromBackend(attrs_group_name_);
+            }
+        }
+
+        int row = 0;
         for (auto &p : attributes_data_) {
 
             if (p.contains(Attribute::UuidRole) && p[Attribute::UuidRole].toUuid() == quuid) {
@@ -359,25 +401,35 @@ void ModuleAttrsModel::update_attribute_from_backend(
             }
             row++;
         }
-    } catch (std::exception &e) {
+    } catch ([[maybe_unused]] std::exception &e) {
     }
 }
 
-void ModuleAttrsModel::setAttributesGroupName(QString group_name) {
+void ModuleAttrsModel::setattributesGroupNames(QStringList group_name) {
 
     if (attrs_group_name_ != group_name) {
         attrs_group_name_ = group_name;
-        emit attributesGroupNameChanged(attrs_group_name_);
+        emit attributesGroupNamesChanged(attrs_group_name_);
     }
 }
 
 ModuleAttrsToQMLShim::~ModuleAttrsToQMLShim() {
+
+    // wipe the message handler, because it seems to be possible that messages
+    // come in before our actor companion has exited but AFTER this object
+    // (ModuleAttrsToQMLShim) has been destroyed - if we don't wipe the message
+    // handler it gets a bit 'crashy' as it tries to execute a function in
+    // the handler declared in 'ModuleAttrsToQMLShim::init' when the object is deleted.
+    set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
+        return caf::message_handler();
+    });
+
     if (attrs_events_actor_group_) {
         caf::scoped_actor sys(CafSystemObject::get_actor_system());
         try {
             request_receive<bool>(
                 *sys, attrs_events_actor_group_, broadcast::leave_broadcast_atom_v, as_actor());
-        } catch (const std::exception &e) {
+        } catch ([[maybe_unused]] const std::exception &e) {
             // spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
     }
@@ -398,9 +450,15 @@ ModuleAttrsToQMLShim::ModuleAttrsToQMLShim(ModuleAttrsModel *model)
 
     QObject::connect(
         model_,
-        &ModuleAttrsModel::attributesGroupNameChanged,
+        &ModuleAttrsModel::attributesGroupNamesChanged,
         this,
-        &ModuleAttrsToQMLShim::setAttributesGroupName);
+        &ModuleAttrsToQMLShim::setattributesGroupNames);
+
+    QObject::connect(
+        model_,
+        &ModuleAttrsModel::doFullupdateFromBackend,
+        this,
+        &ModuleAttrsToQMLShim::doFullupdateFromBackend);
 }
 
 ModuleAttrsToQMLShim::ModuleAttrsToQMLShim(ModuleAttrsDirect *qml_attrs_map)
@@ -418,9 +476,9 @@ ModuleAttrsToQMLShim::ModuleAttrsToQMLShim(ModuleAttrsDirect *qml_attrs_map)
 
     QObject::connect(
         qml_attrs_map,
-        &ModuleAttrsDirect::attributesGroupNameChanged,
+        &ModuleAttrsDirect::attributesGroupNamesChanged,
         this,
-        &ModuleAttrsToQMLShim::setAttributesGroupName);
+        &ModuleAttrsToQMLShim::setattributesGroupNames);
 }
 
 ModuleAttrsToQMLShim::ModuleAttrsToQMLShim(ModuleMenusModel *model)
@@ -469,13 +527,12 @@ void ModuleAttrsToQMLShim::init(caf::actor_system &system) {
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
         return {
             [=](utility::serialise_atom) -> utility::JsonStore { return utility::JsonStore(); },
-            [=](broadcast::broadcast_down_atom, const caf::actor_addr &) {
-
+            [=](broadcast::broadcast_down_atom, const caf::actor_addr &addr) {
+                if (addr == caf::actor_cast<caf::actor_addr>(attrs_events_actor_group_)) {
+                    attrs_events_actor_group_ = caf::actor();
+                }
             },
-            [=](const group_down_msg &g) {
-                // caf::aout(self()) << "ModuleAttrsToQMLShim down: " << to_string(g.source) <<
-                // std::endl;
-            },
+            [=](const group_down_msg &g) {},
             [=](full_attributes_description_atom,
                 const AttributeSet &attrs,
                 const utility::Uuid &requester_uuid) {
@@ -546,28 +603,44 @@ void ModuleAttrsToQMLShim::setAttributeFromFrontEnd(
     }
 }
 
-void ModuleAttrsToQMLShim::setAttributesGroupName(QString group_name) {
+void ModuleAttrsToQMLShim::setattributesGroupNames(QStringList group_name) {
     if (attrs_group_name_ != group_name) {
 
         // The attributes group name (e.g. 'main_toolbar' or 'playhead') has changed
         // (due to something happening in QML code). We therefore request a full list
         // of attributes belonging to that group from the backend.
         attrs_group_name_ = group_name;
-        anon_send(
-            attrs_events_actor_,
-            request_full_attributes_description_atom_v,
-            StdFromQString(attrs_group_name_),
-            uuid_);
+        std::vector<std::string> strs;
+        for (const auto &n : group_name) {
+            strs.emplace_back(StdFromQString(n));
+        }
+        anon_send(attrs_events_actor_, request_full_attributes_description_atom_v, strs, uuid_);
     }
 }
 
+void ModuleAttrsToQMLShim::doFullupdateFromBackend(QStringList group_name) {
+
+    attrs_group_name_ = group_name;
+    std::vector<std::string> strs;
+    for (const auto &n : group_name) {
+        strs.emplace_back(StdFromQString(n));
+    }
+    anon_send(attrs_events_actor_, request_full_attributes_description_atom_v, strs, uuid_);
+}
+
 void ModuleAttrsToQMLShim::setRootMenuName(QString root_menu_name) {
-    if (attrs_group_name_ != root_menu_name) {
+
+    if (attrs_group_name_.empty() ||
+        (attrs_group_name_.size() && attrs_group_name_[0] != root_menu_name)) {
 
         // The attributes group name (e.g. 'main_toolbar' or 'playhead') has changed
         // (due to something happening in QML code). We therefore request a full list
         // of attributes belonging to that group from the backend.
-        attrs_group_name_ = root_menu_name;
+        if (attrs_group_name_.empty()) {
+            attrs_group_name_.append(root_menu_name);
+        } else {
+            attrs_group_name_[0] = root_menu_name;
+        }
 
         anon_send(
             attrs_events_actor_,

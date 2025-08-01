@@ -1,6 +1,63 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+
+#ifdef _WIN32
+using uid_t = DWORD; // Use DWORD type for user ID
+using gid_t = DWORD; // Use DWORD type for group ID
+
+#include <Lmcons.h>
+
+inline bool lstat(const std::string &path, struct stat *st) {
+    WIN32_FILE_ATTRIBUTE_DATA fileData;
+    if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &fileData)) {
+        // Fill the 'struct stat' with information from 'WIN32_FILE_ATTRIBUTE_DATA'
+        st->st_mode = fileData.dwFileAttributes;
+        // Set other members of 'struct stat' as needed
+        // ...
+        return true;
+    }
+    return false;
+}
+
+inline uid_t getuid() { return static_cast<uid_t>(GetCurrentProcessId()); }
+
+struct passwd {
+    std::string pw_name;
+    std::string pw_passwd;
+    uid_t pw_uid;
+    gid_t pw_gid;
+    std::string pw_gecos;
+    std::string pw_dir;
+    std::string pw_shell;
+};
+
+inline struct passwd *getpwuid(uid_t uid) {
+    static struct passwd pw;
+
+    // Get the username associated with the UID
+    wchar_t username[UNLEN + 1];
+    DWORD usernameLen = UNLEN + 1;
+    if (GetUserNameW(username, &usernameLen)) {
+        pw.pw_name   = std::to_string(uid); // Set the username as needed
+        pw.pw_passwd = "";                  // Set the password as needed
+        pw.pw_uid    = uid;
+        pw.pw_gid    = 0;  // Set the group ID as needed
+        pw.pw_gecos  = ""; // Set the GECOS field as needed
+        pw.pw_dir    = ""; // Set the home directory as needed
+        pw.pw_shell  = ""; // Set the shell as needed
+
+        return &pw;
+    }
+
+    return nullptr;
+}
+#else
+// For Linux or non-Windows platforms
+using uid_t = uid_t;
+using gid_t = gid_t;
 #include <pwd.h>
+#endif
+
 #include <sys/stat.h>
 
 #include <caf/uri.hpp>
@@ -43,11 +100,23 @@ namespace utility {
         [[nodiscard]] caf::uri source() const { return source_; }
         [[nodiscard]] caf::uri lock_file() const {
             // resolve path to source..
+
+#ifdef _WIN32
+            std::filesystem::path lpath(uri_to_posix_path(source_));
+
+            if (std::filesystem::exists(lpath) && std::filesystem::is_symlink(lpath))
+                lpath = std::filesystem::canonical(lpath);
+
+            std::string lpath_string = lpath.string();
+            return posix_path_to_uri(lpath.concat(".lock").string());
+#else
+            // For other platforms, use the existing code
             auto lpath = uri_to_posix_path(source_);
             if (fs::exists(lpath) && fs::is_symlink(lpath))
                 lpath = fs::canonical(lpath);
 
             return posix_path_to_uri(lpath + ".lock");
+#endif
         }
         [[nodiscard]] bool locked() const { return locked_; }
         [[nodiscard]] bool owned() const { return owned_; }
@@ -80,7 +149,11 @@ namespace utility {
         [[nodiscard]] bool unlock() {
             if (locked_ and owned_ and not borrowed_) {
                 // unlock we no longer own file.
+#ifdef _WIN32
+                _unlink(uri_to_posix_path(lock_file()).c_str());
+#else
                 unlink(uri_to_posix_path(lock_file()).c_str());
+#endif
                 reset();
                 return true;
             }

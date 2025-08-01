@@ -62,7 +62,33 @@ template <typename T> struct adl_serializer<Imath::Matrix44<T>> {
         vv++; // skip count
         for (int i = 0; i < 4; ++i)
             for (int k = 0; k < 4; ++k)
-                p[i][j] = (vv++).value().get<T>();
+                p[k][i] = (vv++).value().get<T>();
+    }
+};
+
+template <typename T> struct adl_serializer<Imath::Matrix33<T>> {
+    static void to_json(json &j, const Imath::Matrix33<T> &p) {
+        j = json{
+            "mat3",
+            1,
+            p[0][0],
+            p[1][0],
+            p[2][0],
+            p[0][1],
+            p[1][1],
+            p[2][1],
+            p[0][2],
+            p[1][2],
+            p[2][2]};
+    }
+
+    static void from_json(const json &j, Imath::Matrix33<T> &p) {
+        auto vv = j.begin();
+        vv++; // skip param type
+        vv++; // skip count
+        for (int i = 0; i < 3; ++i)
+            for (int k = 0; k < 3; ++k)
+                p[k][i] = (vv++).value().get<T>();
     }
 };
 
@@ -218,7 +244,7 @@ namespace utility {
 
         // [[nodiscard]] bool empty() const { return json_.empty(); }
         // void clear() { json_.clear(); }
-        [[nodiscard]] std::string dump(size_t pad = 0) const {
+        [[nodiscard]] std::string dump(int pad = 0) const {
             return nlohmann::json::dump(
                 pad, ' ', false, nlohmann::detail::error_handler_t::replace);
         }
@@ -248,26 +274,8 @@ namespace utility {
         return f.object(x).fields(f.field("jsn", get_jsn, set_jsn));
     }
 
-
-    // Creates a guard that executes `f` as soon as it goes out of scope.
-    // template <class Inspector>
-    // typename std::enable_if<Inspector::reads_state,
-    //                         typename Inspector::result_type>::type
-    // inspect(Inspector& f, JsonStore& x) {
-    //   return f(meta::type_name("JsonStore"), x.dump());
-    // }
-
-    // template <class Inspector>
-    // typename std::enable_if<Inspector::writes_state,
-    //                         typename Inspector::result_type>::type
-    // inspect(Inspector& f, JsonStore& x) {
-    //   std::string a;
-    //   // write back to x at scope exit
-    //   auto g = make_scope_guard([&] {
-    //     x.set(nlohmann::json::parse(a));
-    //   });
-    //   return f(meta::type_name("JsonStore"), a);
-    // }
+    void to_json(nlohmann::json &j, const JsonStore &c);
+    void from_json(const nlohmann::json &j, JsonStore &c);
 
     /**
      *  @brief Serialize JSON.
@@ -278,6 +286,10 @@ namespace utility {
 
     namespace fs = std::filesystem;
 
+    JsonStore open_session(const caf::uri &path);
+    JsonStore open_session(const std::string &path);
+
+    nlohmann::json sort_by(const nlohmann::json &jsn, const nlohmann::json::json_pointer &ptr);
 
     inline JsonStore
     merge_json_from_path(const std::string &path, JsonStore merged = JsonStore()) {
@@ -293,12 +305,10 @@ namespace utility {
                 i >> j;
                 merged.merge(j);
             }
-        } catch (const std::exception &e) {
-            spdlog::warn("Preference path does not exist {}.", path);
+        } catch ([[maybe_unused]] const std::exception &e) {
+            spdlog::warn("Preference path does not exist {}. ({})", path);
         }
         return merged;
     }
-
-
 } // namespace utility
 } // namespace xstudio

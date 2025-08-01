@@ -1,0 +1,23 @@
+{
+	"plugin": {
+		"dneg_media_hook": {
+			"default_trim_slate_behaviour": {
+				"path": "/plugin/dneg_media_hook/default_trim_slate_behaviour",
+				"default_value": "Use Metadata or Don't Trim First Frame",
+				"description": "If auto trim slate is disabled, or if auto trim slate metadata is missing, choose if pipeline movies have their first frame trimmed.",
+				"value": "Trim First Frame",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"auto_trim_slate": {
+				"path": "/plugin/dneg_media_hook/auto_trim_slate",
+				"default_value": true,
+				"description": "For 'dneg' movies, use embedded metadata to determine if there is a slate frame and trim it off if so",
+				"value": true,
+				"datatype": "bool",
+				"context": ["APPLICATION"]
+			}
+		}
+	}
+}
+

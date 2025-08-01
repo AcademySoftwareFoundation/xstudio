@@ -102,7 +102,7 @@ namespace media_reader {
             : plugin_manager::PluginFactoryTemplate<T>(
                   uuid,
                   name,
-                  plugin_manager::PluginType::PT_MEDIA_READER,
+                  plugin_manager::PluginFlags::PF_MEDIA_READER,
                   false,
                   author,
                   description,
@@ -155,8 +155,9 @@ namespace media_reader {
                             if (mb->audio_) {
                                 mb->audio_->set_media_key(mptr.key_);
                             }
-                            mb->set_params(utility::JsonStore(
-                                nlohmann::json({{"path", path}, {"frame", mptr.frame_}})));
+                            mb->params()["path"]   = path;
+                            mb->params()["frame"]  = mptr.frame_;
+                            mb->params()["reader"] = media_reader_.name();
                         }
                     } catch (const media_missing_error &e) {
                         return make_error(media::media_error::missing, e.what());

@@ -9,12 +9,12 @@ import xStudio 1.1
 
 XsDialog {
 
-    property var source: session.onScreenSource
-    property var playhead: source ? source.playhead: undefined
+    property var playhead: sessionWidget.viewport.playhead
     property var playerWidget: sessionWidget.playerWidget
-    property var currentMedia: playhead ? playhead.media.mediaSource: null
-    property var resolution: currentMedia ? currentMedia.resolution: ""
-    property var pixelAspect: currentMedia ? currentMedia.pixelAspect : 1.0
+
+    property var resolution: app_window.mediaImageSource.values.resolutionRole ? app_window.mediaImageSource.values.resolutionRole : ""
+    property var pixelAspect:  app_window.mediaImageSource.values.aspectRole ? app_window.mediaImageSource.values.aspectRole : 1.0
+
     property var viewerWidth: playerWidget.viewport.width
     property var viewerHeight: playerWidget.viewport.height
 
@@ -79,49 +79,29 @@ XsDialog {
             Layout.fillHeight: true
         }
 
-            XsButtonDialog {
-                id: resultDialog
-                // parent: sessionWidget
-                width: text.width + 20
-                title: "Snapshot export fail"
-                text: {
-                    return "The snapshot could not be exported. Please check the parameters"
-                }
-                buttonModel: ["Ok"]
-                onSelected: {
-                    resultDialog.close()
-                }
+        FileDialog {
+            id: filedialog
+            title: qsTr("Name / select a file to save")
+            selectMultiple: false
+            selectFolder: false
+            selectExisting: false
+            nameFilters: [ "JPEG files (*.jpg)", "PNG files (*.png)", "TIF files (*.tif *.tiff)", "EXR files (*.exr)" ]
+            property var suffixes: ["jpg", "png", "tif", "exr"]
+            property var formatIdx: formatBox.currentIndex
+            defaultSuffix: suffixes[formatIdx]
+            selectedNameFilter: nameFilters[formatIdx]
+            onAccepted: {
+                var fixedfileUrl = fileUrl.toString().includes("." + suffixes[formatIdx]) ? fileUrl : (fileUrl + "." + suffixes[formatIdx])
+                playerWidget.viewport.renderImageToFile(
+                    fixedfileUrl,
+                    formatIdx,
+                    slider.value,
+                    widthInput.text,
+                    heightInput.text,
+                    bakeColorBox.checked)
+                dlg.close()
             }
-
-            FileDialog {
-                id: filedialog
-                title: qsTr("Name / select a file to save")
-                selectMultiple: false
-                selectFolder: false
-                selectExisting: false
-                nameFilters: [ "JPEG files (*.jpg)", "PNG files (*.png)", "TIF files (*.tif *.tiff)", "EXR files (*.exr)" ]
-                property var suffixes: ["jpg", "png", "tif", "exr"]
-                property var formatIdx: formatBox.currentIndex
-                defaultSuffix: suffixes[formatIdx]
-                selectedNameFilter: nameFilters[formatIdx]
-                onAccepted: {
-                    var ret = playerWidget.viewport.renderImageToFile(
-                        fileUrl,
-                        formatIdx,
-                        slider.value,
-                        widthInput.text,
-                        heightInput.text,
-                        bakeColorBox.checked)
-                    if (ret != "") {
-                        resultDialog.title = "Snapshot export failed"
-                        resultDialog.text = ret
-                        resultDialog.open()
-                    } else {
-                        dlg.close()
-                    }
-
-                }
-            }
+        }
 
         Rectangle {
             color: "transparent"

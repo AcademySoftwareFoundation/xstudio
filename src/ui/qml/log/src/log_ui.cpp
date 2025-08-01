@@ -52,6 +52,7 @@ bool LogFilterModel::filterAcceptsRow(int source_row, const QModelIndex &source_
 
     if (sourceModel()->data(index, LogModel::LevelRole).toInt() < log_Level_)
         return false;
+
     return QSortFilterProxyModel::filterAcceptsRow(source_row, source_parent);
 }
 

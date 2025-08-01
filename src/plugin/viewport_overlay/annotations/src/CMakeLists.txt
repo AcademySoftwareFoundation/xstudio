@@ -7,8 +7,6 @@ set(SOURCES
 	annotation.cpp
 	annotation_opengl_renderer.cpp
 	annotation_serialiser.cpp
-	caption.cpp
-	pen_stroke.cpp
 	serialisers/1.0/serialiser_1_pt_0.cpp
 )
 
@@ -21,6 +19,7 @@ default_plugin_options(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::module
+		xstudio::plugin_manager
 		xstudio::ui::opengl::viewport
 		Imath::Imath
 )

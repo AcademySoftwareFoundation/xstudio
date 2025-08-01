@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/viewport_qml_export.h"
+
 #include <caf/actor_companion.hpp>
 
 CAF_PUSH_WARNINGS
@@ -29,18 +32,17 @@ namespace ui {
         class QMLViewportRenderer;
         class PlayheadUI;
 
-        class QMLViewport : public QQuickItem {
+        class VIEWPORT_QML_EXPORT QMLViewport : public QQuickItem {
             Q_OBJECT
 
             Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
             Q_PROPERTY(bool frameOutOfRange READ frameOutOfRange NOTIFY frameOutOfRangeChanged)
+            Q_PROPERTY(bool noAlphaChannel READ noAlphaChannel NOTIFY noAlphaChannelChanged)
             Q_PROPERTY(QString fpsExpression READ fpsExpression NOTIFY fpsExpressionChanged)
             Q_PROPERTY(float scale READ scale WRITE setScale NOTIFY scaleChanged)
             Q_PROPERTY(
                 QVector2D translate READ translate WRITE setTranslate NOTIFY translateChanged)
-            Q_PROPERTY(QObject *playhead READ playhead WRITE setPlayhead NOTIFY playheadChanged)
-            Q_PROPERTY(QStringList colourUnderCursor READ colourUnderCursor NOTIFY
-                           colourUnderCursorChanged)
+            Q_PROPERTY(QObject *playhead READ playhead NOTIFY playheadChanged)
             Q_PROPERTY(int mouseButtons READ mouseButtons NOTIFY mouseButtonsChanged)
             Q_PROPERTY(QPoint mouse READ mouse NOTIFY mouseChanged)
             Q_PROPERTY(int onScreenImageLogicalFrame READ onScreenImageLogicalFrame NOTIFY
@@ -49,25 +51,35 @@ namespace ui {
                            imageBoundaryInViewportChanged)
             Q_PROPERTY(QSize imageResolution READ imageResolution NOTIFY imageResolutionChanged)
             Q_PROPERTY(bool enableShortcuts READ enableShortcuts NOTIFY enableShortcutsChanged)
+            Q_PROPERTY(QString name READ name NOTIFY nameChanged)
+            Q_PROPERTY(bool isQuickViewer READ isQuickViewer WRITE setIsQuickViewer NOTIFY
+                           isQuickViewerChanged)
 
           public:
             QMLViewport(QQuickItem *parent = nullptr);
-            ~QMLViewport() override = default;
+            virtual ~QMLViewport();
             float zoom();
             QString fpsExpression();
             float scale();
             QVector2D translate();
             QObject *playhead();
-            [[nodiscard]] QStringList colourUnderCursor() const { return colour_under_cursor; }
+            [[nodiscard]] QString name() const;
             [[nodiscard]] int mouseButtons() const { return mouse_buttons; }
             [[nodiscard]] QPoint mouse() const { return mouse_position; }
             [[nodiscard]] int onScreenImageLogicalFrame() const {
                 return on_screen_logical_frame_;
             }
             [[nodiscard]] bool frameOutOfRange() const { return frame_out_of_range_; }
+            [[nodiscard]] bool noAlphaChannel() const { return no_alpha_channel_; }
             [[nodiscard]] bool enableShortcuts() const { return enable_shortcuts_; }
+            void setPlayhead(caf::actor playhead);
+            QMLViewportRenderer *viewportActor() { return renderer_actor; }
+            void deleteRendererActor();
+            bool isQuickViewer() const { return is_quick_viewer_; }
 
           protected:
+            void hoverEnterEvent(QHoverEvent *event) override;
+            void hoverLeaveEvent(QHoverEvent *event) override;
             void mousePressEvent(QMouseEvent *event) override;
             void mouseReleaseEvent(QMouseEvent *event) override;
             void hoverMoveEvent(QHoverEvent *event) override;
@@ -82,9 +94,9 @@ namespace ui {
 
             void sync();
             void cleanup();
-            void setPlayhead(QObject *playhead_qobject);
             void setZoom(const float z);
             void revertFitZoomToPrevious(const bool ignoreOtherViewport = false);
+            void linkToViewport(QObject *other_viewport);
             void handleScreenChanged(QScreen *screen);
 
             void hideCursor();
@@ -93,11 +105,11 @@ namespace ui {
             QVector2D bboxCornerInViewport(const int min_x, const int min_y);
             void setScale(const float s);
             void setTranslate(const QVector2D &tr);
-            void setColourUnderCursor(const QVector3D &c);
             void setOnScreenImageLogicalFrame(const int frame_num);
             QRectF imageBoundaryInViewport();
             void setFrameOutOfRange(bool frame_out_of_range);
-            QString renderImageToFile(
+            void setNoAlphaChannel(bool no_alpha_channel);
+            void renderImageToFile(
                 const QUrl filePath,
                 const int format,
                 const int compression,
@@ -108,8 +120,7 @@ namespace ui {
             void setOverrideCursor(const QString &name, const bool centerOffset);
             void setOverrideCursor(const Qt::CursorShape cname);
             void setRegularCursor(const Qt::CursorShape cname);
-
-            void setOtherViewport(QObject *object);
+            void setIsQuickViewer(const bool is_quick_viewer);
 
           private slots:
 
@@ -122,15 +133,24 @@ namespace ui {
             void scaleChanged(float);
             void playheadChanged(QObject *);
             void translateChanged(QVector2D);
-            void colourUnderCursorChanged();
             void mouseButtonsChanged();
             void mouseChanged();
             void onScreenImageLogicalFrameChanged();
             void imageBoundaryInViewportChanged();
             void imageResolutionChanged();
             void frameOutOfRangeChanged();
+            void noAlphaChannelChanged();
             void enableShortcutsChanged();
             void doSnapshot(QString, QString, int, int, bool);
+            void nameChanged();
+            void quickViewSource(QStringList mediaActors, QString compareMode);
+            void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
+            void quickViewBackendRequestWithSize(
+                QStringList mediaActors, QString compareMode, QPoint position, QSize size);
+            void snapshotRequestResult(QString resultMessage);
+            void pointerEntered();
+            void pointerExited();
+            void isQuickViewerChanged();
 
           private:
             void releaseResources() override;
@@ -143,19 +163,18 @@ namespace ui {
             QMLViewportRenderer *renderer_actor{nullptr};
             PlayheadUI *playhead_{nullptr};
             static qt::OffscreenViewport *offscreen_viewport_;
-            QMLViewport *other_viewport{nullptr};
 
             bool connected_{false};
             QCursor cursor_;
             bool cursor_hidden{false};
-            QString current_fit_action, previous_fit_action;
-            QStringList colour_under_cursor{"--", "--", "--"};
             int mouse_buttons = {0};
             QPoint mouse_position;
             int on_screen_logical_frame_ = {0};
             bool frame_out_of_range_     = {false};
-            bool is_primary_viewport_    = {true};
+            bool no_alpha_channel_       = {false};
             bool enable_shortcuts_       = {true};
+            int viewport_index_          = {0};
+            bool is_quick_viewer_        = {false};
         };
 
     } // namespace qml

@@ -9,6 +9,8 @@ CheckBox { id: widget
 
     property var indicatorType: "tick" //"box"
     property alias imgIndicator: imgIndicator
+    property alias indicatorItem: indicatorItem
+    property alias textItem: textItem
 
     property color bgColorChecked: palette.highlight
     property color bgColorNormal: palette.base
@@ -21,6 +23,7 @@ CheckBox { id: widget
     property real borderWidth: 1
 
     property bool forcedTextHover: false
+    property bool forcedHover: false
 
     font.pixelSize: XsStyle.menuFontSize
     font.family: XsStyle.fontFamily
@@ -37,7 +40,7 @@ CheckBox { id: widget
         radius: 3 //indicatorType=="box" ? 3: implicitHeight/2
         color: indicatorType=="box" ?bgColorNormal: widget.pressed? bgColorChecked: bgColorNormal
 
-        border.color: widget.hovered? bgColorChecked: borderColor
+        border.color: widget.hovered || forcedHover? bgColorChecked: borderColor
         border.width: borderWidth
 
         Rectangle {
@@ -45,7 +48,7 @@ CheckBox { id: widget
             height: width
             anchors.centerIn: parent
             radius: 2
-            color: widget.hovered? indicatorColor: Qt.darker(indicatorColor, 1.2)
+            color: widget.hovered || forcedHover? indicatorColor: Qt.darker(indicatorColor, 1.2)
             visible: widget.checked && indicatorType=="box"
         }
         Image { id: imgIndicator
@@ -59,7 +62,7 @@ CheckBox { id: widget
                 enabled: true
                 effect:
                 ColorOverlay {
-                    anchors.fill: imgIndicator; color: widget.hovered? indicatorColor: Qt.darker(indicatorColor, 1.2)
+                    anchors.fill: imgIndicator; color: widget.hovered || forcedHover? indicatorColor: Qt.darker(indicatorColor, 1.2)
                 }
             }
         }
@@ -71,13 +74,21 @@ CheckBox { id: widget
             //         color: widget.hovered? indicatorColor: Qt.darker(indicatorColor, 1.2)
 
     contentItem:
-    Text {
+    Text { id: textItem
         text: widget.text
         font: widget.font
         opacity: enabled ? 1.0: 0.3
-        color: widget.hovered || forcedTextHover? textColorChecked: textColorNormal
+        color: widget.hovered || forcedTextHover || forcedHover? textColorChecked: textColorNormal
         verticalAlignment: Text.AlignVCenter
         leftPadding: widget.indicator.width + widget.spacing
+        elide: Text.ElideRight
+
+        XsToolTip{
+            x: indicatorItem.width+2
+            text: parent.text
+            visible: (widget.hovered) && parent.truncated
+            width: textItem.contentWidth == 0? 0 : parent.width-indicatorItem.width
+        }
     }
 
     onCheckedChanged: focus=!focus

@@ -28,6 +28,12 @@ T.ComboBox { id: widget
     property alias popupOptions: popupOptions
     property bool downArrowVisible: true
 
+    property string tooltip_text: ""
+
+    ToolTip.delay: 500
+    ToolTip.visible: hovered && tooltip_text != ""
+    ToolTip.text: tooltip_text
+
     onHoveredChanged: {
         downArrow.requestPaint()
     }
@@ -82,9 +88,9 @@ T.ComboBox { id: widget
         color: widget.enabled? widget.hovered || widget.activeFocus? textColorActive: textColorNormal: textColorDisabled
         width: widget.width //- indicatorMArea.width
         horizontalAlignment: Text.AlignHCenter
-        // height: widget.height
-        // verticalAlignment: Text.AlignVCenter
-        topPadding: (widget.height-textMetrics.height)/2 + 0.75
+        height: widget.height
+        verticalAlignment: Text.AlignVCenter
+        topPadding: (widget.height-textMetrics.height)/4
 
         TextMetrics { id: textMetrics
             font: textField.font
@@ -237,4 +243,5 @@ T.ComboBox { id: widget
             height: widget.height
         }
     }
+
 }

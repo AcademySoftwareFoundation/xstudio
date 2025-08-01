@@ -1,0 +1,77 @@
+{
+	"plugin": {
+		"grading": {
+			"grading_panel": {
+				"path": "/plugin/grading/grading_panel",
+				"default_value": "Basic",
+				"description": "Grading panel",
+				"value": "Basic",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"draw_pen_size": {
+				"path": "/plugin/grading/draw_pen_size",
+				"default_value": 10,
+				"description": "Thickness of scribble pen size",
+				"value": 150,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"erase_pen_size": {
+				"path": "/plugin/grading/erase_pen_size",
+				"default_value": 80,
+				"description": "Thickness of scribble pen size",
+				"value": 80,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"pen_opacity": {
+				"path": "/plugin/grading/pen_opacity",
+				"default_value": 100,
+				"description": "Opacity of scribble pen",
+				"value": 100,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"pen_softness": {
+				"path": "/plugin/grading/pen_softness",
+				"default_value": 100,
+				"description": "Softness of scribble pen",
+				"value": 100,
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
+			"pen_colour": {
+				"path": "/plugin/grading/pen_colour",
+				"default_value": ["colour", 1, 1.0, 1.0, 0.0],
+				"description": "colour of shape pen",
+				"value": ["colour", 1, 1.0, 1.0, 0.0],
+				"datatype": "json",
+				"context": ["APPLICATION"]
+			},
+			"display_mode": {
+				"path": "/plugin/grading/display_mode",
+				"default_value": "Mask",
+				"description": "Control whether to show the mask being drawn or not",
+				"value": "Mask",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"toolbox_window_settings": {
+				"path": "/plugin/grading/toolbox_window_settings",
+				"default_value": "{}",
+				"description": "Prefs relating to window position.",
+				"value": {
+					"__ignore__": true,
+					"x": 100,
+					"y": 100,
+					"width": 700,
+					"height": 400,
+					"visibility": 0
+				},
+				"datatype": "json",
+				"context": ["QML_UI"]
+			}
+		}
+	}
+}

@@ -17,9 +17,12 @@ import QtQml 2.14
 // BEGIN COMMENT OUT WHEN WORKING INSIDE Qt Creator
 //------------------------------------------------------------------------------
 import xstudio.qml.viewport 1.0
-import xstudio.qml.playlist 1.0
+//import xstudio.qml.playlist 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
+import xstudio.qml.global_store_model 1.0
+import xstudio.qml.helpers 1.0
+import xstudio.qml.session 1.0
 
 //------------------------------------------------------------------------------
 // END COMMENT OUT WHEN WORKING INSIDE Qt Creator
@@ -41,8 +44,17 @@ ApplicationWindow {
     // flags: Qt.WindowStaysOnTopHint
     property var preFullScreenVis: [app_window.x, app_window.y, app_window.width, app_window.height]
     property alias playerWidget: sessionWidget.playerWidget
-    property var session
     property int vis_before_hide: -1
+
+    palette.base: XsStyle.controlBackground
+    palette.text: XsStyle.hoverColor
+    palette.button: XsStyle.controlTitleColor
+    palette.highlight: highlightColor
+    palette.light: highlightColor
+    palette.highlightedText: XsStyle.mainBackground
+    palette.brightText: highlightColor
+    palette.buttonText: XsStyle.hoverColor
+    palette.windowText: XsStyle.hoverColor
 
     function toggle_visible() {
         if (visibility == 0) {
@@ -57,6 +69,11 @@ ApplicationWindow {
         }
     }
 
+    XsGlobalStoreModel {
+        id: globalStoreModel
+    }
+    property alias globalStoreModel: globalStoreModel
+
     XsWindowStateSaver
     {
         id: win_state_saver
@@ -64,9 +81,7 @@ ApplicationWindow {
         windowName: "second_window"
     }
 
-    function gotMediaChanged() {
-        app_window.title = playhead.media.mediaSource["fileName"] + ' - ' + Qt.application.name
-    }
+    property var mediaImageSource
 
     function toggleFullscreen() {
         if (visibility !== Window.FullScreen) {
@@ -87,25 +102,6 @@ ApplicationWindow {
         }
     }
 
-    function fitWindowToImage() {
-
-        if (visibility === Window.FullScreen) return
-
-        // get the bdb of the image (in viewport pixel coordinates)
-        // and adjust position and size of window so it hugs the
-        // image
-        var img_dbd = playerWidget.viewport.imageCoordsOnScreen()
-        y = y+img_dbd.y
-        height = height-(playerWidget.viewport.height-img_dbd.height)
-        x = x+img_dbd.x
-        width = width-(playerWidget.viewport.width-img_dbd.width)
-        if (playerWidget.viewport.fitMode === "Off") {
-            playerWidget.viewport.scale = 1.0
-            playerWidget.viewport.translate = Qt.vector2d(0.0,0.0)
-        }
-
-    }
-
     XsPopoutViewerWidget {
         anchors.fill: parent
         id: sessionWidget
@@ -113,8 +109,9 @@ ApplicationWindow {
         window_name: "second_window" // this is important for picking up window settings for the 2nd window
         is_main_window: false
         focus: true
-        Keys.forwardTo: playerWidget.viewport
+        //
     }
     property alias sessionWidget: sessionWidget
+    property var viewport: sessionWidget.viewport
 
 }

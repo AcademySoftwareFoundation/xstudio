@@ -21,12 +21,21 @@
 //     return null;
 // }
 
+function cloneArray(list) {
+    let items = []
+
+    for(let i=0;i<list.length;++i)
+        items[i] = list[i]
+
+    return items
+}
+
 function getTimeCodeStr(displayValue)
 {
     // e.g. minus 1 so that frame 30 for 30fps should still be 00:00
     // displayValue = displayValue
     if(playhead) {
-        var fps = playhead.media.mediaSource? parseFloat(playhead.media.mediaSource.fpsString):24
+        var fps = app_window.mediaImageSource.values.rateFPSRole ? app_window.mediaImageSource.values.rateFPSRole : 24.0
         var frames = displayValue % Math.round(fps)
         var seconds = Math.floor(displayValue / fps)
         var minutes = Math.floor(seconds / 60)
@@ -45,7 +54,7 @@ function getTimeStr(displayValue) {
     // e.g. minus 1 so that frame 30 for 30fps should still be 00:00
     if(playhead) {
         displayValue = displayValue - 1
-        var fps = playhead.media.mediaSource ? playhead.media.mediaSource.fps:24
+        var fps = app_window.mediaImageSource.values.rateFPSRole ? app_window.mediaImageSource.values.rateFPSRole : 24.0
         var seconds = Math.floor(displayValue / fps)
         var minutes = Math.floor(seconds / 60)
         var hours = Math.floor(minutes / 60)
@@ -149,27 +158,34 @@ function openDialog(qml_path, parent=app_window, params={}) {
 }
 
 function centerYInParent(holder, parent, height) {
-    var oy = (parent.height/2)-(height/2);
-    var py = mapToItem(holder,0,oy).y;
-    if(py<0){
-        py = mapFromItem(holder, 0, 0).y;
-    } else if(py+height > holder.height){
-        py = mapFromItem(holder, 0, holder.height-height).y;
-    } else {
-        py = oy;
+    var py = 0
+    if(parent) {
+        var oy = (parent.height/2)-(height/2);
+        var py = mapToItem(holder,0,oy).y;
+        if(py<0){
+            py = mapFromItem(holder, 0, 0).y;
+        } else if(py+height > holder.height){
+            py = mapFromItem(holder, 0, holder.height-height).y;
+        } else {
+            py = oy;
+        }
     }
     return py;
 }
 
 function centerXInParent(holder, parent, width) {
-    var ox = (parent.width/2)-(width/2);
-    var px = mapToItem(holder, ox,0).x;
-    if(px<0){
-        px = mapFromItem(holder, 0, 0).x;
-    } else if(px+width > holder.width){
-        px = mapFromItem(holder, holder.width-width, 0).x;
-    } else {
-        px = ox;
+    var px = 0;
+
+    if(parent) {
+        var ox = (parent.width/2)-(width/2);
+        var px = mapToItem(holder, ox,0).x;
+        if(px<0){
+            px = mapFromItem(holder, 0, 0).x;
+        } else if(px+width > holder.width){
+            px = mapFromItem(holder, holder.width-width, 0).x;
+        } else {
+            px = ox;
+        }
     }
     return px;
 }

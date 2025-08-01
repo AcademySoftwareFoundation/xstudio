@@ -9,7 +9,7 @@ XsToolbarItem  {
 
     id: control
     property var value_: value ? value : ""
-    title_: "Mask"
+    title_: "Mask (M)"
     hovered: mouse_area.containsMouse
     showHighlighted: mouse_area.containsMouse | mouse_area.pressed | (activated != undefined && activated)
     property int iconsize: XsStyle.menuItemHeight *.66
@@ -178,18 +178,10 @@ XsToolbarItem  {
                 hoverEnabled: true
                 anchors.fill: parent
                 onClicked: {
-                    settings_dialog.raise()
-                    settings_dialog.show()
-                    settings_dialog.raise()
+                    launchSettingsDlg()
                     popup.visible = false
                 }
             }
-        }
-
-        XsModuleAttributesDialog {
-            id: settings_dialog
-            title: "Viewport Mask Settings"
-            attributesGroupName: "viewport_mask_settings"
         }
     
         
@@ -212,4 +204,11 @@ XsToolbarItem  {
     function hideMe() {
         popup.visible = false
     }
+
+    function launchSettingsDlg() {
+        dynamic_widget = Qt.createQmlObject('import xStudio 1.0; XsModuleAttributesDialog { title: \"Viewport Mask Settings"; attributesGroupNames: "viewport_mask_settings"}', settings_button)
+        dynamic_widget.raise()
+        dynamic_widget.show()
+    }        
+
 }

@@ -26,22 +26,17 @@ Rectangle{ id: section
     signal clicked(string type, string name, int id)
     signal doubleClicked(string type, string name, int id)
 
-    Timer {
+
+    XsTimer {
         id: callback_delay_timer
-        function setTimeout(cb, delayTime) {
-            callback_delay_timer.interval = delayTime;
-            callback_delay_timer.repeat = false;
-            callback_delay_timer.triggered.connect(cb);
-            callback_delay_timer.triggered.connect(function release () {
-                callback_delay_timer.triggered.disconnect(cb); // This is important
-                callback_delay_timer.triggered.disconnect(release); // This is important as well
-            });
-            callback_delay_timer.start();
-        }
     }
 
     function selectItem(index) {
-        itemExpandedModel.select(index.parent, ItemSelectionModel.Select)
+        let i = index.parent
+        while(i.valid) {
+            itemExpandedModel.select(i, ItemSelectionModel.Select)
+            i = i.parent
+        }
         callback_delay_timer.setTimeout(function(){ itemSelectionModel.select(index, ItemSelectionModel.ClearAndSelect) }, 100);
     }
 

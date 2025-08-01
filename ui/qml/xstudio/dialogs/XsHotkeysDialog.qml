@@ -18,17 +18,6 @@ XsDialogModal {
         id: hotkeys_info
     }
 
-    // property int drg: hotkeys_info.count
-    // property int drg2: hotkeys_info.length
-
-    // onDrgChanged: {
-    //     console.log("drg", drg)
-    // }
-
-    // onDrg2Changed: {
-    //     console.log("drg2", drg2)
-    // }
-
     Flickable {
 
         id: media_list

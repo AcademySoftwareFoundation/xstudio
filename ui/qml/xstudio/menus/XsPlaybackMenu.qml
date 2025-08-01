@@ -7,8 +7,8 @@ import xStudio 1.0
 
 XsMenu {
     title: qsTr("Playback")
-    property var source: session.onScreenSource
-    property var playhead: source ? source.playhead : undefined
+    property var playhead: sessionWidget.viewport.playhead
+    id: playback_menu
 
     XsMenuItem {
         mytext: qsTr("Play Backwards")
@@ -93,13 +93,13 @@ XsMenu {
     // XsMenuItem {
     //     mytext: qsTr("Set Bookmark Out")
     //     shortcut: "]"
-    //     onTriggered: session.bookmarks.setNearestOutBookmark(playhead.media.uuid, playhead.second)
+    //     onTriggered: session.bookmarks.setNearestOutBookmark(playhead.mediaUuid, playhead.second)
     // }
     // XsMenuItem {
     //     mytext: qsTr("Loop Bookmark")
     //     shortcut: "}"
     //     onTriggered: {
-    //         let pos = session.bookmarks.getNearestBookmark(playhead.media.uuid, playhead.second)
+    //         let pos = session.bookmarks.getNearestBookmark(playhead.mediaUuid, playhead.second)
     //         if(pos.length) {
     //             playhead.loopStart = pos[0]
     //             playhead.loopEnd = pos[1]
@@ -117,10 +117,18 @@ XsMenu {
         shortcut: ","
         onTriggered: playhead.frame = playhead.previousBookmark(playhead.frame)
     }
-    XsMenuSeparator {}
+    XsMenuSeparator {
+        id: loop_sep
+    }
+
+    XsModuleMenuBuilder {
+        parent_menu: playback_menu
+        root_menu_name: "playback_menu"
+        insert_after: bod
+    }
 
     XsMenuItem {
-        mytext: qsTr("Set Loop In-Point")
+        mytext: qsTr("Set Loop In")
         shortcut: "I"
         onTriggered: {
             playhead.setLoopStart(playhead.frame)
@@ -128,13 +136,15 @@ XsMenu {
         }
     }
     XsMenuItem {
-        mytext: qsTr("Set Loop Out-Point")
+        mytext: qsTr("Set Loop Out")
+        id: bod
         shortcut: "O"
         onTriggered: {
             playhead.setLoopEnd(playhead.frame)
             playhead.useLoopRange = true
         }
     }
+
     XsMenuItem {
         mytext: qsTr("Enable Loop")
         shortcut: "P"
@@ -146,4 +156,5 @@ XsMenu {
     }
 
     XsRepeatMenu {}
+
 }

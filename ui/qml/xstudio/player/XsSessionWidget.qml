@@ -23,7 +23,6 @@ import QuickPromise 1.0
 //------------------------------------------------------------------------------
 import xstudio.qml.viewport 1.0
 import xstudio.qml.session 1.0
-import xstudio.qml.playlist 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
 import xstudio.qml.helpers 1.0
@@ -39,16 +38,13 @@ Rectangle {
     property real borderWidth: XsStyle.outerBorderWidth
 
     property var sessionMenu: menu_row.menuBar
-
     property var mediaMenu1: media_list.mediaMenu
-    // property var mediaMenu2:
-
-
 
     property alias playerWidget: playerWidget
     property alias media_list: media_list
     property alias playlist_panel: playlist_panel
     property alias is_main_window: sessionWidget.is_main_window
+    property alias viewport: playerWidget.viewport
 
     property var status_bar_visible: playerWidget.status_bar_visible
     property var layout_bar_visible: playerWidget.layout_bar_visible
@@ -66,7 +62,7 @@ Rectangle {
     XsShortcuts {
         anchors.fill: parent
         id: shortcuts
-        context: "primary_viewport"
+        context: viewport.name
     }
 
     // create a binding to prefs where the current layout for this session
@@ -75,6 +71,7 @@ Rectangle {
         id: prefs
         index: app_window.globalStoreModel.search_recursive("/ui/qml/" + window_name + "_settings", "pathRole")
         property alias properties: prefs.values
+
     }
 
     property string layout_name: prefs.values.layout_name !== undefined ? prefs.values.layout_name : ""
@@ -147,7 +144,6 @@ Rectangle {
             id: menuBar
 
             Layout.fillWidth: true
-            viewport: playerWidget.viewport
             playerWidget: sessionWidget.playerWidget
             Behavior on opacity {
                 NumberAnimation { duration: playerWidget.doTrayAnim? XsStyle.presentationModeAnimLength : 0 }
@@ -213,9 +209,11 @@ Rectangle {
 
     }
 
+    property alias status_bar: status_bar
+
     Repeater {
         id: repeater
-        model: session.dataSources
+        model: studio.dataSources
 
         XsPluginWidget {
             qmlWidgetString: modelData.qmlWidgetString
@@ -277,19 +275,18 @@ Rectangle {
 
             //right_divider: horiz_divider
 
-            header_component: "qrc:/bars/XsSessionPanelHeader.qml"
+            header_component: "qrc:/panels/playlist/XsSessionPanelHeader.qml"
 
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 0
 
-                XsPlaylistsPanel {
+                XsPlaylistsPanelNew {
                     id: playlist_panel
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                 }
-
             }
             onWidthChanged: {
                 if (width <= 0) {
@@ -299,21 +296,6 @@ Rectangle {
                 }
             }
         }
-
-        // XsPaneContainer {
-
-        //     id: shotgun_panel_container
-
-        //     //right_divider: horiz_divider
-
-        //     header_visible: false//playerWidget.controlsVisible
-
-        //     XsDataSourcesPanel {
-        //         model: is_main_window ? session.dataSources : null
-        //         Layout.fillWidth: true
-        //         Layout.fillHeight: true
-        //     }
-        // }
 
         XsPaneContainer {
 
@@ -346,7 +328,7 @@ Rectangle {
 
             //bottom_divider: vert_divider2
 
-            header_component: "qrc:/bars/XsTimelinePanelHeader.qml"
+            header_component: "qrc:/panels/timeline/XsTimelinePanelHeader.qml"
 
             XsTimelinePanel {
                 id: timeline
@@ -366,102 +348,21 @@ Rectangle {
 
             header_component: "qrc:/bars/XsMediaListPanelHeader.qml"
 
-            ColumnLayout {
+            // ColumnLayout {
 
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: 0
+            //     Layout.fillWidth: true
+            //     Layout.fillHeight: true
+            //     spacing: 0
 
-                XsMediaPaneListHeader {
-                    id: header
-                    Layout.fillWidth: true
-                    parent_window_name: window_name
-
-                }
-
-                XsMediaPaneListView {
+                XsMediaPanelListView {
                     id: media_list
-                    header: header
+                    // header: header
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                 }
 
-            }
+            // }
         }
-
-        DropArea {
-            // why are we grabbing media_list_container events..
-            // the media list already handles this stuff..
-            anchors.fill: media_list_container
-
-            onEntered: {
-                if(drag.hasUrls || drag.hasText) {
-                    drag.acceptProposedAction()
-                }
-            }
-            onDropped: {
-               if(drop.hasUrls) {
-                    for(var i=0; i < drop.urls.length; i++) {
-                        if(drop.urls[i].toLowerCase().endsWith('.xst')) {
-                            session.loadUrl(drop.urls[i])
-                            app_window.session.new_recent_path(drop.urls[i])
-                            return;
-                        }
-                    }
-                }
-
-                // prepare drop data
-                let data = {}
-                for(let i=0; i< drop.keys.length; i++){
-                    data[drop.keys[i]] = drop.getDataAsString(drop.keys[i])
-                }
-
-                if(session.selectedSource) {
-                    Future.promise(session.selectedSource.handleDropFuture(data)).then(
-                        function(quuids){
-                            if(session.selectedSource.playhead)
-                                session.selectedSource.playhead.jumpToSource(quuids[0])
-                            session.selectedSource.selectionFilter.newSelection([quuids[0]])
-                        }
-                    )
-                } else {
-                    Future.promise(session.handleDropFuture(data)).then(function(quuids){})
-                }
-            }
-        }
-
-        /*XsPaneContainer {
-
-            id: media_list_container2
-
-            title: "Media"
-            visible: height > 0
-
-            //top_divider: vert_divider2
-
-            header_component: "qrc:/bars/XsMediaListPanelHeader.qml"
-
-            ColumnLayout {
-
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: 0
-
-                XsMediaPaneListHeader {
-                    id: header2
-                    Layout.fillWidth: true
-                    parent_window_name: window_name
-                    media_list_idx: 1
-                }
-
-                XsMediaPaneListView {
-                    id: media_list2
-                    header: header2
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                }
-            }
-        }*/
 
         Xs3PaneLayout {
             id: review_layout
@@ -513,70 +414,9 @@ Rectangle {
     property alias review_layout: review_layout
     property var the_layout: review_layout
     property var all_panels: [session_panel_container, player_container, media_list_container, timline_container]
-    // property bool previousControlVisible: false
-
-
-    /*Rectangle {
-
-        id: footer
-        color: XsStyle.mainBackground
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: (status_bar.height + session_controls.height + XsStyle.dividerWidth*(!is_presentation_mode))*opacity
-        visible: opacity != 0.0
-        opacity: status_bar_visible || layout_bar_visible
-
-        Behavior on opacity {
-            NumberAnimation { duration: XsStyle.presentationModeAnimLength }
-        }
-
-        XsPaneContainer {
-
-            id: session_controls_container
-
-            anchors.fill: parent
-            anchors.leftMargin: border_size
-            anchors.rightMargin: border_size
-            anchors.bottomMargin: border_size
-            property var border_size: is_presentation_mode ? 0 : XsStyle.dividerWidth
-            header_visible: false
-            has_borders: !is_presentation_mode
-
-            Behavior on border_size {
-                NumberAnimation { duration: XsStyle.presentationModeAnimLength }
-            }
-
-            Rectangle {
-
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "transparent"
-
-                XsStatusBar {
-                    id: status_bar
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    opacity: status_bar_visible
-                }
-
-                XsSessionControls {
-                    id: session_controls
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    opacity: layout_bar_visible
-                }
-            }
-        }
-    }*/
 
     onLayout_nameChanged: {
         previous_layout = prefs.values.layout_name
-        // if(previous_layout == "presentation_layout" && !playerWidget.controlsVisible){
-        //     playerWidget.controlsVisible = previousControlVisible
-        // }
 
         if (layout_name == "browse_layout") {
             the_layout.active = false

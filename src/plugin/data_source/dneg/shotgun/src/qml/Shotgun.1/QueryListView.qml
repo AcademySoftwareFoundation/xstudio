@@ -201,8 +201,9 @@ ListView{
                         padding: 0
                         onClicked: {
                             enabledRole = !enabledRole
-                            if(isLoaded)
+                            if(isLoaded) {
                                 executeQuery()
+                            }
                         }
                     }
 
@@ -224,8 +225,9 @@ ListView{
                         clip: true
                         onClicked: {
                             negationRole = !negationRole
-                            if(isLoaded)
+                            if(isLoaded) {
                                 executeQuery()
+                            }
                         }
                     }
 
@@ -266,8 +268,9 @@ ListView{
                                 termRole = currentText
                                 if(valueBox.count<50) valueBox.popupOptions.open()
 
-                                if(isLoaded)
+                                if(isLoaded) {
                                     executeQuery()
+                                }
                             }
                         }
                     }
@@ -307,12 +310,13 @@ ListView{
 
                         onArgroleChanged: {
                             //special handling..
-                            if((model == dummyModel || model == sourceModel) && argrole != ""){
+                            if((model == dummyModel || model == sourceModel|| termRole == "Reference Tags") && argrole != ""){
                                 if(find(argrole) === -1) {
                                     let tmp = argrole
                                     model.append({nameRole: tmp})
                                 }
                             }
+
                             if(currentIndex != find(argrole)) {
                                 // could be login...
                                 // dirty hack..
@@ -323,6 +327,9 @@ ListView{
                                     argrole = data_source.getShotgunUserName()
                                     currentIndex = find(argrole)
                                 }
+                                doUpdate()
+                            } else if(currentIndex == 0) {
+                                // model reset can cause confusion..
                                 doUpdate()
                             }
                         }
@@ -357,7 +364,10 @@ ListView{
                             ListElement { nameRole: "Preferred Visual" }
                             ListElement { nameRole: "Production Status" }
                             ListElement { nameRole: "Recipient" }
+                            ListElement { nameRole: "Reference Tag" }
+                            ListElement { nameRole: "Reference Tags" }
                             ListElement { nameRole: "Result Limit" }
+                            ListElement { nameRole: "Review Location" }
                             ListElement { nameRole: "Sent To Client" }
                             ListElement { nameRole: "Sent To Dailies" }
                             ListElement { nameRole: "Sequence" }
@@ -435,6 +445,9 @@ ListView{
                             else if(termRole=="Production Status") productionStatusModel
                             else if(termRole=="Recipient") authorModel
                             else if(termRole=="Result Limit") resultLimitModel
+                            else if(termRole=="Review Location") reviewLocationModel
+                            else if(termRole=="Reference Tag") referenceTagModel
+                            else if(termRole=="Reference Tags") referenceTagModel
                             else if(termRole=="Sent To Client") boolModel
                             else if(termRole=="Sent To Dailies") boolModel
                             else if(termRole=="Sequence") sequenceModel
@@ -462,7 +475,7 @@ ListView{
                                         argRole = data_source.getShotgunUserName()
                                     }
 
-                                    if(valueBox.currentIndex == -1 && !(valueBox.model == dummyModel || valueBox.model == sourceModel) && !liveLink.isActive && queryList.expanded) {
+                                    if(valueBox.currentIndex == -1 && !(valueBox.model == dummyModel || valueBox.model == sourceModel|| termRole == "Reference Tags") && !liveLink.isActive && queryList.expanded) {
                                         // trigger selection..
                                         valueBox.popupOptions.open()
                                     }
@@ -481,7 +494,7 @@ ListView{
 
                         onAccepted: {
                             // special handling for Name text
-                            if((model == dummyModel || model == sourceModel) && find(editText) === -1) {
+                            if((model == dummyModel || model == sourceModel || termRole == "Reference Tags") && find(editText) === -1) {
                                 if(editText != "") {
                                     model.append({nameRole: editText})
                                 }
@@ -491,7 +504,7 @@ ListView{
                         }
 
                         Component.onCompleted: {
-                            if(!(model == dummyModel || model == sourceModel))
+                            if(!(model == dummyModel || model == sourceModel || termRole == "Reference Tags"))
                                 updateIndex.start()
                             else {
                                 model.append({nameRole: argRole})
@@ -502,16 +515,33 @@ ListView{
                         onFocusChanged: if(!focus) accepted()
 
                         function doUpdate() {
-                            // console.log("doUpdate")
-                            if(currentText !== "" && argRole != currentText)
-                                argRole = currentText
+                            // console.log(argRole, currentText)
+                            if(currentText !== "" && argRole != currentText) {
+                                if(termRole == "Reference Tags" && !currentText.includes(",")) {
+                                    // split..
+                                    let items = argRole.split(",")
+                                    if(items.includes(currentText)) {
+                                        items.splice(items.indexOf(currentText),1)
+                                    } else {
+                                        items.push(currentText)
+                                    }
+                                    // filter empty items.
+                                    items = items.filter(Boolean)
+
+                                    argRole = items.join(",")
+                                }
+                                else
+                                    argRole = currentText
+                            }
 
                             if(isLoaded) {
                                 executeQuery()
                             }
                         }
 
-                        onActivated: doUpdate()
+                        onActivated: {
+                            doUpdate()
+                        }
                     }
 
                     XsButton{id: deleteButton
@@ -525,8 +555,9 @@ ListView{
                             snapshot()
                             queryTreeModel.remove(index)
                             snapshot()
-                            if(isLoaded)
+                            if(isLoaded) {
                                 executeQuery()
+                            }
                         }
                     }
                 }
@@ -593,14 +624,14 @@ ListView{
                         let term = {"term": selectField.currentText, "value": value, "enabled": true}
 
                         // only certain terms can be pinned..
-                        if(["Older Version","Newer Version", "Version Name", "Author", "Recipient", "Shot", "Pipeline Step", "Twig Name", "Twig Type", "Sequence"].includes(selectField.currentText)) {
+                        if(["Older Version", "Newer Version", "Version Name", "Author", "Recipient", "Shot", "Pipeline Step", "Twig Name", "Twig Type", "Sequence"].includes(selectField.currentText)) {
                             term["livelink"] = false
                         }
 
                         if(["Pipeline Step", "Playlist Type", "Site", "Department",
                             "Filter", "Tag", "Unit", "Note Type","Version Name", "Pipeline Status",
                             "Production Status", "Shot Status", "Twig Type", "Twig Name", "Shot Status",
-                            "Tag (Version)", "Twig Name", "Completion Location", "On Disk"].includes(selectField.currentText)) {
+                            "Tag (Version)", "Reference Tag", "Reference Tags", "Twig Name", "Completion Location", "On Disk"].includes(selectField.currentText)) {
                             term["negated"] = false
                         }
 
@@ -609,8 +640,9 @@ ListView{
 
                         currentIndex = 0
                         // update query on change.
-                        if(isLoaded && value != "")
+                        if(isLoaded && value != "") {
                             executeQuery()
+                        }
                     }
                 }
             }

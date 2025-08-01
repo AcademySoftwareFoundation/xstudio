@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef _WIN32
+#include <numeric>
+#else
 #include <experimental/numeric>
+#endif
 #include <functional>
 #include <iostream>
 
@@ -502,8 +506,7 @@ FrameRate EditList::frame_rate_at_frame(const int logical_frame) const {
         frame += section_duration_and_rate.frames();
     }
     if (!result && !empty()) {
-        throw std::runtime_error(
-            "EditList::frame_rate_at_frame error: logical_frame out of range.");
+        return sl_.back().frame_rate_and_duration_.rate();
     }
     return result;
 }

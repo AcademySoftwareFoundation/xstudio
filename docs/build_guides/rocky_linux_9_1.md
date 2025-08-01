@@ -11,7 +11,7 @@
     sudo dnf install doxygen python3-sphinx
     sudo dnf install opus-devel libvpx-devel openjpeg2-devel lame-devel
     sudo dnf install qt5 qt5-devel
-    pip install --user sphinx_rtd_theme breathe opentimelineio
+    pip install --user sphinx_rtd_theme breathe
 
 
 ### Local installs
@@ -25,10 +25,10 @@
 
 
 #### NLOHMANN JSON
-    wget https://github.com/nlohmann/json/archive/refs/tags/v3.7.3.tar.gz
-    tar -xf v3.7.3.tar.gz
-    mkdir json-3.7.3/build
-    cd json-3.7.3/build
+    wget https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.tar.gz
+    tar -xf v3.11.2.tar.gz
+    mkdir json-3.11.2/build
+    cd json-3.11.2/build
     cmake .. -DJSON_BuildTests=Off
     make -j $JOBS
     sudo make  install
@@ -91,6 +91,19 @@
     make -j $JOBS
     sudo make install
     cd ../..
+
+
+#### OpenTimelineIO
+    git clone https://github.com/AcademySoftwareFoundation/OpenTimelineIO.git
+    cd OpenTimelineIO
+    git checkout cxx17
+    mkdir build
+    cd build
+    cmake -DOTIO_PYTHON_INSTALL=ON -DOTIO_DEPENDENCIES_INSTALL=OFF -DOTIO_FIND_IMATH=ON ..
+    make -j $JOBS
+    sudo make install
+    cd ../..
+
 
 #### FFMPEG AND DEPS
 

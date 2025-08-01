@@ -7,8 +7,8 @@
 #include "xstudio/ui/viewport/viewport_helpers.hpp"
 #include "xstudio/utility/helpers.hpp"
 
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GL/glew.h>
 
 using namespace xstudio;
 using namespace xstudio::ui::viewport;
@@ -89,6 +89,7 @@ const char *frag_shader = R"(
 void BasicMaskRenderer::render_opengl(
     const Imath::M44f &transform_window_to_viewport_space,
     const Imath::M44f &transform_viewport_to_image_space,
+    const float viewport_du_dpixel,
     const xstudio::media_reader::ImageBufPtr &frame,
     const bool have_alpha_buffer) {
 
@@ -104,33 +105,10 @@ void BasicMaskRenderer::render_opengl(
         return;
     }
 
-    // this value tells us how much we are zoomed into the image in the viewport (in
-    // the x dimension). If the image is width-fitted exactly to the viewport, then this
-    // value will be 1.0 (what it means is the coordinates -1.0 to 1.0 are mapped to
-    // the width of the viewport)
-    const float image_zoom_in_viewport = transform_viewport_to_image_space[0][0];
-
-    // this value gives us how much of the parent window is covered by the viewport.
-    // So if the xstudio window is 1000px in width, and the viewport is 500px wide
-    // (with the rest of the UI taking up the remainder) then this value will be 0.5
-    const float viewport_x_size_in_window =
-        transform_window_to_viewport_space[0][0] / transform_window_to_viewport_space[3][3];
-
-    std::array<int, 4> gl_viewport;
-
-    glGetIntegerv(GL_VIEWPORT, gl_viewport.data());
-
-    const auto viewport_width = (float)gl_viewport[2];
-
-    // this value tells us how much a pixel width in the viewport is in the units
-    // of viewport coordinate space
-    const float viewport_du_dx =
-        image_zoom_in_viewport / (viewport_width * viewport_x_size_in_window);
-
     utility::JsonStore shader_params;
     shader_params["to_coord_system"] = transform_viewport_to_image_space;
     shader_params["to_canvas"]       = transform_window_to_viewport_space;
-    shader_params["viewport_du_dx"]  = viewport_du_dx;
+    shader_params["viewport_du_dx"]  = viewport_du_dpixel;
     shader_->set_shader_parameters(shader_params);
 
     shader_->use();
@@ -147,7 +125,7 @@ void BasicMaskRenderer::render_opengl(
 
     // to make the label a costant size, regardless of the viewport transformation,
     // we scale the font plotting size with 'viewport_du_dx'
-    auto font_scale = data->label_size_ * 1920.0f * viewport_du_dx;
+    auto font_scale = data->label_size_ * 1920.0f * viewport_du_dpixel;
 
     auto mask_safety    = data->mask_shader_params_["mask_safety"].get<float>();
     auto line_thickness = data->mask_shader_params_["line_thickness"].get<float>();
@@ -159,8 +137,9 @@ void BasicMaskRenderer::render_opengl(
 
         const Imath::V2f text_position =
             Imath::V2f(
-                -1.0 - (line_thickness * viewport_du_dx),
-                -1.0 / aspect - (line_thickness * viewport_du_dx) - (viewport_du_dx * 24.0f)) *
+                -1.0 - (line_thickness * viewport_du_dpixel),
+                -1.0 / aspect - (line_thickness * viewport_du_dpixel) -
+                    (viewport_du_dpixel * 24.0f)) *
             ((100.0f - mask_safety) / 100.0f);
 
         text_renderer_->precompute_text_rendering_vertex_layout(
@@ -178,7 +157,7 @@ void BasicMaskRenderer::render_opengl(
         transform_window_to_viewport_space,
         transform_viewport_to_image_space,
         utility::ColourTriplet(1.0, 1.0, 1.0),
-        viewport_du_dx,
+        viewport_du_dpixel,
         font_scale,
         data->mask_shader_params_["line_opac"].get<float>());
 }
@@ -226,7 +205,7 @@ BasicViewportMasking::BasicViewportMasking(
     : plugin::StandardPlugin(cfg, "BasicViewportMasking", init_settings) {
     // The function Attribute::expose_in_ui_attrs_group allows you to declare
     // a XsModuleAttributes or XsModuleAttributesModel item in QML code - by
-    // setting the 'attributesGroupName' attrubte on these items to match the
+    // setting the 'attributesGroupNames' attrubte on these items to match the
     // group name that we set here, we get a connection between QML and this
     // class that allows us to update QML when the backend attribute (owned by
     // this class) changes or vice/versa.
@@ -282,7 +261,7 @@ BasicViewportMasking::BasicViewportMasking(
         std::vector<std::string>({"QML", "OpenGL"}));
     mask_render_method_->expose_in_ui_attrs_group("viewport_mask_settings");
 
-    // The 'main_toolbar' and 'popout_toolbar' attribute groups are referenced
+    // The 'any_toolbar' attribute group is referenced
     // by the xStudio toolbar - for every attribute in these groups, a toolbar
     // widget is added to control that attribute. Only certain attribute types
     // are supported in this way, however: StringChoice, Float and Boolean.
@@ -292,8 +271,9 @@ BasicViewportMasking::BasicViewportMasking(
         add_string_choice_attribute("Mask", "Mk", "Off", {"Off", "On"}, {"Off", "On"});
     mask_selection_->set_tool_tip("Toggles the mask on / off, use the settings to customize "
                                   "the mask. You can use the M hotkey to toggle on / off");
-    mask_selection_->expose_in_ui_attrs_group("main_toolbar");
-    mask_selection_->expose_in_ui_attrs_group("popout_toolbar");
+    mask_selection_->expose_in_ui_attrs_group("viewport_mask_settings");
+
+    make_attribute_visible_in_viewport_toolbar(mask_selection_);
 
     // here we set custom QML code to implement a custom widget that is inserted
     // into the viewer toolbox. In this case, we have extended the widget for
@@ -315,19 +295,13 @@ BasicViewportMasking::BasicViewportMasking(
     mask_selection_->set_role_data(module::Attribute::ToolbarPosition, 1.0f);
 
     // Here we declare QML code to instantiate the actual item that draws
-    // the overlay on the viewport. Any attribute that has qml_code role data
-    // and that is exposed in the "viewport_overlay_plugins" attributes group will be
-    // instantiated as a child of the xStudio 'Viewport' QML Item, and will
-    // therefore be stacked on top of the viewport and has visibility on any
-    // properties of the main Viewport class.
-    viewport_code_ = add_qml_code_attribute(
-        "MyCode",
+    // the overlay on the viewport.
+    qml_viewport_overlay_code(
         R"(
             import BasicViewportMask 1.0
             BasicViewportMaskOverlay {
             }
         )");
-    viewport_code_->expose_in_ui_attrs_group("viewport_overlay_plugins");
 
     // we can register a preference path with each of these attributes. xStudio
     // will then automatically intialised the attribute values from preference
@@ -354,8 +328,7 @@ void BasicViewportMasking::register_hotkeys() {
         "Toggles viewport masking. Find mask settings in the toolbar under the 'Mask' button");
 }
 
-
-utility::BlindDataObjectPtr BasicViewportMasking::prepare_render_data(
+utility::BlindDataObjectPtr BasicViewportMasking::prepare_overlay_data(
     const media_reader::ImageBufPtr &image, const bool /*offscreen*/) const {
 
     auto r = utility::BlindDataObjectPtr();
@@ -379,6 +352,9 @@ utility::BlindDataObjectPtr BasicViewportMasking::prepare_render_data(
         } catch (std::exception &e) {
             spdlog::warn("{} {}", __PRETTY_FUNCTION__, e.what());
         }
+    } else {
+        // Unvalidate existing shader, so it won't be displayed if mask is off
+        r.reset();
     }
 
     return r;
@@ -422,7 +398,7 @@ plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
             {std::make_shared<plugin_manager::PluginFactoryTemplate<BasicViewportMasking>>(
                 utility::Uuid("4006826a-6ff2-41ec-8ef2-d7a40bfd65e4"),
                 "BasicViewportMasking",
-                plugin_manager::PluginType::PT_VIEWPORT_OVERLAY,
+                plugin_manager::PluginFlags::PF_VIEWPORT_OVERLAY,
                 true,
                 "Ted Waine",
                 "Basic Viewport Masking Plugin")}));

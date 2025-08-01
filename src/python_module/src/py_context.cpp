@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
 #include "xstudio/utility/logging.hpp"
 #include "xstudio/utility/caf_helpers.hpp"
+#include "xstudio/utility/helpers.hpp"
+#include "xstudio/global/global_actor.hpp"
 
 #include "py_opaque.hpp"
 #include "py_config.hpp"
@@ -26,7 +30,11 @@ template <class... Ts> void set_py_exception(Ts &&...xs) {
 }
 
 py_context::py_context(int argc, char **argv)
-    : py_config(argc, argv), system_(*this), self_(system_), remote_() {}
+    : py_config(argc, argv),
+      py_local_system_(*this),
+      system_(xstudio::utility::ActorSystemSingleton::actor_system_ref(py_local_system_)),
+      self_(system_),
+      remote_() {}
 
 std::optional<message> py_context::py_build_message(const py::args &xs) {
     if (xs.size() < 2) {
@@ -104,7 +112,7 @@ void py_context::py_join(const py::args &xs) {
 
     if (grp) {
         self_->join(grp);
-        spdlog::warn("{}", self_->joined_groups().size());
+        // spdlog::warn("{}", self_->joined_groups().size());
     }
 }
 

@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
 // #include <caf/all.hpp>
 // #include <caf/config.hpp>
 // #include <caf/io/all.hpp>
+#include "xstudio/utility/helpers.hpp"
 
 #include "py_opaque.hpp"
 
@@ -13,7 +16,6 @@
 #include "xstudio/ui/mouse.hpp"
 #include "xstudio/utility/caf_helpers.hpp"
 #include "xstudio/utility/container.hpp"
-#include "xstudio/utility/helpers.hpp"
 #include "xstudio/utility/media_reference.hpp"
 #include "xstudio/utility/remote_session_file.hpp"
 #include "xstudio/utility/serialise_headers.hpp"
@@ -99,6 +101,19 @@ void py_config::add_messages() {
         "std::pair<std::string, std::vector<std::byte>>",
         nullptr);
 
+    add_message_type<std::vector<std::pair<int, int>>>(
+        "std::vector<std::pair<int, int>>", "std::vector<std::pair<int, int>>", nullptr);
+
+    add_message_type<timebase::flicks>("timebase::flicks", "timebase::flicks", nullptr);
+
+    add_message_type<std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>>(
+        "std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>",
+        "std::vector<std::tuple<xstudio::utility::Uuid, std::string, int, int>>",
+        nullptr);
+
+    add_message_type<timebase::flicks>(
+        "xstudio::utility::time_point", "xstudio::utility::time_point", nullptr);
+
     add_message_type<std::vector<utility::Uuid>>(
         "UuidVec", "std::vector<xstudio::utility::Uuid>", &register_uuidvec_class);
     add_message_type<utility::absolute_receive_timeout>(
@@ -149,5 +164,10 @@ void py_config::add_messages() {
 
     add_message_type<xstudio::utility::FrameRange>(
         "FrameRange", "xstudio::utility::FrameRange", &register_frame_range_class);
+
+    add_message_type<std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>>(
+        "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
+        "std::pair<xstudio::utility::JsonStore, xstudio::timeline::Item>",
+        nullptr);
 }
 } // namespace caf::python

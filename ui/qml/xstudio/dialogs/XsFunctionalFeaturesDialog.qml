@@ -3,6 +3,7 @@ import QtQuick 2.12
 import QtQuick.Controls 2.14
 import QtGraphicalEffects 1.12
 import QtQuick.Layouts 1.3
+import xstudio.qml.helpers 1.0
 
 import xStudio 1.0
 
@@ -16,7 +17,55 @@ XsDialogModal {
     keepCentered: true
     centerOnOpen: true
 
+    XsModelProperty {
+        id: features
+        role: "valueRole"
+        index: app_window.globalStoreModel.search_recursive("/ui/qml/features", "pathRole")
+    }
+
     property string myHTMLTitle: "<h1>" + Qt.application.name + " v" + Qt.application.version + " Change Log</h1>"
+    property string feature_text: ""
+
+    Component.onCompleted: {
+        if(features.value.length) {
+           var xhr = new XMLHttpRequest;
+            xhr.open('GET', features.value+Qt.application.version);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === XMLHttpRequest.DONE) {
+                        var response = xhr.responseText;
+                        const regex3 = /<a[^>]+>([^<]+)<\/a>/ig;
+                        response = response.replace(regex3, '$1');
+                        feature_text = response
+                    }
+                };
+            xhr.send();
+            // feature_text = features.value + Qt.application.version
+        } else {
+            let t = helpers.readFile(studio.releaseDocsUrl())
+            const regex1 = /^[^@]+<div class="section" id="release-notes">/im;
+            t = t.replace(regex1, '');
+
+            const regex2 = /<footer>[^@]+$/im;
+            t = t.replace(regex2, '');
+
+            const regex3 = /<a[^>]+>[^<]+<\/a>/ig;
+            t = t.replace(regex3, '');
+            feature_text = t
+        }
+
+
+
+    //    var xhr = new XMLHttpRequest;
+    //     xhr.open('GET', "http://dnet.dneg.com/x/deTJJQ");
+    //         xhr.onreadystatechange = function() {
+    //             if (xhr.readyState === XMLHttpRequest.DONE) {
+    //                 var response = xhr.responseText;
+    //                 helpText.text = response
+    //             }
+    //         };
+    //     xhr.send();
+    }
+
 
     Item {
         id: wrapper
@@ -96,20 +145,7 @@ XsDialogModal {
                 anchors.left: parent.left
                 width: 700
                 readOnly:true
-
-                // text: myHTML
-                text: {
-                    let t = helpers.readFile(session.releaseDocsUrl())
-                    const regex1 = /^[^@]+<div class="section" id="release-notes">/im;
-                    t = t.replace(regex1, '');
-
-                    const regex2 = /<footer>[^@]+$/im;
-                    t = t.replace(regex2, '');
-
-                    const regex3 = /<a[^>]+>[^<]+<\/a>/ig;
-                    t = t.replace(regex3, '');
-                    return t
-                }
+                text: feature_text
                 textFormat: TextArea.RichText
                 font.pixelSize: 12
                 font.family: XsStyle.fontFamily

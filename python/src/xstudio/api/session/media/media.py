@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom
+from xstudio.core import get_media_source_atom, current_media_source_atom, get_json_atom, get_metadata_atom, reflag_container_atom, rescan_atom
 from xstudio.core import invalidate_cache_atom, get_media_pointer_atom, MediaType, Uuid
 from xstudio.core import add_media_source_atom, FrameRate, FrameList, parse_posix_path, URI
-from xstudio.core import set_json_atom, JsonStore
+from xstudio.core import set_json_atom, JsonStore, quickview_media_atom
 
 from xstudio.api.session.container import Container
 from xstudio.api.session.media.media_source import MediaSource
@@ -89,6 +89,14 @@ class Media(Container):
         """
         return self.connection.request_receive(self.remote, invalidate_cache_atom())[0]
 
+    def rescan(self):
+        """Rescan media item.
+
+        Returns:
+            result(MediaReference): New ref ?
+        """
+        return self.connection.request_receive(self.remote, rescan_atom())[0]
+
     @property
     def metadata(self):
         """Get media metadata.
@@ -157,7 +165,7 @@ class Media(Container):
         """
         return self.connection.request_receive(self.remote, get_media_pointer_atom(), media_type, logical_frame)[0]
 
-    def add_media_source(self, path, frame_list=FrameList(), frame_rate=FrameRate()):
+    def add_media_source(self, path, frame_list=None, frame_rate=None):
         """Add media source from path
 
         Args:
@@ -168,9 +176,16 @@ class Media(Container):
         Returns:
             media_source(MediaSource): New media source.
         """
+        if frame_rate is None:
+            frame_rate = FrameRate()
 
         if not isinstance(path, URI):
-            (path, frame_list) = parse_posix_path(path)
+            (path, path_frame_list) = parse_posix_path(path)
+            if frame_list is None:
+                frame_list = path_frame_list
+
+        if frame_list is None:
+            frame_list = FrameList()
 
         result = self.connection.request_receive(self.remote, add_media_source_atom(), path, frame_list, frame_rate)[0]
         return MediaSource(self.connection, result.actor, result.uuid)
@@ -205,3 +220,15 @@ class Media(Container):
 
         result = sorted(result, key=lambda x: x.detail.start)
         return result
+
+    def reflag(self, flag_colour, flag_string):
+        """Reflag media.
+
+        Args:
+            flag(str): New flag colour.
+            flag_string(str): New flag text.
+
+        Returns:
+            success(bool): Returns result.
+        """
+        return self.connection.request_receive(self.remote, reflag_container_atom(), flag_colour, flag_string)[0]

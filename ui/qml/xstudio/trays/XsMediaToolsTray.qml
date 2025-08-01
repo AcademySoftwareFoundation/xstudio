@@ -44,30 +44,36 @@ RowLayout {
         }
     }
 
-    XsTrayButton {
-        Layout.fillHeight: true
-        prototype: true
-        text: "Colour"
-        source: "qrc:/icons/colour_correction.png"
-        tooltip: "Open the Colour Correction Panel.  Apply SOP and LGG colour offsets to selected Media."
-        buttonPadding: pad
-        toggled_on: colourDialog ? colourDialog.visible : false
-        onClicked: {
-            toggleColourDialog()
-        }
+    // this is a mess as we wanted to put the grading tool to the left of the
+    // notes button ... with re-skin UI this will go away.
+    XsOrderedModuleAttributesModel {
+        id: attrs0
+        attributesGroupNames: "media_tools_buttons_0"
     }
 
-    // XsTrayButton {
-    //     Layout.fillHeight: true
-    //     text: "Markers"
-    //     source: "qrc:/icons/bookmark.png"
-    //     tooltip: "Open the Bookmarks Panel.  Bookmark frames or ranges to loop or skip to."
-    //     buttonPadding: pad
-    //     toggled_on: bookmarkDialog ? bookmarkDialog.visible : false
-    //     onClicked: {
-    //         toggleBookmarkDialog()
-    //     }
-    // }
+
+    ListView {
+        id: extra_dudes0
+        Layout.fillHeight: true
+        Layout.minimumWidth: count * 32
+        model: attrs0
+        focus: true
+        orientation: ListView.Horizontal
+        delegate:
+            Item {
+                id: parent_item
+                width: 32
+                height: extra_dudes0.height
+                property var dynamic_widget
+                property var qml_code_: qml_code ? qml_code : null
+
+                onQml_code_Changed: {
+                    if (qml_code_) {
+                        dynamic_widget = Qt.createQmlObject(qml_code_, parent_item)
+                    }
+                }
+            }
+    }
 
     XsTrayButton {
         Layout.fillHeight: true
@@ -83,7 +89,7 @@ RowLayout {
 
     XsOrderedModuleAttributesModel {
         id: attrs
-        attributesGroupName: "media_tools_buttons"
+        attributesGroupNames: "media_tools_buttons"
     }
 
     ListView {
@@ -131,18 +137,6 @@ RowLayout {
             colourDialog.hide()
         } else {
             colourDialog.show()
-        }
-    }
-
-    function toggleBookmarkDialog()
-    {
-        if (bookmarkDialog === undefined) {
-            bookmarkDialog = do_component_create("qrc:/dialogs/XsBookmarkDialog.qml")
-            bookmarkDialog.show()
-        } else if (bookmarkDialog.visible) {
-            bookmarkDialog.hide()
-        } else {
-            bookmarkDialog.show()
         }
     }
 

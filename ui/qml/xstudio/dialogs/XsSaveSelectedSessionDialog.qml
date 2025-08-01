@@ -7,13 +7,13 @@ import xStudio 1.0
 
 FileDialog {
     title: "Save selected as session"
-    folder: session.pathNative ? XsUtils.stem(session.path.toString()).replace("localhost","") : shortcuts.home
-    defaultSuffix: "xst"
+    folder: app_window.sessionFunction.defaultSessionFolder() || shortcuts.home
+    defaultSuffix: preferences.session_compression.value ? "xsz" : "xst"
 
     signal saved
     signal cancelled
 
-    nameFilters:  ["XStudio (*.xst)"]
+    nameFilters:  ["xStudio (*.xst *.xsz)"]
     selectExisting: false
     selectMultiple: false
 
@@ -22,10 +22,20 @@ FileDialog {
         var path = fileUrl.toString()
         var ext = path.split('.').pop()
         if(path == ext) {
-            path = path + ".xst"
+            path = path + (preferences.session_compression.value ? ".xsz" : ".xst")
         }
-        session.save_selected_session(path)
-        saved()
+        app_window.sessionFunction.saveSelectedSession(path).then(function(result){
+            if (result != "") {
+                var dialog = XsUtils.openDialog("qrc:/dialogs/XsErrorMessage.qml")
+                dialog.title = "Save selected session failed"
+                dialog.text = result
+                dialog.show()
+                cancelled()
+            } else {
+                saved()
+                app_window.sessionFunction.newRecentPath(path)
+            }
+        })
     }
 
     onRejected: {

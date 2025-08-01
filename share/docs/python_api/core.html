@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xstudio.core &mdash; xStudio 0.9.0 documentation</title>
+  <title>xstudio.core &mdash; xStudio 0.10.0 documentation</title>
   
 
   
@@ -59,7 +59,7 @@
             
             
               <div class="version">
-                0.9.0
+                0.10.0
               </div>
             
           
@@ -155,84 +155,1415 @@
 <span id="python-core-api"></span><h1>xstudio.core<a class="headerlink" href="#xstudio-core" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="remote-session-path">
 <h2>remote_session_path<a class="headerlink" href="#remote-session-path" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="xstudio.core.__pybind_xstudio.remote_session_path">
+<code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">remote_session_path</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.remote_session_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return path to session files</p>
+</dd></dl>
+
 </div>
 <div class="section" id="parse-posix-path">
 <h2>parse_posix_path<a class="headerlink" href="#parse-posix-path" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="xstudio.core.__pybind_xstudio.parse_posix_path">
+<code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">parse_posix_path</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; tuple<a class="headerlink" href="#xstudio.core.__pybind_xstudio.parse_posix_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse path for use.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): Path to file</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(tuple(URI,FrameList)): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 <div class="section" id="framelist">
 <h2>FrameList<a class="headerlink" href="#framelist" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.FrameList">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">FrameList</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameList" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
 <div class="section" id="framerate">
 <h2>FrameRate<a class="headerlink" href="#framerate" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.FrameRate">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">FrameRate</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRate" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.FrameRate.fps">
+<code class="sig-name descname">fps</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRate" title="xstudio.core.__pybind_xstudio.FrameRate">xstudio.core.__pybind_xstudio.FrameRate</a></span></em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRate.fps" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.FrameRate.seconds">
+<code class="sig-name descname">seconds</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRate" title="xstudio.core.__pybind_xstudio.FrameRate">xstudio.core.__pybind_xstudio.FrameRate</a></span></em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRate.seconds" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="framerateduration">
 <h2>FrameRateDuration<a class="headerlink" href="#framerateduration" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.FrameRateDuration">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">FrameRateDuration</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRateDuration" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.FrameRateDuration.frames">
+<code class="sig-name descname">frames</code><span class="sig-paren">(</span><em class="sig-param">self: xstudio.core.__pybind_xstudio.FrameRateDuration</em>, <em class="sig-param">rate: xstudio.core.__pybind_xstudio.FrameRate = &lt;xstudio.core.__pybind_xstudio.FrameRate object at 0x7f49becdf1f0&gt;</em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRateDuration.frames" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.FrameRateDuration.rate">
+<code class="sig-name descname">rate</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRateDuration" title="xstudio.core.__pybind_xstudio.FrameRateDuration">xstudio.core.__pybind_xstudio.FrameRateDuration</a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRate" title="xstudio.core.__pybind_xstudio.FrameRate">xstudio.core.__pybind_xstudio.FrameRate</a><a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRateDuration.rate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.FrameRateDuration.seconds">
+<code class="sig-name descname">seconds</code><span class="sig-paren">(</span><em class="sig-param">self: xstudio.core.__pybind_xstudio.FrameRateDuration</em>, <em class="sig-param">rate: xstudio.core.__pybind_xstudio.FrameRate = &lt;xstudio.core.__pybind_xstudio.FrameRate object at 0x7f49becdf230&gt;</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRateDuration.seconds" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.FrameRateDuration.set_frames">
+<code class="sig-name descname">set_frames</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRateDuration" title="xstudio.core.__pybind_xstudio.FrameRateDuration">xstudio.core.__pybind_xstudio.FrameRateDuration</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.FrameRateDuration.set_frames" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="jsonstore">
 <h2>JsonStore<a class="headerlink" href="#jsonstore" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">JsonStore</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n">json</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.clear" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.dump">
+<code class="sig-name descname">dump</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">pad</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">0</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.dump" title="Permalink to this definition">¶</a></dt>
+<dd><p>dump json</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.empty">
+<code class="sig-name descname">empty</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n">json</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.empty" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.get">
+<code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span> &#x2192; json<a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get json.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.get_preferences">
+<code class="sig-name descname">get_preferences</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">Set<span class="p">[</span>str<span class="p">]</span></span></em><span class="sig-paren">)</span> &#x2192; Set<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.get_preferences" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.get_values">
+<code class="sig-name descname">get_values</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">Set<span class="p">[</span>str<span class="p">]</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a><a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.get_values" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.is_null">
+<code class="sig-name descname">is_null</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n">json</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.is_null" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.remove">
+<code class="sig-name descname">remove</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.remove" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.JsonStore.set">
+<code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">json</span><span class="p">:</span> <span class="n">json</span></em>, <em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.JsonStore.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set json.</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="mediareference">
 <h2>MediaReference<a class="headerlink" href="#mediareference" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">MediaReference</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.container">
+<code class="sig-name descname">container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.container" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.duration">
+<code class="sig-name descname">duration</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRateDuration" title="xstudio.core.__pybind_xstudio.FrameRateDuration">xstudio.core.__pybind_xstudio.FrameRateDuration</a><a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.duration" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.frame">
+<code class="sig-name descname">frame</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.frame" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.frame_count">
+<code class="sig-name descname">frame_count</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.frame_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.offset">
+<code class="sig-name descname">offset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.offset" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.rate">
+<code class="sig-name descname">rate</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRate" title="xstudio.core.__pybind_xstudio.FrameRate">xstudio.core.__pybind_xstudio.FrameRate</a><a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.rate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.seconds">
+<code class="sig-name descname">seconds</code><span class="sig-paren">(</span><em class="sig-param">self: xstudio.core.__pybind_xstudio.MediaReference</em>, <em class="sig-param">override: xstudio.core.__pybind_xstudio.FrameRate = &lt;xstudio.core.__pybind_xstudio.FrameRate object at 0x7f49becdfbb0&gt;</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.seconds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Duration in seconds</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.set_offset">
+<code class="sig-name descname">set_offset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.set_offset" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.set_rate">
+<code class="sig-name descname">set_rate</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.FrameRate" title="xstudio.core.__pybind_xstudio.FrameRate">xstudio.core.__pybind_xstudio.FrameRate</a></span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.set_rate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.timecode">
+<code class="sig-name descname">timecode</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio::utility::Timecode<a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.timecode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.uri">
+<code class="sig-name descname">uri</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="#xstudio.core.__pybind_xstudio.URI" title="xstudio.core.__pybind_xstudio.URI">xstudio.core.__pybind_xstudio.URI</a><a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.uri" title="Permalink to this definition">¶</a></dt>
+<dd><p>URI of mediareference</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.MediaReference.uri_from_frame">
+<code class="sig-name descname">uri_from_frame</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.MediaReference" title="xstudio.core.__pybind_xstudio.MediaReference">xstudio.core.__pybind_xstudio.MediaReference</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span><a class="reference internal" href="#xstudio.core.__pybind_xstudio.URI" title="xstudio.core.__pybind_xstudio.URI">xstudio.core.__pybind_xstudio.URI</a><span class="p">]</span><a class="headerlink" href="#xstudio.core.__pybind_xstudio.MediaReference.uri_from_frame" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="playlistitem">
 <h2>PlaylistItem<a class="headerlink" href="#playlistitem" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItem">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">PlaylistItem</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItem" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItem.flag">
+<code class="sig-name descname">flag</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItem" title="xstudio.core.__pybind_xstudio.PlaylistItem">xstudio.core.__pybind_xstudio.PlaylistItem</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItem.flag" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItem.name">
+<code class="sig-name descname">name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItem" title="xstudio.core.__pybind_xstudio.PlaylistItem">xstudio.core.__pybind_xstudio.PlaylistItem</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItem.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItem.type">
+<code class="sig-name descname">type</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItem" title="xstudio.core.__pybind_xstudio.PlaylistItem">xstudio.core.__pybind_xstudio.PlaylistItem</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItem.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItem.uuid">
+<code class="sig-name descname">uuid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItem" title="xstudio.core.__pybind_xstudio.PlaylistItem">xstudio.core.__pybind_xstudio.PlaylistItem</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio::utility::Uuid<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItem.uuid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="playlistitemtree">
 <h2>PlaylistItemTree<a class="headerlink" href="#playlistitemtree" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItemTree">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">PlaylistItemTree</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItemTree.name">
+<code class="sig-name descname">name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree" title="xstudio.core.__pybind_xstudio.PlaylistItemTree">xstudio.core.__pybind_xstudio.PlaylistItemTree</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItemTree.uuid">
+<code class="sig-name descname">uuid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree" title="xstudio.core.__pybind_xstudio.PlaylistItemTree">xstudio.core.__pybind_xstudio.PlaylistItemTree</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio::utility::Uuid<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree.uuid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistItemTree.value_uuid">
+<code class="sig-name descname">value_uuid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree" title="xstudio.core.__pybind_xstudio.PlaylistItemTree">xstudio.core.__pybind_xstudio.PlaylistItemTree</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio::utility::Uuid<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree.value_uuid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="playlisttree">
 <h2>PlaylistTree<a class="headerlink" href="#playlisttree" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">PlaylistTree</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.children">
+<code class="sig-name descname">children</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistItemTree" title="xstudio.core.__pybind_xstudio.PlaylistItemTree">xstudio.core.__pybind_xstudio.PlaylistItemTree</a><span class="p">]</span><a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.children" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.empty">
+<code class="sig-name descname">empty</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.empty" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.flag">
+<code class="sig-name descname">flag</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.flag" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.name">
+<code class="sig-name descname">name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.size">
+<code class="sig-name descname">size</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.type">
+<code class="sig-name descname">type</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.uuid">
+<code class="sig-name descname">uuid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio::utility::Uuid<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.uuid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.PlaylistTree.value_uuid">
+<code class="sig-name descname">value_uuid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.PlaylistTree" title="xstudio.core.__pybind_xstudio.PlaylistTree">xstudio.core.__pybind_xstudio.PlaylistTree</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio::utility::Uuid<a class="headerlink" href="#xstudio.core.__pybind_xstudio.PlaylistTree.value_uuid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="remotesessionfile">
 <h2>RemoteSessionFile<a class="headerlink" href="#remotesessionfile" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">RemoteSessionFile</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>RemoteSessionFile contains instance of a remote session.</p>
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.filename">
+<code class="sig-name descname">filename</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.filename" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.filepath">
+<code class="sig-name descname">filepath</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; std::filesystem::path<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.filepath" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.host">
+<code class="sig-name descname">host</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.host" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.path">
+<code class="sig-name descname">path</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.path" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.pid">
+<code class="sig-name descname">pid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.pid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.port">
+<code class="sig-name descname">port</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.port" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.session_name">
+<code class="sig-name descname">session_name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.session_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionFile.sync">
+<code class="sig-name descname">sync</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile.sync" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="remotesessionmanager">
 <h2>RemoteSessionManager<a class="headerlink" href="#remotesessionmanager" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionManager">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">RemoteSessionManager</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionManager.empty">
+<code class="sig-name descname">empty</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager" title="xstudio.core.__pybind_xstudio.RemoteSessionManager">xstudio.core.__pybind_xstudio.RemoteSessionManager</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager.empty" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionManager.find">
+<code class="sig-name descname">find</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager" title="xstudio.core.__pybind_xstudio.RemoteSessionManager">xstudio.core.__pybind_xstudio.RemoteSessionManager</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a><span class="p">]</span><a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager.find" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionManager.first_api">
+<code class="sig-name descname">first_api</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager" title="xstudio.core.__pybind_xstudio.RemoteSessionManager">xstudio.core.__pybind_xstudio.RemoteSessionManager</a></span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a><span class="p">]</span><a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager.first_api" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.RemoteSessionManager.first_sync">
+<code class="sig-name descname">first_sync</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager" title="xstudio.core.__pybind_xstudio.RemoteSessionManager">xstudio.core.__pybind_xstudio.RemoteSessionManager</a></span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span><a class="reference internal" href="#xstudio.core.__pybind_xstudio.RemoteSessionFile" title="xstudio.core.__pybind_xstudio.RemoteSessionFile">xstudio.core.__pybind_xstudio.RemoteSessionFile</a><span class="p">]</span><a class="headerlink" href="#xstudio.core.__pybind_xstudio.RemoteSessionManager.first_sync" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="streamdetail">
 <h2>StreamDetail<a class="headerlink" href="#streamdetail" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.StreamDetail">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">StreamDetail</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.StreamDetail" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.StreamDetail.duration">
+<code class="sig-name descname">duration</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.StreamDetail" title="xstudio.core.__pybind_xstudio.StreamDetail">xstudio.core.__pybind_xstudio.StreamDetail</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio::utility::FrameRateDuration<a class="headerlink" href="#xstudio.core.__pybind_xstudio.StreamDetail.duration" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.StreamDetail.key_format">
+<code class="sig-name descname">key_format</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.StreamDetail" title="xstudio.core.__pybind_xstudio.StreamDetail">xstudio.core.__pybind_xstudio.StreamDetail</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.StreamDetail.key_format" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.StreamDetail.media_type">
+<code class="sig-name descname">media_type</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.StreamDetail" title="xstudio.core.__pybind_xstudio.StreamDetail">xstudio.core.__pybind_xstudio.StreamDetail</a></span></em><span class="sig-paren">)</span> &#x2192; xstudio.core.__pybind_xstudio.MediaType<a class="headerlink" href="#xstudio.core.__pybind_xstudio.StreamDetail.media_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.StreamDetail.name">
+<code class="sig-name descname">name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.StreamDetail" title="xstudio.core.__pybind_xstudio.StreamDetail">xstudio.core.__pybind_xstudio.StreamDetail</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.StreamDetail.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="timecode">
 <h2>Timecode<a class="headerlink" href="#timecode" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.Timecode">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">Timecode</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Timecode.dropframe">
+<code class="sig-name descname">dropframe</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Timecode" title="xstudio.core.__pybind_xstudio.Timecode">xstudio.core.__pybind_xstudio.Timecode</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode.dropframe" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Timecode.framerate">
+<code class="sig-name descname">framerate</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Timecode" title="xstudio.core.__pybind_xstudio.Timecode">xstudio.core.__pybind_xstudio.Timecode</a></span></em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode.framerate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Timecode.frames">
+<code class="sig-name descname">frames</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Timecode" title="xstudio.core.__pybind_xstudio.Timecode">xstudio.core.__pybind_xstudio.Timecode</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode.frames" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Timecode.hours">
+<code class="sig-name descname">hours</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Timecode" title="xstudio.core.__pybind_xstudio.Timecode">xstudio.core.__pybind_xstudio.Timecode</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode.hours" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Timecode.minutes">
+<code class="sig-name descname">minutes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Timecode" title="xstudio.core.__pybind_xstudio.Timecode">xstudio.core.__pybind_xstudio.Timecode</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode.minutes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Timecode.seconds">
+<code class="sig-name descname">seconds</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Timecode" title="xstudio.core.__pybind_xstudio.Timecode">xstudio.core.__pybind_xstudio.Timecode</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode.seconds" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Timecode.total_frames">
+<code class="sig-name descname">total_frames</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Timecode" title="xstudio.core.__pybind_xstudio.Timecode">xstudio.core.__pybind_xstudio.Timecode</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Timecode.total_frames" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="uri">
 <h2>URI<a class="headerlink" href="#uri" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.URI">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">URI</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.URI" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.URI.empty">
+<code class="sig-name descname">empty</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.URI" title="xstudio.core.__pybind_xstudio.URI">xstudio.core.__pybind_xstudio.URI</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.URI.empty" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="uuid">
 <h2>Uuid<a class="headerlink" href="#uuid" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.Uuid">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">Uuid</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.Uuid" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Uuid.generate">
+<code class="sig-name descname">generate</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="#xstudio.core.__pybind_xstudio.Uuid" title="xstudio.core.__pybind_xstudio.Uuid">xstudio.core.__pybind_xstudio.Uuid</a><a class="headerlink" href="#xstudio.core.__pybind_xstudio.Uuid.generate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Uuid.generate_in_place">
+<code class="sig-name descname">generate_in_place</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Uuid" title="xstudio.core.__pybind_xstudio.Uuid">xstudio.core.__pybind_xstudio.Uuid</a></span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Uuid.generate_in_place" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Uuid.is_null">
+<code class="sig-name descname">is_null</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Uuid" title="xstudio.core.__pybind_xstudio.Uuid">xstudio.core.__pybind_xstudio.Uuid</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Uuid.is_null" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="uuidvec">
 <h2>UuidVec<a class="headerlink" href="#uuidvec" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.UuidVec">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">UuidVec</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.UuidVec" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.UuidVec.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.UuidVec" title="xstudio.core.__pybind_xstudio.UuidVec">xstudio.core.__pybind_xstudio.UuidVec</a></span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.UuidVec.clear" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.UuidVec.pop_back">
+<code class="sig-name descname">pop_back</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.UuidVec" title="xstudio.core.__pybind_xstudio.UuidVec">xstudio.core.__pybind_xstudio.UuidVec</a></span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.UuidVec.pop_back" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.UuidVec.push_back">
+<code class="sig-name descname">push_back</code><span class="sig-paren">(</span><em class="sig-param">self: xstudio.core.__pybind_xstudio.UuidVec</em>, <em class="sig-param">arg0: xstudio::utility::Uuid</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.UuidVec.push_back" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="absolute-receive-timeout">
 <h2>absolute_receive_timeout<a class="headerlink" href="#absolute-receive-timeout" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.absolute_receive_timeout">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">absolute_receive_timeout</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.absolute_receive_timeout" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
 <div class="section" id="actor">
 <h2>actor<a class="headerlink" href="#actor" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.actor">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">actor</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.actor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
 <div class="section" id="addr">
 <h2>addr<a class="headerlink" href="#addr" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.addr">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">addr</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.addr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
 <div class="section" id="error">
 <h2>error<a class="headerlink" href="#error" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.error">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">error</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.error" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
 <div class="section" id="message">
 <h2>message<a class="headerlink" href="#message" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.message">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">message</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.message" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
 <div class="section" id="link">
 <h2>Link<a class="headerlink" href="#link" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.core.__pybind_xstudio.Link">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">Link</code><a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.connect_local">
+<code class="sig-name descname">connect_local</code><span class="sig-paren">(</span><em class="sig-param">self: xstudio.core.__pybind_xstudio.Link</em>, <em class="sig-param">arg0: caf::actor</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.connect_local" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.connect_remote">
+<code class="sig-name descname">connect_remote</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">arg1</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.connect_remote" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.dequeue_message">
+<code class="sig-name descname">dequeue_message</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em><span class="sig-paren">)</span> &#x2192; tuple<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.dequeue_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Receives the next message</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.dequeue_message_with_timeout">
+<code class="sig-name descname">dequeue_message_with_timeout</code><span class="sig-paren">(</span><em class="sig-param">self: xstudio.core.__pybind_xstudio.Link</em>, <em class="sig-param">arg0: xstudio::utility::absolute_receive_timeout</em><span class="sig-paren">)</span> &#x2192; tuple<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.dequeue_message_with_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Receives the next message</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.disconnect">
+<code class="sig-name descname">disconnect</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.disconnect" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.host">
+<code class="sig-name descname">host</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.host" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remote host</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.join">
+<code class="sig-name descname">join</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Join event group</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.leave">
+<code class="sig-name descname">leave</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.leave" title="Permalink to this definition">¶</a></dt>
+<dd><p>Leave event group</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.port">
+<code class="sig-name descname">port</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.port" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remote port</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.remote">
+<code class="sig-name descname">remote</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em><span class="sig-paren">)</span> &#x2192; caf::actor<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.remote" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the remote handle</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.remote_spawn">
+<code class="sig-name descname">remote_spawn</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; caf::actor<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.remote_spawn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Spawn remote actor</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.request">
+<code class="sig-name descname">request</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sends a message to an actor, tracks response</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.self">
+<code class="sig-name descname">self</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em><span class="sig-paren">)</span> &#x2192; caf::actor<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.self" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the global self handle</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.send">
+<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sends a message to an actor</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.send_exit">
+<code class="sig-name descname">send_exit</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.send_exit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sends exit message to an actor</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.set_remote">
+<code class="sig-name descname">set_remote</code><span class="sig-paren">(</span><em class="sig-param">self: xstudio.core.__pybind_xstudio.Link</em>, <em class="sig-param">arg0: caf::actor</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.set_remote" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the remote handle</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.spawn">
+<code class="sig-name descname">spawn</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; caf::actor<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.spawn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Spawn actor</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.__pybind_xstudio.Link.tuple_from_message">
+<code class="sig-name descname">tuple_from_message</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#xstudio.core.__pybind_xstudio.Link" title="xstudio.core.__pybind_xstudio.Link">xstudio.core.__pybind_xstudio.Link</a></span></em>, <em class="sig-param"><span class="o">*</span><span class="n">args</span></em><span class="sig-paren">)</span> &#x2192; tuple<a class="headerlink" href="#xstudio.core.__pybind_xstudio.Link.tuple_from_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert an XStudioExtensions.CafMessage to tuple</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="interactive">
 <h2>interactive<a class="headerlink" href="#interactive" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="interactivesession">
 <h3>InteractiveSession<a class="headerlink" href="#interactivesession" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.core.interactive.InteractiveSession">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.interactive.</code><code class="sig-name descname">InteractiveSession</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">locals</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">filename</span><span class="o">=</span><span class="default_value">'&lt;console&gt;'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/core/interactive.html#InteractiveSession"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.core.interactive.InteractiveSession" title="Permalink to this definition">¶</a></dt>
+<dd><p>Closely emulate the behavior of the interactive Python interpreter.
+This class builds on InteractiveInterpreter and adds prompting
+using the familiar sys.ps1 and sys.ps2, and input buffering.</p>
+<dl class="py method">
+<dt id="xstudio.core.interactive.InteractiveSession.interact">
+<code class="sig-name descname">interact</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">banner</span></em>, <em class="sig-param"><span class="n">exitmsg</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/core/interactive.html#InteractiveSession.interact"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.core.interactive.InteractiveSession.interact" title="Permalink to this definition">¶</a></dt>
+<dd><p>Closely emulate the interactive Python console.
+The optional banner argument specifies the banner to print
+before the first interaction; by default it prints a banner
+similar to the one printed by the real Python interpreter,
+followed by the current class name in parentheses (so as not
+to confuse this with the real interpreter – since it’s so
+close!).
+The optional exitmsg argument specifies the exit message
+printed when exiting. Pass the empty string to suppress
+printing an exit message. If exitmsg is not given or None,
+a default message is printed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.interactive.InteractiveSession.push">
+<code class="sig-name descname">push</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">line</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/core/interactive.html#InteractiveSession.push"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.core.interactive.InteractiveSession.push" title="Permalink to this definition">¶</a></dt>
+<dd><p>Push a line to the interpreter.
+The line should not have a trailing newline; it may have
+internal newlines.  The line is appended to a buffer and the
+interpreter’s runsource() method is called with the
+concatenated contents of the buffer as source.  If this
+indicates that the command was executed or invalid, the buffer
+is reset; otherwise, the command is incomplete, and the buffer
+is left as it was after the line was appended.  The return
+value is 1 if more input is required, 0 if the line was dealt
+with in some way (this is the same as runsource()).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.interactive.InteractiveSession.raw_input">
+<code class="sig-name descname">raw_input</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">prompt</span><span class="o">=</span><span class="default_value">''</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/core/interactive.html#InteractiveSession.raw_input"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.core.interactive.InteractiveSession.raw_input" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a prompt and read a line.
+The returned line does not include the trailing newline.
+When the user enters the EOF key sequence, EOFError is raised.
+The base implementation uses the built-in function
+input(); a subclass may replace this with a different
+implementation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.core.interactive.InteractiveSession.resetbuffer">
+<code class="sig-name descname">resetbuffer</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/core/interactive.html#InteractiveSession.resetbuffer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.core.interactive.InteractiveSession.resetbuffer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset the input buffer.</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="enums">
 <h2>Enums<a class="headerlink" href="#enums" title="Permalink to this headline">¶</a></h2>
+<p>Pybind11 xStudio module</p>
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">CompareMode</code></dt>
+<dd><p>Members:</p>
+<p>CM_STRING</p>
+<p>CM_AB</p>
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">CM_AB</code><em class="property"> = &lt;CompareMode.CM_AB: 1&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">CM_STRING</code><em class="property"> = &lt;CompareMode.CM_STRING: 0&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">name</code></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">value</code></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">LoopMode</code></dt>
+<dd><p>Members:</p>
+<p>LM_PLAY_ONCE</p>
+<p>LM_LOOP</p>
+<p>LM_PING_PONG</p>
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">LM_LOOP</code><em class="property"> = &lt;LoopMode.LM_LOOP: 1&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">LM_PING_PONG</code><em class="property"> = &lt;LoopMode.LM_PING_PONG: 2&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">LM_PLAY_ONCE</code><em class="property"> = &lt;LoopMode.LM_PLAY_ONCE: 0&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">name</code></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">value</code></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">MediaType</code></dt>
+<dd><p>Members:</p>
+<p>MT_IMAGE</p>
+<p>MT_AUDIO</p>
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">MT_AUDIO</code><em class="property"> = &lt;MediaType.MT_AUDIO: 2&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">MT_IMAGE</code><em class="property"> = &lt;MediaType.MT_IMAGE: 1&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">name</code></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">value</code></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">OverflowMode</code></dt>
+<dd><p>Members:</p>
+<p>OM_FAIL</p>
+<p>OM_NULL</p>
+<p>OM_HOLD</p>
+<p>OM_LOOP</p>
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">OM_FAIL</code><em class="property"> = &lt;OverflowMode.OM_FAIL: 0&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">OM_HOLD</code><em class="property"> = &lt;OverflowMode.OM_HOLD: 2&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">OM_LOOP</code><em class="property"> = &lt;OverflowMode.OM_LOOP: 3&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">OM_NULL</code><em class="property"> = &lt;OverflowMode.OM_NULL: 1&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">name</code></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">value</code></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">TimeSourceMode</code></dt>
+<dd><p>Members:</p>
+<p>TSM_FIXED</p>
+<p>TSM_REMAPPED</p>
+<p>TSM_DYNAMIC</p>
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">TSM_DYNAMIC</code><em class="property"> = &lt;TimeSourceMode.TSM_DYNAMIC: 3&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">TSM_FIXED</code><em class="property"> = &lt;TimeSourceMode.TSM_FIXED: 1&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">TSM_REMAPPED</code><em class="property"> = &lt;TimeSourceMode.TSM_REMAPPED: 2&gt;</em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">name</code></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">value</code></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="atoms">
 <h2>Atoms<a class="headerlink" href="#atoms" title="Permalink to this headline">¶</a></h2>
+<p>Pybind11 xStudio module</p>
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">acquire_media_detail_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">add_media_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">add_media_source_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">add_media_stream_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">add_playlist_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">authorise_connection_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">autosave_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">buffer_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">change_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">clear_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">compare_mode_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">copy_container_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">count_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">create_contact_sheet_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">create_divider_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">create_group_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">create_playhead_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">create_studio_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">create_subset_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">create_timeline_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">current_media_source_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">current_media_stream_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">detail_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">duplicate_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">duplicate_container_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">duration_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">erase_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">event_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_api_mode_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_application_mode_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_colour_pipe_data_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_colour_pipe_params_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_container_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_edit_list_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_event_group_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_global_audio_cache_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_global_image_cache_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_global_store_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_group_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_image_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_json_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_media_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_media_detail_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_media_hook_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_media_pointer_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_media_source_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_media_stream_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_media_type_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_metadata_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_playhead_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_playlist_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_playlists_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_stream_detail_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_studio_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">get_sync_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">invalidate_cache_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">jsonstore_change_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">jump_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">keys_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">logical_frame_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">loop_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">media_rate_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">monitored_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">move_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">move_container_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">move_media_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">name_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">overflow_mode_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">parent_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">patch_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">path_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">play_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">play_forward_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">play_rate_mode_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">playhead_rate_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">position_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">precache_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">preserve_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">rate_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">reflag_container_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">remove_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">remove_container_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">remove_media_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">remove_orphans_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">rename_container_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">request_connection_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">retrieve_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">serialise_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">session_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">set_json_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">show_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">size_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">source_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">step_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">store_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">subscribe_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">type_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">unsubscribe_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">update_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">uuid_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">velocity_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">velocity_multiplier_atom</code></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.core.__pybind_xstudio.</code><code class="sig-name descname">version_atom</code></dt>
+<dd></dd></dl>
+
 </div>
 </div>
 
@@ -247,7 +1578,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2023, DNEG
+        &copy; Copyright 2020, DNeg
 
     </p>
   </div>

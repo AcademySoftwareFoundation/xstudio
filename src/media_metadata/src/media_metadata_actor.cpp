@@ -27,7 +27,10 @@ MediaMetadataWorkerActor::MediaMetadataWorkerActor(caf::actor_config &cfg)
     {
         scoped_actor sys{system()};
         auto details = request_receive<std::vector<plugin_manager::PluginDetail>>(
-            *sys, pm, utility::detail_atom_v, plugin_manager::PluginType::PT_MEDIA_METADATA);
+            *sys,
+            pm,
+            utility::detail_atom_v,
+            plugin_manager::PluginType(plugin_manager::PluginFlags::PF_MEDIA_METADATA));
 
         join_event_group(this, pm);
 
@@ -48,7 +51,7 @@ MediaMetadataWorkerActor::MediaMetadataWorkerActor(caf::actor_config &cfg)
             utility::detail_atom,
             const std::vector<plugin_manager::PluginDetail> &detail) {
             for (const auto &i : detail) {
-                if (i.type_ == plugin_manager::PluginType::PT_MEDIA_METADATA) {
+                if (i.type_ & plugin_manager::PluginFlags::PF_MEDIA_METADATA) {
                     if (not i.enabled_ and name_plugin_.count(i.name_)) {
                         // plugin has been disabled.
                         auto plugin = name_plugin_[i.name_];

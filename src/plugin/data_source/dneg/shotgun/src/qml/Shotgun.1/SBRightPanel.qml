@@ -19,6 +19,9 @@ import xStudio 1.1
 
 Rectangle{ id: rightDiv
     property var searchResultsViewModel
+    onSearchResultsViewModelChanged:{
+        searchResultsViewModel.setFilterWildcard(filterTextField.text)
+    }
 
     property var currentPresetIndex: -1
 
@@ -38,7 +41,7 @@ Rectangle{ id: rightDiv
     signal forceSelectPreset(index: int)
 
     signal showLatestVersion(type: string, name: string, id: int, mode: string)
-    signal showVersionHistory(shot: string, twigname: string, pstep: string, twigtype: string)
+    signal showVersionHistory(shot_seq: string, is_shot: bool, twigname: string, pstep: string, twigtype: string)
 
     SplitView.minimumWidth: minimumRightSplitViewWidth //+ (minimumWidth - (minimumSplitViewWidth*2))
     SplitView.preferredWidth: minimumRightSplitViewWidth //+ (minimumWidth - (minimumSplitViewWidth*2))
@@ -76,10 +79,12 @@ Rectangle{ id: rightDiv
             }
 
             let shot = searchResultsViewModel.get(i,"shotRole")
+            let seq = searchResultsViewModel.get(i,"sequenceRole")
             let twigname = searchResultsViewModel.get(i,"twigNameRole")
             let pstep = searchResultsViewModel.get(i,"pipelineStepRole")
             let twigtype = searchResultsViewModel.get(i,"twigTypeRole")
-            showVersionHistory(shot, twigname, pstep, twigtype)
+
+            showVersionHistory(shot ? shot : seq, shot ? true : false, twigname, pstep, twigtype)
         } else if(actionText == "Select All") {
             selectionModel.resetSelection()
             for(let idx=0; idx<searchResultsViewModel.count; idx++){
@@ -106,7 +111,7 @@ Rectangle{ id: rightDiv
             searchResultsViewModel.sortRoleName = "shotRole"
         } else if(actionText == "Creation Date") {
             searchResultsViewModel.sortRoleName = "createdDateRole"
-        } else if(actionText == "Reveal In Shotgun") {
+        } else if(actionText == "Reveal In ShotGrid") {
             // get selection..
             let i = selectionModel.selectedIndexes[0]
             helpers.openURL(searchResultsViewModel.get(i.row,"URLRole"))
@@ -762,7 +767,7 @@ Rectangle{ id: rightDiv
                 XsMenuSeparator {}
 
                 XsMenuItem {
-                    mytext: "Reveal In Shotgun"; onTriggered: popupMenuAction(text)
+                    mytext: "Reveal In ShotGrid"; onTriggered: popupMenuAction(text)
                     enabled: selectionModel.selectedIndexes.length
                 }
                 XsMenuItem {
@@ -782,27 +787,27 @@ Rectangle{ id: rightDiv
 
                     XsMenuItem {
                         mytext: "To Chennai"; onTriggered: popupMenuAction("Transfer chn")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To London"; onTriggered: popupMenuAction("Transfer lon")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Montreal"; onTriggered: popupMenuAction("Transfer mtl")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Mumbai"; onTriggered: popupMenuAction("Transfer mum")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Sydney"; onTriggered: popupMenuAction("Transfer syd")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuItem {
                         mytext: "To Vancouver"; onTriggered: popupMenuAction("Transfer van")
-                        enabled: selectionModel.selectedIndexes.length && ["Versions","Reference"].includes(currentCategoryClass)
+                        enabled: selectionModel.selectedIndexes.length
                     }
                     XsMenuSeparator {}
                     XsMenuItem {

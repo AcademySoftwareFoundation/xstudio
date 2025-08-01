@@ -94,10 +94,16 @@ set(SOURCES
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
+if(WIN32)
+    set(EXE_EXTENSION ".exe")
+else()
+    set(EXE_EXTENSION ".bin")
+endif()
+
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    OUTPUT_NAME "${PROJECT_NAME}.bin"
+    OUTPUT_NAME "${PROJECT_NAME}${EXE_EXTENSION}"
 	LINK_DEPENDS_NO_SHARED true
 )
 
@@ -110,17 +116,12 @@ target_link_libraries(${PROJECT_NAME}
 		xstudio::ui::opengl::viewport
 		xstudio::ui::qt::viewport_widget
 		xstudio::ui::qml::module
-		xstudio::ui::qml::contact_sheet
-		xstudio::ui::qml::embedded_python
 		xstudio::ui::qml::global_store
 		xstudio::ui::qml::helper
-		xstudio::ui::qml::media
 		xstudio::ui::qml::playhead
 		xstudio::ui::qml::bookmark
-		xstudio::ui::qml::playlist
 		xstudio::ui::qml::session
 		xstudio::ui::qml::studio
-		xstudio::ui::qml::subset
 		xstudio::ui::qml::viewport
 		xstudio::ui::qml::quickfuture
 		xstudio::ui::qml::tag

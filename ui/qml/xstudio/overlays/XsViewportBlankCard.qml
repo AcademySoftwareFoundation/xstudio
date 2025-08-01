@@ -9,13 +9,25 @@ Rectangle {
 
     id: viewport_blank_card
     anchors.fill: parent
+    property var text: "Welcome to xStudio"
 
     color: "black"
+
+    property bool first_time: true
+    onVisibleChanged: {
+        if (!visible) {
+            if (!first_time) {
+                text = "No Media"
+            }
+        } else {
+            first_time = false
+        }
+    }
 
     Text {
         id: message
         anchors.centerIn: parent
-        text: "Welcome to xStudio"
+        text: viewport_blank_card.text
         color: XsStyle.blankViewportColor
         font.pixelSize: XsStyle.blankViewportMessageSize
         font.family: XsStyle.controlContentFontFamily

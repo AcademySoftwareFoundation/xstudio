@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#if defined(_WIN32)
+#if !defined(__PRETTY_FUNCTION__) && !defined(__GNUC__)
+#define __PRETTY_FUNCTION__ __FUNCSIG__
+#endif
+#endif
 /*
     \file logging.h
     Stop and start logging system
@@ -14,6 +19,8 @@
 #define START_SLOW_WATCHER() spdlog::stopwatch _sw;
 
 #define CHECK_SLOW_WATCHER() CHECK_SLOW_WATCHER_EXACT(1.0, 0.5, 0.1)
+
+#define CHECK_SLOW_WATCHER_FAST() CHECK_SLOW_WATCHER_EXACT(0.1, 0.05, 0.025)
 
 #define CHECK_SLOW_WATCHER_EXACT(a, b, c)                                                      \
     if (_sw.elapsed().count() > a)                                                             \
@@ -31,6 +38,8 @@
 #define START_SLOW_WATCHER()                                                                   \
     {}
 #define CHECK_SLOW_WATCHER()                                                                   \
+    {}
+#define CHECK_SLOW_WATCHER_FAST()                                                              \
     {}
 #define CHECK_SLOW_WATCHER_EXACT(a, b, c)                                                      \
     {}

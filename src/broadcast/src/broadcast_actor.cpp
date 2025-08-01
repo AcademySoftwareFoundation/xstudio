@@ -40,10 +40,14 @@ void BroadcastActor::init() {
 
     set_default_handler(
         [this](caf::scheduled_actor *, caf::message &msg) -> caf::skippable_result {
-            // spdlog::warn("Got broadcast from {}", to_string(current_sender()));
+            //  UNCOMMENT TO DEBUG UNEXPECT MESSAGES
+
+            // spdlog::warn("Got broadcast from {} {}", to_string(current_sender()),
+            //     to_string(msg)
+            // );
+
             if (current_sender() == nullptr or not current_sender()) {
                 for (const auto &i : subscribers_) {
-                    // spdlog::warn("{}", to_string(msg));
                     // spdlog::warn("{} {} Anon Forward {}",
                     // to_string(caf::actor_cast<caf::actor>(this)),
                     // to_string(current_sender()), to_string(caf::actor_cast<caf::actor>(i)));
@@ -53,7 +57,6 @@ void BroadcastActor::init() {
                     }
                 }
             } else {
-                // spdlog::warn("{}", to_string(msg));
                 for (const auto &i : subscribers_) {
                     // we need to send as if we were delegating..
                     try {
@@ -61,6 +64,7 @@ void BroadcastActor::init() {
                         // to_string(caf::actor_cast<caf::actor>(this)),
                         // to_string(current_sender()),
                         // to_string(caf::actor_cast<caf::actor>(i)));
+
                         send_as(
                             caf::actor_cast<caf::actor>(current_sender()),
                             caf::actor_cast<caf::actor>(i),
@@ -128,7 +132,9 @@ void BroadcastActor::init() {
         },
         [=](join_broadcast_atom, caf::actor sub) -> bool {
             auto subscriber = caf::actor_cast<caf::actor_addr>(sub);
+
             if (not subscribers_.count(subscriber)) {
+
                 monitor(sub);
                 subscribers_.insert(subscriber);
                 // spdlog::warn("new subscriber {} {} {}",

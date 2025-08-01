@@ -18,11 +18,13 @@ Gap::Gap(
           ItemType::IT_GAP,
           utility::UuidActorAddr(uuid(), caf::actor_cast<caf::actor_addr>(actor)),
           utility::FrameRange(FrameRateDuration(0, duration.rate()), duration),
-          utility::FrameRange(FrameRateDuration(0, duration.rate()), duration)) {}
+          utility::FrameRange(FrameRateDuration(0, duration.rate()), duration)) {
+    item_.set_name(name);
+}
 
 Gap::Gap(const utility::JsonStore &jsn)
-    : Container(static_cast<utility::JsonStore>(jsn["container"])),
-      item_(static_cast<utility::JsonStore>(jsn["item"])) {}
+    : Container(static_cast<utility::JsonStore>(jsn.at("container"))),
+      item_(static_cast<utility::JsonStore>(jsn.at("item"))) {}
 
 utility::JsonStore Gap::serialise() const {
     utility::JsonStore jsn;
@@ -31,4 +33,18 @@ utility::JsonStore Gap::serialise() const {
     jsn["item"]      = item_.serialise();
 
     return jsn;
+}
+
+
+Gap Gap::duplicate() const {
+    utility::JsonStore jsn;
+
+    auto dup_container = Container::duplicate();
+    auto dup_item      = item_;
+    dup_item.set_uuid(dup_container.uuid());
+
+    jsn["container"] = dup_container.serialise();
+    jsn["item"]      = dup_item.serialise();
+
+    return Gap(jsn);
 }

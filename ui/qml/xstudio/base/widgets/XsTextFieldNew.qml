@@ -19,6 +19,7 @@ TextField { id: widget
     property real fontSize: XsStyle.menuFontSize
 
     property bool bgVisibility: true
+    property bool forcedBg: false
     property bool forcedHover: false
 
     signal editingCompleted()
@@ -45,7 +46,7 @@ TextField { id: widget
         visible: bgVisibility
         implicitWidth: width
         implicitHeight: height
-        color: enabled? widget.focus? Qt.darker(bgColorEditing, 2.75): bgColorNormal: Qt.darker(bgColorNormal, 1.75)
+        color: enabled || forcedBg? widget.focus? Qt.darker(bgColorEditing, 2.75): bgColorNormal: Qt.darker(bgColorNormal, 1.75)
         border.color: widget.focus || widget.hovered || forcedHover? bgColorEditing: borderColor
     }
 

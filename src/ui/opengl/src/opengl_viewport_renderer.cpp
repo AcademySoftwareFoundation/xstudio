@@ -28,13 +28,6 @@ vec2 calc_pixel_coordinate(vec2 viewport_coordinate)
 }
 )";
 
-static const std::string colour_transforms = R"(
-vec4 colour_transforms(vec4 rgba_in)
-{
-    return rgba_in;
-}
-)";
-
 } // namespace
 
 using nlohmann::json;
@@ -45,21 +38,24 @@ ColourPipeLutCollection::ColourPipeLutCollection(const ColourPipeLutCollection &
 }
 
 void ColourPipeLutCollection::upload_luts(
-    const std::vector<colour_pipeline::ColourLUTPtr> &luts, const bool is_main_viewer) {
-
-    active_luts_.clear();
+    const std::vector<colour_pipeline::ColourLUTPtr> &luts) {
 
     for (const auto &lut : luts) {
 
-        if (((lut->target_viewer() & ColourLUT::MAIN_VIEWER) && is_main_viewer) ||
-            ((lut->target_viewer() & ColourLUT::POPOUT_VIEWER) && !is_main_viewer)) {
-            if (lut_textures_.find(lut->texture_name_and_desc()) == lut_textures_.end()) {
-                lut_textures_[lut->texture_name_and_desc()].reset(
-                    new GLColourLutTexture(lut->descriptor(), lut->texture_name()));
-            }
-            lut_textures_[lut->texture_name_and_desc()]->upload_texture_data(lut);
-            active_luts_.push_back(lut_textures_[lut->texture_name_and_desc()]);
+        if (lut_textures_.find(lut->texture_name_and_desc()) == lut_textures_.end()) {
+            lut_textures_[lut->texture_name_and_desc()].reset(
+                new GLColourLutTexture(lut->descriptor(), lut->texture_name()));
         }
+        lut_textures_[lut->texture_name_and_desc()]->upload_texture_data(lut);
+        active_luts_.push_back(lut_textures_[lut->texture_name_and_desc()]);
+    }
+}
+
+void ColourPipeLutCollection::register_texture(
+    const std::vector<colour_pipeline::ColourTexture> &textures) {
+
+    for (const auto &tex : textures) {
+        active_textures_[tex.name] = tex;
     }
 }
 
@@ -70,32 +66,37 @@ void ColourPipeLutCollection::bind_luts(GLShaderProgramPtr shader, int &tex_idx)
         shader->set_shader_parameters(txshder_param);
         tex_idx++;
     }
+    for (const auto &[name, tex] : active_textures_) {
+        glActiveTexture(GL_TEXTURE0 + tex_idx);
+        switch (tex.target) {
+        case colour_pipeline::ColourTextureTarget::TEXTURE_2D: {
+            glBindTexture(GL_TEXTURE_2D, tex.id);
+        }
+        }
+
+        utility::JsonStore txshder_param(nlohmann::json{{tex.name, tex_idx}});
+        shader->set_shader_parameters(txshder_param);
+
+        tex_idx++;
+    }
 }
 
 OpenGLViewportRenderer::OpenGLViewportRenderer(
-    const bool is_main_viewer, const bool gl_context_shared)
+    const int viewer_index, const bool gl_context_shared)
     : viewport::ViewportRenderer(),
       gl_context_shared_(gl_context_shared),
-      is_main_viewer_(is_main_viewer) {}
+      viewport_index_(viewer_index) {}
 
 void OpenGLViewportRenderer::upload_image_and_colour_data(
-    std::vector<media_reader::ImageBufPtr> next_images) {
+    std::vector<media_reader::ImageBufPtr> &next_images) {
 
 
-    if (!next_images.size()) {
-        if (onscreen_frame_)
-            onscreen_frame_.reset();
-        active_shader_program_ = no_image_shader_program_;
-        return;
-    }
-
-    onscreen_frame_                                         = next_images.front();
     colour_pipeline::ColourPipelineDataPtr colour_pipe_data = onscreen_frame_.colour_pipe_data_;
 
     if (!textures_.size())
         return;
 
-    textures_[0]->set_texture_type("SSBO"); // texture_mode_preference_->value());
+    textures_[0]->set_use_ssbo(use_ssbo_);
 
     if (onscreen_frame_) {
         if (onscreen_frame_->error_state() == BufferErrorState::HAS_ERROR) {
@@ -110,19 +111,19 @@ void OpenGLViewportRenderer::upload_image_and_colour_data(
     }
 
     if (colour_pipe_data && colour_pipe_data->cache_id_ != latest_colour_pipe_data_cacheid_) {
-        colour_pipe_textures_.upload_luts(colour_pipe_data->luts_, is_main_viewer_);
+        colour_pipe_textures_.clear();
+        for (const auto &op : colour_pipe_data->operations()) {
+            colour_pipe_textures_.upload_luts(op->luts_);
+            colour_pipe_textures_.register_texture(op->textures_);
+        }
         latest_colour_pipe_data_cacheid_ = colour_pipe_data->cache_id_;
     }
 
     if (onscreen_frame_ && colour_pipe_data &&
-        activate_shader(
-            onscreen_frame_->shader(),
-            is_main_viewer_ ? colour_pipe_data->main_viewport_shader_
-                            : colour_pipe_data->popout_viewport_shader_)) {
+        activate_shader(onscreen_frame_->shader(), colour_pipe_data->operations())) {
 
-        active_shader_program_->set_shader_parameters(onscreen_frame_, is_main_viewer_);
-
-        active_shader_program_->set_shader_parameters(colour_pipe_data.shader_parameters_);
+        active_shader_program_->set_shader_parameters(onscreen_frame_);
+        active_shader_program_->set_shader_parameters(onscreen_frame_.colour_pipe_uniforms_);
 
     } else {
         active_shader_program_ = no_image_shader_program_;
@@ -136,14 +137,12 @@ void OpenGLViewportRenderer::bind_textures() {
     if (!active_shader_program_ || active_shader_program_ == no_image_shader_program_)
         return;
 
-    int tex_idx     = 1;
-    bool using_ssbo = false;
+    int tex_idx = 1;
     Imath::V2i tex_dims;
-    textures_[0]->bind(tex_idx, tex_dims, using_ssbo);
+    textures_[0]->bind(tex_idx, tex_dims);
     utility::JsonStore txshder_param;
     txshder_param["the_tex"]  = tex_idx;
     txshder_param["tex_dims"] = tex_dims;
-    txshder_param["use_ssbo"] = using_ssbo;
 
     tex_idx++;
 
@@ -175,31 +174,65 @@ void OpenGLViewportRenderer::clear_viewport_area(const Imath::M44f &to_scene_mat
     std::array<int, 4> vp;
     glGetIntegerv(GL_VIEWPORT, vp.data());
 
-    Imath::V4f botomleft(0.0, 0.0, 0.0f, 1.0f);
+    // Our ref coord system maps -1.0, -1.0 to the bottom left of the viewport and
+    // 1.0, 1.0 to the top right
+    Imath::V4f botomleft(-1.0, -1.0, 0.0f, 1.0f);
     Imath::V4f topright(1.0, 1.0, 0.0f, 1.0f);
 
     topright  = topright * to_scene_matrix;
     botomleft = botomleft * to_scene_matrix;
 
-    const int xs_vp_left   = (int)round(botomleft.x * vp[2] / botomleft.w);
-    const int xs_vp_bottom = vp[3] - (int)round(topright.y * vp[3] / topright.w);
+    // Now convert to window pixels for glScissor window
+    botomleft *= 1.0f / botomleft.w;
+    topright *= 1.0f / topright.w;
 
-    const int xs_vp_right = (int)round(topright.x * vp[2] / topright.w);
-    const int xs_vp_top   = vp[3] - (int)round(botomleft.y * vp[3] / botomleft.w);
+    float bottom = 0.5f * (botomleft.y + 1.0f) * float(vp[3]);
+    float top    = 0.5f * (topright.y + 1.0f) * float(vp[3]);
 
-    // glEnable(GL_SCISSOR_TEST);
-    // glScissor(xs_vp_left, xs_vp_bottom, xs_vp_right-xs_vp_left, xs_vp_top-xs_vp_bottom);
+    float left  = 0.5f * (botomleft.x + 1.0f) * float(vp[2]);
+    float right = 0.5f * (topright.x + 1.0f) * float(vp[2]);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(
+        (int)round(left),
+        (int)round(bottom),
+        (int)round(right - left),
+        (int)round(top - bottom));
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    // glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+}
+
+utility::JsonStore OpenGLViewportRenderer::default_prefs() {
+    JsonStore r(R"("texture_mode": {
+				"path": "/ui/viewport/texture_mode",
+				"default_value": "Image Texture",
+				"description": "Viewport Low Level Texture mode - SSBO can give better performance on some systems but not all",
+				"value": "Image Texture",
+				"value_range": ["Image Texture", "SSBO"]
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			})");
+    return r;
+}
+
+void OpenGLViewportRenderer::set_prefs(const utility::JsonStore &prefs) {
+    const std::string tex_mode = prefs.value("texture_mode", "SSBO");
+    if (tex_mode == "SSBO")
+        use_ssbo_ = true;
+    else
+        use_ssbo_ = false;
 }
 
 void OpenGLViewportRenderer::render(
-    const std::vector<media_reader::ImageBufPtr> &next_images,
+    const std::vector<media_reader::ImageBufPtr> &_next_images,
     const Imath::M44f &to_scene_matrix,
     const Imath::M44f &projection_matrix,
     const Imath::M44f &fit_mode_matrix) {
 
+    // we want our images to be modifiable so we can append colour op sidecar
+    // data in the pre_viewport_draw_gpu_hook calls
+    std::vector<media_reader::ImageBufPtr> next_images = _next_images;
 
     // const std::lock_guard<std::mutex> mutex_locker(m);
     init();
@@ -219,7 +252,6 @@ void OpenGLViewportRenderer::render(
     // (with the rest of the UI taking up the remainder) then this value will be 0.5
     const float viewport_x_size_in_window = to_scene_matrix[0][0] / to_scene_matrix[3][3];
 
-
     // the gl viewport corresponds to the parent window size.
     std::array<int, 4> gl_viewport;
     glGetIntegerv(GL_VIEWPORT, gl_viewport.data());
@@ -233,11 +265,32 @@ void OpenGLViewportRenderer::render(
     /* we do our own clear of the viewport */
     clear_viewport_area(to_scene_matrix);
 
-    // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
-    // draw, upload the data
-    upload_image_and_colour_data(next_images);
-
     glUseProgram(0);
+
+    if (!next_images.size()) {
+        if (onscreen_frame_)
+            onscreen_frame_.reset();
+        active_shader_program_ = no_image_shader_program_;
+    } else {
+        onscreen_frame_ = next_images.front();
+    }
+
+    /* Here we allow plugins to run arbitrary GPU draw & computation routines.
+    This will allow pixel data to be rendered to textures (offscreen), for example,
+    which can then be sampled at actual draw time.*/
+    if (onscreen_frame_) {
+        for (auto hook : pre_render_gpu_hooks_) {
+            hook.second->pre_viewport_draw_gpu_hook(
+                to_scene_matrix,
+                transform_viewport_to_image_space,
+                viewport_du_dx,
+                onscreen_frame_);
+        }
+
+        // if we've received a new image and/or colour pipeline data (LUTs etc) since the last
+        // draw, upload the data
+        upload_image_and_colour_data(next_images);
+    }
 
     /* Call the render functions of overlay plugins - for the BeforeImage pass, we only call
     this if we have an alpha buffer that allows us to 'under' the image with the overlay
@@ -249,6 +302,7 @@ void OpenGLViewportRenderer::render(
                 orf.second->render_opengl(
                     to_scene_matrix,
                     transform_viewport_to_image_space,
+                    abs(viewport_du_dx),
                     onscreen_frame_,
                     has_alpha_);
             }
@@ -266,6 +320,8 @@ void OpenGLViewportRenderer::render(
         active_shader_program_->use();
 
         bool use_bilinear_filtering = false;
+
+
         if (onscreen_frame_) {
             // here we can work out the ratio of image pixels to screen pixels
             const float image_pix_to_screen_pix =
@@ -275,11 +331,11 @@ void OpenGLViewportRenderer::render(
                     image_pix_to_screen_pix < 0.99999f || image_pix_to_screen_pix > 1.00001f;
             else if (render_hints_ == BilinearWhenZoomedOut)
                 use_bilinear_filtering =
-                    image_pix_to_screen_pix < 0.99999f; // filter_mode_ == BilinearWhenZoomedOut
+                    image_pix_to_screen_pix > 1.00001f; // filter_mode_ == BilinearWhenZoomedOut
         }
 
         // coordinate system set-up
-        utility::JsonStore shader_params;
+        utility::JsonStore shader_params        = shader_uniforms_;
         shader_params["to_coord_system"]        = transform_viewport_to_image_space;
         shader_params["to_canvas"]              = to_scene_matrix;
         shader_params["use_bilinear_filtering"] = use_bilinear_filtering;
@@ -297,20 +353,20 @@ void OpenGLViewportRenderer::render(
         // to the coordinates of the Viewport QQuickItem, we multiply by the "to_canvas" matrix,
         // which is done in the main shader.
         static std::array<float, 16> vertices = {
-            -1.0,
-            1.0,
+            -1.0f,
+            1.0f,
             0.0f,
             1.0f,
-            1.0,
-            1.0,
+            1.0f,
+            1.0f,
             0.0f,
             1.0f,
-            1.0,
-            -1.0,
+            1.0f,
+            -1.0f,
             0.0f,
             1.0f,
-            -1.0,
-            -1.0,
+            -1.0f,
+            -1.0f,
             0.0f,
             1.0f};
 
@@ -352,6 +408,7 @@ void OpenGLViewportRenderer::render(
                 orf.second->render_opengl(
                     to_scene_matrix,
                     transform_viewport_to_image_space,
+                    abs(viewport_du_dx),
                     onscreen_frame_,
                     has_alpha_);
             }
@@ -372,45 +429,59 @@ void OpenGLViewportRenderer::render(
 }
 
 bool OpenGLViewportRenderer::activate_shader(
-    const viewport::GPUShaderPtr &image_buffer_unpack_shader,
-    const viewport::GPUShaderPtr &colour_pipeline_shader) {
+    const viewport::GPUShaderPtr &virt_image_buffer_unpack_shader,
+    const std::vector<colour_pipeline::ColourOperationDataPtr> &colour_operations) {
 
-    if (!image_buffer_unpack_shader) {
+    if (!virt_image_buffer_unpack_shader ||
+        virt_image_buffer_unpack_shader->graphics_api() != GraphicsAPI::OpenGL) {
         spdlog::warn("{} {}", __PRETTY_FUNCTION__, "No shader passed with image buffer.");
         return false;
     }
 
-    if (!colour_pipeline_shader) {
-        spdlog::warn(
-            "{} {}", __PRETTY_FUNCTION__, "No shader passed with colour pipeline LUTs.");
-        return false;
+    auto image_buffer_unpack_shader =
+        static_cast<opengl::OpenGLShader const *>(virt_image_buffer_unpack_shader.get());
+    if (!image_buffer_unpack_shader) {
     }
 
-    const auto &ib_sid = image_buffer_unpack_shader->shader_id_;
-    const auto &cp_sid = colour_pipeline_shader->shader_id_;
+    std::string shader_id = to_string(image_buffer_unpack_shader->shader_id());
+
+    for (const auto &op : colour_operations) {
+        shader_id += op->cache_id_;
+    }
 
     // do we already have this shader compiled?
-    if (programs_.find(ib_sid) == programs_.end() ||
-        programs_[ib_sid].find(cp_sid) == programs_[ib_sid].end()) {
+    if (programs_.find(shader_id) == programs_.end()) {
 
         // try to compile the shader for this combo of image buffer unpack
         // and colour pipeline components
 
         try {
 
-            programs_[ib_sid][cp_sid].reset(new GLShaderProgram(
+            std::vector<std::string> shader_components;
+            for (const auto &colour_op : colour_operations) {
+                // sanity check - this should be impossible, though
+                if (colour_op->shader_->graphics_api() != GraphicsAPI::OpenGL) {
+                    throw std::runtime_error(
+                        "Non-OpenGL shader data in colour operation chain!");
+                }
+                auto pr = static_cast<opengl::OpenGLShader const *>(colour_op->shader_.get());
+                shader_components.push_back(pr->shader_code());
+            }
+
+            programs_[shader_id].reset(new GLShaderProgram(
                 default_vertex_shader,
-                colour_pipeline_shader->shader_code_,
-                image_buffer_unpack_shader->shader_code_));
+                image_buffer_unpack_shader->shader_code(),
+                shader_components,
+                use_ssbo_));
 
         } catch (std::exception &e) {
             spdlog::error("{}", e.what());
-            programs_[ib_sid][cp_sid].reset();
+            programs_[shader_id].reset();
         }
     }
 
-    if (programs_[ib_sid][cp_sid]) {
-        active_shader_program_ = programs_[ib_sid][cp_sid];
+    if (programs_[shader_id]) {
+        active_shader_program_ = programs_[shader_id];
     } else {
         active_shader_program_ = no_image_shader_program_;
     }

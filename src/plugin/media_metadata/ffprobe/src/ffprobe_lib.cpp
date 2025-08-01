@@ -16,14 +16,18 @@ extern "C" {
 #include <libavutil/timecode.h>
 }
 
+#ifdef __GNUC__ // Check if GCC compiler is being used
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 using namespace xstudio;
 using namespace xstudio::ffprobe;
 
 namespace {
 
-const auto av_time_base_q = AV_TIME_BASE_Q;
+const auto av_time_base_q =
+    av_get_time_base_q(); // READ
+                          // https://libav-devel.libav.narkive.com/ZQCWfTun/patch-0-2-fix-avutil-h-usage-from-c
 
 int check_stream_specifier(AVFormatContext *avfs, AVStream *avs, const char *spec) {
     auto result = avformat_match_stream_specifier(avfs, avs, spec);
@@ -102,7 +106,11 @@ AVDictionary **init_find_stream_opts(AVFormatContext *avfc, AVDictionary *codec_
     AVDictionary **result = nullptr;
 
     if (avfc->nb_streams) {
-        result = (AVDictionary **)av_mallocz_array(avfc->nb_streams, sizeof(*result));
+#ifdef _WIN32
+        result = (AVDictionary **)av_calloc(avfc->nb_streams, sizeof(*result));
+#else
+        result = (AVDictionary **)av_malloc_array(avfc->nb_streams, sizeof(*result));
+#endif
 
         if (result) {
             for (unsigned int i = 0; i < avfc->nb_streams; i++)

@@ -42,7 +42,7 @@ namespace plugin_manager {
         PluginFactoryTemplate(
             utility::Uuid uuid,
             std::string name             = "",
-            PluginType type              = PluginType::PT_CUSTOM,
+            PluginType type              = PluginFlags::PF_CUSTOM,
             bool resident                = false,
             std::string author           = "",
             std::string description      = "",
@@ -84,6 +84,9 @@ namespace plugin_manager {
         semver::version version_;
         std::string ui_widget_string_;
         std::string ui_menu_string_;
+
+      private:
+        caf::actor instance_;
     };
 
 

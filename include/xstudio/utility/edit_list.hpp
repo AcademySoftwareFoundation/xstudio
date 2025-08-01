@@ -15,7 +15,7 @@ namespace utility {
         virtual ~EditList()        = default;
 
         EditList &operator=(const EditList &) = default;
-        EditList &operator=(EditList &&) = default;
+        EditList &operator=(EditList &&)      = default;
 
         void extend(const EditList &o);
 

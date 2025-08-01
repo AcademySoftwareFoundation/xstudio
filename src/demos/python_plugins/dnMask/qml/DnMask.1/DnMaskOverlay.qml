@@ -4,26 +4,47 @@ import QtQuick.Layouts 1.3
 import QtQuick 2.14
 import QuickFuture 1.0
 import QuickPromise 1.0
+
+// These imports are necessary to have access to custom QML types that are
+// part of the xSTUDIO UI implementation.
 import xStudio 1.0
 import xstudio.qml.module 1.0
 
+// Our Overlay is based on a transparent rectangle that simply fills the 
+// xSTUDIO viewport. Within this we draw the overlay graphics as required.
 Rectangle {
+
+    // Note that viewport overlays are instanced by the Viewport QML instance
+    // which has the id 'viewport' and is visible to us here. To learn more
+    // about the viewport see files XsViewport.qml and qml_viewport.cpp from
+    // the xSTUDIO source code.
 
     id: control
     color: "transparent"
     width: viewport.width
     height: viewport.height
 
+    // The imageBoundaryInViewport property on the xSTUDIO Viewport class
+    // is a rectangle that indicates the pixel coordinates of the image
+    // boundary in the xSTUDIO viewport.
     property var imageBox: viewport.imageBoundaryInViewport
 
     onImageBoxChanged: {
         computeMask()
     }
 
+    // The XsModuleAttributes type provides the means to connect with 
+    // attributes that were created on the backend plugin class instance. 
+    // Note that the 'attributesGroupNames' property here must line up with
+    // one of the strings passed into the Attributer.expose_in_ui_attrs_group
+    // method when the plugin class is initialised. Then, if an attribute is
+    // called 'Mask Aspect' for example, it will be available as a property
+    // with an id of 'mask_aspect' - spaces are replaced with underscores and 
+    // all letters are made lower case.
     XsModuleAttributes {
         
         id: mask_settings
-        attributesGroupName: "dnmask_settings"
+        attributesGroupNames: "dnmask_settings"
         onAttrAdded: control.computeMask()
         onValueChanged: control.computeMask()
 
@@ -32,13 +53,11 @@ Rectangle {
     XsModuleAttributes {
         
         id: current_mask_spec
-        attributesGroupName: "dnmask_values"
+        attributesGroupNames: "dnmask_values"
         onAttrAdded: control.computeMask()
         onValueChanged: control.computeMask()
 
     }
-
-
     
     // Properties on the XsModuleAttributes items are created at runtime after
     // this item is 'completed' and therefore we need to map to local variables

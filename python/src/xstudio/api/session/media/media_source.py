@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from xstudio.core import get_media_stream_atom, current_media_stream_atom, MediaType, media_reference_atom
+from xstudio.core import get_media_stream_atom, current_media_stream_atom, MediaType, media_reference_atom, rescan_atom, invalidate_cache_atom
 from xstudio.core import media_status_atom, get_json_atom, set_json_atom, JsonStore
 
 from xstudio.api.session.container import Container
@@ -115,6 +115,22 @@ class MediaSource(Container):
             self.connection.request_receive(self.remote, media_reference_atom(), mr)
         except RuntimeError:
             pass
+
+    def rescan(self):
+        """Rescan media item.
+
+        Returns:
+            result(MediaReference): New Reference
+        """
+        return self.connection.request_receive(self.remote, rescan_atom())[0]
+
+    def invalidate_cache(self):
+        """Flush media item from cache.
+
+        Returns:
+            result(bool): Flushed ?
+        """
+        return self.connection.request_receive(self.remote, invalidate_cache_atom())[0]
 
     @property
     def metadata(self):

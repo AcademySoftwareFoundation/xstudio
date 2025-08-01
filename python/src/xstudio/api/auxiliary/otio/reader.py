@@ -95,6 +95,7 @@ def import_timeline(playlist, otio, name=None, before=Uuid()):
     for i in otio.clip_if():
         if i.media_reference.target_url not in media_lookup:
             media = playlist.add_media(URI(i.media_reference.target_url))
+            timeline.add_media(media)
             media_lookup[i.media_reference.target_url] = media
 
     __process_obj(playlist, timeline, timeline.stack, reversed(otio.video_tracks()), media_lookup)

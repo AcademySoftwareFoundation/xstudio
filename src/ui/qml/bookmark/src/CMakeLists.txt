@@ -5,6 +5,8 @@ SET(LINK_DEPS
 		xstudio::utility
 )
 
-SET(EXTRAMOC)
+SET(EXTRAMOC
+	"${ROOT_DIR}/include/xstudio/ui/qml/bookmark_model_ui.hpp"
+)
 
 create_qml_component(bookmark 0.1.0 "${LINK_DEPS}" "${EXTRAMOC}")

@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.3
 import QtQuick 2.14
 import QtGraphicalEffects 1.12
 import QtQml 2.14
+import QtQml.Models 2.14
 
 import xStudio 1.0
 import xstudio.qml.uuid 1.0
@@ -17,8 +18,6 @@ import QuickPromise 1.0
 
 import QtQuick.Controls.impl 2.4
 import QtQuick.Templates 2.4 as T
-
-
 
 Item {
     id: control
@@ -73,33 +72,82 @@ Item {
         // parent: playlist_panel
         x: Math.max(0,(playlist_panel.width - width) / 2)
         y: (playlist_panel.height - height) / 2
-        title: "Shotgun datasource error"
+        title: "ShotGrid datasource error"
     }
+
+    XsStringRequestDialog {
+        id: create_ref_tag_dialog
+        okay_text: "Create Reference Tag"
+        text: "Tag"
+        onOkayed: {
+            Future.promise(
+                data_source.createTagFuture(text.toUpperCase()+".REFERENCE")
+            ).then(function(json_string) {
+                // console.log(json_string)
+            })
+        }
+    }
+
+    XsStringRequestDialog {
+        id: rename_ref_tag_dialog
+        okay_text: "Rename Reference Tag"
+        text: "Tag"
+        property int tag_id: 0
+        onOkayed: {
+            Future.promise(
+                data_source.renameTagFuture(tag_id, text.toUpperCase()+".REFERENCE")
+            ).then(function(json_string) {
+                // console.log(json_string)
+            })
+        }
+    }
+
+    ShotgunTagDialog {
+        id: tag_dialog
+        data_source: control.data_source
+        tagMethod: control.tagSelectedMedia
+        untagMethod: control.untagSelectedMedia
+        newTagMethod: create_ref_tag_dialog.open
+
+        renameTagMethod: control.renameTag
+        removeTagMethod: control.removeTag
+
+        onVisibleChanged: {
+            if(!data_source.connected && visible)
+                data_source.connected = true
+        }
+    }
+
 
     Timer {
         id: timer
     }
 
     Timer {
-        interval: 500
+        id: tag_timer
+        interval: 2000
         running: true
         repeat: false
 
         onTriggered: {
-            if(!sessionWidget.is_main_window)
+            if(!sessionWidget.is_main_window || !app_window.bookmarkModel)
                 return
 
-            session.getPlaylists().forEach(
-                function (item, index) {
-                    processPlaylist(item)
-                }
-            )
-            for(let i=0;i<session.bookmarks.bookmarkModel.length;i++){
-                if(session.bookmarks.getJSON(session.bookmarks.bookmarkModel.get(i).objectRole, "/metadata/shotgun")) {
-                    addDecorator(session.bookmarks.bookmarkModel.get(i).uuidRole)
+            for(let i=0;i<app_window.bookmarkModel.length;i++){
+                let ind = app_window.bookmarkModel.index(i, 0)
+                if(ind.valid && app_window.bookmarkModel.getJSON(ind, "/metadata/shotgun")) {
+                    addDecorator(app_window.bookmarkModel.get(ind, "uuidRole"))
                 }
             }
-            // tree_test.show()
+        }
+    }
+
+    XsHotkey {
+        sequence: "Shift+T"
+        name: "Show Reference Tag"
+        description: "Shows the tag browser interface"
+        onActivated: {
+            tag_dialog.toggle()
         }
     }
 
@@ -141,17 +189,17 @@ Item {
 
     XsModuleAttributes {
         id: attrs_values
-        attributesGroupName: "shotgun_datasource_preference"
+        attributesGroupNames: "shotgun_datasource_preference"
     }
 
     XsModuleAttributes {
         id: playhead_attrs
-        attributesGroupName: "playhead"
+        attributesGroupNames: "playhead"
     }
 
     XsModuleAttributes {
         id: shotgun_publish_menu
-        attributesGroupName: "shotgun_datasource_menu"
+        attributesGroupNames: "shotgun_datasource_menu"
         onValueChanged: control.shotgun_menu_action(key, value)
     }
 
@@ -176,7 +224,7 @@ Item {
     }
 
     Component.onCompleted: {
-        session.object_map["ShotgunRoot"] = control
+        sessionFunction.object_map["ShotgunRoot"] = control
     }
 
     XsMenuItem {
@@ -185,6 +233,42 @@ Item {
         onTriggered: toggle_browser()
         shortcut : "S"
         mytext : "Shot Browser..."
+    }
+
+    XsMenuItem {
+        visible: false
+        id: revealInShotgunMenu
+        onTriggered: revealInShotgun()
+        mytext : "Reveal In ShotGrid..."
+    }
+
+    XsMenuItem {
+        visible: false
+        id: revealInIvyMenu
+        onTriggered: revealInIvy()
+        mytext : "Reveal In Ivy..."
+    }
+
+    XsMenuItem {
+        visible: false
+        id: downloadMovieMenu
+        mytext :  "Download SG Movie"
+        onTriggered: shotgun_menu_action("download_movie", app_window.mediaSelectionModel.selectedIndexes)
+    }
+
+    XsMenuItem {
+        visible: false
+        id: downloadMissingMovieMenu
+        mytext :  "Download SG Previews (missing)"
+        onTriggered: shotgun_menu_action("download_missing_movie", app_window.currentSource.index)
+    }
+
+    XsMenuItem {
+        visible: false
+        id: referenceMenu
+        shortcut : "Shift+T"
+        mytext: "Reference Tag (Experimental)"
+        onTriggered: tag_dialog.toggle()
     }
 
     XsMenu {
@@ -241,25 +325,57 @@ Item {
     XsMenuItem {
         visible: false
         id: allVersionsMenu
-        mytext : menuLiveLatest + "..."
+        // mytext : menuLiveLatest + "..."
+        mytext : "Shot Browser Shot..."
         onTriggered: shotgun_menu_action("live_latest_versions", "")
     }
     XsMenuItem {
         visible: false
         id: relatedMenu
-        mytext : menuLiveHistory + "..."
+        mytext : "Shot Browser Version Stream..."
+        // mytext : menuLiveHistory + "..."
         onTriggered: shotgun_menu_action("live_version_history", "")
     }
     XsMenuItem {
         visible: false
         id: showNoteseMenu
-        mytext : menuLiveNotes + "..."
+        mytext : "Shot Browser Notes..."
+        // mytext : menuLiveNotes + "..."
         onTriggered: shotgun_menu_action("notes_history", "")
     }
     XsMenuSeparator {
         visible: false
         id: menuSep
     }
+
+    XsMenuItem {
+        visible: false
+        id: revealInShotgunMenuP
+        onTriggered: revealInShotgun()
+        mytext : "Reveal In ShotGrid..."
+    }
+
+    XsMenuItem {
+        visible: false
+        id: revealInIvyMenuP
+        onTriggered: revealInIvy()
+        mytext : "Reveal In Ivy..."
+    }
+
+    XsMenuItem {
+        visible: false
+        id: downloadMovieMenuP
+        mytext :  "Download SG Movie"
+        onTriggered: shotgun_menu_action("download_movie", app_window.mediaSelectionModel.selectedIndexes)
+    }
+
+    XsMenuItem {
+        visible: false
+        id: downloadMissingMovieMenuP
+        mytext :  "Download SG Previews (missing)"
+        onTriggered: shotgun_menu_action("download_missing_movie", app_window.currentSource.index)
+    }
+
 
     XsMenu {
         visible: false
@@ -315,19 +431,22 @@ Item {
     XsMenuItem {
         visible: false
         id: allVersionsMenuP
-        mytext : menuLiveLatest + "..."
+        mytext : "Shot Browser Shot..."
+        // mytext : menuLiveLatest + "..."
         onTriggered: shotgun_menu_action("live_latest_versions", "")
     }
     XsMenuItem {
         visible: false
         id: relatedMenuP
-        mytext : menuLiveHistory + "..."
+        mytext : "Shot Browser Version Stream..."
+        // mytext : menuLiveHistory + "..."
         onTriggered: shotgun_menu_action("live_version_history", "")
     }
     XsMenuItem {
         visible: false
         id: showNoteseMenuP
-        mytext : menuLiveNotes + "..."
+        mytext : "Shot Browser Notes..."
+        // mytext : menuLiveNotes + "..."
         onTriggered: shotgun_menu_action("notes_history", "")
     }
     XsMenuSeparator {
@@ -341,6 +460,7 @@ Item {
         interval: 1000
         onTriggered: {
             sessionWidget.sessionMenu.panelMenu.insertItem(5, toggleBrowser)
+            sessionWidget.sessionMenu.panelMenu.insertItem(5, referenceMenu)
 
             let m_index = 12
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, showNoteseMenu)
@@ -353,8 +473,17 @@ Item {
 
             sessionWidget.sessionMenu.mediaMenu.insertMenu(m_index, substituteMenu)
             sessionWidget.sessionMenu.mediaMenu.insertMenu(m_index, compareMenu)
+
+            sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, downloadMissingMovieMenu)
             sessionWidget.sessionMenu.mediaMenu.insertItem(m_index, menuSep)
 
+            sessionWidget.sessionMenu.mediaMenu.advancedMenu.insertItem(5, downloadMovieMenu)
+            sessionWidget.sessionMenu.mediaMenu.revealMenu.insertItem(1, revealInIvyMenu)
+            sessionWidget.sessionMenu.mediaMenu.revealMenu.insertItem(1, revealInShotgunMenu)
+
+            sessionWidget.mediaMenu1.revealMenu.insertItem(1, revealInIvyMenuP)
+            sessionWidget.mediaMenu1.revealMenu.insertItem(1, revealInShotgunMenuP)
+            sessionWidget.mediaMenu1.advancedMenu.insertItem(5, downloadMovieMenuP)
 
             sessionWidget.mediaMenu1.insertItem(m_index, showNoteseMenuP)
             sessionWidget.mediaMenu1.insertItem(m_index, allVersionsMenuP)
@@ -364,6 +493,7 @@ Item {
             sessionWidget.mediaMenu1.insertItem(m_index, replaceNextMenuP)
             sessionWidget.mediaMenu1.insertMenu(m_index, substituteMenuP)
             sessionWidget.mediaMenu1.insertMenu(m_index, compareMenuP)
+            sessionWidget.mediaMenu1.insertItem(m_index, downloadMissingMovieMenuP)
             sessionWidget.mediaMenu1.insertItem(m_index, menuSepP)
 
             toggleBrowser.visible = true
@@ -374,6 +504,7 @@ Item {
             allVersionsMenu.visible = true
             relatedMenu.visible = true
             menuSep.visible = true
+
             showNoteseMenuP.visible = true
             allVersionsMenuP.visible = true
             replaceLatestMenuP.visible = true
@@ -381,11 +512,26 @@ Item {
             replaceNextMenuP.visible = true
             relatedMenuP.visible = true
             menuSepP.visible = true
+
+            downloadMovieMenu.visible = true
+            downloadMovieMenuP.visible = true
+
+            downloadMissingMovieMenu.visible = true
+            downloadMissingMovieMenuP.visible = true
+
+            revealInIvyMenu.visible = true
+            revealInIvyMenuP.visible = true
+
+            revealInShotgunMenu.visible = true
+            revealInShotgunMenuP.visible = true
+
+            referenceMenu.visible = true
         }
     }
 
     Component.onDestruction: {
         sessionWidget.sessionMenu.panelMenu.removeItem(toggleBrowser)
+        sessionWidget.sessionMenu.panelMenu.removeItem(referenceMenu)
 
         sessionWidget.sessionMenu.mediaMenu.removeItem(showNoteseMenu)
         sessionWidget.sessionMenu.mediaMenu.removeItem(allVersionsMenu)
@@ -395,8 +541,16 @@ Item {
         sessionWidget.sessionMenu.mediaMenu.removeItem(replaceNextMenu)
         sessionWidget.sessionMenu.mediaMenu.removeMenu(substituteMenu)
         sessionWidget.sessionMenu.mediaMenu.removeMenu(compareMenu)
+        sessionWidget.sessionMenu.mediaMenu.removeItem(downloadMissingMovieMenu)
         sessionWidget.sessionMenu.mediaMenu.removeItem(menuSep)
 
+        sessionWidget.sessionMenu.mediaMenu.revealMenu.removeItem(revealInIvyMenu)
+        sessionWidget.sessionMenu.mediaMenu.revealMenu.removeItem(revealInShotgunMenu)
+        sessionWidget.sessionMenu.mediaMenu.advancedMenu.removeItem(downloadMovieMenu)
+
+        sessionWidget.mediaMenu1.revealMenu.removeItem(revealInIvyMenuP)
+        sessionWidget.mediaMenu1.revealMenu.removeItem(revealInShotgunMenuP)
+        sessionWidget.mediaMenu1.advancedMenu.removeItem(downloadMovieMenuP)
 
         sessionWidget.mediaMenu1.removeItem(showNoteseMenuP)
         sessionWidget.mediaMenu1.removeItem(allVersionsMenuP)
@@ -406,76 +560,74 @@ Item {
         sessionWidget.mediaMenu1.removeItem(replaceNextMenuP)
         sessionWidget.mediaMenu1.removeMenu(substituteMenuP)
         sessionWidget.mediaMenu1.removeMenu(compareMenuP)
+        sessionWidget.mediaMenu1.removeItem(downloadMissingMovieMenuP)
         sessionWidget.mediaMenu1.removeItem(menuSepP)
     }
 
-
     Connections {
-        target: session
-        function onBackendChanged() {
-            if(!sessionWidget.is_main_window)
-                return
-            session.getPlaylists().forEach(
-                function (item, index) {
-                    processPlaylist(item)
-                }
-            )
+        target: sessionModel
+        function onBookmarkActorAddrChanged() {
+            tag_timer.start()
         }
-        function onNewItem(uuid) {
-            // console.log("onNewItem", is_main_window, session, uuid)
+        function onRowsInserted(parent, first, last) {
             if(!sessionWidget.is_main_window)
                 return
-            var playlist = session.getPlaylist(uuid)
-            if(playlist) {
-                processPlaylist(playlist)
+
+            if(parent == app_window.sessionModel.index(0, 0)) {
+                connection_delay_timer.setTimeout(function(){
+                    let playlists = app_window.sessionModel.search_list("Playlist", "typeRole", app_window.sessionModel.index(0, 0), 0, -1, 1)
+                    playlists.forEach(
+                        function (item, index) {
+                            processPlaylist(item)
+                        }
+                    )
+                }, 1000);
             }
         }
     }
 
     Connections {
-        target: session.bookmarks
-        function onBackendChanged() {
-            if(!sessionWidget.is_main_window)
+        target: app_window.bookmarkModel
+        function onBookmarkActorAddrChanged() {
+            if(!sessionWidget.is_main_window || !app_window.bookmarkModel)
                 return
-            for(let i=0;i<session.bookmarks.bookmarkModel.length;i++){
-                if(session.bookmarks.getJSON(session.bookmarks.bookmarkModel.get(i).objectRole, "/metadata/shotgun")) {
-                    addDecorator(session.bookmarks.bookmarkModel.get(i).uuidRole)
+
+            for(let i=0;i<app_window.bookmarkModel.length;i++){
+                let ind = app_window.bookmarkModel.index(i, 0)
+                if(ind.valid && app_window.bookmarkModel.getJSON(ind, "/metadata/shotgun")) {
+                    addDecorator(app_window.bookmarkModel.get(ind, "uuidRole"))
                 }
             }
-        }
-        function onNewBookmark(bookmark_uuid) {
-            // console.log(bookmark_uuid)
         }
     }
 
     Connections {
-        target: session.selectedSource ? session.selectedSource.playhead : null
-        function onMediaChanged() {
+        target: sessionWidget.playerWidget.viewport.playhead
+        function onMediaUuidChanged(uuid) {
             if(browser.visible) {
-                data_source.liveLinkMetadata = session.selectedSource.playhead.media.getMetadata()
+                let mindex = app_window.sessionModel.search_recursive(uuid, "actorUuidRole", app_window.sessionModel.index(0, 0))
+                if(mindex.valid) {
+                    Future.promise(
+                        mindex.model.getJSONFuture(mindex, "")
+                    ).then(function(json_string) {
+                        data_source.liveLinkMetadata = json_string
+                    })
+                }
             }
         }
     }
+
     Connections {
-        target: session.selectedSource ? session.selectedSource.selectionFilter : null
-        function onSelectedMediaUuidsChanged() {
-            if(browser.visible &&  session.selectedSource.selectionFilter.selectedMediaUuids.length == 1) {
-                let media = session.selectedSource.findMediaObject(session.selectedSource.selectionFilter.selectedMediaUuids[0])
-                if(media) {
-                    data_source.liveLinkMetadata = media.getMetadata()
-                }
-            }
+        target: app_window.mediaSelectionModel
+        function onSelectionChanged(selected, deselected) {
+            updateFromMediaSelection()
         }
     }
 
     Connections {
         target: browser
         function onVisibleChanged() {
-            if(browser.visible) {
-                if(session.selectedSource) {
-                    data_source.liveLinkMetadata = session.selectedSource.playhead.media.getMetadata()
-                }
-            }
+            updateFromMediaSelection()
         }
     }
 
@@ -499,7 +651,9 @@ Item {
         width: 350
         height: 250
 
-        onAccepted: create_playlist_promise(data_source, playlist, playlist_uuid, project_id, playlist_name, create_dialog.site_name,create_dialog.playlist_type, error)
+        onAccepted: create_playlist_promise(
+            data_source, playlist_uuid, project_id, playlist_name, create_dialog.site_name,create_dialog.playlist_type, error
+        )
     }
 
     ShotgunPublishNotes {
@@ -508,7 +662,7 @@ Item {
         projectModel: data_source.termModels.projectModel
         groups: data_source.connected ? data_source.groups : null
         data_source: data_source
-        playlists: session.playlistNames
+        playlists: app_window.playlistModel
         publish_func: publish_notes
     }
 
@@ -541,8 +695,10 @@ Item {
         productionStatusModel:  data_source.connected ? data_source.termModels.productionStatusModel : null
         projectCurrentIndex: data_source.termModels.projectModel && data_source.termModels.projectModel.count ? data_source.termModels.projectModel.search(project_id_preference.value, "idRole") : -1
         projectModel: data_source.connected ? data_source.termModels.projectModel : null
+        reviewLocationModel: data_source.connected ? data_source.termModels.reviewLocationModel : null
         siteModel: data_source.connected ? data_source.termModels.locationModel : null
         shotStatusModel: data_source.connected ? data_source.termModels.shotStatusModel : null
+        referenceTagModel: data_source.connected ? data_source.termModels.referenceTagModel : null
 
         sequenceTreeModelFunc: data_source.connected ? data_source.sequenceTreeModel : null
         sequenceModelFunc: data_source.connected ? data_source.sequenceModel : null
@@ -591,6 +747,59 @@ Item {
     }
 
 
+    function revealInIvy() {
+        // can only process one..
+        // so grab first entry from selection.
+        if(app_window.mediaSelectionModel.selectedIndexes.length) {
+            let mindex = app_window.mediaSelectionModel.selectedIndexes[0]
+            Future.promise(
+                mindex.model.getJSONFuture(mindex, "/metadata/shotgun/version/attributes/sg_ivy_dnuuid")
+            ).then(function(json_string) {
+                json_string = json_string.replace(/^"|"$/g, '')
+                helpers.startDetachedProcess("dnenv-do", [helpers.getEnv("SHOW"), helpers.getEnv("SHOT"), "--", "ivybrowser", json_string])
+            })
+        }
+    }
+
+    function revealPlaylistInShotgun(index=null) {
+        if(index == null) {
+            if(app_window.sourceSelectionModel.selectedIndexes.length) {
+                index = app_window.sourceSelectionModel.selectedIndexes[0]
+            }
+        }
+
+        Future.promise(
+            index.model.getJSONFuture(index, "/metadata/shotgun/playlist/id")
+        ).then(function(json_string) {
+            json_string = json_string.replace(/^"|"$/g, '')
+            helpers.openURL("http://shotgun/detail/Playlist/"+json_string)
+        })
+    }
+
+    function revealInShotgun() {
+        if(app_window.mediaSelectionModel.selectedIndexes.length) {
+            let mindex = app_window.mediaSelectionModel.selectedIndexes[0]
+            Future.promise(
+                mindex.model.getJSONFuture(mindex, "/metadata/shotgun/version/id")
+            ).then(function(json_string) {
+                json_string = json_string.replace(/^"|"$/g, '')
+                helpers.openURL("http://shotgun/detail/Version/"+json_string)
+            })
+        }
+    }
+
+    function updateFromMediaSelection() {
+        if(browser.visible && app_window.mediaSelectionModel.selectedIndexes.length == 1) {
+            let mindex = app_window.mediaSelectionModel.selectedIndexes[0]
+            Future.promise(
+                mindex.model.getJSONFuture(mindex, "")
+            ).then(function(json_string) {
+                data_source.liveLinkMetadata = json_string
+            })
+        }
+    }
+
+
     function delay(delayTime, cb) {
         timer.interval = delayTime;
         timer.repeat = false;
@@ -612,24 +821,83 @@ Item {
 
     }
 
-    Timer {
-        id: connection_delay_timer
-        function setTimeout(cb, delayTime) {
-            connection_delay_timer.interval = delayTime;
-            connection_delay_timer.repeat = false;
-            connection_delay_timer.triggered.connect(cb);
-            connection_delay_timer.triggered.connect(function release () {
-                connection_delay_timer.triggered.disconnect(cb); // This is important
-                connection_delay_timer.triggered.disconnect(release); // This is important as well
-            });
-            connection_delay_timer.start();
+    function renameTag(tag_id, oldname) {
+        rename_ref_tag_dialog.tag_id = tag_id
+        rename_ref_tag_dialog.text = oldname
+        rename_ref_tag_dialog.open()
+    }
+
+    function removeTag(tag_id) {
+        Future.promise(
+            data_source.removeTagFuture(tag_id)
+        ).then(function(json_string) {
+        })
+    }
+
+    function tagSelectedMedia(tag_id) {
+        let selected = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+
+        if(selected.length) {
+            for(let i = 0; i<selected.length; ++i ) {
+
+                let mindex = selected[i]
+                Future.promise(
+                    mindex.model.getJSONFuture(mindex, "/metadata/shotgun/version/id")
+                ).then(function(version_id) {
+                    version_id = version_id.replace(/^"|"$/g, '')
+                    // console.log("tagSelectedMedia", version_id, tag_id)
+                    Future.promise(
+                        data_source.tagEntityFuture("Version", version_id,  tag_id)
+                    ).then(function(json_string) {
+                        let new_tag = JSON.parse(json_string)
+                        mindex.model.setJSONFuture(
+                            mindex,
+                            JSON.stringify(new_tag["data"]["relationships"]["tags"]),
+                            "/metadata/shotgun/version/relationships/tags"
+                        )
+                        // console.log(data_source.getEntity("Version", version_id))
+                        // console.log(json_string)
+                    })
+                })
+            }
         }
     }
 
-    function create_playlist(playlist=null) {
+    function untagSelectedMedia(tag_id) {
+        let selected = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+
+        if(selected.length) {
+            for(let i = 0; i<selected.length; ++i ) {
+
+                let mindex = selected[i]
+                Future.promise(
+                    mindex.model.getJSONFuture(mindex, "/metadata/shotgun/version/id")
+                ).then(function(version_id) {
+                    version_id = version_id.replace(/^"|"$/g, '')
+                    // console.log("tagSelectedMedia", version_id, tag_id)
+                    Future.promise(
+                        data_source.untagEntityFuture("Version", version_id,  tag_id)
+                    ).then(function(json_string) {
+                        let new_tag = JSON.parse(json_string)
+                        mindex.model.setJSONFuture(
+                            mindex,
+                            JSON.stringify(new_tag["data"]["relationships"]["tags"]),
+                            "/metadata/shotgun/version/relationships/tags"
+                        )
+                    })
+                })
+            }
+        }
+    }
+
+    XsTimer {
+        id: connection_delay_timer
+    }
+
+    function create_playlist(playlist_index=null) {
         if(!data_source.connected) {
             data_source.connected = true
-            connection_delay_timer.setTimeout(function(){ create_playlist(playlist); }, 1000);
+            connection_delay_timer.setTimeout(function(){ create_playlist(playlist_index); }, 1000);
             return
         }
 
@@ -639,71 +907,83 @@ Item {
         create_dialog.projectCurrentIndex = data_source.termModels.projectModel.search(project_id_preference.value, "idRole")
         create_dialog.playlistTypeModel = data_source.connected ? data_source.termModels.playlistTypeModel : null
 
-        if(playlist) {
-            create_dialog.playlist = playlist
-            create_dialog.playlist_name = playlist.name
-            create_dialog.playlist_uuid = playlist.uuid
-            get_valid_media_count(create_dialog, data_source, playlist.uuid, null)
+        if(playlist_index && playlist_index.valid) {
+            create_dialog.playlist_name = playlist_index.model.get(playlist_index, "nameRole")
+            create_dialog.playlist_uuid = playlist_index.model.get(playlist_index, "actorUuidRole")
+            get_valid_media_count(create_dialog, data_source, create_dialog.playlist_uuid, null)
             create_dialog.show()
         } else {
-            XsUtils.getSelectedUuids(app_window.session).forEach(
+            let inds = app_window.sessionSelectionModel.selectedIndexes
+            inds.forEach(
                 function (item, index) {
-                    // get playlist name
-                    var playlist = session.getPlaylist(item)
-                    create_dialog.playlist = playlist
-                    create_dialog.playlist_name = playlist.name
-                    create_dialog.playlist_uuid = item
-                    get_valid_media_count(create_dialog, data_source, item, null)
-                    create_dialog.show()
+                    let type = item.model.get(item, "typeRole")
+                    if(type == "Playlist") {
+                        // get playlist name
+                        let uuid = item.model.get(item, "actorUuidRole")
+                        let name = item.model.get(item, "nameRole")
+
+                        create_dialog.playlist_name = name
+                        create_dialog.playlist_uuid = uuid
+                        get_valid_media_count(create_dialog, data_source, uuid, null)
+                        create_dialog.show()
+                    }
                 }
             )
         }
     }
 
-    function update_playlist(playlist=null) {
+    function update_playlist(playlist_index=null) {
         if(!data_source.connected) {
             data_source.connected = true
             connection_delay_timer.setTimeout(function(){ update_playlist(playlist); }, 1000);
             return
         }
-        update_playlist_(control.data_source, playlist, control.error)
+        update_playlist_(control.data_source, playlist_index, control.error)
     }
 
-    function refresh_playlist(playlist=null) {
+    function refresh_playlist(playlist_index=null) {
         if(!data_source.connected) {
             data_source.connected = true
-            connection_delay_timer.setTimeout(function(){ refresh_playlist(playlist); }, 1000);
+            connection_delay_timer.setTimeout(function(){ refresh_playlist(playlist_index); }, 1000);
             return
         }
 
-        if(playlist) {
-            playlist.isBusy = true
+        if(playlist_index && playlist_index.valid) {
+            playlist_index.model.set(playlist_index, true, "busyRole")
+            let uuid = playlist_index.model.get(playlist_index, "actorUuidRole")
+            let name = playlist_index.model.get(playlist_index, "nameRole")
 
             Future.promise(
-                data_source.refreshPlaylistVersionsFuture(playlist.uuid)
+                data_source.refreshPlaylistVersionsFuture(uuid)
             ).then(function(json_string) {
-                playlist.isBusy = false
-                ShotgunHelpers.handle_response(json_string, "Refresh Playlist", true, playlist.name, error)
+                playlist_index.model.set(playlist_index, false, "busyRole")
+                ShotgunHelpers.handle_response(json_string, "Refresh Playlist", true, name, error)
             })
         } else {
-            XsUtils.getSelectedUuids(app_window.session).forEach(function (item, index) {
-                var playlist = session.getPlaylist(item)
-                playlist.isBusy = true
-                Future.promise(
-                    data_source.refreshPlaylistVersionsFuture(item)
-                ).then(function(json_string) {
-                    playlist.isBusy = false
-                    ShotgunHelpers.handle_response(json_string, "Refresh Playlist", true, playlist.name, error)
-                })
-            });
+            let inds = app_window.sessionSelectionModel.selectedIndexes
+            inds.forEach(
+                function (item, index) {
+                    let type = item.model.get(item, "typeRole")
+                    if(type == "Playlist") {
+                        // get playlist name
+                        let uuid = item.model.get(item, "actorUuidRole")
+                        let name = item.model.get(item, "nameRole")
+
+                        Future.promise(
+                            data_source.refreshPlaylistVersionsFuture(uuid)
+                        ).then(function(json_string) {
+                            ShotgunHelpers.handle_response(json_string, "Refresh Playlist", true, name, error)
+                        })
+                    }
+                }
+            )
         }
     }
 
-    function create_playlist_promise(data_source, playlist, playlist_uuid, project_id, name, location, playlist_type,  error) {
+    function create_playlist_promise(data_source, playlist_uuid, project_id, name, location, playlist_type,  error) {
         Future.promise(
             data_source.createPlaylistFuture(playlist_uuid, project_id, name, location, playlist_type)
         ).then(function(json_string) {
-            playlist.isBusy = false
             // load new playlist..
             try {
                 var data = JSON.parse(json_string)
@@ -711,9 +991,9 @@ Item {
                     load_playlist(data_source, data["data"]["id"], data["data"]["attributes"]["code"])
                 }
             } catch(err) {
-                // ShotgunHelpers.handle_response(string, "Shotgun Create Playlist", false, name, error)
+                // ShotgunHelpers.handle_response(string, "ShotGrid Create Playlist", false, name, error)
             }
-            ShotgunHelpers.handle_response(json_string, "Shotgun Create Playlist", false, name, error)
+            ShotgunHelpers.handle_response(json_string, "ShotGrid Create Playlist", false, name, error)
         })
     }
 
@@ -761,73 +1041,85 @@ Item {
                 text: "SG"
             }
         `
-        session.addTag(uuid, "Decorator", ui, uuid.toString()+"ShotgunDecorator");
+        app_window.sessionModel.addTag(uuid, "Decorator", ui, uuid.toString()+"ShotgunDecorator");
     }
 
     function addMenusFull(uuid) {
         let ui = `
             import xStudio 1.0
             XsMenu {
-                title: "Shotgun Playlist"
+                title: "ShotGrid Playlist"
                 XsMenuItem {
                     mytext: qsTr("Create...")
-                    onTriggered: session.object_map["ShotgunRoot"].create_playlist(playlist.backend)
+                    onTriggered: sessionFunction.object_map["ShotgunRoot"].create_playlist(modelIndex())
                 }
 
                 XsMenuItem {
                     mytext: qsTr("Refresh")
-                    onTriggered: session.object_map["ShotgunRoot"].refresh_playlist(playlist.backend)
+                    onTriggered: sessionFunction.object_map["ShotgunRoot"].refresh_playlist(modelIndex())
                 }
 
                 XsMenuItem {
-                    mytext: qsTr("Push Contents To Shotgun...")
-                    onTriggered: session.object_map["ShotgunRoot"].update_playlist(playlist.backend)
+                    mytext: qsTr("Push Contents To ShotGrid...")
+                    onTriggered: sessionFunction.object_map["ShotgunRoot"].update_playlist(modelIndex())
+                }
+
+                XsMenuItem {
+                    mytext: qsTr("Reveal In ShotGrid...")
+                    onTriggered: sessionFunction.object_map["ShotgunRoot"].revealPlaylistInShotgun(modelIndex())
                 }
             }
         `
-        session.addTag(uuid, "Menu", ui, uuid.toString()+"ShotgunMenu");
+        app_window.sessionModel.addTag(uuid, "Menu", ui, uuid.toString()+"ShotGridMenu");
     }
 
     function addMenusPartial(uuid) {
         let ui = `
             import xStudio 1.0
             XsMenu {
-                title: "Shotgun Playlist"
+                title: "ShotGrid Playlist"
                 XsMenuItem {
                     mytext: qsTr("Create...")
-                    onTriggered: session.object_map["ShotgunRoot"].create_playlist(playlist.backend)
+                    onTriggered: sessionFunction.object_map["ShotgunRoot"].create_playlist(modelIndex())
                 }
             }
         `
-        session.addTag(uuid, "Menu", ui, uuid.toString()+"ShotgunMenu");
+        app_window.sessionModel.addTag(uuid, "Menu", ui, uuid.toString()+"ShotGridMenu");
     }
 
-    function processPlaylist(playlist) {
-        if(playlist.getJSON("/metadata/shotgun")) {
-            addDecorator(playlist.uuid)
-            addMenusFull(playlist.uuid)
-        } else {
-            addMenusPartial(playlist.uuid)
+    function processPlaylist(playlist_index) {
+        if(playlist_index.valid) {
+            let model = playlist_index.model
+            let uuid = model.get(playlist_index, "actorUuidRole")
+
+            // console.log("processPlaylist", model, uuid, model.getJSON(playlist_index, "/metadata/shotgun"))
+
+            if(model.getJSON(playlist_index, "/metadata/shotgun")) {
+                addDecorator(uuid)
+                addMenusFull(uuid)
+            } else {
+                addMenusPartial(uuid)
+            }
         }
     }
-
 
     function push_playlist_note_promise(data_source, payload, playlist_uuid, error) {
         Future.promise(
             data_source.pushPlaylistNotesFuture(payload, playlist_uuid)
         ).then(function(json_string) {
-            ShotgunHelpers.handle_response(json_string, "Shotgun Publish Note", false, "", error)
+            ShotgunHelpers.handle_response(json_string, "ShotGrid Publish Note", false, "", error)
         })
     }
 
-    function update_playlist_promise(data_source, playlist, name, error) {
-        playlist.isBusy = true
+    function update_playlist_promise(data_source, playlist_uuid, name, error) {
+        let index = app_window.sessionModel.search_recursive(playlist_uuid, "actorUuidRole")
+        index.model.set(index, true, "busyRole")
         Future.promise(
-            data_source.updatePlaylistVersionsFuture(playlist)
+            data_source.updatePlaylistVersionsFuture(playlist_uuid)
         ).then(function(json_string) {
-            playlist.isBusy = false
+            index.model.set(index, false, "busyRole")
             // load new playlist..
-            ShotgunHelpers.handle_response(json_string, "Push Contents To Shotgun ", false, name, error)
+            ShotgunHelpers.handle_response(json_string, "Push Contents To ShotGrid ", false, name, error)
         })
     }
 
@@ -835,68 +1127,62 @@ Item {
         push_playlist_note_promise(data_source, payload, playlist_uuid, error)
     }
 
-    function push_playlist_notes(playlist=null) {
-        push_playlist_notes_(data_source, playlist, error)
+    function push_playlist_notes(selected_media, playlist_index=null) {
+        push_playlist_notes_(selected_media, data_source, playlist_index, error)
     }
 
-    function push_playlist_notes_(data_source, playlist, error) {
+    function push_playlist_notes_(selected_media, data_source, playlist_index, error) {
         // notes should mirror site/show settings from playlist.
         if(!data_source.connected) {
             data_source.connected = true
-            connection_delay_timer.setTimeout(function(){ push_playlist_notes_(data_source, playlist, error); }, 1000);
+            connection_delay_timer.setTimeout(function(){ push_playlist_notes_(selected_media, data_source, playlist_index, error); }, 1000);
             return
         }
 
-        if(playlist) {
-            console.log(playlist)
-            push_notes_dialog.playlist_uuid = playlist.uuid
+        if(playlist_index && playlist_index.valid) {
+            push_notes_dialog.publishSelected = selected_media
+            push_notes_dialog.playlist_uuid = playlist_index.model.get(playlist_index, "actorUuidRole")
             push_notes_dialog.updatePublish()
             push_notes_dialog.show()
         } else {
-            if(XsUtils.getSelectedUuids(app_window.session).length) {
-                XsUtils.getSelectedUuids(app_window.session).forEach(
-                    function (item, index) {
-                        // get playlist name
-                        var playlist = session.getPlaylist(item)
-                        push_notes_dialog.playlist_uuid = item
-                        push_notes_dialog.updatePublish()
-                        push_notes_dialog.show()
-                    }
-                )
-            } else {
-                try {
-                    playlist = session.selectedSource.parent_playlist.uuid
-                } catch(err) {
-                    try {
-                        playlist = session.selectedSource.uuid
-                    } catch(err) {
-                        playlist = null
-                    }
+            let inds = app_window.sessionSelectionModel.selectedIndexes
+            inds.forEach(
+                function (item, index) {
+                    // find playlist..
+                    let plind = app_window.sessionModel.getPlaylistIndex(item)
+                    // get playlist name
+                    let uuid = item.model.get(plind, "actorUuidRole")
+
+                    push_notes_dialog.publishSelected = selected_media
+                    push_notes_dialog.playlist_uuid = uuid
+                    push_notes_dialog.updatePublish()
+                    push_notes_dialog.show()
                 }
-                push_notes_dialog.playlist_uuid = playlist
-                push_notes_dialog.updatePublish()
-                push_notes_dialog.show()
-            }
+            )
         }
     }
 
-    function update_playlist_(data_source, playlist, error) {
-        if(playlist) {
-            update_dialog.playlist = playlist
-            update_dialog.playlist_name = playlist.name
-            update_dialog.playlist_uuid = playlist.uuid
-            get_valid_media_count(update_dialog, data_source, playlist.uuid, null)
+    function update_playlist_(data_source, playlist_index, error) {
+        if(playlist_index && playlist_index.valid) {
+            update_dialog.playlist_name = playlist_index.model.get(playlist_index, "nameRole")
+            update_dialog.playlist_uuid = playlist_index.model.get(playlist_index, "actorUuidRole")
+            get_valid_media_count(update_dialog, data_source, update_dialog.playlist_uuid, null)
             update_dialog.show()
         } else {
-            XsUtils.getSelectedUuids(app_window.session).forEach(
+            let inds = app_window.sessionSelectionModel.selectedIndexes
+            inds.forEach(
                 function (item, index) {
-                    // get playlist name
-                    var playlist = session.getPlaylist(item)
-                    update_dialog.playlist = playlist
-                    update_dialog.playlist_name = playlist.name
-                    update_dialog.playlist_uuid = playlist.quuid
-                    get_valid_media_count(update_dialog, data_source, item, null)
-                    update_dialog.show()
+                    let type = item.model.get(item, "typeRole")
+                    if(type == "Playlist") {
+                        // get playlist name
+                        let uuid = item.model.get(item, "actorUuidRole")
+                        let name = item.model.get(item, "nameRole")
+
+                        update_dialog.playlist_name = name
+                        update_dialog.playlist_uuid = uuid
+                        get_valid_media_count(create_dialog, data_source, uuid, null)
+                        update_dialog.show()
+                    }
                 }
             )
         }
@@ -909,123 +1195,178 @@ Item {
             return
         }
 
-        if(key == "publish_notes_to_shotgun") {
-            push_playlist_notes()
+        if(key == "publish_playlist_notes") {
+            push_playlist_notes(false)
+        } else if(key == "publish_selected_notes") {
+            push_playlist_notes(true)
         } else if(key == "notes_history") {
             show_browser()
-            browser.currentCategory = "Notes Tree"
+            currentCategory = "Notes Tree"
             createPresetType(menuLiveNotes)
         } else if(key == "live_version_history") {
             show_browser()
-            browser.currentCategory = "Versions"
+            currentCategory = "Versions"
             createPresetType(menuLiveHistory)
         } else if(key == "live_latest_versions") {
             show_browser()
-            browser.currentCategory = "Versions"
+            currentCategory = "Versions"
             createPresetType(menuLiveLatest)
         } else if(key == "all_versions") {
             show_browser()
-            browser.currentCategory = "Versions"
+            currentCategory = "Versions"
             createPresetType("All")
         } else if(key == "substitute_with") {
             substitute_with(value)
         } else if(key == "compare_with") {
             compare_with(value)
-        } else if(key == "notes_to_shotgun") {
-            push_playlist_notes()
         } else if(key == "shotgun_browser") {
             toggle_browser()
+        } else if(key == "download_movie") {
+            // download movies for media..
+            for(let i = 0; i < value.length; ++i)
+                download_movie(value[i])
+        } else if(key == "download_missing_movie") {
+            // for value playlist download all media that have missing current image.
+            let model = value.model
+            let cindex = model.index(0,0,value)
+            let ccount = model.rowCount(cindex)
+            for(let i =0; i< ccount; ++i) {
+                // is online.
+                let mindex = model.index(i,0,cindex)
+
+                if(model.get(mindex, "mediaStatusRole") != "Online")
+                    download_movie(mindex)
+            }
         }
     }
 
+    function download_movie(mindex) {
+        Future.promise(data_source.addDownloadToMediaFuture(mindex.model.get(mindex, "actorUuidRole"))).then(
+            function(result) {
+                let jsn = JSON.parse(result)
+                if(jsn.actor_uuid)
+                    mindex.model.set(mindex, jsn.actor_uuid, "imageActorUuidRole")
+
+            },
+            function() {
+            }
+        )
+    }
+
+
     function substitute_with(preset_name) {
         //for each selected media..
-        let selected = session.selectedMediaUuids()
+        let selected = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
 
-        selected.forEach(
+        if(!selected.length)
+            return;
+
+        let model = selected[0].model
+        let items = []
+        let media_parent = selected[0].parent
+
+        for(let i = 0; i<selected.length; ++i ) {
+            let parent_uuid = model.get(selected[i].parent.parent, "actorUuidRole")
+            let next_media_uuid = model.get(selected[i].model.index(selected[i].row + 1, 0, selected[i].parent), "actorUuidRole")
+            let json = model.getJSON(selected[i], "")
+            let media_id = model.get(selected[i],"idRole")
+
+            if(next_media_uuid == undefined)
+                next_media_uuid = helpers.QVariantFromUuidString("")
+
+            items.push([parent_uuid, next_media_uuid, json, media_id])
+        }
+
+        items.forEach(
             function (item, index) {
-                var source = session.selectedSource ? session.selectedSource : session.onScreenSource
-                let media_obj = source.findMediaObject(item)
+                browser.executeMediaActionQuery(preset_name, item[2],
+                    function (data) {
+                        // load item after existing
+                        // delete existing..
+                        let parent_uuid = item[0]
+                        let next_media_uuid = item[1]
 
-                if(media_obj) {
-                    browser.executeMediaActionQuery(preset_name, media_obj.getMetadata(),
-                        function (data) {
-                            // load item after existing
-                            // delete existing..
-                            let result = JSON.parse(
-                                    data_source.addVersionToPlaylist(
-                                    JSON.stringify(data),
-                                    source.uuid,
-                                    media_obj.uuid
-                                )
+                        let result = JSON.parse(
+                                data_source.addVersionToPlaylist(
+                                JSON.stringify(data),
+                                parent_uuid,
+                                next_media_uuid
                             )
-                            // select new item ?
-                            if(result.length) {
-                            // remove old..
-                                let remove_uuid = media_obj.uuid
-                                let new_uuids = []
+                        )
+                        // select new item ?
+                        if(result.length) {
+
+                            connection_delay_timer.setTimeout(function(){
+                                // delete
+                                let remove_index = model.search(item[3], "idRole", media_parent)
+                                model.removeRows(remove_index.row, 1, remove_index.parent)
+
+                                let new_media = []
+                                let tmp = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+                                for(let i=0; i < tmp.length; ++i)
+                                    if(tmp[i] != remove_index)
+                                        new_media.push(tmp[i])
+                                // remove deleted..
+
                                 for(let i=0;i<result.length; i++) {
-                                    new_uuids.push(helpers.QVariantFromUuidString(result[i]))
+                                    let mind = model.search(helpers.QVariantFromUuidString(result[i]), "actorUuidRole", media_parent)
+                                    new_media.push(mind)
                                 }
-
-                                let cur = session.selectedSource.selectionFilter.currentSelection()
-                                for(let i=0;i<cur.length; i++) {
-                                    if(cur[i] != remove_uuid) {
-                                        new_uuids.push(cur[i])
-                                    }
-                                }
-
-                                session.selectedSource.selectionFilter.newSelection(
-                                    new_uuids
+                                app_window.mediaSelectionModel.select(
+                                    helpers.createItemSelection(new_media.sort((a,b) => a.row - b.row )), ItemSelectionModel.ClearAndSelect
                                 )
 
-                                source.removeMedia(remove_uuid)
-                            } else {
-                                status_bar.normalMessage("No results", "Shot Browser - Substitute with")
-                            }
+                            }, 500);
+                        } else {
+                            status_bar.normalMessage("No results", "Shot Browser - Substitute with")
                         }
-                    )
-                }
+                    }
+                )
             }
         )
     }
 
     function compare_with(preset_name) {
-        let selected = session.selectedMediaUuids()
-        var source = session.selectedSource ? session.selectedSource : session.onScreenSource
+        let selected = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+
         selected.forEach(
             function (item, index) {
-                let media_obj = source.findMediaObject(item)
-                if(media_obj) {
-                    browser.executeMediaActionQuery(preset_name, media_obj.getMetadata(),
+                if(item.valid) {
+                    browser.executeMediaActionQuery(preset_name, item.model.getJSON(item, ""),
                         function (data) {
                             // load item after existing
+                            let parent_uuid = item.model.get(item.parent.parent, "actorUuidRole")
+                            let media_uuid = item.model.get(item, "actorUuidRole")
+                            let next_media_uuid = item.model.get(item.model.index(item.row + 1, 0, item.parent), "actorUuidRole")
+
+                            if(next_media_uuid == undefined)
+                                next_media_uuid = helpers.QVariantFromUuidString("")
 
                             let result = JSON.parse(
                                     data_source.addVersionToPlaylist(
                                     JSON.stringify(data),
-                                    source.uuid,
-                                    session.selectedSource.getNextItemUuid(media_obj.uuid)
+                                    parent_uuid,
+                                    next_media_uuid
                                 )
                             )
+
                             // order matters,,
 
                             if(result.length) {
-                                let new_uuids = []
-                                new_uuids.push(media_obj.uuid)
+                                connection_delay_timer.setTimeout(function(){
+                                    let indexs = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+                                    for(let i=0;i<result.length; i++) {
+                                        let new_index = item.model.search_recursive(helpers.QVariantFromUuidString(result[i]), "actorUuidRole", item.parent)
+                                        indexs.push(new_index)
+                                    }
+                                    // order..
 
-                                for(let i=0;i<result.length; i++) {
-                                    new_uuids.push(helpers.QVariantFromUuidString(result[i]))
-                                }
+                                    app_window.mediaSelectionModel.select(
+                                        helpers.createItemSelection(indexs.sort((a,b) => a.row - b.row )),
+                                        ItemSelectionModel.ClearAndSelect
+                                    )
+                                }, 500);
 
-                                let cur = session.selectedSource.selectionFilter.currentSelection()
-                                for(let i=0;i<cur.length; i++) {
-                                    new_uuids.push(cur[i])
-                                }
-
-                                session.selectedSource.selectionFilter.newSelection(
-                                    new_uuids
-                                )
                             } else {
                                 status_bar.normalMessage("No results", "Shot Browser - Compare with")
                             }
@@ -1036,6 +1377,25 @@ Item {
         )
         playhead_attrs.compare = "A/B"
     }
+
+
+// 2023-04-21 15:36:32.576] [xstudio] [info] processChildren PlayheadSelection 1
+// "Could not convert argument 2 at"
+//      "@file:///user_data/RND/dev/xstudio/build_rel/bin/plugin/qml/Shotgun.1/ShotgunRoot.qml:1047"
+//      "@file:///user_data/RND/dev/xstudio/build_rel/bin/plugin/qml/Shotgun.1/ShotgunBrowserDialog.qml:227"
+//      "@qrc:/extern/QuickPromise/promise.js:104"
+//      "@qrc:/extern/QuickPromise/promise.js:284"
+//      "@qrc:/extern/QuickPromise/promise.js:301"
+//      "@qrc:/extern/QuickPromise/promise.js:248"
+//      "@qrc:/extern/QuickPromise/promise.js:237"
+//      "@qrc:/extern/QuickPromise/promise.js:28"
+// "Passing incompatible arguments to C++ functions from JavaScript is dangerous and deprecated."
+// "This will throw a JavaScript TypeError in future releases of Qt!"
+// [2023-04-21 15:36:39.925] [xstudio] [warning] SEND
+// qml: QModelIndex()
+// qml: TypeError: Property 'clear' of object QModelIndex(5,0,0x9bad210,xstudio::ui::qml::SessionModel(0x343b2d0)) is not a function
+
+
 
 
     function createPresetType(mode) {
@@ -1060,7 +1420,7 @@ Item {
     function loadPlaylists(items, preferred_visual="SG Movie", preferred_audio="SG Movie", flag_text="", flag_colour="") {
         items.forEach(
             function (item, index) {
-                load_playlist(data_source, item.id, item.name, error, preferred_visual, preferred_audio, flag_text, flag_colour)
+                load_playlist(data_source, item.id, item.name, error, index==0, preferred_visual, preferred_audio, flag_text, flag_colour)
             }
         )
     }
@@ -1072,10 +1432,11 @@ Item {
         if(typeof(items) == "string") {
             try {
                 let j = JSON.parse(items)
-                j["data"]["preferred_visual_source"] = preferred_visual
-                j["data"]["preferred_audio_source"] = preferred_audio
-                j["data"]["flag_text"] = flag_text
-                j["data"]["flag_colour"] = flag_colour
+                j["context"] = new Map()
+                j["context"]["visual_source"] = preferred_visual
+                j["context"]["audio_source"] = preferred_audio
+                j["context"]["flag_text"] = flag_text
+                j["context"]["flag_colour"] = flag_colour
                 query = JSON.stringify(j)
             }catch(err){
             }
@@ -1088,10 +1449,12 @@ Item {
             )
             if(versions.length) {
                 query = '{"data":[' + versions.join(",") + '], ' +
-                '"preferred_visual_source": "' + preferred_visual + '",' +
-                '"preferred_audio_source": "' + preferred_audio + '",' +
+                '"context": {' +
+                '"visual_source": "' + preferred_visual + '",' +
+                '"audio_source": "' + preferred_audio + '",' +
                 '"flag_text": "' + flag_text + '",' +
                 '"flag_colour": "' + flag_colour + '"' +
+                '}'+
                 '}'
             }
         }
@@ -1106,17 +1469,16 @@ Item {
                 function(json_string) {
                     try {
                         var data = JSON.parse(json_string)
-                        // should be array of uuids..
-                        session.switchOnScreenSource(uuid)
-                        // turn uuid strings in to uuids..
-                        session.setSelection([uuid], true)
-                        if(data.length) {
-                            let selection = [helpers.QVariantFromUuidString(data[0])]
-                            session.selectedSource.selectionFilter.newSelection(selection)
-                        }
+                        let index =  sessionSelectionModel.model.search_recursive(uuid,"actorUuidRole")
+                        app_window.sessionFunction.setActivePlaylist(index)
                         app_window.requestActivate()
                         app_window.raise()
                         sessionWidget.playerWidget.forceActiveFocus()
+
+                        // add media uuid to selection and focus it.
+                        let mind = sessionSelectionModel.model.search("{"+data[0]+"}", "actorUuidRole", sessionSelectionModel.model.index(0,0, index))
+                        if(mind.valid)
+                            app_window.sessionFunction.setActiveMedia(mind)
 
                     } catch(err) {
                         console.log(err)
@@ -1138,10 +1500,11 @@ Item {
         if(typeof(items) == "string") {
             try {
                 let j = JSON.parse(items)
-                j["data"]["preferred_visual_source"] = preferred_visual
-                j["data"]["preferred_audio_source"] = preferred_audio
-                j["data"]["flag_text"] = flag_text
-                j["data"]["flag_colour"] = flag_colour
+                j["context"] = new Map()
+                j["context"]["visual_source"] = preferred_visual
+                j["context"]["audio_source"] = preferred_audio
+                j["context"]["flag_text"] = flag_text
+                j["context"]["flag_colour"] = flag_colour
                 query = JSON.stringify(j)
             }catch(err){
             }
@@ -1154,60 +1517,68 @@ Item {
             )
             if(versions.length) {
                 query = '{"data":[' + versions.join(",") + '], ' +
-                '"preferred_visual_source": "' + preferred_visual + '",' +
-                '"preferred_audio_source": "' + preferred_audio + '",' +
+                '"context": {' +
+                '"visual_source": "' + preferred_visual + '",' +
+                '"audio_source": "' + preferred_audio + '",' +
                 '"flag_text": "' + flag_text + '",' +
                 '"flag_colour": "' + flag_colour + '"' +
+                '}'+
                 '}'
             }
         }
 
         if(query.length) {
             var uuid
-            var fa
 
-            if(!session.selectedSource) {
-                uuid = session.createPlaylist(name)
-                session.switchOnScreenSource(uuid)
-                session.setSelection([uuid], true)
+            if(!app_window.sessionSelectionModel.currentIndex.valid) {
+                let index = app_window.sessionFunction.createPlaylist(name)
+                uuid = index.model.get(index, "actorUuidRole")
+
+                app_window.sessionFunction.setActivePlaylist(index)
+
+                // app_window.sessionSelectionModel.setCurrentIndex(index, ItemSelectionModel.setCurrentIndex|ItemSelectionModel.ClearAndSelect)
             } else {
-                uuid = session.selectedSource.uuid
+                uuid = app_window.sessionSelectionModel.currentIndex.model.get(app_window.sessionSelectionModel.currentIndex, "actorUuidRole")
             }
 
-            try {
-                let selection = session.selectedSource.selectionFilter.selectedMediaUuids
-                fa = data_source.addVersionToPlaylistFuture(
-                    query,
-                    uuid,
-                    session.selectedSource.getNextItemUuid(selection[selection.length-1])
-                )
-            } catch(err) {
-                fa = data_source.addVersionToPlaylistFuture(
-                    query,
-                    uuid
-                )
+            let next_media_uuid = undefined
+            let selected = XsUtils.cloneArray(app_window.mediaSelectionModel.selectedIndexes)
+
+            if(selected.length) {
+                let mind = selected[selected.length-1]
+                let nmind = mind.model.index(mind.row+1, 0, mind.parent)
+                if(nmind.valid) {
+                    next_media_uuid = nmind.model.get(nmind, "actorUuidRole")
+                }
             }
+
+            if(next_media_uuid == undefined)
+                next_media_uuid = helpers.QVariantFromUuidString("")
 
             // add versions to playlist.
 
-            Future.promise(fa).then(
+            Future.promise(
+                data_source.addVersionToPlaylistFuture(
+                    query,
+                    uuid,
+                    next_media_uuid
+                )
+            ).then(
                 function(json_string) {
                     // select media uuids..
                     try {
                         var data = JSON.parse(json_string)
                         // should be array of uuids..
-                        session.switchOnScreenSource(uuid)
-                        // turn uuid strings in to uuids..
-                        let selection = session.selectedSource.selectionFilter.selectedMediaUuids
 
-                        data.forEach(
-                            function (item, index) {
-                                if(item !== "")
-                                    selection.push(helpers.QVariantFromUuidString(item))
-                            }
-                        )
-                        session.setSelection([uuid], true)
-                        session.selectedSource.selectionFilter.newSelection(selection)
+                        // let selection = app_window.mediaSelectionModel.selectedIndexes
+                        let indexs = []
+
+                        for(let i = 0; i< data.length; ++i) {
+                            indexs.push(app_window.mediaSelectionModel.model.search_recursive(helpers.QVariantFromUuidString(data[i]), "actorUuidRole"))
+                        }
+
+                        app_window.mediaSelectionModel.select(helpers.createItemSelection(indexs), ItemSelectionModel.Select)
+
                         playhead_attrs.compare = mode
                     } catch(err) {
                         console.log(err)
@@ -1221,65 +1592,93 @@ Item {
     }
 
     function addShotsToNewPlaylist(name, items, preferred_visual="SG Movie", preferred_audio="SG Movie", flag_text="", flag_colour="") {
-        var uuid = session.createPlaylist(name)
+        let index = app_window.sessionFunction.createPlaylist(name)
+        let uuid = index.model.get(index, "actorUuidRole")
+
+        app_window.sessionFunction.setActivePlaylist(index)
+
+        // app_window.sessionSelectionModel.setCurrentIndex(index, ItemSelectionModel.setCurrentIndex|ItemSelectionModel.ClearAndSelect)
+
         addVersionsToPlaylist(uuid, items, preferred_visual, preferred_audio, flag_text, flag_colour )
     }
 
     function addShotsToPlaylist(items, preferred_visual="SG Movie", preferred_audio="SG Movie", flag_text="", flag_colour="") {
-        var uuid
+        let index = app_window.currentSource.index
 
-        if(!session.selectedSource) {
-            uuid = session.createPlaylist("Shot Browser Media")
-        } else {
-            uuid = session.selectedSource.uuid
+        if(index == undefined || !index.valid) {
+            index = app_window.sessionFunction.createPlaylist("Shot Browser Media")
         }
-        session.switchOnScreenSource(uuid)
-        session.setSelection([uuid], true)
+
+        let uuid = index.model.get(index, "actorUuidRole")
+
+        app_window.sessionFunction.setActivePlaylist(index)
+
+        // app_window.sessionSelectionModel.setCurrentIndex(index, ItemSelectionModel.setCurrentIndex|ItemSelectionModel.ClearAndSelect)
+
         addVersionsToPlaylist(uuid, items, preferred_visual, preferred_audio, flag_text, flag_colour)
     }
 
-    function load_playlist(data_source, id, name, error, preferred_visual="SG Movie", preferred_audio="SG Movie", flag_text="", flag_colour="") {
-        // busy.running = true
+    function load_playlist(data_source, id, name, error, make_active=true, preferred_visual="SG Movie", preferred_audio="SG Movie", flag_text="", flag_colour="") {
         // create new playlist
-        var uuid = session.createPlaylist(name)
+        let index = app_window.sessionFunction.createPlaylist(name)
+
+        if(make_active){
+            app_window.sessionFunction.setActivePlaylist(index)
+        }
+
+        let uuid = index.model.get(index, "actorUuidRole")
+        index.model.set(index, true, "busyRole")
 
         // get playlist json from shotgun
-        var ff = data_source.getPlaylistVersionsFuture(id)
-        Future.promise(ff).then(function(json_string) {
+        Future.promise(data_source.getPlaylistVersionsFuture(id)).then(function(json_string) {
             try {
-                // console.time("load_playlist");
                 var data = JSON.parse(json_string)
                 if(data["data"]){
-                    var playlist = session.getPlaylist(uuid)
-                    playlist.isBusy = true
-                    playlist.setJSON(JSON.stringify(data['data']), "/metadata/shotgun/playlist")
-                    addDecorator(playlist.uuid)
-                    addMenusFull(playlist.uuid)
+                    Future.promise(index.model.setJSONFuture(index, JSON.stringify(data['data']), "/metadata/shotgun/playlist")).then(
+                        function(result) {
+                            addDecorator(uuid)
+                            addMenusFull(uuid)
+                        },
+                        function() {
+                        }
+                    )
 
-                    data["preferred_visual_source"] = preferred_visual
-                    data["preferred_audio_source"] = preferred_audio
-                    data["flag_text"] = flag_text
-                    data["flag_colour"] = flag_colour
+                    data["context"] = new Map()
+                    data["context"]["visual_source"] = preferred_visual
+                    data["context"]["audio_source"] = preferred_audio
+                    data["context"]["flag_text"] = flag_text
+                    data["context"]["flag_colour"] = flag_colour
 
                     // add versions to playlist.
-                    var fa = data_source.addVersionToPlaylistFuture(JSON.stringify(data), playlist.uuid)
-                    Future.promise(fa).then(
+                    Future.promise(data_source.addVersionToPlaylistFuture(JSON.stringify(data), uuid)).then(
                         function(json_string) {
-                            playlist.isBusy = false
+                            if(make_active) {
+                                var data = JSON.parse(json_string)
+                                let index =  sessionSelectionModel.model.search_recursive(uuid,"actorUuidRole")
+
+                                // add media uuid to selection and focus it.
+                                let mind = sessionSelectionModel.model.search("{"+data[0]+"}", "actorUuidRole", sessionSelectionModel.model.index(0,0, index))
+                                if(mind.valid)
+                                    app_window.sessionFunction.setActiveMedia(mind)
+                            }
+
+                            index.model.set(index, false, "busyRole")
                             ShotgunHelpers.handle_response(json_string)
                         },
                         function() {
-                            playlist.isBusy = false
+                            index.model.set(index, false, "busyRole")
                         }
                     )
                 } else {
-                    error.title = "Load Shotgun Playlist " + name
+                    index.model.set(index, false, "busyRole")
+                    error.title = "Load ShotGrid Playlist " + name
                     error.text = json_string
                     error.open()
                 }
             }
             catch(err) {
-                error.title = "Load Shotgun Playlist " + name
+                index.model.set(index, false, "busyRole")
+                error.title = "Load ShotGrid Playlist " + name
                 error.text = err + "\n" + json_string
                 error.open()
                 console.log(err, json_string)

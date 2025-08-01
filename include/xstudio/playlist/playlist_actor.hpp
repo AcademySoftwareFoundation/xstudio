@@ -45,8 +45,6 @@ namespace playlist {
             const utility::Uuid &uuid_before,
             caf::typed_response_promise<utility::UuidActor> rp);
 
-        void deliver_media_pointer(
-            const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp);
         void create_container(
             caf::actor actor,
             caf::typed_response_promise<utility::UuidUuidActor> rp,
@@ -79,7 +77,7 @@ namespace playlist {
         caf::behavior behavior_;
         Playlist base_;
         caf::actor_addr session_;
-        std::map<utility::Uuid, caf::actor> playheads_;
+        utility::UuidActor playhead_;
         caf::actor event_group_, change_event_group_;
         std::map<utility::Uuid, caf::actor> media_;
         std::map<utility::Uuid, caf::actor> container_;

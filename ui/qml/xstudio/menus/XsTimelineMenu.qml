@@ -23,6 +23,12 @@ XsMenu {
         mytext: qsTr("Focus Mode")
         enabled: false
     }
+
+    XsFlagMenu {
+        showChecked: false
+        onFlagSet: app_window.flagSelectedItems(hex)
+    }
+
     XsMenu {
           title: "Tracks"
           fakeDisabled: true
@@ -96,19 +102,18 @@ XsMenu {
 
     XsMenu {
           title: "Import"
-          fakeDisabled: true
           XsMenuItem {
               mytext: qsTr("OTIO Sequence...")
-              enabled: false
+              onTriggered: app_window.sessionFunction.importSequenceRequest()
           }
-          XsMenuItem {
-              mytext: qsTr("Avid AFF...")
-              enabled: false
-          }
-          XsMenuItem {
-              mytext: qsTr("XML...")
-              enabled: false
-          }
+          // XsMenuItem {
+          //     mytext: qsTr("Avid AFF...")
+          //     enabled: false
+          // }
+          // XsMenuItem {
+          //     mytext: qsTr("XML...")
+          //     enabled: false
+          // }
     }
     XsMenu {
           title: "Export"

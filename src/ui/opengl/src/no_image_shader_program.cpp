@@ -15,8 +15,15 @@ vec2 calc_pixel_coordinate(vec2 viewport_coordinate)
 }
 )";
 
-static const std::string colour_transforms = R"(
-vec4 colour_transforms(vec4 rgba_in)
+static const std::string linearise_colour_transform = R"(
+vec4 linearise_colour_transform(vec4 rgba_in)
+{
+    return rgba_in;
+}
+)";
+
+static const std::string display_colour_transform = R"(
+vec4 display_colour_transform(vec4 rgba_in)
 {
     return rgba_in;
 }
@@ -34,4 +41,4 @@ vec4 fetch_rgba_pixel(ivec2 image_coord)
 } // namespace
 
 NoImageShaderProgram::NoImageShaderProgram()
-    : GLShaderProgram(basic_vertex_shd, colour_transforms, basic_frag_shd) {}
+    : GLShaderProgram(basic_vertex_shd, basic_frag_shd, std::vector<std::string>{}, false) {}

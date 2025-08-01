@@ -2,6 +2,11 @@
 #pragma once
 #pragma once
 
+#pragma once
+
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/tag_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -85,7 +90,7 @@ namespace ui {
             void reset();
         };
 
-        class TagManagerUI : public QMLActor {
+        class TAG_QML_EXPORT TagManagerUI : public QMLActor {
 
             Q_OBJECT
 

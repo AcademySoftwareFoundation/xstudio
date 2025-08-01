@@ -2,28 +2,28 @@
 import xStudio 1.0
 
 XsMenu {
-    title: qsTr("Shotgun Playlists")
+    title: qsTr("ShotGrid Playlists")
 
     XsMenuItem {
-        mytext: qsTr("Create Selected Shotgun Playlists...")
-        onTriggered: session.object_map["ShotgunRoot"].create_playlist()
+        mytext: qsTr("Create Selected ShotGrid Playlists...")
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].create_playlist()
     }
 
     XsMenuItem {
-        mytext: qsTr("Update Selected Shotgun Playlists")
-        onTriggered: session.object_map["ShotgunRoot"].update_playlist()
+        mytext: qsTr("Update Selected ShotGrid Playlists")
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].update_playlist()
     }
 
     XsMenuItem {
-        mytext: qsTr("Refresh Selected Shotgun Playlists")
-        onTriggered: session.object_map["ShotgunRoot"].refresh_playlist()
+        mytext: qsTr("Refresh Selected ShotGrid Playlists")
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].refresh_playlist()
     }
 
     XsMenuSeparator {}
 
     XsMenuItem {
         mytext: qsTr("Authentication...")
-        onTriggered: session.object_map["ShotgunRoot"].do_authentication()
+        onTriggered: sessionFunction.object_map["ShotgunRoot"].do_authentication()
     }
     // XsMenuItem {
     //     mytext: qsTr("Preferences...")

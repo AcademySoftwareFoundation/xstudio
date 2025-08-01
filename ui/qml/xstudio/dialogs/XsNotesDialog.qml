@@ -20,9 +20,8 @@ XsWindow {
     centerOnOpen: true
 
     property var playerWidget: sessionWidget.playerWidget
-    property var playhead: playerWidget.playhead
-    property var selectionFilter: playerWidget.selectionFilter
-    property var currentMedia: playerWidget && playerWidget.playhead ? playerWidget.playhead.media : null
+    property var playhead: sessionWidget.viewport.playhead
+    property var currentMediaUuid: playhead ? playhead.mediaUuid : null
 
     XsWindowStateSaver
     {
@@ -30,92 +29,69 @@ XsWindow {
         windowName: "note_window"
     }
 
-    onPlayheadChanged: bookmarks_model.update()
+    // onPlayheadChanged: bookmarks_model.update()
 
-    Connections {
-        target: currentMedia
-        function onUuidChanged() {
-            bookmarks_model.update()
+    property var mediaOrder: updateMediaOrder()
+
+    function updateMediaOrder() {
+        let result = {}
+
+        if(app_window.screenSource.index.valid) {
+            let model = app_window.screenSource.index.model
+
+            // playlist, force media order up a level if needed.
+
+            let mediaind = model.index(0, 0, app_window.screenSource.index)
+
+            if(filterDepth.currentIndex == 2) {
+                if(model.get(app_window.screenSource.index, "typeRole") != "Playlist") {
+                    mediaind = model.index(0, 0, app_window.screenSource.index.parent.parent)
+                }
+            }
+
+            let count = model.rowCount(mediaind)
+            for(let i=0;i<count;i++) {
+                result[model.get(model.index(i,0,mediaind), "actorUuidRole")] = i
+            }
+
         }
+
+        return result
     }
-    Connections {
-        target: playerWidget.playlist
-        function onMediaOrderChanged() {
-            bookmarks_model.update()
-        }
+
+    function containsMedia(index, media_uuid) {
+        let model = index.model
+        return model.search_recursive(media_uuid, "actorUuidRole", index).valid
+    }
+
+    function getMediaIndex(media_uuid) {
+        let model = app_window.screenSource.index.model
+        let mediaind = model.index(0, 0, app_window.screenSource.index)
+        return model.search_recursive(media_uuid, "actorUuidRole", mediaind)
+    }
+
+    XsBookmarkFilterModel {
+        id: filter
+        sourceModel: app_window.bookmarkModel
+        mediaOrder: dialog.mediaOrder
+        currentMedia: dialog.currentMediaUuid
+        depth: filterDepth.currentIndex
     }
 
     DelegateModel {
         id: bookmarks_model
 
-        property var srcModel: session.bookmarks.bookmarkModel
-        property var lessThan: function(left, right) {
-            if(left.ownerRole == right.ownerRole)
-                return left.startTimecodeRole < right.startTimecodeRole
-
-            return (left.ownerRole in playerWidget.playlist.mediaOrder ? playerWidget.playlist.mediaOrder[left.ownerRole] : -1) < (right.ownerRole in playerWidget.playlist.mediaOrder ? playerWidget.playlist.mediaOrder[right.ownerRole] : -1)
-        }
-        property var filterAcceptsItem: function(item) {
-            if(depth == 1)
-                return item.ownerRole in playerWidget.playlist.mediaOrder
-            else if(depth == 2)
-                return true
-
-            return currentMedia ? item.ownerRole == currentMedia.uuid : false
-        }
-
-        property int depth: filterDepth.currentIndex
-
+        property var srcModel: filter
         onSrcModelChanged: model = srcModel
 
-        function update() {
-            if (items.count > 0) {
-                items.setGroups(0, items.count, "items");
-            }
-
-            // Step 1: Filter items
-            var ivisible = [];
-            for (var i = 0; i < items.count; ++i) {
-                var item = items.get(i);
-                if (filterAcceptsItem(item.model)) {
-                    ivisible.push(item);
-                }
-            }
-
-            // Step 2: Sort the list of visible items
-            ivisible.sort(function(a, b) {
-                return lessThan(a.model, b.model) ? -1 : 1;
-            });
-
-            // Step 3: Add all items to the visible group:
-            for (i = 0; i < ivisible.length; ++i) {
-                item = ivisible[i];
-                item.inIvisible = true;
-                if (item.ivisibleIndex !== i) {
-                    visibleItems.move(item.ivisibleIndex, i, 1);
-                }
-            }
-        }
-
-        items.onChanged: update()
-        onLessThanChanged: update()
-        onFilterAcceptsItemChanged: update()
-        onDepthChanged: update()
-
-        groups: DelegateModelGroup {
-            id: visibleItems
-
-            name: "ivisible"
-            includeByDefault: false
-        }
-
-        filterOnGroup: "ivisible"
-
         delegate: Rectangle {
+            id: delegate_rect
             property int pad_height: 6
             property int pad_width: 16
 
-            property var hasFocus: currentMedia && currentMedia.uuid == ownerRole && playerWidget.playhead.mediaFrame >= startFrameRole && playerWidget.playhead.mediaFrame <= endFrameRole
+            property var tmpCategoryRole: categoryRole
+
+            property var hasFocus: dialog.currentMediaUuid && dialog.currentMediaUuid == ownerRole && playhead.mediaFrame >= startFrameRole && playhead.mediaFrame <= endFrameRole
             color: hasFocus ? XsStyle.highlightColor : XsStyle.mainBackground
 
             // this triggers a QML bug..
@@ -136,17 +112,12 @@ XsWindow {
 
                 XsMenuItem {
                     mytext: qsTr("Remove Note")
-                    onTriggered: session.bookmarks.removeBookmarks([uuidRole])
+                    onTriggered: bookmarks_model.model.removeRows(index, 1, bookmarks_model.parentModelIndex())
                 }
+
                 XsMenuItem {
                     mytext: qsTr("Remove All Notes")
-                    onTriggered: {
-                        let n = []
-                        for(let i=0; i< visibleItems.count; i++) {
-                            n.push(visibleItems.get(i).model.uuidRole)
-                        }
-                        session.bookmarks.removeBookmarks(n)
-                    }
+                    onTriggered: bookmarks_model.model.removeRows(0, bookmarks_model.count, bookmarks_model.parentModelIndex())
                 }
             }
 
@@ -189,24 +160,20 @@ XsWindow {
                         anchors.fill: parent
                         acceptedButtons: Qt.LeftButton
                         onClicked: {
-                            if(currentMedia.uuid == ownerRole ) {
-                                playerWidget.playhead.frame = (playerWidget.playhead.frame - playerWidget.playhead.mediaFrame) + startFrameRole
-                            } else if(playerWidget.playlist.contains_media(ownerRole)) {
-                                if(selectionFilter.selectedMediaUuids.includes(ownerRole)){
+                            if(currentMediaUuid == ownerRole ) {
+                                playhead.frame = (playhead.frame - playhead.mediaFrame) + startFrameRole
+                            } else if(containsMedia(app_window.screenSource.index, ownerRole)) {
+
+                                let mind = getMediaIndex(ownerRole)
+                                // console.log(ownerRole, mind, app_window.mediaSelectionModel.isSelected(mind))
+
+                                if(app_window.mediaSelectionModel.isSelected(mind)){
                                 } else {
-                                    selectionFilter.newSelection([ownerRole])
+                                    app_window.mediaSelectionModel.select(mind, ItemSelectionModel.ClearAndSelect)
                                 }
                                 delayJump.start()
                             } else {
-                                for (const x of session.getPlaylists()) {
-                                    if(x.contains_media(ownerRole)) {
-                                        session.switchOnScreenSource(x.uuid)
-                                        session.setSelection([x.uuid])
-                                        selectionFilter.newSelection([ownerRole])
-                                        delayJump.start()
-                                        break
-                                    }
-                                }
+                                // not implemented
                             }
                         }
                         hoverEnabled: true
@@ -275,8 +242,8 @@ XsWindow {
                             // decorators
                             Repeater {
                                 model: (
-                                    session.tags[uuidRole] ? (
-                                        session.tags[uuidRole]["Decorator"] ? session.tags[uuidRole]["Decorator"].tags : null
+                                    app_window.sessionModel.tags[uuidRole] ? (
+                                        app_window.sessionModel.tags[uuidRole]["Decorator"] ? app_window.sessionModel.tags[uuidRole]["Decorator"].tags : null
                                     )
                                     : null
                                 )
@@ -326,6 +293,7 @@ XsWindow {
                             contentWidth: edit.paintedWidth
                             contentHeight: edit.paintedHeight
                             clip: true
+                            boundsMovement: Flickable.StopAtBounds
 
                             function ensureVisible(r) {
                                 if (contentX >= r.x)
@@ -352,7 +320,8 @@ XsWindow {
                                 id: edit
                                 placeholderText: "Enter note here..."
                                 width: flick.width
-                                height: flick.height
+                                height: lineCount<=6? flick.height : flick.height*lineCount
+                                selectByMouse: true
                                 onCursorRectangleChanged: flick.ensureVisible(cursorRectangle)
                                 verticalAlignment: Qt.AlignTop
                                 horizontalAlignment: Qt.AlignLeft
@@ -423,7 +392,7 @@ XsWindow {
                                 anchors.margins: 1
                                 text: "X"
                                 palette.button: "transparent"
-                                onClicked: session.bookmarks.removeBookmarks([uuidRole])
+                                onClicked: bookmarks_model.model.removeRows(index, 1, bookmarks_model.parentModelIndex())
                                 tooltipTitle:"Notes"
                                 tooltip:"Remove Note."
                                 // horizontalAlignment: TextEdit.AlignHCenter
@@ -488,7 +457,7 @@ XsWindow {
                                 anchors.margins: 1
                                 text: "Set"
                                 palette.button: "transparent"
-                                onClicked: startFrameRole = playerWidget.playhead.mediaFrame
+                                onClicked: startFrameRole = playhead.mediaFrame
                                 tooltipTitle:"Notes"
                                 tooltip:"Set In Point."
                                 // horizontalAlignment: TextEdit.AlignHCenter
@@ -535,7 +504,7 @@ XsWindow {
                                 anchors.margins: 1
                                 text: "Set"
                                 palette.button: "transparent"
-                                onClicked: endFrameRole = playerWidget.playhead.mediaFrame
+                                onClicked: endFrameRole = playhead.mediaFrame
                                 tooltipTitle:"Notes"
                                 tooltip:"Set Out Point."
                             }
@@ -582,9 +551,9 @@ XsWindow {
                                 tooltipTitle:"Notes"
                                 tooltip:"Set Loop Range."
                                 onClicked: {
-                                    playerWidget.playhead.loopStart = startFrameRole + playerWidget.playhead.sourceOffsetFrames
-                                    playerWidget.playhead.loopEnd = endFrameRole + playerWidget.playhead.sourceOffsetFrames
-                                    playerWidget.playhead.useLoopRange = true
+                                    playhead.loopStart = startFrameRole + playhead.sourceOffsetFrames
+                                    playhead.loopEnd = endFrameRole + playhead.sourceOffsetFrames
+                                    playhead.useLoopRange = true
                                 }
                             }
                         }
@@ -597,42 +566,58 @@ XsWindow {
                             Layout.preferredHeight: author.height
 
                             XsComboBox {
-                                function find(model, criteria) {
-                                    for(var i = 0; i < model.length; ++i) if (criteria(model[i])) return model[i]
-                                    return null
-                                }
-                                function findIndex(model, criteria) {
-                                    for(var i = 0; i < model.length; ++i) if (criteria(model[i])) return i
-                                    return null
-                                }
-
+                                id: type_combo
                                 anchors.fill: parent
                                 anchors.margins: 1
-                                bgColorNormal: popupOptions.opened? palette.base : colourRole ? Qt.tint(XsStyle.mainBackground, "#20" + colourRole.substring(3)) :"transparent"
+                                bgColorNormal: popupOptions.opened ? palette.base : colourRole ? Qt.tint(XsStyle.mainBackground, "#20" + colourRole.substring(3)) :"transparent"
                                 // color: XsStyle.highlightColor
-                                model: session.bookmarks.categories
-                                textRole: "text"
+                                model: app_window.bookmark_categories
+                                onModelChanged: {
+                                    init = true
+                                }
+                                textRole: "textRole"
                                 displayText: currentText==""? "Note Type":currentText
                                 textColorNormal: popupOptions.opened?"light grey": currentText==""?"grey":"light grey"
-                            
-                                currentIndex: {
-                                    let ind = findIndex(model, function(item) {
-                                        return item.value === categoryRole
-                                    })
-                                    if(ind === null) {
-                                        return 0
-                                    }
-                                    return ind
-                                }
-
                                 font.family: XsStyle.controlTitleFontFamily
                                 font.hintingPreference: Font.PreferNoHinting
+
+                                property bool init: false
+
+                                function updateFromModel() {
+                                    let index = model.search(categoryRole, "valueRole")
+                                    if(index.valid && currentIndex != index.row) {
+                                        init = true
+                                        currentIndex = index.row
+                                    }
+                                }
+                                Component.onCompleted: updateFromModel()
+
+                                Connections {
+                                    target: delegate_rect
+                                    function onTmpCategoryRoleChanged() {
+                                        type_combo.updateFromModel()
+                                    }
+                                }
+
                                 onCurrentIndexChanged: {
-                                    if(categoryRole !== undefined && model[currentIndex].value !== categoryRole) {
-                                        categoryRole = model[currentIndex].value
-                                        colourRole = model[currentIndex].colour
-                                        session.bookmark_detail.colour = model[currentIndex].colour
-                                        session.bookmark_detail.category = model[currentIndex].value
+                                    if(init) {
+                                        init = false
+                                    } else if(currentIndex !== -1) {
+                                        console.log(currentIndex)
+                                        let ind = model.index(currentIndex, 0)
+                                        let col = model.get(ind, "colourRole")
+                                        let cat = model.get(ind, "valueRole")
+                                        if(col == undefined)
+                                            col = ""
+
+                                        if(ind.valid && cat !== categoryRole) {
+
+                                            categoryRole = cat
+                                            colourRole = col
+
+                                            preferences.note_category.value = cat
+                                            preferences.note_colour.value = col
+                                        }
                                     }
                                 }
                             }
@@ -684,7 +669,7 @@ XsWindow {
 
                 RowLayout {
                     anchors.fill: parent
-                    property string filename: currentMedia && currentMedia.mediaSource ? currentMedia.mediaSource.fileName : "No Selection"
+                    property string filename: app_window.mediaImageSource.fileName ? app_window.mediaImageSource.fileName : "No Selection"
 
                     XsRoundButton {
                         id: note
@@ -699,21 +684,15 @@ XsWindow {
                         Layout.topMargin: 4
                         Layout.bottomMargin: 4
                         onClicked: {
-                            if(currentMedia) {
-                                session.bookmark_detail.start = playerWidget.playhead.mediaSecond
-                                session.bookmark_detail.duration = 0
-                                session.bookmark_detail.subject = filename
-
-                                session.add_note(currentMedia, session.bookmark_detail)
-                                root.forceActiveFocus()
-                            }
+                            app_window.sessionFunction.addNote()
+                            root.forceActiveFocus()
                         }
                     }
                     XsLabel {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.margins: 2
-                        text: filename
+                        text: parent.filename
                         horizontalAlignment: TextEdit.AlignHCenter
                         verticalAlignment: TextEdit.AlignVCenter
                         elide: Text.ElideMiddle
@@ -737,7 +716,9 @@ XsWindow {
                         Layout.topMargin: 4
                         Layout.bottomMargin: 4
                         Layout.preferredHeight: note.height
-                        model: ["Media", "Playlist"]
+                        model: ["Media", "Media List", "Playlist", "Session"]
+                        currentIndex: preferences.note_depth.value
+                        onCurrentIndexChanged: preferences.note_depth.value = currentIndex
                     }
                 }
             }
@@ -773,15 +754,8 @@ XsWindow {
                         cacheBuffer: 400
 
                         Connections {
-                            target: playerWidget.playerWidget ? playerWidget.playhead : null
+                            target: playerWidget.playerWidget ? playhead : null
                             function onMediaFrameChanged() {
-                                positionTimer.start()
-                            }
-                        }
-
-                        Connections {
-                            target: session.bookmarks
-                            function onNewBookmark() {
                                 positionTimer.start()
                             }
                         }
@@ -799,15 +773,6 @@ XsWindow {
                             repeat: false
                             onTriggered: view.jump()
                         }
-
-                        // add: Transition {
-                        //     NumberAnimation { property: "opacity"; from: 0; to: 1.0; duration: 400 }
-                        //     NumberAnimation { property: "scale"; from: 0; to: 1.0; duration: 400 }
-                        // }
-                        // displaced: Transition {
-                        //     NumberAnimation { properties: "x,y"; duration: 1000 }
-                        // }
-                        // try and focus on items as the cursor changes..
                     }
                 }
             }

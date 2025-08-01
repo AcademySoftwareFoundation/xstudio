@@ -4,6 +4,8 @@
 #include <caf/policy/select_all.hpp>
 #include <tuple>
 
+#include <zstr.hpp>
+
 #include "xstudio/atoms.hpp"
 #include "xstudio/bookmark/bookmarks_actor.hpp"
 #include "xstudio/broadcast/broadcast_actor.hpp"
@@ -160,6 +162,7 @@ void MediaCopyActor::copy_media_to(
 
         // we should have target..
         if (not target) {
+            spdlog::warn("{} {}", __PRETTY_FUNCTION__, "Invalid destination uuid");
             rp.deliver(make_error(xstudio_error::error, "Invalid destination uuid"));
             return;
         }
@@ -313,9 +316,13 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
                 [=](UuidUuidActor playlist) {
                     for (const auto &i : uris_) {
                         fs::path p(uri_to_posix_path(i));
-                        if (p.extension() != ".xst")
+                        if (not is_session(p.string()))
                             anon_send(
-                                playlist.second.actor(), playlist::add_media_atom_v, i, true);
+                                playlist.second.actor(),
+                                playlist::add_media_atom_v,
+                                i,
+                                true,
+                                Uuid());
                     }
                 },
                 [=](error &err) mutable {
@@ -327,18 +334,28 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
         for (const auto &i : uris_) {
             fs::path p(uri_to_posix_path(i));
             if (fs::is_directory(p)) {
+#ifdef _WIN32
+                request(
+                    session_, infinite, add_playlist_atom_v, std::string(p.filename().string()))
+#else
                 request(session_, infinite, add_playlist_atom_v, std::string(p.filename()))
+#endif
+
                     .then(
                         [=](UuidUuidActor playlist) {
                             anon_send(
-                                playlist.second.actor(), playlist::add_media_atom_v, i, true);
+                                playlist.second.actor(),
+                                playlist::add_media_atom_v,
+                                i,
+                                true,
+                                Uuid());
                         },
                         [=](error &err) mutable {
                             spdlog::error("{} {}", __PRETTY_FUNCTION__, to_string(err));
                         });
 
             } else {
-                if (p.extension() == ".xst")
+                if (is_session(p.string()))
                     anon_send(session_, merge_session_atom_v, i);
                 else
                     has_files = true;
@@ -351,12 +368,13 @@ bool LoadUrisActor::load_uris(const bool single_playlist) {
                     [=](UuidUuidActor playlist) {
                         for (const auto &i : uris_) {
                             fs::path p(uri_to_posix_path(i));
-                            if (!fs::is_directory(p) and p.extension() != ".xst")
+                            if (!fs::is_directory(p) and not is_session(p.string()))
                                 anon_send(
                                     playlist.second.actor(),
                                     playlist::add_media_atom_v,
                                     i,
-                                    true);
+                                    true,
+                                    Uuid());
                         }
                     },
                     [=](error &err) mutable {
@@ -420,20 +438,6 @@ SessionActor::SessionActor(
     }
 
     init();
-
-    if (jsn.find("colour_pipeline") != jsn.end()) {
-        auto colour_pipe_manager =
-            system().registry().template get<caf::actor>(colour_pipeline_registry);
-        request(colour_pipe_manager, infinite, colour_pipeline::get_colour_pipeline_atom_v)
-            .then(
-                [=](caf::actor cpipe) mutable {
-                    anon_send(
-                        cpipe,
-                        module::deserialise_atom_v,
-                        utility::JsonStore(jsn["colour_pipeline"]));
-                },
-                [=](error &err) mutable { spdlog::error("{}", to_string(err)); });
-    }
 
     check_media_hook_plugin_version(jsn, path);
 }
@@ -661,7 +665,8 @@ caf::message_handler SessionActor::message_handler() {
                 atom,
                 base_.filepath(),
                 std::vector<utility::Uuid>(),
-                static_cast<size_t>(0));
+                static_cast<size_t>(0),
+                true);
         },
 
 
@@ -671,25 +676,50 @@ caf::message_handler SessionActor::message_handler() {
                 atom,
                 path,
                 std::vector<utility::Uuid>(),
-                static_cast<size_t>(0));
+                static_cast<size_t>(0),
+                true);
         },
 
         [=](global_store::save_atom atom, const caf::uri &path, const size_t hash) {
             delegate(
-                actor_cast<caf::actor>(this), atom, path, std::vector<utility::Uuid>(), hash);
+                actor_cast<caf::actor>(this),
+                atom,
+                path,
+                std::vector<utility::Uuid>(),
+                hash,
+                true);
+        },
+
+        [=](global_store::save_atom atom,
+            const caf::uri &path,
+            const size_t hash,
+            const bool update_path) {
+            delegate(
+                actor_cast<caf::actor>(this),
+                atom,
+                path,
+                std::vector<utility::Uuid>(),
+                hash,
+                update_path);
         },
 
         [=](global_store::save_atom atom,
             const caf::uri &path,
             const std::vector<utility::Uuid> &containers) {
             delegate(
-                actor_cast<caf::actor>(this), atom, path, containers, static_cast<size_t>(0));
+                actor_cast<caf::actor>(this),
+                atom,
+                path,
+                containers,
+                static_cast<size_t>(0),
+                false);
         },
 
         [=](global_store::save_atom,
             const caf::uri &path,
             const std::vector<utility::Uuid> &containers,
-            const size_t hash) -> result<size_t> {
+            const size_t hash,
+            const bool update_path) -> result<size_t> {
             if (path.path().empty())
                 return make_error(xstudio_error::error, "Save path invalid.");
 
@@ -701,7 +731,7 @@ caf::message_handler SessionActor::message_handler() {
                     utility::serialise_atom_v)
                     .then(
                         [=](const utility::JsonStore &js) mutable {
-                            save_json_to(rp, js, path, hash);
+                            save_json_to(rp, js, path, update_path, hash);
                         },
                         [=](error &err) mutable { rp.deliver(std::move(err)); });
             } else {
@@ -712,7 +742,7 @@ caf::message_handler SessionActor::message_handler() {
                     containers)
                     .then(
                         [=](const utility::JsonStore &js) mutable {
-                            save_json_to(rp, js, path, hash);
+                            save_json_to(rp, js, path, false, hash);
                         },
                         [=](error &err) mutable { rp.deliver(std::move(err)); });
             }
@@ -853,10 +883,7 @@ caf::message_handler SessionActor::message_handler() {
             auto rp = make_response_promise<UuidVector>();
 
             try {
-                JsonStore js;
-                std::ifstream i(uri_to_posix_path(path));
-                i >> js;
-                auto session = spawn<session::SessionActor>(js, path);
+                auto session = spawn<session::SessionActor>(utility::open_session(path), path);
                 rp.delegate(actor_cast<caf::actor>(this), merge_session_atom_v, session);
             } catch (const std::exception &err) {
                 spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
@@ -1154,7 +1181,8 @@ caf::message_handler SessionActor::message_handler() {
                     event_group_,
                     utility::event_atom_v,
                     playlist::reflag_container_atom_v,
-                    uuid);
+                    uuid,
+                    flag);
             }
             return result;
         },
@@ -1229,7 +1257,8 @@ caf::message_handler SessionActor::message_handler() {
                     event_group_,
                     utility::event_atom_v,
                     playlist::rename_container_atom_v,
-                    uuid);
+                    uuid,
+                    name);
             }
             return result;
         },
@@ -1262,6 +1291,8 @@ caf::message_handler SessionActor::message_handler() {
         [=](utility::event_atom, playlist::add_media_atom, const UuidActor &ua) {
             send(event_group_, utility::event_atom_v, playlist::add_media_atom_v, ua);
         },
+
+        [=](utility::event_atom, playlist::remove_media_atom, const UuidVector &) {},
 
         // still exist ?
         [=](utility::event_atom, playlist::remove_container_atom, const std::vector<Uuid> &) {},
@@ -1310,7 +1341,10 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} global_store {}",
+                                        __PRETTY_FUNCTION__,
+                                        to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1321,7 +1355,8 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} store {}", __PRETTY_FUNCTION__, to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1332,7 +1367,8 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} bookmarks {}", __PRETTY_FUNCTION__, to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1343,7 +1379,8 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} tags {}", __PRETTY_FUNCTION__, to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1357,34 +1394,10 @@ caf::message_handler SessionActor::message_handler() {
                                     check_save_serialise_payload(stores, rp);
                                 },
                                 [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
-                                    rp.deliver(std::move(err));
-                                });
-
-                        request(
-                            system().registry().template get<caf::actor>(
-                                colour_pipeline_registry),
-                            infinite,
-                            colour_pipeline::get_colour_pipeline_atom_v)
-                            .then(
-                                [=](caf::actor cpipe) mutable {
-                                    if (cpipe) {
-                                        request(cpipe, infinite, utility::serialise_atom_v)
-                                            .then(
-                                                [=](const JsonStore &result) mutable {
-                                                    (*stores)["colour_pipeline"] = result;
-                                                    check_save_serialise_payload(stores, rp);
-                                                },
-                                                [=](error &err) mutable {
-                                                    rp.deliver(std::move(err));
-                                                });
-                                    } else {
-                                        (*stores)["colour_pipeline"] = JsonStore();
-                                        check_save_serialise_payload(stores, rp);
-                                    }
-                                },
-                                [=](error &err) mutable {
-                                    spdlog::warn("{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                    spdlog::warn(
+                                        "{} media_hook_versions {}",
+                                        __PRETTY_FUNCTION__,
+                                        to_string(err));
                                     rp.deliver(std::move(err));
                                 });
 
@@ -1404,7 +1417,9 @@ caf::message_handler SessionActor::message_handler() {
                                     },
                                     [=](error &err) mutable {
                                         spdlog::warn(
-                                            "{} {}", __PRETTY_FUNCTION__, to_string(err));
+                                            "{} actors {}",
+                                            __PRETTY_FUNCTION__,
+                                            to_string(err));
                                         rp.deliver(std::move(err));
                                     });
                         }
@@ -1477,6 +1492,18 @@ caf::message_handler SessionActor::message_handler() {
             } catch (const std::exception &err) {
                 return make_error(xstudio_error::error, err.what());
             }
+        },
+        [=](ui::open_quickview_window_atom,
+            const utility::UuidActorVector &media_items,
+            std::string compare_mode,
+            bool force) {
+            // forward to the studio actor
+            anon_send(
+                home_system().registry().get<caf::actor>(studio_registry),
+                ui::open_quickview_window_atom_v,
+                media_items,
+                compare_mode,
+                force);
         }};
 }
 
@@ -1497,8 +1524,6 @@ void SessionActor::check_save_serialise_payload(
         return;
     if (not payload->count("actors"))
         return;
-    if (not payload->count("colour_pipeline"))
-        return;
 
     JsonStore jsn;
     jsn["_Application_"]       = "xStudio";
@@ -1509,7 +1534,6 @@ void SessionActor::check_save_serialise_payload(
     jsn["bookmarks"]           = (*payload)["bookmarks"];
     jsn["tags"]                = (*payload)["tags"];
     jsn["media_hook_versions"] = (*payload)["media_hook_versions"];
-    jsn["colour_pipeline"]     = (*payload)["colour_pipeline"];
 
     rp.deliver(jsn);
 }
@@ -1853,51 +1877,80 @@ void SessionActor::save_json_to(
     caf::typed_response_promise<size_t> &rp,
     const utility::JsonStore &js,
     const caf::uri &path,
+    const bool update_path,
     const size_t hash) {
-    bool update_mtime = false;
-    size_t new_hash   = 0;
+
+    size_t new_hash = 0;
+
     try {
         auto data = js.dump(2);
 
         auto resolve_link = false;
         new_hash          = std::hash<std::string>{}(data);
+
+        // no change in hash, so skip save (autosave)
         if (new_hash == hash) {
             return rp.deliver(new_hash);
         }
 
+        // fix something ?
         auto ppath = utility::posix_path_to_uri(utility::uri_to_posix_path(path));
 
         // try and save, we are already looking at this file
-        if (ppath.path() == base_.filepath().path()) {
+        if (update_path) {
             // same path as session, are we allowed ?
             resolve_link = true;
-            update_mtime = true;
         }
 
         auto save_path = uri_to_posix_path(ppath);
         if (resolve_link && fs::exists(save_path) && fs::is_symlink(save_path))
+#ifdef _WIN32
+            save_path = fs::canonical(save_path).string();
+#else
             save_path = fs::canonical(save_path);
+#endif
 
-        // this maybe a symlink in which case we should resolve it.
-        std::ofstream o(save_path + ".tmp");
-        try {
-            o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            // if(not o.is_open())
-            //     throw std::runtime_error();
-            o << std::setw(4) << data << std::endl;
-            o.close();
-        } catch (const std::exception &) {
-            // remove failed file
-            if (o.is_open()) {
+
+        // compress data.
+        if (to_lower(path_to_string(fs::path(save_path).extension())) == ".xsz") {
+            zstr::ofstream o(save_path + ".tmp");
+            try {
+                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                // if(not o.is_open())
+                //     throw std::runtime_error();
+                o << std::setw(4) << data << std::endl;
                 o.close();
-                fs::remove(save_path + ".tmp");
+            } catch (const std::exception &) {
+                // remove failed file
+                if (o.is_open()) {
+                    o.close();
+                    fs::remove(save_path + ".tmp");
+                }
+                throw std::runtime_error("Failed to open file");
             }
-            throw std::runtime_error("Failed to open file");
+        } else {
+            // this maybe a symlink in which case we should resolve it.
+            std::ofstream o(save_path + ".tmp");
+            try {
+                o.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                // if(not o.is_open())
+                //     throw std::runtime_error();
+                o << std::setw(4) << data << std::endl;
+                o.close();
+            } catch (const std::exception &) {
+                // remove failed file
+                if (o.is_open()) {
+                    o.close();
+                    fs::remove(save_path + ".tmp");
+                }
+                throw std::runtime_error("Failed to open file");
+            }
         }
+
         // rename tmp to final name
         fs::rename(save_path + ".tmp", save_path);
 
-        if (update_mtime) {
+        if (update_path) {
             base_.set_filepath(path);
             send(
                 event_group_,

@@ -1,6 +1,30 @@
 {
 	"core": {
 		"bookmark":{
+			"note_category": {
+				"path": "/core/bookmark/note_category",
+				"default_value": "default",
+				"value": "default",
+				"description": "Default note category.",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"note_colour": {
+				"path": "/core/bookmark/note_colour",
+				"default_value": "",
+				"value": "",
+				"description": "Default note colour.",
+				"datatype": "string",
+				"context": ["APPLICATION"]
+			},
+			"note_depth": {
+				"path": "/core/bookmark/note_depth",
+				"default_value": 0,
+				"value": 0,
+				"description": "Default note depth.",
+				"datatype": "int",
+				"context": ["APPLICATION"]
+			},
 			"category": {
 				"path": "/core/bookmark/category",
 				"default_value": [

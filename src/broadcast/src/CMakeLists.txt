@@ -1,4 +1,3 @@
-
 SET(LINK_DEPS
 	xstudio::utility
 	caf::core

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/viewport_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -11,7 +14,6 @@ CAF_PUSH_WARNINGS
 CAF_POP_WARNINGS
 
 #include "xstudio/ui/qml/helper_ui.hpp"
-#include "xstudio/ui/qml/media_ui.hpp"
 #include "xstudio/ui/keyboard.hpp"
 #include "xstudio/utility/frame_time.hpp"
 
@@ -22,7 +24,8 @@ namespace utility {
 namespace ui {
     namespace qml {
 
-        class HotkeysUI : public caf::mixin::actor_object<QAbstractListModel> {
+        class VIEWPORT_QML_EXPORT HotkeysUI
+            : public caf::mixin::actor_object<QAbstractListModel> {
 
             Q_OBJECT
 
@@ -64,7 +67,7 @@ namespace ui {
         };
 
 
-        class HotkeyUI : public QMLActor {
+        class VIEWPORT_QML_EXPORT HotkeyUI : public QMLActor {
 
             Q_OBJECT
 
@@ -149,6 +152,36 @@ namespace ui {
 
             utility::Uuid hotkey_uuid_;
         };
+
+        class VIEWPORT_QML_EXPORT HotkeyReferenceUI : public QMLActor {
+
+            Q_OBJECT
+
+            Q_PROPERTY(QString sequence READ sequence NOTIFY sequenceChanged)
+            Q_PROPERTY(
+                QUuid hotkeyUuid READ hotkeyUuid WRITE setHotkeyUuid NOTIFY hotkeyUuidChanged)
+
+          public:
+            explicit HotkeyReferenceUI(QObject *parent = nullptr);
+            ~HotkeyReferenceUI() override = default;
+
+            void init(caf::actor_system &system) override;
+
+            void setHotkeyUuid(const QUuid &uuid);
+
+            [[nodiscard]] const QUuid &hotkeyUuid() const { return uuid_; }
+            [[nodiscard]] const QString &sequence() const { return sequence_; }
+
+          signals:
+
+            void sequenceChanged();
+            void hotkeyUuidChanged();
+
+          private:
+            QString sequence_;
+            QUuid uuid_;
+        };
+
     } // namespace qml
 } // namespace ui
 } // namespace xstudio

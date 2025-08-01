@@ -13,10 +13,18 @@ using namespace xstudio;
 
 namespace {} // namespace
 
-QMLViewportRenderer::QMLViewportRenderer(QObject *parent, const bool is_primary_viewer)
-    : QMLActor(parent), m_window(nullptr), is_primary_viewer_(is_primary_viewer) {
+// N.B. we don't pass in 'parent' as the parent of the base class. The owner
+// of this class must schedule its destruction directly rather than rely on
+// Qt object child destruction.
+QMLViewportRenderer::QMLViewportRenderer(QObject *parent, const int viewport_index)
+    : QMLActor(nullptr), m_window(nullptr), viewport_index_(viewport_index) {
+
+    viewport_qml_item_ = dynamic_cast<QMLViewport *>(parent);
+
     init_system();
 }
+
+QMLViewportRenderer::~QMLViewportRenderer() { delete viewport_renderer_; }
 
 static QQuickWindow *win = nullptr;
 
@@ -66,7 +74,9 @@ void QMLViewportRenderer::paint() {
     }
 }
 
-void QMLViewportRenderer::frameSwapped() { viewport_renderer_->framebuffer_swapped(); }
+void QMLViewportRenderer::frameSwapped() {
+    viewport_renderer_->framebuffer_swapped(utility::clock::now());
+}
 
 void QMLViewportRenderer::setWindow(QQuickWindow *window) { m_window = window; }
 
@@ -75,7 +85,8 @@ void QMLViewportRenderer::setSceneCoordinates(
     const QPointF topright,
     const QPointF bottomright,
     const QPointF bottomleft,
-    const QSize sceneSize) {
+    const QSize sceneSize,
+    const float devicePixelRatio) {
 
     // this is called on every draw, as Qt does not provide a suitable
     // signal to detect when the viewport coordinates in the top level
@@ -91,7 +102,8 @@ void QMLViewportRenderer::setSceneCoordinates(
             Imath::V2f(topright.x(), topright.y()),
             Imath::V2f(bottomright.x(), bottomright.y()),
             Imath::V2f(bottomleft.x(), bottomleft.y()),
-            Imath::V2i(sceneSize.width(), sceneSize.height()));
+            Imath::V2i(sceneSize.width(), sceneSize.height()),
+            devicePixelRatio);
     }
 }
 
@@ -107,12 +119,12 @@ void QMLViewportRenderer::init_system() {
 
     /* Here we create the all important Viewport class that actually draws images to the screen
      */
-    viewport_renderer_.reset(new ui::viewport::Viewport(
+    viewport_renderer_ = new ui::viewport::Viewport(
         jsn,
         as_actor(),
-        is_primary_viewer_,
+        viewport_index_,
         ui::viewport::ViewportRendererPtr(
-            new opengl::OpenGLViewportRenderer(is_primary_viewer_, false))));
+            new opengl::OpenGLViewportRenderer(viewport_index_, false)));
 
     /* Provide a callback so the Viewport can tell this class when some property of the viewport
     has changed and such events can be propagated to other QT components, for example */
@@ -120,6 +132,12 @@ void QMLViewportRenderer::init_system() {
         receive_change_notification(std::forward<decltype(PH1)>(PH1));
     };
     viewport_renderer_->set_change_callback(callback);
+
+    // update PlayheadUI object owned by the 'QMLViewport'
+    auto *vp = dynamic_cast<QMLViewport *>(parent());
+    if (vp) {
+        vp->setPlayhead(viewport_renderer_->playhead());
+    }
 
     /* The Viewport object provides a message handler that will process update events like new
     frame buffers coming from the playhead and so-on. Instead of being an actor itself, the
@@ -130,20 +148,50 @@ void QMLViewportRenderer::init_system() {
     through QTs event loop thread rather than a regular caf thread.*/
     set_message_handler([=](caf::actor_companion * /*self*/) -> caf::message_handler {
         return caf::message_handler(
-                   {
-                       [=](viewport_playhead_atom, caf::actor playhead) -> bool {
-                           QMLViewport *vp = dynamic_cast<QMLViewport *>(parent());
-                           if (vp) {
-                               auto new_playhead = new PlayheadUI(this);
-                               new_playhead->initSystem(this);
-                               new_playhead->set_backend(playhead);
-                               vp->setPlayhead(new_playhead);
-                           } else {
-                               viewport_renderer_->set_playhead(playhead);
-                           }
-                           return true;
-                       },
-                   })
+                   [=](quickview_media_atom,
+                       const std::vector<utility::UuidActor> &media_items,
+                       const std::string &compare_mode) {
+                       // the viewport has been sent a quickview request message - we
+                       // use qsignal to pass this up to the QMLViewport object as
+                       // a repeated signal that can be used in the QML engine to
+                       // execute the necessary QML code to launch a new light viewer
+                       // to show the media
+                       QStringList media;
+                       for (auto &media_item : media_items) {
+                           media.append(
+                               QStringFromStd(actorToString(system(), media_item.actor())));
+                       }
+                       emit quickViewBackendRequest(media, QStringFromStd(compare_mode));
+                   },
+                   [=](quickview_media_atom,
+                       const std::vector<utility::UuidActor> &media_items,
+                       const std::string &compare_mode,
+                       const int x_position,
+                       const int y_position,
+                       const int x_size,
+                       const int y_size) {
+                       // the viewport has been sent a quickview request message - we
+                       // use qsignal to pass this up to the QMLViewport object as
+                       // a repeated signal that can be used in the QML engine to
+                       // execute the necessary QML code to launch a new light viewer
+                       // to show the media
+                       QStringList media;
+                       for (auto &media_item : media_items) {
+                           media.append(
+                               QStringFromStd(actorToString(system(), media_item.actor())));
+                       }
+                       emit quickViewBackendRequestWithSize(
+                           media,
+                           QStringFromStd(compare_mode),
+                           QPoint(x_position, y_position),
+                           QSize(x_size, y_size));
+                   },
+                   [=](viewport::render_viewport_to_image_atom,
+                       std::string snapshotRenderResult) {
+                       emit snapshotRequestResult(QStringFromStd(snapshotRenderResult));
+                   }
+
+                   )
             .or_else(viewport_renderer_->message_handler());
     });
 
@@ -227,7 +275,7 @@ void QMLViewportRenderer::rawKeyDown(const int key, const bool auto_repeat) {
         keypress_monitor_,
         ui::keypress_monitor::key_down_atom_v,
         key,
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"),
+        viewport_renderer_->name(),
         auto_repeat);
 }
 
@@ -236,7 +284,7 @@ void QMLViewportRenderer::keyboardTextEntry(const QString text) {
         keypress_monitor_,
         ui::keypress_monitor::text_entry_atom_v,
         text.toStdString(),
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"));
+        viewport_renderer_->name());
 }
 
 void QMLViewportRenderer::rawKeyUp(const int key) {
@@ -245,14 +293,14 @@ void QMLViewportRenderer::rawKeyUp(const int key) {
         keypress_monitor_,
         ui::keypress_monitor::key_up_atom_v,
         key,
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"));
+        viewport_renderer_->name());
 }
 
 void QMLViewportRenderer::allKeysUp() {
     anon_send(
         keypress_monitor_,
         ui::keypress_monitor::all_keys_up_atom_v,
-        std::string(is_primary_viewer_ ? "primary_viewport" : "popout_viewport"));
+        viewport_renderer_->name());
 }
 
 void QMLViewportRenderer::setScale(const float s) {
@@ -267,6 +315,21 @@ float QMLViewportRenderer::scale() { return viewport_renderer_->scale(); }
 
 QVector2D QMLViewportRenderer::translate() {
     return QVector2D(viewport_renderer_->pan().x, viewport_renderer_->pan().y);
+}
+
+void QMLViewportRenderer::quickViewSource(QStringList mediaActors, QString compareMode) {
+
+    std::vector<caf::actor> media;
+    for (const auto &media_actor_as_string : mediaActors) {
+        caf::actor media_actor =
+            actorFromString(system(), StdFromQString(media_actor_as_string));
+        if (media_actor) {
+            media.push_back(media_actor);
+        }
+    }
+    if (!media.empty()) {
+        anon_send(self(), quickview_media_atom_v, media, StdFromQString(compareMode));
+    }
 }
 
 void QMLViewportRenderer::receive_change_notification(Viewport::ChangeCallbackId id) {
@@ -287,6 +350,12 @@ void QMLViewportRenderer::receive_change_notification(Viewport::ChangeCallbackId
     } else if (id == Viewport::ChangeCallbackId::TranslationChanged) {
         emit translateChanged(
             QVector2D(viewport_renderer_->pan().x, viewport_renderer_->pan().y));
+    } else if (id == Viewport::ChangeCallbackId::PlayheadChanged) {
+        if (viewport_qml_item_) {
+            viewport_qml_item_->setPlayhead(viewport_renderer_->playhead());
+        }
+    } else if (id == Viewport::ChangeCallbackId::NoAlphaChannelChanged) {
+        emit noAlphaChannelChanged(viewport_renderer_->no_alpha_channel());
     }
 }
 
@@ -297,10 +366,54 @@ void QMLViewportRenderer::setScreenInfos(
     QString serialNumber,
     double refresh_rate) {
     viewport_renderer_->set_screen_infos(
-        is_primary_viewer_,
         name.toStdString(),
         model.toStdString(),
         manufacturer.toStdString(),
         serialNumber.toStdString(),
         refresh_rate);
 }
+
+void QMLViewportRenderer::linkToViewport(QMLViewportRenderer *other_viewport) {
+    viewport_renderer_->link_to_viewport(other_viewport->as_actor());
+}
+
+void QMLViewportRenderer::renderImageToFile(
+    const QUrl filePath,
+    caf::actor playhead,
+    const int format,
+    const int compression,
+    const int width,
+    const int height,
+    const bool bakeColor) {
+
+    caf::scoped_actor sys{system()};
+    try {
+
+        auto offscreen_viewport =
+            system().registry().template get<caf::actor>(offscreen_viewport_registry);
+
+        if (offscreen_viewport) {
+
+            std::cerr << "A\n";
+            utility::request_receive<bool>(
+                *sys, offscreen_viewport, viewport::viewport_playhead_atom_v, playhead);
+            std::cerr << "B\n";
+
+            utility::request_receive<bool>(
+                *sys,
+                offscreen_viewport,
+                viewport::render_viewport_to_image_atom_v,
+                UriFromQUrl(filePath),
+                width,
+                height);
+            std::cerr << "C\n";
+
+        } else {
+            emit snapshotRequestResult(QString("Offscreen viewport renderer was not found."));
+        }
+    } catch (std::exception &e) {
+        emit snapshotRequestResult(QString(e.what()));
+    }
+}
+
+void QMLViewportRenderer::setIsQuickViewer(const bool is_quick_viewer) {}

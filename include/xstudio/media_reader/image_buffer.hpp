@@ -58,6 +58,9 @@ namespace media_reader {
         [[nodiscard]] int decoder_frame_number() const { return frame_num_; }
         void set_decoder_frame_number(const int f) { frame_num_ = f; }
 
+        [[nodiscard]] bool has_alpha() const { return has_alpha_; }
+        void set_has_alpha(const bool b) { has_alpha_ = b; }
+
         typedef std::function<PixelInfo(
             const ImageBuffer &buf, const Imath::V2i &pixel_location)>
             PixelPickerFunc;
@@ -82,6 +85,7 @@ namespace media_reader {
         int frame_num_         = -1;
         ui::viewport::GPUShaderPtr shader_;
         PixelPickerFunc pixel_picker_;
+        bool has_alpha_ = false;
     };
 
     /* Extending std::shared_ptr<ImageBuffer> by adding a pointer to colour pipe
@@ -97,25 +101,50 @@ namespace media_reader {
         ImageBufPtr(const ImageBufPtr &o)
             : Base(static_cast<const Base &>(o)),
               colour_pipe_data_(o.colour_pipe_data_),
+              colour_pipe_uniforms_(o.colour_pipe_uniforms_),
               when_to_display_(o.when_to_display_),
               plugin_blind_data_(o.plugin_blind_data_),
-              tts_(o.tts_) {}
+              tts_(o.tts_),
+              frame_id_(o.frame_id_),
+              bookmarks_(o.bookmarks_) {}
 
         ImageBufPtr &operator=(const ImageBufPtr &o) {
-            Base &b            = static_cast<Base &>(*this);
-            b                  = static_cast<const Base &>(o);
-            colour_pipe_data_  = o.colour_pipe_data_;
-            when_to_display_   = o.when_to_display_;
-            plugin_blind_data_ = o.plugin_blind_data_;
-            tts_               = o.tts_;
+            Base &b               = static_cast<Base &>(*this);
+            b                     = static_cast<const Base &>(o);
+            colour_pipe_data_     = o.colour_pipe_data_;
+            colour_pipe_uniforms_ = o.colour_pipe_uniforms_;
+            when_to_display_      = o.when_to_display_;
+            plugin_blind_data_    = o.plugin_blind_data_;
+            tts_                  = o.tts_;
+            frame_id_             = o.frame_id_;
+            bookmarks_            = o.bookmarks_;
             return *this;
         }
 
         ~ImageBufPtr() = default;
 
         bool operator==(const ImageBufPtr &o) const {
-            return this->get() == o.get() && colour_pipe_data_ == o.colour_pipe_data_ &&
-                   tts_ == o.tts_;
+            if (this->get() != o.get()) {
+                return false;
+            }
+
+            if (colour_pipe_data_ && o.colour_pipe_data_) {
+                if (colour_pipe_data_->cache_id_ != o.colour_pipe_data_->cache_id_) {
+                    return false;
+                }
+            } else if (colour_pipe_data_ || o.colour_pipe_data_) {
+                return false;
+            }
+
+            if (tts_ != o.tts_) {
+                return false;
+            }
+
+            if (colour_pipe_uniforms_ != o.colour_pipe_uniforms_) {
+                return false;
+            }
+
+            return true;
         }
 
         bool operator<(const ImageBufPtr &o) const { return tts_ < o.tts_; }
@@ -127,28 +156,60 @@ namespace media_reader {
         bool operator>(const timebase::flicks &t) const { return tts_ > t; }
 
         colour_pipeline::ColourPipelineDataPtr colour_pipe_data_;
+        utility::JsonStore colour_pipe_uniforms_;
+
         utility::time_point when_to_display_;
 
+        // TODO: drop add_plugin_blind_data when all plugins are using
+        // of add_plugin_blind_data2 instead
         void add_plugin_blind_data(
             const utility::Uuid &plugin_uuid, const utility::BlindDataObjectPtr &data) {
-            plugin_blind_data_[plugin_uuid] = data;
+            plugin_blind_data_[plugin_uuid].first = data;
+        }
+
+        void add_plugin_blind_data2(
+            const utility::Uuid &plugin_uuid, const utility::BlindDataObjectPtr &data) {
+            plugin_blind_data_[plugin_uuid].second = data;
         }
 
         [[nodiscard]] utility::BlindDataObjectPtr
         plugin_blind_data(const utility::Uuid plugin_uuid) const {
             auto p = plugin_blind_data_.find(plugin_uuid);
             if (p != plugin_blind_data_.end())
-                return p->second;
+                return p->second.first;
             return utility::BlindDataObjectPtr();
         }
 
-        std::map<utility::Uuid, utility::BlindDataObjectPtr> plugin_blind_data_;
+        [[nodiscard]] utility::BlindDataObjectPtr
+        plugin_blind_data2(const utility::Uuid plugin_uuid) const {
+            auto p = plugin_blind_data_.find(plugin_uuid);
+            if (p != plugin_blind_data_.end())
+                return p->second.second;
+            return utility::BlindDataObjectPtr();
+        }
+
+        std::map<
+            utility::Uuid,
+            std::pair<utility::BlindDataObjectPtr, utility::BlindDataObjectPtr>>
+            plugin_blind_data_;
 
         [[nodiscard]] const timebase::flicks &timeline_timestamp() const { return tts_; }
         void set_timline_timestamp(const timebase::flicks tts) { tts_ = tts; }
 
+        [[nodiscard]] const bookmark::BookmarkAndAnnotations &bookmarks() const {
+            return bookmarks_;
+        }
+        void set_bookmarks(const bookmark::BookmarkAndAnnotations &bookmarks) {
+            bookmarks_ = bookmarks;
+        }
+
+        [[nodiscard]] const media::AVFrameID &frame_id() const { return frame_id_; }
+        void set_frame_id(const media::AVFrameID &id) { frame_id_ = id; }
+
       private:
         timebase::flicks tts_ = timebase::flicks{0};
+        media::AVFrameID frame_id_;
+        bookmark::BookmarkAndAnnotations bookmarks_;
     };
 
 } // namespace media_reader

@@ -41,12 +41,12 @@ PlainViewport::PlainViewport(QWidget *parent) : QWidget(parent) {
     // Get the session to create a playlist
     auto playlist = utility::request_receive<utility::UuidUuidActor>(
                         *self, session, session::add_playlist_atom_v, "Test")
-                        .second.second;
+                        .second.actor();
 
     // ask the playlist to create a playhead
     caf::actor playhead = utility::request_receive<utility::UuidActor>(
                               *self, playlist, playlist::create_playhead_atom_v)
-                              .second;
+                              .actor();
 
     // pass the playhead to the viewport - it will 'attach' itself to the playhead
     // so that it is receiving video frames for display

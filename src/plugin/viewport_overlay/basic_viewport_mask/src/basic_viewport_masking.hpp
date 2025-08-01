@@ -27,6 +27,7 @@ namespace ui {
             void render_opengl(
                 const Imath::M44f &transform_window_to_viewport_space,
                 const Imath::M44f &transform_viewport_to_image_space,
+                const float viewport_du_dpixel,
                 const xstudio::media_reader::ImageBufPtr &frame,
                 const bool have_alpha_buffer) override;
 
@@ -49,13 +50,6 @@ namespace ui {
 
             ~BasicViewportMasking();
 
-            static void render_overlay_opengl(
-                const Imath::M44f &transform_window_to_viewport_space,
-                const Imath::M44f &transform_viewport_to_image_space,
-                const xstudio::media_reader::ImageBufPtr &frame);
-
-            static void init_overlay_opengl();
-
             void attribute_changed(
                 const utility::Uuid &attribute_uuid, const int /*role*/
                 ) override;
@@ -66,10 +60,10 @@ namespace ui {
           protected:
             void register_hotkeys() override;
 
-            utility::BlindDataObjectPtr prepare_render_data(
+            utility::BlindDataObjectPtr prepare_overlay_data(
                 const media_reader::ImageBufPtr &, const bool /*offscreen*/) const override;
 
-            plugin::ViewportOverlayRendererPtr make_overlay_renderer(const bool) override {
+            plugin::ViewportOverlayRendererPtr make_overlay_renderer(const int) override {
                 return plugin::ViewportOverlayRendererPtr(new BasicMaskRenderer());
             }
 
@@ -90,7 +84,6 @@ namespace ui {
 
             module::BooleanAttribute *mask_enabled_;
             module::StringChoiceAttribute *mask_selection_;
-            module::QmlCodeAttribute *viewport_code_;
 
             utility::Uuid mask_hotkey_;
 

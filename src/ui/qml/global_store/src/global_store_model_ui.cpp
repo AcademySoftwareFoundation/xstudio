@@ -13,7 +13,7 @@ using namespace xstudio::ui::qml;
 GlobalStoreModel::GlobalStoreModel(QObject *parent) : super(parent) {
     init(CafSystemObject::get_actor_system());
 
-    setRoleNames(
+    setRoleNames(std::vector<std::string>(
         {"nameRole",
          "pathRole",
          "datatypeRole",
@@ -22,7 +22,7 @@ GlobalStoreModel::GlobalStoreModel(QObject *parent) : super(parent) {
          "descriptionRole",
          "defaultValueRole",
          "overriddenValueRole",
-         "overriddenPathRole"});
+         "overriddenPathRole"}));
 }
 
 
@@ -42,7 +42,13 @@ void GlobalStoreModel::init(caf::actor_system &_system) {
 
         utility::request_receive<bool>(
             *sys, gsh_group, broadcast::join_broadcast_atom_v, as_actor());
-        setModelData(storeToTree(tmp));
+
+        auto tree        = R"({})"_json;
+        tree["children"] = storeToTree(tmp);
+
+        // spdlog::warn("{}", tree.dump(2));
+
+        setModelData(tree);
 
         // connect up auto save.
         {
@@ -79,7 +85,9 @@ void GlobalStoreModel::init(caf::actor_system &_system) {
                 const utility::JsonStore &) { updateProperty(path, change); },
 
             [=](json_store::update_atom, const utility::JsonStore &json) {
-                setModelData(storeToTree(json));
+                auto tree        = R"({})"_json;
+                tree["children"] = storeToTree(json);
+                setModelData(tree);
             },
 
             [=](utility::event_atom, global_store::autosave_atom, bool enabled) {
@@ -141,8 +149,8 @@ bool GlobalStoreModel::updateProperty(
             index = search_recursive(
                 QVariant::fromValue(QStringFromStd(path.substr(0, path.find_last_of('/')))),
                 QString("pathRole"));
-            if (index.isValid() and index.internalPointer()) {
-                nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+            if (index.isValid()) {
+                nlohmann::json &j = indexToData(index);
                 if (j["value"] != change) {
                     // spdlog::warn("json differ {} {}", j.dump(2), change.dump(2));
                     QVector<int> roles({Roles::valueRole});
@@ -151,8 +159,8 @@ bool GlobalStoreModel::updateProperty(
                     emit dataChanged(index, index, roles);
                 }
             }
-        } else if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        } else if (index.isValid()) {
+            nlohmann::json &j = indexToData(index);
             // compare to current preset.
             if (change != j) {
                 QVector<int> roles({});
@@ -193,12 +201,13 @@ bool GlobalStoreModel::updateProperty(
 
 // convert to internal representation.
 nlohmann::json GlobalStoreModel::storeToTree(const nlohmann::json &src) {
-    auto result = R"([])"_json;
 
+    auto result = R"([])"_json;
     for (const auto &[k, v] : src.items()) {
         if (v.count("datatype")) {
+            // spdlog::warn("{}", v.dump(2));
             result.push_back(v);
-        } else {
+        } else if (v.is_object()) {
             auto item        = R"({})"_json;
             item["path"]     = k;
             item["children"] = storeToTree(v);
@@ -209,68 +218,67 @@ nlohmann::json GlobalStoreModel::storeToTree(const nlohmann::json &src) {
     return result;
 }
 
+
 QVariant GlobalStoreModel::data(const QModelIndex &index, int role) const {
     auto result = QVariant();
 
     try {
-        if (index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        const auto &j = indexToData(index);
 
-            switch (role) {
-            case JSONTreeModel::Roles::JSONRole:
-                result = QVariantMapFromJson(j);
-                break;
+        switch (role) {
+        case JSONTreeModel::Roles::JSONRole:
+            result = QVariantMapFromJson(j);
+            break;
 
-            case JSONTreeModel::Roles::JSONTextRole:
-                result = QString::fromStdString(j.dump(2));
-                break;
+        case JSONTreeModel::Roles::JSONTextRole:
+            result = QString::fromStdString(j.dump(2));
+            break;
 
-            case Roles::datatypeRole:
-                if (j.count("datatype"))
-                    result = QString::fromStdString(j.at("datatype").get<std::string>());
-                else
-                    result = QString::fromStdString("group");
-                break;
+        case Roles::datatypeRole:
+            if (j.count("datatype"))
+                result = QString::fromStdString(j.at("datatype").get<std::string>());
+            else
+                result = QString::fromStdString("group");
+            break;
 
-            case Roles::pathRole:
-                result = QString::fromStdString(j.at("path").get<std::string>());
-                break;
+        case Roles::pathRole:
+            result = QString::fromStdString(j.at("path").get<std::string>());
+            break;
 
-            case Roles::contextRole: {
-                auto tmp = QStringList();
-                for (const auto &i : j.at("context"))
-                    tmp.append(QStringFromStd(i.get<std::string>()));
-                result = tmp;
-            } break;
+        case Roles::contextRole: {
+            auto tmp = QStringList();
+            for (const auto &i : j.at("context"))
+                tmp.append(QStringFromStd(i.get<std::string>()));
+            result = tmp;
+        } break;
 
-            case Roles::descriptionRole:
-                result = QString::fromStdString(j.at("description").get<std::string>());
-                break;
+        case Roles::descriptionRole:
+            result = QString::fromStdString(j.at("description").get<std::string>());
+            break;
 
-            case Roles::overriddenPathRole:
-                result = QString::fromStdString(j.at("overridden_path").get<std::string>());
-                break;
+        case Roles::overriddenPathRole:
+            result = QString::fromStdString(j.at("overridden_path").get<std::string>());
+            break;
 
-            case Roles::nameRole:
-            case Qt::DisplayRole:
-                result = QString::fromStdString(j.at("path"));
-                break;
+        case Roles::nameRole:
+        case Qt::DisplayRole:
+            result = QString::fromStdString(j.at("path"));
+            break;
 
-            case Roles::valueRole:
-                result = mapFromValue(j.at("value"));
-                break;
+        case Roles::valueRole:
+            result = mapFromValue(j.at("value"));
+            break;
 
-            case Roles::defaultValueRole:
-                result = mapFromValue(j.at("default_value"));
-                break;
+        case Roles::defaultValueRole:
+            result = mapFromValue(j.at("default_value"));
+            break;
 
-            case Roles::overriddenValueRole:
-                result = mapFromValue(j.at("overridden_value"));
-                break;
+        case Roles::overriddenValueRole:
+            result = mapFromValue(j.at("overridden_value"));
+            break;
 
-            default:
-                break;
-            }
+        default:
+            break;
         }
     } catch (const std::exception &err) {
 
@@ -280,11 +288,7 @@ QVariant GlobalStoreModel::data(const QModelIndex &index, int role) const {
             err.what(),
             role,
             index.row(),
-            index.internalPointer());
-        if (index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
-            spdlog::warn("{}", j.dump(2));
-        }
+            index.internalId());
     }
 
     return result;
@@ -296,8 +300,8 @@ bool GlobalStoreModel::setData(const QModelIndex &index, const QVariant &value, 
     QVector<int> roles({role});
 
     try {
-        if (role == Roles::valueRole && index.isValid() and index.internalPointer()) {
-            nlohmann::json &j = *((nlohmann::json *)index.internalPointer());
+        if (role == Roles::valueRole and index.isValid()) {
+            nlohmann::json &j = indexToData(index);
 
             // test for change ?
             // push to global data model

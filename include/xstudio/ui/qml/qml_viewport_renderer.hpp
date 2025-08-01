@@ -24,8 +24,8 @@ namespace ui {
             Q_OBJECT
 
           public:
-            QMLViewportRenderer(QObject *owner, const bool m_is_primary_viewer);
-            ~QMLViewportRenderer() override = default;
+            QMLViewportRenderer(QObject *owner, const int viewport_index);
+            virtual ~QMLViewportRenderer();
 
             void setWindow(QQuickWindow *window);
 
@@ -34,7 +34,8 @@ namespace ui {
                 const QPointF topright,
                 const QPointF bottomright,
                 const QPointF bottomleft,
-                const QSize sceneSize);
+                const QSize sceneSize,
+                const float devicePixelRatio);
 
             void init_system();
             void join_playhead(caf::actor group) {
@@ -75,6 +76,21 @@ namespace ui {
                 QString manufacturer,
                 QString serialNumber,
                 double refresh_rate);
+            [[nodiscard]] QString name() const {
+                return QStringFromStd(viewport_renderer_->name());
+            }
+
+            void linkToViewport(QMLViewportRenderer *other_viewport);
+
+            void renderImageToFile(
+                const QUrl filePath,
+                caf::actor playhead,
+                const int format,
+                const int compression,
+                const int width,
+                const int height,
+                const bool bakeColor);
+            void setIsQuickViewer(const bool is_quick_viewer);
 
           public slots:
 
@@ -85,7 +101,7 @@ namespace ui {
             void frameSwapped();
             float scale();
             QVector2D translate();
-
+            void quickViewSource(QStringList mediaActors, QString compareMode);
           signals:
 
             void zoomChanged(float);
@@ -95,19 +111,26 @@ namespace ui {
             void translateChanged(QVector2D);
             void onScreenFrameChanged(int);
             void outOfRange(bool);
+            void noAlphaChannelChanged(bool);
             void doRedraw();
             void doSnapshot(QString, QString, int, int, bool);
+            void quickViewBackendRequest(QStringList mediaActors, QString compareMode);
+            void quickViewBackendRequestWithSize(
+                QStringList mediaActors, QString compareMode, QPoint position, QSize size);
+            void snapshotRequestResult(QString resultMessage);
+            void isQuickviewerChanged(bool);
 
           private:
             void receive_change_notification(viewport::Viewport::ChangeCallbackId id);
 
             QQuickWindow *m_window;
-            std::shared_ptr<ui::viewport::Viewport> viewport_renderer_;
+            ui::viewport::Viewport *viewport_renderer_ = nullptr;
             bool init_done{false};
             QString fps_expression_;
             bool frame_out_of_range_ = {false};
             QRectF imageBounds_;
-            bool is_primary_viewer_;
+            int viewport_index_;
+            class QMLViewport *viewport_qml_item_;
 
             caf::actor viewport_update_group;
             caf::actor playhead_group_;

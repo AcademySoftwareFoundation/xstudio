@@ -23,7 +23,7 @@ import QuickPromise 1.0
 //------------------------------------------------------------------------------
 import xstudio.qml.viewport 1.0
 import xstudio.qml.session 1.0
-import xstudio.qml.playlist 1.0
+//import xstudio.qml.playlist 1.0
 import xstudio.qml.semver 1.0
 import xstudio.qml.cursor_pos_provider 1.0
 import xstudio.qml.helpers 1.0
@@ -53,7 +53,7 @@ Rectangle {
     XsShortcuts {
         anchors.fill: parent
         id: shortcuts
-        context: "popout_viewport"
+        context: viewport.name
         //enabled: viewport.enableShortcuts
     }
 
@@ -89,6 +89,9 @@ Rectangle {
         is_presentation_mode: true
         is_main_window: sessionWidget.is_main_window
     }
+
+    property var viewport: playerWidget.viewport
+    Keys.forwardTo: viewport
 
     XsStatusBar {
         id: status_bar

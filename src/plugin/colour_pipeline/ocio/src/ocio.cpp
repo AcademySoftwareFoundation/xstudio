@@ -2,6 +2,8 @@
 #include "ocio.hpp"
 
 #include "xstudio/utility/string_helpers.hpp"
+#include "xstudio/ui/opengl/shader_program_base.hpp"
+
 #include "dneg.hpp"
 #include "shaders.hpp"
 
@@ -84,161 +86,207 @@ std::string OCIOColourPipeline::MediaParams::compute_hash() const {
     hash += user_input_cs;
     hash += user_input_display;
     hash += user_input_view;
+    hash += output_view;
     return hash;
 }
 
-OCIOColourPipeline::OCIOColourPipeline(const utility::JsonStore &s) : ColourPipeline(s) {
+OCIOColourPipeline::OCIOColourPipeline(
+    caf::actor_config &cfg, const utility::JsonStore &init_settings)
+    : ColourPipeline(cfg, init_settings) {
+
     setup_ui();
 }
 
-std::string OCIOColourPipeline::name() { return "OCIOColourPipeline"; }
-
-const utility::Uuid &OCIOColourPipeline::class_uuid() const { return PLUGIN_UUID; }
-
-ColourPipelineDataPtr OCIOColourPipeline::make_empty_data() const {
-    return ColourPipelineDataPtr{utility::JsonStore(), std::make_shared<ColourPipelineData>()};
+void OCIOColourPipeline::on_exit() {
+    auto main_ocio =
+        system().registry().template get<caf::actor>("MAIN_VIEWPORT_OCIO_INSTANCE");
+    if (main_ocio == self()) {
+        system().registry().erase("MAIN_VIEWPORT_OCIO_INSTANCE");
+    }
 }
 
-std::string OCIOColourPipeline::compute_hash(
+std::string OCIOColourPipeline::linearise_op_hash(
     const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) {
 
-    const MediaParams media_param = get_media_params(source_uuid, colour_params);
+    if (colour_bypass_->value())
+        return "LineariseTransformBypass";
 
-    // While OCIO processor creation is cached, we still have slight
-    // gain maintaining a cache here due to all the steps involved in
-    // the OCIO processor creation and because this function is called a lot.
-    std::string cache_id;
-    cache_id += to_string(source_uuid);
-    cache_id += media_param.compute_hash();
 
-    {
-        std::scoped_lock lock(pipeline_cache_mutex_);
-        if (pipeline_cache_.count(cache_id) > 0) {
-            return pipeline_cache_[cache_id];
-        }
-    }
-
-    std::string result_id = to_string(class_uuid());
+    // By making the hash include our UUID we can make sure that any other
+    // OCIO colour pipelines that construct the colour op data hash Id won't
+    // clash.
+    std::string result_id = to_string(PLUGIN_UUID);
 
     try {
-        auto main_proc = make_processor(media_param, true, false);
-        result_id += main_proc->getCacheID();
-        auto popout_proc = make_processor(media_param, false, false);
-        result_id += popout_proc->getCacheID();
-    } catch (const std::exception &e) {
-        spdlog::warn("OCIOColourPipeline: Failed to compute hash: {}", e.what());
-    }
 
-    {
-        std::scoped_lock lock(pipeline_cache_mutex_);
-        pipeline_cache_[cache_id] = result_id;
+        const MediaParams media_param = get_media_params(source_uuid, colour_params);
+        auto main_proc                = make_to_lin_processor(media_param);
+        result_id += main_proc->getCacheID();
+
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOColourPipeline: Failed to compute linearise hash: {}", e.what());
     }
 
     return result_id;
 }
 
-void OCIOColourPipeline::setup_shader(
-    ColourPipelineData &pipe_data,
-    const utility::Uuid &source_uuid,
-    const utility::JsonStore &colour_params) {
+std::string OCIOColourPipeline::linear_to_display_op_hash(
+    const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) {
+
+    if (colour_bypass_->value())
+        return "DisplayTransformBypass";
+
+    std::string result_id = to_string(PLUGIN_UUID);
+
+    try {
+
+        const MediaParams media_param = get_media_params(source_uuid, colour_params);
+        auto main_proc                = make_display_processor(media_param, false);
+        result_id += main_proc->getCacheID();
+        {
+            // Here we make sure the cacheID string depends on any grading primaries data
+            // that may have been picked up for the source (if we are applying the primary
+            // grade).
+            const MediaParams media_param = get_media_params(source_uuid, colour_params);
+            std::stringstream ss;
+            ss << media_param.primary;
+            result_id += ss.str();
+        }
+
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOColourPipeline: Failed to compute display hash: {}", e.what());
+    }
+
+    return result_id;
+}
+
+std::string OCIOColourPipeline::fast_display_transform_hash(const media::AVFrameID &media_ptr) {
+    return get_media_params(media_ptr.source_uuid_, media_ptr.params_).compute_hash() +
+           (colour_bypass_->value() ? "null" : display_->value() + view_->value());
+}
+
+ColourOperationDataPtr OCIOColourPipeline::linearise_op_data(
+    const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) {
+
     using xstudio::utility::replace_once;
+
+    auto data = std::make_shared<ColourOperationData>("OCIO Linearise OP");
 
     try {
 
         const MediaParams media_param = get_media_params(source_uuid, colour_params);
 
-        pipe_data.colour_pipe_id_ = class_uuid();
-        pipe_data.cache_id_       = compute_hash(source_uuid, colour_params);
-
         // Construct OCIO processor, shader and extract texture(s)
-        auto main_proc   = make_processor(media_param, true, false);
-        auto main_shader = make_shader(main_proc, true);
-        setup_textures(main_shader, pipe_data, true);
+        auto to_lin_proc   = make_to_lin_processor(media_param);
+        auto to_lin_shader = make_shader(to_lin_proc, "OCIOLinearise", "to_linear_");
+        setup_textures(to_lin_shader, data);
 
-        auto popout_proc   = make_processor(media_param, false, false);
-        auto popout_shader = make_shader(popout_proc, false);
-        setup_textures(popout_shader, pipe_data, false);
+        std::string to_lin_shader_src = replace_once(
+            ShaderTemplates::OCIO_linearise, "//OCIOLinearise", to_lin_shader->getShaderText());
 
-        // Construct and store fragment shader source code.
-        std::string shader_src = ShaderTemplates::OCIO;
-        std::string main_shader_src =
-            replace_once(shader_src, "//OCIODisplay", main_shader->getShaderText());
-        std::string popout_shader_src =
-            replace_once(shader_src, "//OCIODisplay", popout_shader->getShaderText());
-
-        // GradingPrimary implement the power function with mirrored behaviour for negatives
-        // (absolute value before pow then multiply by sign). We update the shader here to
-        // match ASC CDL clamping [0, 1] behaviour.
-        std::regex pattern(
-            R"((\w+)\.rgb = pow\( abs\(\w+\.rgb / (\w+_grading_primary_pivot)\), (\w+_grading_primary_contrast) \) \* sign\(\w+\.rgb\) \* \w+_grading_primary_pivot;)");
-
-        main_shader_src = std::regex_replace(
-            main_shader_src,
-            pattern,
-            "outColor.rgb = pow( clamp($1.rgb, 0.0, 1.0) / $2, $3 ) * $2;");
-
-        popout_shader_src = std::regex_replace(
-            popout_shader_src,
-            pattern,
-            "outColor.rgb = pow( clamp($1.rgb, 0.0, 1.0) / $2, $3 ) * $2;");
-
-        pipe_data.main_viewport_shader_ = std::make_shared<ui::viewport::GPUShader>(
-            utility::Uuid::generate(), main_shader_src);
-        pipe_data.popout_viewport_shader_ = std::make_shared<ui::viewport::GPUShader>(
-            utility::Uuid::generate(), popout_shader_src);
+        data->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
+            utility::Uuid::generate(), to_lin_shader_src);
 
         // Store GPUShaderDesc objects for later use during uniform binding / update.
-        auto shaders                       = std::make_shared<ShaderDescriptors>();
-        shaders->main_viewer_shader_desc   = main_shader;
-        shaders->popout_viewer_shader_desc = popout_shader;
-        pipe_data.user_data_               = shaders;
+        // Note that we need updated MediaParams object, which may include primary grading
+        // data, when we update the shader uniforms at draw time. Hence we add the MediaParams
+        // as part of the user_data_ blind data object.
+        auto desc         = std::make_shared<ShaderDescriptor>();
+        desc->shader_desc = to_lin_shader;
+        desc->params      = get_media_params(source_uuid, colour_params);
+        ;
+        data->user_data_ = desc;
 
     } catch (const std::exception &e) {
-        spdlog::warn("OCIOColourPipeline: Failed to setup shader: {}", e.what());
+        spdlog::warn("OCIOColourPipeline: Failed to setup lin shader: {}", e.what());
     }
+
+    return data;
 }
 
-void OCIOColourPipeline::update_shader_uniforms(
-    ColourPipelineDataPtr &pipe_data, const utility::Uuid &source_uuid) {
-    if (channel_->value() == "Red") {
-        pipe_data.shader_parameters_["show_chan"] = 1;
-    } else if (channel_->value() == "Green") {
-        pipe_data.shader_parameters_["show_chan"] = 2;
-    } else if (channel_->value() == "Blue") {
-        pipe_data.shader_parameters_["show_chan"] = 3;
-    } else if (channel_->value() == "Alpha") {
-        pipe_data.shader_parameters_["show_chan"] = 4;
-    } else if (channel_->value() == "Luminance") {
-        pipe_data.shader_parameters_["show_chan"] = 5;
-    } else {
-        pipe_data.shader_parameters_["show_chan"] = 0;
+ColourOperationDataPtr OCIOColourPipeline::linear_to_display_op_data(
+    const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) {
+
+    using xstudio::utility::replace_once;
+
+    auto data = std::make_shared<ColourOperationData>(ColourOperationData("OCIO Display OP"));
+
+    try {
+
+        const MediaParams media_param = get_media_params(source_uuid, colour_params);
+
+        // Construct OCIO processor, shader and extract texture(s)
+        auto display_proc   = make_display_processor(media_param, false);
+        auto display_shader = make_shader(display_proc, "OCIODisplay", "to_display");
+        setup_textures(display_shader, data);
+
+        std::string display_shader_src = replace_once(
+            ShaderTemplates::OCIO_display, "//OCIODisplay", display_shader->getShaderText());
+
+        data->shader_ = std::make_shared<ui::opengl::OpenGLShader>(
+            utility::Uuid::generate(), display_shader_src);
+
+        // Store GPUShaderDesc objects for later use during uniform binding / update.
+        // Note that we need updated MediaParams object, which may include primary grading
+        // data, when we update the shader uniforms at draw time. Hence we add the MediaParams
+        // as part of the user_data_ blind data object.
+
+        auto desc         = std::make_shared<ShaderDescriptor>();
+        desc->shader_desc = display_shader;
+        desc->params      = get_media_params(source_uuid, colour_params);
+
+        data->user_data_ = desc;
+
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOColourPipeline: Failed to setup display shader: {}", e.what());
     }
 
-    if (pipe_data->user_data_.has_value() &&
-        pipe_data->user_data_.type() == typeid(ShaderDescriptorsPtr)) {
+    return data;
+}
+
+utility::JsonStore OCIOColourPipeline::update_shader_uniforms(
+    const media_reader::ImageBufPtr &image, std::any &user_data) {
+
+    utility::JsonStore uniforms;
+    if (channel_->value() == "Red") {
+        uniforms["show_chan"] = 1;
+    } else if (channel_->value() == "Green") {
+        uniforms["show_chan"] = 2;
+    } else if (channel_->value() == "Blue") {
+        uniforms["show_chan"] = 3;
+    } else if (channel_->value() == "Alpha") {
+        uniforms["show_chan"] = 4;
+    } else if (channel_->value() == "Luminance") {
+        uniforms["show_chan"] = 5;
+    } else {
+        uniforms["show_chan"] = 0;
+    }
+
+    // TODO: ColSci
+    // Saturation is not managed by OCIO currently
+    uniforms["saturation"] = enable_saturation_->value() ? saturation_->value() : 1.0f;
+
+    if (user_data.has_value() && user_data.type() == typeid(ShaderDescriptorPtr)) {
         try {
-            auto shaders = std::any_cast<ShaderDescriptorsPtr>(pipe_data->user_data_);
-            if (shaders && shaders->main_viewer_shader_desc &&
-                shaders->popout_viewer_shader_desc) {
-                // ColourPipelineData is shared among MediaSource using the same OCIO shader.
-                // Hence ShaderDesc objects holding OCIO DynamicProperty are shared too.
+            auto shader = std::any_cast<ShaderDescriptorPtr>(user_data);
+            if (shader && shader->shader_desc) {
+                // ColourOperationDataPtr is shared among MediaSource using the same OCIO
+                // shader. Hence ShaderDesc objects holding OCIO DynamicProperty are shared too.
                 // DynamicProperty are used to hold the uniforms representing the transform,
                 // we need to update them before querying the updated uniforms. The mutex is
                 // needed to protect against multiple workers concurrently updating the
                 // ShaderDesc's DynamicProperty resulting in queried uniforms not reflecting
                 // values for the current shot.
-                std::scoped_lock lock(shaders->mutex);
-
-                update_dynamic_parameters(shaders->main_viewer_shader_desc, source_uuid);
-                update_dynamic_parameters(shaders->popout_viewer_shader_desc, source_uuid);
-
-                update_all_uniforms(shaders->main_viewer_shader_desc, pipe_data, source_uuid);
-                update_all_uniforms(shaders->popout_viewer_shader_desc, pipe_data, source_uuid);
+                std::scoped_lock lock(shader->mutex);
+                update_dynamic_parameters(shader->shader_desc, shader->params);
+                update_all_uniforms(
+                    shader->shader_desc, uniforms, image.frame_id().source_uuid_);
             }
         } catch (const std::exception &e) {
             spdlog::warn("OCIOColourPipeline: Failed to update shader uniforms: {}", e.what());
         }
     }
+    return uniforms;
 }
 
 thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
@@ -253,14 +301,22 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
         const MediaParams media_param =
             get_media_params(media_ptr.source_uuid_, media_ptr.params_);
 
-        auto proc     = make_processor(media_param, true, true);
-        auto cpu_proc = proc->getOptimizedCPUProcessor(
+        // TODO: just use a single pass processor rather than two step processors.
+        auto to_lin_proc         = make_to_lin_processor(media_param);
+        auto lin_to_display_proc = make_display_processor(media_param, true);
+
+        auto cpu_to_lin_proc = to_lin_proc->getOptimizedCPUProcessor(
+            OCIO::BIT_DEPTH_F32, OCIO::BIT_DEPTH_F32, OCIO::OPTIMIZATION_DEFAULT);
+
+        auto cpu_lin_to_display_proc = lin_to_display_proc->getOptimizedCPUProcessor(
             OCIO::BIT_DEPTH_F32, OCIO::BIT_DEPTH_UINT8, OCIO::OPTIMIZATION_DEFAULT);
 
         auto thumb = std::make_shared<thumbnail::ThumbnailBuffer>(
             buf->width(), buf->height(), thumbnail::TF_RGB24);
         auto src = reinterpret_cast<float *>(buf->data().data());
         auto dst = reinterpret_cast<uint8_t *>(thumb->data().data());
+
+        std::vector<float> intermediate(buf->width() * buf->height() * buf->channels());
 
         OCIO::PackedImageDesc in_img(
             src,
@@ -272,6 +328,17 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
             OCIO::AutoStride,
             OCIO::AutoStride);
 
+        OCIO::PackedImageDesc intermediate_img(
+            intermediate.data(),
+            buf->width(),
+            buf->height(),
+            buf->channels(),
+            OCIO::BIT_DEPTH_F32,
+            OCIO::AutoStride,
+            OCIO::AutoStride,
+            OCIO::AutoStride);
+
+
         OCIO::PackedImageDesc out_img(
             dst,
             thumb->width(),
@@ -282,9 +349,10 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
             OCIO::AutoStride,
             OCIO::AutoStride);
 
-        cpu_proc->apply(in_img, out_img);
-
+        cpu_to_lin_proc->apply(in_img, intermediate_img);
+        cpu_lin_to_display_proc->apply(intermediate_img, out_img);
         return thumb;
+
     } catch (const std::exception &e) {
         spdlog::warn("OCIOColourPipeline: Failed to compute thumbnail: {}", e.what());
     }
@@ -292,51 +360,227 @@ thumbnail::ThumbnailBufferPtr OCIOColourPipeline::process_thumbnail(
     return buf;
 }
 
+void OCIOColourPipeline::extend_pixel_info(
+    media_reader::PixelInfo &pixel_info, const media::AVFrameID &frame_id) {
 
-std::string OCIOColourPipeline::fast_display_transform_hash(const media::AVFrameID &media_ptr) {
-    return get_media_params(media_ptr.source_uuid_, media_ptr.params_).compute_hash() +
-           display_->value() + view_->value();
+    if (pixel_info.raw_channels_info().size() < 3)
+        return;
+
+    try {
+
+        MediaParams media_param = get_media_params(frame_id.source_uuid_, frame_id.params_);
+
+        media_param.output_view = view_->value();
+
+        auto raw_info = pixel_info.raw_channels_info();
+
+        if (media_param.compute_hash() != last_pixel_probe_source_hash_) {
+            pixel_probe_to_display_proc_ =
+                make_display_processor(media_param, false)->getDefaultCPUProcessor();
+            pixel_probe_to_lin_proc_ =
+                make_to_lin_processor(media_param)->getDefaultCPUProcessor();
+            last_pixel_probe_source_hash_ = media_param.compute_hash();
+        }
+
+        // Update Dynamic Properties on the CPUProcessor instance
+
+        try {
+            {
+                // Exposure
+                OCIO::DynamicPropertyRcPtr property =
+                    pixel_probe_to_display_proc_->getDynamicProperty(
+                        OCIO::DYNAMIC_PROPERTY_EXPOSURE);
+                OCIO::DynamicPropertyDoubleRcPtr exposure_prop =
+                    OCIO::DynamicPropertyValue::AsDouble(property);
+                exposure_prop->setValue(exposure_->value());
+            }
+            {
+                // Gamma
+                OCIO::DynamicPropertyRcPtr property =
+                    pixel_probe_to_display_proc_->getDynamicProperty(
+                        OCIO::DYNAMIC_PROPERTY_GAMMA);
+                OCIO::DynamicPropertyDoubleRcPtr gamma_prop =
+                    OCIO::DynamicPropertyValue::AsDouble(property);
+                gamma_prop->setValue(enable_gamma_->value() ? gamma_->value() : 1.0f);
+            }
+        } catch ([[maybe_unused]] const OCIO::Exception &e) {
+            // TODO: ColSci
+            // Update when OCIO::CPUProcessor include hasDynamicProperty()
+        }
+
+        // Source
+
+        if (!source_colour_space_->value().empty()) {
+            pixel_info.set_raw_colourspace_name(
+                std::string("Source (") + source_colour_space_->value() + std::string(")"));
+        }
+
+        // Working space (scene_linear)
+
+        {
+            float RGB[3] = {
+                raw_info[0].pixel_value, raw_info[1].pixel_value, raw_info[2].pixel_value};
+
+            pixel_probe_to_lin_proc_->applyRGB(RGB);
+
+            pixel_info.add_linear_channel_info(raw_info[0].channel_name, RGB[0]);
+            pixel_info.add_linear_channel_info(raw_info[1].channel_name, RGB[1]);
+            pixel_info.add_linear_channel_info(raw_info[2].channel_name, RGB[2]);
+
+            pixel_info.set_linear_colourspace_name(
+                std::string("Scene Linear (") + working_space(media_param) + std::string(")"));
+        }
+
+        // Display output
+
+        {
+            float RGB[3] = {
+                raw_info[0].pixel_value, raw_info[1].pixel_value, raw_info[2].pixel_value};
+
+            pixel_probe_to_display_proc_->applyRGB(RGB);
+
+            // TODO: ColSci
+            // Saturation is not managed by OCIO currently
+            if (saturation_->value() != 1.0) {
+                const float W[3] = {0.2126f, 0.7152f, 0.0722f};
+                const float LUMA = RGB[0] * W[0] + RGB[1] * W[1] + RGB[2] * W[2];
+                RGB[0]           = LUMA + saturation_->value() * (RGB[0] - LUMA);
+                RGB[1]           = LUMA + saturation_->value() * (RGB[1] - LUMA);
+                RGB[2]           = LUMA + saturation_->value() * (RGB[2] - LUMA);
+            }
+
+            pixel_info.add_display_rgb_info("R", RGB[0]);
+            pixel_info.add_display_rgb_info("G", RGB[1]);
+            pixel_info.add_display_rgb_info("B", RGB[2]);
+
+            pixel_info.set_display_colourspace_name(
+                std::string("Display (") + media_param.output_view + std::string("|") +
+                display_->value() + std::string(")"));
+        }
+
+    } catch (const std::exception &e) {
+        spdlog::warn("OCIOColourPipeline: Failed to compute pixel probe: {}", e.what());
+    }
+}
+
+void OCIOColourPipeline::init_media_params(MediaParams &media_param) const {
+
+    const auto &metadata = media_param.metadata;
+
+    const std::string config_name = metadata.get_or("ocio_config", std::string(""));
+
+    media_param.ocio_config      = load_ocio_config(config_name);
+    media_param.ocio_config_name = config_name;
+    media_param.output_view      = preferred_ocio_view(media_param, preferred_view_->value());
+
+    if (metadata.contains("active_displays")) {
+        const std::string displays = metadata.get_or("active_displays", std::string(""));
+
+        auto config = media_param.ocio_config->createEditableCopy();
+        config->setActiveDisplays(displays.c_str());
+        media_param.ocio_config = config;
+    }
+    if (metadata.contains("active_views")) {
+        const std::string views = metadata.get_or("active_views", std::string(""));
+
+        auto config = media_param.ocio_config->createEditableCopy();
+        config->setActiveViews(views.c_str());
+        media_param.ocio_config = config;
+    }
 }
 
 OCIOColourPipeline::MediaParams OCIOColourPipeline::get_media_params(
     const utility::Uuid &source_uuid, const utility::JsonStore &colour_params) const {
-    std::scoped_lock lock(media_params_mutex_);
 
     // Create an entry if empty and initialize the OCIO config.
     if (media_params_.find(source_uuid) == media_params_.end()) {
-        const std::string new_config_name =
-            colour_params.get_or("ocio_config", std::string(""));
         MediaParams media_param;
-        media_param.source_uuid      = source_uuid;
-        media_param.metadata         = colour_params;
-        media_param.ocio_config      = load_ocio_config(new_config_name);
-        media_param.ocio_config_name = new_config_name;
-        media_params_[source_uuid]   = media_param;
+        media_param.source_uuid = source_uuid;
+        media_param.metadata    = colour_params;
+        init_media_params(media_param);
+        media_params_[source_uuid] = media_param;
     }
     // Update and reload OCIO config if source metadata have changed.
     else {
         MediaParams &media_param = media_params_[source_uuid];
         if (not colour_params.is_null() and media_param.metadata != colour_params) {
-            const std::string new_config_name =
-                colour_params.get_or("ocio_config", std::string(""));
-            media_param.metadata         = colour_params;
-            media_param.ocio_config      = load_ocio_config(new_config_name);
-            media_param.ocio_config_name = new_config_name;
+            media_param.metadata = colour_params;
+            init_media_params(media_param);
         }
     }
 
     return media_params_[source_uuid];
 }
 
-void OCIOColourPipeline::set_media_params(
-    const utility::Uuid &source_uuid, const MediaParams &new_media_param) const {
-    std::scoped_lock lock(media_params_mutex_);
-    media_params_[source_uuid] = new_media_param;
+void OCIOColourPipeline::set_media_params(const MediaParams &new_media_param) const {
+    media_params_[new_media_param.source_uuid] = new_media_param;
+}
+
+std::string OCIOColourPipeline::input_space_for_view(
+    const MediaParams &media_param, const std::string &view) const {
+
+    std::string new_colourspace;
+
+    auto colourspace_or = [media_param](const std::string &cs, const std::string &fallback) {
+        const bool has_cs = bool(media_param.ocio_config->getColorSpace(cs.c_str()));
+        return has_cs ? cs : fallback;
+    };
+
+    if (media_param.metadata.contains("input_category")) {
+        const auto is_untonemapped = view == "Un-tone-mapped";
+        const auto category        = media_param.metadata["input_category"];
+        if (category == "internal_movie") {
+            new_colourspace = is_untonemapped ? "disp_Rec709-G24"
+                                              : colourspace_or("DNEG_Rec709", "Film_Rec709");
+        } else if (category == "edit_ref" or category == "movie_media") {
+            new_colourspace = is_untonemapped ? "disp_Rec709-G24"
+                                              : colourspace_or("Client_Rec709", "Film_Rec709");
+        } else if (category == "still_media") {
+            new_colourspace =
+                is_untonemapped ? "disp_sRGB" : colourspace_or("DNEG_sRGB", "Film_sRGB");
+        }
+
+        // Double check the new colourspace actually exists
+        new_colourspace = colourspace_or(new_colourspace, "");
+    }
+
+    return new_colourspace;
+}
+
+std::string OCIOColourPipeline::preferred_ocio_view(
+    const MediaParams &media_param, const std::string &ocio_view) const {
+
+    // Get the default display from OCIO config
+    const OCIO::ConstConfigRcPtr ocio_config = media_param.ocio_config;
+    const std::string default_display        = ocio_config->getDefaultDisplay();
+    const std::string default_view = ocio_config->getDefaultView(default_display.c_str());
+
+    std::string preferred_view;
+    if (ocio_view == ui_text_.DEFAULT_VIEW) {
+        preferred_view = default_view;
+    } else if (ocio_view == ui_text_.AUTOMATIC_VIEW) {
+        preferred_view = media_param.metadata.get_or("automatic_view", default_view);
+    } else {
+        preferred_view = ocio_view;
+    }
+
+    // Validate that the view is in ocio config
+    std::map<std::string, std::vector<std::string>> display_views;
+    const auto displays = parse_display_views(ocio_config, display_views);
+
+    for (auto it = begin(display_views); it != end(display_views); ++it) {
+        for (auto view_in_ocio_config : it->second) {
+            if (view_in_ocio_config == preferred_view) {
+                return preferred_view;
+            }
+        }
+    }
+    // If view is not avaialble return the default view
+    return ocio_config->getDefaultView(default_display.c_str());
 }
 
 OCIO::ConstConfigRcPtr
 OCIOColourPipeline::load_ocio_config(const std::string &config_name) const {
-    std::scoped_lock lock(ocio_config_cache_mutex_);
 
     auto it = ocio_config_cache_.find(config_name);
     if (it != ocio_config_cache_.end()) {
@@ -359,8 +603,8 @@ OCIOColourPipeline::load_ocio_config(const std::string &config_name) const {
     } catch (const std::exception &e) {
         spdlog::warn(
             "OCIOColourPipeline: Failed to load OCIO config {}: {}", config_name, e.what());
-        spdlog::warn("OCIOColourPipeline: Fallback on current config");
-        config = OCIO::GetCurrentConfig();
+        spdlog::warn("OCIOColourPipeline: Fallback on raw config");
+        config = OCIO::Config::CreateRaw();
     }
 
     ocio_config_cache_[config_name] = config;
@@ -378,9 +622,19 @@ const char *OCIOColourPipeline::working_space(const MediaParams &media_param) co
     }
 }
 
+const char *OCIOColourPipeline::default_display(
+    const MediaParams &media_param, const std::string &monitor_name) const {
+    if (media_param.metadata.get_or("viewing_rules", false)) {
+        return dneg_ocio_default_display(media_param.ocio_config, monitor_name).c_str();
+    } else {
+        return media_param.ocio_config->getDefaultDisplay();
+    }
+}
+
 // Return the transform to bring incoming data to scene_linear space.
 OCIO::TransformRcPtr
 OCIOColourPipeline::source_transform(const MediaParams &media_param) const {
+
     const std::string working_cs = working_space(media_param);
 
     const std::string user_input_cs = media_param.user_input_cs;
@@ -393,6 +647,7 @@ OCIOColourPipeline::source_transform(const MediaParams &media_param) const {
 
     // Expand input_colorspace to the first valid colorspace found.
     std::string input_cs = media_param.metadata.get_or("input_colorspace", std::string(""));
+
     for (const auto &cs : xstudio::utility::split(input_cs, ':')) {
         if (media_param.ocio_config->getColorSpace(cs.c_str())) {
             input_cs = cs;
@@ -437,21 +692,84 @@ OCIOColourPipeline::source_transform(const MediaParams &media_param) const {
     }
 }
 
-const char *OCIOColourPipeline::default_display(
-    const MediaParams &media_param, const std::string &monitor_name) const {
-    if (media_param.metadata.get_or("viewing_rules", false)) {
-        return dneg_ocio_default_display(media_param.ocio_config, monitor_name).c_str();
+OCIO::ConstConfigRcPtr OCIOColourPipeline::display_transform(
+    const MediaParams &media_param,
+    OCIO::ContextRcPtr context,
+    OCIO::GroupTransformRcPtr group) const {
+
+    const auto &metadata         = media_param.metadata;
+    auto ocio_config             = media_param.ocio_config;
+    const auto &ocio_config_name = media_param.ocio_config_name;
+
+    // Determines which OCIO display / view to use
+
+    std::string display;
+    std::string view;
+
+    if (ocio_config_name == current_config_name_ || is_worker()) {
+        // if we are a worker, our view has been set by the main
+        // OCIOColourPipeline, we don't need to worry about fallback
+        // to defaults etc.
+        display = display_->value();
+        view    = global_view_->value() ? view_->value() : media_param.output_view;
     } else {
-        return media_param.ocio_config->getDefaultDisplay();
+        auto it = per_config_settings_.find(ocio_config_name);
+        if (it != per_config_settings_.end()) {
+            display = it->second.display;
+            view    = global_view_->value() ? it->second.view : media_param.output_view;
+        }
     }
+
+    if (display.empty() or view.empty()) {
+        display = ocio_config->getDefaultDisplay();
+        view    = ocio_config->getDefaultView(display.c_str());
+    }
+
+    // Turns per shot CDLs into dynamic transform
+
+    std::string view_looks = ocio_config->getDisplayViewLooks(display.c_str(), view.c_str());
+    std::string dynamic_look;
+    std::string dynamic_file;
+
+    if (metadata.contains("dynamic_cdl")) {
+        if (metadata["dynamic_cdl"].is_object()) {
+            for (auto &item : metadata["dynamic_cdl"].items()) {
+                if (view_looks.find(item.key()) != std::string::npos) {
+                    dynamic_look = item.key();
+                    dynamic_file = item.value();
+                }
+            }
+        } else {
+            spdlog::warn(
+                "OCIOColourPipeline: 'dynamic_cdl' should be a dictionary, got {} instead",
+                metadata["dynamic_cdl"].dump(2));
+        }
+    }
+
+    if (!dynamic_look.empty() and !dynamic_file.empty()) {
+        ocio_config = make_dynamic_display_processor(
+            media_param,
+            ocio_config,
+            context,
+            group,
+            display,
+            view,
+            dynamic_look,
+            dynamic_file);
+    } else {
+        group->appendTransform(display_transform(
+            working_space(media_param), display, view, OCIO::TRANSFORM_DIR_FORWARD));
+    }
+
+    return ocio_config;
 }
 
-// Return the transform from scene_linear to display space.
 OCIO::TransformRcPtr OCIOColourPipeline::display_transform(
     const std::string &source,
     const std::string &display,
     const std::string &view,
     OCIO::TransformDirection direction) const {
+
     OCIO::DisplayViewTransformRcPtr dt = OCIO::DisplayViewTransform::Create();
     dt->setSrc(source.c_str());
     dt->setDisplay(display.c_str());
@@ -465,121 +783,111 @@ OCIO::TransformRcPtr OCIOColourPipeline::identity_transform() const {
     return OCIO::MatrixTransform::Create();
 }
 
-OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_processor(
-    const MediaParams &media_param, bool is_main_viewer, bool is_thumbnail) const {
+OCIO::ContextRcPtr
+OCIOColourPipeline::setup_ocio_context(const MediaParams &media_param) const {
+
+    const auto &metadata    = media_param.metadata;
+    const auto &ocio_config = media_param.ocio_config;
+
+    OCIO::ContextRcPtr context = ocio_config->getCurrentContext()->createEditableCopy();
+
+    // Setup the OCIO context based on incoming metadata
+
+    if (metadata.contains("ocio_context")) {
+        if (metadata["ocio_context"].is_object()) {
+            for (auto &item : metadata["ocio_context"].items()) {
+                context->setStringVar(item.key().c_str(), std::string(item.value()).c_str());
+            }
+        } else {
+            spdlog::warn(
+                "OCIOColourPipeline: 'ocio_context' should be a dictionary, got {} instead",
+                metadata["ocio_context"].dump(2));
+        }
+    }
+
+    return context;
+}
+
+OCIO::ConstProcessorRcPtr
+OCIOColourPipeline::make_to_lin_processor(const MediaParams &media_param) const {
+
     const auto &metadata         = media_param.metadata;
     const auto &ocio_config      = media_param.ocio_config;
     const auto &ocio_config_name = media_param.ocio_config_name;
 
     try {
-        // Setup the OCIO context based on incoming metadata
-
-        OCIO::ContextRcPtr context = ocio_config->getCurrentContext()->createEditableCopy();
-        if (metadata.contains("ocio_context")) {
-            if (metadata["ocio_context"].is_object()) {
-                for (auto &item : metadata["ocio_context"].items()) {
-                    context->setStringVar(
-                        item.key().c_str(), std::string(item.value()).c_str());
-                }
-            } else {
-                spdlog::warn(
-                    "OCIOColourPipeline: 'ocio_context' should be a dictionary, got {} instead",
-                    metadata["ocio_context"].dump(2));
-            }
-        }
-
-        // Construct an OCIO processor for the whole colour pipeline
-
-        OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
 
         if (colour_bypass_->value()) {
             return ocio_config->getProcessor(identity_transform());
         }
 
+        OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
         group->appendTransform(source_transform(media_param));
+
+        OCIO::ContextRcPtr context = setup_ocio_context(media_param);
+        return ocio_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
+
+    } catch (const std::exception &e) {
+        spdlog::warn(
+            "OCIOColourPipeline: Failed to construct OCIO lin processor: {}", e.what());
+        spdlog::warn("OCIOColourPipeline: Defaulting to no-op processor");
+        return ocio_config->getProcessor(identity_transform());
+    }
+}
+
+OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_display_processor(
+    const MediaParams &media_param, bool is_thumbnail) const {
+
+    auto ocio_config = media_param.ocio_config;
+
+    try {
+
+        OCIO::ContextRcPtr context = setup_ocio_context(media_param);
+
+        OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
 
         if (!is_thumbnail) {
             auto ect = OCIO::ExposureContrastTransform::Create();
             ect->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
             ect->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
             ect->makeExposureDynamic();
+            ect->setExposure(exposure_->value());
 
             group->appendTransform(ect);
         }
 
-        // Determines which OCIO display / view to use
-
-        std::string display;
-        std::string view;
-
-        if (ocio_config_name == current_config_name_) {
-            display = is_main_viewer ? display_->value() : popout_viewer_display_->value();
-            view    = view_->value();
-        } else {
-            std::scoped_lock l(per_config_settings_mutex_);
-
-            auto it = per_config_settings_.find(ocio_config_name);
-            if (it != per_config_settings_.end()) {
-                display =
-                    is_main_viewer ? it->second.display : it->second.popout_viewer_display;
-                view = it->second.view;
-            } else {
-                display = ocio_config->getDefaultDisplay();
-                view    = ocio_config->getDefaultView(display.c_str());
-            }
+        if (!colour_bypass_->value()) {
+            // To support dynamic CDLs we currently have to edit the OCIO
+            // config in place, hence the need to return the new config
+            // here to later query the processor from it.
+            ocio_config = display_transform(media_param, context, group);
         }
 
-        if (display.empty() or view.empty()) {
-            display = ocio_config->getDefaultDisplay();
-            view    = ocio_config->getDefaultView(display.c_str());
+        if (!is_thumbnail) {
+            auto ect = OCIO::ExposureContrastTransform::Create();
+            ect->setStyle(OCIO::EXPOSURE_CONTRAST_LINEAR);
+            ect->setDirection(OCIO::TRANSFORM_DIR_INVERSE);
+            ect->makeGammaDynamic();
+            // default gamma pivot in OCIO is 0.18, avoid divide by zero too
+            ect->setPivot(1.0f);
+            ect->setGamma(enable_gamma_->value() ? gamma_->value() : 1.0f);
+
+            group->appendTransform(ect);
         }
 
-        // Turns per shot CDLs into dynamic transform
-        std::string view_looks =
-            ocio_config->getDisplayViewLooks(display.c_str(), view.c_str());
-        std::string dynamic_look;
-        std::string dynamic_file;
+        return ocio_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
 
-        if (metadata.contains("dynamic_cdl")) {
-            if (metadata["dynamic_cdl"].is_object()) {
-                for (auto &item : metadata["dynamic_cdl"].items()) {
-                    if (view_looks.find(item.key()) != std::string::npos) {
-                        dynamic_look = item.key();
-                        dynamic_file = item.value();
-                    }
-                }
-            } else {
-                spdlog::warn(
-                    "OCIOColourPipeline: 'dynamic_cdl' should be a dictionary, got {} instead",
-                    metadata["dynamic_cdl"].dump(2));
-            }
-        }
-
-        if (!dynamic_look.empty() and !dynamic_file.empty()) {
-            return make_dynamic_display_processor(
-                media_param,
-                ocio_config,
-                context,
-                group,
-                display,
-                view,
-                dynamic_look,
-                dynamic_file);
-        } else {
-            group->appendTransform(display_transform(
-                working_space(media_param), display, view, OCIO::TRANSFORM_DIR_FORWARD));
-
-            return ocio_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
-        }
     } catch (const std::exception &e) {
-        spdlog::warn("OCIOColourPipeline: Failed to construct OCIO processor: {}", e.what());
-        spdlog::warn("OCIOColourPipeline: Defaulting to no-op processor");
+        if (media_param.ocio_config_name != "__raw__") {
+            spdlog::warn(
+                "OCIOColourPipeline: Failed to construct OCIO processor: {}", e.what());
+            spdlog::warn("OCIOColourPipeline: Defaulting to no-op processor");
+        }
         return ocio_config->getProcessor(identity_transform());
     }
 }
 
-
-OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_dynamic_display_processor(
+OCIO::ConstConfigRcPtr OCIOColourPipeline::make_dynamic_display_processor(
     const MediaParams &media_param,
     const OCIO::ConstConfigRcPtr &config,
     const OCIO::ConstContextRcPtr &context,
@@ -588,18 +896,21 @@ OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_dynamic_display_processor(
     const std::string &view,
     const std::string &look_name,
     const std::string &cdl_file_name) const {
+
     try {
         // Load the CDL and derive a GradingPrimary from it
         auto look_path     = context->resolveFileLocation(cdl_file_name.c_str());
         auto cdl_transform = OCIO::CDLTransform::CreateFromFile(look_path, "");
+
 
         // Update the MediaParams here so that each shots gets to know it's
         // own GradingPrimary value to be used as uniforms. The pipeline data
         // will otherwise be shared.
         MediaParams updated_media_params = media_param;
         auto primary                     = grading_primary_from_cdl(cdl_transform);
-        updated_media_params.primary     = primary;
-        set_media_params(media_param.source_uuid, updated_media_params);
+
+        updated_media_params.primary = primary;
+        set_media_params(updated_media_params);
 
         // Create a dynamic version of the look
         auto dynamic_config = config->createEditableCopy();
@@ -633,37 +944,32 @@ OCIO::ConstProcessorRcPtr OCIOColourPipeline::make_dynamic_display_processor(
         group->appendTransform(display_transform(
             working_space(media_param), display, view_name, OCIO::TRANSFORM_DIR_FORWARD));
 
-        return dynamic_config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
-    } catch (const OCIO::Exception &ex) {
+        return dynamic_config;
+
+    } catch ([[maybe_unused]] const OCIO::Exception &ex) {
         group->appendTransform(display_transform(
             working_space(media_param), display, view, OCIO::TRANSFORM_DIR_FORWARD));
 
-        return config->getProcessor(context, group, OCIO::TRANSFORM_DIR_FORWARD);
+        return config;
     }
 }
 
 OCIO::ConstGpuShaderDescRcPtr OCIOColourPipeline::make_shader(
-    OCIO::ConstProcessorRcPtr &processor, bool is_main_viewer) const {
+    OCIO::ConstProcessorRcPtr &processor,
+    const char *function_name,
+    const char *resource_prefix) const {
+
     OCIO::GpuShaderDescRcPtr shader_desc = OCIO::GpuShaderDesc::CreateShaderDesc();
     shader_desc->setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0);
-
-    shader_desc->setFunctionName("OCIODisplay");
-    if (is_main_viewer) {
-        shader_desc->setResourcePrefix("main_");
-    } else {
-        shader_desc->setResourcePrefix("popout_");
-    }
-
+    shader_desc->setFunctionName(function_name);
+    shader_desc->setResourcePrefix(resource_prefix);
     auto gpu_proc = processor->getDefaultGPUProcessor();
     gpu_proc->extractGpuShaderInfo(shader_desc);
     return shader_desc;
 }
 
 void OCIOColourPipeline::setup_textures(
-    OCIO::ConstGpuShaderDescRcPtr &shader_desc,
-    ColourPipelineData &pipe_data,
-    bool is_main_viewer) const {
-    auto target_viewer = is_main_viewer ? ColourLUT::MAIN_VIEWER : ColourLUT::POPOUT_VIEWER;
+    OCIO::ConstGpuShaderDescRcPtr &shader_desc, ColourOperationDataPtr op_data) const {
 
     // Process 3D LUTs
     const unsigned max_texture_3D = shader_desc->getNum3DTextures();
@@ -699,8 +1005,7 @@ void OCIOColourPipeline::setup_textures(
         std::memcpy(xs_lut_data, ocio_lut_data, data_size);
 
         xs_lut->update_content_hash();
-        xs_lut->set_target_viewer(target_viewer);
-        pipe_data.luts_.push_back(xs_lut);
+        op_data->luts_.push_back(xs_lut);
     }
 
     // Process 1D LUTs
@@ -736,8 +1041,8 @@ void OCIOColourPipeline::setup_textures(
                                                                 : LUTDescriptor::NEAREST;
         auto xs_lut      = std::make_shared<ColourLUT>(
             height > 1
-                     ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
-                     : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
+                ? LUTDescriptor::Create2DLUT(width, height, xs_dtype, xs_channels, xs_interp)
+                : LUTDescriptor::Create1DLUT(width, xs_dtype, xs_channels, xs_interp),
             samplerName);
 
         const int channels = channel == OCIO::GpuShaderCreator::TEXTURE_RED_CHANNEL ? 1 : 3;
@@ -746,13 +1051,13 @@ void OCIOColourPipeline::setup_textures(
         std::memcpy(xs_lut_data, ocio_lut_data, data_size);
 
         xs_lut->update_content_hash();
-        xs_lut->set_target_viewer(target_viewer);
-        pipe_data.luts_.push_back(xs_lut);
+        op_data->luts_.push_back(xs_lut);
     }
 }
 
 void OCIOColourPipeline::update_dynamic_parameters(
-    OCIO::ConstGpuShaderDescRcPtr &shader, const utility::Uuid &source_uuid) const {
+    OCIO::ConstGpuShaderDescRcPtr &shader, const MediaParams &media_param) const {
+
     // Exposure property
     if (shader->hasDynamicProperty(OCIO::DYNAMIC_PROPERTY_EXPOSURE)) {
         OCIO::DynamicPropertyRcPtr property =
@@ -761,9 +1066,16 @@ void OCIOColourPipeline::update_dynamic_parameters(
             OCIO::DynamicPropertyValue::AsDouble(property);
         exposure_prop->setValue(exposure_->value());
     }
+    // Gamma property
+    if (shader->hasDynamicProperty(OCIO::DYNAMIC_PROPERTY_GAMMA)) {
+        OCIO::DynamicPropertyRcPtr property =
+            shader->getDynamicProperty(OCIO::DYNAMIC_PROPERTY_GAMMA);
+        OCIO::DynamicPropertyDoubleRcPtr gamma_prop =
+            OCIO::DynamicPropertyValue::AsDouble(property);
+        gamma_prop->setValue(enable_gamma_->value() ? gamma_->value() : 1.0f);
+    }
     // Shot CDL
     if (shader->hasDynamicProperty(OCIO::DYNAMIC_PROPERTY_GRADING_PRIMARY)) {
-        MediaParams media_param = get_media_params(source_uuid);
 
         OCIO::DynamicPropertyRcPtr property =
             shader->getDynamicProperty(OCIO::DYNAMIC_PROPERTY_GRADING_PRIMARY);
@@ -776,24 +1088,26 @@ void OCIOColourPipeline::update_dynamic_parameters(
 
 void OCIOColourPipeline::update_all_uniforms(
     OCIO::ConstGpuShaderDescRcPtr &shader,
-    ColourPipelineDataPtr &pipe_data,
+    utility::JsonStore &uniforms,
     const utility::Uuid &source_uuid) const {
+
     const unsigned max_uniforms = shader->getNumUniforms();
+
     for (unsigned idx = 0; idx < max_uniforms; ++idx) {
         OCIO::GpuShaderDesc::UniformData uniform_data;
         const char *name = shader->getUniform(idx, uniform_data);
 
         switch (uniform_data.m_type) {
         case OCIO::UNIFORM_DOUBLE: {
-            pipe_data.shader_parameters_[name] = uniform_data.m_getDouble();
+            uniforms[name] = uniform_data.m_getDouble();
             break;
         }
         case OCIO::UNIFORM_BOOL: {
-            pipe_data.shader_parameters_[name] = uniform_data.m_getBool();
+            uniforms[name] = uniform_data.m_getBool();
             break;
         }
         case OCIO::UNIFORM_FLOAT3: {
-            pipe_data.shader_parameters_[name] = {
+            uniforms[name] = {
                 "vec3",
                 1,
                 uniform_data.m_getFloat3()[0],
@@ -830,9 +1144,11 @@ extern "C" {
 plugin_manager::PluginFactoryCollection *plugin_factory_collection_ptr() {
     return new plugin_manager::PluginFactoryCollection(
         std::vector<std::shared_ptr<plugin_manager::PluginFactory>>(
-            {std::make_shared<ColourPipelinePlugin<ColourPipelineActor<OCIOColourPipeline>>>(
+            {std::make_shared<plugin_manager::PluginFactoryTemplate<OCIOColourPipeline>>(
                 PLUGIN_UUID,
                 "OCIOColourPipeline",
+                plugin_manager::PluginFlags::PF_COLOUR_MANAGEMENT,
+                false,
                 "xStudio",
                 "OCIO (v2) Colour Pipeline",
                 semver::version("1.0.0"))}));

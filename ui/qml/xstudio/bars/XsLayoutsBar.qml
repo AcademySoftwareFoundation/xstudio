@@ -18,10 +18,10 @@ Rectangle {
 
         id: layoutsModel
 
-        /*ListElement{
-            name: "Browse"
-            layout_name: "browse_layout"
-        }*/
+        // ListElement{
+        //     name: "Browse"
+        //     layout_name: "browse_layout"
+        // }
         ListElement{
             name: "Edit"
             layout_name: "edit_layout"

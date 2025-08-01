@@ -9,9 +9,10 @@ configure_file(.clang-tidy .clang-tidy)
 # find_package(Qt5 COMPONENTS Core Gui Widgets OpenGL QUIET)
 
 # QT5_ADD_RESOURCES(PROTOTYPE_RCS)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic")
-set(DCMAKE_EXE_LINKER_FLAGS "${DCMAKE_EXE_LINKER_FLAGS} -fpic")
-
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic")
+	set(DCMAKE_EXE_LINKER_FLAGS "${DCMAKE_EXE_LINKER_FLAGS} -fpic")
+endif
 
 project(data_source_shotgun_ui VERSION 0.1.0 LANGUAGES CXX)
 
@@ -21,6 +22,9 @@ QT5_WRAP_CPP(SHOTGUN_MODEL_UI_MOC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shotgun_model
 set(SOURCES
 	shotgun_model_ui.cpp
 	data_source_shotgun_ui.cpp
+	data_source_shotgun_requests_ui.cpp
+	data_source_shotgun_query_ui.cpp
+	../data_source_shotgun_query_engine.cpp
 	${DATA_SOURCE_SHOTGUN_UI_MOC_SRC}
 	${SHOTGUN_MODEL_UI_MOC_SRC}
 )
@@ -31,7 +35,6 @@ default_options_qt(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		xstudio::ui::qml::helper
-		xstudio::ui::qml::json_tree_model
 		xstudio::shotgun_client
 		${CAF_LIBRARY_core}
 		Qt5::Core

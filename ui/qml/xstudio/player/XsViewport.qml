@@ -19,8 +19,34 @@ Viewport {
 
     id: viewport
     objectName: "viewport"
-    property bool is_popout_viewport: false
-    property bool is_empty: playhead == undefined
+    property bool viewing_alpha_channel: false
+
+    onPointerEntered: {
+        focus = true;
+        forceActiveFocus()
+    }
+
+    XsButtonDialog {
+        id: snapshotResultDialog
+        // parent: sessionWidget
+        width: text.width + 20
+        title: "Snapshot export fail"
+        text: {
+            return "The snapshot could not be exported. Please check the parameters"
+        }
+        buttonModel: ["Ok"]
+        onSelected: {
+            snapshotResultDialog.close()
+        }
+    }
+
+    onSnapshotRequestResult: {
+        if (resultMessage != "") {
+            snapshotResultDialog.title = "Snapshot export failed"
+            snapshotResultDialog.text = resultMessage
+            snapshotResultDialog.open()
+        }
+    }
 
     XsOutOfRangeOverlay {
         visible: viewport.frameOutOfRange
@@ -33,28 +59,53 @@ Viewport {
         imageBox: imageBoundaryInViewport
     }
 
+    XsErrorFrameOverlay {
+        visible: viewport.noAlphaChannel && viewing_alpha_channel
+        frame_error_message: "No alpha channel available"
+        anchors.fill: parent
+        imageBox: imageBoundaryInViewport
+    }
+
+    XsModuleAttributes {
+        id: colour_settings
+        attributesGroupNames: "colour_pipe_attributes"
+        onValueChanged: {
+            if(key == "channel") {
+                viewport.viewing_alpha_channel = value == "Alpha"
+            }
+        }
+    }
+
     XsViewportBlankCard {
 
         id: blank_viewport_card
         anchors.fill: parent
-        visible: viewport.is_empty
+        visible: false//playhead.mediaUuid == "{00000000-0000-0000-0000-000000000000}"
+    }
+
+    onQuickViewBackendRequest: {
+        app_window.launchQuickViewer(mediaActors, compareMode)
+    }
+
+    onQuickViewBackendRequestWithSize: {
+        app_window.launchQuickViewerWithSize(mediaActors, compareMode, position, size)
     }
 
     DropArea {
         anchors.fill: parent
+        keys: [
+            "text/uri-list",
+            "xstudio/media-ids",
+            "application/x-dneg-ivy-entities-v1"
+        ]
 
-        onEntered: {
-            if(drag.hasUrls || drag.hasText) {
-                drag.acceptProposedAction()
-            }
-        }
         onDropped: {
            if(drop.hasUrls) {
                 for(var i=0; i < drop.urls.length; i++) {
-                    if(drop.urls[i].toLowerCase().endsWith('.xst')) {
-                        session.loadUrl(drop.urls[i])
-                        app_window.session.new_recent_path(drop.urls[i])
-                        return
+                    if(drop.urls[i].toLowerCase().endsWith('.xst') || drop.urls[i].toLowerCase().endsWith('.xsz')) {
+                        Future.promise(studio.loadSessionRequestFuture(drop.urls[i])).then(function(result){})
+                        app_window.sessionFunction.newRecentPath(drop.urls[i])
+                        return;
                     }
                 }
             }
@@ -65,22 +116,25 @@ Viewport {
                 data[drop.keys[i]] = drop.getDataAsString(drop.keys[i])
             }
 
-            if(session.selectedSource) {
-                Future.promise(session.selectedSource.handleDropFuture(data)).then(
+            if(app_window.currentSource.index && app_window.currentSource.index.valid) {
+                Future.promise(app_window.sessionModel.handleDropFuture(drop.proposedAction, data, app_window.currentSource.index)).then(
                     function(quuids){
-                        playhead.jumpToSource(quuids[0])
-                        selectionFilter.newSelection([quuids[0]])
+                        // if(viewport.playhead)
+                        //     viewport.playhead.jumpToSource(quuids[0])
+                        // session.selectedSource.selectionFilter.newSelection([quuids[0]])
                     }
                 )
             } else {
-                Future.promise(session.handleDropFuture(data)).then(function(quuids){})
+                // no playlist etc.
+                Future.promise(
+                    app_window.sessionModel.handleDropFuture(drop.proposedAction, data)
+                ).then(function(quuids){})
             }
         }
     }
 
     XsViewerContextMenu {
         id: viewerContextMenu
-        is_popout_viewport: viewport.is_popout_viewport
     }
 
     XsModelProperty {
@@ -97,52 +151,14 @@ Viewport {
 
     XsModuleAttributes {
         id: zoom_and_pane_attrs
-        attributesGroupName: "viewport_zoom_and_pan_modes"
+        attributesGroupNames: "viewport_zoom_and_pan_modes"
 
         onValueChanged: {
-            if(zoom_and_pane_attrs.zoom) viewport.setOverrideCursor( "://cursors/magnifier_cursor.svg", true)
-            else if(zoom_and_pane_attrs.pan) viewport.setOverrideCursor(Qt.OpenHandCursor)
+            if(zoom_and_pane_attrs.zoom_z) viewport.setOverrideCursor("://cursors/magnifier_cursor.svg", true)
+            else if(zoom_and_pane_attrs.pan_x) viewport.setOverrideCursor(Qt.OpenHandCursor)
             else viewport.setOverrideCursor("", false);
         }
 
-    }
-    XsModuleAttributes {
-        id: viewport_attrs
-        attributesGroupName: "viewport_attributes"
-
-        onAttrAdded: {
-            if (attr_name == "fit") fit = fit_mode_pref.value
-        }
-
-        onValueChanged: {
-            if (key == "fit" && fit != "Off") fit_mode_pref.value = value
-        }
-    }
-
-    XsModuleAttributes {
-        id: popout_viewport_attrs
-        attributesGroupName: "popout_viewport_attributes"
-
-        onAttrAdded: {
-            if (attr_name == "fit") fit = popout_fit_mode_pref.value
-        }
-
-        onValueChanged: {
-            if (key == "fit" && fit != "Off") popout_fit_mode_pref.value = value
-        }
-    }
-
-    function resetViewport() {
-
-        if (viewport_attrs.fit) viewport_attrs.fit = fit_mode_pref.value
-        if (popout_viewport_attrs.fit) popout_viewport_attrs.fit = popout_fit_mode_pref.value
-        //fitMode = fit_mode_pref.properties.value
-        /*if (colourPipeline.exposure != 0.0) {
-            colourPipeline.previousSetExposure = colourPipeline.exposure
-            colourPipeline.exposure = 0.0
-
-        }*/
-        playhead.velocity = 1.0
     }
 
     onMouseButtonsChanged: {
@@ -151,11 +167,6 @@ Viewport {
             viewerContextMenu.y = mouse.y
             viewerContextMenu.visible = true
         }
-    }
-
-    XsModuleAttributesModel {
-        id: viewport_overlays
-        attributesGroupName: "viewport_overlay_plugins"
     }
 
     Repeater {
@@ -167,6 +178,7 @@ Viewport {
         delegate: Item {
 
             id: parent_item
+            anchors.fill: parent
 
             property var dynamic_widget
 
@@ -179,4 +191,222 @@ Viewport {
             }
         }
     }
+
+    Item {
+        id: hud
+        anchors.fill: parent
+
+        XsModuleAttributesModel {
+            id: viewport_overlays
+            attributesGroupNames: "viewport_overlay_plugins"
+        }
+
+        XsModuleAttributesModel {
+            id: hud_elements_bottom_left
+            attributesGroupNames: "hud_elements_bottom_left"
+        }
+
+        XsModuleAttributesModel {
+            id: hud_elements_bottom_center
+            attributesGroupNames: "hud_elements_bottom_center"
+        }
+
+        XsModuleAttributesModel {
+            id: hud_elements_bottom_right
+            attributesGroupNames: "hud_elements_bottom_right"
+        }
+
+        XsModuleAttributesModel {
+            id: hud_elements_top_left
+            attributesGroupNames: "hud_elements_top_left"
+        }
+
+        XsModuleAttributesModel {
+            id: hud_elements_top_center
+            attributesGroupNames: "hud_elements_top_center"
+        }
+
+        XsModuleAttributesModel {
+            id: hud_elements_top_right
+            attributesGroupNames: "hud_elements_top_right"
+        }
+
+        XsModuleAttributes {
+            id: hud_toggle
+            attributesGroupNames: "hud_toggle"
+        }
+
+        visible: hud_toggle.hud ? hud_toggle.hud : false
+
+        property var hud_margin: 10
+
+        Column {
+
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.margins: hud.hud_margin
+            Repeater {
+
+                model: hud_elements_bottom_left
+
+                delegate: Item {
+
+                    id: parent_item
+                    width: dynamic_widget.width
+                    height: dynamic_widget.height
+
+                    property var dynamic_widget
+
+                    property var type_: type ? type : null
+
+                    onType_Changed: {
+                        if (type == "QmlCode") {
+                            dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                        }
+                    }
+                }
+            }
+        }
+
+        Column {
+
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.margins: hud.hud_margin
+            Repeater {
+
+                model: hud_elements_bottom_center
+
+                delegate: Item {
+
+                    id: parent_item
+                    width: dynamic_widget.width
+                    height: dynamic_widget.height
+
+                    property var dynamic_widget
+
+                    property var type_: type ? type : null
+
+                    onType_Changed: {
+                        if (type == "QmlCode") {
+                            dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                        }
+                    }
+                }
+            }
+        }
+
+        Column {
+
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+            anchors.margins: hud.hud_margin
+            Repeater {
+
+                model: hud_elements_bottom_right
+
+                delegate: Item {
+
+                    id: parent_item
+                    width: dynamic_widget.width
+                    height: dynamic_widget.height
+
+                    property var dynamic_widget
+
+                    property var type_: type ? type : null
+
+                    onType_Changed: {
+                        if (type == "QmlCode") {
+                            dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                        }
+                    }
+                }
+            }
+        }
+
+        Column {
+
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.margins: hud.hud_margin
+            Repeater {
+
+                model: hud_elements_top_left
+
+                delegate: Item {
+
+                    id: parent_item
+                    width: dynamic_widget.width
+                    height: dynamic_widget.height
+
+                    property var dynamic_widget
+
+                    property var type_: type ? type : null
+
+                    onType_Changed: {
+                        if (type == "QmlCode") {
+                            dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                        }
+                    }
+                }
+            }
+        }
+
+        Column {
+
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.margins: hud.hud_margin
+            Repeater {
+
+                model: hud_elements_top_center
+
+                delegate: Item {
+
+                    id: parent_item
+                    width: dynamic_widget.width
+                    height: dynamic_widget.height
+
+                    property var dynamic_widget
+
+                    property var type_: type ? type : null
+
+                    onType_Changed: {
+                        if (type == "QmlCode") {
+                            dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                        }
+                    }
+                }
+            }
+        }
+
+        Column {
+
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: hud.hud_margin
+            Repeater {
+
+                model: hud_elements_top_right
+
+                delegate: Item {
+
+                    id: parent_item
+                    width: dynamic_widget.width
+                    height: dynamic_widget.height
+
+                    property var dynamic_widget
+
+                    property var type_: type ? type : null
+
+                    onType_Changed: {
+                        if (type == "QmlCode") {
+                            dynamic_widget = Qt.createQmlObject(qml_code, parent_item)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }

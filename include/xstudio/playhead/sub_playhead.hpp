@@ -23,7 +23,6 @@ namespace playhead {
             const std::string &name,
             caf::actor source,
             caf::actor parent,
-            caf::actor colour_pipeline,
             const timebase::flicks loop_in_point_,
             const timebase::flicks loop_out_point_,
             const utility::TimeSourceMode time_source_mode_,
@@ -69,6 +68,9 @@ namespace playhead {
         void make_static_precache_request(
             caf::typed_response_promise<bool> &rp, const bool start_precache);
 
+        void make_prefetch_requests_for_colour_pipeline(
+            const media::AVFrameIDsAndTimePoints &lookahead_frames);
+
         void receive_image_from_cache(
             media_reader::ImageBufPtr image_buffer,
             const media::AVFrameID mptr,
@@ -78,7 +80,6 @@ namespace playhead {
 
         std::shared_ptr<const media::AVFrameID> get_frame(
             const timebase::flicks &time,
-            int &logical_frame,
             timebase::flicks &frame_period,
             timebase::flicks &timeline_pts);
 
@@ -90,9 +91,22 @@ namespace playhead {
 
         void set_in_and_out_frames();
 
-        void get_bookmark_ranges(
-            const std::vector<bookmark::BookmarkDetail> &bookmark_details,
-            std::vector<std::tuple<utility::Uuid, std::string, int, int>> &result);
+        typedef std::vector<std::tuple<utility::Uuid, std::string, int, int>> BookmarkRanges;
+
+        void extend_bookmark_frame(
+            const bookmark::BookmarkDetail &detail,
+            const int logical_playhead_frame,
+            BookmarkRanges &bookmark_ranges);
+
+        void full_bookmarks_update();
+
+        void fetch_bookmark_annotations(BookmarkRanges bookmark_ranges);
+
+        void add_annotations_data_to_frame(media_reader::ImageBufPtr &frame);
+
+        void bookmark_deleted(const utility::Uuid &bookmark_uuid);
+
+        void bookmark_changed(const utility::UuidActor bookmark);
 
       protected:
         int logical_frame_                = {0};
@@ -112,7 +126,6 @@ namespace playhead {
         caf::actor source_;
         caf::actor parent_;
         caf::actor event_group_;
-        caf::actor colour_pipeline_;
         caf::actor current_media_actor_;
 
         utility::Uuid current_media_source_uuid_;
@@ -124,10 +137,12 @@ namespace playhead {
         utility::FrameRate override_frame_rate_;
         const media::MediaType media_type_;
         std::shared_ptr<const media::AVFrameID> previous_frame_;
+        utility::UuidSet all_media_uuids_;
 
-        std::map<timebase::flicks, int> timeline_logical_frame_pts_;
         media::FrameTimeMap full_timeline_frames_;
         media::FrameTimeMap::iterator in_frame_, out_frame_, first_frame_, last_frame_;
+        xstudio::bookmark::BookmarkAndAnnotations bookmarks_;
+        BookmarkRanges bookmark_ranges_;
 
         typedef std::pair<media_reader::ImageBufPtr, colour_pipeline::ColourPipelineDataPtr>
             ImageAndLut;

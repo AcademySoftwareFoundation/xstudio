@@ -1,0 +1,263 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>xstudio.api.app &mdash; xStudio 0.10.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.10.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+          <li><a href="../api.html">xstudio.api</a> &raquo;</li>
+        
+      <li>xstudio.api.app</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for xstudio.api.app</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">session_atom</span><span class="p">,</span> <span class="n">join_broadcast_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">colour_pipeline_atom</span><span class="p">,</span> <span class="n">get_actor_from_registry_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">viewport_playhead_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session</span> <span class="kn">import</span> <span class="n">Session</span><span class="p">,</span> <span class="n">Container</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.module</span> <span class="kn">import</span> <span class="n">ModuleBase</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary</span> <span class="kn">import</span> <span class="n">ActorConnection</span>
+
+<div class="viewcode-block" id="App"><a class="viewcode-back" href="../../../python_api/api.html#xstudio.api.app.App">[docs]</a><span class="k">class</span> <span class="nc">App</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;App access. &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create app object.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            connection(Connection): Connection object</span>
+<span class="sd">            remote(object): Remote actor object</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            uuid(Uuid): Uuid of remote actor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Container</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">session</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Session object.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            session(Session): Session object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">session_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">colour_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Colour Pipeline (colour management) object.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            colour_pipeline(ModuleBase): Colour Pipeline object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ModuleBase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span> <span class="n">colour_pipeline_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">viewport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The main Viewport module.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            viewport(ModuleBase): Viewport module.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ModuleBase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span> <span class="n">get_actor_from_registry_atom</span><span class="p">(),</span> <span class="s2">&quot;MAIN_VIEWPORT&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">global_playhead_events</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The global playhead events actor. This can be used to query which</span>
+<span class="sd">        playhead is active in the viewer, or to set the active playhead. We</span>
+<span class="sd">        can also join to its events group to get other fine grained messages</span>
+<span class="sd">        about playead state (such as current frame, current media etc.)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            global_playhead_events(ActorConnection): Global Playhead Events Actor.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ActorConnection</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">remote</span><span class="p">(),</span> <span class="n">get_actor_from_registry_atom</span><span class="p">(),</span> <span class="s2">&quot;GLOBALPLAYHEADEVENTS&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="App.set_viewport_playhead"><a class="viewcode-back" href="../../../python_api/api.html#xstudio.api.app.App.set_viewport_playhead">[docs]</a>    <span class="k">def</span> <span class="nf">set_viewport_playhead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">playhead</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the playhead that is delivering frames to the viewport, i.e.</span>
+<span class="sd">        the active playhead.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            playhead(Playhead): The playhead.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">viewport</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">viewport_playhead_atom</span><span class="p">(),</span> <span class="n">playhead</span><span class="o">.</span><span class="n">remote</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, DNeg
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

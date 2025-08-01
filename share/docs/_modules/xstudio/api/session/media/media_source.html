@@ -1,0 +1,422 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>xstudio.api.session.media.media_source &mdash; xStudio 0.10.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+        <script src="../../../../../_static/jquery.js"></script>
+        <script src="../../../../../_static/underscore.js"></script>
+        <script src="../../../../../_static/doctools.js"></script>
+        <script src="../../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../../index.html" class="icon icon-home"> xStudio
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.10.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../index.html">Welcome to xStudio’s documentation!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../index.html">xStudio</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../../../index.html">Module code</a> &raquo;</li>
+        
+          <li><a href="../../../api.html">xstudio.api</a> &raquo;</li>
+        
+      <li>xstudio.api.session.media.media_source</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for xstudio.api.session.media.media_source</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_media_stream_atom</span><span class="p">,</span> <span class="n">current_media_stream_atom</span><span class="p">,</span> <span class="n">MediaType</span><span class="p">,</span> <span class="n">media_reference_atom</span><span class="p">,</span> <span class="n">rescan_atom</span><span class="p">,</span> <span class="n">invalidate_cache_atom</span>
+<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">media_status_atom</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">,</span> <span class="n">set_json_atom</span><span class="p">,</span> <span class="n">JsonStore</span>
+
+<span class="kn">from</span> <span class="nn">xstudio.api.session.container</span> <span class="kn">import</span> <span class="n">Container</span>
+<span class="kn">from</span> <span class="nn">xstudio.api.session.media.media_stream</span> <span class="kn">import</span> <span class="n">MediaStream</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+
+<div class="viewcode-block" id="MediaSource"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.MediaSource">[docs]</a><span class="k">class</span> <span class="nc">MediaSource</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;MediaSource object.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create MediaSource object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            connection(Connection): Connection object</span>
+<span class="sd">            remote(actor): Remote actor object</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            uuid(Uuid): Uuid of remote actor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Container</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_streams</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_AUDIO</span><span class="p">):</span> <span class="kc">None</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">image_streams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get image streams.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            image_streams(list[MediaStream]): List of image streams.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">streams</span><span class="p">(</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">audio_streams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get audio streams.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            audio_streams(list[MediaStream]): List of audio streams.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">streams</span><span class="p">(</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_AUDIO</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MediaSource.streams"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.MediaSource.streams">[docs]</a>    <span class="k">def</span> <span class="nf">streams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get streams.</span>
+
+<span class="sd">        Kwargs:</span>
+<span class="sd">            media_type(MediaType): Type of stream.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            streams(list[MediaStream]): List of streams.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">media_type_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">media_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_streams</span><span class="p">[</span><span class="n">media_type_str</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_streams</span><span class="p">[</span><span class="n">media_type_str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_media_stream_atom</span><span class="p">(),</span> <span class="n">media_type</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_streams</span><span class="p">[</span><span class="n">media_type_str</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MediaStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_streams</span><span class="p">[</span><span class="n">media_type_str</span><span class="p">]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get media reference rate.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            rate(FrameRate): Current media reference rate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_reference</span><span class="o">.</span><span class="n">rate</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@rate</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_rate</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set media reference rate.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            new_rate(FrameRate): Set media reference rate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_reference</span>
+            <span class="n">mr</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="n">new_rate</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">media_reference</span> <span class="o">=</span> <span class="n">mr</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">media_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get media reference.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            media_reference(MediaReference): Current media reference.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_reference_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@media_reference</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">media_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mr</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set media reference.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mr(MediaReference): Set media reference.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_reference_atom</span><span class="p">(),</span> <span class="n">mr</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+<div class="viewcode-block" id="MediaSource.rescan"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.MediaSource.rescan">[docs]</a>    <span class="k">def</span> <span class="nf">rescan</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Rescan media item.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(MediaReference): New Reference</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">rescan_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="MediaSource.invalidate_cache"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.MediaSource.invalidate_cache">[docs]</a>    <span class="k">def</span> <span class="nf">invalidate_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Flush media item from cache.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result(bool): Flushed ?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">invalidate_cache_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get media metadata.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            metadata(json): Media metadata.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dump</span><span class="p">())</span>
+
+
+    <span class="nd">@metadata</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_metadata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set media reference rate.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            new_metadata(json): Json dict to set as media source metadata</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: success</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">set_json_atom</span><span class="p">(),</span> <span class="n">JsonStore</span><span class="p">(</span><span class="n">new_metadata</span><span class="p">))</span>
+
+<div class="viewcode-block" id="MediaSource.get_metadata"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.MediaSource.get_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get metdata at JSON path</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path(str): JSON Pointer</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            metadata(json) Json at pointer location</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">(),</span> <span class="n">path</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dump</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="MediaSource.set_metadata"><a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.MediaSource.set_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">set_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get metdata at JSON path</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data(json): JSON Data</span>
+<span class="sd">            path(str): JSON Pointer</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: success</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">set_json_atom</span><span class="p">(),</span> <span class="n">JsonStore</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">path</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">image_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get current image stream.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            image_stream(MediaStream): Current image stream.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">current_media_stream_atom</span><span class="p">(),</span> <span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">MediaStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">audio_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get current audio stream.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            audio_stream(MediaStream): Current audio stream.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">current_media_stream_atom</span><span class="p">(),</span> <span class="n">MediaType</span><span class="o">.</span><span class="n">MT_AUDIO</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">MediaStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">media_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get status.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            status(MediaStatus): State.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_status_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@media_status</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">media_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set status.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            status(MediaStatus): Set status state.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_status_atom</span><span class="p">(),</span> <span class="n">status</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, DNeg
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

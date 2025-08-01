@@ -14,6 +14,6 @@ XsTrayButton {
     source: "qrc:///feather_icons/download-cloud.svg"
     tooltip: "Open the Shot Browser Panel."
     buttonPadding: pad
-    toggled_on: session.object_map["ShotgunRoot"].browser.visible
-    onClicked: session.object_map["ShotgunRoot"].toggle_browser()
+    toggled_on: sessionFunction.object_map["ShotgunRoot"].browser.visible
+    onClicked: sessionFunction.object_map["ShotgunRoot"].toggle_browser()
 }

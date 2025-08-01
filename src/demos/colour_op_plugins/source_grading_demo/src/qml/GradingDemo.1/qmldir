@@ -1,0 +1,4 @@
+module GradingDemo
+
+GradingDemoButton 1.0 GradingDemoButton.qml
+GradingDemoDialog 1.0 GradingDemoDialog/GradingDemoDialog.qml

@@ -71,7 +71,7 @@ void BookmarkActor::init() {
     set_down_handler([=](down_msg &msg) {
         // find in playhead list..
         if (msg.source == caf::actor_cast<caf::actor>(owner_)) {
-            set_owner(caf::actor());
+            set_owner(caf::actor(), true);
             send_exit(this, caf::exit_reason::user_shutdown);
         }
     });
@@ -256,11 +256,11 @@ void BookmarkActor::init() {
             return false;
         },
 
-        [=](add_annotation_atom, std::shared_ptr<bookmark::AnnotationBase> anno) -> bool {
+        [=](add_annotation_atom, AnnotationBasePtr anno) -> bool {
             if (base_.annotation_ == anno)
                 return false;
             base_.annotation_ = anno;
-            // send(event_group_, utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
+            send(event_group_, utility::event_atom_v, bookmark_change_atom_v, base_.uuid());
             // base_.send_changed(event_group_, this);
             return true;
         },
@@ -270,7 +270,7 @@ void BookmarkActor::init() {
             return true;
         },
 
-        [=](get_annotation_atom) -> std::shared_ptr<bookmark::AnnotationBase> {
+        [=](get_annotation_atom) -> AnnotationBasePtr {
             if (!base_.annotation_) {
                 // if there is no annotation on this note, we return a temporary empty
                 // annotation base that just does the job of carrying the bookmark uuid through
@@ -278,10 +278,25 @@ void BookmarkActor::init() {
                 // screen on a frame where a note (bookmark) exists but there is as-yet no
                 // annotation we want to add the new drawings to the note. The annotation tool
                 // needs to know the uuid of the on-screen note to do this.
-                return std::shared_ptr<bookmark::AnnotationBase>(
-                    new bookmark::AnnotationBase(utility::JsonStore(), base_.uuid()));
+                return std::make_shared<bookmark::AnnotationBase>(
+                    utility::JsonStore(), base_.uuid());
             }
             return base_.annotation_;
+        },
+
+        [=](bookmark_detail_atom, get_annotation_atom) -> result<BookmarkAndAnnotationPtr> {
+            auto rp = make_response_promise<BookmarkAndAnnotationPtr>();
+            request(caf::actor_cast<caf::actor>(this), infinite, bookmark_detail_atom_v)
+                .then(
+                    [=](const BookmarkDetail &detail) mutable {
+                        auto data         = new BookmarkAndAnnotation;
+                        data->detail_     = detail;
+                        data->annotation_ = base_.annotation_;
+                        BookmarkAndAnnotationPtr ptr(data);
+                        rp.deliver(ptr);
+                    },
+                    [=](const error &err) mutable { rp.deliver(err); });
+            return rp;
         },
 
         [=](utility::duplicate_atom) -> result<utility::UuidActor> {
@@ -356,13 +371,12 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
             infinite,
             plugin_manager::spawn_plugin_atom_v,
             plugin_uuid,
-            utility::JsonStore(),
-            true)
+            utility::JsonStore())
             .then(
                 [=](caf::actor annotations_plugin) {
                     request(annotations_plugin, infinite, build_annotation_atom_v, anno_data)
                         .then(
-                            [=](std::shared_ptr<bookmark::AnnotationBase> &anno) {
+                            [=](AnnotationBasePtr &anno) {
                                 anno->bookmark_uuid_ = base_.uuid();
                                 base_.annotation_    = anno;
                                 send(
@@ -407,14 +421,16 @@ void BookmarkActor::build_annotation_via_plugin(const utility::JsonStore &anno_d
     }
 }
 
-void BookmarkActor::set_owner(caf::actor owner) {
+void BookmarkActor::set_owner(caf::actor owner, const bool dead) {
 
     // Note, owner is a MediaActor
     if (owner_) {
         demonitor(caf::actor_cast<caf::actor>(owner_));
-        auto src = caf::actor_cast<caf::event_based_actor *>(owner_);
-        if (src)
-            utility::leave_event_group(src, caf::actor_cast<caf::actor>(this));
+        if (not dead) {
+            auto src = caf::actor_cast<caf::event_based_actor *>(owner_);
+            if (src)
+                utility::leave_event_group(src, caf::actor_cast<caf::actor>(this));
+        }
     }
 
     owner_ = caf::actor_cast<caf::actor_addr>(owner);

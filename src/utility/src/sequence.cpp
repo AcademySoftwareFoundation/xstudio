@@ -1,8 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef _WIN32
+// Windows specific implementation
+#include <sys/stat.h>
+#include <ctime>
+
+time_t get_mtim(const struct stat &st) { return st.st_mtime; }
+
+time_t get_ctim(const struct stat &st) { return st.st_ctime; }
+
+#else
+// Linux specific implementation
+#define get_mtim(st) (st).st_mtim.tv_sec
+#define get_ctim(st) (st).st_ctim.tv_sec
+
+#endif
+
+#include <caf/all.hpp>
 #include <limits>
 #include <regex>
-// #include <filesystem>
-
 
 #include <algorithm>
 #include <filesystem>
@@ -51,20 +66,52 @@ uri_from_file_list(const std::vector<std::string> &paths) {
     return result;
 }
 
+std::vector<UriSequence> uri_from_file(const std::string &path) {
+    return uri_from_file_list(std::vector<std::string>({path}));
+}
+
+
 Entry::Entry(const std::string path) : name_(std::move(path)) {
     std::memset(&stat_, 0, sizeof stat_);
 }
+#ifdef _WIN32
+uint64_t get_block_size_windows(const xstudio::utility::Entry &entry) {
+    const std::string &path = entry.name_; // Assuming 'name_' contains the path
+    ULARGE_INTEGER blockSize;
+    DWORD blockSizeLow, blockSizeHigh;
+
+    if (!GetDiskFreeSpaceExA(path.c_str(), nullptr, nullptr, &blockSize)) {
+        // Error occurred, handle it accordingly
+        // ...
+    }
+
+    blockSizeLow  = blockSize.LowPart;
+    blockSizeHigh = blockSize.HighPart;
+
+    return static_cast<uint64_t>(blockSizeLow) | (static_cast<uint64_t>(blockSizeHigh) << 32);
+}
+#endif
 
 Sequence::Sequence(const Entry &entry)
     : count_(1),
       uid_(entry.stat_.st_uid),
       gid_(entry.stat_.st_gid),
+#ifdef _WIN32
+      size_(get_block_size_windows(entry) * 512),
+#else
       size_(entry.stat_.st_blocks * 512),
+#endif
       apparent_size_(entry.stat_.st_size),
+#ifdef _WIN32
+      mtim_(get_mtim(entry.stat_)),
+      ctim_(get_ctim(entry.stat_)),
+#else
       mtim_(entry.stat_.st_mtim.tv_sec),
       ctim_(entry.stat_.st_ctim.tv_sec),
+#endif
       name_(entry.name_),
-      frames_() {}
+      frames_() {
+}
 Sequence::Sequence(const std::string name) : name_(std::move(name)), frames_() {}
 
 std::string make_frame_sequence(
@@ -113,6 +160,7 @@ struct DefaultSequenceHelper {
         seq.apparent_size_ = 0;
 
         for (const auto &entry : entries_) {
+#ifdef __linux__
             if (entry.stat_.st_mtim.tv_sec > seq.mtim_) {
                 seq.mtim_ = entry.stat_.st_mtim.tv_sec;
                 if (seq.mtim_ > max_t) {
@@ -129,7 +177,12 @@ struct DefaultSequenceHelper {
                     seq.gid_ = entry.stat_.st_gid;
                 }
             }
+#endif
+#ifdef _WIN32
+            seq.size_ += get_block_size_windows(entry) * 512;
+#else
             seq.size_ += entry.stat_.st_blocks * 512;
+#endif
             seq.apparent_size_ += entry.stat_.st_size;
         }
         if (frames_.empty())
@@ -304,11 +357,15 @@ std::string escape_percentage(const std::string &str) {
 static const std::set<std::string> not_sequence_ext_set{
     ".BZ2", ".bz2", ".MOV", ".mov", ".AVI", ".avi",  ".CINE", ".cine", ".R3D", ".r3d", ".AAF",
     ".aaf", ".MXF", ".mxf", ".WAV", ".wav", ".AIFF", ".aiff", ".HIP",  ".hip", ".MB",  ".mb",
-    ".MA",  ".ma",  ".NK",  ".nk",  ".mv4", ".MP4",  ".mp4",  ".mp3",  ".MP3"};
+    ".MA",  ".ma",  ".NK",  ".nk",  ".mv4", ".MP4",  ".mp4",  ".mp3",  ".MP3", ".WEBM"};
 
 bool default_is_sequence(const Entry &entry) {
     // things that are never sequences..
+#ifdef _WIN32
+    std::string ext = std::filesystem::path(entry.name_).extension().string();
+#else
     std::string ext = std::filesystem::path(entry.name_).extension();
+#endif
     // we don't try and handle case, as that get's trick when utf-8 is in use..
     // we assume that it'll not be mixed..
     if (not_sequence_ext_set.count(to_lower(ext)))

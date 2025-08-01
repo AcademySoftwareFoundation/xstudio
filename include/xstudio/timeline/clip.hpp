@@ -28,6 +28,8 @@ namespace timeline {
         ~Clip() override = default;
 
         [[nodiscard]] utility::JsonStore serialise() const override;
+        [[nodiscard]] Clip duplicate() const;
+
         [[nodiscard]] const Item &item() const { return item_; }
         [[nodiscard]] Item &item() { return item_; }
 
@@ -36,7 +38,12 @@ namespace timeline {
         }
 
         [[nodiscard]] const utility::Uuid &media_uuid() const { return media_uuid_; }
-        void set_media_uuid(const utility::Uuid &media_uuid) { media_uuid_ = media_uuid; }
+        void set_media_uuid(const utility::Uuid &media_uuid) {
+            auto jsn          = item_.prop();
+            jsn["media_uuid"] = media_uuid;
+            item_.set_prop(jsn);
+            media_uuid_ = media_uuid;
+        }
 
       private:
         Item item_;

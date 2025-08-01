@@ -90,30 +90,30 @@ GlobalColourCacheActor::GlobalColourCacheActor(caf::actor_config &cfg)
         [=](preserve_atom, const std::string &key, const time_point &time, const Uuid &uuid)
             -> bool { return cache_.preserve(key, time, uuid); },
 
-        [=](retrieve_atom, const std::string &key) -> ColourPipelineDataPtr {
+        [=](retrieve_atom, const std::string &key) -> ColourOperationDataPtr {
             return cache_.retrieve(key);
         },
 
         [=](retrieve_atom, const std::string &key, const time_point &time)
-            -> ColourPipelineDataPtr { return cache_.retrieve(key, time); },
+            -> ColourOperationDataPtr { return cache_.retrieve(key, time); },
 
         [=](retrieve_atom, const std::string &key, const time_point &time, const Uuid &uuid)
-            -> ColourPipelineDataPtr { return cache_.retrieve(key, time, uuid); },
+            -> ColourOperationDataPtr { return cache_.retrieve(key, time, uuid); },
 
         [=](size_atom) -> size_t { return cache_.size(); },
 
-        [=](store_atom, const std::string &key, ColourPipelineDataPtr buf) -> bool {
+        [=](store_atom, const std::string &key, ColourOperationDataPtr buf) -> bool {
             return cache_.store(key, buf);
         },
 
         [=](store_atom,
             const std::string &key,
-            ColourPipelineDataPtr buf,
+            ColourOperationDataPtr buf,
             const time_point &when) -> bool { return cache_.store(key, buf, when); },
 
         [=](store_atom,
             const std::string &key,
-            ColourPipelineDataPtr buf,
+            ColourOperationDataPtr buf,
             const time_point &when,
             const utility::Uuid &uuid) -> bool {
             return cache_.store(key, buf, when, false, uuid);

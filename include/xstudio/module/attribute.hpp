@@ -22,6 +22,7 @@ namespace module {
             IntegerAttribute,
             StringChoiceAttribute,
             ColourAttribute,
+            JsonAttribute
         };
 
         inline static const std::map<int, std::string> type_names = {
@@ -32,7 +33,8 @@ namespace module {
             {IntegerAttribute, "IntegerValue"},
             {FloatAttribute, "FloatScrubber"},
             {ActionAttribute, "Action"},
-            {ColourAttribute, "ColourAttribute"}};
+            {ColourAttribute, "ColourAttribute"},
+            {JsonAttribute, "JsonAttribute"}};
 
         enum Role {
             Type,
@@ -71,7 +73,9 @@ namespace module {
             FontFamily,
             TextAlignment,
             TextContainerBox,
-            Colour
+            Colour,
+            HotkeyUuid,
+            UserData
         };
 
         inline static const std::map<int, std::string> role_names = {
@@ -96,7 +100,7 @@ namespace module {
             {DefaultValue, "default_value"},
             {AbbrValue, "short_value"},
             {DisabledValue, "disabled_value"},
-            {UuidRole, "uuid"},
+            {UuidRole, "attr_uuid"},
             {Groups, "groups"},
             {MenuPaths, "menu_paths"},
             {ToolbarPosition, "toolbar_position"},
@@ -109,7 +113,9 @@ namespace module {
             {FontFamily, "font_family"},
             {TextAlignment, "text_alignment"},
             {TextContainerBox, "text_alignment_box"},
-            {Colour, "attr_colour"}};
+            {Colour, "attr_colour"},
+            {HotkeyUuid, "hotkey_uuid"},
+            {UserData, "user_data"}};
 
         ~Attribute() = default;
 
@@ -137,6 +143,8 @@ namespace module {
 
         [[nodiscard]] nlohmann::json as_json() const;
 
+        void update_from_json(const nlohmann::json &data, const bool notify);
+
         void delete_role_data(const int role) {
             if (has_role_data(role)) {
                 role_data_.erase(role_data_.find(role));
@@ -147,10 +155,8 @@ namespace module {
             set_role_data(role, std::string(data));
         }
 
-        void set_role_data(
-            const int role, const nlohmann::json &data, const bool owner_notify = true) {
-            // N.B. this is RUBBISH! Using nlohmann::json as intermediate type for setting
-            // data. need proper template version of this function for the type of 'data'
+        template <typename T>
+        void set_role_data(const int role, const T &data, const bool owner_notify = true) {
             if (role_data_[role].set(data)) {
                 Attribute::notify_change(role, data, owner_notify);
             }
@@ -158,7 +164,7 @@ namespace module {
 
         void set_preference_path(const std::string &preference_path);
 
-        void expose_in_ui_attrs_group(const std::string &group_name);
+        void expose_in_ui_attrs_group(const std::string &group_name, bool expose = true);
 
         void set_tool_tip(const std::string &tool_tip);
 
@@ -166,7 +172,7 @@ namespace module {
 
         bool operator==(const utility::Uuid &o_uuid) const { return uuid() == o_uuid; }
 
-        [[nodiscard]] bool belongs_to_group(const std::string group_name) const;
+        [[nodiscard]] bool belongs_to_groups(const std::vector<std::string> &group_name) const;
 
         [[nodiscard]] utility::Uuid uuid() const {
             return get_role_data<utility::Uuid>(UuidRole);

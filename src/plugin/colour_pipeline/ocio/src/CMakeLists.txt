@@ -1,6 +1,7 @@
-find_package(OpenColorIO CONFIG)
+find_package(OpenColorIO)
 find_package(OpenEXR)
 find_package(Imath)
+find_package(GLEW REQUIRED)
 
 # Temporary hack - OCIO package is not found/defined by 'modern' .cmake
 # package and as such cmake doesn't distinguish the OCIO headers as system
@@ -11,6 +12,7 @@ include_directories(SYSTEM ${OCIO_INCLUDE_DIRS})
 SET(LINK_DEPS
 	xstudio::colour_pipeline
 	xstudio::module
+	GLEW::GLEW
 	OpenColorIO::OpenColorIO
 	OpenEXR::OpenEXR
 	Imath::Imath

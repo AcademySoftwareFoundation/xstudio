@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xstudio.api &mdash; xStudio 0.9.0 documentation</title>
+  <title>xstudio.api &mdash; xStudio 0.10.0 documentation</title>
   
 
   
@@ -59,7 +59,7 @@
             
             
               <div class="version">
-                0.9.0
+                0.10.0
               </div>
             
           
@@ -155,110 +155,2264 @@
 <span id="python-api-api"></span><h1>xstudio.api<a class="headerlink" href="#xstudio-api" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="api">
 <h2>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.api.API">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.</code><code class="sig-name descname">API</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api.html#API"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.API" title="Permalink to this definition">¶</a></dt>
+<dd><p>API connection.</p>
+<p>Subclass connection for full API.</p>
+<dl class="py method">
+<dt id="xstudio.api.API.app">
+<em class="property">property </em><code class="sig-name descname">app</code><a class="headerlink" href="#xstudio.api.API.app" title="Permalink to this definition">¶</a></dt>
+<dd><p>Studio object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Studio(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.audio_cache">
+<em class="property">property </em><code class="sig-name descname">audio_cache</code><a class="headerlink" href="#xstudio.api.API.audio_cache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Global audio cache object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>MediaCache(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.global_store">
+<em class="property">property </em><code class="sig-name descname">global_store</code><a class="headerlink" href="#xstudio.api.API.global_store" title="Permalink to this definition">¶</a></dt>
+<dd><p>Global JSON store object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>GlobalStore(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.host">
+<em class="property">property </em><code class="sig-name descname">host</code><a class="headerlink" href="#xstudio.api.API.host" title="Permalink to this definition">¶</a></dt>
+<dd><p>Current connection host.</p>
+<dl class="simple">
+<dt>Returns</dt><dd><p>host(str): host address</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.image_cache">
+<em class="property">property </em><code class="sig-name descname">image_cache</code><a class="headerlink" href="#xstudio.api.API.image_cache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Global image cache object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>MediaCache(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.plugin_manager">
+<em class="property">property </em><code class="sig-name descname">plugin_manager</code><a class="headerlink" href="#xstudio.api.API.plugin_manager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Global thumbnail object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>PluginManager(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.port">
+<em class="property">property </em><code class="sig-name descname">port</code><a class="headerlink" href="#xstudio.api.API.port" title="Permalink to this definition">¶</a></dt>
+<dd><p>Current connection port.</p>
+<dl class="simple">
+<dt>Returns</dt><dd><p>port(int): host port</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.print_status">
+<code class="sig-name descname">print_status</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api.html#API.print_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.API.print_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print status nicely.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.scanner">
+<em class="property">property </em><code class="sig-name descname">scanner</code><a class="headerlink" href="#xstudio.api.API.scanner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Global scanner object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Scanner(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.session">
+<em class="property">property </em><code class="sig-name descname">session</code><a class="headerlink" href="#xstudio.api.API.session" title="Permalink to this definition">¶</a></dt>
+<dd><p>Session object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Session(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.shutdown">
+<code class="sig-name descname">shutdown</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api.html#API.shutdown"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.API.shutdown" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shutdown xStudio app.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Success(bool): Shutting down.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.status">
+<code class="sig-name descname">status</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api.html#API.status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.API.status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return status of application</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>status(dict): Dict with status.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.API.thumbnail">
+<em class="property">property </em><code class="sig-name descname">thumbnail</code><a class="headerlink" href="#xstudio.api.API.thumbnail" title="Permalink to this definition">¶</a></dt>
+<dd><p>Global thumbnail object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Thumbnail(object): If connected, <cite>None</cite> otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="app">
 <h2>app<a class="headerlink" href="#app" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id1">
 <h3>App<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.app.App">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.app.</code><code class="sig-name descname">App</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/app.html#App"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.app.App" title="Permalink to this definition">¶</a></dt>
+<dd><p>App access.</p>
+<dl class="py method">
+<dt id="xstudio.api.app.App.colour_pipeline">
+<em class="property">property </em><code class="sig-name descname">colour_pipeline</code><a class="headerlink" href="#xstudio.api.app.App.colour_pipeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Colour Pipeline (colour management) object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>colour_pipeline(ModuleBase): Colour Pipeline object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.app.App.global_playhead_events">
+<em class="property">property </em><code class="sig-name descname">global_playhead_events</code><a class="headerlink" href="#xstudio.api.app.App.global_playhead_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>The global playhead events actor. This can be used to query which
+playhead is active in the viewer, or to set the active playhead. We
+can also join to its events group to get other fine grained messages
+about playead state (such as current frame, current media etc.)</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>global_playhead_events(ActorConnection): Global Playhead Events Actor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.app.App.session">
+<em class="property">property </em><code class="sig-name descname">session</code><a class="headerlink" href="#xstudio.api.app.App.session" title="Permalink to this definition">¶</a></dt>
+<dd><p>Session object.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>session(Session): Session object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.app.App.set_viewport_playhead">
+<code class="sig-name descname">set_viewport_playhead</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">playhead</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/app.html#App.set_viewport_playhead"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.app.App.set_viewport_playhead" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the playhead that is delivering frames to the viewport, i.e.
+the active playhead.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>playhead(Playhead): The playhead.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.app.App.viewport">
+<em class="property">property </em><code class="sig-name descname">viewport</code><a class="headerlink" href="#xstudio.api.app.App.viewport" title="Permalink to this definition">¶</a></dt>
+<dd><p>The main Viewport module.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>viewport(ModuleBase): Viewport module.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="contact-sheet">
 <h2>contact_sheet<a class="headerlink" href="#contact-sheet" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="contactsheet">
 <h3>ContactSheet<a class="headerlink" href="#contactsheet" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.playlist.ContactSheet">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.playlist.</code><code class="sig-name descname">ContactSheet</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/contact_sheet.html#ContactSheet"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.ContactSheet" title="Permalink to this definition">¶</a></dt>
+<dd><p>ContactSheet object.</p>
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="container">
 <h2>container<a class="headerlink" href="#container" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="playlistitem">
 <h3>PlaylistItem<a class="headerlink" href="#playlistitem" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.container.PlaylistItem">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.container.</code><code class="sig-name descname">PlaylistItem</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">item</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/container.html#PlaylistItem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.container.PlaylistItem" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistItem.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistItem.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get item name.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>name(str): Name of item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistItem.uuid">
+<em class="property">property </em><code class="sig-name descname">uuid</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistItem.uuid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get item uuid</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>uuid(Uuid): Uuid of item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="playlisttree">
 <h3>PlaylistTree<a class="headerlink" href="#playlisttree" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.container.PlaylistTree">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.container.</code><code class="sig-name descname">PlaylistTree</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">tree</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/container.html#PlaylistTree"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistTree.children">
+<em class="property">property </em><code class="sig-name descname">children</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree.children" title="Permalink to this definition">¶</a></dt>
+<dd><p>(Children)</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>children(list[PlaylistTree]): Children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistTree.empty">
+<em class="property">property </em><code class="sig-name descname">empty</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree.empty" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is empty</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>empty(bool): No children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistTree.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get item name</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>name(str): Name of item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistTree.size">
+<em class="property">property </em><code class="sig-name descname">size</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree.size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of children</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>size(int): Count of children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistTree.type">
+<em class="property">property </em><code class="sig-name descname">type</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree.type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get item type</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>type(str): Type of item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistTree.uuid">
+<em class="property">property </em><code class="sig-name descname">uuid</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree.uuid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get item uuid</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>uuid(Uuid): Uuid of item.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.container.PlaylistTree.value_uuid">
+<em class="property">property </em><code class="sig-name descname">value_uuid</code><a class="headerlink" href="#xstudio.api.session.container.PlaylistTree.value_uuid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get item value uuid</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>uuid(Uuid): Uuid of item value.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="id2">
 <h3>Container<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.Container">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.</code><code class="sig-name descname">Container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/container.html#Container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Container" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.api.session.Container.group">
+<em class="property">property </em><code class="sig-name descname">group</code><a class="headerlink" href="#xstudio.api.session.Container.group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container group</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>group(actor): Event group of actor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Container.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#xstudio.api.session.Container.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container name</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>name(str): Name of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Container.type">
+<em class="property">property </em><code class="sig-name descname">type</code><a class="headerlink" href="#xstudio.api.session.Container.type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container type</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>type(str): Type of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Container.uuid">
+<em class="property">property </em><code class="sig-name descname">uuid</code><a class="headerlink" href="#xstudio.api.session.Container.uuid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container uuid</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>uuid(Uuid): Uuid of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Container.uuid_actor">
+<code class="sig-name descname">uuid_actor</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/container.html#Container.uuid_actor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Container.uuid_actor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return as a UuidActor.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Container.version">
+<em class="property">property </em><code class="sig-name descname">version</code><a class="headerlink" href="#xstudio.api.session.Container.version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container version</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>version(str): Version of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="global-store">
 <h2>global_store<a class="headerlink" href="#global-store" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="globalstore">
 <h3>GlobalStore<a class="headerlink" href="#globalstore" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.intrinsic.GlobalStore">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.intrinsic.</code><code class="sig-name descname">GlobalStore</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore" title="Permalink to this definition">¶</a></dt>
+<dd><p>Access global state dictionary</p>
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.autosave">
+<em class="property">property </em><code class="sig-name descname">autosave</code><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.autosave" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get autosave.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>autosave(bool): Autosave enabled.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.context">
+<code class="sig-name descname">context</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.context"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.context" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get context from store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to context.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(JSON): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.datatype">
+<code class="sig-name descname">datatype</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.datatype"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.datatype" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get datatype from store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to datatype.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(str): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.default_value">
+<code class="sig-name descname">default_value</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.default_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.default_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get default value from store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to default value.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(JSON): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.description">
+<code class="sig-name descname">description</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.description"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.description" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get description from store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to description.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(str): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.get_preferences">
+<code class="sig-name descname">get_preferences</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">context</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.get_preferences"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.get_preferences" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get preferences from store</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>context(str): context.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(JSON): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.get_values">
+<code class="sig-name descname">get_values</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">context</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.get_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.get_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get values from store</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>context(str): context.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(JSON): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.maximum">
+<code class="sig-name descname">maximum</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.maximum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.maximum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get maximum from store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to maximum.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(numeric): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.minimum">
+<code class="sig-name descname">minimum</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.minimum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.minimum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get minimum from store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to minimum.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(numeric): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.save">
+<code class="sig-name descname">save</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">context</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.save"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save context.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>context(str): Context to save.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): State saved.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.set_maximum">
+<code class="sig-name descname">set_maximum</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">value</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.set_maximum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.set_maximum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set maximum in store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to value.
+value(numeric): value.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(bool): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.set_minimum">
+<code class="sig-name descname">set_minimum</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">value</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.set_minimum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.set_minimum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set minimum in store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to value.
+value(numeric): value.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(bool): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.set_value">
+<code class="sig-name descname">set_value</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">value</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.set_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.set_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set value in store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to value.
+value(JSON): value.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(bool): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.GlobalStore.value">
+<code class="sig-name descname">value</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/global_store.html#GlobalStore.value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.GlobalStore.value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get value from store</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): path to value.</p>
+</dd>
+<dt>Returns:</dt><dd><p>result(JSON): result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
-<div class="section" id="helpers">
-<h2>helpers<a class="headerlink" href="#helpers" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-xstudio.api.auxiliary.helpers">
+<span id="helpers"></span><h2>helpers<a class="headerlink" href="#module-xstudio.api.auxiliary.helpers" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="xstudio.api.auxiliary.helpers.Filesize">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">Filesize</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">size</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#Filesize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.Filesize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Container for a size in bytes with a human readable representation
+Use it like this:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="n">size</span> <span class="o">=</span> <span class="n">Filesize</span><span class="p">(</span><span class="mi">123123123</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">print</span> <span class="n">size</span>
+<span class="s">&quot;117.4 MB&quot;</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.helpers.Filesize.format">
+<code class="sig-name descname">format</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">unit</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#Filesize.format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.Filesize.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bumpf</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="xstudio.api.auxiliary.helpers.get_event_group">
+<code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">get_event_group</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#get_event_group"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.get_event_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get event actor.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection(Connection): Connection object.
+remote(actor): Remote actor object.</p>
+</dd>
+<dt>Returns:</dt><dd><p>group(actor): Event group of actor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="xstudio.api.auxiliary.helpers.get_name">
+<code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">get_name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#get_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.get_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get actor name</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection(Connection): Connection object.
+remote(actor): Remote actor object.</p>
+</dd>
+<dt>Returns:</dt><dd><p>name(str): Name of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="xstudio.api.auxiliary.helpers.get_type">
+<code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">get_type</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#get_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.get_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get actor type name.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection(Connection): Connection object.
+remote(actor): Remote actor object.</p>
+</dd>
+<dt>Returns:</dt><dd><p>type(str): Type name of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="xstudio.api.auxiliary.helpers.get_uuid">
+<code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">get_uuid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#get_uuid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.get_uuid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get actor uuid.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection(Connection): Connection object.
+remote(actor): Remote actor object.</p>
+</dd>
+<dt>Returns:</dt><dd><p>uuid(Uuid): Uuid of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="xstudio.api.auxiliary.helpers.get_version">
+<code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">get_version</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#get_version"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.get_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get actor version.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection(Connection): Connection object.
+remote(actor): Remote actor object.</p>
+</dd>
+<dt>Returns:</dt><dd><p>version(str): Version of actor container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="xstudio.api.auxiliary.helpers.millify">
+<code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">millify</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">number</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#millify"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.millify" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bumpf</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="xstudio.api.auxiliary.helpers.set_name">
+<code class="sig-prename descclassname">xstudio.api.auxiliary.helpers.</code><code class="sig-name descname">set_name</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">name</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/auxiliary/helpers.html#set_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.auxiliary.helpers.set_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set actor name.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>connection(Connection): Connection object.
+remote(actor): Remote actor object.
+name(str): New name.</p>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 <div class="section" id="json-store">
 <h2>json_store<a class="headerlink" href="#json-store" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="jsonstore">
 <h3>JsonStore<a class="headerlink" href="#jsonstore" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.auxiliary.json_store.</code><code class="sig-name descname">JsonStore</code><a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n">json</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.clear" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.dump">
+<code class="sig-name descname">dump</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="core.html#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">pad</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">0</span></em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.dump" title="Permalink to this definition">¶</a></dt>
+<dd><p>dump json</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.empty">
+<code class="sig-name descname">empty</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n">json</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.empty" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.get">
+<code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="core.html#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span> &#x2192; json<a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get json.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.get_preferences">
+<code class="sig-name descname">get_preferences</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="core.html#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">Set<span class="p">[</span>str<span class="p">]</span></span></em><span class="sig-paren">)</span> &#x2192; Set<span class="p">[</span>str<span class="p">]</span><a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.get_preferences" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.get_values">
+<code class="sig-name descname">get_values</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="core.html#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">Set<span class="p">[</span>str<span class="p">]</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference internal" href="core.html#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a><a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.get_values" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.is_null">
+<code class="sig-name descname">is_null</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n">json</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.is_null" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.remove">
+<code class="sig-name descname">remove</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="core.html#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">arg0</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.remove" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.auxiliary.json_store.JsonStore.set">
+<code class="sig-name descname">set</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">self</span><span class="p">:</span> <span class="n"><a class="reference internal" href="core.html#xstudio.core.__pybind_xstudio.JsonStore" title="xstudio.core.__pybind_xstudio.JsonStore">xstudio.core.__pybind_xstudio.JsonStore</a></span></em>, <em class="sig-param"><span class="n">json</span><span class="p">:</span> <span class="n">json</span></em>, <em class="sig-param"><span class="n">path</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#xstudio.api.auxiliary.json_store.JsonStore.set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set json.</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="media">
 <h2>media<a class="headerlink" href="#media" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id3">
 <h3>Media<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.media.Media">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.media.</code><code class="sig-name descname">Media</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Media object.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.acquire_metadata">
+<code class="sig-name descname">acquire_metadata</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.acquire_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.acquire_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Acquire media metadata.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>success(bool): Metadata acquired.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.add_media_source">
+<code class="sig-name descname">add_media_source</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">frame_list</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">frame_rate</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.add_media_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.add_media_source" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add media source from path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(URI | str): File path
+frame_list(FrameList): Frame range
+frame_rate(FrameRate): Default frame rate</p>
+</dd>
+<dt>Returns:</dt><dd><p>media_source(MediaSource): New media source.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.flag_colour">
+<em class="property">property </em><code class="sig-name descname">flag_colour</code><a class="headerlink" href="#xstudio.api.session.media.Media.flag_colour" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media flag colour.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>colour(string): Colour of flag.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.flag_text">
+<em class="property">property </em><code class="sig-name descname">flag_text</code><a class="headerlink" href="#xstudio.api.session.media.Media.flag_text" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media flag text.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>colour(string): Colour of flag.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.get_media_pointer">
+<code class="sig-name descname">get_media_pointer</code><span class="sig-paren">(</span><em class="sig-param">logical_frame=0</em>, <em class="sig-param">media_type=&lt;MediaType.MT_IMAGE: 1&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.get_media_pointer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.get_media_pointer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get Media Pointer</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>logical_frame(int): Frame to get.
+media_type(MediaType): MediaType of pointer.</p>
+</dd>
+<dt>Returns:</dt><dd><p>media_pointer(MediaPointer): Media pointer.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.get_metadata">
+<code class="sig-name descname">get_metadata</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.get_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.get_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get metdata at JSON path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): JSON Pointer</p>
+</dd>
+<dt>Returns:</dt><dd><p>metadata(json) Json at pointer location</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.invalidate_cache">
+<code class="sig-name descname">invalidate_cache</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.invalidate_cache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.invalidate_cache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush media item from cache.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>result(bool): Flushed ?</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.media_source">
+<code class="sig-name descname">media_source</code><span class="sig-paren">(</span><em class="sig-param">media_type=&lt;MediaType.MT_IMAGE: 1&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.media_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.media_source" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get current media source.
+Args:</p>
+<blockquote>
+<div><p>media_type(MediaType): Media Source type</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media_source(MediaSource): Current media source.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.media_sources">
+<em class="property">property </em><code class="sig-name descname">media_sources</code><a class="headerlink" href="#xstudio.api.session.media.Media.media_sources" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media sources.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media_sources(list[MediaSource]): List of media sources.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.metadata">
+<em class="property">property </em><code class="sig-name descname">metadata</code><a class="headerlink" href="#xstudio.api.session.media.Media.metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media metadata.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>metadata(json): Media metadata.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.ordered_bookmarks">
+<code class="sig-name descname">ordered_bookmarks</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.ordered_bookmarks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.ordered_bookmarks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get all bookmarks on this media source, ordered by start frame</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>list(Bookmark)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.reflag">
+<code class="sig-name descname">reflag</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">flag_colour</span></em>, <em class="sig-param"><span class="n">flag_string</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.reflag"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.reflag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reflag media.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>flag(str): New flag colour.
+flag_string(str): New flag text.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.rescan">
+<code class="sig-name descname">rescan</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.rescan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.rescan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rescan media item.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>result(MediaReference): New ref ?</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.set_media_source">
+<code class="sig-name descname">set_media_source</code><span class="sig-paren">(</span><em class="sig-param">source</em>, <em class="sig-param">media_type=&lt;MediaType.MT_IMAGE: 1&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.set_media_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.set_media_source" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set current media source.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>Args:</dt><dd><p>source(MediaSource|Uuid): Media Source
+media_type(MediaType): Media Source type</p>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>bool(Success): Success</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.set_metadata">
+<code class="sig-name descname">set_metadata</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media.html#Media.set_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.Media.set_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get metdata at JSON path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>data(json): JSON Data
+path(str): JSON Pointer</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: success</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.Media.source_metadata">
+<em class="property">property </em><code class="sig-name descname">source_metadata</code><a class="headerlink" href="#xstudio.api.session.media.Media.source_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media metadata.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>metadata(json): Media metadata.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="media-source">
 <h2>media_source<a class="headerlink" href="#media-source" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="mediasource">
 <h3>MediaSource<a class="headerlink" href="#mediasource" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.media.MediaSource">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.media.</code><code class="sig-name descname">MediaSource</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource" title="Permalink to this definition">¶</a></dt>
+<dd><p>MediaSource object.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.audio_stream">
+<em class="property">property </em><code class="sig-name descname">audio_stream</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.audio_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get current audio stream.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>audio_stream(MediaStream): Current audio stream.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.audio_streams">
+<em class="property">property </em><code class="sig-name descname">audio_streams</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.audio_streams" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get audio streams.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>audio_streams(list[MediaStream]): List of audio streams.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.get_metadata">
+<code class="sig-name descname">get_metadata</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource.get_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource.get_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get metdata at JSON path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): JSON Pointer</p>
+</dd>
+<dt>Returns:</dt><dd><p>metadata(json) Json at pointer location</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.image_stream">
+<em class="property">property </em><code class="sig-name descname">image_stream</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.image_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get current image stream.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>image_stream(MediaStream): Current image stream.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.image_streams">
+<em class="property">property </em><code class="sig-name descname">image_streams</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.image_streams" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get image streams.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>image_streams(list[MediaStream]): List of image streams.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.invalidate_cache">
+<code class="sig-name descname">invalidate_cache</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource.invalidate_cache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource.invalidate_cache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush media item from cache.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>result(bool): Flushed ?</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.media_reference">
+<em class="property">property </em><code class="sig-name descname">media_reference</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.media_reference" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media reference.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media_reference(MediaReference): Current media reference.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.media_status">
+<em class="property">property </em><code class="sig-name descname">media_status</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.media_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get status.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>status(MediaStatus): State.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.metadata">
+<em class="property">property </em><code class="sig-name descname">metadata</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media metadata.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>metadata(json): Media metadata.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.rate">
+<em class="property">property </em><code class="sig-name descname">rate</code><a class="headerlink" href="#xstudio.api.session.media.MediaSource.rate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media reference rate.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>rate(FrameRate): Current media reference rate.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.rescan">
+<code class="sig-name descname">rescan</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource.rescan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource.rescan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rescan media item.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>result(MediaReference): New Reference</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.set_metadata">
+<code class="sig-name descname">set_metadata</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource.set_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource.set_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get metdata at JSON path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>data(json): JSON Data
+path(str): JSON Pointer</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: success</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaSource.streams">
+<code class="sig-name descname">streams</code><span class="sig-paren">(</span><em class="sig-param">media_type=&lt;MediaType.MT_IMAGE: 1&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_source.html#MediaSource.streams"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaSource.streams" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get streams.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>media_type(MediaType): Type of stream.</p>
+</dd>
+<dt>Returns:</dt><dd><p>streams(list[MediaStream]): List of streams.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="media-stream">
 <h2>media_stream<a class="headerlink" href="#media-stream" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="mediastream">
 <h3>MediaStream<a class="headerlink" href="#mediastream" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.media.MediaStream">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.media.</code><code class="sig-name descname">MediaStream</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/media/media_stream.html#MediaStream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.media.MediaStream" title="Permalink to this definition">¶</a></dt>
+<dd><p>MediaStream object, contains media track.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaStream.media_stream_detail">
+<em class="property">property </em><code class="sig-name descname">media_stream_detail</code><a class="headerlink" href="#xstudio.api.session.media.MediaStream.media_stream_detail" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media stream details.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>stream_detail(StreamDetail): Detail of media stream.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.media.MediaStream.media_type">
+<em class="property">property </em><code class="sig-name descname">media_type</code><a class="headerlink" href="#xstudio.api.session.media.MediaStream.media_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get mediatype.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media_type(MediaType): Type of media stream.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="media-cache">
 <h2>media_cache<a class="headerlink" href="#media-cache" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="mediacache">
 <h3>MediaCache<a class="headerlink" href="#mediacache" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.intrinsic.MediaCache">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.intrinsic.</code><code class="sig-name descname">MediaCache</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/media_cache.html#MediaCache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.MediaCache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Media cache object.</p>
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.MediaCache.count">
+<em class="property">property </em><code class="sig-name descname">count</code><a class="headerlink" href="#xstudio.api.intrinsic.MediaCache.count" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get cache item count.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>count(int): Count of cached items.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.MediaCache.erase">
+<code class="sig-name descname">erase</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/media_cache.html#MediaCache.erase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.MediaCache.erase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Erase key/cached item.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>key(str): Key of item to remove from cache.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.MediaCache.keys">
+<code class="sig-name descname">keys</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/intrinsic/media_cache.html#MediaCache.keys"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.intrinsic.MediaCache.keys" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get cache keys.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>keys(list[str]): List of key strings.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.intrinsic.MediaCache.size">
+<em class="property">property </em><code class="sig-name descname">size</code><a class="headerlink" href="#xstudio.api.intrinsic.MediaCache.size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Size of cached items.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>size(int): Count of cached items in bytes.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="timeline">
 <h2>timeline<a class="headerlink" href="#timeline" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id4">
 <h3>Timeline<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.playlist.Timeline">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.playlist.</code><code class="sig-name descname">Timeline</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Timeline object.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.add_media">
+<code class="sig-name descname">add_media</code><span class="sig-paren">(</span><em class="sig-param">media</em>, <em class="sig-param">before_uuid=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.add_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.add_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add media to subset.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>media(Media/Uuid/Actor): Media reference.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>before_uuid(Uuid/Container): Insert media before this uuid.</p>
+</dd>
+<dt>Returns:</dt><dd><p>media(Media): Media object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.audio_tracks">
+<em class="property">property </em><code class="sig-name descname">audio_tracks</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.audio_tracks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get children.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>children([Stack]): Children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.children">
+<em class="property">property </em><code class="sig-name descname">children</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.children" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get children.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>children([Stack]): Children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.children_of_type">
+<code class="sig-name descname">children_of_type</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">types</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.children_of_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.children_of_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get children matching types.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>types([ItemType]): List of item types.</p>
+</dd>
+<dt>Returns:</dt><dd><p>children([item]): Children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.create_audio_track">
+<code class="sig-name descname">create_audio_track</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Audio Track'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.create_audio_track"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.create_audio_track" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create Track object.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(Str): Track name.</p>
+</dd>
+<dt>Returns:</dt><dd><p>track(Track): Track object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.create_clip">
+<code class="sig-name descname">create_clip</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">media</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Clip'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.create_clip"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.create_clip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create Clip object.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>media(Media/UuidActor): Media contained in clip.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>name(Str): Clip name.</p>
+</dd>
+<dt>Returns:</dt><dd><p>clip(Clip): Clip object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.create_gap">
+<code class="sig-name descname">create_gap</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Gap'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.create_gap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.create_gap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create Gap object.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(Str): Gap name.</p>
+</dd>
+<dt>Returns:</dt><dd><p>gap(Gap): Gap object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.create_stack">
+<code class="sig-name descname">create_stack</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Stack'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.create_stack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.create_stack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create Stack object.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(Str): Stack name.</p>
+</dd>
+<dt>Returns:</dt><dd><p>stack(Stack): Stack object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.create_video_track">
+<code class="sig-name descname">create_video_track</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Video Track'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.create_video_track"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.create_video_track" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create Track object.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(Str): Track name.</p>
+</dd>
+<dt>Returns:</dt><dd><p>track(Track): Track object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.enabled">
+<em class="property">property </em><code class="sig-name descname">enabled</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.enabled" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get enabled state.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>enabled(bool): State.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.export_timeline_to_file">
+<code class="sig-name descname">export_timeline_to_file</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">adapter_name</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/timeline.html#Timeline.export_timeline_to_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.export_timeline_to_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create otio from timeline.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): Path to write to</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>adapter_name(str): Override adaptor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.history">
+<em class="property">property </em><code class="sig-name descname">history</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get History.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>history(History): History actor.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.item">
+<em class="property">property </em><code class="sig-name descname">item</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.item" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get item.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>item(Item): Item for timeline.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.item_name">
+<em class="property">property </em><code class="sig-name descname">item_name</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.item_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get name.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>name(str): Name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.stack">
+<em class="property">property </em><code class="sig-name descname">stack</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.stack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get stack.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>stack(Stack): Stack for timeline.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.tracks">
+<em class="property">property </em><code class="sig-name descname">tracks</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.tracks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get children.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>children([Stack]): Children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Timeline.video_tracks">
+<em class="property">property </em><code class="sig-name descname">video_tracks</code><a class="headerlink" href="#xstudio.api.session.playlist.Timeline.video_tracks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get children.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>children([Stack]): Children.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="playhead">
 <h2>playhead<a class="headerlink" href="#playhead" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id5">
 <h3>Playhead<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.playhead.Playhead">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.playhead.</code><code class="sig-name descname">Playhead</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead.html#Playhead"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.Playhead" title="Permalink to this definition">¶</a></dt>
+<dd><p>MediaStream object, represents playhead.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.compare_mode">
+<em class="property">property </em><code class="sig-name descname">compare_mode</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.compare_mode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Playhead compare mode.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>compare_mode(str): Current compare mode.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.loop_in_point">
+<em class="property">property </em><code class="sig-name descname">loop_in_point</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.loop_in_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loop in point.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>loop_in_point(int): Start frame of loop range</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.loop_out_point">
+<em class="property">property </em><code class="sig-name descname">loop_out_point</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.loop_out_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loop out point.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>loop_out_point(int): End frame of loop range</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.looping">
+<em class="property">property </em><code class="sig-name descname">looping</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.looping" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is looping.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>looping(LoopMode): Current loop mode.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.media_frame">
+<em class="property">property </em><code class="sig-name descname">media_frame</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.media_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Current (media) frame of on-screen media.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>position(int): Current media frame showing on-screen</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.on_screen_media">
+<em class="property">property </em><code class="sig-name descname">on_screen_media</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.on_screen_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Current on-screen media sequence.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>source(Media): Currently playing this.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.play_forward">
+<em class="property">property </em><code class="sig-name descname">play_forward</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.play_forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is playing forwards.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>play_forward(bool): Is playhead playing forwards.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.play_mode">
+<em class="property">property </em><code class="sig-name descname">play_mode</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.play_mode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Current play mode.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>play_mode(TimeSourceMode): Current play mode .</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.playing">
+<em class="property">property </em><code class="sig-name descname">playing</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.playing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is playing.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>playing(bool): Is playhead playing..</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.position">
+<em class="property">property </em><code class="sig-name descname">position</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.position" title="Permalink to this definition">¶</a></dt>
+<dd><p>Current frame position.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>position(int): Current frame.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.show_in_viewport">
+<code class="sig-name descname">show_in_viewport</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead.html#Playhead.show_in_viewport"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.show_in_viewport" title="Permalink to this definition">¶</a></dt>
+<dd><p>Connect this playhead to the viewport.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.source">
+<code class="sig-name descname">source</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">new_source</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead.html#Playhead.source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.source" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set source to play (e.g. Media or Timeline).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>new_source(actor): Set playable source to this.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.Playhead.use_loop_range">
+<em class="property">property </em><code class="sig-name descname">use_loop_range</code><a class="headerlink" href="#xstudio.api.session.playhead.Playhead.use_loop_range" title="Permalink to this definition">¶</a></dt>
+<dd><p>Using loop range</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>use_loop_range(bool): Playhead will loop over specified range (or over whole range of source)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="playhead-selection">
 <h2>playhead_selection<a class="headerlink" href="#playhead-selection" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="playheadselection">
 <h3>PlayheadSelection<a class="headerlink" href="#playheadselection" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.playhead.playhead_selection.PlayheadSelection">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.playhead.playhead_selection.</code><code class="sig-name descname">PlayheadSelection</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead_selection.html#PlayheadSelection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.playhead_selection.PlayheadSelection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Playhead selection object, what the playhead plays.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.playhead_selection.PlayheadSelection.monitored">
+<em class="property">property </em><code class="sig-name descname">monitored</code><a class="headerlink" href="#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.monitored" title="Permalink to this definition">¶</a></dt>
+<dd><p>Current monitored Playhead selection.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>monitored(PlayheadSelection): PlayheadSelection.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.playhead_selection.PlayheadSelection.move">
+<code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param">to_move</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead_selection.html#PlayheadSelection.move"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.move" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move clip.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>to_move(uuid,Container): Item to move.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>before(Uuid): move before this.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Reordered.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.playhead_selection.PlayheadSelection.remove">
+<code class="sig-name descname">remove</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">to_remove</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead_selection.html#PlayheadSelection.remove"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove clip.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>to_remove(Uuid,Container): Item to remove.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Reordered.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.playhead_selection.PlayheadSelection.select_all">
+<code class="sig-name descname">select_all</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead_selection.html#PlayheadSelection.select_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.select_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select all media in playlist.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>to_remove(Uuid,Container): Item to remove.</p>
+</dd>
+<dt>Returns:</dt><dd><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.playhead_selection.PlayheadSelection.selected_sources">
+<em class="property">property </em><code class="sig-name descname">selected_sources</code><a class="headerlink" href="#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.selected_sources" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get selected media objects.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>clips(list[Media]): Current media items in order.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playhead.playhead_selection.PlayheadSelection.set_selection">
+<code class="sig-name descname">set_selection</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">media_uuids</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playhead/playhead_selection.html#PlayheadSelection.set_selection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playhead.playhead_selection.PlayheadSelection.set_selection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select the media items</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>list(uuid): Items to select.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Selection set.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="playlist">
 <h2>playlist<a class="headerlink" href="#playlist" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id6">
 <h3>Playlist<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.playlist.Playlist">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.playlist.</code><code class="sig-name descname">Playlist</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Playlist object.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.add_media">
+<code class="sig-name descname">add_media</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">frame_list</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.add_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.add_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add media from path.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str/URI): path to collect media from.</p>
+</dd>
+<dt>Returns:</dt><dd><p>media(Media): Media.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.add_media_list">
+<code class="sig-name descname">add_media_list</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">recurse</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">media_rate</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.add_media_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.add_media_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add media from path.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str/URI): path to collect media from.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>recurse(bool): Recursively scan path
+media_rate(FrameRate): Frame rate for rateless media.</p>
+</dd>
+<dt>Returns:</dt><dd><p>media(list[Media]): Media found.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.add_media_with_audio">
+<code class="sig-name descname">add_media_with_audio</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image_path</span></em>, <em class="sig-param"><span class="n">audio_path</span></em>, <em class="sig-param"><span class="n">audio_offset</span><span class="o">=</span><span class="default_value">0</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.add_media_with_audio"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.add_media_with_audio" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add media pair from path.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>image_path(str/URI): path to collect image from.
+audio_path(str/URI): path to collect audio from.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>audio_offset(int): Offset audio by audio_offset frames.</p>
+</dd>
+<dt>Returns:</dt><dd><p>media(Media): Media.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.containers">
+<em class="property">property </em><code class="sig-name descname">containers</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.containers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get containers.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>containers(list[Subset/Timeline/ContactSheet]): containers in playlist.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.convert_to_contact_sheet">
+<code class="sig-name descname">convert_to_contact_sheet</code><span class="sig-paren">(</span><em class="sig-param">src</em>, <em class="sig-param">name='Converted'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.convert_to_contact_sheet"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.convert_to_contact_sheet" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert src to ContactSheet.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container/Uuid): Container to convert.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>name(str): Name of new item.
+before(Uuid): Insert before this item.</p>
+</dd>
+<dt>Returns:</dt><dd><p>subset(Uuid,ContactSheet): Returns container Uuid and subset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.convert_to_subset">
+<code class="sig-name descname">convert_to_subset</code><span class="sig-paren">(</span><em class="sig-param">src</em>, <em class="sig-param">name='Converted'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.convert_to_subset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.convert_to_subset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert src to Subset.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container/Uuid): Container to convert.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>name(str): Name of new item.
+before(Uuid): Insert before this item.</p>
+</dd>
+<dt>Returns:</dt><dd><p>subset(Uuid,Subset): Returns container Uuid and subset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.convert_to_timeline">
+<code class="sig-name descname">convert_to_timeline</code><span class="sig-paren">(</span><em class="sig-param">src</em>, <em class="sig-param">name='Converted'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.convert_to_timeline"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.convert_to_timeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert src to Timeline.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container/Uuid): Container to convert.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>name(str): Name of new item.
+before(Uuid): Insert before this item.</p>
+</dd>
+<dt>Returns:</dt><dd><p>subset(Uuid,Timeline): Returns container Uuid and subset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.create_contact_sheet">
+<code class="sig-name descname">create_contact_sheet</code><span class="sig-paren">(</span><em class="sig-param">name='ContactSheet'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.create_contact_sheet"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.create_contact_sheet" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new contact sheet.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new contact sheet
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>subset(Uuid,ContactSheet): Returns container Uuid and contact sheet.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.create_divider">
+<code class="sig-name descname">create_divider</code><span class="sig-paren">(</span><em class="sig-param">name='New Divider'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.create_divider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.create_divider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new divider.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new divider
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>divider(PlaylistTree): Returns container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.create_group">
+<code class="sig-name descname">create_group</code><span class="sig-paren">(</span><em class="sig-param">name</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.create_group"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.create_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new group.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new group
+before(Uuid): Insert before this item.</p>
+</dd>
+<dt>Returns:</dt><dd><p>group(PlaylistTree): Returns container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.create_playhead">
+<code class="sig-name descname">create_playhead</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.create_playhead"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.create_playhead" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new playhead.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>playhead(Playhead): Returns playhead</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.create_subset">
+<code class="sig-name descname">create_subset</code><span class="sig-paren">(</span><em class="sig-param">name='Subset'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.create_subset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.create_subset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new subset.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new subset
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>subset(Uuid,Subset): Returns container Uuid and Subset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.create_timeline">
+<code class="sig-name descname">create_timeline</code><span class="sig-paren">(</span><em class="sig-param">name='Timeline'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.create_timeline"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.create_timeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new timeline.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new timeline
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>timeline(Uuid,Timeline): Returns container Uuid and Timeline.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.get_container">
+<code class="sig-name descname">get_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">src</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.get_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.get_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container from tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Item/Uuid): Item to find.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Container(PlaylistTree): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.get_metadata">
+<code class="sig-name descname">get_metadata</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.get_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.get_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get metdata at JSON path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): JSON Pointer</p>
+</dd>
+<dt>Returns:</dt><dd><p>metadata(json) Json at pointer location</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.import_timeline">
+<code class="sig-name descname">import_timeline</code><span class="sig-paren">(</span><em class="sig-param">path</em>, <em class="sig-param">name=None</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.import_timeline"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.import_timeline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new timeline from otio.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str): Path to otio.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>name(str): Name of new timeline
+before(Uuid): Insert before this item.</p>
+</dd>
+<dt>Returns:</dt><dd><p>timeline(Uuid,Timeline): Returns container Uuid and Timeline.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.media">
+<em class="property">property </em><code class="sig-name descname">media</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get media.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media(list[Media]): media in playlist.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.media_rate">
+<em class="property">property </em><code class="sig-name descname">media_rate</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.media_rate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get new media rate.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media_rate(core.FrameRate): Media rate to use for rateless media.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.metadata">
+<em class="property">property </em><code class="sig-name descname">metadata</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get metadata.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>metadata(json): Metadata attached to playlist.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.move_container">
+<code class="sig-name descname">move_container</code><span class="sig-paren">(</span><em class="sig-param">src</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.move_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.move_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move container in tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container/Uuid): Item to move.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.move_media">
+<code class="sig-name descname">move_media</code><span class="sig-paren">(</span><em class="sig-param">media</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.move_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.move_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move media in tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>media(Media/Uuid): Media to move.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>before(Uuid): Insert before this item.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.playhead">
+<em class="property">property </em><code class="sig-name descname">playhead</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.playhead" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get playhead.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>playhead(Playhead): Playhead attached to playlist.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.playhead_rate">
+<em class="property">property </em><code class="sig-name descname">playhead_rate</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.playhead_rate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get playhead rate.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>playhead_rate(core.FrameRate): Rate for new playheads.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.playhead_selection">
+<em class="property">property </em><code class="sig-name descname">playhead_selection</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.playhead_selection" title="Permalink to this definition">¶</a></dt>
+<dd><p>The actor that filters a selection of media from a playhead
+and passes to a playhead for playback.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>source(PlayheadSelection): Currently playing this.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.playlist_tree">
+<em class="property">property </em><code class="sig-name descname">playlist_tree</code><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.playlist_tree" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get playlist tree.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>playlist_tree(PlaylistTree): PlaylistTree in playlist, how items are organised.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.reflag_container">
+<code class="sig-name descname">reflag_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">flag</span></em>, <em class="sig-param"><span class="n">container</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.reflag_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.reflag_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reflag container in tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>flag(str): New flag.
+container(Container/Uuid): Item to reflag.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.remove_container">
+<code class="sig-name descname">remove_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">src</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.remove_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.remove_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove container from tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container/Uuid): Item to remove.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.remove_media">
+<code class="sig-name descname">remove_media</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">media</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.remove_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.remove_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove media from playlist.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>media(Media/Uuid or list of): Item to remove.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.rename_container">
+<code class="sig-name descname">rename_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">container</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.rename_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.rename_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rename container in tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>name(str): New name.
+container(Container/Uuid): Item to rename.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Playlist.set_metadata">
+<code class="sig-name descname">set_metadata</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/playlist.html#Playlist.set_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Playlist.set_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get metdata at JSON path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>data(json): JSON Data
+path(str): JSON Pointer</p>
+</dd>
+<dt>Returns:</dt><dd><p>bool: success</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="session">
 <h2>session<a class="headerlink" href="#session" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id7">
 <h3>Session<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.Session">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.</code><code class="sig-name descname">Session</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session" title="Permalink to this definition">¶</a></dt>
+<dd><p>Session object.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.Session.bookmarks">
+<em class="property">property </em><code class="sig-name descname">bookmarks</code><a class="headerlink" href="#xstudio.api.session.Session.bookmarks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get bookmarks.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Bookmarks(): Session bookmarks.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.copy_containers_to">
+<code class="sig-name descname">copy_containers_to</code><span class="sig-paren">(</span><em class="sig-param">playlist</em>, <em class="sig-param">containers</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.copy_containers_to"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.copy_containers_to" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create copy containers to playlist.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>playlist(Uuid/Playlist): Destination playlist.
+containers(list): Containers to copy
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>uuids(list[Uuid]): Returns list of new container uuids.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.create_divider">
+<code class="sig-name descname">create_divider</code><span class="sig-paren">(</span><em class="sig-param">name='New Divider'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.create_divider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.create_divider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new divider.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new divider
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>divider(PlaylistTree): Returns container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.create_group">
+<code class="sig-name descname">create_group</code><span class="sig-paren">(</span><em class="sig-param">name='New Group'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.create_group"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.create_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new group.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new group
+before(Uuid): Insert before this item.</p>
+</dd>
+<dt>Returns:</dt><dd><p>group(PlaylistTree): Returns container.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.create_playlist">
+<code class="sig-name descname">create_playlist</code><span class="sig-paren">(</span><em class="sig-param">name='New Playlist'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.create_playlist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.create_playlist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new playlist.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>name(str): Name of new playlist
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>playlist(Uuid,Playlist): Returns container Uuid and Playlist</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.get_container">
+<code class="sig-name descname">get_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">src</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.get_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.get_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container from tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Item/Uuid): Item to find.</p>
+</dd>
+<dt>Returns:</dt><dd><p>Container(PlaylistTree): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.get_media">
+<code class="sig-name descname">get_media</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.get_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.get_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return all media over all playlists</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media(list[Media]): List of media objects.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.media_rate">
+<em class="property">property </em><code class="sig-name descname">media_rate</code><a class="headerlink" href="#xstudio.api.session.Session.media_rate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get new media rate.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>media_rate(core.FrameRate): Media rate to use for rateless media.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.merge_playlist">
+<code class="sig-name descname">merge_playlist</code><span class="sig-paren">(</span><em class="sig-param">playlists</em>, <em class="sig-param">name='Combined Playlist'</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.merge_playlist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.merge_playlist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new playlist.</p>
+<dl class="simple">
+<dt>Kwargs:</dt><dd><p>playlists(list): Playlists to merge
+name(str): Name of new playlist
+before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>playlist(Uuid,Playlist): Returns container Uuid and Playlist</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.move_container">
+<code class="sig-name descname">move_container</code><span class="sig-paren">(</span><em class="sig-param">src</em>, <em class="sig-param">before=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em>, <em class="sig-param">into=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.move_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.move_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move container in tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container/Uuid): Item to move.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>before(Uuid): Insert before this item.
+into(bool): Insert into this container (not used).</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.path">
+<em class="property">property </em><code class="sig-name descname">path</code><a class="headerlink" href="#xstudio.api.session.Session.path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get session file path.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>path(str): Session path.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.playhead_rate">
+<em class="property">property </em><code class="sig-name descname">playhead_rate</code><a class="headerlink" href="#xstudio.api.session.Session.playhead_rate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get playhead rate.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>playhead_rate(core.FrameRate): Rate for new playheads.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.playlist_tree">
+<em class="property">property </em><code class="sig-name descname">playlist_tree</code><a class="headerlink" href="#xstudio.api.session.Session.playlist_tree" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get container tree.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>Tree(PlaylistTree): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.playlists">
+<em class="property">property </em><code class="sig-name descname">playlists</code><a class="headerlink" href="#xstudio.api.session.Session.playlists" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get playlists.</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>playlists(list[Playlist]): Playlists.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.reflag_container">
+<code class="sig-name descname">reflag_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">flag</span></em>, <em class="sig-param"><span class="n">container</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.reflag_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.reflag_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reflag container in tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>flag(str): New flag.
+container(Container/Uuid): Item to reflag.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.remove_container">
+<code class="sig-name descname">remove_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">src</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.remove_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.remove_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove container from tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container/Uuid): Item to remove.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.rename_container">
+<code class="sig-name descname">rename_container</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">container</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.rename_container"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.rename_container" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rename container in tree.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>name(str): New name.
+container(Container/Uuid): Item to rename.</p>
+</dd>
+<dt>Returns:</dt><dd><p>success(bool): Returns result.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.save">
+<code class="sig-name descname">save</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.save"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save session</p>
+<dl class="simple">
+<dt>Returns:</dt><dd><p>int(hash]): Hash of saved session</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.save_as">
+<code class="sig-name descname">save_as</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.save_as"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.save_as" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save session to path</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>path(str/uri): Path to save to.</p>
+</dd>
+<dt>Returns:</dt><dd><p>int(hash]): Hash of saved session</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xstudio.api.session.Session.set_on_screen_source">
+<code class="sig-name descname">set_on_screen_source</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">src</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/session.html#Session.set_on_screen_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.Session.set_on_screen_source" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the onscreen source.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>src(Container): Playlist, Subset, ContactSheet, Timeline</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="studio">
 <h2>studio<a class="headerlink" href="#studio" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id8">
 <h3>Studio<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.studio.Studio">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.studio.</code><code class="sig-name descname">Studio</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/studio.html#Studio"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.studio.Studio" title="Permalink to this definition">¶</a></dt>
+<dd><p>Studio object.</p>
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="subset">
 <h2>subset<a class="headerlink" href="#subset" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id9">
 <h3>Subset<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="xstudio.api.session.playlist.Subset">
+<em class="property">class </em><code class="sig-prename descclassname">xstudio.api.session.playlist.</code><code class="sig-name descname">Subset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">remote</span></em>, <em class="sig-param"><span class="n">uuid</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/subset.html#Subset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Subset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Subset object.</p>
+<dl class="py method">
+<dt id="xstudio.api.session.playlist.Subset.add_media">
+<code class="sig-name descname">add_media</code><span class="sig-paren">(</span><em class="sig-param">media</em>, <em class="sig-param">before_uuid=&lt;xstudio.core.__pybind_xstudio.Uuid object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/xstudio/api/session/playlist/subset.html#Subset.add_media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#xstudio.api.session.playlist.Subset.add_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add media to subset.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>media(Media/Uuid/Actor): Media reference.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>before_uuid(Uuid/Container): Insert media before this uuid.</p>
+</dd>
+<dt>Returns:</dt><dd><p>media(Media): Media object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 </div>
@@ -274,7 +2428,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2023, DNEG
+        &copy; Copyright 2020, DNeg
 
     </p>
   </div>

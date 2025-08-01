@@ -11,41 +11,14 @@ XsMenu {
     title: qsTr("Media")
 
     property var visual_parent: menu.parent instanceof MenuBarItem ? app_window.sessionWidget.playlist_panel : menu.parent
+    property alias revealMenu: reveal_menu
+    property alias advancedMenu: advanced_menu
 
     XsFlagMenu {
         title: qsTr("Flag Media")
-        onFlagSet: app_window.session.flag_selected_media(hex, text)
-        colours_model: app_window.session.mediaFlags
+        showChecked: false
+        onFlagSet: app_window.sessionFunction.flagSelectedMedia(hex, text)
     }
-
-    // ctrl -[0-9] should effect selection ..
-    //  add hotkeys...
-
-
-    // add hotkeys if they exist
-
-    // XsColorsModel {id: colorsModel}
-    // XsMenu {
-    //       title: "Flag"
-    //       id: setFlagMenu
-    //       fakeDisabled: true
-    //       Instantiator {
-    //           model: colorsModel
-    //           onObjectAdded: setFlagMenu.insertItem( index, object )
-    //           onObjectRemoved: setFlagMenu.removeItem( object )
-    //           delegate: XsMenuItem {
-    //               iconbg: value
-    //               enabled: false
-    //               mytext: name
-    //               mycheckable: true
-    //           }
-    //       }
-    //       XsMenuSeparator {}
-    //       XsMenuItem {
-    //           mytext: qsTr("Clear Flags")
-    //           enabled: false
-    //       }
-    // }
 
     XsMenu {
           title: "Add To New"
@@ -53,26 +26,25 @@ XsMenu {
           XsMenuItem {
               mytext: qsTr("Playlist...")
               onTriggered: {
-                app_window.session.add_media_to_new_playlist(visual_parent)
+                app_window.sessionFunction.addMediaToNewPlaylist()
               }
           }
           XsMenuItem {
               mytext: qsTr("Subset...")
               onTriggered: {
-                app_window.session.add_media_to_new_subset(visual_parent)
+                app_window.sessionFunction.addMediaToNewSubset()
               }
           }
           XsMenuItem {
               enabled: false
               mytext: qsTr("Contact Sheet...")
-              onTriggered: {
-                  app_window.session.add_media_to_new_contact_sheet(visual_parent)
-              }
           }
 
           XsMenuItem {
               mytext: qsTr("Timeline...")
-              enabled: false
+              onTriggered: {
+                app_window.sessionFunction.addMediaToNewTimeline()
+              }
           }
     }
 
@@ -81,24 +53,19 @@ XsMenu {
     XsMenuItem {
         mytext: qsTr("Select All")
         shortcut: "Ctrl+A"
-
-        onTriggered: sessionWidget.media_list.selectAll();
+        onTriggered: app_window.sessionFunction.selectAllMedia()
     }
 
     XsMenuItem {
         mytext: qsTr("Deselect All")
         shortcut: "Ctrl+D"
-        onTriggered: sessionWidget.media_list.deselectAll();
+        onTriggered: app_window.sessionFunction.deselectAllMedia()
     }
 
     XsMenuItem {
         mytext: qsTr("Sort Media Alphabetically")
         enabled: true
-        onTriggered: {
-            if (session.playlist) {
-                sessionWidget.media_list.sortAlphabetically()
-            }
-        }
+        onTriggered: app_window.sessionFunction.sortAlphabetically()
     }
 
     XsMenuSeparator {}
@@ -108,36 +75,85 @@ XsMenu {
         fakeDisabled: false
         XsMenuItem {
             mytext: qsTr("Selected File Names")
-            onTriggered: app_window.session.copy_media_file_name()
+            onTriggered: app_window.sessionFunction.copyMediaFileName(true)
         }
         XsMenuItem {
             mytext: qsTr("Selected File Paths")
-            onTriggered: app_window.session.copy_media_file_path()
+            onTriggered: app_window.sessionFunction.copyMediaFilePath(true)
         }
         XsMenuItem {
             mytext: qsTr("Copy Selected To Email Link")
-            onTriggered: app_window.session.copy_media_to_link()
+            onTriggered: app_window.sessionFunction.copyMediaToLink()
         }
         XsMenuItem {
             mytext: qsTr("Copy Selected To Shell Command")
-            onTriggered: app_window.session.copy_media_to_cmd()
+            onTriggered: app_window.sessionFunction.copyMediaToCmd()
         }
     }
 
     XsMenuItem {
         mytext: qsTr("Duplicate Media")
-        onTriggered: app_window.session.duplicate_selected_media()
+        onTriggered: app_window.sessionFunction.duplicateSelectedMedia()
     }
 
-    XsMenuItem {
-        mytext: qsTr("Reveal Source File...")
-        onTriggered: app_window.session.reveal_selected_sources()
+    XsMenu {
+        title: "Reveal Source"
+        id: reveal_menu
+
+        XsMenuItem {
+            mytext: qsTr("On Disk...")
+            onTriggered: app_window.sessionFunction.revealSelectedSources()
+        }
     }
 
+    // XsMenuSeparator {}
+    // XsMenu {
+
+    //     id: conform_menu
+    //     title: "Conform"
+    //     fakeDisabled: false
+    //     Repeater {
+    //         model: app_window.sessionModel.conformTasks
+    //         onItemAdded: conform_menu.insertItem(index, item)
+    //         onItemRemoved: conform_menu.removeItem(item)
+
+    //         XsMenuItem {
+    //             mytext: modelData
+    //             enabled: true
+    //             onTriggered: {
+    //                 app_window.sessionFunction.conformInsertSelectedMedia(modelData)
+    //             }
+    //         }
+    //     }
+    // }
 
     XsMenuSeparator {}
 
     XsMenu {
+
+        id: stream_menu
+        title: "Select Image Layer/Stream"
+        fakeDisabled: false
+        Repeater {
+            model: app_window.mediaImageSource.streams
+            onItemAdded: stream_menu.insertItem(index, item)
+            onItemRemoved: stream_menu.removeItem(item)
+
+            XsMenuItem {
+                mytext: modelData.name
+                enabled: true
+                onTriggered: app_window.mediaImageSource.values.imageActorUuidRole = modelData.uuid
+                mycheckable: true
+                checked: app_window.mediaImageSource.values.imageActorUuidRole == modelData.uuid
+            }
+        }
+    }
+
+    XsMenuSeparator {}
+
+    XsMenu {
+        id: advanced_menu
+
         title: "Advanced"
         fakeDisabled: false
 
@@ -155,19 +171,34 @@ XsMenu {
         XsMenuItem {
             mytext: qsTr("Clear Selected Media From Cache")
             enabled: true
-            onTriggered: sessionWidget.media_list.evict_selected()
+            onTriggered: app_window.sessionFunction.clearMediaFromCache()
         }
 
         XsMenuItem {
             mytext: qsTr("Set Selected Media Rate")
             enabled: true
-            onTriggered: app_window.session.set_selected_media_rate(visual_parent)
+            onTriggered: app_window.sessionFunction.setMediaRateRequest()
         }
 
         XsMenuItem {
             mytext: qsTr("Load Additional Sources For Selected Media")
             enabled: true
-            onTriggered: sessionWidget.media_list.gather_media_for_selected()
+            onTriggered: app_window.sessionFunction.gatherMediaForSelected()
+        }
+        XsMenuItem {
+            mytext: qsTr("Relink Selected Media")
+            enabled: true
+            onTriggered: app_window.sessionFunction.relinkSelectedMedia()
+        }
+        XsMenuItem {
+            mytext: qsTr("Decompose Selected Media")
+            enabled: true
+            onTriggered: app_window.sessionFunction.decomposeSelectedMedia()
+        }
+        XsMenuItem {
+            mytext: qsTr("Reload Selected Media")
+            enabled: true
+            onTriggered: app_window.sessionFunction.rescanSelectedMedia()
         }
     }
 
@@ -188,27 +219,42 @@ XsMenu {
         parent_menu: menu
         root_menu_name: "Plugins"
     }
-    XsMenuSeparator {}
 
-    XsButtonDialog {
-        id: removeMedia
-        // parent: sessionWidget.media_list
-        text: "Remove Selected Media"
-        width: 300
-        buttonModel: ["Cancel", "Remove"]
-        onSelected: {
-            if(button_index == 1) {
-                sessionWidget.media_list.delete_selected()
-            }
-        }
+    XsMenuSeparator {
+        id: after_plugins_separator
+        visible: !extras_menu.empty
+        height: visible ? implicitHeight : 0
     }
+
+    XsModuleMenuBuilder {
+        id: extras_menu
+        parent_menu: menu
+        root_menu_name: "media_menu_extras"
+        insert_after: after_plugins_separator
+    }
+
+    XsMenuSeparator {
+    }
+
+    // XsButtonDialog {
+    //     id: removeMedia
+    //     // parent: sessionWidget.media_list
+    //     text: "Remove Selected Media"
+    //     width: 300
+    //     buttonModel: ["Cancel", "Remove"]
+    //     onSelected: {
+    //         if(button_index == 1) {
+    //             sessionWidget.media_list.delete_selected()
+    //         }
+    //     }
+    // }
 
     XsMenuItem {
         mytext: qsTr("Remove Selected Media")
         shortcut: "Del/Bspace"
         enabled: true
 
-        onTriggered: removeMedia.open()
+        onTriggered: app_window.sessionFunction.requestRemoveSelectedMedia()
     }
 
 //    XsMenuItem {

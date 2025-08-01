@@ -4,48 +4,6 @@
 
 /* forward declaration of this function from tessellation_helpers.cpp */
 using namespace xstudio::ui;
-namespace {
-
-// not sure if this works with different key layouts.
-// Locales is a whole other story, too
-static std::map<int, std::string> key_names = {
-    {8, "backspace"},
-    {9, "tab"},
-    {13, "enter"},
-    {16, "ctrl"},
-    {17, "alt"},
-    {18, "pause/break"},
-    {19, "caps lock"},
-    {27, "escape"},
-    {32, "Space"},
-    {33, "page up"},
-    {34, "page down"},
-    {35, "end"},
-    {36, "home"},
-    {37, "left arrow"},
-    {38, "up arrow"},
-    {39, "right arrow"},
-    {40, "down arrow"},
-    {45, "insert"},
-    {46, "delete"},
-    {90, "left window key"},
-    {91, "right window key"},
-    {93, "numpad 0"},
-    {96, "numpad 1"},
-    {97, "numpad 2"},
-    {98, "numpad 3"},
-    {99, "numpad 4"},
-    {100, "numpad 5"},
-    {101, "numpad 6"},
-    {102, "numpad 7"},
-    {103, "numpad 8"},
-    {104, "numpad 9"},
-    {105, "numpad multiply"},
-    {106, "numpad add"},
-    {107, "numpad subtract"},
-    {109, "numpad decimal point"},
-    {110, "numpad divide"}};
-} // namespace
 
 Hotkey::Hotkey(
     const int k,
@@ -64,6 +22,7 @@ Hotkey::Hotkey(
       description_(description),
       context_(context),
       auto_repeat_(auto_repeat) {
+
     if (watcher)
         watchers_.emplace_back(watcher, context);
 }
@@ -125,7 +84,7 @@ void Hotkey::notifty_watchers(const std::string &context) {
         if (!a) {
             p = watchers_.erase(p); // the 'watcher' must have closed down - let's remove it
         } else if (context == (*p).second || (*p).second == "any" || (*p).second.empty()) {
-            anon_send(a, keypress_monitor::hotkey_event_atom_v, uuid_, pressed_);
+            anon_send(a, keypress_monitor::hotkey_event_atom_v, uuid_, pressed_, context);
             p++;
         } else {
             p++;
@@ -143,26 +102,32 @@ void Hotkey::add_watcher(caf::actor_addr watcher) { watchers_.emplace_back(watch
 
 
 std::string Hotkey::hotkey_sequence() const {
+
     std::string r;
-    const auto p = key_names.find(key_ & 127);
+    const auto p = key_names.find(key_);
     if (p != key_names.cend()) {
         r = p->second;
     } else {
-        std::array<char, 2> b{(char)(key_ & 127), 0};
-        r = b.data();
+        const auto p2 = key_names.find(key_ & 127);
+        if (p2 != key_names.cend()) {
+            r = p2->second;
+        } else {
+            std::array<char, 2> b{(char)(key_ & 127), 0};
+            r = b.data();
+        }
     }
 
     if ((modifiers_ & ShiftModifier) == ShiftModifier) {
-        r += " + Shift";
-    }
-    if ((modifiers_ & ControlModifier) == ControlModifier) {
-        r += " + Ctrl";
-    }
-    if ((modifiers_ & AltModifier) == AltModifier) {
-        r += " + Alt";
+        r = "Shift+" + r;
     }
     if ((modifiers_ & MetaModifier) == MetaModifier) {
-        r += " + Meta";
+        r = "Meta+" + r;
+    }
+    if ((modifiers_ & AltModifier) == AltModifier) {
+        r = "Alt+" + r;
+    }
+    if ((modifiers_ & ControlModifier) == ControlModifier) {
+        r = "Ctrl+" + r;
     }
     return r;
 }

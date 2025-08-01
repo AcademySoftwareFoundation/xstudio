@@ -13,7 +13,11 @@ using namespace xstudio::utility;
 using namespace xstudio::timeline;
 using namespace caf;
 
-RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::actor &source)
+RetimeActor::RetimeActor(
+    caf::actor_config &cfg,
+    const std::string &name,
+    caf::actor &source,
+    const media::MediaType mt)
     : caf::event_based_actor(cfg), source_(source), frames_offset_(0) {
 
     spdlog::debug("Created RetimeActor {}", name);
@@ -23,24 +27,17 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
     link_to(event_group_);
 
     // N.B. this is blocking
-    try {
-        caf::scoped_actor sys(system());
-        source_edit_list_ =
-            request_receive<EditList>(*sys, source, media::get_edit_list_atom_v, Uuid());
-        retime_edit_list_ = source_edit_list_;
+    join_event_group(this, source);
 
-        join_event_group(this, source);
-
-    } catch (std::exception &e) {
-        spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
-    }
+    get_source_edit_list(mt);
 
     behavior_.assign(
         [=](utility::event_atom, utility::change_atom) {
             // my sources have changed..
             caf::scoped_actor sys(system());
-            auto duration = source_edit_list_ =
-                request_receive<EditList>(*sys, source_, media::get_edit_list_atom_v, Uuid());
+
+            get_source_edit_list(mt);
+
             // if duration was previously set externally, we want to retain that
             set_duration(forced_duration_);
             send(event_group_, utility::event_atom_v, utility::change_atom_v);
@@ -48,6 +45,13 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
         [=](utility::event_atom, utility::last_changed_atom, const time_point &) {
             send(event_group_, utility::event_atom_v, utility::change_atom_v);
         },
+
+        [=](utility::event_atom,
+            media::add_media_source_atom,
+            const utility::UuidActorVector &uav) {
+            send(event_group_, utility::event_atom_v, media::add_media_source_atom_v, uav);
+        },
+
         [=](utility::event_atom,
             playlist::reflag_container_atom,
             const utility::Uuid &,
@@ -61,13 +65,15 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
                 bookmark::bookmark_change_atom_v,
                 bookmark_uuid);
         },
+
+        [=](utility::event_atom, media::media_status_atom, const media::MediaStatus ms) {},
         [=](utility::event_atom,
             media::current_media_source_atom,
             UuidActor &,
             const media::MediaType) {
             caf::scoped_actor sys(system());
-            source_edit_list_ =
-                request_receive<EditList>(*sys, source_, media::get_edit_list_atom_v, Uuid());
+
+            get_source_edit_list(mt);
             // if duration was previously set externally, we want to retain that
             set_duration(forced_duration_);
             send(event_group_, utility::event_atom_v, utility::change_atom_v);
@@ -234,22 +240,14 @@ RetimeActor::RetimeActor(caf::actor_config &cfg, const std::string &name, caf::a
             try {
                 return retime_edit_list_.frame_rate_at_frame(logical_frame - frames_offset_);
             } catch (std::exception &e) {
-                caf::scoped_actor sys(system());
-                source_edit_list_ = request_receive<EditList>(
-                    *sys, source_, media::get_edit_list_atom_v, Uuid());
-                if (not(retime_edit_list_ == source_edit_list_)) {
-                    send(event_group_, utility::event_atom_v, utility::change_atom_v);
-                    retime_edit_list_ = source_edit_list_;
-                    try {
-                        return retime_edit_list_.frame_rate_at_frame(
-                            logical_frame - frames_offset_);
-                    } catch (std::exception &e) {
-                        return make_error(xstudio_error::error, e.what());
-                    }
-                }
                 return make_error(xstudio_error::error, e.what());
             }
         },
+
+        [=](utility::event_atom, timeline::item_atom, const utility::JsonStore &changes, bool) {
+            // ignoring timeline events
+        },
+
         [=](utility::get_event_group_atom) -> caf::actor { return event_group_; });
 }
 
@@ -433,4 +431,37 @@ void RetimeActor::recursive_deliver_all_media_pointers(
                 recursive_deliver_all_media_pointers(
                     tsm, override_rate, media_type, clip_index + 1, time_point, result, rp);
             });
+}
+
+void RetimeActor::get_source_edit_list(const media::MediaType mt) {
+
+    caf::scoped_actor sys(system());
+    try {
+
+        // we try and get the edit list for the desired media type ... however, if
+        // we can't provide one (say we want MT_IMAGE and the media_source only
+        // provides MT_AUDIO sources) we retry and continue. This means that the
+        // playhead can 'play' a source that has no video and audio only - the audio
+        // only source will provide empty video frames so playback can still happen.
+
+        source_edit_list_ =
+            request_receive<EditList>(*sys, source_, media::get_edit_list_atom_v, mt, Uuid());
+        retime_edit_list_ = source_edit_list_;
+
+    } catch (std::exception & /*e*/) {
+
+        try {
+            source_edit_list_ = request_receive<EditList>(
+                *sys,
+                source_,
+                media::get_edit_list_atom_v,
+                mt == media::MT_AUDIO ? media::MT_IMAGE : media::MT_AUDIO,
+                Uuid());
+            retime_edit_list_ = source_edit_list_;
+        } catch (std::exception & /*e*/) {
+        }
+
+        // suppressing 'no streams' warning for dud media
+        // spdlog::critical("{} {}", __PRETTY_FUNCTION__, e.what());
+    }
 }

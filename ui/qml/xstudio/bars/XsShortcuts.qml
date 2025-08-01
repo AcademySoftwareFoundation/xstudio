@@ -11,19 +11,12 @@ Item {
 
     id: shortcuts
     property var playlist_panel: sessionWidget.playlist_panel
-
-    property var viewport: sessionWidget.playerWidget.viewport
+    property var viewport: sessionWidget.viewport
     property var playhead: viewport.playhead
-    property var selectionFilter: sessionWidget.playerWidget.selectionFilter
-    property var source: session.selectedSource
     property var context
 
     property var topLevelWindow
     property bool shortcutsWithDigits: true
-
-    function toggleViewportChannel(chan_idx) {
-        //colourPipeline.channel != chan_idx ? colourPipeline.channel = chan_idx : colourPipeline.channel = 0
-    }
 
     function play_faster(forwards) {
         if (!playhead.playing) {
@@ -50,6 +43,17 @@ Item {
             playhead.playing = !playhead.playing
         }
     }*/
+
+    XsHotkey {
+        context: shortcuts.context
+        sequence: "Alt+E"
+        name: "Debug dump session"
+        description: "Dumps session data into the terminal for debug purposes only."
+        onActivated: {
+            app_window.sessionModel.dump()
+        }
+    }
+
 
     // Other shortcuts ...
     XsHotkey {
@@ -96,44 +100,28 @@ Item {
         sequence: "Up"
         name: "Jump to previous source"
         description: "Cycles current on-screen media backwards through selected media sources"
-        onActivated: {
-            if (!playhead.jumpToPreviousSource()) {
-                if(preferences.cycle_through_playlist.value && source.mediaList[0].uuid == selectionFilter.selectedMediaUuids[0]){
-                    selectionFilter.moveSelectionByIndex(source.mediaList.length - 1)
-                } else {
-                    selectionFilter.moveSelectionByIndex(-1)
-                }
-            }
-        }
+        onActivated: app_window.sessionFunction.jumpToPreviousSource()
     }
     XsHotkey {
         context: shortcuts.context
         sequence: "Down"
         name: "Jump to next source"
         description: "Cycles current on-screen media forwards through selected media sources"
-        onActivated: {
-            if (!playhead.jumpToNextSource()) {
-                if(preferences.cycle_through_playlist.value && source.mediaList[source.mediaList.length - 1].uuid == selectionFilter.selectedMediaUuids[0]){
-                    selectionFilter.moveSelectionByIndex(-(source.mediaList.length - 1))
-                } else {
-                    selectionFilter.moveSelectionByIndex(1)
-                }
-            }
-        }
+        onActivated: app_window.sessionFunction.jumpToNextSource()
     }
     XsHotkey {
         context: shortcuts.context
         sequence: "Ctrl+a"
         name: "Select All"
         description: "Selects all media in the playlist for viewing"
-        onActivated: media_list.selectAll()
+        onActivated: app_window.sessionFunction.selectAllMedia()
     }
     XsHotkey {
         context: shortcuts.context
         sequence: "Ctrl+d"
         name: "De-select All"
         description: "De-selects all media in the playlist for viewing, then selects the first media item."
-        onActivated: media_list.deselectAll()
+        onActivated: app_window.sessionFunction.deselectAllMedia()
     }
 
     XsHotkey {
@@ -142,7 +130,7 @@ Item {
         name: "New Session"
         description: "Create a new session, asks if you want to save current session."
         onActivated: {
-          app_window.session.save_before_new_session()
+          app_window.sessionFunction.saveBeforeNewSession()
         }
     }
     XsHotkey {
@@ -180,12 +168,7 @@ Item {
         sequence: ";"
         name: "Create Bookmark Silently"
         description: "Create a new bookmark on the current frame."
-        onActivated: {
-            session.bookmark_detail.start = playhead.mediaSecond
-            session.bookmark_detail.duration = 0
-            session.bookmark_detail.subject = playhead.media.mediaSource.fileName
-            session.add_note(playhead.media, session.bookmark_detail)
-        }
+        onActivated: app_window.sessionFunction.addNote()
     }
 
     XsHotkey {
@@ -194,10 +177,7 @@ Item {
         name: "Create Bookmark"
         description: "Create a new bookmark on the current frame and pops-up the bookmarks interface."
         onActivated: {
-            session.bookmark_detail.start = playhead.mediaSecond
-            session.bookmark_detail.duration = 0
-            session.bookmark_detail.subject = playhead.media.mediaSource.fileName
-            session.add_note(playhead.media, session.bookmark_detail)
+            app_window.sessionFunction.addNote()
             sessionWidget.toggleNotes(true)
         }
     }
@@ -210,7 +190,10 @@ Item {
         onActivated: {
             let pos = playhead.getNearestBookmark(playhead.frame)
             if(pos.length) {
-                session.bookmarks.setDuration(pos[2], playhead.frame - pos[0]);
+                let ind = app_window.bookmarkModel.search(pos[2], "uuidRole")
+                if(ind.valid) {
+                    app_window.bookmarkModel.set(ind, playhead.frame - pos[0], "durationFrameRole")
+                }
            }
         }
     }
@@ -219,9 +202,9 @@ Item {
     // controlled behaviour)
     XsModuleAttributes {
         id: anno_tool_backend_settings
-        attributesGroupName: "annotations_tool_settings"
+        attributesGroupNames: "annotations_tool_settings_0"
     }
-            
+
     XsHotkey {
         context: shortcuts.context
         sequence: "n"
@@ -232,18 +215,22 @@ Item {
 
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+p"
+        sequence: "Ctrl+Shift+p"
         name: "Create New Playlist"
         description: "Creates a new playlist."
-        onActivated: XsUtils.openDialog("qrc:/dialogs/XsNewPlaylistDialog.qml",playlist_panel).open()
+        onActivated: sessionFunction.newPlaylist(
+            app_window.sessionModel.index(0, 0), null, playlist_panel
+        )
     }
 
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+d"
+        sequence: "Ctrl+Shift+d"
         name: "Create Divider"
         description: "Creates a divider in the session playlist view."
-        onActivated: XsUtils.openDialog("qrc:/dialogs/XsNewSessionDividerDialog.qml",playlist_panel).open()
+        onActivated: sessionFunction.newDivider(
+            app_window.sessionModel.index(0, 0), null, playlist_panel
+        )
     }
 
     XsHotkey {
@@ -251,39 +238,50 @@ Item {
         sequence: "Alt+d"
         name: "Create Divider With Date"
         description: "Creates a divider in the session playlist view and titles it with today's date."
+        onActivated: sessionFunction.newDivider(
+            app_window.sessionModel.index(0, 0), XsUtils.yyyymmdd("-"), playlist_panel
+        )
+    }
+    XsHotkey {
+        context: shortcuts.context
+        sequence: "Ctrl+Shift+s"
+        name: "Create Subset"
+        description: "Creates a playlsit subset under the current playlist."
         onActivated: {
-                let d = XsUtils.openDialog("qrc:/dialogs/XsNewSessionDividerDialog.qml",playlist_panel)
-                d.dated = true
-                d.open()
+            let ind = app_window.sessionFunction.firstSelected("Playlist")
+            if(ind != null)  {
+                sessionFunction.newSubset(
+                    ind.model.index(2,0,ind), null, playlist_panel
+                )
+            }
         }
     }
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+s"
-        name: "Create Subset"
-        description: "Creates a playlsit subset under the current playlist."
-        onActivated: XsUtils.openDialog("qrc:/dialogs/XsNewSubsetDialog.qml",playlist_panel).open()
-    }
-    XsHotkey {
-        context: shortcuts.context
-        sequence: "Shift+t"
+        sequence: "Ctrl+Shift+t"
         name: "Create Timeline"
         description: "Creates a timeline under the current playlist."
-        onActivated: XsUtils.openDialog("qrc:/dialogs/XsNewTimelineDialog.qml",playlist_panel).open()
     }
+
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+c"
+        sequence: "Ctrl+Shift+c"
         name: "Create Contact Sheet"
         description: "Creates a contact sheet under the current playlist."
-        onActivated: XsUtils.openDialog("qrc:/dialogs/XsNewContactSheetDialog.qml",playlist_panel).open()
     }
     XsHotkey {
         context: shortcuts.context
-        sequence: "Shift+i"
+        sequence: "Ctrl+Shift+i"
         name: "Create Playlist Divider"
         description: "Creates a divider within the subsets of the current playlist."
-        onActivated: XsUtils.openDialog("qrc:/dialogs/XsNewPlaylistDividerDialog.qml",playlist_panel).open()
+        onActivated: {
+            let ind = app_window.sessionFunction.firstSelected("Playlist")
+            if(ind != null)  {
+                sessionFunction.newDivider(
+                    ind.model.index(2,0,ind), null, playlist_panel
+                )
+            }
+        }
     }
 
     XsHotkey {
@@ -327,22 +325,6 @@ Item {
         name: "Toggle Full Screen"
         description: "Toggles the xStudio UI in/out of full-screen mode"
         onActivated: playerWidget.toggleFullscreen()
-    }
-
-    /*XsHotkey {
-        context: shortcuts.context
-        sequence: "Alt+f"
-        name: "Toggle Full Screen"
-        description: "Toggles the xStudio UI in/out of full-screen mode"
-        onActivated: parent_win.fitWindowToImage()
-    }*/
-
-    XsHotkey {
-        context: shortcuts.context
-        sequence: "f"
-        name: "Revert image fit"
-        description: "Toggles the image/window fit mode between your last zoom/pan state and fit mode setting"
-        onActivated: viewport.revertFitZoomToPrevious()
     }
 
     XsHotkey {
@@ -400,42 +382,36 @@ Item {
         onActivated: playhead.keyPlayheadIndex = 8
     }
 
-    XsButtonDialog {
-        id: removeMedia
-        // parent: sessionWidget.media_list
-        text: "Remove Selected Media"
-        width: 300
-        buttonModel: ["Cancel", "Remove"]
-        onSelected: {
-            if(button_index == 1) {
-                sessionWidget.media_list.delete_selected()
-            }
-        }
+    XsHotkey {
+        context: shortcuts.context
+        sequence: "Delete"
+        name: "Remove media"
+        description: "Removes current selected media from playlist"
+        onActivated: app_window.sessionFunction.requestRemoveSelectedMedia()
     }
 
     XsHotkey {
-        context: shortcuts.context    
-        sequence: "Delete"//, "Backspace"
-        name: "Remove media"
+        context: shortcuts.context
+        sequence: "Backspace"
+        name: "Remove media (backspace)"
         description: "Removes current selected media from playlist"
-        onActivated: removeMedia.open()
+        onActivated: app_window.sessionFunction.requestRemoveSelectedMedia()
     }
 
     Repeater {
-        model: app_window.session.mediaFlags
+        model: app_window.mediaFlags
         Item {
+            property var myName: name
             XsHotkey {
-        context: shortcuts.context
-                sequence:  "Ctrl+" + (index == app_window.session.mediaFlags.length-1 ? 0: index+1)
-                name: "Flag media with color " + (index == app_window.session.mediaFlags.length-1 ? 0: index+1)
-                description: "Flags media with the associated colour code"        
-                onActivated: app_window.session.flag_selected_media(modelData.colour, modelData.name)
-
-
-                // onActivated: app_window.session.flag_current_media(
-                //     modelData.colour,
-                //     modelData.name
-                // )
+                context: shortcuts.context
+                sequence:  "Ctrl+" + (index == app_window.mediaFlags.count-1 ? 0: index+1)
+                name: "Flag media with color " + (index == app_window.mediaFlags.count-1 ? 0: index+1)
+                description: "Flags media with the associated colour code"
+                //onActivated: app_window.sessionFunction.flagSelectedMedia(colour, control.name)
+                 onActivated: {
+                     let model = app_window.mediaFlags
+                     app_window.sessionFunction.flagSelectedMedia(colour, myName)
+                 }
             }
         }
     }
@@ -444,9 +420,9 @@ Item {
         context: shortcuts.context
         sequence: "F1"
         name: "Show User Docs"
-        description: "Loads the xstudio user docs into your default web browser"        
+        description: "Loads the xstudio user docs into your default web browser"
         onActivated: {
-            var url = session.userDocsUrl()
+            var url = studio.userDocsUrl()
             if (url == "") {
                 errorDialog.text = "Unable to resolve location of user docs."
                 errorDialog.visible = true
@@ -460,7 +436,7 @@ Item {
         context: shortcuts.context
         sequence: "Tab"
         name: "Toggle Presentation Mode"
-        description: "Toggles xStudio in/out of presentation mode"        
+        description: "Toggles xStudio in/out of presentation mode"
         onActivated: {
             sessionWidget.togglePresentationLayout()
         }
@@ -470,15 +446,15 @@ Item {
         context: shortcuts.context
         sequence: "Ctrl+s"
         name: "Save Session"
-        description: "Saves current session under current file path."        
-        onActivated: app_window.session.save_session()
+        description: "Saves current session under current file path."
+        onActivated: app_window.sessionFunction.saveSession()
     }
     XsHotkey {
         context: shortcuts.context
-        sequence: "Ctrl+shift+s"
+        sequence: "Ctrl+Shift+s"
         name: "Save Session As"
-        description: "Saves current session under a new file path."        
-        onActivated: app_window.session.save_session_as()
+        description: "Saves current session under a new file path."
+        onActivated: app_window.sessionFunction.saveSessionAs()
 
     }
     XsHotkey {
@@ -486,7 +462,7 @@ Item {
         sequence: "Ctrl+o"
         name: "Open new session"
         description: "Open new session"
-        onActivated: app_window.session.save_before_open()
+        onActivated: app_window.sessionFunction.saveBeforeOpen()
     }
 
     XsHotkey {

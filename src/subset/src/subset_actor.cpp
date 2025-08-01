@@ -76,6 +76,11 @@ void SubsetActor::init() {
                 spdlog::debug("Remove media {}", to_string(it->first));
                 remove_media(it->second, it->first);
                 send(event_group_, utility::event_atom_v, change_atom_v);
+                send(
+                    event_group_,
+                    utility::event_atom_v,
+                    playlist::remove_media_atom_v,
+                    UuidVector({it->first}));
                 base_.send_changed(event_group_, this);
                 break;
             }
@@ -163,18 +168,6 @@ void SubsetActor::init() {
             }
 
             return result<utility::EditList>(utility::EditList());
-        },
-
-        [=](media::get_media_pointer_atom,
-            const int logical_frame) -> result<media::AVFrameID> {
-            // get actors attached to our media..
-            if (not base_.empty()) {
-                auto rp = make_response_promise<media::AVFrameID>();
-                deliver_media_pointer(logical_frame, rp);
-                return rp;
-            }
-
-            return result<media::AVFrameID>(make_error(xstudio_error::error, "No media"));
         },
 
         [=](playhead::playhead_rate_atom) -> FrameRate { return base_.playhead_rate(); },
@@ -444,15 +437,20 @@ void SubsetActor::init() {
         },
 
         [=](playlist::create_playhead_atom) -> UuidActor {
+            if (playhead_)
+                return playhead_;
             auto uuid  = utility::Uuid::generate();
             auto actor = spawn<playhead::PlayheadActor>(
                 std::string("Subset Playhead"), selection_actor_, uuid);
             link_to(actor);
 
-            // anon_send(actor, playhead::source_atom_v, tactor);
             anon_send(actor, playhead::playhead_rate_atom_v, base_.playhead_rate());
 
-            return UuidActor(uuid, actor);
+            playhead_ = UuidActor(uuid, actor);
+            return playhead_;
+        },
+        [=](playlist::get_playhead_atom) {
+            delegate(caf::actor_cast<caf::actor>(this), playlist::create_playhead_atom_v);
         },
 
         [=](playlist::get_media_atom) -> std::vector<UuidActor> {
@@ -504,18 +502,23 @@ void SubsetActor::init() {
 
         [=](playlist::get_media_uuid_atom) -> UuidVector { return base_.media_vector(); },
 
-        [=](playlist::move_media_atom, const Uuid &uuid, const Uuid &uuid_before) -> bool {
-            bool result = base_.move_media(uuid, uuid_before);
-            if (result) {
-                send(event_group_, utility::event_atom_v, change_atom_v);
-                send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
-                base_.send_changed(event_group_, this);
-            }
-            return result;
+        [=](playlist::move_media_atom atom, const Uuid &uuid, const Uuid &uuid_before) {
+            delegate(
+                actor_cast<caf::actor>(this), atom, utility::UuidVector({uuid}), uuid_before);
+        },
+
+        [=](playlist::move_media_atom atom,
+            const UuidList &media_uuids,
+            const Uuid &uuid_before) {
+            delegate(
+                actor_cast<caf::actor>(this),
+                atom,
+                utility::UuidVector(media_uuids.begin(), media_uuids.end()),
+                uuid_before);
         },
 
         [=](playlist::move_media_atom,
-            const UuidList &media_uuids,
+            const UuidVector &media_uuids,
             const Uuid &uuid_before) -> bool {
             bool result = false;
             for (auto uuid : media_uuids) {
@@ -523,6 +526,12 @@ void SubsetActor::init() {
             }
             if (result) {
                 base_.send_changed(event_group_, this);
+                send(
+                    event_group_,
+                    utility::event_atom_v,
+                    playlist::move_media_atom_v,
+                    media_uuids,
+                    uuid_before);
                 send(event_group_, utility::event_atom_v, change_atom_v);
                 send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
             }
@@ -542,19 +551,25 @@ void SubsetActor::init() {
 
         [=](playlist::remove_media_atom, const utility::UuidVector &uuids) -> bool {
             // this needs to propergate to children somehow..
-            bool changed = false;
+            utility::UuidVector removed;
+
             for (const auto &uuid : uuids) {
                 if (actors_.count(uuid) and remove_media(actors_[uuid], uuid)) {
-                    spdlog::warn("remove {}", to_string(uuid));
-                    changed = true;
+                    removed.push_back(uuid);
                 }
             }
-            if (changed) {
+
+            if (not removed.empty()) {
                 send(event_group_, utility::event_atom_v, change_atom_v);
+                send(
+                    event_group_,
+                    utility::event_atom_v,
+                    playlist::remove_media_atom_v,
+                    removed);
                 send(change_event_group_, utility::event_atom_v, utility::change_atom_v);
                 base_.send_changed(event_group_, this);
             }
-            return changed;
+            return not removed.empty();
         },
 
         [=](playlist::selection_actor_atom) -> caf::actor { return selection_actor_; },
@@ -661,62 +676,6 @@ void SubsetActor::add_media(
     } catch (const std::exception &err) {
         rp.deliver(make_error(xstudio_error::error, err.what()));
     }
-}
-
-void SubsetActor::deliver_media_pointer(
-    const int logical_frame, caf::typed_response_promise<media::AVFrameID> rp) {
-
-    std::vector<caf::actor> actors;
-    for (const auto &i : base_.media())
-        actors.push_back(actors_[i]);
-
-    fan_out_request<policy::select_all>(actors, infinite, media::media_reference_atom_v, Uuid())
-        .then(
-            [=](std::vector<std::pair<Uuid, MediaReference>> refs) mutable {
-                // re-order vector based on playlist order
-                std::vector<std::pair<Uuid, MediaReference>> ordered_refs;
-                for (const auto &i : base_.media()) {
-                    for (const auto &ii : refs) {
-                        const auto &[uuid, ref] = ii;
-                        if (uuid == i) {
-                            ordered_refs.push_back(ii);
-                            break;
-                        }
-                    }
-                }
-
-                // step though list, and find the relevant ref..
-                std::pair<Uuid, MediaReference> m;
-                int frames             = 0;
-                bool exceeded_duration = true;
-
-                for (auto it = std::begin(ordered_refs); it != std::end(ordered_refs); ++it) {
-                    if ((logical_frame - frames) < it->second.duration().frames()) {
-                        m                 = *it;
-                        exceeded_duration = false;
-                        break;
-                    }
-                    frames += it->second.duration().frames();
-                }
-
-                try {
-                    if (exceeded_duration)
-                        throw std::runtime_error("No frames left");
-                    // send request media atom..
-                    request(
-                        actors_[m.first],
-                        infinite,
-                        media::get_media_pointer_atom_v,
-                        logical_frame - frames)
-                        .then(
-                            [=](const media::AVFrameID &mp) mutable { rp.deliver(mp); },
-                            [=](error &err) mutable { rp.deliver(std::move(err)); });
-
-                } catch (const std::exception &e) {
-                    rp.deliver(make_error(xstudio_error::error, e.what()));
-                }
-            },
-            [=](error &err) mutable { rp.deliver(std::move(err)); });
 }
 
 void SubsetActor::sort_alphabetically() {

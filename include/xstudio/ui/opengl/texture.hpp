@@ -10,7 +10,7 @@
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/utility/uuid.hpp"
 
-//#define USE_SSBO
+// #define USE_SSBO
 
 namespace xstudio {
 namespace ui {
@@ -19,8 +19,8 @@ namespace ui {
         class GLBlindTex {
 
           public:
-            GLBlindTex()          = default;
-            virtual ~GLBlindTex() = default;
+            GLBlindTex() = default;
+            ~GLBlindTex();
 
             void release();
 
@@ -52,7 +52,7 @@ namespace ui {
 
           public:
             GLSsboTex();
-            ~GLSsboTex() override;
+            virtual ~GLSsboTex();
 
             void map_buffer_for_upload(media_reader::ImageBufPtr &frame) override;
             void start_pixel_upload() override;
@@ -75,7 +75,7 @@ namespace ui {
 
           public:
             GLBlindRGBA8bitTex() = default;
-            ~GLBlindRGBA8bitTex() override;
+            virtual ~GLBlindRGBA8bitTex();
 
             void map_buffer_for_upload(media_reader::ImageBufPtr &frame) override;
             void start_pixel_upload() override;
@@ -104,12 +104,12 @@ namespace ui {
             GLDoubleBufferedTexture();
             virtual ~GLDoubleBufferedTexture() = default;
 
-            void bind(int &tex_index, Imath::V2i &dims, bool &using_ssbo);
+            void bind(int &tex_index, Imath::V2i &dims);
             void release();
 
             void upload_next(std::vector<media_reader::ImageBufPtr>);
 
-            void set_texture_type(const std::string tex_type_name);
+            void set_use_ssbo(const bool using_ssbo);
 
             /*[[nodiscard]] int width() const ;
             [[nodiscard]] int height() const;*/
@@ -131,6 +131,7 @@ namespace ui {
           public:
             GLColourLutTexture(
                 const colour_pipeline::LUTDescriptor desc, const std::string texture_name);
+            virtual ~GLColourLutTexture();
 
             void bind(int tex_index);
             void release();

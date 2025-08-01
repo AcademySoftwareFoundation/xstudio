@@ -27,6 +27,10 @@ Item
         try  {
             windowObj.x = window_settings.properties.x
             windowObj.y = window_settings.properties.y
+
+            if(windowObj.centerOnOpen != undefined)
+                windowObj.centerOnOpen = false
+
             windowObj.width = window_settings.properties.width
             windowObj.height = window_settings.properties.height
         } catch(err) {}

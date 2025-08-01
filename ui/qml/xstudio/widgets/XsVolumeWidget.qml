@@ -23,55 +23,14 @@ XsTrayButton {
     property var muted: audio_attrs.muted === undefined ? false : audio_attrs.muted
     // hack to force qml to return the correct type..
 
-    // make sure property is actually ready..
-    property bool volume_added: false
-    property bool mute_added: false
-
-    property int volume_cast: 0
-
     XsModuleAttributes {
         id: audio_attrs
-        attributesGroupName: "audio_output"
-        onAttrAdded: {
-            if (attr_name == "volume") {
-                audio_attrs.volume = volume_preference.value * 1.0
-                volume_button.volume_added = true
-
-            }
-            else if (attr_name == "muted") {
-                audio_attrs.muted = mute_preference.value
-                volume_button.mute_added = true
-            }
-        }
-    }
-
-    XsModelProperty {
-        id: volume_preference
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/volume", "pathRole")
-    }
-
-    XsModelProperty {
-        id: mute_preference
-        role: "valueRole"
-        index: app_window.globalStoreModel.search_recursive("/ui/qml/audio_mute", "pathRole")
+        attributesGroupNames: "audio_output"
     }
 
     onVolumeChanged: {
-        if(volume_added) {
-            volume_cast = Math.ceil(volume)
-            // force to int..
-            volume_preference.value = volume_cast
-
-            if (!slider.pressed) {
-                popupwidget.value = volume
-            }
-        }
-    }
-
-    onMutedChanged:{
-        if(mute_added) {
-            mute_preference.value = muted
+        if (!slider.pressed) {
+            popupwidget.value = volume
         }
     }
 

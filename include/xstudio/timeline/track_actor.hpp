@@ -13,6 +13,7 @@ namespace xstudio {
 namespace timeline {
     class TrackActor : public caf::event_based_actor {
       public:
+        TrackActor(caf::actor_config &cfg, const utility::JsonStore &jsn);
         TrackActor(caf::actor_config &cfg, const utility::JsonStore &jsn, Item &item);
         TrackActor(
             caf::actor_config &cfg,
@@ -35,6 +36,56 @@ namespace timeline {
         caf::actor
         deserialise(const utility::JsonStore &value, const bool replace_item = false);
         void item_event_callback(const utility::JsonStore &event, Item &item);
+
+        void split_item(
+            const Items::const_iterator &item,
+            const int frame,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void insert_items(
+            const int index,
+            const utility::UuidActorVector &uav,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void insert_items_at_frame(
+            const int frame,
+            const utility::UuidActorVector &uav,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void remove_items_at_frame(
+            const int frame,
+            const int duration,
+            caf::typed_response_promise<
+                std::pair<utility::JsonStore, std::vector<timeline::Item>>> rp);
+
+        void remove_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<
+                std::pair<utility::JsonStore, std::vector<timeline::Item>>> rp);
+
+        void erase_items_at_frame(
+            const int frame,
+            const int duration,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void erase_items(
+            const int index,
+            const int count,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void move_items(
+            const int src_index,
+            const int count,
+            const int dst_index,
+            caf::typed_response_promise<utility::JsonStore> rp);
+
+        void move_items_at_frame(
+            const int frame,
+            const int duration,
+            const int dest_frame,
+            const bool insert,
+            caf::typed_response_promise<utility::JsonStore> rp);
 
       private:
         caf::behavior behavior_;

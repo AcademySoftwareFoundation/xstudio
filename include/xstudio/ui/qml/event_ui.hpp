@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+
+// include CMake auto-generated export hpp
+#include "xstudio/ui/qml/event_qml_export.h"
+
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
@@ -18,7 +22,7 @@ namespace xstudio {
 namespace ui {
     namespace qml {
 
-        class EventUI : public QObject {
+        class EVENT_QML_EXPORT EventUI : public QObject {
             Q_OBJECT
 
             Q_PROPERTY(int progress READ progress NOTIFY progressChanged)
@@ -73,7 +77,7 @@ namespace ui {
             event::Event event_;
         };
 
-        class EventAttrs : public QQmlPropertyMap {
+        class EVENT_QML_EXPORT EventAttrs : public QQmlPropertyMap {
 
             Q_OBJECT
 
@@ -83,7 +87,7 @@ namespace ui {
             void addEvent(const event::Event &);
         };
 
-        class EventManagerUI : public QMLActor {
+        class EVENT_QML_EXPORT EventManagerUI : public QMLActor {
 
             Q_OBJECT
 

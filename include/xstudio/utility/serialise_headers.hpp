@@ -2,6 +2,7 @@
 #pragma once
 
 #include "xstudio/bookmark/bookmark.hpp"
+#include "xstudio/conform/conformer.hpp"
 #include "xstudio/colour_pipeline/colour_pipeline.hpp"
 #include "xstudio/event/event.hpp"
 #include "xstudio/media/media.hpp"
