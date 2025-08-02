@@ -272,7 +272,7 @@ void PixelProbeHUD::make_pixel_info_onscreen_text(const media_reader::PixelInfo 
             if (is_code_value) {
                 char buf[128];
                 for (size_t i = 0; i < info.size(); ++i) {
-                    sprintf(buf, "%d", info[i].code_value);
+                    snprintf(buf, sizeof(buf), "%d", info[i].code_value);
                     int l = strlen(buf);
                     while (l < 4) {
                         ss << " ";
@@ -284,10 +284,10 @@ void PixelProbeHUD::make_pixel_info_onscreen_text(const media_reader::PixelInfo 
                 }
             } else {
                 char prc[128];
-                sprintf(prc, "%%.%df", precision);
+                snprintf(prc, sizeof(prc), "%%.%df", precision);
                 char buf[128];
                 for (size_t i = 0; i < info.size(); ++i) {
-                    sprintf(buf, prc, info[i].pixel_value);
+                    snprintf(buf, sizeof(buf), prc, info[i].pixel_value);
                     ss << buf;
                     if (i != (info.size() - 1))
                         ss << ", ";

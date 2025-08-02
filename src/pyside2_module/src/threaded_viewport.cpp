@@ -117,7 +117,18 @@ void ThreadedViewportWindow::draw() {
     glBufferData(GL_PIXEL_UNPACK_BUFFER, SIZE, 0, GL_STREAM_DRAW);
 
     void *mappedBuffer = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-    memcpy(mappedBuffer, &m_frames[m_index][0], SIZE);
+    if (mappedBuffer != nullptr) {
+        memcpy(mappedBuffer, &m_frames[m_index][0], SIZE);
+    } else {
+        // Handle mapping error - log or fall back to glTexImage2D with data
+        GLenum error = glGetError();
+        qWarning("glMapBuffer failed with error: %d", error);
+        // Fall back to direct texture upload
+        glBindTexture(GL_TEXTURE_2D, m_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, &m_frames[m_index][0]);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); // Unbind PBO
+        return;
+    }
 
     glBindTexture(GL_TEXTURE_2D, m_texture);
 

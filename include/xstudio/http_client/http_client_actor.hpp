@@ -47,6 +47,7 @@ namespace http_client {
         inline static const std::string NAME = "HTTPWorker";
         caf::behavior make_behavior() override { return behavior_; }
         std::string get_error_string(const httplib::Error err);
+        bool is_safe_url(const std::string &scheme_host_port);
 
       private:
         caf::behavior behavior_;

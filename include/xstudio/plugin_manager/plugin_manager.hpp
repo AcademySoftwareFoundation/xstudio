@@ -105,6 +105,7 @@ namespace plugin_manager {
         [[nodiscard]] std::string spawn_menu_ui(const utility::Uuid &uuid);
 
       private:
+        bool is_safe_plugin_path(const std::string &path);
         std::list<std::string> plugin_paths_;
         std::map<utility::Uuid, PluginEntry> factories_;
     };

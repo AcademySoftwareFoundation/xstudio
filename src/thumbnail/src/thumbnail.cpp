@@ -158,7 +158,9 @@ void quickSquash(
     if (is_pow_2_width_ratio) {
 
         auto *squashed = new float[inWidth * inHeight * nchans];
-        memcpy(squashed, inBuffer, inWidth * inHeight * nchans * sizeof(float));
+        // Validate input buffer size before copy
+        size_t expected_input_size = inWidth * inHeight * nchans * sizeof(float);
+        memcpy(squashed, inBuffer, expected_input_size);
         int width = inWidth;
         while (width != outWidth) {
 
@@ -277,7 +279,9 @@ void quickSquash(
             delete[] old_squashed;
             height /= 2;
         }
-        memcpy(outBuffer, squashed, outHeight * outWidth * nchans * sizeof(float));
+        // Validate output buffer size before copy
+        size_t expected_output_size = outHeight * outWidth * nchans * sizeof(float);
+        memcpy(outBuffer, squashed, expected_output_size);
         delete[] squashed;
         return;
     }
@@ -428,7 +432,9 @@ void quickSquash(
     if (is_pow_2_width_ratio) {
 
         auto *squashed = new uint8_t[inWidth * inHeight * nchans];
-        memcpy(squashed, inBuffer, inWidth * inHeight * nchans * sizeof(uint8_t));
+        // Validate input buffer size before copy  
+        size_t expected_input_size = inWidth * inHeight * nchans * sizeof(uint8_t);
+        memcpy(squashed, inBuffer, expected_input_size);
         int width = inWidth;
         while (width != outWidth) {
 
@@ -539,7 +545,9 @@ void quickSquash(
             delete[] old_squashed;
             height /= 2;
         }
-        memcpy(outBuffer, squashed, outWidth * outHeight * nchans);
+        // Validate output buffer size before copy
+        size_t expected_output_size = outWidth * outHeight * nchans;
+        memcpy(outBuffer, squashed, expected_output_size);
         delete[] squashed;
         return;
     }

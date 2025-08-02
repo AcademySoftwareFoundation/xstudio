@@ -6,6 +6,7 @@
 #endif
 #include <functional>
 #include <iostream>
+#include <limits>
 
 #include "xstudio/utility/edit_list.hpp"
 #include "xstudio/utility/logging.hpp"
@@ -566,6 +567,11 @@ EditListSection EditList::next_section(
             "EditList::next_section error: ref time is at or beyond last section.");
     }
 
+    // Avoid integer overflow by checking size bounds before casting
+    if (sl_.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+        throw std::runtime_error("EditList size exceeds maximum integer value");
+    }
+    
     const int skip_to_index = std::max(
         int(0),
         std::min(static_cast<int>(sl_.size() - 1), current_section_index + skip_sections));

@@ -102,23 +102,27 @@ struct ExitTimeoutKiller {
         spdlog::debug("ExitTimeoutKiller start ignored");
     }
 #else
+        try {
+            // lock the mutex ...
+            clean_actor_system_exit.lock();
 
-
-        // lock the mutex ...
-        clean_actor_system_exit.lock();
-
-        // .. and start a thread to watch the mutex
-        exit_timeout = std::thread([&]() {
-            // wait for stop() to be called - 10s
-            if (!clean_actor_system_exit.try_lock_for(std::chrono::seconds(10))) {
-                // stop() wasn't called! Probably failed to exit actor_system,
-                // see main() function. Kill process.
-                spdlog::critical("xSTUDIO has not exited cleanly: killing process now");
-                kill(0, SIGKILL);
-            } else {
-                clean_actor_system_exit.unlock();
-            }
-        });
+            // .. and start a thread to watch the mutex
+            exit_timeout = std::thread([&]() {
+                // wait for stop() to be called - 10s
+                if (!clean_actor_system_exit.try_lock_for(std::chrono::seconds(10))) {
+                    // stop() wasn't called! Probably failed to exit actor_system,
+                    // see main() function. Kill process.
+                    spdlog::critical("xSTUDIO has not exited cleanly: killing process now");
+                    kill(0, SIGKILL);
+                } else {
+                    clean_actor_system_exit.unlock();
+                }
+            });
+        } catch (...) {
+            // Ensure mutex is unlocked if thread creation fails
+            clean_actor_system_exit.unlock();
+            throw;
+        }
     }
 #endif
 
@@ -1012,18 +1016,21 @@ int main(int argc, char **argv) {
                 // Add a CafSystemObject to the application - this is QObject that simply
                 // holds a reference to the actor system so that we can access the system
                 // in Qt main loop
-                new CafSystemObject(&app, system);
+                auto caf_system_obj = new CafSystemObject(&app, system);
+                Q_UNUSED(caf_system_obj); // Explicitly mark as used to prevent compiler warnings
 
                 const QUrl url(
                     l.actions["reskin"] ? QStringLiteral("qrc:/main_reskin.qml")
                                         : QStringLiteral("qrc:/main.qml"));
 
                 QQmlApplicationEngine engine;
+                // These image providers will be owned by the engine and cleaned up automatically
                 engine.addImageProvider(QLatin1String("thumbnail"), new ThumbnailProvider);
                 engine.addImageProvider(QLatin1String("shotgun"), new ShotgunProvider);
                 engine.rootContext()->setContextProperty(
                     "applicationDirPath", QGuiApplication::applicationDirPath());
 
+                // Helper and studio objects have parent QObjects and will be cleaned up automatically
                 auto helper = new Helpers(&engine);
                 engine.rootContext()->setContextProperty("helpers", helper);
 

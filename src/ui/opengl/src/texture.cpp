@@ -246,16 +246,27 @@ void GLBlindRGBA8bitTex::pixel_upload() {
     const int n_threads = 8; // TODO: proper thread count here
     std::vector<std::thread> memcpy_threads;
     size_t sz   = std::min(tex_size_bytes(), new_source_frame_->size());
-    size_t step = ((sz / n_threads) / 4096) * 4096;
-    auto *dst   = (uint8_t *)new_source_frame_->buffer();
+    
+    // Ensure minimum step size and proper alignment
+    size_t step = std::max(size_t(4096), ((sz / n_threads) / 4096) * 4096);
+    if (step == 0 || sz < step) {
+        // Fallback to single-threaded copy for small sizes
+        memcpy((uint8_t *)new_source_frame_->buffer(), buffer_io_ptr_, sz);
+    } else {
+        auto *dst   = (uint8_t *)new_source_frame_->buffer();
+        uint8_t *ioPtrY = buffer_io_ptr_;
 
-    uint8_t *ioPtrY = buffer_io_ptr_;
-
-    for (int i = 0; i < n_threads; ++i) {
-        memcpy_threads.emplace_back(memcpy, ioPtrY, dst, std::min(sz, step));
-        ioPtrY += step;
-        dst += step;
-        sz -= step;
+        for (int i = 0; i < n_threads && sz > 0; ++i) {
+            size_t copy_size = std::min(sz, step);
+            if (copy_size > 0) {
+                memcpy_threads.emplace_back([ioPtrY, dst, copy_size]() {
+                    memcpy(dst, ioPtrY, copy_size);
+                });
+                ioPtrY += copy_size;
+                dst += copy_size;
+                sz -= copy_size;
+            }
+        }
     }
 
     // ensure any threads still running to copy data to this texture are done

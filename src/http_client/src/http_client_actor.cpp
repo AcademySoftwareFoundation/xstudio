@@ -60,6 +60,38 @@ std::string HTTPWorker::get_error_string(const httplib::Error err) {
     return "Unknown";
 }
 
+bool HTTPWorker::is_safe_url(const std::string &scheme_host_port) {
+    // Basic URL validation to prevent SSRF attacks
+    if (scheme_host_port.empty()) {
+        return false;
+    }
+    
+    // Block localhost and private IPs 
+    if (scheme_host_port.find("localhost") != std::string::npos ||
+        scheme_host_port.find("127.0.0.1") != std::string::npos ||
+        scheme_host_port.find("0.0.0.0") != std::string::npos ||
+        scheme_host_port.find("::1") != std::string::npos ||
+        scheme_host_port.find("10.") != std::string::npos ||
+        scheme_host_port.find("192.168.") != std::string::npos ||
+        scheme_host_port.find("172.16.") != std::string::npos ||
+        scheme_host_port.find("172.17.") != std::string::npos ||
+        scheme_host_port.find("172.18.") != std::string::npos ||
+        scheme_host_port.find("172.19.") != std::string::npos ||
+        scheme_host_port.find("172.2") != std::string::npos ||
+        scheme_host_port.find("172.30.") != std::string::npos ||
+        scheme_host_port.find("172.31.") != std::string::npos) {
+        return false;
+    }
+    
+    // Only allow https and http schemes
+    if (scheme_host_port.find("https://") != 0 && 
+        scheme_host_port.find("http://") != 0) {
+        return false;
+    }
+    
+    return true;
+}
+
 HTTPWorker::HTTPWorker(
     caf::actor_config &cfg,
     time_t connection_timeout,
@@ -75,6 +107,9 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
             try {
+                if (!is_safe_url(scheme_host_port)) {
+                    return make_error(hce::connection_error, "Unsafe URL blocked for security");
+                }
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
                 cli.set_connection_timeout(connection_timeout, 0);
@@ -203,6 +238,9 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
             try {
+                if (!is_safe_url(scheme_host_port)) {
+                    return make_error(hce::connection_error, "Unsafe URL blocked for security");
+                }
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
                 cli.set_connection_timeout(connection_timeout, 0);
@@ -266,6 +304,9 @@ HTTPWorker::HTTPWorker(
             const std::string &body,
             const std::string &content_type) -> result<httplib::Response> {
             try {
+                if (!is_safe_url(scheme_host_port)) {
+                    return make_error(hce::connection_error, "Unsafe URL blocked for security");
+                }
                 httplib::Client cli(scheme_host_port.c_str());
                 cli.set_follow_location(true);
                 cli.set_connection_timeout(connection_timeout, 0);
