@@ -44,12 +44,42 @@ std::string GetLastErrorAsString() {
 PluginManager::PluginManager(std::list<std::string> plugin_paths)
     : plugin_paths_(std::move(plugin_paths)) {}
 
+bool PluginManager::is_safe_plugin_path(const std::string &path) {
+    // Convert to absolute path to prevent path traversal attacks
+    std::error_code ec;
+    auto absolute_path = fs::absolute(path, ec);
+    if (ec) {
+        return false;
+    }
+
+    // Block paths containing dangerous components
+    std::string path_str = absolute_path.string();
+    if (path_str.find("..") != std::string::npos ||
+        path_str.find("/tmp") == 0 ||
+        path_str.find("/var/tmp") == 0 ||
+        path_str.find("//") != std::string::npos) {
+        return false;
+    }
+
+    // Only allow certain safe directories (adjust these as needed)
+    auto safe_root = xstudio_root("/plugin");
+    return path_str.find("/usr/local/lib/xstudio") == 0 ||
+           path_str.find("/opt/xstudio") == 0 ||
+           path_str.find(safe_root) == 0;
+}
+
 size_t PluginManager::load_plugins() {
     // scan for .so or .dll for each path.
     size_t loaded = 0;
     spdlog::debug("Loading Plugins");
 
     for (const auto &path : plugin_paths_) {
+        // Validate plugin path for security
+        if (!is_safe_plugin_path(path)) {
+            spdlog::warn("Skipping unsafe plugin path: {}", path);
+            continue;
+        }
+
         try {
             // read dir content..
             for (const auto &entry : fs::directory_iterator(path)) {

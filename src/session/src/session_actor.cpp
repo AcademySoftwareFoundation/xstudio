@@ -1045,7 +1045,7 @@ caf::message_handler SessionActor::message_handler() {
                         for (const auto &d : bd) {
                             if (d.owner_ && d.logical_start_frame_) {
                                 caf::actor owner = d.owner_->actor();
-                                sprintf(buf.data(), path.c_str(), idx);
+                                snprintf(buf.data(), buf.size(), path.c_str(), idx);
                                 caf::uri u = posix_path_to_uri(buf.data());
                                 request(
                                     offscreen_renderer,

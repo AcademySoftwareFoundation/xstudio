@@ -320,10 +320,28 @@ std::string xstudio::utility::uri_decode(const std::string &eString) {
     unsigned int i, j;
     for (i = 0; i < eString.length(); i++) {
         if (int(eString[i]) == 37) {
-            sscanf(eString.substr(i + 1, 2).c_str(), "%x", &j);
-            ch = static_cast<char>(j);
-            ret += ch;
-            i = i + 2;
+            // Ensure we have at least 2 more characters for hex decoding
+            if (i + 2 >= eString.length()) {
+                // Invalid encoding, skip malformed sequence
+                ret += eString[i];
+                continue;
+            }
+            auto hex_str = eString.substr(i + 1, 2);
+            // Validate hex characters
+            if (hex_str.length() == 2 && 
+                std::isxdigit(hex_str[0]) && std::isxdigit(hex_str[1])) {
+                if (sscanf(hex_str.c_str(), "%x", &j) == 1) {
+                    ch = static_cast<char>(j);
+                    ret += ch;
+                    i = i + 2;
+                } else {
+                    // sscanf failed, treat as literal
+                    ret += eString[i];
+                }
+            } else {
+                // Invalid hex characters, treat as literal
+                ret += eString[i];
+            }
         } else {
             ret += eString[i];
         }

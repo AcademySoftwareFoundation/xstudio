@@ -142,15 +142,47 @@ XSTUDIO = Connection(
 
 void EmbeddedPython::hello() const { py::print("Hello, World!"); }
 
-void EmbeddedPython::exec(const std::string &pystring) const { py::exec(pystring); }
+void EmbeddedPython::exec(const std::string &pystring) const { 
+    // Basic input validation to prevent obvious injection attempts
+    if (pystring.find("__import__") != std::string::npos ||
+        pystring.find("eval(") != std::string::npos ||
+        pystring.find("exec(") != std::string::npos ||
+        pystring.find("compile(") != std::string::npos ||
+        pystring.find("open(") != std::string::npos ||
+        pystring.find("file(") != std::string::npos ||
+        pystring.size() > 10000) {  // Limit string size
+        throw std::runtime_error("Potentially unsafe Python code detected");
+    }
+    py::exec(pystring); 
+}
 void EmbeddedPython::eval_file(const std::string &pyfile) const { py::eval_file(pyfile); }
 
 nlohmann::json EmbeddedPython::eval(const std::string &pystring) const {
+    // Basic input validation to prevent obvious injection attempts
+    if (pystring.find("__import__") != std::string::npos ||
+        pystring.find("eval(") != std::string::npos ||
+        pystring.find("exec(") != std::string::npos ||
+        pystring.find("compile(") != std::string::npos ||
+        pystring.find("open(") != std::string::npos ||
+        pystring.find("file(") != std::string::npos ||
+        pystring.size() > 10000) {  // Limit string size
+        throw std::runtime_error("Potentially unsafe Python code detected");
+    }
     return py::eval(pystring);
 }
 
 nlohmann::json
 EmbeddedPython::eval(const std::string &pystring, const nlohmann::json &locals) const {
+    // Basic input validation to prevent obvious injection attempts
+    if (pystring.find("__import__") != std::string::npos ||
+        pystring.find("eval(") != std::string::npos ||
+        pystring.find("exec(") != std::string::npos ||
+        pystring.find("compile(") != std::string::npos ||
+        pystring.find("open(") != std::string::npos ||
+        pystring.find("file(") != std::string::npos ||
+        pystring.size() > 10000) {  // Limit string size
+        throw std::runtime_error("Potentially unsafe Python code detected");
+    }
     py::object pylocal = locals;
 
     return py::eval(pystring, py::globals(), pylocal);

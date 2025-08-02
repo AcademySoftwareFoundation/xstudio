@@ -24,7 +24,7 @@ void grab_framebuffer_to_disk() {
 
         std::array<char, 2048> nm;
         static int fnum = 1;
-        sprintf(nm.data(), "/user_data/.tmp/xstudio_viewport.%04d.exr", fnum++);
+        snprintf(nm.data(), nm.size(), "/user_data/.tmp/xstudio_viewport.%04d.exr", fnum++);
         Imf::RgbaOutputFile out(
             nm.data(),
             Imath::Box2i(Imath::V2i(0, 0), Imath::V2i(viewport[2] - 1, viewport[3] - 1)));
