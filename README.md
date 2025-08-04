@@ -2,10 +2,6 @@
 
 xSTUDIO is a media playback and review application designed for professionals working in the film and TV post production industries, particularly the Visual Effects and Feature Animation sectors. xSTUDIO is focused on providing an intuitive, easy to use interface with a high performance playback engine at its core and C++ and Python APIs for pipeline integration and customisation for total flexibility.
 
-## xSTUDIO Documentation
-
-You can browse xSTUDIO's user and reference documentation [here](share/docs/index.html).
-
 ## Building xSTUDIO
 
 This release of xSTUDIO can be built on various Linux flavours, MacOS and Windows 10 and 11. Comprehensive build instructions are available as follows:
