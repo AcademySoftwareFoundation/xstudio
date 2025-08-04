@@ -1,0 +1,127 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Downloading Qt SDK &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Downloading Qt SDK</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/reference/build_guides/downloading_qt.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="downloading-qt-sdk">
+<h1>Downloading Qt SDK<a class="headerlink" href="#downloading-qt-sdk" title="Link to this heading"></a></h1>
+<p>xSTUDIO’s UI is built with the Qt cross-platform GUI development libraries. The Qt SDK is a major dependency that is required to build xSTUDIO but fortunately it is freely available for public use under the GPL license.</p>
+<section id="running-the-qt-installer">
+<h2>Running the Qt installer<a class="headerlink" href="#running-the-qt-installer" title="Link to this heading"></a></h2>
+<p>First you need to download the <a class="reference external" href="https://www.qt.io/download-qt-installer">Qt Installer</a>.</p>
+<p>Run the installer app. Before you can proceed you must register with Qt if you aren’t already and then log-in with your credentials when the installer requests you to do so. Agree to the terms and conditions and hit ‘Next’. You are then presented with a panel with options about which developer tools to download. <em><strong>Ensure that Custom Installation is checked and all other options are not checked.</strong></em> . Choose a destination location on your filesystem for the Qt modules to be installed to (Where it says ‘Please specify the directory where QT will be installed’). Make a note of this location as you will need it later. Now hit ‘Next’.</p>
+<p><img alt="Qt Installer" src="../../_images/qt_inst1.jpg" /></p>
+</section>
+<section id="select-qt-6-5-3-components">
+<h2>Select Qt 6.5.3 components<a class="headerlink" href="#select-qt-6-5-3-components" title="Link to this heading"></a></h2>
+<p>Now you must select the correct version of Qt to download. The required version is <strong>6.5.3</strong>. Epand the ‘Qt’ item in the list, then expand the Qt 6.5.3 below that. You only need to check the following option within the list under 6.5.3, depending on your platform:</p>
+<ul class="simple">
+<li><p>Apple: <strong>macOS</strong></p></li>
+<li><p>Windows: <strong>MSVC 2019 64-bit</strong></p></li>
+<li><p>Linux: <strong>gcc_64</strong></p></li>
+</ul>
+<p>You must also expand the ‘Addition Libraries’ item, and select <strong>‘Qt Image Formats’</strong> from that list.</p>
+<p>The following screengrab was done when downloading onto an Apple Mac machine. If you’re on Windows it will look slightly different and you must check ‘MSVC 2019 64-bit’.</p>
+<p><img alt="Qt Installer" src="../../_images/qt_inst2.jpg" /></p>
+<p>Now You can hit the Next button and continue. Agree to the license terms and continue to the final page where you must hit the <strong>Install</strong> button. Note that the Qt components that we need are more than 1Gb in size, so may take some time to download depending on you connection and geographical location.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

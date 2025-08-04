@@ -1,18 +1,23 @@
-#################################
+.. _colour_management:
+
+#################
 Colour Management
-#################################
+#################
 
 xSTUDIO features colour management thanks to integration with the `OpenColorIO (OCIO) <https://opencolorio.org/>`_ framework. With the appropriate configuration files in place it can be ensured that that the colour profile of your display device (monitor, projector etc) is combined correctly with the media source colour space such that the final image is represented correctly. Artistic look modifications such as grading values or a film emulation LUT can also be incorporated before pixels hit the screen. xSTUDIO takes advantage of the latest V2 features of OCIO to compute colour space transforms and apply LUTs on your graphics card for guranteed accuracy and high performance.
 
 .. note::
-    If advanced colour management is not necessary: xSTUDIO works out-of-the-box without OCIO features enabled. You will see the ‘Display’ toolbar button shows ‘sRGB’ and the ‘View’ toolbar button shows ‘Raw’ - this means that colour values from video sources are displayed on-screen ‘as-is’ with no colour transformation applied to the RGB values before the pixels hit your monitor.
+    xSTUDIO is shipped with some default OCIO configurations, including the standard `OpenColorIO ACES <https://en.wikipedia.org/wiki/Academy_Color_Encoding_System> config.`_ You can select which configuration is active from the Colour tab in the :ref:`Preferences Manager <preferences>`.
+
+.. note::
+    If advanced colour management is not necessary: xSTUDIO works out-of-the-box without OCIO features enabled. From the **Colour** menu item in the main menu bar at the top of the interface check the 'Bypass Colour Management' option.
 
 The following guide applies if you do have a valid OCIO configuration in place:
 
     - **Toolbar ‘Display’ options:** Use this toolbar button to choose the appropriate display device from the list to match your given display hardware. Your selection is saved to your local preferences files and will persist between sessions.
     - **Toolbar ‘View’ options** - Use this toolbar button to select the combined View and Look 
 
-To override the colourspace of the on-screen media you can use the ‘Set source colourspace’ menu option under the Colour menu in the main menu bar. The options that are available will depend on your particular OCIO configuration.
+The colour management system works by converting the colour space of the media being viewed to the display colourspace of your display device (laptop screen / PC monitor etc.). As such, OCIO needs to know the colourspace of your media. It has some logic to try and infer this automatically, but you can also manually set the source colourspace. This can be done by right-mouse clicking in the Viewpoer (or click the More button to the top right of the Viewport) and going into the OCIO->Source sub-menu.
 
 
 OCIO Configuration (For Developers)

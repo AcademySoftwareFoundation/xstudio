@@ -1,0 +1,287 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Python Plugins &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Colour Management" href="colour_management.html" />
+    <link rel="prev" title="Python ‘Snippets’" href="python_snippets.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../workflow/workflow.html">Workflow Tools</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Appendix</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="preference_files.html">xSTUDIO Preferences</a></li>
+<li class="toctree-l3"><a class="reference internal" href="media_items.html">xSTUDIO Media Item Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_scripting.html">Python Scripting Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_snippets.html">Python ‘Snippets’</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Python Plugins</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#authoring-plugins">Authoring Plugins</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="colour_management.html">Colour Management</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Appendix</a></li>
+      <li class="breadcrumb-item active">Python Plugins</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/user_docs/appendix/python_plugins.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="python-plugins">
+<span id="id1"></span><h1>Python Plugins<a class="headerlink" href="#python-plugins" title="Link to this heading"></a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h2>
+<p>xSTUDIO has a Python plugin API through the provision of plugin base classes which you can use to build your own xSTUDIO extensions. The plugin base classes allow many ways to interact with the application and the session data:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>Interact with xSTUDIO’s core session obejct</dt><dd><ul>
+<li><p>Build and manage Playlists</p></li>
+<li><p>Concurrent media creation for rapid loading</p></li>
+<li><p>Build or load Sequence objects for multi-track timelines</p></li>
+<li><p>Import / Export OpenTimelineIO files for timeline interchange</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Interact with xSTUDIO’s playback engine, viewport and colour management components</dt><dd><ul>
+<li><p>Start/stop playback, position the playhead, jump through media</p></li>
+<li><p>Dynamically set-up media comparison (A/B, Wipe, Grid (Contact Sheet)) modes</p></li>
+<li><p>Dynamically control colour management data (Change exposure, apply grades)</p></li>
+<li><p>Spawn ‘QuickView’ player windows to review individual media items outside of the main interface.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Add attribute data items to your plugin.</dt><dd><ul>
+<li><dl class="simple">
+<dt>Attributes are flexible compound data types that can represent a wide range of data types:</dt><dd><ul>
+<li><p>boolean</p></li>
+<li><p>integer number</p></li>
+<li><p>string</p></li>
+<li><p>real number</p></li>
+<li><p>list</p></li>
+<li><p>dictionary (Json formatable)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Attribute data can be accessed from QML code directly</p></li>
+<li><p>Sets of attributes can be accessed in QML as dynamic ‘model’ data aligned with Qt’s Model-View-Delegate design patterns</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Create custom UI ‘panels’ that embed in the xSTUDIO UI through Qt QML</p></li>
+<li><p>Create custom Qt QML floating windows or dialogs</p></li>
+<li><p>Create custom overlay QML graphics for the Viewport for any data visualisation you require</p></li>
+<li><p>Inject menu items in xSTUDIO’s menu system</p></li>
+<li><p>Add hotkey shortcuts that run your own callbacks when triggered</p></li>
+<li><p>Receive callbacks from UI code (Qt QML)</p></li>
+<li><p>Add custom items to the Viewport toolbar</p></li>
+<li><dl class="simple">
+<dt>Subscribe to event messages that are broadcast by various xSTUDIO components</dt><dd><ul>
+<li><p>Get notification when the on-screen Media item changes</p></li>
+<li><p>Get notification when the playhead state (position, playing, compare mode etc) changes</p></li>
+<li><p>Get notification when a new Viewport has been created</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Because xSTUDIO’s embedded Python interpreter runs in a separate thread to the main UI event loops the execution of Python code will not slow or freeze xSTUDIO’s interface. It’s even possible to run code in a Python plugin that builds large playlists and loads lots of new media without xSTUDIO’s Viewport and playback engine being delayed so smooth and accurate playback can continue in the foreground.</p>
+</div>
+</section>
+<section id="authoring-plugins">
+<h2>Authoring Plugins<a class="headerlink" href="#authoring-plugins" title="Link to this heading"></a></h2>
+<p>xSTUDIO loads Python plugins on start-up. There is a preference setting (<strong>Python Plugin Path</strong> in the <strong>Python</strong> section of the <a class="reference internal" href="preference_files.html#preferences"><span class="std std-ref">Preferences Manager</span></a>) where you can set one or more filesystem directories for xSTUDIO to scan for your plugins. In addition to this xSTUDIO will also search the directories in the environment variable <strong>XSTUDIO_PYTHON_PLUGIN_PATH</strong> (a colon separated list on Mac/Linux or semi-colon sparated on Windows).</p>
+<p>Each plugin should be installed as a Python <em>importable</em> module in its own folder. The interface of the plugin python module must include a method <strong>create_plugin_instance</strong> that returns and instance of your plugin class (see exampled below).</p>
+<section id="bare-bones-plugin-example">
+<h3>Bare Bones Plugin Example<a class="headerlink" href="#bare-bones-plugin-example" title="Link to this heading"></a></h3>
+<p>Let say we have the directory <strong>/home/Users/tedwaine/xstudio_plugins</strong> added to the Python Plugin Path preference. Within this directory I have another directory called my_plugin. Within that, I could have a file called <strong>demo_plugin.py</strong> that looks like this:</p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">demo_plugin.py - minimal plugin that adds a menu option to the main menu bar</span><a class="headerlink" href="#id2" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.plugin</span><span class="w"> </span><span class="kn">import</span> <span class="n">PluginBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">KeyboardModifier</span>
+
+<span class="c1"># Declare our plugin class - we&#39;re using the PluginBase base class here which</span>
+<span class="c1"># is a general purpose plugin</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyDemoPlugin</span><span class="p">(</span><span class="n">PluginBase</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">):</span>
+
+        <span class="n">PluginBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">connection</span><span class="p">,</span>
+            <span class="s2">&quot;My Demo Plugin&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">shortcut_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">register_hotkey</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shortcut_callback</span><span class="p">,</span>
+            <span class="s2">&quot;W&quot;</span><span class="p">,</span>
+            <span class="n">KeyboardModifier</span><span class="o">.</span><span class="n">ControlModifier</span><span class="p">,</span>
+            <span class="s2">&quot;Demo Plugin Shorcut&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Simple example hotkey&quot;</span><span class="p">,</span>
+            <span class="n">auto_repeat</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">component</span><span class="o">=</span><span class="s2">&quot;Demo Plugins&quot;</span><span class="p">,</span>
+            <span class="n">context</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">insert_menu_item</span><span class="p">(</span>
+            <span class="s2">&quot;main menu bar&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Run Callback&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Plugins|Demo Plugin&quot;</span><span class="p">,</span>
+            <span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">hotkey_uuid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shortcut_id</span><span class="p">,</span>
+            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">my_callback</span><span class="p">,</span>
+            <span class="n">user_data</span><span class="o">=</span><span class="s2">&quot;some extra info&quot;</span><span class="p">)</span>
+
+        <span class="c1"># ensure that the new &#39;Plugins&#39; section of the menu bar appears</span>
+        <span class="c1"># at the end (right side) of the menu bar</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_submenu_position</span><span class="p">(</span>
+            <span class="s2">&quot;main menu bar&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Plugins&quot;</span><span class="p">,</span>
+            <span class="mf">1000.0</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">shortcut_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shortcut_uuid</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Hotkey pressed in context </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">context</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">my_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;my_callback executed&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">menu_item_activated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">menu_item_data</span><span class="p">,</span> <span class="n">user_data</span><span class="p">):</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;my_callback executed with user data&quot;</span><span class="p">,</span> <span class="n">menu_item_data</span><span class="p">,</span> <span class="n">user_data</span><span class="p">)</span>
+
+<span class="c1"># This method is required by xSTUDIO</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_plugin_instance</span><span class="p">(</span><span class="n">connection</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">MyDemoPlugin</span><span class="p">(</span><span class="n">connection</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>At the same location in the filesystem I also need an <strong>__init__.py</strong> file to expose the crucial <em>create_plugin_instance</em> to xSTUDIO’s plugin loader:</p>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text">__init__.py -</span><a class="headerlink" href="#id3" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">.demo_plugin</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_plugin_instance</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When developing a python plugin like the example above one can set the XSTUDIO_PYTHON_PLUGIN_PATH to point to your development folder one level up from the folder containing the code of your plugin(s). Simply restart xSTUDIO after making a code change to test. If there are syntax errors or some other runtime problem with importing your plugin the errors will be printed into the terminal. For this reason you must be able to execute xSTUDIO on a command line to make the development cycle fast and easy. There are some hints in the <a class="reference internal" href="../getting_started/getting_started.html#command-line-loading"><span class="std std-ref">Getting Started section</span></a>.</p>
+</div>
+</section>
+<section id="more-complex-plugin-examples">
+<h3>More Complex plugin Examples<a class="headerlink" href="#more-complex-plugin-examples" title="Link to this heading"></a></h3>
+<p><strong>August 2025</strong> - We are still working on some comprehensive Python Plugin API examples that showcase all the features and what is possible in terms of UI interface development, integration and interaction with xSTUDIO.</p>
+<p>However there are some existing plugins that ship with the xSTUDIO source code that provide some fully developed plugins that do HUD overlay graphics or add a custom Viewport layout (picture-in-picture). These plugins are intended to be useful reference implementations of these features and can be found in the <strong>src/plugin/python_plugins/</strong> folder in the xSTUDIO source code repository.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="python_snippets.html" class="btn btn-neutral float-left" title="Python ‘Snippets’" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="colour_management.html" class="btn btn-neutral float-right" title="Colour Management" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

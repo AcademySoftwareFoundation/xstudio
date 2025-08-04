@@ -1,0 +1,189 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xstudio.demo &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="xstudio" href="root.html" />
+    <link rel="prev" title="xstudio.core" href="core.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../build_guides/index.html">xSTUDIO Build Guides</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html">API</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="api.html">xstudio.api</a></li>
+<li class="toctree-l3"><a class="reference internal" href="connection.html">xstudio.connection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="core.html">xstudio.core</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">xstudio.demo</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-xstudio.demo.capitalise">Capitalise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-xstudio.demo.flag_disco">Animate Flags</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-xstudio.demo.make_playlists">Make Playlists</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-xstudio.demo.sort_session">Sort Session</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="root.html">xstudio</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO Reference</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Python API</a></li>
+      <li class="breadcrumb-item active">xstudio.demo</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/reference/python_api/demo.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-xstudio.demo">
+<span id="xstudio-demo"></span><span id="python-demo-api"></span><h1>xstudio.demo<a class="headerlink" href="#module-xstudio.demo" title="Link to this heading"></a></h1>
+<p>Demo functions.</p>
+<p>Fun and games.</p>
+<section id="module-xstudio.demo.capitalise">
+<span id="capitalise"></span><h2>Capitalise<a class="headerlink" href="#module-xstudio.demo.capitalise" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="xstudio.demo.capitalise.capitalise">
+<span class="sig-prename descclassname"><span class="pre">xstudio.demo.capitalise.</span></span><span class="sig-name descname"><span class="pre">capitalise</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/demo/capitalise.html#capitalise"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.demo.capitalise.capitalise" title="Link to this definition"></a></dt>
+<dd><p>Capitalise playlist items.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>session (object): Session object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-xstudio.demo.flag_disco">
+<span id="animate-flags"></span><h2>Animate Flags<a class="headerlink" href="#module-xstudio.demo.flag_disco" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="xstudio.demo.flag_disco.animate_flags">
+<span class="sig-prename descclassname"><span class="pre">xstudio.demo.flag_disco.</span></span><span class="sig-name descname"><span class="pre">animate_flags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cycles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/demo/flag_disco.html#animate_flags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.demo.flag_disco.animate_flags" title="Link to this definition"></a></dt>
+<dd><p>Animate session item flags.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>session (object): Session object.</p>
+</dd>
+<dt>Kwargs:</dt><dd><p>cycles (int): Run for this many cycles.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-xstudio.demo.make_playlists">
+<span id="make-playlists"></span><h2>Make Playlists<a class="headerlink" href="#module-xstudio.demo.make_playlists" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="xstudio.demo.make_playlists.make_playlists">
+<span class="sig-prename descclassname"><span class="pre">xstudio.demo.make_playlists.</span></span><span class="sig-name descname"><span class="pre">make_playlists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/demo/make_playlists.html#make_playlists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.demo.make_playlists.make_playlists" title="Link to this definition"></a></dt>
+<dd><p>Create multiple playlists.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>session (object): Session object.
+names (str list): names.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-xstudio.demo.sort_session">
+<span id="sort-session"></span><h2>Sort Session<a class="headerlink" href="#module-xstudio.demo.sort_session" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="xstudio.demo.sort_session.sort_session">
+<span class="sig-prename descclassname"><span class="pre">xstudio.demo.sort_session.</span></span><span class="sig-name descname"><span class="pre">sort_session</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/xstudio/demo/sort_session.html#sort_session"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xstudio.demo.sort_session.sort_session" title="Link to this definition"></a></dt>
+<dd><p>Sort playlist items.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>session (object): Session object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="core.html" class="btn btn-neutral float-left" title="xstudio.core" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="root.html" class="btn btn-neutral float-right" title="xstudio" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

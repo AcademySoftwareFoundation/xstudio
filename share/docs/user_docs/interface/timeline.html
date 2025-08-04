@@ -1,0 +1,216 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Timeline &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Transport Controls and Toolbar" href="transport.html" />
+    <link rel="prev" title="The Viewport" href="viewport.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="interface.html">The xSTUDIO Interface</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="layouts.html">Custom Interface Layouts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="playlists.html">The Playlist Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="media_list.html">The Media List Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="viewport.html">The Viewport</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">The Timeline</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sequence-creation">Sequence Creation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#loading-and-exporting-timelines">Loading and Exporting Timelines</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#interacting-with-sequences">Interacting with Sequences</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sequence-markers">Sequence Markers</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="transport.html">Transport Controls and Toolbar</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../workflow/workflow.html">Workflow Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="interface.html">The xSTUDIO Interface</a></li>
+      <li class="breadcrumb-item active">The Timeline</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/user_docs/interface/timeline.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="the-timeline">
+<span id="timeline"></span><h1>The Timeline<a class="headerlink" href="#the-timeline" title="Link to this heading"></a></h1>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/timeline-01.png"><img alt="The xSTUDIO Timeline Interface" src="../../_images/timeline-01.png" style="width: 959.4px; height: 181.2px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The Timeline Interface</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>xSTUDIO’s Timeline/Sequence interface allows you to load, create, export and interact with mult-track video edits. It has some features that are specifically tailored for VFX and Animation <em>review</em> workflows, as well as general purpose editing tools.</p>
+<section id="sequence-creation">
+<h2>Sequence Creation<a class="headerlink" href="#sequence-creation" title="Link to this heading"></a></h2>
+<p>To get started you must first have a Playlist. Select the Playlist and then use the <em>Add New-&gt;Sequence</em> from the right-click Context/More menu in the <a class="reference internal" href="playlists.html#playlist-panel"><span class="std std-ref">Playlists Panel</span></a>. You can then select a Playlist that contains media so that the media shows in the <a class="reference internal" href="media_list.html#media-list-panel"><span class="std std-ref">Media List Panel</span></a>, select media from the Media List and drag-drop into the Sequence object in the Playlist Panel. Alternatively you can select media from a playlist and in the Media List choose <em>Add Media To-&gt;New Sequence …</em> menu option.</p>
+<p>There is a quickstart video demo <a class="reference internal" href="../getting_started/getting_started.html#creating-a-sequence"><span class="std std-ref">here.</span></a></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When a Sequence is created you must set its Frame Rate. The Sequence frame rate is important because if you load media into a Sequence, where the media frame rate is not the same as the Sequence frame rate, then xSTUDIO will perform a simple ‘pull-down’ to allow the media to play within the Sequence. However, the pull-down can introduce a number of problems like the clip not matching the duration of the underlying media or video frames being dropped during playback. It is therefore recommended to match the Sequence frame rate to the source media, and not use media with mixed frame rates in one Sequence - for such a workflow you will need more sophisticated re-timing tools that you would find in dedicated, professional editing systems.</p>
+<p>A drop-down in the New Sequence dialog is provided to set the Frame Rate and there is a default frame rate xSTUDIO preference too.</p>
+</div>
+</section>
+<section id="loading-and-exporting-timelines">
+<h2>Loading and Exporting Timelines<a class="headerlink" href="#loading-and-exporting-timelines" title="Link to this heading"></a></h2>
+<p>xSTUDIO uses the excellent <a class="reference external" href="https://opentimelineio.readthedocs.io/en/stable/">OpenTimelineIO</a> Python modules to allow it to load and export timelines in a variety of formats for compatibility with professional editing software like Premiere and Avid. To load a timeline, use the <em>File-&gt;Import-&gt;OTIO…</em> menu option from the main menu bar at the top of the xSTUDIO interface. Similarly to export a timeline file from an xSTUDIO sequence, select the sequence in the <a class="reference internal" href="playlists.html#playlist-panel"><span class="std std-ref">Playlists Panel</span></a> and use <em>File-&gt;Export-&gt;Selected Sequence as OTIO…</em> menu option.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>xSTUDIO’s internal data model for representing Sequences is closely based on the OTIO model.</p>
+</div>
+</section>
+<section id="interacting-with-sequences">
+<h2>Interacting with Sequences<a class="headerlink" href="#interacting-with-sequences" title="Link to this heading"></a></h2>
+<p>The basic editing tools in the timeline should be quite easy to find your way around. The timeline zoom and pan settings are important for navigation of an edit, especially longer edits. The default hotkey shortcut <em>F</em> will re-<em>focus</em> the timeline view on all of the clips - i.e. the zoom will be adjusted so that the entire duration of the Sequence will fit into the timeline window. You can also use the <em>Fit All</em> button for this purpose.</p>
+<section id="basic-editing-features">
+<h3>Basic Editing Features<a class="headerlink" href="#basic-editing-features" title="Link to this heading"></a></h3>
+<p>To make and build video tracks:</p>
+<ul class="simple">
+<li><p>Create new video or audio tracks with the <strong>+</strong> buttons</p></li>
+<li><p>Drag-drop media into the Sequence from the MediaList into tracks to start adding media to the edit.</p></li>
+</ul>
+<p>Activate tools via the buttons in the left-hand toolbox to move, trim and cut clips and navigate the Sequence:</p>
+<ul class="simple">
+<li><p>Use the <em>Select</em> tool to click-select or drag-select clips in the timeline.</p></li>
+<li><p>Use the buttons in the left-hand toolbox to access the <em>Move</em> tool to start dragging clips around the timeline.</p></li>
+<li><p>In <em>Move</em> mode, when the mouse hovers on the edge of a clip a handle will appear that can be used to trim or extend the clip at either end (but within the available duration of the underlying media).</p></li>
+<li><p>The <em>Roll</em> tool allows you to click and drag the mouse within a clip - this will slide the active range of the clip within the available range of the media. This is only useful if you have trimmed the clip and it has handles</p></li>
+<li><p>The <em>Cut</em> tool will split the clip under the mouse into two clips when you click the left mouse button.</p></li>
+<li><p>The <em>Zoom</em> tool allows you to change the visual scaling of the Timeline by clicking and dragging in the timeline. Note that holding the CTRL key and scrolling the middle mouse wheel (if you have one) will also adjust zoom.</p></li>
+<li><p>The <em>Pan</em> tool allows you to slide the visible window into the timeline with a mouse drag left/right</p></li>
+</ul>
+</section>
+<section id="focus-mode">
+<h3>Focus Mode<a class="headerlink" href="#focus-mode" title="Link to this heading"></a></h3>
+<p>Activate the <em>Focus</em> mode by clicking the corresponding button (near the middle-top of the interface). This mode can be really useful in the context of VFX and Animation reviews. What it does is ensure that the <em>selected clips or tracks will always be visible, even if they aren’t topmost in the stack</em>. This means that you can have a stack of video tracks with various versions / outputs conformed into the timeline. If you want to see the whole edit, but with for one shot you want to see an earlier version that is buried in one of the lower video tracks, you can select that particular clip and use <em>focus</em> mode. The selected clip will then be visible during playback, overriding other clips that would otherwise hide it. A similar logic can be applied to whole video tracks.</p>
+</section>
+<section id="looping-on-a-section">
+<h3>Looping on a Section<a class="headerlink" href="#looping-on-a-section" title="Link to this heading"></a></h3>
+<p>Activate the <em>Loop</em> modew by clicking the corresponding button (next to the <em>Fcous mode</em> button). The playhead will only loop over the range of the selected items in the Sequence during playback.</p>
+</section>
+<section id="ripple-mode">
+<h3>Ripple Mode<a class="headerlink" href="#ripple-mode" title="Link to this heading"></a></h3>
+<p>Activate the <em>Ripple</em> mode by clicking on the corresponding button. Now, when using the <em>Move</em> tool to slide a clip, all clips in the same video track that <em>follow</em> that clip will be slid by the same amount.</p>
+</section>
+<section id="overwrite-mode">
+<h3>Overwrite Mode<a class="headerlink" href="#overwrite-mode" title="Link to this heading"></a></h3>
+<p>Activate the <em>Overwrite</em> mode by clicking on the corresponding button. Now, when using the <em>Move</em> tool to slide a clip you can slide a clip over the top of other clips - when you release the mouse button the clip will be dropped into that location and the clips underneath will be spliced accordingly to accommodate the moved clip’s new timing within the video track.</p>
+</section>
+<section id="context-menu">
+<h3>Context Menu<a class="headerlink" href="#context-menu" title="Link to this heading"></a></h3>
+<p>When one or more clips are selected, a right-mouse-button click will show the ‘Clip’ context menu, providing a numbewr of actions to move, disable, enbale, delete clips, set a custom highlight colour on selected clips and so-on.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/timeline-context-menu-01.png"><img alt="The timeline Clip context menu" src="../../_images/timeline-context-menu-01.png" style="width: 215.4px; height: 241.2px;" />
+</a>
+</figure>
+</section>
+</section>
+<section id="sequence-markers">
+<h2>Sequence Markers<a class="headerlink" href="#sequence-markers" title="Link to this heading"></a></h2>
+<p>Simple markers can be added to a Sequence via the right-mouse Context menu <em>somehere in the blank space of the timeline</em> and then chosing Add Marker. The new marker will be created at the current playhead position. By right-mouse-button clicking when the pointer is hovered over a marker you will get a menu allowing you to set a colour, a name for the marker and a comment string which will be visible if the marker is subsequently clicked.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/timeline-markers-01.png"><img alt="Sequence Markers" src="../../_images/timeline-markers-01.png" style="width: 604.0px; height: 167.0px;" />
+</a>
+</figure>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="viewport.html" class="btn btn-neutral float-left" title="The Viewport" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="transport.html" class="btn btn-neutral float-right" title="Transport Controls and Toolbar" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

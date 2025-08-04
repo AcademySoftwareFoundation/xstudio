@@ -1,26 +1,26 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api.session.playlist.playlist &mdash; xStudio 0.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=eafc0fe6" />
+  <title>xstudio.api.session.playlist.playlist &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../../../_static/documentation_options.js?v=7026087e"></script>
-        <script src="../../../../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../../search.html" /> 
+    <link rel="search" title="Search" href="../../../../../search.html" />
+    <link href="../../../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -34,9 +34,6 @@
           <a href="../../../../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                0.0.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -46,9 +43,8 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
         </div>
@@ -78,34 +74,34 @@
              
   <h1>Source code for xstudio.api.session.playlist.playlist</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_playhead_atom</span><span class="p">,</span> <span class="n">get_media_atom</span><span class="p">,</span> <span class="n">get_container_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">create_group_atom</span><span class="p">,</span> <span class="n">create_contact_sheet_atom</span><span class="p">,</span> <span class="n">add_media_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">rename_container_atom</span><span class="p">,</span> <span class="n">create_subset_atom</span><span class="p">,</span> <span class="n">create_timeline_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">move_container_atom</span><span class="p">,</span> <span class="n">remove_container_atom</span><span class="p">,</span> <span class="n">type_atom</span><span class="p">,</span> <span class="n">parse_posix_path</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">create_divider_atom</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">,</span> <span class="n">playhead_rate_atom</span><span class="p">,</span> <span class="n">URI</span><span class="p">,</span> <span class="n">FrameRate</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">remove_media_atom</span><span class="p">,</span> <span class="n">VectorUuid</span><span class="p">,</span> <span class="n">move_media_atom</span><span class="p">,</span> <span class="n">create_playhead_atom</span><span class="p">,</span> <span class="n">selection_actor_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">convert_to_timeline_atom</span><span class="p">,</span> <span class="n">convert_to_subset_atom</span><span class="p">,</span> <span class="n">convert_to_contact_sheet_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">reflag_container_atom</span><span class="p">,</span> <span class="n">expanded_atom</span><span class="p">,</span> <span class="n">session_atom</span><span class="p">,</span> <span class="n">copy_media_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">FrameList</span><span class="p">,</span> <span class="n">FrameRate</span><span class="p">,</span> <span class="n">MediaType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_playhead_atom</span><span class="p">,</span> <span class="n">get_media_atom</span><span class="p">,</span> <span class="n">get_container_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">create_group_atom</span><span class="p">,</span> <span class="n">create_contact_sheet_atom</span><span class="p">,</span> <span class="n">add_media_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">rename_container_atom</span><span class="p">,</span> <span class="n">create_subset_atom</span><span class="p">,</span> <span class="n">create_timeline_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">move_container_atom</span><span class="p">,</span> <span class="n">remove_container_atom</span><span class="p">,</span> <span class="n">type_atom</span><span class="p">,</span> <span class="n">parse_posix_path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_divider_atom</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">,</span> <span class="n">playhead_rate_atom</span><span class="p">,</span> <span class="n">URI</span><span class="p">,</span> <span class="n">FrameRate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_media_atom</span><span class="p">,</span> <span class="n">VectorUuid</span><span class="p">,</span> <span class="n">move_media_atom</span><span class="p">,</span> <span class="n">create_playhead_atom</span><span class="p">,</span> <span class="n">selection_actor_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_to_timeline_atom</span><span class="p">,</span> <span class="n">convert_to_subset_atom</span><span class="p">,</span> <span class="n">convert_to_contact_sheet_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">reflag_container_atom</span><span class="p">,</span> <span class="n">expanded_atom</span><span class="p">,</span> <span class="n">session_atom</span><span class="p">,</span> <span class="n">copy_media_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrameList</span><span class="p">,</span> <span class="n">FrameRate</span><span class="p">,</span> <span class="n">MediaType</span>
 
-<span class="kn">from</span> <span class="nn">xstudio.api.session.container</span> <span class="kn">import</span> <span class="n">Container</span><span class="p">,</span> <span class="n">PlaylistTree</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.playhead.playhead</span> <span class="kn">import</span> <span class="n">Playhead</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.playhead.playhead_selection</span> <span class="kn">import</span> <span class="n">PlayheadSelection</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.media.media</span> <span class="kn">import</span> <span class="n">Media</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.playlist.subset</span> <span class="kn">import</span> <span class="n">Subset</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.playlist.contact_sheet</span> <span class="kn">import</span> <span class="n">ContactSheet</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.playlist.timeline</span> <span class="kn">import</span> <span class="n">Timeline</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary</span> <span class="kn">import</span> <span class="n">NotificationHandler</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary.json_store</span> <span class="kn">import</span> <span class="n">JsonStoreHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.container</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span><span class="p">,</span> <span class="n">PlaylistTree</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.playhead.playhead</span><span class="w"> </span><span class="kn">import</span> <span class="n">Playhead</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.playhead.playhead_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlayheadSelection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.media.media</span><span class="w"> </span><span class="kn">import</span> <span class="n">Media</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.playlist.subset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Subset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.playlist.contact_sheet</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContactSheet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.playlist.timeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Timeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary</span><span class="w"> </span><span class="kn">import</span> <span class="n">NotificationHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary.json_store</span><span class="w"> </span><span class="kn">import</span> <span class="n">JsonStoreHandler</span>
 
-<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 
 <div class="viewcode-block" id="Playlist">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist">[docs]</a>
-<span class="k">class</span> <span class="nc">Playlist</span><span class="p">(</span><span class="n">Container</span><span class="p">,</span> <span class="n">NotificationHandler</span><span class="p">,</span> <span class="n">JsonStoreHandler</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Playlist</span><span class="p">(</span><span class="n">Container</span><span class="p">,</span> <span class="n">NotificationHandler</span><span class="p">,</span> <span class="n">JsonStoreHandler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Playlist object.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Playlist object.</span>
 
 <span class="sd">        Derived from Container.</span>
@@ -122,7 +118,7 @@
         <span class="n">JsonStoreHandler</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">playhead</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">playhead</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get playhead.</span>
 
 <span class="sd">        Returns:</span>
@@ -134,8 +130,8 @@
 
 
 <div class="viewcode-block" id="Playlist.add_media_list">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.add_media_list">[docs]</a>
-    <span class="k">def</span> <span class="nf">add_media_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">media_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.add_media_list">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_media_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">media_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add media from path.</span>
 
 <span class="sd">        Args:</span>
@@ -161,8 +157,8 @@
 
 
 <div class="viewcode-block" id="Playlist.add_media_with_audio">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.add_media_with_audio">[docs]</a>
-    <span class="k">def</span> <span class="nf">add_media_with_audio</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image_path</span><span class="p">,</span> <span class="n">audio_path</span><span class="p">,</span> <span class="n">audio_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.add_media_with_audio">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_media_with_audio</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image_path</span><span class="p">,</span> <span class="n">audio_path</span><span class="p">,</span> <span class="n">audio_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add media pair from path.</span>
 
 <span class="sd">        Args:</span>
@@ -198,8 +194,8 @@
 
 
 <div class="viewcode-block" id="Playlist.add_media">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.add_media">[docs]</a>
-    <span class="k">def</span> <span class="nf">add_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">frame_list</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.add_media">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">frame_list</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add media from path.</span>
 
 <span class="sd">        Args:</span>
@@ -224,7 +220,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">media</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media.</span>
 
 <span class="sd">        Returns:</span>
@@ -234,7 +230,7 @@
         <span class="k">return</span> <span class="p">[</span><span class="n">Media</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">containers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">containers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get containers.</span>
 
 <span class="sd">        Returns:</span>
@@ -258,8 +254,8 @@
         <span class="k">return</span> <span class="n">_containers</span>
 
 <div class="viewcode-block" id="Playlist.get_container">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.get_container">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.get_container">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get container from tree.</span>
 
 <span class="sd">        Args:</span>
@@ -276,8 +272,8 @@
 
 
 <div class="viewcode-block" id="Playlist.create_playhead">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.create_playhead">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_playhead</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.create_playhead">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_playhead</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new playhead.</span>
 
 <span class="sd">        Returns:</span>
@@ -288,7 +284,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">playlist_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">playlist_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get playlist tree.</span>
 
 <span class="sd">        Returns:</span>
@@ -299,8 +295,8 @@
 
 
 <div class="viewcode-block" id="Playlist.create_group">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.create_group">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.create_group">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new group.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -319,8 +315,8 @@
 
 
 <div class="viewcode-block" id="Playlist.create_divider">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.create_divider">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_divider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Divider&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.create_divider">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_divider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Divider&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new divider.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -343,8 +339,8 @@
 
 
 <div class="viewcode-block" id="Playlist.rename_container">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.rename_container">[docs]</a>
-    <span class="k">def</span> <span class="nf">rename_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.rename_container">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rename_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Rename container in tree.</span>
 
 <span class="sd">        Args:</span>
@@ -361,8 +357,8 @@
 
 
 <div class="viewcode-block" id="Playlist.reflag_container">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.reflag_container">[docs]</a>
-    <span class="k">def</span> <span class="nf">reflag_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.reflag_container">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reflag_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">,</span> <span class="n">container</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reflag container in tree.</span>
 
 <span class="sd">        Args:</span>
@@ -379,8 +375,8 @@
 
 
 <div class="viewcode-block" id="Playlist.move_container">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.move_container">[docs]</a>
-    <span class="k">def</span> <span class="nf">move_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.move_container">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">move_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Move container in tree.</span>
 
 <span class="sd">        Args:</span>
@@ -402,8 +398,8 @@
 
 
 <div class="viewcode-block" id="Playlist.remove_container">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.remove_container">[docs]</a>
-    <span class="k">def</span> <span class="nf">remove_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.remove_container">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove container from tree.</span>
 
 <span class="sd">        Args:</span>
@@ -419,8 +415,8 @@
 
 
 <div class="viewcode-block" id="Playlist.create_subset">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.create_subset">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Subset&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.create_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Subset&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new subset.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -440,8 +436,8 @@
 
 
 <div class="viewcode-block" id="Playlist.import_timeline">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.import_timeline">[docs]</a>
-    <span class="k">def</span> <span class="nf">import_timeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.import_timeline">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">import_timeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new timeline from otio.</span>
 
 <span class="sd">        Args:</span>
@@ -459,14 +455,15 @@
 
 
 <div class="viewcode-block" id="Playlist.create_timeline">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.create_timeline">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_timeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Timeline&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.create_timeline">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_timeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Timeline&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_tracks</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new timeline.</span>
 
 <span class="sd">        Kwargs:</span>
 <span class="sd">            name(str): Name of new timeline</span>
 <span class="sd">            before(Uuid): Insert before this item.</span>
 <span class="sd">            into(bool): Insert into this container (not used).</span>
+<span class="sd">            with_tracks(bool): Add default tracks.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            timeline(Uuid,Timeline): Returns container Uuid and Timeline.</span>
@@ -474,14 +471,14 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">before</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">):</span>
             <span class="n">before</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">uuid</span>
 
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">create_timeline_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">create_timeline_atom</span><span class="p">(),</span> <span class="n">name</span><span class="p">,</span> <span class="n">before</span><span class="p">,</span> <span class="n">into</span><span class="p">,</span> <span class="n">with_tracks</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Timeline</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">actor</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="Playlist.create_contact_sheet">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.create_contact_sheet">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_contact_sheet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ContactSheet&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.create_contact_sheet">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_contact_sheet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ContactSheet&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">(),</span> <span class="n">into</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new contact sheet.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -500,7 +497,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get new media rate.</span>
 
 <span class="sd">        Returns:</span>
@@ -509,7 +506,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@media_rate</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">media_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set media_rate.</span>
 
 <span class="sd">        Args:</span>
@@ -518,7 +515,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_rate_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get playhead rate.</span>
 
 <span class="sd">        Returns:</span>
@@ -527,7 +524,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">playhead_rate_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@playhead_rate</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">playhead_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set playhead_rate.</span>
 
 <span class="sd">        Args:</span>
@@ -536,7 +533,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">playhead_rate_atom</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">playhead_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">playhead_selection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The actor that filters a selection of media from a playhead</span>
 <span class="sd">        and passes to a playhead for playback.</span>
 
@@ -547,8 +544,8 @@
         <span class="k">return</span> <span class="n">PlayheadSelection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Playlist.remove_media">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.remove_media">[docs]</a>
-    <span class="k">def</span> <span class="nf">remove_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.remove_media">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove media from playlist.</span>
 
 <span class="sd">        Args:</span>
@@ -573,8 +570,8 @@
 
 
 <div class="viewcode-block" id="Playlist.move_media">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.move_media">[docs]</a>
-    <span class="k">def</span> <span class="nf">move_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.move_media">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">move_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Move media in tree.</span>
 
 <span class="sd">        Args:</span>
@@ -596,8 +593,8 @@
 
 
 <div class="viewcode-block" id="Playlist.copy_media">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.copy_media">[docs]</a>
-    <span class="k">def</span> <span class="nf">copy_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.copy_media">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy_media</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Copy media into playlist.</span>
 
 <span class="sd">        Args:</span>
@@ -648,8 +645,8 @@
 
 
 <div class="viewcode-block" id="Playlist.convert_to_subset">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.convert_to_subset">[docs]</a>
-    <span class="k">def</span> <span class="nf">convert_to_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Converted&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.convert_to_subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert_to_subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Converted&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert src to Subset.</span>
 
 <span class="sd">        Args:</span>
@@ -674,8 +671,8 @@
 
 
 <div class="viewcode-block" id="Playlist.convert_to_contact_sheet">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.convert_to_contact_sheet">[docs]</a>
-    <span class="k">def</span> <span class="nf">convert_to_contact_sheet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Converted&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.convert_to_contact_sheet">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert_to_contact_sheet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Converted&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert src to ContactSheet.</span>
 
 <span class="sd">        Args:</span>
@@ -699,8 +696,8 @@
 
 
 <div class="viewcode-block" id="Playlist.convert_to_timeline">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.playlist.Playlist.convert_to_timeline">[docs]</a>
-    <span class="k">def</span> <span class="nf">convert_to_timeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Converted&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.playlist.Playlist.convert_to_timeline">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert_to_timeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Converted&quot;</span><span class="p">,</span> <span class="n">before</span><span class="o">=</span><span class="n">Uuid</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert src to Timeline.</span>
 
 <span class="sd">        Args:</span>
@@ -724,7 +721,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">expanded</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expanded</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Expanded.</span>
 
 <span class="sd">        Returns:</span>
@@ -735,7 +732,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">expanded_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@expanded</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">expanded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_expanded</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expanded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_expanded</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set playlist expanded state</span>
 
 <span class="sd">        Args:</span>
@@ -749,7 +746,7 @@
 
 
 
-<span class="kn">from</span> <span class="nn">xstudio.api.auxiliary.otio</span> <span class="kn">import</span> <span class="n">import_timeline_from_file</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.auxiliary.otio</span><span class="w"> </span><span class="kn">import</span> <span class="n">import_timeline_from_file</span>
 </pre></div>
 
            </div>
@@ -759,7 +756,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2020, DNeg.</p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

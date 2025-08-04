@@ -1,26 +1,26 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.api.session.media.media &mdash; xStudio 0.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=eafc0fe6" />
+  <title>xstudio.api.session.media.media &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../../../_static/documentation_options.js?v=7026087e"></script>
-        <script src="../../../../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../../search.html" /> 
+    <link rel="search" title="Search" href="../../../../../search.html" />
+    <link href="../../../../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -34,9 +34,6 @@
           <a href="../../../../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                0.0.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -46,9 +43,8 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
         </div>
@@ -78,22 +74,22 @@
              
   <h1>Source code for xstudio.api.session.media.media</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_media_source_atom</span><span class="p">,</span> <span class="n">current_media_source_atom</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">,</span> <span class="n">get_metadata_atom</span><span class="p">,</span> <span class="n">reflag_container_atom</span><span class="p">,</span> <span class="n">rescan_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">invalidate_cache_atom</span><span class="p">,</span> <span class="n">get_media_pointer_atom</span><span class="p">,</span> <span class="n">MediaType</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">media_status_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">add_media_source_atom</span><span class="p">,</span> <span class="n">FrameRate</span><span class="p">,</span> <span class="n">FrameList</span><span class="p">,</span> <span class="n">parse_posix_path</span><span class="p">,</span> <span class="n">URI</span><span class="p">,</span> <span class="n">MediaStatus</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">set_json_atom</span><span class="p">,</span> <span class="n">JsonStore</span><span class="p">,</span> <span class="n">quickview_media_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_media_source_atom</span><span class="p">,</span> <span class="n">current_media_source_atom</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">,</span> <span class="n">get_metadata_atom</span><span class="p">,</span> <span class="n">reflag_container_atom</span><span class="p">,</span> <span class="n">rescan_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">invalidate_cache_atom</span><span class="p">,</span> <span class="n">get_media_pointer_atom</span><span class="p">,</span> <span class="n">MediaType</span><span class="p">,</span> <span class="n">Uuid</span><span class="p">,</span> <span class="n">media_status_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_media_source_atom</span><span class="p">,</span> <span class="n">FrameRate</span><span class="p">,</span> <span class="n">FrameList</span><span class="p">,</span> <span class="n">parse_posix_path</span><span class="p">,</span> <span class="n">URI</span><span class="p">,</span> <span class="n">MediaStatus</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_json_atom</span><span class="p">,</span> <span class="n">JsonStore</span><span class="p">,</span> <span class="n">quickview_media_atom</span>
 
-<span class="kn">from</span> <span class="nn">xstudio.api.session.container</span> <span class="kn">import</span> <span class="n">Container</span>
-<span class="kn">from</span> <span class="nn">xstudio.api.session.media.media_source</span> <span class="kn">import</span> <span class="n">MediaSource</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.container</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api.session.media.media_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">MediaSource</span>
 
-<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 
 <div class="viewcode-block" id="Media">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media">[docs]</a>
-<span class="k">class</span> <span class="nc">Media</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Media</span><span class="p">(</span><span class="n">Container</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Media object.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Media object.</span>
 
 <span class="sd">        Args:</span>
@@ -106,7 +102,7 @@
         <span class="n">Container</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">uuid</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">media_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">media_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media sources.</span>
 
 <span class="sd">        Returns:</span>
@@ -123,7 +119,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media status</span>
 
 <span class="sd">        Returns:</span>
@@ -133,7 +129,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">media_status_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">is_online</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_online</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media status</span>
 
 <span class="sd">        Returns:</span>
@@ -143,7 +139,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">MediaStatus</span><span class="o">.</span><span class="n">MS_ONLINE</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">flag_colour</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flag_colour</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media flag colour.</span>
 
 <span class="sd">        Returns:</span>
@@ -153,7 +149,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">reflag_container_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">flag_text</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flag_text</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media flag text.</span>
 
 <span class="sd">        Returns:</span>
@@ -163,7 +159,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">reflag_container_atom</span><span class="p">())[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
 
     <span class="nd">@flag_colour</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">flag_colour</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">colour</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flag_colour</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">colour</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set media flag colour.</span>
 
 <span class="sd">        Args:</span>
@@ -176,7 +172,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reflag</span><span class="p">(</span><span class="n">colour</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_text</span><span class="p">)</span>
 
     <span class="nd">@flag_text</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">flag_text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flag_text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set media flag text.</span>
 
 <span class="sd">        Args:</span>
@@ -189,8 +185,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reflag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flag_colour</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Media.media_source">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.media_source">[docs]</a>
-    <span class="k">def</span> <span class="nf">media_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.media_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">media_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get current media source.</span>
 <span class="sd">        Args:</span>
 <span class="sd">            media_type(MediaType): Media Source type</span>
@@ -203,8 +199,8 @@
 
 
 <div class="viewcode-block" id="Media.acquire_metadata">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.acquire_metadata">[docs]</a>
-    <span class="k">def</span> <span class="nf">acquire_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.acquire_metadata">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">acquire_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Acquire media metadata.</span>
 
 <span class="sd">        Returns:</span>
@@ -215,8 +211,8 @@
 
 
 <div class="viewcode-block" id="Media.invalidate_cache">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.invalidate_cache">[docs]</a>
-    <span class="k">def</span> <span class="nf">invalidate_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.invalidate_cache">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">invalidate_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Flush media item from cache.</span>
 
 <span class="sd">        Returns:</span>
@@ -226,8 +222,8 @@
 
 
 <div class="viewcode-block" id="Media.rescan">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.rescan">[docs]</a>
-    <span class="k">def</span> <span class="nf">rescan</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.rescan">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rescan</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Rescan media item.</span>
 
 <span class="sd">        Returns:</span>
@@ -237,7 +233,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media metadata.</span>
 
 <span class="sd">        Returns:</span>
@@ -246,7 +242,7 @@
         <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">(),</span> <span class="n">Uuid</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dump</span><span class="p">())</span>
 
     <span class="nd">@metadata</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_metadata</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_metadata</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set media reference rate.</span>
 
 <span class="sd">        Args:</span>
@@ -259,8 +255,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">set_json_atom</span><span class="p">(),</span> <span class="n">Uuid</span><span class="p">(),</span> <span class="n">JsonStore</span><span class="p">(</span><span class="n">new_metadata</span><span class="p">))</span>
 
 <div class="viewcode-block" id="Media.get_metadata">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.get_metadata">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.get_metadata">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get metdata at JSON path</span>
 
 <span class="sd">        Args:</span>
@@ -274,8 +270,8 @@
 
 
 <div class="viewcode-block" id="Media.set_metadata">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.set_metadata">[docs]</a>
-    <span class="k">def</span> <span class="nf">set_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.set_metadata">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get metdata at JSON path</span>
 
 <span class="sd">        Args:</span>
@@ -290,7 +286,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">source_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">source_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get media metadata.</span>
 
 <span class="sd">        Returns:</span>
@@ -299,8 +295,8 @@
         <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remote</span><span class="p">,</span> <span class="n">get_json_atom</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dump</span><span class="p">())</span>
 
 <div class="viewcode-block" id="Media.get_media_pointer">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.get_media_pointer">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_media_pointer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logical_frame</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.get_media_pointer">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_media_pointer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logical_frame</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get Media Pointer</span>
 
 <span class="sd">        Kwargs:</span>
@@ -314,8 +310,8 @@
 
 
 <div class="viewcode-block" id="Media.add_media_source">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.add_media_source">[docs]</a>
-    <span class="k">def</span> <span class="nf">add_media_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">frame_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.add_media_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_media_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">frame_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">frame_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add media source from path</span>
 
 <span class="sd">        Args:</span>
@@ -342,8 +338,8 @@
 
 
 <div class="viewcode-block" id="Media.set_media_source">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.set_media_source">[docs]</a>
-    <span class="k">def</span> <span class="nf">set_media_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.set_media_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_media_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">MediaType</span><span class="o">.</span><span class="n">MT_IMAGE</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set current media source.</span>
 
 <span class="sd">         Args:</span>
@@ -361,8 +357,8 @@
 
 
 <div class="viewcode-block" id="Media.ordered_bookmarks">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.ordered_bookmarks">[docs]</a>
-    <span class="k">def</span> <span class="nf">ordered_bookmarks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.ordered_bookmarks">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ordered_bookmarks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get all bookmarks on this media source, ordered by start frame</span>
 
 <span class="sd">        Returns:</span>
@@ -379,8 +375,8 @@
 
 
 <div class="viewcode-block" id="Media.reflag">
-<a class="viewcode-back" href="../../../../../python_api/api.html#xstudio.api.session.media.Media.reflag">[docs]</a>
-    <span class="k">def</span> <span class="nf">reflag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag_colour</span><span class="p">,</span> <span class="n">flag_string</span><span class="p">):</span>
+<a class="viewcode-back" href="../../../../../reference/python_api/api.html#xstudio.api.session.media.Media.reflag">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reflag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag_colour</span><span class="p">,</span> <span class="n">flag_string</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reflag media.</span>
 
 <span class="sd">        Args:</span>
@@ -402,7 +398,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2020, DNeg.</p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

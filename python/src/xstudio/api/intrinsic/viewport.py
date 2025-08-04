@@ -44,21 +44,15 @@ class Viewport(ModuleBase):
             remote
             )
 
+        self.__playhead = None
+
     @property
     def playhead(self):
         """Access the Playhead object supplying images to the viewport
         """
-        return Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])
-
-    @playhead.setter
-    def set_playhead(self, playhead):
-        """Set the playhead that is delivering frames to the viewport, i.e.
-        the active playhead.
-
-        Args:
-            playhead(Playhead): The playhead."""
-
-        self.connection.request_receive(self.remote, viewport_playhead_atom(), playhead.remote)
+        if not self.__playhead:
+            self.__playhead = Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])
+        return self.__playhead
 
     @property
     def colour_pipeline(self):
@@ -92,3 +86,13 @@ class Viewport(ModuleBase):
             position[1],
             size[0],
             size[1])
+
+    def set_playhead(self, playhead):
+        """Set the playhead that is delivering frames to the viewport, i.e.
+        the active playhead.
+
+        Args:
+            playhead(Playhead): The playhead."""
+
+        self.connection.request_receive(self.remote, viewport_playhead_atom(), playhead.remote)
+        self.__playhead = Playhead(self.connection, self.connection.request_receive(self.remote, viewport_playhead_atom())[0])

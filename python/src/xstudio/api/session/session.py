@@ -16,7 +16,6 @@ from xstudio.api.session.playlist.contact_sheet import ContactSheet
 from xstudio.api.session.playlist.timeline import Timeline
 from xstudio.api.auxiliary import NotificationHandler
 
-
 class Session(Container, NotificationHandler):
     """Session object."""
 
@@ -465,3 +464,38 @@ class Session(Container, NotificationHandler):
             path = URI(path)
 
         return self.connection.request_receive(self.remote, save_atom(), path)[0]
+
+    def quickview_media(self, media_paths, compare_mode="Grid"):
+        """Load media item(s) into a QuickView playlist and show in a QuickView
+        window
+        Args:
+            media_paths(str or list[str] or list[Uri]): media to load
+            compare_mode(str): Compare mode where multiple media items are to
+            be loaded. Options are "Grid"/"Off"/"A/B"/"Over" etc.
+        """
+
+        quickview_playlist = None
+        for playlist in self.playlists:
+            if playlist.name == "QuickView":
+                quickview_playlist = playlist
+        if not quickview_playlist:
+            quickview_playlist = self.create_playlist("QuickView")[1]
+
+        new_media = []
+        if isinstance(media_paths, list):
+            for mp in media_paths:
+                new_media.append(quickview_playlist.add_media(mp))
+        else:
+            new_media.append(quickview_playlist.add_media(media_paths))
+
+        from xstudio.core import UuidActorVec, UuidActor, open_quickview_window_atom
+
+        media_actors = UuidActorVec()
+        for m in new_media:
+            media_actors.push_back(UuidActor(m.uuid, m.remote))
+
+        self.connection.request_receive(
+            self.connection.api.app.remote,
+            open_quickview_window_atom(),
+            media_actors,
+            compare_mode)

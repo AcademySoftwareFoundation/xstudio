@@ -1,26 +1,26 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xstudio.connection &mdash; xStudio 0.0.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=eafc0fe6" />
+  <title>xstudio.connection &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=7026087e"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
+    <link rel="search" title="Search" href="../../search.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -34,9 +34,6 @@
           <a href="../../index.html" class="icon icon-home">
             xStudio
           </a>
-              <div class="version">
-                0.0.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -46,9 +43,8 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../index.html">Welcome to xStudio’s documentation!</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../user_docs/index.html">xSTUDIO User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
 </ul>
 
         </div>
@@ -82,29 +78,29 @@
 <span class="sd">Controls xStudio connections.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">absolute_receive_timeout</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">version_atom</span><span class="p">,</span> <span class="n">authenticate_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">get_application_mode_atom</span><span class="p">,</span> <span class="n">broadcast_down_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">join_broadcast_atom</span><span class="p">,</span> <span class="n">exit_atom</span><span class="p">,</span> <span class="n">api_exit_atom</span><span class="p">,</span> <span class="n">leave_broadcast_atom</span><span class="p">,</span> <span class="n">get_event_group_atom</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">error</span><span class="p">,</span> <span class="n">Link</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">XSTUDIO_LOCAL_PLUGIN_PATH</span>
-<span class="kn">from</span> <span class="nn">xstudio.api</span> <span class="kn">import</span> <span class="n">API</span>
-<span class="kn">from</span> <span class="nn">xstudio.core</span> <span class="kn">import</span> <span class="n">RemoteSessionManager</span><span class="p">,</span> <span class="n">remote_session_path</span>
-<span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">traceback</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Thread</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">absolute_receive_timeout</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">version_atom</span><span class="p">,</span> <span class="n">authenticate_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_application_mode_atom</span><span class="p">,</span> <span class="n">broadcast_down_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">join_broadcast_atom</span><span class="p">,</span> <span class="n">exit_atom</span><span class="p">,</span> <span class="n">api_exit_atom</span><span class="p">,</span> <span class="n">leave_broadcast_atom</span><span class="p">,</span> <span class="n">get_event_group_atom</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">error</span><span class="p">,</span> <span class="n">Link</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">XSTUDIO_LOCAL_PLUGIN_PATH</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.api</span><span class="w"> </span><span class="kn">import</span> <span class="n">API</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xstudio.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteSessionManager</span><span class="p">,</span> <span class="n">remote_session_path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">Thread</span>
 
 <div class="viewcode-block" id="Connection">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection">[docs]</a>
-<span class="k">class</span> <span class="nc">Connection</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Connection</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Handle connection to xstudio.&quot;&quot;&quot;</span>
     <span class="n">APP_TYPE_XSTUDIO</span> <span class="o">=</span> <span class="s2">&quot;XSTUDIO&quot;</span>
     <span class="n">APP_TYPE_XSTUDIO_GUI</span> <span class="o">=</span> <span class="s2">&quot;XSTUDIO_GUI&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">auto_connect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">background_processing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">load_python_plugins</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">auto_connect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">background_processing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">load_python_plugins</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create connection object.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -137,8 +133,8 @@
 
 
 <div class="viewcode-block" id="Connection.enable_background_processing">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.enable_background_processing">[docs]</a>
-    <span class="k">def</span> <span class="nf">enable_background_processing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.enable_background_processing">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">enable_background_processing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Enable auto background processing of queue.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -153,8 +149,8 @@
 
 
 <div class="viewcode-block" id="Connection.api_handler">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.api_handler">[docs]</a>
-    <span class="k">def</span> <span class="nf">api_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sender</span><span class="p">,</span> <span class="n">req_id</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.api_handler">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">api_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sender</span><span class="p">,</span> <span class="n">req_id</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Handler for API exit.</span>
 
 <span class="sd">        Args:</span>
@@ -171,8 +167,8 @@
 
 
 <div class="viewcode-block" id="Connection.add_event_callback">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.add_event_callback">[docs]</a>
-    <span class="k">def</span> <span class="nf">add_event_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.add_event_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_event_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a callback function to recieve event broadcasts from some actor</span>
 
 <span class="sd">        Args:</span>
@@ -189,8 +185,8 @@
 
 
 <div class="viewcode-block" id="Connection.add_handler">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.add_handler">[docs]</a>
-    <span class="k">def</span> <span class="nf">add_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.add_handler">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add handler to remote broadcasts.</span>
 
 <span class="sd">        Args:</span>
@@ -207,8 +203,8 @@
 
     <span class="c1"># should use get_event_group...</span>
 <div class="viewcode-block" id="Connection.get_broadcast">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.get_broadcast">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.get_broadcast">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Request broadcast actor.</span>
 
 <span class="sd">        Args:</span>
@@ -221,8 +217,8 @@
 
 
 <div class="viewcode-block" id="Connection.join_broadcast">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.join_broadcast">[docs]</a>
-    <span class="k">def</span> <span class="nf">join_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broadcast</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.join_broadcast">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">join_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broadcast</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Join broadcast actor.</span>
 
 <span class="sd">        Args:</span>
@@ -241,8 +237,8 @@
 
 
 <div class="viewcode-block" id="Connection.leave_broadcast">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.leave_broadcast">[docs]</a>
-    <span class="k">def</span> <span class="nf">leave_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broadcast</span><span class="p">,</span> <span class="n">send_leave</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.leave_broadcast">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">leave_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broadcast</span><span class="p">,</span> <span class="n">send_leave</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Leave broadcast.</span>
 
 <span class="sd">        Args:</span>
@@ -259,22 +255,22 @@
 
 
 <div class="viewcode-block" id="Connection.stop_processing_events">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.stop_processing_events">[docs]</a>
-    <span class="k">def</span> <span class="nf">stop_processing_events</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.stop_processing_events">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_processing_events</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop processing events forever.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keep_processing</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 
 <div class="viewcode-block" id="Connection.process_events_forever">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.process_events_forever">[docs]</a>
-    <span class="k">def</span> <span class="nf">process_events_forever</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.process_events_forever">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_events_forever</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Process pending events forever.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">process_events</span><span class="p">(</span><span class="n">timeout</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Connection.process_events">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.process_events">[docs]</a>
-    <span class="k">def</span> <span class="nf">process_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">forever</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.process_events">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">forever</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Process pending events.</span>
 
 <span class="sd">        Args:</span>
@@ -289,8 +285,8 @@
 
 
 <div class="viewcode-block" id="Connection.add_broadcast_handler">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.add_broadcast_handler">[docs]</a>
-    <span class="k">def</span> <span class="nf">add_broadcast_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broadcast</span><span class="p">,</span> <span class="n">sender</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.add_broadcast_handler">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_broadcast_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broadcast</span><span class="p">,</span> <span class="n">sender</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add handler for broadcast.</span>
 
 <span class="sd">        Args:</span>
@@ -320,8 +316,8 @@
 
 
 <div class="viewcode-block" id="Connection.remove_handler">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.remove_handler">[docs]</a>
-    <span class="k">def</span> <span class="nf">remove_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler_id</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.remove_handler">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler_id</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove event handler.</span>
 
 <span class="sd">        Args:</span>
@@ -347,8 +343,8 @@
 
     <span class="c1"># can include broadcast down..</span>
 <div class="viewcode-block" id="Connection.handle_broadcast">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.handle_broadcast">[docs]</a>
-    <span class="k">def</span> <span class="nf">handle_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.handle_broadcast">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle broadcast type events.</span>
 
 <span class="sd">        Args:</span>
@@ -374,8 +370,8 @@
             <span class="c1"># print(&quot;ignored broadcast&quot;, sender, req_id, event[:len(event)-2])</span>
 
 <div class="viewcode-block" id="Connection.get_authentication_from_stdin">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.get_authentication_from_stdin">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_authentication_from_stdin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.get_authentication_from_stdin">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_authentication_from_stdin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Request lock key from user.</span>
 
 <span class="sd">        Args:</span>
@@ -388,8 +384,8 @@
 
 
 <div class="viewcode-block" id="Connection.connect_local">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.connect_local">[docs]</a>
-    <span class="k">def</span> <span class="nf">connect_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actor</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.connect_local">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">connect_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actor</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Connect to in-process actor.</span>
 
 <span class="sd">        Args:</span>
@@ -404,8 +400,8 @@
 
 
 <div class="viewcode-block" id="Connection.connect_remote_auto">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.connect_remote_auto">[docs]</a>
-    <span class="k">def</span> <span class="nf">connect_remote_auto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">authentication_callback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.connect_remote_auto">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">connect_remote_auto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">authentication_callback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Connect to xStudio using session file.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -421,8 +417,8 @@
 
 
 <div class="viewcode-block" id="Connection.connect_remote">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.connect_remote">[docs]</a>
-    <span class="k">def</span> <span class="nf">connect_remote</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">authentication_callback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.connect_remote">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">connect_remote</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">authentication_callback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Connect to xStudio using host/port.</span>
 
 <span class="sd">        Args:</span>
@@ -444,8 +440,8 @@
 
 
 <div class="viewcode-block" id="Connection.negotiate">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.negotiate">[docs]</a>
-    <span class="k">def</span> <span class="nf">negotiate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authentication_callback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.negotiate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">negotiate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authentication_callback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Negotiate connection, also handles authentication.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -484,8 +480,8 @@
 
 
 <div class="viewcode-block" id="Connection.stop_background_processing">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.stop_background_processing">[docs]</a>
-    <span class="k">def</span> <span class="nf">stop_background_processing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.stop_background_processing">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_background_processing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop event processing thread.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">stop_processing_events</span><span class="p">()</span>
@@ -495,8 +491,8 @@
 
 
 <div class="viewcode-block" id="Connection.start_background_processing">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.start_background_processing">[docs]</a>
-    <span class="k">def</span> <span class="nf">start_background_processing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.start_background_processing">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_background_processing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Start event processing thread.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stop_background_processing</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">queue_thread</span> <span class="o">=</span> <span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">process_events_forever</span><span class="p">)</span>
@@ -504,12 +500,12 @@
 
 
 
-    <span class="k">def</span> <span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
 
 <div class="viewcode-block" id="Connection.remote">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.remote">[docs]</a>
-    <span class="k">def</span> <span class="nf">remote</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.remote">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remote</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remote connection object.</span>
 
 <span class="sd">        Returns:</span>
@@ -522,23 +518,23 @@
 
 
 <div class="viewcode-block" id="Connection.request_receive">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.request_receive">[docs]</a>
-    <span class="k">def</span> <span class="nf">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.request_receive">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">request_receive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Send message and return response.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_receive_timeout</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_timeout_ms</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Connection.request_receive_timeout">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.request_receive_timeout">[docs]</a>
-    <span class="k">def</span> <span class="nf">request_receive_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.request_receive_timeout">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">request_receive_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Send message and return response.&quot;&quot;&quot;</span>
         <span class="n">req_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">response</span><span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Connection.request">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.request">[docs]</a>
-    <span class="k">def</span> <span class="nf">request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.request">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Send message and return promise.&quot;&quot;&quot;</span>
         <span class="n">req_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">req_id</span><span class="p">:</span>
@@ -547,14 +543,14 @@
         <span class="k">return</span> <span class="n">req_id</span></div>
 
 
-    <span class="k">def</span> <span class="nf">response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req_id</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req_id</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">timeout_milli</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_dequeue_messages</span><span class="p">(</span><span class="n">timeout_milli</span><span class="p">,</span> <span class="n">req_id</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_response</span><span class="p">(</span><span class="n">req_id</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req_id</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req_id</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
         <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">req_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span>  <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -566,8 +562,8 @@
         <span class="k">return</span> <span class="n">result</span>
 
 <div class="viewcode-block" id="Connection.spawn">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.spawn">[docs]</a>
-    <span class="k">def</span> <span class="nf">spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.spawn">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Spawn remote actor</span>
 
 <span class="sd">        Args:</span>
@@ -582,8 +578,8 @@
 
 
 <div class="viewcode-block" id="Connection.remote_spawn">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.remote_spawn">[docs]</a>
-    <span class="k">def</span> <span class="nf">remote_spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.remote_spawn">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remote_spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Spawn remote actor</span>
 
 <span class="sd">        Args:</span>
@@ -598,8 +594,8 @@
 
 
 <div class="viewcode-block" id="Connection.send">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.send">[docs]</a>
-    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.send">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Send message, ignore reponse</span>
 
 <span class="sd">        Args:</span>
@@ -610,8 +606,8 @@
 
 
 <div class="viewcode-block" id="Connection.dequeue_messages">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.dequeue_messages">[docs]</a>
-    <span class="k">def</span> <span class="nf">dequeue_messages</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.dequeue_messages">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dequeue_messages</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Pop waiting messages&quot;&quot;&quot;</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
@@ -622,7 +618,7 @@
                 <span class="k">break</span></div>
 
 
-    <span class="k">def</span> <span class="nf">_dequeue_messages</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="p">,</span> <span class="n">watch_for</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_dequeue_messages</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_milli</span><span class="p">,</span> <span class="n">watch_for</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Pop response messages off stack.</span>
 
 <span class="sd">        Kwargs:</span>
@@ -665,9 +661,11 @@
             <span class="n">timeout_milli</span> <span class="o">-=</span> <span class="n">elapsed</span>
 
 <div class="viewcode-block" id="Connection.disconnect">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.disconnect">[docs]</a>
-    <span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.disconnect">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Disconnect from xstudio&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">plugin_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">[</span><span class="n">plugin_name</span><span class="p">]</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">app_type</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">app_version</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_api</span> <span class="o">=</span> <span class="kc">None</span>
@@ -677,7 +675,7 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">api</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">api</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Access API object.</span>
 
 <span class="sd">        Returns:</span>
@@ -689,7 +687,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">host</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">host</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remote host name.</span>
 
 <span class="sd">        Returns:</span>
@@ -698,7 +696,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">host</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">port</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">port</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remote host port.</span>
 
 <span class="sd">        Returns:</span>
@@ -707,8 +705,8 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">link</span><span class="o">.</span><span class="n">port</span><span class="p">()</span>
 
 <div class="viewcode-block" id="Connection.load_python_plugins">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.load_python_plugins">[docs]</a>
-    <span class="k">def</span> <span class="nf">load_python_plugins</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.load_python_plugins">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_python_plugins</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load plugins found in paths defined by env var</span>
 <span class="sd">        XSTUDIO_PYTHON_PLUGIN_PATH</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -726,7 +724,7 @@
             <span class="c1"># use python_plugin_search_folders and </span>
             <span class="c1"># user_python_plugin_search_folders prefs to scan for python plugins</span>
 
-            <span class="kn">import</span> <span class="nn">json</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
             <span class="n">extra_paths</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">global_store</span><span class="o">.</span><span class="n">value</span><span class="p">(</span>
                     <span class="s2">&quot;/core/python/python_plugin_search_folders&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dump</span><span class="p">()</span>
@@ -746,13 +744,14 @@
 
 
 <div class="viewcode-block" id="Connection.load_plugins_in_path">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.load_plugins_in_path">[docs]</a>
-    <span class="k">def</span> <span class="nf">load_plugins_in_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.load_plugins_in_path">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_plugins_in_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load plugins found under the given directoy path</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            path (str): Path to a directory on filesystem</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
             <span class="c1"># silently ignore invalid paths, this is accepted behaviour for</span>
             <span class="c1"># search path mechanisms</span>
@@ -764,8 +763,8 @@
 
 
 <div class="viewcode-block" id="Connection.load_plugin_from_path">
-<a class="viewcode-back" href="../../python_api/connection.html#xstudio.connection.Connection.load_plugin_from_path">[docs]</a>
-    <span class="k">def</span> <span class="nf">load_plugin_from_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">plugin_name</span><span class="p">):</span>
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.load_plugin_from_path">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_plugin_from_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">plugin_name</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a plugin from given folder</span>
 
 <span class="sd">        Args:</span>
@@ -773,8 +772,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
 
-            <span class="kn">import</span> <span class="nn">importlib.util</span>
-            <span class="kn">import</span> <span class="nn">sys</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">importlib.util</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 
             <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
             <span class="n">spec</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">find_spec</span><span class="p">(</span><span class="n">plugin_name</span><span class="p">)</span>
@@ -789,6 +788,18 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Failed to load plugin </span><span class="si">{0}</span><span class="s2"> from location </span><span class="si">{1}</span><span class="s2"> with error </span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">plugin_name</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span>
             <span class="nb">print</span> <span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="Connection.get_plugin_instance">
+<a class="viewcode-back" href="../../reference/python_api/connection.html#xstudio.connection.Connection.get_plugin_instance">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_plugin_instance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plugin_uuid</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Used internally to enable callbacks between QML UI code and</span>
+<span class="sd">        backend python plugins&quot;&quot;&quot;</span>
+
+        <span class="k">for</span> <span class="n">pn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">[</span><span class="n">pn</span><span class="p">]</span><span class="o">.</span><span class="n">uuid</span> <span class="o">==</span> <span class="n">plugin_uuid</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">[</span><span class="n">pn</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Plugin with uuid </span><span class="si">{}</span><span class="s2"> was not found&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">plugin_uuid</span><span class="p">))</span></div>
 </div>
 
 </pre></div>
@@ -800,7 +811,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2020, DNeg.</p>
+    <p>&#169; Copyright 2025, DNeg.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

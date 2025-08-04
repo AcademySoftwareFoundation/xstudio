@@ -263,12 +263,14 @@ void AnnotationsTool::incoming_paint_event(const utility::JsonStore &command_dat
         } else if (event == "PaintPoint") {
 
             Imath::V2f pt;
+            // Annotation spec normalises to the HEIGHT of the image.
+            const float scale_factor = 1.0f/(image_aspect(image_being_annotated_)*0.5f);
             float size = 0;
             if (command_data.contains(X_JPOINTER)) {
-                pt.x = command_data.at(X_JPOINTER).get<float>();
+                pt.x = command_data.at(X_JPOINTER).get<float>()*scale_factor;
             } else std::runtime_error("x point field.");
             if (command_data.contains(Y_JPOINTER)) {
-                pt.y = -command_data.at(Y_JPOINTER).get<float>();
+                pt.y = -command_data.at(Y_JPOINTER).get<float>()*scale_factor;
             } else std::runtime_error("y point field.");
             if (command_data.contains(SIZE_JPOINTER)) {
                 size = command_data.at(SIZE_JPOINTER).get<float>();

@@ -80,63 +80,67 @@ ComboBox { id: widget
     }
 
     contentItem:
-    TextField{ id: textField
-        // placeholderText: defaultText
+    Item {
+        TextField{ id: textField
+            anchors.fill: parent
+            anchors.rightMargin: 24
+            // placeholderText: defaultText
 
-        text: widget.displayText// activeFocus && widget.editable ? widget.displayText : (textMetrics.elidedText ? textMetrics.elidedText : "")
+            text: widget.displayText// activeFocus && widget.editable ? widget.displayText : (textMetrics.elidedText ? textMetrics.elidedText : "")
 
-        onFocusChanged: {
-            if(focus) {
-                selectAll()
-                forceActiveFocus()
+            onFocusChanged: {
+                if(focus) {
+                    selectAll()
+                    forceActiveFocus()
+                }
+                else{
+                    deselect()
+                }
             }
-            else{
-                deselect()
+            onReleased: focus = false
+            // onAccepted: focus = false
+
+            onEditingFinished: accepted()
+
+            enabled: widget.editable
+            autoScroll: widget.editable
+            readOnly: widget.down
+            inputMethodHints: widget.inputMethodHints
+            validator: widget.validator
+            selectByMouse: widget.selectTextByMouse
+
+            selectionColor: widget.palette.highlight
+            selectedTextColor: textColorSelected
+
+            font.pixelSize: fontSize
+            font.family: XsStyleSheet.fontFamily
+            color: widget.enabled && currentIndex!=-1? textColorNormal: textColorDisabled
+            width: widget.width
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+
+            placeholderTextColor: textColorDisabled
+
+            // TextMetrics { id: textMetrics
+            //     font: textField.font
+            //     text: widget.displayText
+            //     elideWidth: textField.width - 8
+            //     elide: Text.ElideRight
+            // }
+
+            TextMetrics { id: textMetrics2
+                font: textField.font
+                text: widget.displayText
             }
-        }
-        onReleased: focus = false
-        // onAccepted: focus = false
 
-        onEditingFinished: accepted()
-
-        enabled: widget.editable
-        autoScroll: widget.editable
-        readOnly: widget.down
-        inputMethodHints: widget.inputMethodHints
-        validator: widget.validator
-        selectByMouse: widget.selectTextByMouse
-
-        selectionColor: widget.palette.highlight
-        selectedTextColor: textColorSelected
-
-        font.pixelSize: fontSize
-        font.family: XsStyleSheet.fontFamily
-        color: widget.enabled && currentIndex!=-1? textColorNormal: textColorDisabled
-        width: widget.width
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
-
-        placeholderTextColor: textColorDisabled
-
-        // TextMetrics { id: textMetrics
-        //     font: textField.font
-        //     text: widget.displayText
-        //     elideWidth: textField.width - 8
-        //     elide: Text.ElideRight
-        // }
-
-        TextMetrics { id: textMetrics2
-            font: textField.font
-            text: widget.displayText
-        }
-
-        background:
-        Rectangle{
-            radius: borderRadius
-            color: widget.editable ? widget.popup.opened || widget.activeFocus? Qt.darker(bgColorActive, 1.5): widget.hovered?Qt.darker(bgColorEditable, 1.2):Qt.darker(bgColorEditable, 1.5): "transparent";
-            opacity: widget.enabled? 0.7 : 0.3
-            scale: 0.99
-            z:-1
+            background:
+            Rectangle{
+                radius: borderRadius
+                color: widget.editable ? widget.popup.opened || widget.activeFocus? Qt.darker(bgColorActive, 1.5): widget.hovered?Qt.darker(bgColorEditable, 1.2):Qt.darker(bgColorEditable, 1.5): "transparent";
+                opacity: widget.enabled? 0.7 : 0.3
+                scale: 0.99
+                z:-1
+            }
         }
     }
 

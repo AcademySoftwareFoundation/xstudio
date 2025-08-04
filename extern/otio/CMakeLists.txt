@@ -13,7 +13,12 @@ else()
 endif()
 
 # Build options
-set(OTIO_SHARED_LIBS ON)
+if (WIN32)
+    set(OTIO_SHARED_LIBS OFF)
+else()
+    set(OTIO_SHARED_LIBS ON)
+endif()
+
 set(OTIO_AUTOMATIC_SUBMODULES ON)
 
 find_package(Python COMPONENTS Interpreter Development)

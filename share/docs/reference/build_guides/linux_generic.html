@@ -1,0 +1,193 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Linux Generic Guide &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Rocky Linux 9.1" href="rocky_linux_9_1.html" />
+    <link rel="prev" title="Windows 10/11" href="windows.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../user_docs/index.html">xSTUDIO User Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">xSTUDIO Build Guides</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="index.html#post-production-studios-and-other-organisations">Post Production Studios and Other Organisations</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html#individual-users">Individual Users</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="macos.html">MacOS (Intel/ARM)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="windows.html">Windows 10/11</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Linux Generic Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rocky_linux_9_1.html">Rocky Linux 9.1</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ubuntu_22_04.html">Ubuntu 22.04 LTS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="centos_7.html">Centos 7 (deprecated)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dependencies.html">xSTUDIO Library Dependencies List</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html">API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api/index.html">Python API</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO Reference</a></li>
+          <li class="breadcrumb-item"><a href="index.html">xSTUDIO Build Guides</a></li>
+      <li class="breadcrumb-item active">Linux Generic Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/reference/build_guides/linux_generic.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="linux-generic-guide">
+<h1>Linux Generic Guide<a class="headerlink" href="#linux-generic-guide" title="Link to this heading"></a></h1>
+<p>xSTUDIO can be built in just a few steps on many Linux distros by employing Microsoft’s ‘vcpkg’ open source package build system. Note that the differences between gcc compiler versions can cause some issues where newer compiler versions are more or less strict about syntax. The developers of xSTUDIO are unable to ensure full compatibility with all compiler variations at this point and it’s up to individuals following these guides to work through any issues encountered. Please do submit pull requests if you hit build problems and find solutions!</p>
+<section id="base-dependencies">
+<h2>Base dependencies<a class="headerlink" href="#base-dependencies" title="Link to this heading"></a></h2>
+<p>We assume that you have some knowledge of development on Linux platforms and have git, gcc &amp; cmake installed on your system.</p>
+</section>
+<section id="download-and-install-qt-6-5-3-sdk">
+<h2>Download and install Qt 6.5.3 SDK<a class="headerlink" href="#download-and-install-qt-6-5-3-sdk" title="Link to this heading"></a></h2>
+<p>Follow <a class="reference internal" href="downloading_qt.html"><span class="std std-doc">these instructions</span></a> - ensuring that you download the SDK for Linux platforms (rather than the MacOS platform used as an example in the linked guide).</p>
+</section>
+<section id="download-the-vcpkg-repo">
+<h2>Download the VCPKG repo<a class="headerlink" href="#download-the-vcpkg-repo" title="Link to this heading"></a></h2>
+<p>To build xSTUDIO we need a number of other open source software packages. We use the VCPKG package manager to do this. All that we need to do is download the repo and run the bootstrap script before we build xstudio.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/microsoft/vcpkg.git
+./vcpkg/bootstrap-vcpkg.sh
+</pre></div>
+</div>
+</section>
+<section id="download-the-xstudio-repo">
+<h2>Download the xSTUDIO repo<a class="headerlink" href="#download-the-xstudio-repo" title="Link to this heading"></a></h2>
+<p>Download from github in the usual manner. Enter the root folder of the repo and ensure you are building from the correct branch. Example terminal commands might be as follows, to build from the develop branch:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/AcademySoftwareFoundation/xstudio.git
+cd xstudio
+git checkout develop
+</pre></div>
+</div>
+<p>You must run these commands to add the OpenTimelineIO submodule to the tree</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git submodule init
+git submodule update
+git apply cmake/otio_patch.diff
+</pre></div>
+</div>
+</section>
+<section id="modify-the-cmakepresets-json-file">
+<h2>Modify the CMakePresets.json file<a class="headerlink" href="#modify-the-cmakepresets-json-file" title="Link to this heading"></a></h2>
+<p>Open the CMakePresets.json file (which is in the root of the xstudio repo) in a text editor. You must look for the entry “Qt6_DIR” and modify the value that follows it to point to your installation of the Qt SDK. Specifically, you need to point to a directory named ‘Qt6’ which is in a directory named ‘cmake’, which is in a directory named ‘lib’. For example, if user Mary Jane downloaded Qt into her home folder the entry should look like this:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>&quot;Qt6_DIR&quot;: &quot;/home/maryjane/Qt/6.5.3/gcc_64/lib/cmake/Qt6&quot;,
+</pre></div>
+</div>
+</section>
+<section id="build-xstudio">
+<h2>Build xSTUDIO<a class="headerlink" href="#build-xstudio" title="Link to this heading"></a></h2>
+<p>First, we configure for building. Note that this cmake command <em><strong>may take several hours to complete</strong></em> the first time it is run, though subsequently it will take a few seconds. This is because xSTUDIO’s dependencies (particularly ffmpeg) take a long time to download and build from the source code, which is what VCPKG is doing.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake -B build --preset LinuxRelease
+</pre></div>
+</div>
+<p>When this has finished, you can build xSTUDIO with this command (in this case, the –parallel flag is set for a machine with 16 cores as an example).</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cmake --build build --parallel 16
+</pre></div>
+</div>
+</section>
+<section id="running-xstudio-in-a-dev-environment">
+<h2>Running xSTUDIO in a dev environment<a class="headerlink" href="#running-xstudio-in-a-dev-environment" title="Link to this heading"></a></h2>
+<p>If the compilation is successfull you will find the xstudio app in ./build/bin/xstudio.bin. To enable the python API, you will need to modify your PYTHONPATH evnironment variable like this, or something similar:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>export PYTHONPATH=$PYTHONPATH:./build/bin/python/lib/python3.10/site-packages
+</pre></div>
+</div>
+</section>
+<section id="installing-xstudio">
+<h2>Installing xSTUDIO<a class="headerlink" href="#installing-xstudio" title="Link to this heading"></a></h2>
+<p>Correct packaging and installation of xstudio and its dependencies across various Linux distros is a problem we are still working on! For now, it is up to individual developers to do an effective installation on their system. You can try running ‘make install’ from the ‘build’ folder. Use -DCMAKE_BUILD_PREFIX={path} to set a test installation location</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="windows.html" class="btn btn-neutral float-left" title="Windows 10/11" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="rocky_linux_9_1.html" class="btn btn-neutral float-right" title="Rocky Linux 9.1" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

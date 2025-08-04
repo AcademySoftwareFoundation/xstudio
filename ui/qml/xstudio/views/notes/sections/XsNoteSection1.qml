@@ -100,7 +100,7 @@ Rectangle{ id: sec1
         }
         Rectangle {
             width: parent.width
-            height: itemHeight
+            height: 24
             anchors.bottom: parent.bottom
             color: panelColor
             z: -1
@@ -108,8 +108,7 @@ Rectangle{ id: sec1
             XsComboBox {
                 id: noteTypeCombo
                 model: bookmark_categories
-                width: parent.width
-                height: itemHeight - itemSpacing/2
+                anchors.fill: parent
                 textRole: "textRole"
                 displayText: (categoryRole == "" || categoryRole == undefined) ? "Note Type" : categoryRole
                 textColorNormal: popupOptions.opened? palette.text : categoryRole=="-"? "grey" : palette.text

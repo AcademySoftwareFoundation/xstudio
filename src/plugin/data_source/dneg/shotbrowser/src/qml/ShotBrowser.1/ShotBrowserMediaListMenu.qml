@@ -373,4 +373,11 @@ Item {
         width: 500
         height: 350
     }
+
+    // This is required to create the application XsConformTool instance that
+    // adds some default conform menus
+    Component.onCompleted: {
+        appWindow.createConformTool()
+    }
+
 }

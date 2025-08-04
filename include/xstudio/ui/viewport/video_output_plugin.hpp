@@ -25,18 +25,27 @@ namespace ui {
                 const std::string &plugin_name);
             ~VideoOutputPlugin() override = default;
 
-            // This method should be called on successful construction of your
-            // class - i.e. at the end of the constructor assuming all other set-up
-            // and initialisation (e.g. finding hardware devices) was completed. It
-            // will create the offscreen viewport ready for generating output video
-            // frames.
+            /*! 
+            This method should be called on successful construction of your
+            class - i.e. at the end of the constructor assuming all other set-up
+            and initialisation (e.g. finding hardware devices) was completed. It
+            will create the offscreen viewport ready for generating output video
+            frames.
+            */
+            
             void finalise();
 
-            // This method should be implemented to allow cleanup of any/all resources
-            // relating to the video output
+            /*! 
+            This method should be implemented to allow cleanup of any/all resources
+            relating to the video output
+            */
             virtual void exit_cleanup() = 0;
 
-            // This method is called when a new image buffer is ready to be displayed
+            //! This method is called when a new image buffer is ready to be displayed
+            /*!
+            \param incoming an integer argument.
+            \return void
+            */
             virtual void incoming_video_frame_callback(media_reader::ImageBufPtr incoming) = 0;
 
             // Re-implement this method to receive data sent from your own thread(s)

@@ -46,6 +46,7 @@ HotkeysUI::HotkeysUI(QObject *parent) : super(parent) {
             [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {
                 update_hotkeys_model_data(hotkeys);
             },
+            [=](keypress_monitor::hotkey_event_atom, const std::string &/*pressed_keys*/) {},
             [=](keypress_monitor::hotkey_event_atom, Hotkey & /*hotkey*/) {
                 // update_hotkeys_model_data(hotkeys);
             },
@@ -355,6 +356,7 @@ void HotkeyReferenceUI::init(caf::actor_system &system_) {
                     }
                 }
             },
+            [=](keypress_monitor::hotkey_event_atom, const std::string &/*pressed_keys*/) {},
             [=](keypress_monitor::hotkey_event_atom,
                 const utility::Uuid kotkey_uuid,
                 const bool pressed,
@@ -432,4 +434,53 @@ void HotkeyReferenceUI::notifyExclusiveChanged() {
         as_actor(),
         exclusive_)
         .send(keyboard_manager);
+}
+
+
+PressedKeysMonitor::PressedKeysMonitor(QObject *parent) : QMLActor(parent) {
+    init(CafSystemObject::get_actor_system());
+}
+
+void PressedKeysMonitor::init(caf::actor_system &system_) {
+
+    QMLActor::init(system_);
+    scoped_actor sys{system()};
+
+    try {
+
+        auto keyboard_manager = system().registry().template get<caf::actor>(keyboard_events);
+
+        auto hotkeys_config_events_group = utility::request_receive<caf::actor>(
+            *sys,
+            keyboard_manager,
+            utility::get_event_group_atom_v,
+            keypress_monitor::hotkey_event_atom_v);
+
+        anon_mail(broadcast::join_broadcast_atom_v, as_actor())
+            .send(hotkeys_config_events_group);
+
+    } catch (const std::exception &err) {
+        spdlog::warn("{} {}", __PRETTY_FUNCTION__, err.what());
+    }
+
+    set_message_handler([=](actor_companion * /*self_*/) -> message_handler {
+        return {
+            [=](keypress_monitor::hotkey_event_atom, const std::vector<Hotkey> &hotkeys) {
+            },
+            [=](keypress_monitor::hotkey_event_atom, Hotkey &hotkey) {
+            },
+            [=](keypress_monitor::hotkey_event_atom, const std::string &pressed_keys) {
+
+                pressed_keys_ = QStringFromStd(pressed_keys);
+                emit pressedKeysChanged();
+
+            },
+            [=](keypress_monitor::hotkey_event_atom,
+                const utility::Uuid kotkey_uuid,
+                const bool pressed,
+                const std::string &context,
+                const std::string &window,
+                const bool due_to_focus_change) {
+            }};
+    });
 }

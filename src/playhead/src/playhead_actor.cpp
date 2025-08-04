@@ -2797,6 +2797,11 @@ void PlayheadActor::attribute_changed(const utility::Uuid &attr_uuid, const int 
                         new_source_list();
                         // get the default align mode
                     }
+                     
+                    align_clip_frame_numbers();
+                    align_audio_playhead();
+                    anon_mail(duration_flicks_atom_v).send(this);                        
+
                     // Note: not using the default align mode provided by the
                     // layout plugin, because we are driving this with a preference
                     // per container type (Playlsit, Subset, Contact Sheet etc)

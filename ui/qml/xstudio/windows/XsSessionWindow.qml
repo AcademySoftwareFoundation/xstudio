@@ -316,9 +316,30 @@ ApplicationWindow {
         sessionActorAddr: studio.sessionActorAddr
     }
 
-    XsConformTool {
-        id: conform_tool
+    /*****************************************************************
+     *
+     * The XsConformTool provides entry points to the xSTUDIO conform
+     * engine for automatically loading media into an existing timeline
+     * edit based on media metadata. For a plugin to use this feature
+     * it will need to call appWindow.createConformTool()
+     *
+     ****************************************************************/
+    Loader {
+        id: conform_tool_loader        
     }
+    Component {
+        id: conform_tool_component
+        XsConformTool {
+        }
+    }
+    property var conformTool
+    function createConformTool() {
+        if (!conformTool) {
+            conform_tool_loader.sourceComponent = conform_tool_component
+            conformTool = conform_tool_loader.item
+        }
+    }
+
 
     // inhibit screensaver on playback
     Connections {
@@ -352,7 +373,6 @@ ApplicationWindow {
     }
 
     // Makes these important global items visible in child contexts
-    property alias conformTool: conform_tool
     property alias theSessionData: sessionData.session
     property alias sessionSelectionModel: sessionData.sessionSelectionModel
     property alias globalStoreModel: sessionData.globalStoreModel

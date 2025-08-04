@@ -1,0 +1,214 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Playlist Panel &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="The Media List Panel" href="media_list.html" />
+    <link rel="prev" title="Custom Interface Layouts" href="layouts.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="interface.html">The xSTUDIO Interface</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="layouts.html">Custom Interface Layouts</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">The Playlist Panel</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#getting-started">Getting Started</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#inspecting-playlist-media">Inspecting Playlist Media</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#viewing-playlist-media">Viewing Playlist Media</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#organising-playlists">Organising Playlists</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#playlist-flags">Playlist Flags</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#xstudio-subsets">xSTUDIO Subsets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#xstudio-contact-sheets">xSTUDIO Contact Sheets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dividers">Dividers</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="media_list.html">The Media List Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="viewport.html">The Viewport</a></li>
+<li class="toctree-l3"><a class="reference internal" href="timeline.html">The Timeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="transport.html">Transport Controls and Toolbar</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../workflow/workflow.html">Workflow Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="interface.html">The xSTUDIO Interface</a></li>
+      <li class="breadcrumb-item active">The Playlist Panel</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/user_docs/interface/playlists.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="the-playlist-panel">
+<span id="playlist-panel"></span><h1>The Playlist Panel<a class="headerlink" href="#the-playlist-panel" title="Link to this heading"></a></h1>
+<figure class="align-center" id="id2">
+<img alt="The Playlists panel" src="../../_images/playlist-panel-01.png" />
+<figcaption>
+<p><span class="caption-text">The Playlists panel</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>The Playlists panel provides an interface to access and organise your Session through Playlists. The playlist heirarchy is designed to allow you to easily organise from small to very large collections of media and also to collect sub-groups of the media items and timeline edits within playlists.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>xSTUDIO timeline edits (sequences) are always a child of a Playlist. The Playlist is a superset of the media within the Sequence and will always include all the media referenced by the Sequence as well as media that may not be in the Sequence.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The term ‘Session’ refers to the state of all of your current playlists, media, notes, annotations and so-on, i.e. the entire data content of the application. Any session can be saved to/loaded from a file on disk.</p>
+</div>
+<section id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h2>
+<p>There are multiple ways to start building playlists:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>Use the More/Conext Menu Button (or right-mouse-button click in the panel) to access the Playlists menu.</strong></p></li>
+<li><p>Drag-drop folders from the filesystem will create Playlists named according to the folder name.</p></li>
+<li><p>Drag-drop individual media files into the playlist panel will create a playlsit with a default name.</p></li>
+<li><p>Use the + button to access the Playlist creation menu.</p></li>
+<li><p>From the <a class="reference internal" href="media_list.html#media-list-panel"><span class="std std-ref">Media List Panel</span></a> you can copy of move media into a new Playlist via the context menu.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="inspecting-playlist-media">
+<span id="id1"></span><h2>Inspecting Playlist Media<a class="headerlink" href="#inspecting-playlist-media" title="Link to this heading"></a></h2>
+<p>To see the media within a Playlist simple single-click on the Playlist item. It will be set to the <em>inspected</em> item meaning the <a class="reference internal" href="media_list.html#media-list-panel"><span class="std std-ref">Media List Panel</span></a> will now show the content of the Playlist. Note that the inspected Plalist item is indicated by a highlight colour.</p>
+</section>
+<section id="viewing-playlist-media">
+<h2>Viewing Playlist Media<a class="headerlink" href="#viewing-playlist-media" title="Link to this heading"></a></h2>
+<p>To actually start viewing media in a Playlist (or Subset, Contact Sheet, Sequence), it must be set to be the ‘on-screen’ item. This is simply done by double clicking on the item in the Playlists panel. The on-screen item is indicated by a screen icon showing to the right side of the item in the panel (see the diagram above). Note that the on-screen item can differ from the <em>inspected</em> item, which is the item whose content is shows in the Media List Panel - this is to allow us to copy/move media between playlists without disturbing what’s being played in the Viewport.</p>
+</section>
+<section id="organising-playlists">
+<h2>Organising Playlists<a class="headerlink" href="#organising-playlists" title="Link to this heading"></a></h2>
+<blockquote>
+<div><ul class="simple">
+<li><p>Playlist items can be re-ordered with a simple drag/drop action.</p></li>
+<li><p>Dividers can be created to help with organisation - use the context menu or plus button to create Dividers.</p></li>
+<li><p>The context menu provides options for renaming Playlists, Dividers and so-on</p></li>
+<li><p>Use the trash-can icon or context menu to remove Playlists, Dividers and so-on</p></li>
+<li><p>To move/copy media <em>between</em> Playlists/Subsets etc. select the media items via the <a class="reference internal" href="media_list.html#media-list-panel"><span class="std std-ref">Media List Panel</span></a> and drag/drop from there into an item in the Playlists panel.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="playlist-flags">
+<h2>Playlist Flags<a class="headerlink" href="#playlist-flags" title="Link to this heading"></a></h2>
+<p>You can add colour flags to Playlists, Subsets, Contact Sheets etc. via the Set Colour sub-menu in the Context Menu. The flag acts as a simple indicator and is entirely for the user’s own purposes for colour coding items in the session for their attention.</p>
+</section>
+<section id="xstudio-subsets">
+<h2>xSTUDIO Subsets<a class="headerlink" href="#xstudio-subsets" title="Link to this heading"></a></h2>
+<p>A <em>Subset</em> is a collection of media within a given Playlist. This concept provides a convenient way to further categorise media within Playlists. Note that any media within a Subset is only a reference to the media item in the parent Playlist. Thus any media in a Subset will always be present in the parent Playlist and any changes to a given piece of media (for example added bookmark notes or annotations) will be seen on both the media in the subset and the parent Playlist.</p>
+<p>Creating and building Subsets</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>From the ‘+’ menu select ‘Subset’ to add a new Subset to the current selected Playlist. If no Playlsit is selected a default parent is also created for the Subset.</p></li>
+<li><p>From the More/Context Menu choose the <em>Add New-&gt;Subset</em> option.</p></li>
+<li><p>In the <a class="reference internal" href="media_list.html#media-list-panel"><span class="std std-ref">Media List Panel</span></a> select media items in an existing Playlist and use <em>Add Media To…-&gt;New Subset</em> menu option</p></li>
+<li><p>With a</p></li>
+</ul>
+</div></blockquote>
+<p>If media that is referenced by a Subset is deleted from the parent Playlist, then the media will also be deleted from the Subset. However, the reverse <strong>is not true</strong> and deleting media from a Subset will not remove it from the Playlist.</p>
+</section>
+<section id="xstudio-contact-sheets">
+<h2>xSTUDIO Contact Sheets<a class="headerlink" href="#xstudio-contact-sheets" title="Link to this heading"></a></h2>
+<p>A <em>Contact Sheet</em> is quite similar to a subset except that all the media within the Contact Sheet is active in the Viewport compare mode, regardelss of the selection state of the media. Thus, if the compare mode on the Contact Sheet is set to ‘Grid’ then all the media in the Contact Sheet will be displayed in the Viewport using the Grid layout. For more details read the <a class="reference internal" href="../workflow/compare_modes.html#compare-modes"><span class="std std-ref">Compare Modes</span></a> section.</p>
+</section>
+<section id="dividers">
+<h2>Dividers<a class="headerlink" href="#dividers" title="Link to this heading"></a></h2>
+<p>You can add a divider from the ‘Add Playlists’ button. A divider is simply a labelled bar in the playlist collection that can help with organisation.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="layouts.html" class="btn btn-neutral float-left" title="Custom Interface Layouts" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="media_list.html" class="btn btn-neutral float-right" title="The Media List Panel" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

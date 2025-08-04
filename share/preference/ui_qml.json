@@ -671,50 +671,14 @@
 							"title": "Image"
 						},
 						{
-							"children": [
-								{
-									"children": [
-										{
-											"data_type": "media_standard_details",
-											"info_key": "File Path - MediaSource (Audio)",
-											"regex_format": "$2",
-											"regex_match": "(.+)/([^/]+)$"
-										}
-									],
-									"data_type": "media_standard_details",
-									"info_key": "File Path - MediaSource (Image)",
-									"regex_format": "$2",
-									"regex_match": "(.+)/([^/]+)$"
-								}
-							],
-							"data_type": "metadata",
-							"metadata_path": "/metadata/shotgun/version/attributes/code",
-							"object": "Media",
-							"position": "left",
+							"data_type": "media_standard_details",
+							"info_key": "File Path - MediaSource (Image)",
+							"regex_format": "",
+							"regex_match": "",
 							"resizable": true,
-							"size": 282,
-							"sortable": true,
+							"size": 511,
+							"sortable": false,
 							"title": "File"
-						},
-						{
-							"data_type": "metadata",
-							"info_key": "Resolution - MediaSource (Image)",
-							"metadata_path": "/metadata/shotgun/shot/attributes/code",
-							"resizable": true,
-							"size": 110,
-							"sortable": false,
-							"title": "Shot / Asset"
-						},
-						{
-							"data_type": "metadata",
-							"metadata_path": "/metadata/shotgun/version/attributes/sg_pipeline_step",
-							"object": "Media",
-							"regex_format": "$1",
-							"regex_match": "([0-9]+\\-[0-9]+\\-[0-9]+).+",
-							"resizable": true,
-							"size": 122,
-							"sortable": false,
-							"title": "Dept"
 						},
 						{
 							"data_type": "notes",
@@ -722,15 +686,6 @@
 							"size": 100,
 							"sortable": false,
 							"title": "Notes"
-						},
-						{
-							"data_type": "metadata",
-							"metadata_path": "/metadata/shotgun/version/relationships/created_by/data/name",
-							"object": "Media",
-							"resizable": true,
-							"size": 151,
-							"sortable": true,
-							"title": "Artist"
 						},
 						{
 							"data_type": "media_standard_details",
@@ -753,7 +708,7 @@
 							"data_type": "media_standard_details",
 							"info_key": "Frame Rate - MediaSource (Image)",
 							"resizable": true,
-							"size": 70,
+							"size": 98,
 							"sortable": false,
 							"title": "Frame Rate"
 						}

@@ -1,0 +1,180 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grading Tool &mdash; xStudio 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="QuickView" href="quick_view.html" />
+    <link rel="prev" title="Notes and Annotations" href="notes.html" />
+    <link href="../../_static/xstudio_theme.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xStudio
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">xSTUDIO User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../overview.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/getting_started.html">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../interface/interface.html">The xSTUDIO Interface</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="workflow.html">Workflow Tools</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="playback.html">Video Playback</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compare_modes.html">Compare Modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notes.html">Notes and Annotations</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Grading Tool</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#creating-a-grade">Creating a Grade</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#editing-a-grade">Editing a Grade</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#polygon-grade-masks">Polygon Grade Masks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ellipse-grade-masks">Ellipse Grade Masks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#grading-walkthrough">Grading Walkthrough</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="quick_view.html">QuickView</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hotkeys.html">Hotkeys</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../appendix/index.html">Appendix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release_notes/index.html">Release Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">xSTUDIO Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xStudio</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">xSTUDIO User Guide</a></li>
+          <li class="breadcrumb-item"><a href="workflow.html">Workflow Tools</a></li>
+      <li class="breadcrumb-item active">Grading Tool</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/user_docs/workflow/grading.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="grading-tool">
+<span id="grading"></span><h1>Grading Tool<a class="headerlink" href="#grading-tool" title="Link to this heading"></a></h1>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/grading-01.png"><img alt="xSTUDIO Grading tool in action" src="../../_images/grading-01.png" style="width: 957.5px; height: 538.0px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The grading tool in action</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>xSTUDIO provides a grading tool allowing for the creation and manipulation of <strong>SOP</strong> grades that can be applied to a media item or a single frame or some frame range within the media item’s ovwerall duration. Mask shapes can be created very easily to mask in or out an area of the image. In conjunction with xSTUDIO’s notes system, this allows you to make creative grading notes with lots of control to record and share ideas. Multiple grades can also be ‘stacked’ on a single media item if so desired.</p>
+<section id="creating-a-grade">
+<h2>Creating a Grade<a class="headerlink" href="#creating-a-grade" title="Link to this heading"></a></h2>
+<p>With the media frame of interest on the screen and the Grading tool open (this can either be as a floating window or within a panel in an xSTUDIO <a class="reference internal" href="../interface/layouts.html#interface-layouts"><span class="std std-ref">interface layout</span></a>) you can either hit the <strong>+</strong> button to create a new grade layour or just start moving the colour wheel handles in the grading interface.</p>
+</section>
+<section id="editing-a-grade">
+<h2>Editing a Grade<a class="headerlink" href="#editing-a-grade" title="Link to this heading"></a></h2>
+<p>When you want to change an existing grade, click on the grade layer item in the list that is on the left hand side of the Grading panel.
+* Delete the selected grade with the trashcan button
+* Set the grade to be a single frame or the full duration of the media clip with the corresponding button</p>
+</section>
+<section id="polygon-grade-masks">
+<h2>Polygon Grade Masks<a class="headerlink" href="#polygon-grade-masks" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Add a mask shape by hitting the ‘Polygon’ button</p></li>
+<li><p>When adding a polygon, click into the viewport to place verts for the polygon border. Clicking on the initial point will close the shape and make the polygon.</p></li>
+<li><p>The polygon can be edited by dragging its points.</p></li>
+<li><p>Double Click on the polygon boundary to add a new point</p></li>
+<li><p>SHIFT+Click when the mouse is hopvered over a polygon point will delete it.</p></li>
+</ul>
+</section>
+<section id="ellipse-grade-masks">
+<h2>Ellipse Grade Masks<a class="headerlink" href="#ellipse-grade-masks" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Add an oval mask shape with the ‘Ellipse’ button</p></li>
+<li><p>Handles on the viewport overlay</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Use the softness control (drag left/right) to control the fall-off at the edge of ellipse and polygon masks. The mask effect can be <em>inverted</em> with the corresponding button.</p>
+</div>
+</section>
+<section id="grading-walkthrough">
+<h2>Grading Walkthrough<a class="headerlink" href="#grading-walkthrough" title="Link to this heading"></a></h2>
+<p>This video demostrates grading regions of a plate with polygons and an ellipse and adding a grade to the whole image:</p>
+<center><video src="../../_static/grading-01.webm" width="720" height="366" controls></video></center></section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="notes.html" class="btn btn-neutral float-left" title="Notes and Annotations" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="quick_view.html" class="btn btn-neutral float-right" title="QuickView" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DNeg.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
